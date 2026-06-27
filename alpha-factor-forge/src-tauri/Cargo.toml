@@ -1,0 +1,32 @@
+[package]
+name = "alpha-factor-forge"
+version = "0.1.0"
+description = "AlphaFactorForge - Automated Indicator Discovery Workstation"
+authors = ["AlphaFactorForge"]
+edition = "2021"
+rust-version = "1.77"
+
+# SKELETON - compilable scaffold. Some command bodies are minimal / todo!().
+# Verify locally with: cd src-tauri && cargo check
+
+[build-dependencies]
+tauri-build = { version = "2.0", features = [] }
+
+[dependencies]
+tauri = { version = "2.0", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rusqlite = { version = "0.31", features = ["bundled"] }
+thiserror = "1"
+sha2 = "0.10"
+hex = "0.4"
+chrono = { version = "0.4", features = ["serde"] }
+
+# Phase C (AI) - uncomment when implementing AI commands locally:
+# reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
+# keyring = "2"        # OS keychain / secret service
+# tokio = { version = "1", features = ["full"] }
+
+[features]
+# by default Tauri uses custom-protocol on release builds
+custom-protocol = ["tauri/custom-protocol"]

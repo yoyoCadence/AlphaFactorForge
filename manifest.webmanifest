@@ -1,0 +1,10 @@
+﻿{
+  "name": "AlphaFactorForge — 自動因子鍛造與驗證工作站",
+  "short_name": "AlphaFactorForge",
+  "description": "自動設計新指標並嚴格驗證交易策略的本機工作站",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#eceae4",
+  "theme_color": "#16150f",
+  "orientation": "any"
+}

@@ -1,0 +1,1504 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#16150f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%}
+body{background:#eceae4;font-family:'IBM Plex Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-thumb{background:#cfccc4}
+::-webkit-scrollbar-track{background:transparent}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.25}}
+input,select,textarea,button{font-family:'IBM Plex Sans',system-ui,sans-serif}
+input[type=number]::-webkit-inner-spin-button{opacity:0.35}
+input:focus,select:focus,textarea:focus{border-color:#16150f}
+</style>
+</helmet>
+<div style="height:100vh;display:flex;flex-direction:column;overflow:hidden;background:#eceae4;color:#16150f;font-size:13px">
+
+  <header style="display:flex;align-items:center;gap:10px;padding:0 12px;height:50px;background:#fff;border-bottom:1px solid #d6d2c8;flex-shrink:0;z-index:5">
+    <div style="display:flex;align-items:center;gap:9px">
+      <div style="width:16px;height:16px;background:#16150f;transform:rotate(45deg)"></div>
+      <div style="font-weight:700;letter-spacing:0.01em;font-size:15px">ALPHAFACTORFORGE<span style="color:#aaa599;font-weight:500;font-size:13px"> /paper</span></div>
+    </div>
+    <div style="width:1px;height:22px;background:#e6e2d9"></div>
+    <select value="{{ symbol }}" onChange="{{ setSymbol }}" style="padding:5px 8px;border:1px solid #d6d2c8;background:#fff;font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;cursor:pointer;color:#16150f">
+      <sc-for list="{{ symbols }}" as="s" hint-placeholder-count="6"><option value="{{ s }}">{{ s }}</option></sc-for>
+    </select>
+    <div style="display:flex;gap:2px">
+      <sc-for list="{{ intervalBtns }}" as="b" hint-placeholder-count="6">
+        <button onClick="{{ b.onClick }}" style="padding:5px 8px;border:1px solid #d6d2c8;background: {{ b.bg }};color: {{ b.color }};font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;cursor:pointer">{{ b.v }}</button>
+      </sc-for>
+    </div>
+    <div style="width:1px;height:22px;background:#e6e2d9"></div>
+    <div style="display:flex;align-items:baseline;gap:8px">
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:600;letter-spacing:-0.01em">{{ priceStr }}</span>
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:500;color: {{ changeColor }}">{{ changeStr }}</span>
+    </div>
+    <div style="display:flex;flex-direction:column;font-family:'IBM Plex Mono',monospace;font-size:9px;color:#aaa599;line-height:1.35;flex-shrink:0;min-width:0;overflow:hidden">
+      <span>H {{ dayHigh }}</span><span>L {{ dayLow }}</span>
+    </div>
+    <div style="flex:1;min-width:8px"></div>
+    <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#8a8678;font-family:'IBM Plex Mono',monospace;flex-shrink:1;min-width:0;overflow:hidden;white-space:nowrap">
+      <span style="width:7px;height:7px;border-radius:50%;flex-shrink:0;background: {{ connColor }};animation: {{ connAnim }}"></span>{{ connLabel }}
+      <span style="color:#cfccc4">·</span><span title="系統時間" style="color:#16150f">{{ sysClock }}</span>
+      <sc-if value="{{ showLastTick }}" hint-placeholder-val="{{ false }}"><span style="color:#cfccc4">·</span><span style="color: {{ lastTickColor }}">更新 {{ lastTickAgo }}</span></sc-if>
+    </div>
+    <button onClick="{{ helpToggle }}" title="說明" style="width:27px;height:27px;border:1px solid #d6d2c8;background:#fff;color:#16150f;font-weight:700;font-size:13px;cursor:pointer;border-radius:50%;flex-shrink:0">?</button>
+    <div style="display:flex;flex-shrink:0;border:1px solid #d6d2c8">
+      <sc-for list="{{ viewBtns }}" as="b" hint-placeholder-count="2">
+        <button onClick="{{ b.onClick }}" style="padding:6px 14px;border:none;white-space:nowrap;flex-shrink:0;background: {{ b.bg }};color: {{ b.color }};font-size:12px;font-weight:600;cursor:pointer">{{ b.label }}</button>
+      </sc-for>
+    </div>
+  </header>
+
+  <div style="flex:1;display:flex;min-height:0">
+    <main style="flex:1;min-width:0;display:flex;flex-direction:column;padding:10px;gap:8px;order: {{ mainOrder }}">
+      <sc-if value="{{ frozen.show }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;align-items:center;gap:9px;background:#16150f;color:#fff;padding:6px 10px;font-family:'IBM Plex Mono',monospace;font-size:11px">
+          <span style="font-weight:600">■ 本地資料集</span>
+          <span style="color:#c9c5ba">{{ frozen.label }} · {{ frozen.count }} 根 · 擷取於 {{ frozen.at }}</span>
+          <span style="flex:1"></span>
+          <span style="color:#aaa599">回測鎖定於此數據，可重現</span>
+          <button onClick="{{ unfreeze }}" style="padding:3px 9px;background:#fff;color:#16150f;border:none;font-weight:600;font-size:11px;cursor:pointer">解除 · 改用即時</button>
+        </div>
+      </sc-if>
+      <div style="display:flex;gap:14px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#6b6b6b;padding:0 2px;flex-wrap:wrap;align-items:center">
+        <span style="color:#aaa599">{{ ro.time }}</span>
+        <span>O <b style="font-weight:600;color:#16150f">{{ ro.o }}</b></span>
+        <span>H <b style="font-weight:600;color:#16150f">{{ ro.h }}</b></span>
+        <span>L <b style="font-weight:600;color:#16150f">{{ ro.l }}</b></span>
+        <span>C <b style="font-weight:600;color: {{ ro.chgColor }}">{{ ro.c }}</b></span>
+        <span style="color: {{ ro.chgColor }}">{{ ro.chg }}</span>
+        <span style="color:#aaa599">VOL {{ ro.v }}</span>
+        <span style="flex:1"></span>
+        <span style="display:flex;align-items:center;gap:5px;color:#2d6cdf"><span style="width:14px;height:2px;background:#2d6cdf;display:inline-block"></span>MA{{ strat.fastMA }}</span>
+        <span style="display:flex;align-items:center;gap:5px;color:#e0871e"><span style="width:14px;height:2px;background:#e0871e;display:inline-block"></span>MA{{ strat.slowMA }}</span>
+      </div>
+      <div style="background:#fff;border:1px solid #d6d2c8;position:relative;min-height:0; {{ chartBoxFlex }}">
+        <div style="position:absolute;inset:0;display:flex;flex-direction:column">
+          <div style="flex:1;min-height:0;position:relative;cursor:crosshair" onMouseMove="{{ onChartMove }}" onMouseLeave="{{ onChartLeave }}">
+            <canvas ref="{{ chartRef }}" style="width:100%;height:100%"></canvas>
+            <sc-if value="{{ tip.show }}" hint-placeholder-val="{{ false }}">
+              <div style="position:absolute;left: {{ tip.left }};top: {{ tip.top }};pointer-events:none;background:rgba(255,255,255,0.97);border:1px solid #d6d2c8;padding:6px 9px;font-family:'IBM Plex Mono',monospace;font-size:10px;line-height:1.55;box-shadow:0 2px 10px rgba(0,0,0,0.13);z-index:4;white-space:nowrap">
+                <div style="color:#aaa599;margin-bottom:1px">{{ tip.time }}</div>
+                <div>開 <b style="font-weight:600">{{ tip.o }}</b></div>
+                <div>高 <b style="font-weight:600">{{ tip.h }}</b></div>
+                <div>低 <b style="font-weight:600">{{ tip.l }}</b></div>
+                <div>收 <b style="font-weight:600;color: {{ tip.cColor }}">{{ tip.c }}</b> <span style="color: {{ tip.cColor }}">{{ tip.chg }}</span></div>
+                <div style="color:#aaa599">量 {{ tip.v }}</div>
+              </div>
+            </sc-if>
+          </div>
+          <div style="height: {{ rsiPanelH }};border-top:1px solid #efece4;position:relative;transition:height 0.15s;overflow:hidden">
+            <canvas ref="{{ rsiRef }}" style="width:100%;height:100%"></canvas>
+            <span style="position:absolute;top:5px;left:8px;font-size:9px;color:#aaa599;font-family:'IBM Plex Mono',monospace">RSI {{ strat.rsiPeriod }}（買 {{ strat.rsiBuy }} / 賣 {{ strat.rsiSell }}）</span>
+          </div>
+        </div>
+        <sc-if value="{{ loading }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.7);font-size:12px;color:#8a8678;font-family:'IBM Plex Mono',monospace">{{ loadMsg }}</div>
+        </sc-if>
+        <sc-if value="{{ error }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;left:12px;right:12px;top:12px;padding:10px 12px;background:#fdeceb;border:1px solid #f3c6c2;color:#a8362c;font-size:11px;line-height:1.5">{{ error }}</div>
+        </sc-if>
+      </div>
+      <sc-if value="{{ showFocus }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;min-height:0;overflow-y:auto;background:#fff;border:1px solid #d6d2c8;padding:14px 16px">
+          <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:13px;border-bottom:1px solid #efece4;padding-bottom:9px">
+            <div style="font-size:14px;font-weight:700">回測數據總覽</div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <sc-if value="{{ hasBt }}" hint-placeholder-val="{{ false }}"><span style="display:flex;align-items:center;gap:6px"><span style="font-size:10px;color:#aaa599">匯出此次回測：</span><button onClick="{{ downloadReport }}" title="完整績效＋執行模型＋逐筆交易，存成 JSON 報告檔（可保存、再分析、分享）" style="padding:4px 10px;border:1px solid #16150f;background:#16150f;color:#fff;font-size:11px;font-weight:600;font-family:'IBM Plex Mono',monospace;cursor:pointer">↓ 績效報告 JSON</button><button onClick="{{ downloadTradesCsv }}" title="每一筆 round-trip 交易（進出場時間、價格、損益、MFE/MAE），存成 CSV，可用 Excel 開啟" style="padding:4px 10px;border:1px solid #d6d2c8;background:#fff;color:#16150f;font-size:11px;font-weight:600;font-family:'IBM Plex Mono',monospace;cursor:pointer">↓ 交易明細 CSV</button></span></sc-if>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8a8678">{{ focusMeta }}</div>
+            </div>
+          </div>
+          <sc-if value="{{ hasBt }}" hint-placeholder-val="{{ false }}">
+            <div>
+              <sc-if value="{{ showHoldout }}" hint-placeholder-val="{{ false }}">
+                <div style="margin-bottom:14px;border:1px solid #e6e2d9">
+                  <div style="display:flex;font-size:10px;font-weight:600;background:#f5f3ee;border-bottom:1px solid #e6e2d9">
+                    <span style="flex:1.4;padding:6px 10px;color:#8a8678">樣本外驗證 · 切分 {{ holdoutSplit }}</span>
+                    <span style="flex:1;padding:6px 10px;text-align:right;color:#16150f">樣本內 70%</span>
+                    <span style="flex:1;padding:6px 10px;text-align:right;color:#16150f">樣本外 30%</span>
+                  </div>
+                  <sc-for list="{{ holdoutRows }}" as="h" hint-placeholder-count="5">
+                    <div style="display:flex;font-family:'IBM Plex Mono',monospace;font-size:11px;border-bottom:1px solid #efece4">
+                      <span style="flex:1.4;padding:5px 10px;color:#8a8678;font-family:system-ui">{{ h.label }}</span>
+                      <span style="flex:1;padding:5px 10px;text-align:right;color: {{ h.inColor }}">{{ h.inVal }}</span>
+                      <span style="flex:1;padding:5px 10px;text-align:right;color: {{ h.outColor }}">{{ h.outVal }}</span>
+                    </div>
+                  </sc-for>
+                  <div style="padding:6px 10px;font-size:10px;color:#8a8678;background:#faf8f3">{{ holdoutVerdict }}</div>
+                </div>
+              </sc-if>
+              <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:1px;background:#e6e2d9;border:1px solid #e6e2d9">
+                <sc-for list="{{ focusStats }}" as="s" hint-placeholder-count="12">
+                  <div style="background:#fff;padding:9px 11px">
+                    <div style="font-size:10px;color:#8a8678;margin-bottom:3px">{{ s.label }}</div>
+                    <div style="font-family:'IBM Plex Mono',monospace;font-size:17px;font-weight:600;color: {{ s.color }}">{{ s.value }}</div>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:10px;margin-top:14px">
+                <div>
+                  <div style="font-size:10px;color:#8a8678;margin-bottom:5px;display:flex;justify-content:space-between"><span>權益曲線 vs 買入持有</span><span style="display:flex;gap:9px"><span style="color:#16150f">━ 策略</span><span style="color:#bdb9ab">┄ 買入持有</span></span></div>
+                  <svg viewBox="0 0 680 150" preserveAspectRatio="none" style="width:100%;height:130px;display:block;background:#fff;border:1px solid #e6e2d9">
+                    <polyline points="{{ bhBigPts }}" fill="none" stroke="#bdb9ab" stroke-width="1.2" stroke-dasharray="4 3" vector-effect="non-scaling-stroke"></polyline>
+                    <polyline points="{{ eqBigPts }}" fill="none" stroke="#16150f" stroke-width="1.6" vector-effect="non-scaling-stroke"></polyline>
+                  </svg>
+                </div>
+                <div>
+                  <div style="font-size:10px;color:#8a8678;margin-bottom:5px;display:flex;justify-content:space-between"><span>回撤 (underwater)</span><span style="color:#c0392b">谷底 {{ maxDDpctStr }}</span></div>
+                  <svg viewBox="0 0 680 54" preserveAspectRatio="none" style="width:100%;height:130px;display:block;background:#fff;border:1px solid #e6e2d9">
+                    <polygon points="{{ ddArea }}" fill="#c0392b" fill-opacity="0.14"></polygon>
+                    <polyline points="{{ ddArea }}" fill="none" stroke="#c0392b" stroke-width="1.2" vector-effect="non-scaling-stroke"></polyline>
+                  </svg>
+                </div>
+              </div>
+              <div style="font-size:10px;letter-spacing:0.09em;text-transform:uppercase;color:#aaa599;font-weight:600;margin:16px 0 7px">逐筆交易（round-trip）· {{ rtCount }} 筆</div>
+              <div style="display:flex;align-items:center;font-family:'IBM Plex Mono',monospace;font-size:10px;color:#aaa599;padding:5px 8px;background:#f5f3ee;border:1px solid #efece4;font-weight:600">
+                <span style="width:30px">#</span>
+                <span style="flex:1">進場時間</span>
+                <span style="flex:1">出場時間</span>
+                <span style="width:54px;text-align:right">K棒</span>
+                <span style="width:96px;text-align:right">進場價</span>
+                <span style="width:96px;text-align:right">出場價</span>
+                <span style="width:74px;text-align:right">損益%</span>
+                <span style="width:64px;text-align:right" title="最大有利波動">MFE</span>
+                <span style="width:64px;text-align:right" title="最大不利波動">MAE</span>
+                <span style="width:48px;text-align:right">原因</span>
+              </div>
+              <sc-for list="{{ rtRows }}" as="r" hint-placeholder-count="8">
+                <div style="display:flex;align-items:center;font-family:'IBM Plex Mono',monospace;font-size:11px;padding:5px 8px;border-bottom:1px solid #efece4">
+                  <span style="width:30px;color:#bdb9ab">{{ r.n }}</span>
+                  <span style="flex:1;color:#6b6b6b">{{ r.entry }}</span>
+                  <span style="flex:1;color:#6b6b6b">{{ r.exit }}</span>
+                  <span style="width:54px;text-align:right;color:#8a8678">{{ r.bars }}</span>
+                  <span style="width:96px;text-align:right">{{ r.entryPrice }}</span>
+                  <span style="width:96px;text-align:right">{{ r.exitPrice }}</span>
+                  <span style="width:74px;text-align:right;font-weight:600;color: {{ r.color }}">{{ r.pnl }}</span>
+                  <span style="width:64px;text-align:right;color:#1f8a5b">{{ r.mfe }}</span>
+                  <span style="width:64px;text-align:right;color:#c0392b">{{ r.mae }}</span>
+                  <span style="width:48px;text-align:right;color:#aaa599;font-size:9px">{{ r.reason }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+          <sc-if value="{{ noBt }}" hint-placeholder-val="{{ false }}">
+            <div style="font-size:12px;color:#bdb9ab;font-family:'IBM Plex Mono',monospace;padding:20px 0;text-align:center">調整右側策略後點「▶ 執行回測」，數據會顯示於此。</div>
+          </sc-if>
+        </div>
+      </sc-if>
+      <sc-if value="{{ replayOn }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;align-items:center;gap:8px;padding:7px 9px;background:#16150f;color:#fff;flex-wrap:wrap">
+          <span style="font-size:11px;font-weight:700;letter-spacing:0.04em">逐根重播</span>
+          <button onClick="{{ replayStart }}" title="回到最前" style="padding:3px 8px;border:1px solid #4a4740;background:#26241d;color:#fff;font-size:12px;cursor:pointer">⏮</button>
+          <button onClick="{{ replayBack }}" title="上一根" style="padding:3px 8px;border:1px solid #4a4740;background:#26241d;color:#fff;font-size:12px;cursor:pointer">◀</button>
+          <button onClick="{{ replayPlayPause }}" style="padding:3px 12px;border:1px solid #4a4740;background: {{ replayPlayBg }};color:#16150f;font-size:12px;font-weight:700;cursor:pointer">{{ replayPlayLabel }}</button>
+          <button onClick="{{ replayFwd }}" title="下一根" style="padding:3px 8px;border:1px solid #4a4740;background:#26241d;color:#fff;font-size:12px;cursor:pointer">▶</button>
+          <input type="range" min="0" max="{{ replayMax }}" value="{{ replayIdx }}" onInput="{{ replaySeek }}" style="flex:1;min-width:120px;accent-color:#f3c623">
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#cfccc4;white-space:nowrap">{{ replayPos }}</span>
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;white-space:nowrap">{{ replayTime }} · {{ replayPrice }}</span>
+          <span style="padding:2px 8px;border-radius:2px;font-size:10px;font-weight:700;background: {{ replaySigBg }};color: {{ replaySigColor }};white-space:nowrap">{{ replaySig }}</span>
+        </div>
+      </sc-if>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <div style="display:flex;align-items:stretch;border:1px solid #d6d2c8;background: {{ maGroupBg }}">
+          <button onClick="{{ toggleMa }}" title="顯示/隱藏均線" style="padding:4px 8px;border:none;border-right:1px solid #d6d2c8;background:transparent;color: {{ maTextColor }};font-size:11px;font-weight:600;font-family:'IBM Plex Mono',monospace;cursor:pointer">MA</button>
+          <input value="{{ strat.fastMA }}" onChange="{{ sFast }}" title="快線週期" style="width:32px;border:none;border-right:1px solid #ece9e2;background:transparent;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#2d6cdf;outline:none">
+          <input value="{{ strat.slowMA }}" onChange="{{ sSlow }}" title="慢線週期" style="width:32px;border:none;background:transparent;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#e0871e;outline:none">
+        </div>
+        <div style="display:flex;align-items:stretch;border:1px solid #d6d2c8;background: {{ emaGroupBg }}">
+          <button onClick="{{ toggleEma }}" title="顯示/隱藏 EMA" style="padding:4px 8px;border:none;border-right:1px solid #d6d2c8;background:transparent;color: {{ emaTextColor }};font-size:11px;font-weight:600;font-family:'IBM Plex Mono',monospace;cursor:pointer">EMA</button>
+          <input value="{{ strat.emaPeriod }}" onChange="{{ sEma }}" title="EMA 週期" style="width:34px;border:none;background:transparent;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#9b51e0;outline:none">
+        </div>
+        <div style="display:flex;align-items:stretch;border:1px solid #d6d2c8;background: {{ bbGroupBg }}">
+          <button onClick="{{ toggleBb }}" title="顯示/隱藏布林通道" style="padding:4px 8px;border:none;border-right:1px solid #d6d2c8;background:transparent;color: {{ bbTextColor }};font-size:11px;font-weight:600;font-family:'IBM Plex Mono',monospace;cursor:pointer">BB</button>
+          <input value="{{ strat.bbPeriod }}" onChange="{{ sBbP }}" title="布林週期" style="width:32px;border:none;border-right:1px solid #ece9e2;background:transparent;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#9b51e0;outline:none">
+          <input value="{{ strat.bbMult }}" onChange="{{ sBbM }}" title="布林倍數" style="width:32px;border:none;background:transparent;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#9b51e0;outline:none">
+        </div>
+        <div style="display:flex;align-items:stretch;border:1px solid #d6d2c8;background: {{ rsiGroupBg }}">
+          <button onClick="{{ toggleRsi }}" title="顯示/隱藏 RSI 副圖" style="padding:4px 8px;border:none;border-right:1px solid #d6d2c8;background:transparent;color: {{ rsiTextColor }};font-size:11px;font-weight:600;font-family:'IBM Plex Mono',monospace;cursor:pointer">RSI</button>
+          <input value="{{ strat.rsiPeriod }}" onChange="{{ sRsiP }}" title="RSI 週期" style="width:34px;border:none;background:transparent;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#6b6b6b;outline:none">
+        </div>
+        <button onClick="{{ toggleVol }}" title="顯示/隱藏成交量" style="padding:4px 10px;border:1px solid #d6d2c8;background: {{ volGroupBg }};color: {{ volTextColor }};font-size:11px;font-weight:600;font-family:'IBM Plex Mono',monospace;cursor:pointer">VOL</button>
+        <span style="font-size:10px;color:#bdb9ab;font-family:'IBM Plex Mono',monospace;margin-left:2px">數字可改週期 · 滾輪縮放 · 拖曳平移 · 雙擊重置</span>
+        <button onClick="{{ replayToggle }}" title="逐根重播，觀察訊號生成" style="padding:4px 10px;border:1px solid {{ replayBorder }};background: {{ replayBtnBg }};color: {{ replayBtnColor }};font-size:11px;font-weight:600;font-family:'IBM Plex Mono',monospace;cursor:pointer">{{ replayBtnLabel }}</button>
+        <button onClick="{{ toggleCollapse }}" title="收合圖表，專注於回測數據" style="padding:4px 10px;border:1px solid {{ collapseBorder }};background: {{ collapseBg }};color: {{ collapseColor }};font-size:11px;font-weight:600;font-family:'IBM Plex Mono',monospace;cursor:pointer">{{ collapseLabel }}</button>
+        <span style="flex:1"></span>
+        <span style="font-size:10px;color:#8a8678;font-family:'IBM Plex Mono',monospace">來源</span>
+        <select value="{{ dsSel }}" onChange="{{ setDsSel }}" title="資料來源" style="padding:4px 6px;border:1px solid #d6d2c8;background:#fff;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;cursor:pointer;color:#16150f">
+          <sc-for list="{{ dsOpts }}" as="o" hint-placeholder-count="4"><option value="{{ o.v }}">{{ o.label }}</option></sc-for>
+        </select>
+        <span style="font-size:10px;color:#8a8678;font-family:'IBM Plex Mono',monospace;margin-left:4px">K線資料</span>
+        <button onClick="{{ downloadJson }}" title="下載目前 K 線資料集 JSON（可再「載入」做完全相同數據的回測，確保可再現）" style="padding:4px 9px;border:1px solid #d6d2c8;background:#fff;color:#16150f;font-size:11px;font-weight:600;font-family:'IBM Plex Mono',monospace;cursor:pointer">↓ 資料JSON</button>
+        <button onClick="{{ downloadCsv }}" title="下載目前 K 線資料集 CSV（用 Excel / 試算表檢視原始 OHLCV）" style="padding:4px 9px;border:1px solid #d6d2c8;background:#fff;color:#16150f;font-size:11px;font-weight:600;font-family:'IBM Plex Mono',monospace;cursor:pointer">↓ 資料CSV</button>
+        <button onClick="{{ pickFile }}" title="載入先前下載的 K 線資料集 JSON，凍結成固定數據回測" style="padding:4px 9px;border:1px solid #16150f;background:#16150f;color:#fff;font-size:11px;font-weight:600;font-family:'IBM Plex Mono',monospace;cursor:pointer">↑ 載入資料</button>
+        <input ref="{{ fileRef }}" type="file" accept=".json,application/json" onChange="{{ onLoadFile }}" style="display:none">
+      </div>
+    </main>
+
+    <aside style="width:392px;flex-shrink:0;background:#f5f3ee;display:flex;flex-direction:column;overflow-y:auto;order: {{ asideOrder }}; {{ asideBorder }}">
+
+      <sc-if value="{{ isBacktest }}" hint-placeholder-val="{{ true }}">
+        <div>
+          <div style="padding:13px 14px;border-bottom:1px solid #e6e2d9">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:11px">
+              <div style="font-size:10px;letter-spacing:0.09em;text-transform:uppercase;color:#aaa599;font-weight:600">策略編輯器</div>
+              <button onClick="{{ stratHelpOpen }}" style="display:flex;align-items:center;gap:4px;padding:3px 9px;border:1px solid #d6d2c8;background:#fff;color:#16150f;font-size:11px;font-weight:600;cursor:pointer"><span style="display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;border:1px solid #16150f;font-size:9px">?</span>本模式說明</button>
+            </div>
+            <label style="display:flex;flex-direction:column;gap:4px;margin-bottom:13px;padding:9px 10px;background:#eef3ee;border:1px solid #d4e2d4">
+              <span style="font-size:10px;color:#5a7a5a;font-weight:600">📚 範例策略（測試 / 學習用，選了即套用並回測）</span>
+              <select value="{{ presetSel }}" onChange="{{ onLoadPreset }}" style="width:100%;padding:6px 7px;border:1px solid #c2d4c2;background:#fff;font-size:12px;cursor:pointer;color:#16150f"><sc-for list="{{ presetOpts }}" as="o" hint-placeholder-count="7"><option value="{{ o.v }}">{{ o.label }}</option></sc-for></select>
+              <sc-if value="{{ presetDesc }}" hint-placeholder-val="{{ false }}"><span style="font-size:10px;color:#5a7a5a;line-height:1.5">{{ presetDesc }}</span></sc-if>
+            </label>
+            <div style="display:flex;border-bottom:1px solid #e0ddd4;margin-bottom:13px">
+              <sc-for list="{{ tabBtns }}" as="t" hint-placeholder-count="3">
+                <button onClick="{{ t.onClick }}" style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:7px 0;background:transparent;border:none;border-bottom: {{ t.bb }};color: {{ t.color }};font-weight:600;font-size:12px;cursor:pointer;margin-bottom:-1px">{{ t.label }}<span onClick="{{ t.helpClick }}" title="查看本模式說明" style="display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;border:1px solid currentColor;font-size:9px;font-weight:700;cursor:help;opacity:0.7">?</span></button>
+              </sc-for>
+            </div>
+
+            <div style="display:flex;gap:5px;align-items:center;margin-bottom:13px">
+              <select value="{{ stratLibSel }}" onChange="{{ onLoadStrat }}" title="載入已存策略" style="flex:1;min-width:0;padding:5px 6px;border:1px solid #d6d2c8;background:#fff;font-size:11px;cursor:pointer;color:#16150f"><sc-for list="{{ stratLibOpts }}" as="o" hint-placeholder-count="1"><option value="{{ o.v }}">{{ o.label }}</option></sc-for></select>
+              <input value="{{ stratName }}" onInput="{{ onStratName }}" placeholder="命名後儲存" style="width:96px;padding:5px 7px;border:1px solid #d6d2c8;background:#fff;font-size:11px;color:#16150f;outline:none">
+              <button onClick="{{ saveStratClick }}" title="儲存目前策略" style="padding:5px 9px;border:1px solid #16150f;background:#16150f;color:#fff;font-size:11px;font-weight:600;cursor:pointer">儲存</button>
+              <sc-if value="{{ canDelStrat }}" hint-placeholder-val="{{ false }}"><button onClick="{{ delStratClick }}" title="刪除選取策略" style="padding:5px 8px;border:1px solid #d6d2c8;background:#fff;color:#c0392b;font-size:11px;font-weight:600;cursor:pointer">刪</button></sc-if>
+            </div>
+            <button onClick="{{ sweepOpenClick }}" style="width:100%;margin-bottom:13px;padding:6px 0;border:1px dashed #b9a86a;background:#fbf7e8;color:#7a6a1a;font-size:11px;font-weight:600;cursor:pointer">⊞ 參數掃描（最佳化 + 熱力圖）</button>
+
+            <sc-if value="{{ isParams }}" hint-placeholder-val="{{ true }}">
+              <div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                  <label style="display:flex;flex-direction:column;gap:3px"><span style="font-size:10px;color:#8a8678">快線 MA</span><input type="number" value="{{ strat.fastMA }}" onChange="{{ sFast }}" style="width:100%;padding:5px 7px;border:1px solid #d6d2c8;background:#fff;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#16150f;outline:none"></label>
+                  <label style="display:flex;flex-direction:column;gap:3px"><span style="font-size:10px;color:#8a8678">慢線 MA</span><input type="number" value="{{ strat.slowMA }}" onChange="{{ sSlow }}" style="width:100%;padding:5px 7px;border:1px solid #d6d2c8;background:#fff;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#16150f;outline:none"></label>
+                  <label style="display:flex;flex-direction:column;gap:3px"><span style="font-size:10px;color:#8a8678">EMA 週期</span><input type="number" value="{{ strat.emaPeriod }}" onChange="{{ sEma }}" style="width:100%;padding:5px 7px;border:1px solid #d6d2c8;background:#fff;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#16150f;outline:none"></label>
+                  <label style="display:flex;flex-direction:column;gap:3px"><span style="font-size:10px;color:#8a8678">RSI 週期</span><input type="number" value="{{ strat.rsiPeriod }}" onChange="{{ sRsiP }}" style="width:100%;padding:5px 7px;border:1px solid #d6d2c8;background:#fff;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#16150f;outline:none"></label>
+                  <label style="display:flex;flex-direction:column;gap:3px"><span style="font-size:10px;color:#8a8678">RSI 超賣</span><input type="number" value="{{ strat.rsiBuy }}" onChange="{{ sRsiBuy }}" style="width:100%;padding:5px 7px;border:1px solid #d6d2c8;background:#fff;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#16150f;outline:none"></label>
+                  <label style="display:flex;flex-direction:column;gap:3px"><span style="font-size:10px;color:#8a8678">RSI 超買</span><input type="number" value="{{ strat.rsiSell }}" onChange="{{ sRsiSell }}" style="width:100%;padding:5px 7px;border:1px solid #d6d2c8;background:#fff;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#16150f;outline:none"></label>
+                </div>
+                <label style="display:flex;flex-direction:column;gap:3px;margin-top:9px"><span style="font-size:10px;color:#8a8678">進場訊號</span>
+                  <select value="{{ strat.entrySig }}" onChange="{{ sEntrySig }}" style="padding:6px 7px;border:1px solid #d6d2c8;background:#fff;font-size:12px;cursor:pointer"><sc-for list="{{ entrySigOpts }}" as="o" hint-placeholder-count="6"><option value="{{ o.v }}">{{ o.label }}</option></sc-for></select>
+                </label>
+                <label style="display:flex;flex-direction:column;gap:3px;margin-top:8px"><span style="font-size:10px;color:#8a8678">出場訊號</span>
+                  <select value="{{ strat.exitSig }}" onChange="{{ sExitSig }}" style="padding:6px 7px;border:1px solid #d6d2c8;background:#fff;font-size:12px;cursor:pointer"><sc-for list="{{ exitSigOpts }}" as="o" hint-placeholder-count="6"><option value="{{ o.v }}">{{ o.label }}</option></sc-for></select>
+                </label>
+                <button onClick="{{ advToggle }}" style="width:100%;margin-top:11px;padding:6px 8px;background:#efece5;border:1px solid #e0ddd4;color:#6b6b6b;font-size:11px;font-weight:600;cursor:pointer;text-align:left;display:flex;justify-content:space-between">進階指標參數 <span>{{ advCaret }}</span></button>
+                <sc-if value="{{ advOpen }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-top:9px">
+                    <label style="display:flex;flex-direction:column;gap:3px"><span style="font-size:10px;color:#8a8678">MACD 快</span><input type="number" value="{{ strat.macdFast }}" onChange="{{ sMacdF }}" style="width:100%;padding:5px 6px;border:1px solid #d6d2c8;background:#fff;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#16150f;outline:none"></label>
+                    <label style="display:flex;flex-direction:column;gap:3px"><span style="font-size:10px;color:#8a8678">MACD 慢</span><input type="number" value="{{ strat.macdSlow }}" onChange="{{ sMacdS }}" style="width:100%;padding:5px 6px;border:1px solid #d6d2c8;background:#fff;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#16150f;outline:none"></label>
+                    <label style="display:flex;flex-direction:column;gap:3px"><span style="font-size:10px;color:#8a8678">MACD 訊號</span><input type="number" value="{{ strat.macdSignal }}" onChange="{{ sMacdSig }}" style="width:100%;padding:5px 6px;border:1px solid #d6d2c8;background:#fff;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#16150f;outline:none"></label>
+                    <label style="display:flex;flex-direction:column;gap:3px"><span style="font-size:10px;color:#8a8678">布林 週期</span><input type="number" value="{{ strat.bbPeriod }}" onChange="{{ sBbP }}" style="width:100%;padding:5px 6px;border:1px solid #d6d2c8;background:#fff;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#16150f;outline:none"></label>
+                    <label style="display:flex;flex-direction:column;gap:3px"><span style="font-size:10px;color:#8a8678">布林 倍數</span><input type="number" step="0.1" value="{{ strat.bbMult }}" onChange="{{ sBbM }}" style="width:100%;padding:5px 6px;border:1px solid #d6d2c8;background:#fff;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#16150f;outline:none"></label>
+                    <label style="display:flex;flex-direction:column;gap:3px"><span style="font-size:10px;color:#8a8678">ATR 週期</span><input type="number" value="{{ strat.atrPeriod }}" onChange="{{ sAtr }}" style="width:100%;padding:5px 6px;border:1px solid #d6d2c8;background:#fff;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#16150f;outline:none"></label>
+                    <label style="display:flex;flex-direction:column;gap:3px"><span style="font-size:10px;color:#8a8678">隨機 週期</span><input type="number" value="{{ strat.stochPeriod }}" onChange="{{ sStochP }}" style="width:100%;padding:5px 6px;border:1px solid #d6d2c8;background:#fff;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#16150f;outline:none"></label>
+                    <label style="display:flex;flex-direction:column;gap:3px"><span style="font-size:10px;color:#8a8678">隨機 平滑</span><input type="number" value="{{ strat.stochSmooth }}" onChange="{{ sStochS }}" style="width:100%;padding:5px 6px;border:1px solid #d6d2c8;background:#fff;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#16150f;outline:none"></label>
+                    <label style="display:flex;flex-direction:column;gap:3px"><span style="font-size:10px;color:#8a8678">量能 MA</span><input type="number" value="{{ strat.volMaPeriod }}" onChange="{{ sVolMa }}" style="width:100%;padding:5px 6px;border:1px solid #d6d2c8;background:#fff;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#16150f;outline:none"></label>
+                  </div>
+                  <div style="font-size:10px;color:#8a8678;line-height:1.5;margin-top:7px">這些指標可在「規則積木」與「程式碼」中作為條件運算元使用。</div>
+                </sc-if>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ isBlocks }}" hint-placeholder-val="{{ false }}">
+              <div>
+                <div style="font-size:11px;color:#6b6b6b;margin-bottom:7px;font-weight:600">進場條件 · 全部成立 (AND)</div>
+                <sc-for list="{{ entryRows }}" as="r" hint-placeholder-count="1">
+                  <div style="display:flex;gap:4px;margin-bottom:5px;align-items:center">
+                    <select value="{{ r.l }}" onChange="{{ r.onL }}" style="flex:1;min-width:0;padding:4px;border:1px solid #d6d2c8;background:#fff;font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer"><sc-for list="{{ lOpts }}" as="o" hint-placeholder-count="10"><option value="{{ o }}">{{ o }}</option></sc-for></select>
+                    <select value="{{ r.op }}" onChange="{{ r.onOp }}" style="padding:4px;border:1px solid #d6d2c8;background:#fff;font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer"><sc-for list="{{ opOpts }}" as="o" hint-placeholder-count="6"><option value="{{ o.v }}">{{ o.l }}</option></sc-for></select>
+                    <input value="{{ r.r }}" onChange="{{ r.onR }}" style="width:66px;flex-shrink:0;padding:4px 6px;border:1px solid #d6d2c8;font-family:'IBM Plex Mono',monospace;font-size:11px">
+                    <button onClick="{{ r.onDel }}" style="width:22px;height:25px;flex-shrink:0;border:1px solid #d6d2c8;background:#fff;color:#aaa599;cursor:pointer;font-size:14px;line-height:1">×</button>
+                  </div>
+                </sc-for>
+                <button onClick="{{ addEntry }}" style="width:100%;padding:5px;background:#efece5;border:1px dashed #c9c5ba;color:#6b6b6b;font-size:11px;cursor:pointer;margin-bottom:12px">+ 新增進場條件</button>
+                <div style="font-size:11px;color:#6b6b6b;margin-bottom:7px;font-weight:600">出場條件 · 全部成立 (AND)</div>
+                <sc-for list="{{ exitRows }}" as="r" hint-placeholder-count="1">
+                  <div style="display:flex;gap:4px;margin-bottom:5px;align-items:center">
+                    <select value="{{ r.l }}" onChange="{{ r.onL }}" style="flex:1;min-width:0;padding:4px;border:1px solid #d6d2c8;background:#fff;font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer"><sc-for list="{{ lOpts }}" as="o" hint-placeholder-count="10"><option value="{{ o }}">{{ o }}</option></sc-for></select>
+                    <select value="{{ r.op }}" onChange="{{ r.onOp }}" style="padding:4px;border:1px solid #d6d2c8;background:#fff;font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer"><sc-for list="{{ opOpts }}" as="o" hint-placeholder-count="6"><option value="{{ o.v }}">{{ o.l }}</option></sc-for></select>
+                    <input value="{{ r.r }}" onChange="{{ r.onR }}" style="width:66px;flex-shrink:0;padding:4px 6px;border:1px solid #d6d2c8;font-family:'IBM Plex Mono',monospace;font-size:11px">
+                    <button onClick="{{ r.onDel }}" style="width:22px;height:25px;flex-shrink:0;border:1px solid #d6d2c8;background:#fff;color:#aaa599;cursor:pointer;font-size:14px;line-height:1">×</button>
+                  </div>
+                </sc-for>
+                <button onClick="{{ addExit }}" style="width:100%;padding:5px;background:#efece5;border:1px dashed #c9c5ba;color:#6b6b6b;font-size:11px;cursor:pointer">+ 新增出場條件</button>
+                <div style="font-size:10px;color:#8a8678;line-height:1.55;margin-top:10px;background:#efece5;padding:8px;border:1px solid #e6e2d9">右側欄可填數字（如 <b>30</b>）或另一個運算元名稱（如 <b>maSlow</b>）。運算元包含價格、均線、MACD、布林、ATR、隨機指標、量能等。</div>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ isCode }}" hint-placeholder-val="{{ false }}">
+              <div>
+                <div style="font-size:11px;color:#6b6b6b;margin-bottom:4px;font-weight:600">進場條件（JS 運算式）</div>
+                <textarea value="{{ strat.entryCode }}" onChange="{{ sEntryCode }}" spellcheck="false" style="width:100%;min-height:48px;padding:7px;border:1px solid #d6d2c8;font-family:'IBM Plex Mono',monospace;font-size:11px;resize:vertical;margin-bottom:9px;line-height:1.5;color:#16150f"></textarea>
+                <div style="font-size:11px;color:#6b6b6b;margin-bottom:4px;font-weight:600">出場條件（JS 運算式）</div>
+                <textarea value="{{ strat.exitCode }}" onChange="{{ sExitCode }}" spellcheck="false" style="width:100%;min-height:48px;padding:7px;border:1px solid #d6d2c8;font-family:'IBM Plex Mono',monospace;font-size:11px;resize:vertical;margin-bottom:8px;line-height:1.5;color:#16150f"></textarea>
+                <div style="font-size:10px;color:#8a8678;line-height:1.7;background:#efece5;padding:8px;border:1px solid #e6e2d9">可用變數（皆為當根數值，前綴 <span style="font-family:'IBM Plex Mono',monospace;color:#16150f">prev</span> 代表前一根）：<br><span style="font-family:'IBM Plex Mono',monospace;color:#16150f">price open high low volume maFast maSlow ema rsi macd macdSignal macdHist bbUpper bbMid bbLower atr stochK stochD volMa</span><br>範例：<span style="font-family:'IBM Plex Mono',monospace;color:#16150f">macd &gt; macdSignal &amp;&amp; rsi &lt; 60</span></div>
+                <sc-if value="{{ codeErr }}" hint-placeholder-val="{{ false }}"><div style="color:#a8362c;font-size:10px;margin-top:6px;font-family:'IBM Plex Mono',monospace">⚠ {{ codeErr }}</div></sc-if>
+              </div>
+            </sc-if>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:11px">
+              <label style="display:flex;flex-direction:column;gap:3px"><span style="font-size:10px;color:#8a8678">停損 % (0=關)</span><input type="number" value="{{ strat.slPct }}" onChange="{{ sSl }}" style="width:100%;padding:5px 7px;border:1px solid #d6d2c8;background:#fff;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#16150f;outline:none"></label>
+              <label style="display:flex;flex-direction:column;gap:3px"><span style="font-size:10px;color:#8a8678">停利 % (0=關)</span><input type="number" value="{{ strat.tpPct }}" onChange="{{ sTp }}" style="width:100%;padding:5px 7px;border:1px solid #d6d2c8;background:#fff;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#16150f;outline:none"></label>
+            </div>
+
+            <div style="margin-top:13px;padding:11px 12px;background:#efece5;border:1px solid #e6e2d9">
+              <div style="font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:#8a8678;font-weight:600;margin-bottom:9px;display:flex;justify-content:space-between"><span>回測區間 · 依日期</span><span style="color:#bdb9ab;text-transform:none;letter-spacing:0">{{ rangeBars }} 根</span></div>
+              <label style="display:flex;align-items:center;gap:7px;margin-bottom:8px"><span style="font-size:10px;color:#8a8678;width:48px">資料來源</span>
+                <select value="{{ dsSel }}" onChange="{{ setDsSel }}" style="flex:1;padding:5px 6px;border:1px solid #d6d2c8;background:#fff;font-family:'IBM Plex Mono',monospace;font-size:12px;cursor:pointer;color:#16150f"><sc-for list="{{ dsOpts }}" as="o" hint-placeholder-count="4"><option value="{{ o.v }}">{{ o.label }}</option></sc-for></select>
+                <span style="font-size:11px;font-family:'IBM Plex Mono',monospace;font-weight:600;color:#11875a;white-space:nowrap">● {{ activeSrc }}</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:7px;margin-bottom:8px"><span style="font-size:10px;color:#8a8678;width:48px">歷史深度</span>
+                <select value="{{ histDepth }}" onChange="{{ sDepth }}" style="flex:1;padding:5px 6px;border:1px solid #d6d2c8;background:#fff;font-family:'IBM Plex Mono',monospace;font-size:12px;cursor:pointer;color:#16150f"><sc-for list="{{ depthOpts }}" as="o" hint-placeholder-count="4"><option value="{{ o.v }}">{{ o.label }}</option></sc-for></select>
+              </label>
+              <div style="display:flex;gap:6px;margin-bottom:9px">
+                <label style="flex:1;display:flex;flex-direction:column;gap:3px"><span style="font-size:9px;color:#8a8678">起始日</span><input type="date" value="{{ fromDateVal }}" min="{{ dataMinDate }}" max="{{ dataMaxDate }}" onChange="{{ sFromDate }}" style="width:100%;padding:4px 6px;border:1px solid #d6d2c8;background:#fff;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#16150f"></label>
+                <label style="flex:1;display:flex;flex-direction:column;gap:3px"><span style="font-size:9px;color:#8a8678">結束日</span><input type="date" value="{{ toDateVal }}" min="{{ dataMinDate }}" max="{{ dataMaxDate }}" onChange="{{ sToDate }}" style="width:100%;padding:4px 6px;border:1px solid #d6d2c8;background:#fff;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#16150f"></label>
+              </div>
+              <div style="display:flex;gap:4px;flex-wrap:wrap">
+                <sc-for list="{{ rangePresets }}" as="b" hint-placeholder-count="5"><button onClick="{{ b.onClick }}" style="flex:1;min-width:42px;padding:5px 4px;border:1px solid {{ b.border }};background: {{ b.bg }};color: {{ b.color }};font-size:11px;font-weight:600;font-family:'IBM Plex Mono',monospace;cursor:pointer">{{ b.label }}</button></sc-for>
+              </div>
+              <div style="font-size:10px;color:#8a8678;margin-top:7px">可用範圍：{{ dataSpan }}</div>
+              <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;margin-top:9px;padding-top:9px;border-top:1px solid #e0ddd4">
+                <input type="checkbox" checked="{{ holdout }}" onChange="{{ toggleHoldout }}" style="margin-top:2px;width:14px;height:14px;accent-color:#16150f;cursor:pointer">
+                <span><span style="font-size:11px;font-weight:600;color:#16150f">樣本外驗證（70/30）</span><span style="display:block;font-size:10px;color:#8a8678;line-height:1.5;margin-top:2px">把區間切成 前70% 樣本內 / 後30% 樣本外，分別回測對照。樣本外表現接近樣本內 = 較不過度擬合。</span></span>
+              </label>
+            </div>
+
+            <div style="margin-top:13px;padding:11px 12px;background:#efece5;border:1px solid #e6e2d9">
+              <div style="font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:#8a8678;font-weight:600;margin-bottom:9px;display:flex;justify-content:space-between"><span>執行模型 · 讓回測貼近真實</span></div>
+              <div style="display:flex;align-items:center;gap:5px;margin-bottom:9px;flex-wrap:wrap">
+                <span style="font-size:10px;color:#8a8678">建議值</span>
+                <sc-for list="{{ feePresets }}" as="b" hint-placeholder-count="3"><button onClick="{{ b.onClick }}" title="{{ b.title }}" style="padding:3px 9px;border:1px solid {{ b.border }};background: {{ b.bg }};color: {{ b.color }};font-size:11px;font-weight:600;font-family:'IBM Plex Mono',monospace;cursor:pointer">{{ b.label }}</button></sc-for>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                <label style="display:flex;flex-direction:column;gap:3px"><span style="font-size:10px;color:#8a8678">手續費 % / 單邊</span><input type="number" step="0.01" value="{{ strat.feePct }}" onChange="{{ sFee }}" style="width:100%;padding:5px 7px;border:1px solid #d6d2c8;background:#fff;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#16150f;outline:none"></label>
+                <label style="display:flex;flex-direction:column;gap:3px"><span style="font-size:10px;color:#8a8678">滑點 % / 單邊</span><input type="number" step="0.01" value="{{ strat.slipPct }}" onChange="{{ sSlip }}" style="width:100%;padding:5px 7px;border:1px solid #d6d2c8;background:#fff;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#16150f;outline:none"></label>
+                <label style="display:flex;flex-direction:column;gap:3px"><span style="font-size:10px;color:#8a8678">部位大小 % 權益</span><input type="number" value="{{ strat.sizePct }}" onChange="{{ sSize }}" style="width:100%;padding:5px 7px;border:1px solid #d6d2c8;background:#fff;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#16150f;outline:none"></label>
+                <label style="display:flex;flex-direction:column;gap:3px"><span style="font-size:10px;color:#8a8678">成交價</span>
+                  <select value="{{ strat.fillMode }}" onChange="{{ sFill }}" style="padding:5px 6px;border:1px solid #d6d2c8;background:#fff;font-size:12px;cursor:pointer"><sc-for list="{{ fillOpts }}" as="o" hint-placeholder-count="2"><option value="{{ o.v }}">{{ o.label }}</option></sc-for></select>
+                </label>
+              </div>
+              <label style="display:flex;flex-direction:column;gap:3px;margin-top:8px"><span style="font-size:10px;color:#8a8678">交易方向</span>
+                <div style="display:flex;border:1px solid #d6d2c8">
+                  <sc-for list="{{ dirBtns }}" as="b" hint-placeholder-count="3"><button onClick="{{ b.onClick }}" style="flex:1;padding:6px 0;border:none;background: {{ b.bg }};color: {{ b.color }};font-size:11px;font-weight:600;cursor:pointer">{{ b.label }}</button></sc-for>
+                </div>
+              </label>
+              <div style="font-size:10px;color:#8a8678;line-height:1.55;margin-top:8px">{{ execHint }}</div>
+              <div style="margin-top:9px;padding-top:9px;border-top:1px solid #e0ddd4">
+                <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer">
+                  <input type="checkbox" checked="{{ barMag }}" onChange="{{ toggleMag }}" style="margin-top:2px;width:14px;height:14px;accent-color:#16150f;cursor:pointer">
+                  <span><span style="font-size:11px;font-weight:600;color:#16150f">Bar Magnifier · 盤中精算</span><span style="display:block;font-size:10px;color:#8a8678;line-height:1.5;margin-top:2px">在每根 K 線底下抓更細的子 K 線，精準判定停損/停利的先後順序（解決盤中路徑模糊）。需停損或停利才有作用。</span></span>
+                </label>
+                <sc-if value="{{ magStatus }}" hint-placeholder-val="{{ false }}"><div style="font-size:10px;color:#8a8678;font-family:'IBM Plex Mono',monospace;margin-top:6px;padding:5px 7px;background:#fff;border:1px solid #e0ddd4">{{ magStatus }}</div></sc-if>
+              </div>
+            </div>
+
+            <button onClick="{{ runBtnClick }}" disabled="{{ runBtnDisabled }}" style="margin-top:12px;width:100%;padding:9px;background: {{ runBtnBg }};color: {{ runBtnColor }};border:none;font-weight:600;font-size:12px;cursor: {{ runBtnCursor }};letter-spacing:0.04em;animation: {{ runBtnAnim }};transition:background 0.15s">{{ runBtnLabel }}</button>
+            <div style="font-size:10px;color:#bdb9ab;text-align:center;margin-top:5px">調整任一參數即自動回測，無需手動執行</div>
+          </div>
+
+          <sc-if value="{{ hasBt }}" hint-placeholder-val="{{ false }}">
+            <div>
+              <div style="padding:13px 14px;border-bottom:1px solid #e6e2d9">
+                <div style="font-size:10px;letter-spacing:0.09em;text-transform:uppercase;color:#aaa599;font-weight:600;margin-bottom:10px">回測績效</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:#e6e2d9;border:1px solid #e6e2d9">
+                  <sc-for list="{{ statsList }}" as="s" hint-placeholder-count="8">
+                    <div style="background:#fff;padding:8px 10px">
+                      <div style="font-size:10px;color:#8a8678;margin-bottom:2px">{{ s.label }}</div>
+                      <div style="font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:600;color: {{ s.color }}">{{ s.value }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+                <div style="margin-top:11px">
+                  <div style="font-size:10px;color:#8a8678;margin-bottom:5px;display:flex;justify-content:space-between"><span>權益曲線（起始 $10,000）</span><span style="display:flex;gap:9px"><span style="color:#16150f">━ 策略</span><span style="color:#bdb9ab">┄ 買入持有</span></span></div>
+                  <svg viewBox="0 0 336 54" preserveAspectRatio="none" style="width:100%;height:54px;display:block;background:#fff;border:1px solid #e6e2d9">
+                    <polyline points="{{ bhPts }}" fill="none" stroke="#bdb9ab" stroke-width="1" stroke-dasharray="3 2" vector-effect="non-scaling-stroke"></polyline>
+                    <polyline points="{{ eqPts }}" fill="none" stroke="#16150f" stroke-width="1.3" vector-effect="non-scaling-stroke"></polyline>
+                  </svg>
+                </div>
+              </div>
+              <div style="padding:13px 14px">
+                <div style="font-size:10px;letter-spacing:0.09em;text-transform:uppercase;color:#aaa599;font-weight:600;margin-bottom:8px">交易紀錄 · {{ btTradeCount }} 筆</div>
+                <sc-for list="{{ btTrades }}" as="t" hint-placeholder-count="5">
+                  <div style="display:flex;align-items:center;font-family:'IBM Plex Mono',monospace;font-size:11px;padding:4px 0;border-bottom:1px solid #efece4">
+                    <span style="color: {{ t.sideColor }};font-weight:600;width:36px">{{ t.side }}</span>
+                    <span style="color:#aaa599;flex:1">{{ t.time }}</span>
+                    <span style="width:84px;text-align:right">{{ t.price }}</span>
+                    <span style="width:62px;text-align:right;color: {{ t.pnlColor }};font-weight:500">{{ t.pnl }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isLive }}" hint-placeholder-val="{{ false }}">
+        <div>
+          <div style="padding:15px 16px;border-bottom:1px solid #e6e2d9">
+            <div style="font-size:10px;letter-spacing:0.09em;text-transform:uppercase;color:#aaa599;font-weight:600;margin-bottom:4px">模擬帳戶權益</div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:27px;font-weight:600;letter-spacing:-0.01em">{{ paperEquity }}</div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:500;color: {{ pnlColor }};margin-top:1px">{{ paperPnl }} · {{ paperPnlPct }}</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:#e6e2d9;border:1px solid #e6e2d9;margin-top:13px">
+              <div style="background:#f5f3ee;padding:8px 10px"><div style="font-size:10px;color:#8a8678">現金</div><div style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600">{{ paperCash }}</div></div>
+              <div style="background:#f5f3ee;padding:8px 10px"><div style="font-size:10px;color:#8a8678">持倉市值</div><div style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600">{{ paperPosVal }}</div></div>
+              <div style="background:#f5f3ee;padding:8px 10px"><div style="font-size:10px;color:#8a8678">持倉數量</div><div style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600">{{ paperPosQty }}</div></div>
+              <div style="background:#f5f3ee;padding:8px 10px"><div style="font-size:10px;color:#8a8678">持倉均價</div><div style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600">{{ paperAvg }}</div></div>
+            </div>
+          </div>
+
+          <div style="padding:15px 16px;border-bottom:1px solid #e6e2d9">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px">
+              <span style="font-size:10px;letter-spacing:0.09em;text-transform:uppercase;color:#aaa599;font-weight:600">即時策略訊號</span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color: {{ sigColor }}">● {{ sigLabel }}</span>
+            </div>
+            <div style="font-size:11px;color:#6b6b6b;line-height:1.5;background:#efece5;padding:8px 10px;border:1px solid #e6e2d9;margin-bottom:11px">{{ stratSummary }}</div>
+            <button onClick="{{ toggleAuto }}" style="width:100%;padding:9px;background: {{ autoBg }};color: {{ autoColor }};border:1px solid {{ autoBorder }};font-weight:600;font-size:12px;cursor:pointer;margin-bottom:8px">{{ autoLabel }}</button>
+            <div style="display:flex;gap:6px">
+              <button onClick="{{ manualBuy }}" style="flex:1;padding:9px;background:#11875a;color:#fff;border:none;font-weight:600;font-size:12px;cursor:pointer">手動買入</button>
+              <button onClick="{{ manualSell }}" style="flex:1;padding:9px;background:#d23b2f;color:#fff;border:none;font-weight:600;font-size:12px;cursor:pointer">手動賣出</button>
+              <button onClick="{{ resetPaper }}" style="padding:9px 12px;background:#fff;color:#8a8678;border:1px solid #d6d2c8;font-weight:600;font-size:12px;cursor:pointer">重設</button>
+            </div>
+          </div>
+
+          <div style="padding:15px 16px">
+            <div style="font-size:10px;letter-spacing:0.09em;text-transform:uppercase;color:#aaa599;font-weight:600;margin-bottom:8px">交易日誌</div>
+            <sc-if value="{{ noPaperTrades }}" hint-placeholder-val="{{ true }}"><div style="font-size:11px;color:#bdb9ab;font-family:'IBM Plex Mono',monospace;padding:10px 0">尚無交易 · 開啟自動交易或手動下單</div></sc-if>
+            <sc-for list="{{ paperTrades }}" as="t" hint-placeholder-count="0">
+              <div style="display:flex;align-items:center;font-family:'IBM Plex Mono',monospace;font-size:11px;padding:5px 0;border-bottom:1px solid #efece4">
+                <span style="color: {{ t.sideColor }};font-weight:600;width:36px">{{ t.side }}</span>
+                <span style="color:#aaa599;width:34px;font-size:9px">{{ t.reason }}</span>
+                <span style="color:#aaa599;flex:1">{{ t.time }}</span>
+                <span style="width:82px;text-align:right">{{ t.price }}</span>
+                <span style="width:58px;text-align:right;color: {{ t.pnlColor }};font-weight:500">{{ t.pnl }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+    </aside>
+  </div>
+
+  <sc-if value="{{ help }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ helpClose }}" style="position:fixed;inset:0;background:rgba(20,19,15,0.45);display:flex;align-items:center;justify-content:center;z-index:50;padding:24px">
+      <div onClick="{{ stop }}" style="background:#fff;max-width:700px;width:100%;max-height:86vh;overflow-y:auto;border:1px solid #d6d2c8;box-shadow:0 12px 40px rgba(0,0,0,0.25)">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid #e6e2d9;position:sticky;top:0;background:#fff">
+          <div style="font-weight:700;font-size:16px">ALPHAFACTORFORGE 使用說明</div>
+          <button onClick="{{ helpClose }}" style="width:28px;height:28px;border:1px solid #d6d2c8;background:#fff;cursor:pointer;font-size:15px;line-height:1">×</button>
+        </div>
+        <div style="padding:18px 20px;font-size:13px;line-height:1.7;color:#3a382f">
+          <div style="font-weight:700;color:#16150f;margin-bottom:4px">這是什麼</div>
+          <p style="margin:0 0 14px">抓取公開交易所行情（歷史 K 線 + 即時串流），讓你自定義買賣策略、做歷史回測，並用即時資料進行模擬交易（紙上交易，不涉及真實資金）。全部運算在你的瀏覽器本機完成。</p>
+
+          <div style="font-weight:700;color:#16150f;margin-bottom:4px">① 兩種模式（右上切換）</div>
+          <p style="margin:0 0 4px"><b>回測</b>：在歷史資料上測試策略，輸出淨報酬、勝率、最大回撤、夏普等績效與逐筆交易。改任何參數會自動重算（按鈕短暫變黃「回測中」）。</p>
+          <p style="margin:0 0 14px"><b>即時模擬</b>：以即時行情運行虛擬帳戶（起始 $10,000）。可開自動交易讓策略依訊號進出場，或手動買賣。手續費 / 滑點 / 部位大小與回測同口徑。帳戶自動保存。</p>
+
+          <div style="font-weight:700;color:#16150f;margin-bottom:4px">② 圖表操作（幣安級）</div>
+          <p style="margin:0 0 14px">滾輪 = 以游標為錨縮放、按住拖曳 = 左右平移看更多歷史、雙擊 = 重置、滑鼠懸停 = 顯示該根 OHLC＋量＋漲跌（含完整年月日時間）。下方副圖為 RSI（含買 / 賣門檻虛線）。</p>
+
+          <div style="font-weight:700;color:#16150f;margin-bottom:4px">③ 指標列（圖表下方）</div>
+          <p style="margin:0 0 14px">每個指標是「開關 + 週期輸入框」：點 <b>MA / EMA / BB / RSI / VOL</b> 字樣切換顯示；旁邊的<b>數字框可直接改週期</b>（MA 有快 / 慢兩格、BB 有週期 / 倍數），改了圖表與回測同步更新。RSI 關閉時副圖會收起。</p>
+
+          <div style="font-weight:700;color:#16150f;margin-bottom:4px">④ 範例策略（學習用）</div>
+          <p style="margin:0 0 14px">策略編輯器頂部綠色「📚 範例策略」下拉，內建 6 組常見策略（均線交叉、RSI 反彈、MACD 動能、布林回歸、雙均線+RSI 濾網、突破+量能），選了即套用並回測，適合認識流程與三種編輯模式。</p>
+
+          <div style="font-weight:700;color:#16150f;margin-bottom:4px">⑤ 策略編輯器 · 三種模式</div>
+          <p style="margin:0 0 4px"><b>參數</b>：填週期並挑預設進出場訊號，最快速。</p>
+          <p style="margin:0 0 4px"><b>規則積木</b>：組合多條件（全部成立才觸發），左選運算元、中選運算子、右填數字或另一運算元。</p>
+          <p style="margin:0 0 6px"><b>程式碼</b>：寫 JavaScript 運算式，可用所有指標變數與前一根 <span style="font-family:'IBM Plex Mono',monospace;font-size:11px">prev</span> 版本，打造獨創策略。</p>
+          <p style="margin:0 0 14px;color:#8a8678">每個模式右上「? 本模式說明」有專屬教學；完整變數表與語法見專案內 <span style="font-family:'IBM Plex Mono',monospace">STRATEGY_GUIDE.md</span>。</p>
+
+          <div style="font-weight:700;color:#16150f;margin-bottom:4px">⑥ 策略庫 + 參數掃描</div>
+          <p style="margin:0 0 4px"><b>策略庫</b>：命名儲存目前策略、下拉切換、刪除（存於瀏覽器本機）。</p>
+          <p style="margin:0 0 14px"><b>參數掃描（最佳化）</b>：選 1～2 個參數設範圍，跑遍所有組合（上限 256），用<b>熱力圖</b>（紅→黃→綠）顯示每格的最佳化指標，最佳格描黑框，可一鍵「套用最佳」。</p>
+
+          <div style="font-weight:700;color:#16150f;margin-bottom:4px">⑦ 執行模型（讓回測貼近真實）</div>
+          <p style="margin:0 0 4px"><b>手續費 / 滑點</b>：每邊計入；可點交易所建議值（幣安 / OKX…）一鍵帶入實際費率。<b>部位大小</b>：用權益的 % 下單。<b>成交價</b>：當根收盤 vs 下一根開盤。<b>方向</b>：做多 / 做空 / 多空反手。</p>
+          <p style="margin:0 0 4px"><b>停損 / 停利 %</b>：對所有模式生效（0 = 關），以盤中高低判斷觸發。</p>
+          <p style="margin:0 0 14px"><b>Bar Magnifier 盤中精算</b>：勾選後在每根 K 線底下抓更細子 K 線，精準判定停損 / 停利的<b>先後順序</b>（解決整根只有 OHLC、不知路徑的模糊）；狀態會回報「多少次與近似法不同」。區間過大會提示縮小日期。</p>
+
+          <div style="font-weight:700;color:#16150f;margin-bottom:4px">⑧ 資料深度 + 回測區間</div>
+          <p style="margin:0 0 4px"><b>歷史深度</b>：500 / 2000 / 5000 / 最大可得，多交易所分頁回拉（不再只有 500 根）。週期 1m～1d 七檔，要看盤中細節就調小週期。</p>
+          <p style="margin:0 0 4px"><b>資料來源</b>：自動容錯或手動指定 Binance / OKX / Coinbase；綠點顯示目前實際用哪家。指定同一家或用「↓ JSON / ↑ 載入」凍結資料集，可得到完全可再現的回測。</p>
+          <p style="margin:0 0 4px"><b>回測區間</b>：用起 / 訖<b>日期</b>選擇器或近 1 月 / 3 月 / 1 年 / 3 年快捷鈕，框定只測某段歷史（圖上區間外淡灰遮罩）。</p>
+          <p style="margin:0 0 14px"><b>樣本外驗證（70/30）</b>：勾選後把區間切前 70% 樣本內 / 後 30% 樣本外分別回測對照，樣本外表現接近樣本內 = 較不過度擬合。</p>
+
+          <div style="font-weight:700;color:#16150f;margin-bottom:4px">⑨ 專注數據模式 + 績效</div>
+          <p style="margin:0 0 14px">圖表下方「▢ 專注數據」收起 K 線，放大顯示 23 項績效（淨報酬、夏普 / 索提諾 / 卡瑪、盈虧比、期望值、最大連勝連敗、平均 MFE/MAE…）、<b>權益曲線疊買入持有</b>、<b>回撤 underwater 曲線</b>，及逐筆 round-trip 明細（含 MFE / MAE）。</p>
+
+          <div style="font-weight:700;color:#16150f;margin-bottom:4px">⑩ Bar Replay 逐根重播</div>
+          <p style="margin:0 0 14px">圖表下方「▷ 逐根重播」開啟控制條，可播放 / 暫停 / 單步 / 拖曳，圖表只畫到當下那根，並即時顯示該根是<b>進場 / 出場 / 無訊號</b>——觀察策略訊號如何生成。</p>
+
+          <div style="font-weight:700;color:#16150f;margin-bottom:4px">⑪ 匯出回測結果</div>
+          <p style="margin:0 0 14px">在「專注數據」面板右上：<b>↓ 績效報告 JSON</b>（完整績效＋執行模型設定＋逐筆交易，可保存 / 再分析 / 分享）、<b>↓ 交易明細 CSV</b>（每筆 round-trip，可用 Excel 開）。圖表下方另有「↓ JSON / ↓ CSV」匯出原始 K 線資料集。</p>
+
+          <div style="font-weight:700;color:#16150f;margin-bottom:4px">資料與免責</div>
+          <p style="margin:0">行情依序嘗試 Binance → OKX → Coinbase 三家公開 API，哪家連得上就用哪家。若都連不到，多半是網路 / 公司防火牆封鎖了交易所，換網路或手機熱點即可。本工具僅供研究與模擬，所有交易為虛擬，不構成投資建議。</p>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ stratHelp }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ stratHelpClose }}" style="position:fixed;inset:0;background:rgba(20,19,15,0.45);display:flex;align-items:center;justify-content:center;z-index:50;padding:24px">
+      <div onClick="{{ stop }}" style="background:#fff;max-width:720px;width:100%;max-height:86vh;display:flex;flex-direction:column;border:1px solid #d6d2c8;box-shadow:0 12px 40px rgba(0,0,0,0.25)">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:15px 20px;border-bottom:1px solid #e6e2d9">
+          <div style="font-weight:700;font-size:16px">策略編輯器 · 模式說明</div>
+          <button onClick="{{ stratHelpClose }}" style="width:28px;height:28px;border:1px solid #d6d2c8;background:#fff;cursor:pointer;font-size:15px;line-height:1">×</button>
+        </div>
+        <div style="display:flex;border-bottom:1px solid #e6e2d9;flex-shrink:0">
+          <sc-for list="{{ shTabs }}" as="t" hint-placeholder-count="3"><button onClick="{{ t.onClick }}" style="flex:1;padding:9px 0;background: {{ t.bg }};border:none;border-bottom: {{ t.bb }};color: {{ t.color }};font-weight:600;font-size:13px;cursor:pointer">{{ t.label }}</button></sc-for>
+        </div>
+        <div style="padding:18px 20px;font-size:13px;line-height:1.7;color:#3a382f;overflow-y:auto">
+
+          <sc-if value="{{ shParams }}" hint-placeholder-val="{{ true }}">
+            <div>
+              <p style="margin:0 0 12px">最快上手。填入指標週期，再從下拉挑一組<b>預設進場 / 出場訊號</b>，即可回測經典技術策略。</p>
+              <div style="font-weight:700;color:#16150f;margin-bottom:4px">可調參數</div>
+              <p style="margin:0 0 12px">快線/慢線 MA、EMA、RSI 週期與超買/超賣門檻；「進階指標參數」另含 MACD(快/慢/訊號)、布林(週期/倍數)、ATR、隨機指標、量能 MA。</p>
+              <div style="font-weight:700;color:#16150f;margin-bottom:4px">預設訊號</div>
+              <p style="margin:0">均線金叉/死叉、價格穿越 EMA、價格 vs 慢線、RSI 由超賣回升/超買回落、MACD 穿越訊號線、布林軌道觸碰、隨機指標回升/回落。</p>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ shBlocks }}" hint-placeholder-val="{{ false }}">
+            <div>
+              <p style="margin:0 0 12px">自由組合多條條件，<b>全部成立 (AND)</b> 才觸發。每條規則三欄：<span style="font-family:'IBM Plex Mono',monospace;background:#efece5;padding:1px 6px">左運算元 · 運算子 · 右值</span></p>
+              <div style="font-weight:700;color:#16150f;margin-bottom:4px">運算子</div>
+              <p style="margin:0 0 4px;font-family:'IBM Plex Mono',monospace;font-size:12px">&gt; 大於 · &lt; 小於 · ≥ · ≤ · 上穿↑（由下突破）· 下穿↓（由上跌破）</p>
+              <p style="margin:0 0 12px">右值可填<b>數字</b>（如 30）或<b>另一個指標名稱</b>（如 maSlow）。</p>
+              <div style="font-weight:700;color:#16150f;margin-bottom:4px">範例</div>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;background:#efece5;padding:10px 12px;line-height:1.9">rsi &lt; 30<br>maFast 上穿↑ maSlow<br>price &gt; bbUpper</div>
+              <p style="margin:10px 0 0">進場可疊多條（例：rsi &lt; 30 且 macd 上穿↑ macdSignal），全部成立才進場。</p>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ shCode }}" hint-placeholder-val="{{ false }}">
+            <div>
+              <p style="margin:0 0 10px">最大彈性。進/出場各填一段 <b>JavaScript 布林運算式</b>（回傳 true 即觸發），系統以 <span style="font-family:'IBM Plex Mono',monospace;font-size:11px">return (你的運算式)</span> 執行。</p>
+              <div style="font-weight:700;color:#16150f;margin-bottom:4px">撰寫規則</div>
+              <ul style="margin:0 0 12px;padding-left:18px">
+                <li>必須是<b>單一運算式</b>；不要寫 return、分號或多行。</li>
+                <li>可用 <span style="font-family:'IBM Plex Mono',monospace;font-size:11px">&gt; &lt; &gt;= &lt;= === && || !</span>、括號、算術、Math.*。</li>
+                <li>每個變數是<b>當根</b>數值；加前綴 <span style="font-family:'IBM Plex Mono',monospace;font-size:11px">prev</span> 代表<b>前一根</b>，用來偵測穿越。</li>
+                <li>與 null 比較得 false（暖身不足），屬正常。語法錯會在編輯器下方紅字提示。</li>
+              </ul>
+              <div style="font-weight:700;color:#16150f;margin-bottom:5px">可用變數（當根，前綴 prev = 前一根）</div>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;background:#efece5;padding:10px 12px;line-height:1.9;margin-bottom:12px">price open high low volume<br>maFast maSlow ema rsi<br>macd macdSignal macdHist<br>bbUpper bbMid bbLower atr<br>stochK stochD volMa</div>
+              <div style="font-weight:700;color:#16150f;margin-bottom:5px">慣用寫法</div>
+              <div style="font-size:12px;line-height:1.95">
+                <div>金叉：<span style="font-family:'IBM Plex Mono',monospace;background:#efece5;padding:1px 5px">maFast &gt; maSlow && prevMaFast &lt;= prevMaSlow</span></div>
+                <div>RSI 回升：<span style="font-family:'IBM Plex Mono',monospace;background:#efece5;padding:1px 5px">rsi &gt; 30 && prevRsi &lt;= 30</span></div>
+                <div>動能轉正：<span style="font-family:'IBM Plex Mono',monospace;background:#efece5;padding:1px 5px">macdHist &gt; 0 && prevMacdHist &lt;= 0</span></div>
+                <div>突破+量能：<span style="font-family:'IBM Plex Mono',monospace;background:#efece5;padding:1px 5px">price &gt; bbUpper && volume &gt; volMa * 1.5</span></div>
+                <div>複合：<span style="font-family:'IBM Plex Mono',monospace;background:#efece5;padding:1px 5px">rsi &lt; 40 && macd &gt; macdSignal && price &gt; ema</span></div>
+              </div>
+              <p style="margin:12px 0 0;color:#8a8678;font-size:12px">部位、手續費、滑點、停損停利、做多/做空請在「執行模型」設定，不要寫進運算式。完整版另見專案內 <span style="font-family:'IBM Plex Mono',monospace">STRATEGY_GUIDE.md</span>。</p>
+            </div>
+          </sc-if>
+
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ sweepOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ sweepCloseClick }}" style="position:fixed;inset:0;background:rgba(20,19,15,0.45);display:flex;align-items:center;justify-content:center;z-index:50;padding:24px">
+      <div onClick="{{ stop }}" style="background:#fff;max-width:860px;width:100%;max-height:88vh;display:flex;flex-direction:column;border:1px solid #d6d2c8;box-shadow:0 12px 40px rgba(0,0,0,0.25)">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:15px 20px;border-bottom:1px solid #e6e2d9">
+          <div><div style="font-weight:700;font-size:16px">參數掃描 · 最佳化</div><div style="font-size:11px;color:#8a8678;margin-top:2px">在目前日期區間掃描參數組合，找出最佳值（上限 256 組）。掃描時忽略盤中精算以加速。</div></div>
+          <button onClick="{{ sweepCloseClick }}" style="width:28px;height:28px;border:1px solid #d6d2c8;background:#fff;cursor:pointer;font-size:15px;line-height:1">×</button>
+        </div>
+        <div style="padding:16px 20px;overflow-y:auto">
+          <div style="background:#fbf7e8;border:1px solid #e8dcb0;padding:11px 13px;margin-bottom:16px;font-size:12px;line-height:1.65;color:#6a5d2a">
+            <div style="font-weight:700;margin-bottom:5px;color:#5a4e1f">這是什麼 · 怎麼用</div>
+            <p style="margin:0 0 7px">參數掃描幫你<b>自動找出最佳參數</b>。它把你選的參數依範圍逐一代入、各跑一次回測，再用熱力圖比較好壞，省去手動一個個試。</p>
+            <div style="font-weight:600;margin-bottom:3px;color:#5a4e1f">步驟</div>
+            <ol style="margin:0 0 7px;padding-left:17px">
+              <li>選 <b>參數 X</b>（要掃描的參數，如快線 MA），設<b>起 / 迄 / 間距</b>（例：5 到 20、間距 3 → 測 5,8,11,14,17,20）。</li>
+              <li>需要的話勾<b>第二維 Y</b>，同時掃兩個參數（產生二維熱力圖）。</li>
+              <li>選<b>最佳化指標</b>（要以什麼衡量「最佳」，如淨報酬、夏普、獲利因子）。</li>
+              <li>按<b>執行掃描</b>。每格 = 一組參數的結果，顏色<span style="color:#1f8a5b;font-weight:600">越綠越佳</span>、<span style="color:#c0392b;font-weight:600">越紅越差</span>，括號內為交易次數；最佳格描黑框。</li>
+              <li>按<b>套用最佳</b>把該組參數帶回策略。</li>
+            </ol>
+            <p style="margin:0;color:#8a7a3a">注意：① 組合上限 256（超過請加大間距或縮範圍）。② 掃描忽略盤中精算以加速。③ 掃出的「最佳」<b>務必再用樣本外驗證</b>——在歷史上最好的參數，往往是過度擬合，未必對未來有效。</p>
+          </div>
+          <div style="display:flex;gap:18px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px">
+            <label style="display:flex;flex-direction:column;gap:3px"><span style="font-size:10px;color:#8a8678">參數 X</span><select value="{{ swpX }}" onChange="{{ swpSetX }}" style="padding:5px 7px;border:1px solid #d6d2c8;font-size:12px;cursor:pointer"><sc-for list="{{ swpParamOpts }}" as="o" hint-placeholder-count="6"><option value="{{ o.v }}">{{ o.label }}</option></sc-for></select></label>
+            <label style="display:flex;flex-direction:column;gap:3px"><span style="font-size:10px;color:#8a8678">X 起</span><input type="number" value="{{ swp.xMin }}" onChange="{{ swpNum_xMin }}" style="width:64px;padding:5px 7px;border:1px solid #d6d2c8;font-family:'IBM Plex Mono',monospace;font-size:12px"></label>
+            <label style="display:flex;flex-direction:column;gap:3px"><span style="font-size:10px;color:#8a8678">X 迄</span><input type="number" value="{{ swp.xMax }}" onChange="{{ swpNum_xMax }}" style="width:64px;padding:5px 7px;border:1px solid #d6d2c8;font-family:'IBM Plex Mono',monospace;font-size:12px"></label>
+            <label style="display:flex;flex-direction:column;gap:3px"><span style="font-size:10px;color:#8a8678">X 間距</span><input type="number" value="{{ swp.xStep }}" onChange="{{ swpNum_xStep }}" style="width:56px;padding:5px 7px;border:1px solid #d6d2c8;font-family:'IBM Plex Mono',monospace;font-size:12px"></label>
+            <label style="display:flex;align-items:center;gap:6px;padding-bottom:6px;cursor:pointer"><input type="checkbox" checked="{{ swp.use2d }}" onChange="{{ swpToggle2d }}" style="width:14px;height:14px;accent-color:#16150f"><span style="font-size:11px;color:#16150f;font-weight:600">第二維 Y</span></label>
+          </div>
+          <sc-if value="{{ swp2d }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;gap:18px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px">
+              <label style="display:flex;flex-direction:column;gap:3px"><span style="font-size:10px;color:#8a8678">參數 Y</span><select value="{{ swpY }}" onChange="{{ swpSetY }}" style="padding:5px 7px;border:1px solid #d6d2c8;font-size:12px;cursor:pointer"><sc-for list="{{ swpParamOpts }}" as="o" hint-placeholder-count="6"><option value="{{ o.v }}">{{ o.label }}</option></sc-for></select></label>
+              <label style="display:flex;flex-direction:column;gap:3px"><span style="font-size:10px;color:#8a8678">Y 起</span><input type="number" value="{{ swp.yMin }}" onChange="{{ swpNum_yMin }}" style="width:64px;padding:5px 7px;border:1px solid #d6d2c8;font-family:'IBM Plex Mono',monospace;font-size:12px"></label>
+              <label style="display:flex;flex-direction:column;gap:3px"><span style="font-size:10px;color:#8a8678">Y 迄</span><input type="number" value="{{ swp.yMax }}" onChange="{{ swpNum_yMax }}" style="width:64px;padding:5px 7px;border:1px solid #d6d2c8;font-family:'IBM Plex Mono',monospace;font-size:12px"></label>
+              <label style="display:flex;flex-direction:column;gap:3px"><span style="font-size:10px;color:#8a8678">Y 間距</span><input type="number" value="{{ swp.yStep }}" onChange="{{ swpNum_yStep }}" style="width:56px;padding:5px 7px;border:1px solid #d6d2c8;font-family:'IBM Plex Mono',monospace;font-size:12px"></label>
+            </div>
+          </sc-if>
+          <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px">
+            <label style="display:flex;flex-direction:column;gap:3px"><span style="font-size:10px;color:#8a8678">最佳化指標</span><select value="{{ swp.metric }}" onChange="{{ swpSetMetric }}" style="padding:5px 7px;border:1px solid #d6d2c8;font-size:12px;cursor:pointer"><sc-for list="{{ swpMetricOpts }}" as="o" hint-placeholder-count="5"><option value="{{ o.v }}">{{ o.label }}</option></sc-for></select></label>
+            <button onClick="{{ runSweepClick }}" disabled="{{ sweepRunning }}" style="margin-top:14px;padding:8px 20px;border:none;background: {{ sweepBtnBg }};color:#fff;font-weight:600;font-size:13px;cursor: {{ sweepBtnCursor }}">{{ sweepBtnLabel }}</button>
+            <sc-if value="{{ sweepHasBest }}" hint-placeholder-val="{{ false }}"><button onClick="{{ applyBestClick }}" style="margin-top:14px;padding:8px 16px;border:1px solid #1f8a5b;background:#fff;color:#1f8a5b;font-weight:600;font-size:13px;cursor:pointer">套用最佳：{{ sweepBestLabel }}</button></sc-if>
+          </div>
+          <sc-if value="{{ sweepErr }}" hint-placeholder-val="{{ false }}"><div style="font-size:12px;color:#c0392b;margin-bottom:12px">{{ sweepErr }}</div></sc-if>
+          <sc-if value="{{ sweepHasResult }}" hint-placeholder-val="{{ false }}">
+            <div>
+              <div style="font-size:11px;color:#8a8678;margin-bottom:8px">熱力圖 · 顏色越綠越佳（{{ sweepMetricLabel }}）；橫軸 {{ swpXName }}{{ swpYAxisNote }}。每格顯示指標值，括號為交易次數。</div>
+              <div style="overflow:auto;border:1px solid #e6e2d9">
+                <table style="border-collapse:collapse;font-family:'IBM Plex Mono',monospace;font-size:10px;width:100%">
+                  <sc-for list="{{ sweepGridRows }}" as="row" hint-placeholder-count="4">
+                    <tr>
+                      <sc-for list="{{ row.cells }}" as="c" hint-placeholder-count="6">
+                        <td title="{{ c.title }}" style="padding:6px 5px;text-align:center;background: {{ c.bg }};color: {{ c.color }};border:1px solid #fff;min-width:54px; {{ c.bestStyle }}">{{ c.label }}</td>
+                      </sc-for>
+                    </tr>
+                  </sc-for>
+                </table>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;$preview&quot;: {&quot;width&quot;: &quot;100%&quot;, &quot;height&quot;: &quot;100%&quot;},
+  &quot;accent&quot;: {&quot;editor&quot;: &quot;color&quot;, &quot;default&quot;: &quot;#16a21f&quot;, &quot;tsType&quot;: &quot;string&quot;},
+  &quot;upColor&quot;: {&quot;editor&quot;: &quot;color&quot;, &quot;default&quot;: &quot;#2d9f73&quot;, &quot;tsType&quot;: &quot;string&quot;},
+  &quot;downColor&quot;: {&quot;editor&quot;: &quot;color&quot;, &quot;default&quot;: &quot;#d23b2f&quot;, &quot;tsType&quot;: &quot;string&quot;},
+  &quot;panelSide&quot;: {&quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;right&quot;, &quot;left&quot;], &quot;default&quot;: &quot;right&quot;, &quot;tsType&quot;: &quot;string&quot;},
+  &quot;dataSource&quot;: {&quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;auto&quot;, &quot;binance&quot;, &quot;okx&quot;, &quot;coinbase&quot;], &quot;default&quot;: &quot;auto&quot;, &quot;tsType&quot;: &quot;string&quot;}
+}">
+class Component extends DCLogic {
+  constructor(props){
+    super(props);
+    this.chartRef = React.createRef();
+    this.rsiRef = React.createRef();
+    this.fileRef = React.createRef();
+    this.ws = null;
+    this.vp = null;
+    this.symbols = ['BTCUSDT','ETHUSDT','SOLUSDT','BNBUSDT','XRPUSDT','DOGEUSDT','ADAUSDT','AVAXUSDT','LINKUSDT','MATICUSDT'];
+    this.intervals = ['1m','3m','5m','15m','1h','4h','1d'];
+    this.wsHost = 'wss://stream.binance.com:9443';
+    const strat = this.loadStrat();
+    this.state = {
+      view:'backtest', symbol:'BTCUSDT', interval:'1h',
+      candles:[], loading:false, error:null,
+      livePrice:null, day:null, conn:'idle', hoverIdx:null, mx:0, my:0,
+      strat, ind:{ma:true,ema:false,bb:false,rsi:true,vol:true},
+      bt:null, paper:this.loadPaper(), tab:strat.mode, help:false, advOpen:false,
+      dsSel:'auto', frozen:null, chartCollapsed:false, stratHelp:false, stratHelpTab:'params', histDepth:'2000', btFrom:null, btTo:null, loadMsg:null, barMag:false, magStatus:null, now:Date.now(), btRunning:false, stratLib:this.loadStratLib(), stratLibSel:'', stratName:'', presetSel:'', holdout:false, holdoutData:null, sweepOpen:false, sweepRunning:false, sweepResult:null, sweepErr:null, sweep:{x:'fastMA',y:'slowMA',xMin:5,xMax:20,xStep:3,yMin:20,yMax:60,yStep:8,metric:'net',use2d:true}, replayOn:false, replayIdx:null, replayPlaying:false
+    };
+    this._pv={symbol:'BTCUSDT',interval:'1h',view:'backtest',ds:'auto',frozen:false,hd:'2000'};
+  }
+
+  /* ---------- persistence ---------- */
+  defStrat(){ return {mode:'params',fastMA:9,slowMA:21,emaPeriod:50,rsiPeriod:14,rsiBuy:30,rsiSell:70,
+    macdFast:12,macdSlow:26,macdSignal:9,bbPeriod:20,bbMult:2,atrPeriod:14,stochPeriod:14,stochSmooth:3,volMaPeriod:20,
+    entrySig:'maCrossUp',exitSig:'maCrossDown',
+    entryRules:[{l:'maFast',op:'crossUp',r:'maSlow'}],exitRules:[{l:'maFast',op:'crossDown',r:'maSlow'}],
+    entryCode:'macd > macdSignal && prevMacd <= prevMacdSignal',exitCode:'macd < macdSignal && prevMacd >= prevMacdSignal',slPct:0,tpPct:0,
+    feePct:0.05,slipPct:0.02,sizePct:100,fillMode:'close',direction:'long'}; }
+  presetStrats(){ const base=this.defStrat(); return [
+    {key:'ma_cross', name:'均線黃金交叉（入門）', desc:'快線(9)上穿慢線(21)買進、下穿賣出。最經典的趨勢跟隨策略，適合認識回測流程。', patch:{mode:'params',fastMA:9,slowMA:21,entrySig:'maCrossUp',exitSig:'maCrossDown',slPct:0,tpPct:0,direction:'long'}},
+    {key:'rsi_revert', name:'RSI 超賣反彈（均值回歸）', desc:'RSI 跌破 30 進場、漲破 70 出場。震盪盤有效、強趨勢易被巴，搭配停損更穩。', patch:{mode:'params',rsiPeriod:14,rsiBuy:30,rsiSell:70,entrySig:'rsiOversold',exitSig:'rsiOverbought',slPct:5,tpPct:0,direction:'long'}},
+    {key:'macd_mom', name:'MACD 動能（程式碼）', desc:'MACD 線上穿訊號線進場、下穿出場。中期動能策略，示範程式碼模式寫法。', patch:{mode:'code',entryCode:'macd > macdSignal && prevMacd <= prevMacdSignal',exitCode:'macd < macdSignal && prevMacd >= prevMacdSignal',slPct:0,tpPct:0,direction:'long'}},
+    {key:'bb_revert', name:'布林通道均值回歸（積木）', desc:'價格觸下軌進場、回到中軌出場。示範規則積木組合多條件。', patch:{mode:'blocks',bbPeriod:20,bbMult:2,entryRules:[{l:'price',op:'<',r:'bbLower'}],exitRules:[{l:'price',op:'>',r:'bbMid'}],slPct:4,tpPct:0,direction:'long'}},
+    {key:'trend_filter', name:'雙均線 + RSI 濾網（進階）', desc:'價格站上 EMA50 且 RSI>50 才進場、跌破 EMA50 出場。趨勢過濾減少假訊號。', patch:{mode:'code',emaPeriod:50,rsiPeriod:14,entryCode:'price > ema && rsi > 50 && prevPrice <= prevEma',exitCode:'price < ema',slPct:6,tpPct:12,direction:'long'}},
+    {key:'breakout_vol', name:'布林突破 + 量能（進階）', desc:'價格突破布林上軌且量能放大 1.5 倍進場、跌破中軌出場。順勢突破策略。', patch:{mode:'code',bbPeriod:20,volMaPeriod:20,entryCode:'price > bbUpper && volume > volMa * 1.5',exitCode:'price < bbMid',slPct:5,tpPct:0,direction:'long'}}
+  ]; }
+  loadPreset(key){ const p=this.presetStrats().find(p=>p.key===key); if(!p) return; const ns=Object.assign(this.defStrat(),p.patch); this.persistStrat(ns); this.setState({strat:ns,tab:ns.mode,stratLibSel:''},()=>{ if(this.state.view==='backtest') this.runBacktest(); }); }
+  loadStrat(){ try{ const s=JSON.parse(localStorage.getItem('cd_strat')); if(s) return Object.assign(this.defStrat(),s);}catch(e){} return this.defStrat(); }
+  loadPaper(){ try{ const p=JSON.parse(localStorage.getItem('cd_paper')); if(p&&p.startCash) return p;}catch(e){} return {startCash:10000,cash:10000,position:0,avgPrice:0,trades:[],running:false}; }
+  persistStrat(s){ try{localStorage.setItem('cd_strat',JSON.stringify(s));}catch(e){} }
+  loadStratLib(){ try{ const l=JSON.parse(localStorage.getItem('cd_stratlib')); if(l&&typeof l==='object') return l; }catch(e){} return {}; }
+  persistStratLib(l){ try{ localStorage.setItem('cd_stratlib',JSON.stringify(l)); }catch(e){} }
+  saveStratAs(name){ name=(name||'').trim(); if(!name) return; const lib={...this.state.stratLib,[name]:{...this.state.strat}}; this.persistStratLib(lib); this.setState({stratLib:lib,stratLibSel:name,stratName:''}); }
+  loadStratNamed(name){ const s=this.state.stratLib[name]; if(!s) return; const ns=Object.assign(this.defStrat(),s); this.persistStrat(ns); this.setState({strat:ns,tab:ns.mode,stratLibSel:name},()=>{ if(this.state.view==='backtest') this.runBacktest(); }); }
+  delStratNamed(name){ if(!name) return; const lib={...this.state.stratLib}; delete lib[name]; this.persistStratLib(lib); this.setState({stratLib:lib,stratLibSel:''}); }
+  persistPaper(p){ try{localStorage.setItem('cd_paper',JSON.stringify(p));}catch(e){} }
+
+  /* ---------- lifecycle ---------- */
+  componentDidMount(){ this._onResize=()=>this.drawChart(); window.addEventListener('resize',this._onResize); this.attachChartEvents(); this.fetchHistory(); this._clock=setInterval(()=>this.setState({now:Date.now()}),1000); }
+  componentWillUnmount(){ window.removeEventListener('resize',this._onResize); this.detachChartEvents(); this.closeWs(); if(this._raf)cancelAnimationFrame(this._raf); if(this._clock)clearInterval(this._clock); this.stopReplay(); }
+  componentDidUpdate(){
+    const s=this.state; const pv=this._pv||{};
+    const symIntChanged = pv.symbol!==s.symbol || pv.interval!==s.interval || pv.ds!==s.dsSel || pv.hd!==s.histDepth;
+    const leftFrozen = pv.frozen && !s.frozen;
+    this._pv={symbol:s.symbol,interval:s.interval,view:s.view,ds:s.dsSel,frozen:!!s.frozen,hd:s.histDepth};
+    if(s.frozen){ this.closeWs(); this.drawChart(); return; }
+    if(symIntChanged || leftFrozen){ this.closeWs(); this._liveKey=null; this.fetchHistory(); return; }
+    if(pv.view!==s.view){ if(s.view==='live') this.ensureLive(); else this.closeWs(); }
+    this.drawChart();
+  }
+
+  /* ---------- chart interaction events ---------- */
+  attachChartEvents(){
+    const cv=this.chartRef.current; if(!cv) return;
+    this._wheel=e=>this.onWheel(e); cv.addEventListener('wheel',this._wheel,{passive:false});
+    this._down=e=>this.onDown(e); cv.addEventListener('mousedown',this._down);
+    this._dbl=()=>{ this.vp=null; this.drawChart(); }; cv.addEventListener('dblclick',this._dbl);
+    this._winMove=e=>{ if(this._drag) this.onDragMove(e); }; window.addEventListener('mousemove',this._winMove);
+    this._winUp=()=>{ if(this._drag){ this._drag=null; const c=this.chartRef.current; if(c)c.style.cursor='crosshair'; } }; window.addEventListener('mouseup',this._winUp);
+  }
+  detachChartEvents(){ const cv=this.chartRef.current; if(cv){ cv.removeEventListener('wheel',this._wheel); cv.removeEventListener('mousedown',this._down); cv.removeEventListener('dblclick',this._dbl); } window.removeEventListener('mousemove',this._winMove); window.removeEventListener('mouseup',this._winUp); }
+  curCount(){ const len=this.state.candles.length; let c=(this.vp&&this.vp.count)?this.vp.count:Math.min(len,150); return Math.max(20,Math.min(len||20,c)); }
+  curEnd(){ const len=this.state.candles.length; let e=(this.vp&&this.vp.follow===false&&this.vp.end!=null)?this.vp.end:len; return Math.max(this.curCount(),Math.min(len,e)); }
+  onWheel(e){
+    e.preventDefault(); const len=this.state.candles.length; const g=this._geom; if(!len||!g) return;
+    const rect=this.chartRef.current.getBoundingClientRect(); const x=e.clientX-rect.left;
+    const idxUnder=g.offset+(x-g.padL)/g.cw; const count=this.curCount();
+    let nc=Math.round(count*(e.deltaY>0?1.18:1/1.18)); nc=Math.max(20,Math.min(len,nc));
+    const frac=(idxUnder-g.offset)/count;
+    let off=Math.round(idxUnder-frac*nc); let end=off+nc;
+    if(end>len){ end=len; off=len-nc; } if(off<0){ off=0; end=nc; }
+    this.vp={count:nc,end,follow:end>=len}; this.drawChart();
+  }
+  onDown(e){ this._drag={x:e.clientX,end:this.curEnd(),count:this.curCount()}; const c=this.chartRef.current; if(c)c.style.cursor='grabbing'; }
+  onDragMove(e){ const g=this._geom; if(!g||!this._drag) return; const d=Math.round((e.clientX-this._drag.x)/g.cw); const len=this.state.candles.length; const count=this._drag.count; let end=this._drag.end-d; end=Math.max(count,Math.min(len,end)); this.vp={count,end,follow:end>=len}; this.drawChart(); this.onChartMove(e); }
+
+  /* ---------- multi-exchange data layer ---------- */
+  baseAsset(sym){ return sym.replace(/USDT$/,'').replace(/USD$/,''); }
+  srcSymbol(id,sym){ const b=this.baseAsset(sym); if(id==='okx')return b+'-USDT'; if(id==='coinbase')return b+'-USD'; return sym; }
+  srcInterval(id,iv){ const M={binance:{'1m':'1m','3m':'3m','5m':'5m','15m':'15m','1h':'1h','4h':'4h','1d':'1d'},okx:{'1m':'1m','3m':'3m','5m':'5m','15m':'15m','1h':'1H','4h':'4H','1d':'1D'},coinbase:{'1m':60,'5m':300,'15m':900,'1h':3600,'1d':86400}}; return M[id][iv]; }
+  depthBars(){ const m={'500':500,'2000':2000,'5000':5000,'max':999999}; return m[this.state.histDepth||'2000']||2000; }
+  async fetchChunk(id,sym,iv,endMs){
+    const s=this.srcSymbol(id,sym), bar=this.srcInterval(id,iv);
+    if(id==='binance'){
+      const hosts=this._binHost?[this._binHost]:['https://api.binance.com','https://data-api.binance.vision','https://api-gcp.binance.com','https://api.binance.us'];
+      let err='';
+      for(const h of hosts){ try{ const r=await fetch(h+'/api/v3/klines?symbol='+s+'&interval='+bar+'&limit=1000'+(endMs?'&endTime='+endMs:'')); if(!r.ok){err='HTTP '+r.status;continue;} const j=await r.json(); if(Array.isArray(j)){ this._binHost=h; return j.map(k=>({t:k[0],o:+k[1],h:+k[2],l:+k[3],c:+k[4],v:+k[5]})); } }catch(e){ err=(e&&e.message)||'net'; } }
+      throw err||'binance unreachable';
+    }
+    if(id==='okx'){
+      const r=await fetch('https://www.okx.com/api/v5/market/history-candles?instId='+s+'&bar='+bar+'&limit=100'+(endMs?'&after='+endMs:''));
+      if(!r.ok) throw 'HTTP '+r.status; const j=await r.json();
+      if(!j.data) throw 'OKX 無資料'; if(!j.data.length) return [];
+      return j.data.map(k=>({t:+k[0],o:+k[1],h:+k[2],l:+k[3],c:+k[4],v:+k[5]})).reverse();
+    }
+    if(id==='coinbase'){
+      const g=bar; const endSec=endMs?Math.floor(endMs/1000):Math.floor(Date.now()/1000); const startSec=endSec-300*g;
+      const r=await fetch('https://api.exchange.coinbase.com/products/'+s+'/candles?granularity='+g+'&start='+new Date(startSec*1000).toISOString()+'&end='+new Date(endSec*1000).toISOString());
+      if(!r.ok) throw 'HTTP '+r.status; const j=await r.json();
+      if(!Array.isArray(j)) throw 'Coinbase 無資料'; if(!j.length) return [];
+      return j.map(k=>({t:k[0]*1000,o:+k[3],h:+k[2],l:+k[1],c:+k[4],v:+k[5]})).sort((a,b)=>a.t-b.t);
+    }
+    throw 'unknown source';
+  }
+  async fetchDeep(id,sym,iv,target,onProg){
+    const cs={binance:1000,okx:100,coinbase:300}[id]||300;
+    let all=[],end=null,guard=0; const maxReq=Math.min(90,Math.ceil(target/cs)+2);
+    while(all.length<target && guard<maxReq){
+      guard++;
+      let chunk; try{ chunk=await this.fetchChunk(id,sym,iv,end); }catch(e){ if(all.length) break; throw e; }
+      if(!chunk||!chunk.length) break;
+      if(all.length){ const fe=all[0].t; chunk=chunk.filter(c=>c.t<fe); }
+      if(!chunk.length) break;
+      all=chunk.concat(all);
+      if(onProg) onProg(all.length);
+      const oldest=chunk[0].t; if(end!=null && oldest>=end) break; end=oldest-1;
+      if(chunk.length<cs*0.6) break;
+    }
+    const m=new Map(); for(const c of all) m.set(c.t,c);
+    const out=[...m.values()].sort((a,b)=>a.t-b.t);
+    return {candles: target>=999999?out:out.slice(-target)};
+  }
+  async fetchKlines(id,sym,iv){ const c=await this.fetchChunk(id,sym,iv,null); if(!c||!c.length) throw 'no data'; return {candles:c}; }
+  async fetchDay(id,sym){
+    try{
+      const s=this.srcSymbol(id,sym);
+      if(id==='binance'){ const r=await fetch((this._binHost||'https://api.binance.com')+'/api/v3/ticker/24hr?symbol='+s); if(r.ok){ const j=await r.json(); return {chg:+j.priceChangePercent,high:+j.highPrice,low:+j.lowPrice}; } }
+      else if(id==='okx'){ const r=await fetch('https://www.okx.com/api/v5/market/ticker?instId='+s); if(r.ok){ const j=await r.json(); const d=j.data&&j.data[0]; if(d){ const o=+d.open24h,last=+d.last; return {chg:o?(last-o)/o*100:0,high:+d.high24h,low:+d.low24h}; } } }
+      else if(id==='coinbase'){ const r=await fetch('https://api.exchange.coinbase.com/products/'+s+'/stats'); if(r.ok){ const j=await r.json(); const o=+j.open,last=+j.last; return {chg:o?(last-o)/o*100:0,high:+j.high,low:+j.low}; } }
+    }catch(e){}
+    return null;
+  }
+  async fetchHistory(){
+    const {symbol,interval}=this.state;
+    this.setState({loading:true,error:null,conn:'loading',loadMsg:'載入歷史中…'});
+    const ds=(this.state.dsSel&&this.state.dsSel!=='auto')?this.state.dsSel:(this.props.dataSource||'auto');
+    const order=ds!=='auto'?[ds]:['binance','okx','coinbase'];
+    const target=this.depthBars();
+    let res=null,srcId=null,errs=[];
+    for(const id of order){ try{ res=await this.fetchDeep(id,symbol,interval,target,n=>{ this.setState({loadMsg:'載入歷史中… '+n+' 根（'+id.toUpperCase()+'）'}); }); if(res&&res.candles.length){ srcId=id; break; } else errs.push(id+': 空'); }catch(e){ errs.push(id+': '+(typeof e==='string'?e:(e&&e.message)||'fail')); } }
+    if(!res||!res.candles.length){ this.setState({loading:false,conn:'error',error:'無法取得 '+symbol+' 行情。已嘗試 '+order.join(' / ').toUpperCase()+'（'+errs.join('；')+'）。多半是此預覽沙箱或你的網路 / 公司防火牆封鎖了交易所 API；在自己瀏覽器（非公司網路）開啟通常可正常連線。該幣種也可能不存在於該交易所。'}); return; }
+    const candles=res.candles; this.source=srcId;
+    this.wsHost = (srcId==='binance' && this._binHost && this._binHost.includes('binance.us')) ? 'wss://stream.binance.us:9443' : 'wss://stream.binance.com:9443';
+    this._live=null; this.vp=null; this._liveKey=null;
+    const day=await this.fetchDay(srcId,symbol);
+    this.setState({candles,loading:false,loadMsg:null,error:null,conn:this.state.view==='live'?'connecting':'rest',livePrice:candles[candles.length-1].c,day}, ()=>{
+      this.runBacktest();
+      if(this.state.view==='live') this.ensureLive();
+      this.drawChart();
+    });
+  }
+
+  /* ---------- live: binance WS, others polling ---------- */
+  ensureLive(){ const key=this.state.symbol+'_'+this.state.interval+'_'+this.source; if(this._liveKey===key && (this.ws||this._poll)) return; this._liveKey=key; this.closeWs(); if(this.source==='binance') this.openWs(); else this.startPoll(); }
+  pollMs(){ const iv=this.state.interval; return iv==='1m'?2500:(iv==='3m'||iv==='5m')?4000:5000; }
+  ivMs(iv){ return {'1m':60000,'3m':180000,'5m':300000,'15m':900000,'1h':3600000,'4h':14400000,'1d':86400000}[iv]||3600000; }
+  magInterval(iv){ return {'1m':null,'3m':'1m','5m':'1m','15m':'1m','1h':'5m','4h':'15m','1d':'1h'}[iv]||null; }
+  startPoll(){
+    this.stopPoll(); this._live=this.state.candles.slice(); this.setState({conn:'live'});
+    const tick=async()=>{
+      try{
+        const res=await this.fetchKlines(this.source,this.state.symbol,this.state.interval);
+        const rec=res.candles; const prev=this._live||[]; const prevNewestT=prev.length?prev[prev.length-1].t:0;
+        const map=new Map(prev.map(c=>[c.t,c])); for(const c of rec) map.set(c.t,c);
+        const arr=[...map.values()].sort((a,b)=>a.t-b.t); const newest=arr[arr.length-1];
+        this._live=arr; this._lp=newest.c; this._lastTick=Date.now();
+        if(prev.length && newest.t>prevNewestT) this.onCandleClose(arr);
+        this.setState({candles:arr,livePrice:newest.c,conn:'live'});
+      }catch(e){ this.setState({conn:'error'}); }
+    };
+    tick(); this._poll=setInterval(tick,this.pollMs());
+  }
+  stopPoll(){ if(this._poll){ clearInterval(this._poll); this._poll=null; } }
+
+  /* ---------- dataset download / load / freeze ---------- */
+  tsStamp(){ const d=new Date(); const p=x=>String(x).padStart(2,'0'); return d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+'_'+p(d.getHours())+p(d.getMinutes()); }
+  saveBlob(text,type,name){ try{ const blob=new Blob([text],{type}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1500); }catch(e){ this.setState({error:'下載失敗：'+(e.message||e)}); } }
+  downloadJson(){ const st=this.state; if(!st.candles.length) return; const data={app:'AlphaFactorForge',schema:1,symbol:st.symbol,interval:st.interval,source:this.source||(st.frozen?st.frozen.source:'unknown'),fetchedAt:new Date().toISOString(),count:st.candles.length,candles:st.candles}; this.saveBlob(JSON.stringify(data),'application/json','AlphaFactorForge_'+st.symbol+'_'+st.interval+'_'+this.tsStamp()+'.json'); }
+  downloadCsv(){ const st=this.state; if(!st.candles.length) return; const rows=[['time_iso','timestamp_ms','open','high','low','close','volume']]; st.candles.forEach(c=>rows.push([new Date(c.t).toISOString(),c.t,c.o,c.h,c.l,c.c,c.v])); this.saveBlob(rows.map(r=>r.join(',')).join('\n'),'text/csv','AlphaFactorForge_'+st.symbol+'_'+st.interval+'_'+this.tsStamp()+'.csv'); }
+  pickFile(){ const el=this.fileRef.current; if(el) el.click(); }
+  downloadReport(){ const st=this.state, bt=st.bt; if(!bt) return; const s=bt.stats, e=s.ext||{}; const srcName={binance:'Binance',okx:'OKX',coinbase:'Coinbase'}[this.source]||(st.frozen?st.frozen.source:'unknown');
+    const rep={app:'AlphaFactorForge',type:'backtest_report',schema:1,generatedAt:new Date().toISOString(),symbol:st.symbol,interval:st.interval,source:srcName,
+      range:{from:st.btFrom?new Date(st.btFrom).toISOString():null,to:st.btTo?new Date(st.btTo).toISOString():null,bars:e.bars},
+      strategy:st.strat, execModel:{feePct:st.strat.feePct,slipPct:st.strat.slipPct,sizePct:st.strat.sizePct,fillMode:st.strat.fillMode,direction:st.strat.direction,barMagnifier:st.barMag},
+      performance:{netPct:s.net,buyHoldPct:s.bh,trades:s.trades,winRate:s.winRate,profitFactor:s.pf,maxDrawdown:s.maxDD,endEquity:s.endEq,sharpe:e.sharpe,sortino:e.sortino,calmar:e.calmar,avgWinPct:e.avgWin,avgLossPct:e.avgLoss,payoff:e.payoff,expectancyPct:e.expectancy,maxConsecWin:e.maxConsecWin,maxConsecLoss:e.maxConsecLoss,avgBarsHeld:e.avgBars,timeInMarket:e.timeInMkt,avgMfe:e.avgMfe,avgMae:e.avgMae},
+      trades:bt.rts.map(r=>({entry:new Date(r.entryT).toISOString(),exit:new Date(r.exitT).toISOString(),dir:r.dir,entryPrice:r.entryPrice,exitPrice:r.exitPrice,bars:r.bars,pnlPct:r.pnlPct,mfe:r.mfe,mae:r.mae,reason:r.reason}))};
+    this.saveBlob(JSON.stringify(rep,null,2),'application/json','AlphaFactorForge_report_'+st.symbol+'_'+st.interval+'_'+this.tsStamp()+'.json'); }
+  downloadTradesCsv(){ const st=this.state, bt=st.bt; if(!bt) return; const rows=[['#','dir','entry_iso','exit_iso','bars','entry_price','exit_price','pnl_pct','mfe_pct','mae_pct','reason']];
+    bt.rts.forEach((r,i)=>rows.push([i+1,r.dir,new Date(r.entryT).toISOString(),new Date(r.exitT).toISOString(),r.bars,r.entryPrice,r.exitPrice,(r.pnlPct*100).toFixed(4),((r.mfe||0)*100).toFixed(4),((r.mae||0)*100).toFixed(4),r.reason]));
+    this.saveBlob(rows.map(r=>r.join(',')).join('\n'),'text/csv','AlphaFactorForge_trades_'+st.symbol+'_'+st.interval+'_'+this.tsStamp()+'.csv'); }
+  onLoadFile(e){
+    const f=e.target.files&&e.target.files[0]; if(!f){ return; } const name=f.name;
+    const rd=new FileReader();
+    rd.onload=()=>{
+      try{
+        let d=JSON.parse(rd.result);
+        let candles=Array.isArray(d)?d:d.candles;
+        if(!Array.isArray(candles)||!candles.length) throw '檔案內找不到 K 線陣列';
+        candles=candles.map(c=>({t:+c.t,o:+c.o,h:+c.h,l:+c.l,c:+c.c,v:+(c.v||0)})).filter(c=>!isNaN(c.t)&&!isNaN(c.c)).sort((a,b)=>a.t-b.t);
+        if(!candles.length) throw '資料格式不正確';
+        this.source=(d.source)||'frozen'; this.vp=null; this._live=null; this.closeWs();
+        const sym=d.symbol||this.state.symbol, iv=d.interval||this.state.interval;
+        const at=d.fetchedAt?this.ftime(Date.parse(d.fetchedAt)):'—';
+        this._pv={symbol:sym,interval:iv,view:'backtest',ds:this.state.dsSel,frozen:true};
+        this.setState({frozen:{source:this.source,symbol:sym,interval:iv,count:candles.length,fetchedAt:at,file:name},
+          symbol:sym,interval:iv,candles,livePrice:candles[candles.length-1].c,conn:'frozen',day:null,view:'backtest',error:null,loading:false},
+          ()=>{ this.runBacktest(); this.drawChart(); });
+      }catch(err){ this.setState({error:'資料集載入失敗：'+(typeof err==='string'?err:(err.message||err))}); }
+    };
+    rd.onerror=()=>this.setState({error:'檔案讀取失敗'});
+    rd.readAsText(f); e.target.value='';
+  }
+  unfreeze(){ this.source=null; this.setState({frozen:null,view:'backtest'}); }
+  openWs(){
+    this.closeWs();
+    try{
+      const url=this.wsHost+'/ws/'+this.state.symbol.toLowerCase()+'@kline_'+this.state.interval;
+      const ws=new WebSocket(url); this.ws=ws; this._live=this.state.candles.slice();
+      ws.onopen=()=>this.setState({conn:'live'});
+      ws.onmessage=e=>this.onWsMsg(e);
+      ws.onerror=()=>this.setState({conn:'error'});
+      ws.onclose=()=>{ if(this.ws===ws) this.ws=null; };
+    }catch(e){ this.setState({conn:'error'}); }
+  }
+  closeWs(){ this.stopPoll(); if(this.ws){ try{this.ws.onclose=null;this.ws.close();}catch(e){} this.ws=null; } }
+  onWsMsg(e){
+    let d; try{ d=JSON.parse(e.data); }catch(_){ return; }
+    const k=d.k; if(!k) return;
+    const c={t:k.t,o:+k.o,h:+k.h,l:+k.l,c:+k.c,v:+k.v};
+    let arr=this._live||this.state.candles.slice();
+    if(arr.length && arr[arr.length-1].t===c.t) arr[arr.length-1]=c;
+    else { arr.push(c); if(arr.length>600) arr.shift(); }
+    this._live=arr; this._lp=c.c; this._lastTick=Date.now();
+    if(k.x) this.onCandleClose(arr);
+    this.scheduleFlush();
+  }
+  scheduleFlush(){ if(this._raf) return; this._raf=requestAnimationFrame(()=>{ this._raf=null; this.setState({candles:this._live,livePrice:this._lp}); }); }
+  onCandleClose(arr){
+    const p=this.state.paper; if(!p.running) return;
+    const strat=this.state.strat; const sig=this.makeSig(arr,strat); const i=arr.length-1; const px=arr[i].c;
+    if(p.position>0){
+      if(strat.slPct>0 && px<=p.avgPrice*(1-strat.slPct/100)) this.paperSell(px,'SL');
+      else if(strat.tpPct>0 && px>=p.avgPrice*(1+strat.tpPct/100)) this.paperSell(px,'TP');
+      else if(sig.exit(i)) this.paperSell(px,'訊號');
+    } else {
+      if(sig.entry(i)) this.paperBuy(px,'訊號');
+    }
+  }
+
+  /* ---------- indicators ---------- */
+  sma(a,p){ const o=Array(a.length).fill(null); let s=0; for(let i=0;i<a.length;i++){ s+=a[i]; if(i>=p)s-=a[i-p]; if(i>=p-1)o[i]=s/p; } return o; }
+  smaN(a,p){ const o=Array(a.length).fill(null); const buf=[]; let s=0,c=0; for(let i=0;i<a.length;i++){ const v=a[i]; buf.push(v); if(v!=null){ s+=v; c++; } if(buf.length>p){ const old=buf.shift(); if(old!=null){ s-=old; c--; } } if(buf.length===p && c===p) o[i]=s/p; } return o; }
+  emaN(a,p){ const o=Array(a.length).fill(null); const k=2/(p+1); let e=null,sum=0,cnt=0; for(let i=0;i<a.length;i++){ const v=a[i]; if(v==null) continue; if(e==null){ sum+=v; cnt++; if(cnt>=p){ e=sum/p; o[i]=e; } } else { e=v*k+e*(1-k); o[i]=e; } } return o; }
+  rsiArr(a,p){ const o=Array(a.length).fill(null); let ag=0,al=0; for(let i=1;i<a.length;i++){ const d=a[i]-a[i-1]; const g=d>0?d:0, l=d<0?-d:0; if(i<=p){ ag+=g; al+=l; if(i===p){ ag/=p; al/=p; o[i]=100-100/(1+(al===0?100:ag/al)); } } else { ag=(ag*(p-1)+g)/p; al=(al*(p-1)+l)/p; o[i]=100-100/(1+(al===0?100:ag/al)); } } return o; }
+  computeSeries(candles,strat){
+    const closes=candles.map(c=>c.c), highs=candles.map(c=>c.h), lows=candles.map(c=>c.l), vols=candles.map(c=>c.v);
+    const maFast=this.sma(closes,strat.fastMA), maSlow=this.sma(closes,strat.slowMA), ema=this.emaN(closes,strat.emaPeriod), rsi=this.rsiArr(closes,strat.rsiPeriod);
+    const ef=this.emaN(closes,strat.macdFast), es=this.emaN(closes,strat.macdSlow);
+    const macd=closes.map((_,i)=>(ef[i]!=null&&es[i]!=null)?ef[i]-es[i]:null);
+    const macdSignal=this.emaN(macd,strat.macdSignal);
+    const macdHist=macd.map((v,i)=>(v!=null&&macdSignal[i]!=null)?v-macdSignal[i]:null);
+    const bbMid=this.sma(closes,strat.bbPeriod); const bp=strat.bbPeriod;
+    const bbUpper=Array(closes.length).fill(null), bbLower=Array(closes.length).fill(null);
+    for(let i=bp-1;i<closes.length;i++){ if(bbMid[i]==null) continue; let s=0; for(let j=i-bp+1;j<=i;j++){ const d=closes[j]-bbMid[i]; s+=d*d; } const sd=Math.sqrt(s/bp); bbUpper[i]=bbMid[i]+strat.bbMult*sd; bbLower[i]=bbMid[i]-strat.bbMult*sd; }
+    const atr=Array(closes.length).fill(null); { const ap=strat.atrPeriod; let a=null,sum=0,cnt=0; for(let i=1;i<closes.length;i++){ const tr=Math.max(highs[i]-lows[i],Math.abs(highs[i]-closes[i-1]),Math.abs(lows[i]-closes[i-1])); if(a==null){ sum+=tr; cnt++; if(cnt>=ap){ a=sum/ap; atr[i]=a; } } else { a=(a*(ap-1)+tr)/ap; atr[i]=a; } } }
+    const sp=strat.stochPeriod; const stochK=Array(closes.length).fill(null);
+    for(let i=sp-1;i<closes.length;i++){ let hh=-Infinity,ll=Infinity; for(let j=i-sp+1;j<=i;j++){ if(highs[j]>hh)hh=highs[j]; if(lows[j]<ll)ll=lows[j]; } stochK[i]=hh>ll?100*(closes[i]-ll)/(hh-ll):50; }
+    const stochD=this.smaN(stochK,strat.stochSmooth);
+    const volMa=this.sma(vols,strat.volMaPeriod);
+    return {closes,highs,lows,vols,maFast,maSlow,ema,rsi,macd,macdSignal,macdHist,bbMid,bbUpper,bbLower,atr,stochK,stochD,volMa};
+  }
+
+  /* ---------- signal builder ---------- */
+  makeSig(candles,strat){
+    const S=this.computeSeries(candles,strat); const closes=S.closes;
+    const seriesKeys=['maFast','maSlow','ema','rsi','macd','macdSignal','macdHist','bbUpper','bbMid','bbLower','atr','stochK','stochD','volMa'];
+    const get=(name,i)=>{ if(i<0)return null; switch(name){ case 'price':return closes[i]; case 'open':return candles[i].o; case 'high':return candles[i].h; case 'low':return candles[i].l; case 'volume':return candles[i].v; default: if(S[name])return S[name][i]; { const n=parseFloat(name); return isNaN(n)?null:n; } } };
+    const cond=(c,i)=>{ if(i<1)return false; const a=get(c.l,i),b=get(c.r,i),pa=get(c.l,i-1),pb=get(c.r,i-1); if(a==null||b==null)return false; switch(c.op){ case '>':return a>b; case '<':return a<b; case '>=':return a>=b; case '<=':return a<=b; case 'crossUp':return pa!=null&&pb!=null&&pa<=pb&&a>b; case 'crossDown':return pa!=null&&pb!=null&&pa>=pb&&a<b; default:return false; } };
+    const rules=(list,i)=> list.length>0 && list.every(c=>cond(c,i));
+    let entry,exit;
+    if(strat.mode==='params'){
+      const P={
+        maCrossUp:i=>cond({l:'maFast',op:'crossUp',r:'maSlow'},i),
+        maCrossDown:i=>cond({l:'maFast',op:'crossDown',r:'maSlow'},i),
+        emaCrossUp:i=>cond({l:'price',op:'crossUp',r:'ema'},i),
+        emaCrossDown:i=>cond({l:'price',op:'crossDown',r:'ema'},i),
+        priceAboveSlow:i=>cond({l:'price',op:'>',r:'maSlow'},i),
+        priceBelowSlow:i=>cond({l:'price',op:'<',r:'maSlow'},i),
+        rsiOversold:i=>cond({l:'rsi',op:'crossUp',r:String(strat.rsiBuy)},i),
+        rsiOverbought:i=>cond({l:'rsi',op:'crossDown',r:String(strat.rsiSell)},i),
+        macdCrossUp:i=>cond({l:'macd',op:'crossUp',r:'macdSignal'},i),
+        macdCrossDown:i=>cond({l:'macd',op:'crossDown',r:'macdSignal'},i),
+        bbLowerTouch:i=>cond({l:'price',op:'<',r:'bbLower'},i),
+        bbUpperTouch:i=>cond({l:'price',op:'>',r:'bbUpper'},i),
+        stochOversold:i=>cond({l:'stochK',op:'crossUp',r:String(strat.rsiBuy)},i),
+        stochOverbought:i=>cond({l:'stochK',op:'crossDown',r:String(strat.rsiSell)},i)
+      };
+      entry=P[strat.entrySig]||(()=>false); exit=P[strat.exitSig]||(()=>false);
+    } else if(strat.mode==='blocks'){
+      entry=i=>rules(strat.entryRules,i); exit=i=>rules(strat.exitRules,i);
+    } else {
+      const baseKeys=['price','open','high','low','volume'].concat(seriesKeys);
+      const names=baseKeys.slice(); baseKeys.forEach(k=>names.push('prev'+k.charAt(0).toUpperCase()+k.slice(1)));
+      let ef,xf; this._codeErr=null;
+      try{ ef=new Function(...names,'return ('+(strat.entryCode||'false')+');'); }catch(e){ this._codeErr=e.message; ef=()=>false; }
+      try{ xf=new Function(...names,'return ('+(strat.exitCode||'false')+');'); }catch(e){ this._codeErr=e.message; xf=()=>false; }
+      const ctx=i=>{ const a=[]; baseKeys.forEach(k=>a.push(get(k,i))); baseKeys.forEach(k=>a.push(get(k,i-1))); return a; };
+      entry=i=>{ if(i<1)return false; try{ return !!ef(...ctx(i)); }catch(e){ return false; } };
+      exit=i=>{ if(i<1)return false; try{ return !!xf(...ctx(i)); }catch(e){ return false; } };
+    }
+    return {S,entry,exit};
+  }
+
+  /* ---------- backtest ---------- */
+  runBacktest(){
+    if(this._btTimer) clearTimeout(this._btTimer);
+    if(!this.state.btRunning) this.setState({btRunning:true});
+    this._btTimer=setTimeout(()=>{ this._btTimer=null; this._runBacktestNow(); }, 420);
+  }
+  _runBacktestNow(){
+    const {candles}=this.state;
+    const magIv=this.state.barMag?this.magInterval(this.state.interval):null;
+    if(!magIv || !candles.length){ this._mag=null; if(this.state.barMag&&!magIv) this.setState({magStatus:'此週期已是最細，無需盤中精算'}); else if(!this.state.barMag&&this.state.magStatus) this.setState({magStatus:null}); return this.runBacktestCore(); }
+    const len=candles.length; const fromTs=this.state.btFrom, toTs=this.state.btTo;
+    let rStart=0; if(fromTs){ rStart=candles.findIndex(c=>c.t>=fromTs); if(rStart<0) rStart=len-1; }
+    let rEnd=len; if(toTs){ rEnd=0; for(let i=len-1;i>=0;i--){ if(candles[i].t<=toTs){ rEnd=i+1; break; } } if(rEnd===0) rEnd=1; }
+    rEnd=Math.max(rStart+1,Math.min(len,rEnd));
+    const t0=candles[Math.max(0,rStart)].t, t1=candles[Math.min(len-1,rEnd-1)].t + this.ivMs(this.state.interval);
+    const need=Math.ceil((t1-t0)/this.ivMs(magIv));
+    const key=this.source+'|'+this.state.symbol+'|'+this.state.interval+'|'+magIv+'|'+t0+'|'+t1;
+    if(need>9000){ this._mag=null; this.setState({magStatus:'⚠ 區間過大（需 '+need+' 根 '+magIv+'），請縮小回測日期區間後再啟用盤中精算；目前用近似法'}); return this.runBacktestCore(); }
+    if(this._magKey===key && this._mag){ return this.runBacktestCore(); }
+    this.setState({magStatus:'盤中精算：載入 '+magIv+' 子K線…'});
+    this.fetchMag(this.source,this.state.symbol,magIv,t0,t1,need).then(arr=>{
+      this._mag=arr; this._magKey=key; this.setState({magStatus:'✓ 盤中精算啟用：'+arr.length+' 根 '+magIv+' 子K線'}); this.runBacktestCore();
+    }).catch(e=>{ this._mag=null; this._magKey=null; this.setState({magStatus:'盤中精算載入失敗，改用近似法'}); this.runBacktestCore(); });
+  }
+  async fetchMag(id,sym,iv,t0,t1,target){
+    const cs={binance:1000,okx:100,coinbase:300}[id]||300;
+    let all=[],end=t1,guard=0; const maxReq=Math.min(70,Math.ceil(target/cs)+3);
+    while(guard<maxReq){
+      guard++;
+      let chunk; try{ chunk=await this.fetchChunk(id,sym,iv,end); }catch(e){ break; }
+      if(!chunk||!chunk.length) break;
+      if(all.length){ const fe=all[0].t; chunk=chunk.filter(c=>c.t<fe); }
+      if(!chunk.length) break;
+      all=chunk.concat(all);
+      const oldest=chunk[0].t; if(oldest<=t0) break; if(end!=null && oldest>=end) break; end=oldest-1;
+      if(chunk.length<cs*0.6) break;
+    }
+    const m=new Map(); const lo=t0-this.ivMs(iv); for(const c of all){ if(c.t>=lo && c.t<=t1) m.set(c.t,c); }
+    return [...m.values()].sort((a,b)=>a.t-b.t);
+  }
+  magSubs(ts,te){ const a=this._mag; if(!a||!a.length) return null; let lo=0,hi=a.length; while(lo<hi){ const m=(lo+hi)>>1; if(a[m].t<ts) lo=m+1; else hi=m; } const res=[]; for(let i=lo;i<a.length && a[i].t<te;i++) res.push(a[i]); return res.length?res:null; }
+  runBacktestCore(){
+    const candles=this.state.candles; const strat=this._stratOverride||this.state.strat;
+    const need=Math.max(strat.slowMA,strat.rsiPeriod,strat.macdSlow,strat.bbPeriod)+5;
+    if(candles.length<need){ if(this._captureResult){ this._captured=null; } else { this.setState({bt:null,btRunning:false}); } return; }
+    const sig=this.makeSig(candles,strat);
+    const start=10000; let cash=start, pos=0, avg=0; const trades=[],eq=[],rts=[]; let peak=start,maxDD=0;
+    const fee=Math.max(0,(+strat.feePct||0))/100;
+    const slip=Math.max(0,(+strat.slipPct||0))/100;
+    const sizeFrac=Math.min(1,Math.max(0.01,(+strat.sizePct||100)/100));
+    const dir=strat.direction||'long';
+    const nextOpen=strat.fillMode==='nextOpen';
+    const len=candles.length;
+    const fromTs=this.state.btFrom, toTs=this.state.btTo;
+    let rStart=0; if(fromTs){ rStart=candles.findIndex(c=>c.t>=fromTs); if(rStart<0) rStart=len-1; }
+    let rEnd=len; if(toTs){ rEnd=0; for(let i=len-1;i>=0;i--){ if(candles[i].t<=toTs){ rEnd=i+1; break; } } if(rEnd===0) rEnd=1; }
+    rEnd=Math.max(rStart+1,Math.min(len,rEnd));
+    if(this._rangeOverride){ rStart=Math.max(0,this._rangeOverride.a); rEnd=Math.min(len,this._rangeOverride.b); }
+    const s0=Math.max(need,rStart);
+    if(s0>=rEnd){ if(this._captureResult){ this._captured=null; } else { this.setState({bt:null,btRunning:false}); } return; }
+    let entry=null; // {price,qty,dir,t,i}
+    const fillPx=(base,buy)=> buy? base*(1+slip) : base*(1-slip);
+    const baseAt=i=>{ if(nextOpen){ if(i+1>=candles.length) return null; return {px:candles[i+1].o,ei:i+1,et:candles[i+1].t}; } return {px:candles[i].c,ei:i,et:candles[i].t}; };
+    const ivMs=this.ivMs(this.state.interval); const magOn=!!this._mag && !this._sweeping; let magDiff=0, magUsed=0;
+    const approxRes=(c,dirL,stop,tgt)=>{ if(dirL){ if(stop>0&&c.l<=stop) return {px:Math.min(c.o,stop),reason:'SL'}; if(tgt>0&&c.h>=tgt) return {px:Math.max(c.o,tgt),reason:'TP'}; } else { if(stop>0&&c.h>=stop) return {px:Math.max(c.o,stop),reason:'SL'}; if(tgt>0&&c.l<=tgt) return {px:Math.min(c.o,tgt),reason:'TP'}; } return null; };
+    const checkExit=(i,dirL,stop,tgt)=>{
+      const c=candles[i];
+      if(magOn){ const subs=this.magSubs(c.t,c.t+ivMs); if(subs){
+        let magRes=null;
+        for(const s of subs){ const hitS=stop>0&&(dirL?s.l<=stop:s.h>=stop); const hitT=tgt>0&&(dirL?s.h>=tgt:s.l<=tgt); if(hitS&&hitT){ magRes=Math.abs(s.o-stop)<=Math.abs(s.o-tgt)?{px:stop,reason:'SL'}:{px:tgt,reason:'TP'}; break; } if(hitS){ magRes={px:stop,reason:'SL'}; break; } if(hitT){ magRes={px:tgt,reason:'TP'}; break; } }
+        if(magRes){ magUsed++; const ap=approxRes(c,dirL,stop,tgt); if(!ap||ap.reason!==magRes.reason) magDiff++; }
+        return magRes;
+      } }
+      return approxRes(c,dirL,stop,tgt);
+    };
+    const recordClose=(exitPx,ei,et,reason)=>{
+      const qty=entry.qty, ep=entry.price;
+      const gross = entry.dir==='L' ? (exitPx-ep)*qty : (ep-exitPx)*qty;
+      const fees = (ep*qty + exitPx*qty)*fee;
+      const pnl = gross - fees; const pnlPct = pnl/(ep*qty);
+      cash += entry.dir==='L' ? (exitPx*qty - exitPx*qty*fee) : -(exitPx*qty + exitPx*qty*fee);
+      trades.push({side: entry.dir==='L'?'SELL':'BUY', i:ei, t:et, price:exitPx, qty, pnl, pnlPct, reason});
+      rts.push({entryT:entry.t,exitT:et,entryI:entry.i,exitI:ei,entryPrice:ep,exitPrice:exitPx,qty,pnl,pnlPct,bars:ei-entry.i,reason,dir:entry.dir,mfe:entry.mfe||0,mae:entry.mae||0});
+      pos=0; avg=0; entry=null;
+    };
+    const openPos=(longSide,i)=>{ const b=baseAt(i); if(!b)return; const px=fillPx(b.px,longSide); const equity=cash+pos*candles[i].c; const notional=equity*sizeFrac; if(notional<=0)return; const qty=notional/px; cash += longSide ? -(qty*px + qty*px*fee) : (qty*px - qty*px*fee); pos= longSide? qty : -qty; avg=px; entry={price:px,qty,dir:longSide?'L':'S',t:b.et,i:b.ei,mfe:0,mae:0}; trades.push({side:longSide?'BUY':'SELL', i:b.ei, t:b.et, price:px, qty, reason:'訊號'}); };
+    for(let i=s0;i<rEnd;i++){
+      const c=candles[i]; const e=sig.entry(i), x=sig.exit(i);
+      // stop-loss / take-profit (intrabar) for current position
+      if(pos!==0 && (strat.slPct>0 || strat.tpPct>0)){
+        const dirL=entry.dir==='L';
+        const stop = strat.slPct>0 ? (dirL?avg*(1-strat.slPct/100):avg*(1+strat.slPct/100)) : 0;
+        const tgt  = strat.tpPct>0 ? (dirL?avg*(1+strat.tpPct/100):avg*(1-strat.tpPct/100)) : 0;
+        const ex=checkExit(i,dirL,stop,tgt);
+        if(ex) recordClose(fillPx(ex.px, !dirL), i, c.t, ex.reason);
+      }
+      // signal-driven entries / exits
+      if(dir==='long'){
+        if(pos>0){ if(x) recordClose(fillPx(baseAt(i)?baseAt(i).px:c.c,false),(baseAt(i)||{}).ei!=null?baseAt(i).ei:i,(baseAt(i)||{}).et!=null?baseAt(i).et:c.t,'訊號'); }
+        else if(e) openPos(true,i);
+      } else if(dir==='short'){
+        if(pos<0){ if(x) recordClose(fillPx(baseAt(i)?baseAt(i).px:c.c,true),(baseAt(i)||{}).ei!=null?baseAt(i).ei:i,(baseAt(i)||{}).et!=null?baseAt(i).et:c.t,'訊號'); }
+        else if(e) openPos(false,i);
+      } else { // both — reverse system
+        let desired = e?1:(x?-1:Math.sign(pos));
+        if(desired===1 && pos<=0){ if(pos<0){ const b=baseAt(i); recordClose(fillPx(b?b.px:c.c,true),b?b.ei:i,b?b.et:c.t,'反手'); } openPos(true,i); }
+        else if(desired===-1 && pos>=0){ if(pos>0){ const b=baseAt(i); recordClose(fillPx(b?b.px:c.c,false),b?b.ei:i,b?b.et:c.t,'反手'); } openPos(false,i); }
+      }
+      if(pos!==0 && entry){ const ep=entry.price; let fav,adv; if(entry.dir==='L'){ fav=(c.h-ep)/ep; adv=(c.l-ep)/ep; } else { fav=(ep-c.l)/ep; adv=(ep-c.h)/ep; } if(fav>entry.mfe) entry.mfe=fav; if(adv<entry.mae) entry.mae=adv; }
+      const equity=cash+pos*c.c; const bhEq=start*(c.c/candles[s0].c); if(equity>peak)peak=equity; const dd=peak>0?(peak-equity)/peak:0; if(dd>maxDD)maxDD=dd; eq.push({t:c.t,v:equity,bh:bhEq,dd});
+    }
+    if(pos!==0){ const c=candles[rEnd-1]; recordClose(fillPx(c.c, entry.dir!=='L'), rEnd-1, c.t, '結算'); }
+    const wins=rts.filter(r=>r.pnl>0);
+    const gW=wins.reduce((s,r)=>s+r.pnl,0); const gL=-rts.filter(r=>r.pnl<0).reduce((s,r)=>s+r.pnl,0);
+    const net=cash/start-1; const bh=candles[rEnd-1].c/candles[s0].c-1;
+    const stats={net,bh,trades:rts.length,winRate:rts.length?wins.length/rts.length:0,maxDD,pf:gL>0?gW/gL:(gW>0?Infinity:0),avgTrade:rts.length?rts.reduce((s,r)=>s+(r.pnlPct||0),0)/rts.length:0,endEq:cash};
+    const rPos=rts.filter(r=>r.pnl>0), rNeg=rts.filter(r=>r.pnl<=0);
+    const avgWin=rPos.length?rPos.reduce((s,r)=>s+r.pnlPct,0)/rPos.length:0;
+    const avgLoss=rNeg.length?rNeg.reduce((s,r)=>s+r.pnlPct,0)/rNeg.length:0;
+    const payoff=avgLoss!==0?Math.abs(avgWin/avgLoss):(avgWin>0?Infinity:0);
+    let cw=0,cl=0,mcw=0,mcl=0; for(const r of rts){ if(r.pnl>0){cw++;cl=0;if(cw>mcw)mcw=cw;}else{cl++;cw=0;if(cl>mcl)mcl=cl;} }
+    const largestWin=rts.length?rts.reduce((m,r)=>Math.max(m,r.pnlPct),-Infinity):0;
+    const largestLoss=rts.length?rts.reduce((m,r)=>Math.min(m,r.pnlPct),Infinity):0;
+    const avgBars=rts.length?rts.reduce((s,r)=>s+r.bars,0)/rts.length:0;
+    const ret=rts.map(r=>r.pnlPct); const mean=ret.length?ret.reduce((a,b)=>a+b,0)/ret.length:0;
+    const sd=ret.length?Math.sqrt(ret.reduce((a,b)=>a+(b-mean)*(b-mean),0)/ret.length):0;
+    const sharpe=sd>0?mean/sd:0;
+    const downside=ret.filter(x=>x<0); const dsd=downside.length?Math.sqrt(downside.reduce((a,b)=>a+b*b,0)/downside.length):0;
+    const sortino=dsd>0?mean/dsd:(mean>0?Infinity:0);
+    const calmar=maxDD>0?net/maxDD:(net>0?Infinity:0);
+    const timeInMkt=(rEnd-s0)>0?rts.reduce((s,r)=>s+r.bars,0)/(rEnd-s0):0;
+    const avgMae=rts.length?rts.reduce((s,r)=>s+(r.mae||0),0)/rts.length:0;
+    const avgMfe=rts.length?rts.reduce((s,r)=>s+(r.mfe||0),0)/rts.length:0;
+    stats.ext={avgWin,avgLoss,payoff,maxConsecWin:mcw,maxConsecLoss:mcl,largestWin:isFinite(largestWin)?largestWin:0,largestLoss:isFinite(largestLoss)?largestLoss:0,avgBars,sharpe,sortino,calmar,timeInMkt,expectancy:mean,grossWin:gW,grossLoss:gL,bars:rEnd-s0,avgMae,avgMfe};
+    const result={trades,eq,stats,rts};
+    if(this._captureResult){ this._captured=result; return; }
+    this.setState({bt:result,btRunning:false});
+    if(magOn){ this.setState({magStatus:'✓ 盤中精算啟用：'+this._mag.length+' 根子K線；判定 '+magUsed+' 次 SL/TP 出場，其中 '+magDiff+' 次的先後順序與整根近似法不同（已用子K線修正）'}); }
+    if(this.state.holdout){ this.computeHoldout(s0,rEnd); } else if(this.state.holdoutData){ this.setState({holdoutData:null}); }
+  }
+  computeHoldout(s0,rEnd){
+    const candles=this.state.candles; if(rEnd-s0<20){ this.setState({holdoutData:null}); return; }
+    const split=s0+Math.floor((rEnd-s0)*0.7);
+    if(split<=s0+5 || rEnd-split<=5){ this.setState({holdoutData:null}); return; }
+    const run=(a,b)=>{ this._rangeOverride={a,b}; this._captureResult=true; this._captured=null; this.runBacktestCore(); this._rangeOverride=null; this._captureResult=false; const r=this._captured; this._captured=null; return r; };
+    const ins=run(s0,split), outs=run(split,rEnd);
+    this.setState({holdoutData:{splitT:candles[split].t, inS:ins?ins.stats:null, outS:outs?outs.stats:null}});
+  }
+  sweepMetricVal(stats,metric){ if(!stats) return null; const e=stats.ext||{}; switch(metric){ case 'net':return stats.net; case 'sharpe':return e.sharpe||0; case 'pf':return isFinite(stats.pf)?stats.pf:(stats.pf>0?99:0); case 'winRate':return stats.winRate; case 'dd':return -(stats.maxDD); case 'calmar':return isFinite(e.calmar)?e.calmar:(e.calmar>0?99:0); default:return stats.net; } }
+  runSweep(){
+    const cfg=this.state.sweep; const base=this.state.strat;
+    const mkRange=(mn,mx,st)=>{ const a=[]; st=Math.abs(+st)||1; if(+mx<+mn) return [+mn]; for(let v=+mn; v<=+mx+1e-9; v+=st){ a.push(Math.round(v*1e6)/1e6); if(a.length>64) break; } return a; };
+    const xs=mkRange(cfg.xMin,cfg.xMax,cfg.xStep);
+    const ys=cfg.use2d?mkRange(cfg.yMin,cfg.yMax,cfg.yStep):[null];
+    if(xs.length*ys.length>256){ this.setState({sweepResult:null,sweepErr:'組合數 '+(xs.length*ys.length)+' 過多（上限 256），請縮小範圍或加大間距。'}); return; }
+    this.setState({sweepRunning:true,sweepErr:null});
+    setTimeout(()=>{
+      this._sweeping=true; const grid=[]; let best=null,lo=Infinity,hi=-Infinity;
+      for(const yv of ys){ const row=[]; for(const xv of xs){
+        const strat={...base,[cfg.x]:xv}; if(cfg.use2d) strat[cfg.y]=yv;
+        this._stratOverride=strat; this._captureResult=true; this._captured=null; this.runBacktestCore();
+        this._stratOverride=null; this._captureResult=false; const res=this._captured; this._captured=null;
+        const m=res?this.sweepMetricVal(res.stats,cfg.metric):null; const tr=res?res.stats.trades:0;
+        if(m!=null){ if(m<lo)lo=m; if(m>hi)hi=m; if(tr>0 && (!best||m>best.m)) best={x:xv,y:yv,m,trades:tr}; }
+        row.push({x:xv,y:yv,m,trades:tr});
+      } grid.push(row); }
+      this._sweeping=false;
+      this.setState({sweepResult:{grid,xs,ys,metric:cfg.metric,use2d:cfg.use2d,xKey:cfg.x,yKey:cfg.y,best,lo,hi},sweepRunning:false});
+    },40);
+  }
+  applySweepBest(){ const r=this.state.sweepResult; if(!r||!r.best) return; const patch={[r.xKey]:r.best.x}; if(r.use2d) patch[r.yKey]=r.best.y; this.setState({sweepOpen:false},()=>this.setStrat(patch)); }
+  replayToggle(){ const on=!this.state.replayOn; if(on){ const st=this.state.strat; const need=Math.max(st.slowMA,st.rsiPeriod,st.macdSlow,st.bbPeriod)+5; const L=this.state.candles.length; const idx=Math.min(L-1,Math.max(need,Math.floor(L*0.6))); this.setState({replayOn:true,replayIdx:idx,replayPlaying:false},()=>this.drawChart()); } else { this.stopReplay(); this.setState({replayOn:false,replayIdx:null,replayPlaying:false},()=>this.drawChart()); } }
+  replaySeek(i){ const idx=Math.max(0,Math.min(this.state.candles.length-1,i|0)); this.setState({replayIdx:idx},()=>this.drawChart()); }
+  replayStep(d){ this.replaySeek((this.state.replayIdx||0)+d); }
+  stopReplay(){ if(this._replayTimer){ clearInterval(this._replayTimer); this._replayTimer=null; } }
+  replayPlayPause(){ if(this.state.replayPlaying){ this.stopReplay(); this.setState({replayPlaying:false}); return; } this.setState({replayPlaying:true}); this._replayTimer=setInterval(()=>{ const ni=(this.state.replayIdx||0)+1; if(ni>=this.state.candles.length){ this.stopReplay(); this.setState({replayPlaying:false,replayIdx:this.state.candles.length-1},()=>this.drawChart()); return; } this.setState({replayIdx:ni},()=>this.drawChart()); }, 300); }
+
+  /* ---------- paper trading ---------- */
+  curPrice(){ const s=this.state; return s.livePrice!=null?s.livePrice:(s.candles.length?s.candles[s.candles.length-1].c:0); }
+  paperBuy(px,reason){ this.setState(s=>{ const p=s.paper; if(p.position>0||p.cash<=0||!px) return null; const st=s.strat; const fee=Math.max(0,(+st.feePct||0))/100, slip=Math.max(0,(+st.slipPct||0))/100, sf=Math.min(1,Math.max(0.01,(+st.sizePct||100)/100)); const fill=px*(1+slip); const notional=p.cash*sf; const qty=notional/fill; const cost=qty*fill, fc=cost*fee; const np={...p,position:qty,avgPrice:fill,cash:p.cash-cost-fc,trades:[{side:'BUY',t:Date.now(),price:fill,qty,reason},...p.trades].slice(0,120)}; this.persistPaper(np); return {paper:np}; }); }
+  paperSell(px,reason){ this.setState(s=>{ const p=s.paper; if(p.position<=0||!px) return null; const st=s.strat; const fee=Math.max(0,(+st.feePct||0))/100, slip=Math.max(0,(+st.slipPct||0))/100; const fill=px*(1-slip); const qty=p.position; const proceeds=qty*fill, fc=proceeds*fee; const pnl=(fill-p.avgPrice)*qty - (p.avgPrice*qty+proceeds)*fee; const pnlPct=pnl/(p.avgPrice*qty); const np={...p,position:0,avgPrice:0,cash:p.cash+proceeds-fc,trades:[{side:'SELL',t:Date.now(),price:fill,qty,pnl,pnlPct,reason},...p.trades].slice(0,120)}; this.persistPaper(np); return {paper:np}; }); }
+  setPaper(patch){ this.setState(s=>{ const np={...s.paper,...patch}; this.persistPaper(np); return {paper:np}; }); }
+
+  /* ---------- strategy edits ---------- */
+  setStrat(patch){ this.setState(s=>{ const ns={...s.strat,...patch}; this.persistStrat(ns); return {strat:ns}; }, ()=>{ if(this.state.view==='backtest') this.runBacktest(); this.drawChart(); }); }
+  updRule(list,idx,field,v){ const arr=this.state.strat[list].map((r,i)=>i===idx?{...r,[field]:v}:r); this.setStrat({[list]:arr}); }
+  addRule(list){ this.setStrat({[list]:[...this.state.strat[list],{l:'price',op:'>',r:'maSlow'}]}); }
+  delRule(list,idx){ this.setStrat({[list]:this.state.strat[list].filter((_,i)=>i!==idx)}); }
+
+  /* ---------- chart ---------- */
+  drawChart(){
+    const cv=this.chartRef.current; if(!cv) return; const wrap=cv.parentElement; const W=wrap.clientWidth,H=wrap.clientHeight; if(W<10||H<10) return;
+    const dpr=window.devicePixelRatio||1; cv.width=W*dpr; cv.height=H*dpr; const ctx=cv.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,W,H);
+    const candles=this.state.candles; if(!candles||!candles.length) return;
+    if(this.state.replayOn && this.state.replayIdx!=null){ this._replayCap=Math.max(1,Math.min(candles.length,this.state.replayIdx+1)); } else { this._replayCap=null; }
+    const up=this.props.upColor||'#11875a', down=this.props.downColor||'#d23b2f';
+    const padR=58,padT=8,padB=4,padL=4; const plotW=W-padR-padL, plotH=H-padT-padB;
+    const eff=this._replayCap||candles.length;
+    const len=eff; let count=this.curCount(); let end=this.curEnd(); if(this._replayCap){ end=eff; count=Math.min(count,eff); } const offset=Math.max(0,end-count); const n=count; const vis=candles.slice(offset,end); const cw=plotW/n;
+    let lo=Infinity,hi=-Infinity; for(const c of vis){ if(c.l<lo)lo=c.l; if(c.h>hi)hi=c.h; }
+    const S=this.computeSeries(candles,this.state.strat); const ind=this.state.ind;
+    const inc=arr=>{ for(let i=offset;i<end;i++){ const v=arr[i]; if(v!=null){ if(v<lo)lo=v; if(v>hi)hi=v; } } };
+    if(ind.ma){ inc(S.maFast); inc(S.maSlow); } if(ind.ema) inc(S.ema); if(ind.bb){ inc(S.bbUpper); inc(S.bbLower); }
+    const pad=(hi-lo)*0.06||1; lo-=pad; hi+=pad;
+    const Y=p=>padT+plotH-((p-lo)/(hi-lo))*plotH; const X=gi=>padL+(gi-offset)*cw+cw/2;
+    ctx.font="10px 'IBM Plex Mono',monospace"; ctx.textBaseline='middle';
+    for(let i=0;i<=5;i++){ const p=lo+(hi-lo)*i/5; const y=Y(p); ctx.strokeStyle='#f3f1ea'; ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(padL+plotW,y); ctx.stroke(); ctx.fillStyle='#bdb9ab'; ctx.textAlign='left'; ctx.fillText(this.pf(p),padL+plotW+5,y); }
+    if(ind.vol){ let vmax=0; for(const c of vis) if(c.v>vmax)vmax=c.v; const volH=plotH*0.16; for(let k=0;k<vis.length;k++){ const c=vis[k]; const h=vmax?(c.v/vmax)*volH:0; ctx.fillStyle=c.c>=c.o?up:down; ctx.globalAlpha=0.13; ctx.fillRect(X(offset+k)-cw*0.3,padT+plotH-h,cw*0.6,h); ctx.globalAlpha=1; } }
+    const line=(arr,color,dash)=>{ ctx.strokeStyle=color; ctx.lineWidth=1.3; if(dash)ctx.setLineDash(dash); ctx.beginPath(); let st=false; for(let gi=offset;gi<end;gi++){ const v=arr[gi]; if(v==null){ st=false; continue; } const x=X(gi),y=Y(v); if(!st){ ctx.moveTo(x,y); st=true; } else ctx.lineTo(x,y); } ctx.stroke(); if(dash)ctx.setLineDash([]); };
+    if(ind.bb){ line(S.bbUpper,'rgba(155,81,224,0.5)'); line(S.bbLower,'rgba(155,81,224,0.5)'); line(S.bbMid,'rgba(155,81,224,0.4)',[2,3]); }
+    const bw=Math.max(1,cw*0.62);
+    for(let k=0;k<vis.length;k++){ const c=vis[k]; const x=X(offset+k); const col=c.c>=c.o?up:down; ctx.strokeStyle=col; ctx.fillStyle=col; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(x,Y(c.h)); ctx.lineTo(x,Y(c.l)); ctx.stroke(); const yo=Y(c.o),yc=Y(c.c); let top=Math.min(yo,yc),hgt=Math.abs(yc-yo); if(hgt<1)hgt=1; ctx.fillRect(x-bw/2,top,bw,hgt); }
+    if(ind.ma){ line(S.maFast,'#2d6cdf'); line(S.maSlow,'#e0871e'); } if(ind.ema) line(S.ema,'#9b51e0');
+    const marks=this.state.view==='live'?this.markersFromPaper(candles):(this.state.bt?this.state.bt.trades:[]);
+    for(const t of marks){ if(t.i<offset||t.i>=end) continue; const x=X(t.i); const buy=t.side==='BUY'; const y=buy?Y(candles[t.i].l)+13:Y(candles[t.i].h)-13; ctx.fillStyle=buy?up:down; ctx.beginPath(); if(buy){ ctx.moveTo(x,y-6); ctx.lineTo(x-5,y+4); ctx.lineTo(x+5,y+4);} else { ctx.moveTo(x,y+6); ctx.lineTo(x-5,y-4); ctx.lineTo(x+5,y-4);} ctx.closePath(); ctx.fill(); }
+    if(this.state.view==='backtest'){ const L=candles.length; const fT=this.state.btFrom, tT=this.state.btTo; let rS=0; if(fT){ rS=candles.findIndex(c=>c.t>=fT); if(rS<0)rS=L; } let rE=L; if(tT){ rE=0; for(let i=L-1;i>=0;i--){ if(candles[i].t<=tT){ rE=i+1; break; } } } ctx.fillStyle='#16150f'; ctx.globalAlpha=0.06; const x0=padL, x1=padL+plotW; const lx=Math.max(x0,Math.min(x1, padL+(rS-offset)*cw)); if(lx>x0) ctx.fillRect(x0,padT,lx-x0,plotH); const rx=Math.max(x0,Math.min(x1, padL+(rE-offset)*cw)); if(rx<x1) ctx.fillRect(rx,padT,x1-rx,plotH); ctx.globalAlpha=1; }
+    const last=candles[end-1].c, yl=Y(last); ctx.strokeStyle='#16150f'; ctx.globalAlpha=0.32; ctx.setLineDash([3,3]); ctx.beginPath(); ctx.moveTo(padL,yl); ctx.lineTo(padL+plotW,yl); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha=1; ctx.fillStyle='#16150f'; ctx.fillRect(padL+plotW,yl-8,padR-2,16); ctx.fillStyle='#fff'; ctx.textAlign='left'; ctx.fillText(this.pf(last),padL+plotW+4,yl);
+    const hx=this.state.hoverIdx; if(hx!=null&&hx>=offset&&hx<end){ const x=X(hx); ctx.strokeStyle='#16150f'; ctx.globalAlpha=0.22; ctx.setLineDash([2,3]); ctx.beginPath(); ctx.moveTo(x,padT); ctx.lineTo(x,padT+plotH); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha=1; }
+    this._geom={offset,cw,padL,end,n,W};
+    this.drawRsi(S,offset,end,n,candles);
+  }
+  drawRsi(S,offset,end,n,candles){
+    const cv=this.rsiRef.current; if(!cv) return; const wrap=cv.parentElement; const W=wrap.clientWidth,H=wrap.clientHeight; if(W<10||H<10) return;
+    const dpr=window.devicePixelRatio||1; cv.width=W*dpr; cv.height=H*dpr; const ctx=cv.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,W,H);
+    const padR=58,padL=4,padT=14,padB=6; const plotW=W-padR-padL, plotH=H-padT-padB; const cw=plotW/n;
+    const Y=v=>padT+plotH-(v/100)*plotH; const X=gi=>padL+(gi-offset)*cw+cw/2;
+    ctx.font="9px 'IBM Plex Mono',monospace"; ctx.textBaseline='middle'; ctx.textAlign='left';
+    const strat=this.state.strat; const guides=[[30,'#ece9e2'],[50,'#f3f1ea'],[70,'#ece9e2']];
+    guides.forEach(([g,col])=>{ const y=Y(g); ctx.strokeStyle=col; ctx.setLineDash(g===50?[]:[2,3]); ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(padL+plotW,y); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle='#cfccc4'; ctx.fillText(String(g),padL+plotW+5,y); });
+    [[strat.rsiBuy,'#1f8a5b'],[strat.rsiSell,'#d23b2f']].forEach(([lv,col])=>{ if(lv==null)return; const y=Y(lv); ctx.strokeStyle=col; ctx.globalAlpha=0.5; ctx.setLineDash([4,3]); ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(padL+plotW,y); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha=1; ctx.fillStyle=col; ctx.fillText(String(lv),padL+plotW+5,y); });
+    ctx.strokeStyle='#6b6b6b'; ctx.lineWidth=1.2; ctx.beginPath(); let st=false; for(let gi=offset;gi<end;gi++){ const v=S.rsi[gi]; if(v==null){ st=false; continue; } const x=X(gi),y=Y(v); if(!st){ ctx.moveTo(x,y); st=true; } else ctx.lineTo(x,y); } ctx.stroke();
+  }
+  markersFromPaper(candles){ const out=[]; for(const t of this.state.paper.trades){ let idx=candles.length-1; for(let i=candles.length-1;i>=0;i--){ if(candles[i].t<=t.t){ idx=i; break; } } out.push({i:idx,side:t.side}); } return out; }
+  onChartMove(e){ const g=this._geom; if(!g) return; const cv=this.chartRef.current; const rect=cv.getBoundingClientRect(); const x=e.clientX-rect.left, y=e.clientY-rect.top; let idx=g.offset+Math.floor((x-g.padL)/g.cw); idx=Math.max(g.offset,Math.min(g.end-1,idx)); this.setState({hoverIdx:idx,mx:x,my:y}); }
+
+  /* ---------- formatters ---------- */
+  pf(n){ if(n==null||isNaN(n)) return '—'; const a=Math.abs(n); const d=a>=1000?2:a>=1?2:a>=0.1?3:a>=0.001?5:7; return n.toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d}); }
+  pctS(n){ if(n==null||isNaN(n)||!isFinite(n)) return '—'; return (n>=0?'+':'')+(n*100).toFixed(2)+'%'; }
+  usd(n){ if(n==null||isNaN(n)) return '—'; return '$'+n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+  compact(n){ if(n==null||isNaN(n)) return '—'; const a=Math.abs(n); if(a>=1e9)return (n/1e9).toFixed(2)+'B'; if(a>=1e6)return (n/1e6).toFixed(2)+'M'; if(a>=1e3)return (n/1e3).toFixed(2)+'K'; return n.toFixed(2); }
+  ftime(t){ const d=new Date(t); const p=x=>String(x).padStart(2,'0'); return p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes()); }
+  ftimeY(t){ const d=new Date(t); const p=x=>String(x).padStart(2,'0'); return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes()); }
+  dstr(t){ const d=new Date(t); const p=x=>String(x).padStart(2,'0'); return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate()); }
+
+  /* ---------- render ---------- */
+  renderVals(){
+    const st=this.state; const accent=this.props.accent||'#16150f'; const up=this.props.upColor||'#11875a'; const down=this.props.downColor||'#d23b2f';
+    const last=st.candles.length?st.candles[st.candles.length-1]:null;
+    const lp=st.livePrice!=null?st.livePrice:(last?last.c:null);
+    const day=st.day; const changeColor=day?(day.chg>=0?up:down):'#8a8678'; const changeStr=day?((day.chg>=0?'+':'')+day.chg.toFixed(2)+'%'):'—';
+    const intervalBtns=this.intervals.map(v=>({v,onClick:()=>this.setState({interval:v,frozen:null}),bg:v===st.interval?accent:'#fff',color:v===st.interval?'#fff':'#8a8678'}));
+    const viewBtns=[{k:'backtest',label:'回測'},{k:'live',label:'即時模擬'}].map(o=>({label:o.label,onClick:()=>this.setState(o.k==='live'?{view:'live',frozen:null}:{view:o.k}),bg:o.k===st.view?accent:'#fff',color:o.k===st.view?'#fff':'#8a8678'}));
+    const rc=(st.hoverIdx!=null&&st.candles[st.hoverIdx])?st.candles[st.hoverIdx]:last;
+    const ro=rc?{o:this.pf(rc.o),h:this.pf(rc.h),l:this.pf(rc.l),c:this.pf(rc.c),v:this.compact(rc.v),time:this.ftime(rc.t),chg:this.pctS(rc.c/rc.o-1),chgColor:rc.c>=rc.o?up:down}:{o:'—',h:'—',l:'—',c:'—',v:'—',time:'',chg:'—',chgColor:'#8a8678'};
+    const ind=st.ind; const toggleInd=k=>()=>{ this.setState(s=>({ind:{...s.ind,[k]:!s.ind[k]}}),()=>{ this.drawChart(); setTimeout(()=>this.drawChart(),180); }); };
+    const indGroupBg=k=>ind[k]?'#f5f3ee':'#fff'; const indTextColor=k=>ind[k]?'#16150f':'#bdb9ab';
+    const rsiPanelH = ind.rsi?'82px':'0px';
+    const tabBtns=[['params','參數'],['blocks','規則積木'],['code','程式碼']].map(([k,label])=>({label,onClick:()=>{ this.setState({tab:k}); this.setStrat({mode:k}); },helpClick:(e)=>{ e.stopPropagation(); this.setState({stratHelp:true,stratHelpTab:k}); },bb:st.tab===k?('2px solid '+accent):'2px solid transparent',color:st.tab===k?'#16150f':'#aaa599'}));
+    const num=k=>e=>this.setStrat({[k]: e.target.value===''?0:(+e.target.value)});
+    const txt=k=>e=>this.setStrat({[k]:e.target.value});
+    const mkRows=name=>st.strat[name].map((r,idx)=>({l:r.l,op:r.op,r:String(r.r),onL:e=>this.updRule(name,idx,'l',e.target.value),onOp:e=>this.updRule(name,idx,'op',e.target.value),onR:e=>this.updRule(name,idx,'r',e.target.value),onDel:()=>this.delRule(name,idx)}));
+    const entrySigOpts=[{v:'maCrossUp',label:'快線上穿慢線（黃金交叉）'},{v:'emaCrossUp',label:'價格上穿 EMA'},{v:'priceAboveSlow',label:'價格 > 慢線'},{v:'rsiOversold',label:'RSI 由超賣回升'},{v:'macdCrossUp',label:'MACD 上穿訊號線'},{v:'bbLowerTouch',label:'價格跌破布林下軌'},{v:'stochOversold',label:'隨機指標由超賣回升'}];
+    const exitSigOpts=[{v:'maCrossDown',label:'快線下穿慢線（死亡交叉）'},{v:'emaCrossDown',label:'價格下穿 EMA'},{v:'priceBelowSlow',label:'價格 < 慢線'},{v:'rsiOverbought',label:'RSI 由超買回落'},{v:'macdCrossDown',label:'MACD 下穿訊號線'},{v:'bbUpperTouch',label:'價格突破布林上軌'},{v:'stochOverbought',label:'隨機指標由超買回落'}];
+
+    const bt=st.bt; let statsList=[],btTrades=[],eqPts='',hasBt=!!bt,btTradeCount=0;
+    if(bt){ const s=bt.stats; btTradeCount=s.trades; statsList=[
+      {label:'淨報酬',value:this.pctS(s.net),color:s.net>=0?up:down},
+      {label:'買入持有',value:this.pctS(s.bh),color:s.bh>=0?up:down},
+      {label:'勝率',value:(s.winRate*100).toFixed(1)+'%',color:'#16150f'},
+      {label:'交易次數',value:String(s.trades),color:'#16150f'},
+      {label:'最大回撤',value:'-'+(s.maxDD*100).toFixed(1)+'%',color:down},
+      {label:'獲利因子',value:isFinite(s.pf)?s.pf.toFixed(2):'∞',color:'#16150f'},
+      {label:'平均每筆',value:this.pctS(s.avgTrade),color:s.avgTrade>=0?up:down},
+      {label:'結束權益',value:this.usd(s.endEq),color:'#16150f'}
+    ];
+      const eq=bt.eq; let bhPts='',ddPts='',ddArea='',eqBigPts='',bhBigPts='',maxDDpct=0;
+      if(eq.length){ let mn=Infinity,mx=-Infinity; for(const e of eq){ const lo=Math.min(e.v,e.bh==null?e.v:e.bh), hi=Math.max(e.v,e.bh==null?e.v:e.bh); if(lo<mn)mn=lo; if(hi>mx)mx=hi; if((e.dd||0)>maxDDpct)maxDDpct=e.dd||0; }
+        const w=336,h=54,dn=(mx-mn)||1,dl=(eq.length-1)||1;
+        eqPts=eq.map((e,i)=>((i/dl)*w).toFixed(1)+','+(h-((e.v-mn)/dn)*h).toFixed(1)).join(' ');
+        bhPts=eq.map((e,i)=>((i/dl)*w).toFixed(1)+','+(h-(((e.bh==null?e.v:e.bh)-mn)/dn)*h).toFixed(1)).join(' ');
+        const W=680,H=150; // larger focus chart
+        eqBigPts=eq.map((e,i)=>((i/dl)*W).toFixed(1)+','+(H-((e.v-mn)/dn)*H).toFixed(1)).join(' ');
+        bhBigPts=eq.map((e,i)=>((i/dl)*W).toFixed(1)+','+(H-(((e.bh==null?e.v:e.bh)-mn)/dn)*H).toFixed(1)).join(' ');
+        const DH=54, ddMax=maxDDpct||1;
+        ddPts=eq.map((e,i)=>((i/dl)*W).toFixed(1)+','+(((e.dd||0)/ddMax)*DH).toFixed(1)).join(' ');
+        ddArea='0,0 '+ddPts+' '+W+',0';
+      }
+      this._eqViz={bhPts,eqBigPts,bhBigPts,ddArea,maxDDpct};
+      btTrades=bt.trades.slice().reverse().slice(0,80).map(t=>({side:t.side,sideColor:t.side==='BUY'?up:down,time:this.ftime(t.t),price:this.pf(t.price),pnl:t.side==='SELL'?this.pctS(t.pnlPct):'—',pnlColor:t.side==='SELL'?(t.pnl>=0?up:down):'#cfccc4'}));
+    }
+
+    // focus-data (collapsed chart) view
+    const collapsed=st.chartCollapsed;
+    const chartBoxFlex=collapsed?'flex:0 0 0;border-width:0;overflow:hidden':'flex:1 1 0';
+    const showFocus=collapsed && st.view==='backtest';
+    let focusStats=[],rtRows=[],rtCount=0,focusMeta='';
+    if(bt){ const s=bt.stats, e=s.ext||{}; const cP=v=>v>=0?up:down;
+      focusMeta=st.symbol+' · '+st.interval+' · '+e.bars+' 根 · '+(st.frozen?(({binance:'Binance',okx:'OKX',coinbase:'Coinbase'})[st.frozen.source]||'匯入'):(({binance:'Binance',okx:'OKX',coinbase:'Coinbase'})[this.source]||'—'));
+      focusStats=[
+        {label:'淨報酬',value:this.pctS(s.net),color:cP(s.net)},
+        {label:'買入持有',value:this.pctS(s.bh),color:cP(s.bh)},
+        {label:'超額報酬',value:this.pctS(s.net-s.bh),color:cP(s.net-s.bh)},
+        {label:'結束權益',value:this.usd(s.endEq),color:'#16150f'},
+        {label:'交易次數',value:String(s.trades),color:'#16150f'},
+        {label:'勝率',value:(s.winRate*100).toFixed(1)+'%',color:'#16150f'},
+        {label:'獲利因子',value:isFinite(s.pf)?s.pf.toFixed(2):'∞',color:'#16150f'},
+        {label:'期望值/筆',value:this.pctS(e.expectancy),color:cP(e.expectancy||0)},
+        {label:'平均獲利',value:this.pctS(e.avgWin),color:up},
+        {label:'平均虧損',value:this.pctS(e.avgLoss),color:down},
+        {label:'盈虧比',value:isFinite(e.payoff)?e.payoff.toFixed(2):'∞',color:'#16150f'},
+        {label:'最大回撤',value:'-'+(s.maxDD*100).toFixed(1)+'%',color:down},
+        {label:'夏普(每筆)',value:(e.sharpe||0).toFixed(2),color:cP(e.sharpe||0)},
+        {label:'索提諾',value:isFinite(e.sortino)?(e.sortino).toFixed(2):'∞',color:cP(e.sortino||0)},
+        {label:'卡瑪',value:isFinite(e.calmar)?(e.calmar).toFixed(2):'∞',color:cP(e.calmar||0)},
+        {label:'最大連勝',value:String(e.maxConsecWin||0),color:'#16150f'},
+        {label:'最大連敗',value:String(e.maxConsecLoss||0),color:'#16150f'},
+        {label:'最大單筆獲利',value:this.pctS(e.largestWin),color:up},
+        {label:'最大單筆虧損',value:this.pctS(e.largestLoss),color:down},
+        {label:'平均持有',value:(e.avgBars||0).toFixed(1)+' 根',color:'#16150f'},
+        {label:'在市場時間',value:(e.timeInMkt*100||0).toFixed(0)+'%',color:'#16150f'},
+        {label:'平均 MFE',value:this.pctS(e.avgMfe||0),color:up},
+        {label:'平均 MAE',value:this.pctS(e.avgMae||0),color:down}
+      ];
+      rtCount=bt.rts.length;
+      rtRows=bt.rts.slice().reverse().slice(0,200).map((r,i)=>({n:rtCount-i,entry:this.ftime(r.entryT),exit:this.ftime(r.exitT),bars:String(r.bars),entryPrice:this.pf(r.entryPrice),exitPrice:this.pf(r.exitPrice),pnl:this.pctS(r.pnlPct),color:r.pnl>=0?up:down,reason:r.reason||'',mfe:this.pctS(r.mfe||0),mae:this.pctS(r.mae||0)}));
+    }
+
+    const p=st.paper; const posVal=p.position*(lp||0); const equity=p.cash+posVal; const pnl=equity-p.startCash; const pnlPct=p.startCash?pnl/p.startCash:0;
+    let sigLabel='—',sigColor='#8a8678';
+    if(st.candles.length>5){ const sig=this.makeSig(st.candles,st.strat); const i=st.candles.length-1; if(p.position>0){ if(sig.exit(i)){ sigLabel='出場訊號'; sigColor=down; } else { sigLabel='持倉中'; sigColor=up; } } else { if(sig.entry(i)){ sigLabel='進場訊號'; sigColor=up; } else { sigLabel='觀望中'; sigColor='#8a8678'; } } }
+    let stratSummary;
+    if(st.strat.mode==='params'){ const el=(entrySigOpts.find(o=>o.v===st.strat.entrySig)||{}).label||''; const xl=(exitSigOpts.find(o=>o.v===st.strat.exitSig)||{}).label||''; stratSummary='進：'+el+' / 出：'+xl; }
+    else if(st.strat.mode==='blocks'){ stratSummary='規則積木 · '+st.strat.entryRules.length+' 進場 / '+st.strat.exitRules.length+' 出場 條件'; }
+    else { stratSummary='自訂程式碼策略'; }
+    if(st.strat.slPct>0||st.strat.tpPct>0) stratSummary+=' · SL '+st.strat.slPct+'% / TP '+st.strat.tpPct+'%';
+    const paperTrades=p.trades.slice(0,80).map(t=>({side:t.side,sideColor:t.side==='BUY'?up:down,reason:t.reason||'',time:this.ftime(t.t),price:this.pf(t.price),pnl:t.side==='SELL'?this.pctS(t.pnlPct):'—',pnlColor:t.side==='SELL'?(t.pnl>=0?up:down):'#cfccc4'}));
+
+    const srcName={binance:'Binance',okx:'OKX',coinbase:'Coinbase'}[this.source]||'';
+    const connMap={idle:['#cfccc4','待命'],loading:['#e0871e','載入中'],rest:['#11875a','歷史 '+srcName],connecting:['#e0871e','連線中'],live:['#11875a',(this.source==='binance'?'即時串流':'即時輪詢')+' '+srcName],frozen:['#16150f','本地資料集'],error:['#d23b2f','連線錯誤']};
+    const cm=connMap[st.conn]||connMap.idle;
+    const panelSide=this.props.panelSide||'right';
+
+    const W=this._geom?this._geom.W:600; let tip={show:false};
+    if(st.hoverIdx!=null && st.candles[st.hoverIdx]){ const c=st.candles[st.hoverIdx]; const lft=(st.mx>W-172)?(st.mx-158):(st.mx+16); tip={show:true,left:Math.max(2,lft)+'px',top:Math.max(2,st.my-14)+'px',time:this.ftimeY(c.t),o:this.pf(c.o),h:this.pf(c.h),l:this.pf(c.l),c:this.pf(c.c),v:this.compact(c.v),chg:this.pctS(c.c/c.o-1),cColor:c.c>=c.o?up:down}; }
+
+    return {
+      symbol:st.symbol, symbols:this.symbols, setSymbol:e=>this.setState({symbol:e.target.value,frozen:null}),
+      intervalBtns, viewBtns, strat:st.strat,
+      priceStr:this.pf(lp), changeStr, changeColor, dayHigh:day?this.pf(day.high):'—', dayLow:day?this.pf(day.low):'—',
+      connColor:cm[0], connLabel:cm[1], connAnim:st.conn==='live'?'pulse 1.4s infinite':'none',
+      sysClock:(()=>{ const d=new Date(st.now||Date.now()); const p=x=>String(x).padStart(2,'0'); return p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds()); })(),
+      showLastTick: st.view==='live' && !!this._lastTick,
+      lastTickAgo:(()=>{ if(!this._lastTick) return '—'; const s=Math.max(0,Math.round(((st.now||Date.now())-this._lastTick)/1000)); return s<60?(s+'秒前'):(Math.floor(s/60)+'分'+(s%60)+'秒前'); })(),
+      lastTickColor:(()=>{ if(!this._lastTick) return '#8a8678'; const s=((st.now||Date.now())-this._lastTick)/1000; return s<15?up:(s<60?'#b4801a':down); })(),
+      chartRef:this.chartRef, rsiRef:this.rsiRef, onChartMove:e=>this.onChartMove(e), onChartLeave:()=>this.setState({hoverIdx:null}),
+      ro, tip, rsiPanelH, loading:st.loading, error:st.error, accent,
+      toggleMa:toggleInd('ma'), toggleEma:toggleInd('ema'), toggleBb:toggleInd('bb'), toggleRsi:toggleInd('rsi'), toggleVol:toggleInd('vol'),
+      maGroupBg:indGroupBg('ma'), emaGroupBg:indGroupBg('ema'), bbGroupBg:indGroupBg('bb'), rsiGroupBg:indGroupBg('rsi'), volGroupBg:indGroupBg('vol'),
+      maTextColor:indTextColor('ma'), emaTextColor:indTextColor('ema'), bbTextColor:indTextColor('bb'), rsiTextColor:indTextColor('rsi'), volTextColor:indTextColor('vol'),
+      help:st.help, helpToggle:()=>this.setState(s=>({help:!s.help})), helpClose:()=>this.setState({help:false}), stop:e=>e.stopPropagation(),
+      stratHelp:st.stratHelp, stratHelpOpen:()=>this.setState({stratHelp:true,stratHelpTab:st.tab}), stratHelpClose:()=>this.setState({stratHelp:false}),
+      shTabs:[['params','參數'],['blocks','規則積木'],['code','程式碼']].map(([k,label])=>({label,onClick:()=>this.setState({stratHelpTab:k}),bg:st.stratHelpTab===k?'#f5f3ee':'#fff',bb:st.stratHelpTab===k?('2px solid '+accent):'2px solid transparent',color:st.stratHelpTab===k?'#16150f':'#aaa599'})),
+      shParams:st.stratHelpTab==='params', shBlocks:st.stratHelpTab==='blocks', shCode:st.stratHelpTab==='code',
+      dsSel:st.dsSel, setDsSel:e=>this.setState({dsSel:e.target.value,frozen:null}), dsOpts:[{v:'auto',label:'自動容錯'+(this.source&&st.dsSel==='auto'?'（目前 '+srcName+'）':'')},{v:'binance',label:'Binance'},{v:'okx',label:'OKX'},{v:'coinbase',label:'Coinbase'}],
+      activeSrc: st.frozen?(({binance:'Binance',okx:'OKX',coinbase:'Coinbase'})[st.frozen.source]||'匯入檔案'):(srcName||'—'),
+      activeSrcMode: st.frozen?'本地資料集':(st.dsSel==='auto'?'自動容錯':'手動指定'),
+      fileRef:this.fileRef, downloadJson:()=>this.downloadJson(), downloadCsv:()=>this.downloadCsv(), downloadReport:()=>this.downloadReport(), downloadTradesCsv:()=>this.downloadTradesCsv(), pickFile:()=>this.pickFile(), onLoadFile:e=>this.onLoadFile(e), unfreeze:()=>this.unfreeze(),
+      stratLibSel:st.stratLibSel, stratName:st.stratName,
+      presetSel:st.presetSel||'', presetOpts:[{v:'',label:'— 選擇範例策略 —'}].concat(this.presetStrats().map(p=>({v:p.key,label:p.name}))),
+      presetDesc:(()=>{ const p=this.presetStrats().find(p=>p.key===st.presetSel); return p?p.desc:''; })(),
+      onLoadPreset:e=>{ const v=e.target.value; this.setState({presetSel:v}); if(v) this.loadPreset(v); },
+      stratLibOpts:[{v:'',label:'— 已存策略（'+Object.keys(st.stratLib).length+'）—'}].concat(Object.keys(st.stratLib).map(n=>({v:n,label:n}))),
+      onLoadStrat:e=>{ if(e.target.value) this.loadStratNamed(e.target.value); },
+      onStratName:e=>this.setState({stratName:e.target.value}),
+      saveStratClick:()=>this.saveStratAs(st.stratName||('策略 '+(Object.keys(st.stratLib).length+1))),
+      delStratClick:()=>this.delStratNamed(st.stratLibSel),
+      canDelStrat:!!st.stratLibSel,
+      frozen: st.frozen?{show:true,label:st.frozen.symbol+' '+st.frozen.interval+'（'+(({binance:'Binance',okx:'OKX',coinbase:'Coinbase'})[st.frozen.source]||st.frozen.source||'匯入')+'）',count:st.frozen.count,at:st.frozen.fetchedAt}:{show:false},
+      advOpen:st.advOpen, advToggle:()=>this.setState(s=>({advOpen:!s.advOpen})), advCaret:st.advOpen?'▾':'▸',
+      mainOrder:panelSide==='left'?2:1, asideOrder:panelSide==='left'?1:2, asideBorder:panelSide==='left'?'border-right:1px solid #d6d2c8':'border-left:1px solid #d6d2c8',
+      isBacktest:st.view==='backtest', isLive:st.view==='live',
+      tabBtns, isParams:st.tab==='params', isBlocks:st.tab==='blocks', isCode:st.tab==='code', codeErr:this._codeErr||null,
+      sFast:num('fastMA'), sSlow:num('slowMA'), sEma:num('emaPeriod'), sRsiP:num('rsiPeriod'), sRsiBuy:num('rsiBuy'), sRsiSell:num('rsiSell'), sSl:num('slPct'), sTp:num('tpPct'),
+      sFee:num('feePct'), sSlip:num('slipPct'), sSize:num('sizePct'), sFill:txt('fillMode'),
+      feePresets:[['幣安',0.10,0.02,'Binance 現貨吃單 0.10%（含 BNB 折抵約 0.075%）；主流幣典型滑點 ~0.02%'],['OKX',0.10,0.03,'OKX 現貨吃單 Lv1 0.10%；典型滑點 ~0.03%'],['Coinbase',0.60,0.05,'Coinbase Advanced 散戶吃單約 0.60%（<$10k 量級）；滑點 ~0.05%']].map(([label,f,s,title])=>({label,title,onClick:()=>this.setStrat({feePct:f,slipPct:s}),bg:(+st.strat.feePct===f&&+st.strat.slipPct===s)?accent:'#fff',color:(+st.strat.feePct===f&&+st.strat.slipPct===s)?'#fff':'#8a8678',border:(+st.strat.feePct===f&&+st.strat.slipPct===s)?accent:'#d6d2c8'})),
+      fillOpts:[{v:'close',label:'當根收盤'},{v:'nextOpen',label:'下一根開盤'}],
+      dirBtns:[['long','做多'],['short','做空'],['both','多空反手']].map(([k,label])=>({label,onClick:()=>this.setStrat({direction:k}),bg:st.strat.direction===k?accent:'#fff',color:st.strat.direction===k?'#fff':'#8a8678'})),
+      execHint:'手續費 '+(st.strat.feePct||0)+'% + 滑點 '+(st.strat.slipPct||0)+'% 每邊皆計入；部位 '+(st.strat.sizePct||100)+'% 權益；'+(st.strat.fillMode==='nextOpen'?'訊號隔根開盤成交':'訊號當根收盤成交')+'；'+({long:'僅做多',short:'僅做空',both:'多空反手'}[st.strat.direction]||'僅做多')+'。',
+      barMag:st.barMag, magStatus:st.magStatus,
+      toggleMag:e=>{ const on=e.target.checked; this.setState({barMag:on, magStatus:on?null:null},()=>{ this.runBacktest(); }); },
+      sMacdF:num('macdFast'), sMacdS:num('macdSlow'), sMacdSig:num('macdSignal'), sBbP:num('bbPeriod'), sBbM:num('bbMult'), sAtr:num('atrPeriod'), sStochP:num('stochPeriod'), sStochS:num('stochSmooth'), sVolMa:num('volMaPeriod'),
+      sEntrySig:txt('entrySig'), sExitSig:txt('exitSig'), sEntryCode:txt('entryCode'), sExitCode:txt('exitCode'),
+      entrySigOpts, exitSigOpts,
+      lOpts:['price','open','high','low','volume','maFast','maSlow','ema','rsi','macd','macdSignal','macdHist','bbUpper','bbMid','bbLower','atr','stochK','stochD','volMa'],
+      opOpts:[{v:'>',l:'>'},{v:'<',l:'<'},{v:'>=',l:'≥'},{v:'<=',l:'≤'},{v:'crossUp',l:'上穿↑'},{v:'crossDown',l:'下穿↓'}],
+      entryRows:mkRows('entryRules'), exitRows:mkRows('exitRules'), addEntry:()=>this.addRule('entryRules'), addExit:()=>this.addRule('exitRules'),
+      runBacktest:()=>this.runBacktest(),
+      runBtnClick: (st.btRunning||hasBt)?(()=>{}):(()=>this.runBacktest()),
+      runBtnDisabled: (st.btRunning||hasBt)?true:false,
+      runBtnLabel: st.btRunning?'⟳ 回測中…':(hasBt?'✓ 已顯示回測結果':'▶ 執行回測'),
+      runBtnBg: st.btRunning?'#f3c623':(hasBt?'#ece8df':accent),
+      runBtnColor: st.btRunning?'#16150f':(hasBt?'#9a968a':'#fff'),
+      runBtnCursor: (st.btRunning||hasBt)?'default':'pointer',
+      runBtnAnim: st.btRunning?'pulse 0.8s infinite':'none',
+      histDepth:st.histDepth, sDepth:e=>this.setState({histDepth:e.target.value}),
+      depthOpts:[{v:'500',label:'近 500 根（快）'},{v:'2000',label:'近 2000 根'},{v:'5000',label:'近 5000 根'},{v:'max',label:'最大可得（慢）'}],
+      btFrom:st.btFrom, btTo:st.btTo,
+      dataMinDate:(()=>{ const len=st.candles.length; return len?this.dstr(st.candles[0].t):''; })(),
+      dataMaxDate:(()=>{ const len=st.candles.length; return len?this.dstr(st.candles[len-1].t):''; })(),
+      fromDateVal:st.btFrom?this.dstr(st.btFrom):(st.candles.length?this.dstr(st.candles[0].t):''),
+      toDateVal:st.btTo?this.dstr(st.btTo):(st.candles.length?this.dstr(st.candles[st.candles.length-1].t):''),
+      sFromDate:e=>{ const v=e.target.value; this.setState({btFrom:v?new Date(v+'T00:00:00').getTime():null},()=>{ this.runBacktest(); this.drawChart(); }); },
+      sToDate:e=>{ const v=e.target.value; this.setState({btTo:v?new Date(v+'T23:59:59').getTime():null},()=>{ this.runBacktest(); this.drawChart(); }); },
+      rangePresets:(()=>{ const len=st.candles.length; const lastT=len?st.candles[len-1].t:Date.now(); const D=86400000; const mk=(label,fromT,toT)=>({label,onClick:()=>this.setState({btFrom:fromT,btTo:toT},()=>{ this.runBacktest(); this.drawChart(); }),active:(st.btFrom===fromT&&st.btTo===toT)}); const arr=[mk('全部',null,null),mk('近1月',lastT-30*D,null),mk('近3月',lastT-90*D,null),mk('近1年',lastT-365*D,null),mk('近3年',lastT-3*365*D,null)]; return arr.map(o=>({label:o.label,onClick:o.onClick,bg:o.active?accent:'#fff',color:o.active?'#fff':'#8a8678',border:o.active?accent:'#d6d2c8'})); })(),
+      rangeBars:(()=>{ const len=st.candles.length; if(!len)return 0; let a=0; if(st.btFrom){ a=st.candles.findIndex(c=>c.t>=st.btFrom); if(a<0)a=len; } let b=len; if(st.btTo){ b=0; for(let i=len-1;i>=0;i--){ if(st.candles[i].t<=st.btTo){ b=i+1; break; } } } return Math.max(0,b-a); })(),
+      dataSpan:(()=>{ const len=st.candles.length; if(!len)return '—'; return this.ftime(st.candles[0].t)+' ～ '+this.ftime(st.candles[len-1].t); })(),
+      loadMsg:st.loadMsg,
+      holdout:st.holdout, toggleHoldout:e=>{ this.setState({holdout:e.target.checked},()=>this.runBacktest()); },
+      replayOn:st.replayOn, replayToggle:()=>this.replayToggle(), replayIdx:st.replayIdx||0, replayMax:Math.max(0,st.candles.length-1),
+      replayStart:()=>this.replaySeek(0), replayBack:()=>this.replayStep(-1), replayFwd:()=>this.replayStep(1), replaySeek:e=>this.replaySeek(+e.target.value),
+      replayPlayPause:()=>this.replayPlayPause(), replayPlayLabel:st.replayPlaying?'⏸ 暫停':'▶ 播放', replayPlayBg:st.replayPlaying?'#f3c623':'#cfccc4',
+      replayBtnLabel:st.replayOn?'■ 結束重播':'▷ 逐根重播', replayBtnBg:st.replayOn?'#16150f':'#fff', replayBtnColor:st.replayOn?'#fff':'#16150f', replayBorder:st.replayOn?'#16150f':'#d6d2c8',
+      replayPos:(()=>{ const L=st.candles.length; const i=(st.replayIdx||0)+1; return i+' / '+L; })(),
+      replayTime:(()=>{ const c=st.candles[st.replayIdx||0]; return c?this.ftime(c.t):'—'; })(),
+      replayPrice:(()=>{ const c=st.candles[st.replayIdx||0]; return c?this.pf(c.c):'—'; })(),
+      ...(()=>{ if(!st.replayOn||st.replayIdx==null||!st.candles.length){ return {replaySig:'—',replaySigBg:'#26241d',replaySigColor:'#cfccc4'}; }
+        try{ const sig=this.makeSig(st.candles,st.strat); const i=st.replayIdx; const e=sig.entry(i), x=sig.exit(i);
+          if(e&&!x) return {replaySig:'進場訊號',replaySigBg:'#1f8a5b',replaySigColor:'#fff'};
+          if(x&&!e) return {replaySig:'出場訊號',replaySigBg:'#d23b2f',replaySigColor:'#fff'};
+          if(e&&x) return {replaySig:'進/出場同現',replaySigBg:'#f3c623',replaySigColor:'#16150f'};
+          return {replaySig:'無訊號',replaySigBg:'#26241d',replaySigColor:'#cfccc4'};
+        }catch(err){ return {replaySig:'—',replaySigBg:'#26241d',replaySigColor:'#cfccc4'}; } })(),
+      sweepOpen:st.sweepOpen, sweepOpenClick:()=>this.setState({sweepOpen:true}), sweepCloseClick:()=>this.setState({sweepOpen:false}),
+      swp:st.sweep, swp2d:st.sweep.use2d, swpX:st.sweep.x, swpY:st.sweep.y,
+      swpParamOpts:[{v:'fastMA',label:'快線MA'},{v:'slowMA',label:'慢線MA'},{v:'emaPeriod',label:'EMA週期'},{v:'rsiPeriod',label:'RSI週期'},{v:'rsiBuy',label:'RSI買門檻'},{v:'rsiSell',label:'RSI賣門檻'},{v:'macdFast',label:'MACD快'},{v:'macdSlow',label:'MACD慢'},{v:'bbPeriod',label:'布林週期'}],
+      swpMetricOpts:[{v:'net',label:'淨報酬'},{v:'sharpe',label:'夏普'},{v:'pf',label:'獲利因子'},{v:'winRate',label:'勝率'},{v:'calmar',label:'卡瑪'},{v:'dd',label:'最小回撤'}],
+      swpSetX:e=>this.setState(s=>({sweep:{...s.sweep,x:e.target.value}})), swpSetY:e=>this.setState(s=>({sweep:{...s.sweep,y:e.target.value}})), swpSetMetric:e=>this.setState(s=>({sweep:{...s.sweep,metric:e.target.value}})),
+      swpToggle2d:e=>{ const v=e.target.checked; this.setState(s=>({sweep:{...s.sweep,use2d:v}})); },
+      swpNum_xMin:e=>this.setState(s=>({sweep:{...s.sweep,xMin:+e.target.value}})), swpNum_xMax:e=>this.setState(s=>({sweep:{...s.sweep,xMax:+e.target.value}})), swpNum_xStep:e=>this.setState(s=>({sweep:{...s.sweep,xStep:+e.target.value}})),
+      swpNum_yMin:e=>this.setState(s=>({sweep:{...s.sweep,yMin:+e.target.value}})), swpNum_yMax:e=>this.setState(s=>({sweep:{...s.sweep,yMax:+e.target.value}})), swpNum_yStep:e=>this.setState(s=>({sweep:{...s.sweep,yStep:+e.target.value}})),
+      runSweepClick:()=>this.runSweep(), sweepRunning:st.sweepRunning, sweepErr:st.sweepErr,
+      sweepBtnLabel:st.sweepRunning?'掃描中…':'執行掃描', sweepBtnBg:st.sweepRunning?'#bdb9ab':accent, sweepBtnCursor:st.sweepRunning?'default':'pointer',
+      sweepHasResult:!!st.sweepResult, sweepHasBest:!!(st.sweepResult&&st.sweepResult.best), applyBestClick:()=>this.applySweepBest(),
+      sweepMetricLabel:({net:'淨報酬',sharpe:'夏普',pf:'獲利因子',winRate:'勝率',calmar:'卡瑪',dd:'最小回撤'})[st.sweep.metric],
+      swpXName:({fastMA:'快線MA',slowMA:'慢線MA',emaPeriod:'EMA週期',rsiPeriod:'RSI週期',rsiBuy:'RSI買門檻',rsiSell:'RSI賣門檻',macdFast:'MACD快',macdSlow:'MACD慢',bbPeriod:'布林週期'})[st.sweep.x]||st.sweep.x,
+      swpYAxisNote: st.sweep.use2d?('、縱軸 '+(({fastMA:'快線MA',slowMA:'慢線MA',emaPeriod:'EMA週期',rsiPeriod:'RSI週期',rsiBuy:'RSI買門檻',rsiSell:'RSI賣門檻',macdFast:'MACD快',macdSlow:'MACD慢',bbPeriod:'布林週期'})[st.sweep.y]||st.sweep.y)):'',
+      sweepBestLabel:(()=>{ const R=st.sweepResult; if(!R||!R.best) return ''; const mt=st.sweep.metric; const v=(mt==='net'||mt==='winRate'||mt==='dd')?(R.best.m*100).toFixed(1)+'%':R.best.m.toFixed(2); return R.best.x+(R.use2d?('/'+R.best.y):'')+' → '+v; })(),
+      sweepGridRows:(()=>{ const R=st.sweepResult; if(!R) return []; const mt=st.sweep.metric; const lo=R.lo,hi=R.hi;
+        const fmtM=m=>{ if(m==null)return '—'; if(mt==='net'||mt==='winRate'||mt==='dd') return (m*100).toFixed(1)+'%'; return m.toFixed(2); };
+        const lerp=(a,b,k)=>Math.round(a+(b-a)*k); const cA=[214,90,84],cB=[242,201,76],cC=[31,138,91];
+        const col=t=>{ if(t<0.5){const k=t/0.5;return [lerp(cA[0],cB[0],k),lerp(cA[1],cB[1],k),lerp(cA[2],cB[2],k)];} const k=(t-0.5)/0.5; return [lerp(cB[0],cC[0],k),lerp(cB[1],cC[1],k),lerp(cB[2],cC[2],k)]; };
+        const rows=[]; const header={cells:[{label:'',bg:'#f5f3ee',color:'#8a8678',title:'',bestStyle:''}]};
+        R.xs.forEach(xv=>header.cells.push({label:String(xv),bg:'#efece4',color:'#16150f',title:R.xKey+'='+xv,bestStyle:'font-weight:700'})); rows.push(header);
+        R.grid.forEach((row,ri)=>{ const yv=R.ys[ri]; const cells=[{label:R.use2d?String(yv):'值',bg:'#efece4',color:'#16150f',title:R.use2d?(R.yKey+'='+yv):'',bestStyle:'font-weight:700'}];
+          row.forEach(cell=>{ const isBest=R.best&&cell.x===R.best.x&&cell.y===R.best.y; const t=(hi>lo&&cell.m!=null)?(cell.m-lo)/(hi-lo):0.5; const rgb=cell.m==null?[238,238,238]:col(t); cells.push({label:fmtM(cell.m),bg:'rgb('+rgb.join(',')+')',color:'#16150f',title:fmtM(cell.m)+' · '+cell.trades+' 筆',bestStyle:isBest?'outline:3px solid #16150f;outline-offset:-3px;font-weight:700':''}); });
+          rows.push({cells}); }); return rows; })(),
+      showHoldout: st.holdout && !!st.holdoutData && !!(st.holdoutData.inS&&st.holdoutData.outS),
+      holdoutSplit: st.holdoutData&&st.holdoutData.splitT?this.ftime(st.holdoutData.splitT):'—',
+      holdoutRows:(()=>{ const h=st.holdoutData; if(!h||!h.inS||!h.outS) return []; const i=h.inS,o=h.outS; const pc=v=>v>=0?up:down;
+        return [
+          {label:'淨報酬',inVal:this.pctS(i.net),outVal:this.pctS(o.net),inColor:pc(i.net),outColor:pc(o.net)},
+          {label:'勝率',inVal:(i.winRate*100).toFixed(0)+'%',outVal:(o.winRate*100).toFixed(0)+'%',inColor:'#16150f',outColor:'#16150f'},
+          {label:'獲利因子',inVal:isFinite(i.pf)?i.pf.toFixed(2):'∞',outVal:isFinite(o.pf)?o.pf.toFixed(2):'∞',inColor:'#16150f',outColor:'#16150f'},
+          {label:'最大回撤',inVal:'-'+(i.maxDD*100).toFixed(1)+'%',outVal:'-'+(o.maxDD*100).toFixed(1)+'%',inColor:down,outColor:down},
+          {label:'交易次數',inVal:String(i.trades),outVal:String(o.trades),inColor:'#16150f',outColor:'#16150f'}
+        ]; })(),
+      holdoutVerdict:(()=>{ const h=st.holdoutData; if(!h||!h.inS||!h.outS) return ''; const i=h.inS.net,o=h.outS.net; if(o>=i*0.6&&o>0) return '✓ 樣本外表現守住樣本內水準，較不像過度擬合。'; if(o<=0&&i>0) return '⚠ 樣本內賺、樣本外賠 — 高度疑似過度擬合，謹慎使用。'; return '樣本外與樣本內有落差，建議多段驗證。'; })(),
+      hasBt, statsList, eqPts, btTrades, btTradeCount,
+      bhPts:(this._eqViz||{}).bhPts||'', eqBigPts:(this._eqViz||{}).eqBigPts||'', bhBigPts:(this._eqViz||{}).bhBigPts||'', ddArea:(this._eqViz||{}).ddArea||'', maxDDpctStr:bt?('-'+((this._eqViz||{}).maxDDpct*100||0).toFixed(1)+'%'):'—',
+      chartBoxFlex, showFocus, focusStats, rtRows, rtCount, focusMeta, noBt:!bt,
+      toggleCollapse:()=>this.setState(s=>({chartCollapsed:!s.chartCollapsed}),()=>this.drawChart()),
+      collapseLabel:collapsed?'▣ 顯示圖表':'▢ 專注數據',
+      collapseBg:collapsed?'#16150f':'#fff', collapseColor:collapsed?'#fff':'#16150f', collapseBorder:collapsed?'#16150f':'#d6d2c8',
+      paperEquity:this.usd(equity), paperPnl:this.usd(pnl), paperPnlPct:this.pctS(pnlPct), pnlColor:pnl>=0?up:down,
+      paperCash:this.usd(p.cash), paperPosVal:this.usd(posVal), paperPosQty:p.position?p.position.toFixed(6):'0', paperAvg:p.avgPrice?this.pf(p.avgPrice):'—',
+      sigLabel, sigColor, stratSummary,
+      toggleAuto:()=>this.setPaper({running:!st.paper.running}), autoLabel:p.running?'■ 停止自動交易':'▶ 開啟自動交易',
+      autoBg:p.running?'#16150f':'#fff', autoColor:p.running?'#fff':'#16150f', autoBorder:p.running?'#16150f':'#d6d2c8',
+      manualBuy:()=>this.paperBuy(this.curPrice(),'手動'), manualSell:()=>this.paperSell(this.curPrice(),'手動'),
+      resetPaper:()=>{ const np={startCash:10000,cash:10000,position:0,avgPrice:0,trades:[],running:false}; this.persistPaper(np); this.setState({paper:np}); },
+      paperTrades, noPaperTrades:paperTrades.length===0
+    };
+  }
+}
+</script>
+</body>
+</html>

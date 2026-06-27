@@ -1,0 +1,87 @@
+// SKELETON — Phase A database commands. The frontend reaches the DB ONLY
+// through these. (Frontend never opens SQLite directly.)
+
+use tauri::State;
+
+use crate::db::repositories::{self, Candle, Dataset, StrategyDef};
+use crate::error::{AppError, AppResult};
+use crate::AppState;
+
+/// Migrations run automatically at startup (db::initialize). These two are
+/// exposed for explicit re-trigger / health-check from Settings.
+#[tauri::command]
+pub fn init_database(_state: State<AppState>) -> AppResult<String> {
+    Ok("database already initialized at startup".into())
+}
+
+#[tauri::command]
+pub fn run_migrations(state: State<AppState>) -> AppResult<String> {
+    let conn = state.db.lock().map_err(|_| AppError::Other("db lock poisoned".into()))?;
+    crate::db::apply_migrations(&conn)?;
+    Ok("migrations up to date".into())
+}
+
+#[tauri::command]
+pub fn get_datasets(state: State<AppState>) -> AppResult<Vec<Dataset>> {
+    let conn = state.db.lock().map_err(|_| AppError::Other("db lock poisoned".into()))?;
+    repositories::list_datasets(&conn)
+}
+
+#[tauri::command]
+pub fn get_candles(
+    state: State<AppState>,
+    dataset_id: i64,
+    from: i64,
+    to: i64,
+) -> AppResult<Vec<Candle>> {
+    let conn = state.db.lock().map_err(|_| AppError::Other("db lock poisoned".into()))?;
+    repositories::get_candles(&conn, dataset_id, from, to)
+}
+
+/// Import a batch of candles. The frontend computes `dataset_hash` with the
+/// shared core/hashing module and passes the dataset meta + rows.
+#[tauri::command]
+pub fn import_candles(
+    state: State<AppState>,
+    dataset: Dataset,
+    candles: Vec<Candle>,
+) -> AppResult<i64> {
+    let mut conn = state.db.lock().map_err(|_| AppError::Other("db lock poisoned".into()))?;
+    let dataset_id = repositories::insert_dataset(&conn, &dataset)?;
+    repositories::insert_candles(&mut conn, dataset_id, &candles)?;
+    Ok(dataset_id)
+}
+
+#[tauri::command]
+pub fn save_strategy(state: State<AppState>, strategy: StrategyDef) -> AppResult<i64> {
+    let conn = state.db.lock().map_err(|_| AppError::Other("db lock poisoned".into()))?;
+    repositories::insert_strategy(&conn, &strategy)
+}
+
+#[tauri::command]
+pub fn get_strategies(state: State<AppState>) -> AppResult<Vec<StrategyDef>> {
+    let conn = state.db.lock().map_err(|_| AppError::Other("db lock poisoned".into()))?;
+    repositories::list_strategies(&conn)
+}
+
+/// TODO(local): persist a full backtest summary (+ optional trades). Phase A
+/// can accept the JSON the core engine produced and store the columns.
+#[tauri::command]
+pub fn save_backtest_result(
+    _state: State<AppState>,
+    _result_json: String,
+) -> AppResult<i64> {
+    Err(AppError::NotImplemented(
+        "save_backtest_result: wire repositories::insert_backtest_summary (TODO.md)",
+    ))
+}
+
+#[tauri::command]
+pub fn get_backtest_results(
+    _state: State<AppState>,
+    _strategy_id: Option<i64>,
+) -> AppResult<Vec<serde_json::Value>> {
+    Err(AppError::NotImplemented(
+        "get_backtest_results: wire repositories list query (TODO.md)",
+    ))
+}
