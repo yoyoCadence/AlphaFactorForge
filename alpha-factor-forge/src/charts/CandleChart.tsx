@@ -1,0 +1,253 @@
+// Slice 3 — candlestick canvas with indicator overlays.
+//
+// Static fit-to-width render of the latest `maxBars` candles: price pane
+// (candles + MA fast/slow + EMA + Bollinger), a volume strip, and an RSI
+// subpanel. Indicators come from core/indicators (computed over the full series
+// so warm-up is correct, then drawn over the visible window). Pan/zoom and
+// trade markers are deferred to a later slice. Pure drawing — no IO/state writes.
+
+import React, { useEffect, useRef, useState } from 'react';
+import { sma, ema, bbands, rsi, type Series } from '../core/indicators';
+import type { Candle as CoreCandle } from '../core/backtest';
+import type { ParamsStrategy } from '../services/strategy';
+import { extentOf, padExtent, valueToY } from './scale';
+
+export interface OverlayToggles {
+  ma: boolean;
+  ema: boolean;
+  bb: boolean;
+  rsi: boolean;
+  vol: boolean;
+}
+
+export interface CandleChartProps {
+  candles: CoreCandle[];
+  strat: ParamsStrategy;
+  show: OverlayToggles;
+  height?: number;
+  maxBars?: number;
+}
+
+const COL = {
+  up: '#2d9f73',
+  down: '#d23b2f',
+  grid: '#efece5',
+  axis: '#8a8678',
+  maFast: '#2563eb',
+  maSlow: '#f59e0b',
+  ema: '#7c3aed',
+  bb: '#b9b4a8',
+  rsi: '#16150f',
+};
+
+export function CandleChart({ candles, strat, show, height = 360, maxBars = 500 }: CandleChartProps): React.ReactElement {
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [width, setWidth] = useState(0);
+
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      for (const e of entries) setWidth(e.contentRect.width);
+    });
+    ro.observe(el);
+    setWidth(el.clientWidth);
+    return () => ro.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || width <= 0 || candles.length === 0) return;
+    draw(canvas, width, height, candles, strat, show, maxBars);
+  }, [candles, strat, show, width, height, maxBars]);
+
+  return (
+    <div ref={wrapRef} style={{ width: '100%' }}>
+      <canvas ref={canvasRef} style={{ width: '100%', height, display: 'block' }} />
+    </div>
+  );
+}
+
+function draw(
+  canvas: HTMLCanvasElement,
+  w: number,
+  h: number,
+  candles: CoreCandle[],
+  strat: ParamsStrategy,
+  show: OverlayToggles,
+  maxBars: number,
+): void {
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = Math.round(w * dpr);
+  canvas.height = Math.round(h * dpr);
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, w, h);
+
+  const padL = 6;
+  const padR = 54;
+  const padTop = 6;
+  const padBottom = 6;
+  const gap = 6;
+  const plotW = w - padL - padR;
+
+  const volH = show.vol ? 46 : 0;
+  const rsiH = show.rsi ? 64 : 0;
+  const priceH = h - padTop - padBottom - (show.vol ? volH + gap : 0) - (show.rsi ? rsiH + gap : 0);
+  const priceTop = padTop;
+  const volTop = priceTop + priceH + gap;
+  const rsiTop = (show.vol ? volTop + volH : priceTop + priceH) + gap;
+
+  const n = Math.min(candles.length, maxBars);
+  const start = candles.length - n;
+  const bw = plotW / n;
+  const xc = (i: number) => padL + (i - start + 0.5) * bw;
+
+  const closes = candles.map((c) => c.c);
+  const maFast = show.ma ? sma(closes, strat.fastMA) : null;
+  const maSlow = show.ma ? sma(closes, strat.slowMA) : null;
+  const emaArr = show.ema ? ema(closes, strat.emaPeriod) : null;
+  const bb = show.bb ? bbands(closes, strat.bbPeriod, strat.bbMult) : null;
+  const rsiArr = show.rsi ? rsi(closes, strat.rsiPeriod) : null;
+
+  // price extent over the visible window (candles + overlays)
+  const vals: number[] = [];
+  for (let i = start; i < candles.length; i++) {
+    vals.push(candles[i].h, candles[i].l);
+    for (const s of [maFast, maSlow, emaArr, bb?.upper, bb?.lower]) {
+      if (s && Number.isFinite(s[i])) vals.push(s[i]);
+    }
+  }
+  const ext = padExtent(extentOf(vals), 0.05);
+  const py = (p: number) => valueToY(p, ext, priceTop, priceH);
+
+  // price grid + right-axis labels
+  ctx.font = "10px 'IBM Plex Mono', monospace";
+  ctx.textBaseline = 'middle';
+  ctx.strokeStyle = COL.grid;
+  ctx.fillStyle = COL.axis;
+  ctx.lineWidth = 1;
+  const ticks = 4;
+  for (let t = 0; t <= ticks; t++) {
+    const v = ext.min + ((ext.max - ext.min) * t) / ticks;
+    const y = py(v);
+    ctx.beginPath();
+    ctx.moveTo(padL, y);
+    ctx.lineTo(padL + plotW, y);
+    ctx.stroke();
+    ctx.fillText(v.toFixed(2), padL + plotW + 4, y);
+  }
+
+  // candles
+  const bodyW = Math.max(1, bw * 0.7);
+  for (let i = start; i < candles.length; i++) {
+    const c = candles[i];
+    const x = xc(i);
+    const up = c.c >= c.o;
+    ctx.strokeStyle = up ? COL.up : COL.down;
+    ctx.fillStyle = up ? COL.up : COL.down;
+    // wick
+    ctx.beginPath();
+    ctx.moveTo(x, py(c.h));
+    ctx.lineTo(x, py(c.l));
+    ctx.stroke();
+    // body
+    const yo = py(c.o);
+    const ycl = py(c.c);
+    const top = Math.min(yo, ycl);
+    const bh = Math.max(1, Math.abs(ycl - yo));
+    ctx.fillRect(x - bodyW / 2, top, bodyW, bh);
+  }
+
+  const polyline = (s: Series | null | undefined, color: string) => {
+    if (!s) return;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.25;
+    ctx.beginPath();
+    let started = false;
+    for (let i = start; i < candles.length; i++) {
+      const v = s[i];
+      if (!Number.isFinite(v)) {
+        started = false;
+        continue;
+      }
+      const x = xc(i);
+      const y = py(v);
+      if (!started) {
+        ctx.moveTo(x, y);
+        started = true;
+      } else {
+        ctx.lineTo(x, y);
+      }
+    }
+    ctx.stroke();
+  };
+
+  if (bb) {
+    polyline(bb.upper, COL.bb);
+    polyline(bb.middle, COL.bb);
+    polyline(bb.lower, COL.bb);
+  }
+  polyline(maFast, COL.maFast);
+  polyline(maSlow, COL.maSlow);
+  polyline(emaArr, COL.ema);
+
+  // volume strip
+  if (show.vol) {
+    let maxVol = 0;
+    for (let i = start; i < candles.length; i++) maxVol = Math.max(maxVol, candles[i].v);
+    if (maxVol > 0) {
+      for (let i = start; i < candles.length; i++) {
+        const c = candles[i];
+        const bh = (c.v / maxVol) * volH;
+        ctx.fillStyle = c.c >= c.o ? COL.up : COL.down;
+        ctx.globalAlpha = 0.5;
+        ctx.fillRect(xc(i) - bodyW / 2, volTop + volH - bh, bodyW, bh);
+        ctx.globalAlpha = 1;
+      }
+    }
+    ctx.fillStyle = COL.axis;
+    ctx.fillText('VOL', padL + plotW + 4, volTop + 6);
+  }
+
+  // RSI subpanel
+  if (show.rsi && rsiArr) {
+    const ry = (v: number) => rsiTop + (1 - v / 100) * rsiH;
+    ctx.strokeStyle = COL.grid;
+    for (const g of [30, 70]) {
+      const y = ry(g);
+      ctx.beginPath();
+      ctx.moveTo(padL, y);
+      ctx.lineTo(padL + plotW, y);
+      ctx.stroke();
+      ctx.fillStyle = COL.axis;
+      ctx.fillText(String(g), padL + plotW + 4, y);
+    }
+    ctx.strokeStyle = COL.rsi;
+    ctx.lineWidth = 1.25;
+    ctx.beginPath();
+    let started = false;
+    for (let i = start; i < candles.length; i++) {
+      const v = rsiArr[i];
+      if (!Number.isFinite(v)) {
+        started = false;
+        continue;
+      }
+      const x = xc(i);
+      const y = ry(v);
+      if (!started) {
+        ctx.moveTo(x, y);
+        started = true;
+      } else {
+        ctx.lineTo(x, y);
+      }
+    }
+    ctx.stroke();
+    ctx.fillStyle = COL.axis;
+    ctx.fillText('RSI', padL + 2, rsiTop + 6);
+  }
+}

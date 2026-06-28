@@ -16,7 +16,8 @@ import { toCoreCandles } from '../services/candleAdapter';
 import { makeSampleCandles } from '../services/sampleData';
 import { buildStrategyDef } from '../services/strategyRecord';
 import { metricsToBacktestSummary } from '../services/metricsMapper';
-import type { BacktestResult } from '../core/backtest';
+import { CandleChart, type OverlayToggles } from '../charts/CandleChart';
+import type { BacktestResult, Candle as CoreCandle } from '../core/backtest';
 import type { Metrics } from '../core/metrics';
 
 type NumKey =
@@ -55,6 +56,8 @@ const SIG_LABEL: Record<SignalId, string> = {
   bbLowerTouch: '觸布林下軌', bbUpperTouch: '觸布林上軌',
   stochOversold: 'Stoch 超賣(未支援)', stochOverbought: 'Stoch 超買(未支援)',
 };
+
+const OVERLAY_LABEL: Record<keyof OverlayToggles, string> = { ma: 'MA', ema: 'EMA', bb: 'BB', rsi: 'RSI', vol: '量' };
 
 const METRIC_ROWS: { label: string; fmt: (m: Metrics) => string }[] = [
   { label: '淨報酬', fmt: (m) => pct(m.netReturn) },
@@ -131,6 +134,9 @@ export function BacktestPanel(): React.ReactElement {
   const [importText, setImportText] = useState('');
   const [err, setErr] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
+  const [candles, setCandles] = useState<CoreCandle[]>([]);
+  const [loadingCandles, setLoadingCandles] = useState(false);
+  const [show, setShow] = useState<OverlayToggles>({ ma: true, ema: false, bb: false, rsi: true, vol: true });
 
   const refresh = useCallback(async () => {
     const ds = await db.getDatasets();
@@ -141,6 +147,29 @@ export function BacktestPanel(): React.ReactElement {
   useEffect(() => {
     if (isTauri()) refresh().catch((e) => setErr(String(e)));
   }, [refresh]);
+
+  // Load candles for the chart whenever the selected dataset changes.
+  useEffect(() => {
+    const ds = datasets.find((d) => d.id === selId) ?? null;
+    if (!isTauri() || !ds || ds.id == null) {
+      setCandles([]);
+      return;
+    }
+    let cancelled = false;
+    setLoadingCandles(true);
+    db.getCandles(ds.id, ds.start_time, ds.end_time)
+      .then((cs) => {
+        if (!cancelled) {
+          setCandles(toCoreCandles(cs));
+          setResult(null);
+        }
+      })
+      .catch((e) => !cancelled && setErr(String(e)))
+      .finally(() => !cancelled && setLoadingCandles(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [selId, datasets]);
 
   const selected = datasets.find((d) => d.id === selId) ?? null;
   const setNum = (key: NumKey, value: number) => setStrat((s) => ({ ...s, [key]: value }));
@@ -196,9 +225,13 @@ export function BacktestPanel(): React.ReactElement {
     setMsg(null);
     setResult(null);
     try {
-      const dbCandles = await db.getCandles(selected.id, selected.start_time, selected.end_time);
-      if (!dbCandles.length) throw new Error('此資料集沒有 K 線');
-      setResult(runParamsBacktest({ candles: toCoreCandles(dbCandles), strat, interval: selected.interval }));
+      let cs = candles;
+      if (!cs.length) {
+        cs = toCoreCandles(await db.getCandles(selected.id, selected.start_time, selected.end_time));
+        setCandles(cs);
+      }
+      if (!cs.length) throw new Error('此資料集沒有 K 線');
+      setResult(runParamsBacktest({ candles: cs, strat, interval: selected.interval }));
     } catch (e) {
       setErr(String(e));
     } finally {
@@ -233,6 +266,26 @@ export function BacktestPanel(): React.ReactElement {
     <div>
       {err && <div style={{ ...S.card, borderColor: '#d23b2f', color: '#b23b2e', marginBottom: 12 }}>{err}</div>}
       {msg && <div style={{ ...S.card, borderColor: '#2d9f73', color: '#1f7a57', marginBottom: 12 }}>{msg}</div>}
+
+      {candles.length > 0 && (
+        <section style={{ ...S.card, marginBottom: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8, flexWrap: 'wrap' }}>
+            <h2 style={{ ...S.h2, margin: 0 }}>圖表</h2>
+            <div style={{ display: 'flex', gap: 10, fontSize: 11, color: '#8a8678' }}>
+              {(['ma', 'ema', 'bb', 'rsi', 'vol'] as (keyof OverlayToggles)[]).map((k) => (
+                <label key={k} style={{ display: 'flex', alignItems: 'center', gap: 3, cursor: 'pointer' }}>
+                  <input type="checkbox" checked={show[k]} onChange={(e) => setShow((s) => ({ ...s, [k]: e.target.checked }))} />
+                  {OVERLAY_LABEL[k]}
+                </label>
+              ))}
+            </div>
+            <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: '#aaa599' }}>
+              {loadingCandles ? '載入中…' : `${selected?.symbol ?? ''} · ${candles.length} 根`}
+            </span>
+          </div>
+          <CandleChart candles={candles} strat={strat} show={show} />
+        </section>
+      )}
 
       <div style={S.panel}>
         {/* left column: data + strategy */}
