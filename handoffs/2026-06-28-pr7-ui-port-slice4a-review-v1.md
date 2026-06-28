@@ -92,6 +92,38 @@ cargo-check: SUCCESS
 
 Do not merge yet. Ask the PR author to fix blank/whitespace right-operand parsing and add the small regression test. After that, if CI stays green and the manual `cargo tauri dev` smoke check is acceptable, PR #7 can be merged.
 
+## Manual Verification Update
+
+Human manual DB check reported a failure after trying the Slice 4a smoke path:
+
+- Opened `C:\Users\memor\AppData\Roaming\com.alphafactorforge.desktop\alphafactorforge.sqlite3`.
+- Checked `strategy_def`.
+- Latest rows still showed `type = params`.
+- No saved row with `type = blocks` was visible in the screenshot.
+
+This means the final smoke item is not verified yet:
+
+```text
+Save result -> DB strategy_def.type should be blocks
+```
+
+If the human saved while still on params mode, re-test with the exact sequence below. If the exact sequence was already followed, treat this as an additional blocker for PR #7:
+
+1. Load sample data.
+2. Switch strategy tab to blocks.
+3. Add or confirm a blocks rule, for example `RSI < 30`.
+4. Click `執行回測` while still on blocks.
+5. Click `儲存結果` while still on blocks.
+6. Refresh SQLite Viewer.
+7. Confirm the newest `strategy_def` row has `type = blocks` and `original_definition_json` contains `"mode":"blocks"`.
+
+Code notes for the PR author:
+
+- `BacktestPanel.save()` currently calls `buildStrategyDef(strat, stratName)`, so it should persist the current React `strat.mode`.
+- `buildStrategyDef()` sets `type: strat.mode` and serializes `original_definition_json: JSON.stringify(strat)`.
+- `strategyHash()` canonicalizes the whole strategy definition, so `params` and `blocks` should not collide if `mode` differs.
+- Therefore, if the exact manual path still saves `params`, inspect whether the UI tab click actually updates `strat.mode`, whether the running app is the PR #7 build/branch, and whether the save action is being triggered after switching back to params.
+
 ## Manual Smoke Checklist
 
 After the fix, run `cargo tauri dev` or `npm run tauri -- dev` and check:
@@ -113,3 +145,35 @@ still resolve as before (trim also lets `" 70 "` / `" maFast "` resolve).
 Added regression tests in `services.test.ts`: `r: ''` and `r: '   '` never
 fire. Reran: `npm run typecheck` PASS, `npm test` PASS 51/51, `npm run build`
 PASS; PR CI re-run green. Scope unchanged — no code mode (Slice 4b).
+
+### Manual Verification Update — investigation (save type = params)
+
+Traced the whole save path; the logic is correct end to end:
+
+- Mode tab calls `setStrat(s => ({ ...s, mode }))`; the blocks rule-builder only
+  renders when `strat.mode === 'blocks'`, so seeing it means mode is blocks.
+- `save()` -> `buildStrategyDef(strat, name)` -> `type: strat.mode` ->
+  `db.saveStrategy` -> Rust DTO `kind` (`#[serde(rename="type")]`) -> `type` column.
+- `strategy_hash` is over the whole strat (incl. `mode`), so a blocks save can
+  NOT hash-collide with a params row; the `ON CONFLICT ... DO UPDATE SET
+  updated_at` (which does not refresh `type`) cannot trigger across modes.
+
+Added a CI proof test `buildStrategyDef`: params -> `type:'params'`,
+blocks -> `type:'blocks'`, definition contains `"mode":"blocks"`, and the two
+hashes differ. `npm test` 52/52.
+
+No code path was found that writes `type=params` while in blocks mode. To make
+runtime self-evident, the save success message now prints the persisted type
+(`已存檔：strategy #N（type=blocks）…`).
+
+Most likely cause of the screenshot: the save was made while the 參數 tab was
+active, or an older row was read (viewer not refreshed / sorted oldest-first).
+Requested re-test on the rebuilt app: do the exact blocks sequence, confirm the
+green message says `type=blocks`, then `SELECT id,name,type FROM strategy_def
+ORDER BY id DESC LIMIT 5;`. If it still saves `params` while the message says
+`type=blocks`, that points below the JS layer and needs a fresh `cargo tauri
+dev` rebuild — please report the message text + the query rows.
+
+Separately noted (out of scope, not the cause): the `insert_strategy` UPSERT
+only refreshes `updated_at`; re-saving a same-hash strategy won't update mutable
+fields (name/lifecycle/etc.). Worth a small follow-up fix later.

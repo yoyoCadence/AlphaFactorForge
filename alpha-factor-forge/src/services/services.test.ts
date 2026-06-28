@@ -7,6 +7,7 @@ import { metricsToBacktestSummary } from './metricsMapper';
 import { defaultStrategy, type ParamsStrategy } from './strategy';
 import { toCoreCandles } from './candleAdapter';
 import { makeSampleCandles } from './sampleData';
+import { buildStrategyDef } from './strategyRecord';
 
 /** Build flat candles from a close series (only closes matter for these tests). */
 const mk = (closes: number[]): Candle[] =>
@@ -216,6 +217,19 @@ describe('buildBlocksSignals', () => {
     expect(buildBlocksSignals(mk([1, 2, 3, 4]), blank).entry.every((v) => v === false)).toBe(true);
     const ws: ParamsStrategy = { ...defaultStrategy(), mode: 'blocks', entryRules: [{ l: 'price', op: '>', r: '   ' }], exitRules: [] };
     expect(buildBlocksSignals(mk([1, 2, 3, 4]), ws).entry.every((v) => v === false)).toBe(true);
+  });
+});
+
+describe('buildStrategyDef', () => {
+  it('persists type from strat.mode and serializes the live definition', async () => {
+    const p = await buildStrategyDef(defaultStrategy(), '');
+    const b = await buildStrategyDef({ ...defaultStrategy(), mode: 'blocks' }, '');
+    expect(p.type).toBe('params');
+    expect(b.type).toBe('blocks');
+    expect(b.original_definition_json).toContain('"mode":"blocks"');
+    // mode is part of the hash, so params and blocks never dedup-collide
+    // (the insert UPSERT can't silently keep an old params row for a blocks save).
+    expect(p.strategy_hash).not.toBe(b.strategy_hash);
   });
 });
 

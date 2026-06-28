@@ -300,7 +300,7 @@ export function BacktestPanel(): React.ReactElement {
         endTime: selected.end_time,
       });
       await db.saveBacktestResult(summary);
-      setMsg(`已存檔：strategy #${strategyId} · dataset #${selected.id} · ${result.trades.length} trades`);
+      setMsg(`已存檔：strategy #${strategyId}（type=${def.type}）· dataset #${selected.id} · ${result.trades.length} trades`);
     } catch (e) {
       setErr(String(e));
     } finally {
