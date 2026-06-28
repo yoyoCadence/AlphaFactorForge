@@ -10,7 +10,7 @@ import {
   type BacktestConfig,
   type BacktestResult,
 } from '../core/backtest';
-import { buildParamsSignals } from './strategySignals';
+import { buildSignals } from './strategySignals';
 import type { ParamsStrategy } from './strategy';
 
 /** Approx. bars per year per interval, for CAGR/Sharpe annualisation. */
@@ -67,7 +67,7 @@ export interface RunParamsBacktestArgs {
 /** Run a params-mode backtest end to end. Deterministic. */
 export function runParamsBacktest(args: RunParamsBacktestArgs): BacktestResult {
   const { candles, strat, interval } = args;
-  const signals = buildParamsSignals(candles, strat);
+  const signals = buildSignals(candles, strat);
   const { feePct, slippagePct, sizingPct } = toExecCostFractions(strat);
 
   const cfg: BacktestConfig = {
