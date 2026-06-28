@@ -26,8 +26,8 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
   - Rules: reuse `src/core/*` + `tauri-client`; persist via one `metricsToBacktestSummary()` helper (PR #1 decision); code mode stays manual-only; do NOT mass-port — one small slice per PR.
   - Legacy defaults to mirror (from the script block): symbols `BTCUSDT…` + intervals `1m..1d`; `defStrat()` params (fastMA 9 / slowMA 21 / rsi 14 / fee 0.05% / slip 0.02% / size 100% / fill close / long); 6 preset strategies; localStorage keys `cd_strat` / `cd_stratlib` / `cd_paper`.
   - **Slice plan (small, one PR each):**
-    - [ ] Slice 1 (CURRENT): backtest pipeline service in `src/services/` — params-mode strategy -> entry/exit boolean signals (via `core/indicators`) -> `core/backtest.runBacktest` -> `core/metrics` -> `metricsToBacktestSummary`. Pure TS, unit-tested, no UI. Handles interval->barsPerYear and legacy %->fraction conversion. Unblocked + CI-verifiable.
-    - [ ] Slice 2: Backtest panel UI (params mode): dataset picker (SQLite) + minimal candle import, strategy params form, run, metrics table, save via the Slice 1 service. No chart/sweep/replay/live/library.
+    - [x] Slice 1: backtest pipeline service in `src/services/` (`strategy.ts` / `strategySignals.ts` / `backtestRunner.ts` / `metricsMapper.ts`) — params-mode strategy -> entry/exit signals (12 of 14 legacy signals; `stoch*` await a core STOCH indicator) -> `runBacktest` -> `metrics` -> `metricsToBacktestSummary`. 8 unit tests; `npm test` 33/33 + typecheck green. No UI.
+    - [ ] Slice 2 (CURRENT): Backtest panel UI (params mode): dataset picker (SQLite) + minimal candle import, strategy params form, run, metrics table, save via the Slice 1 service. No chart/sweep/replay/live/library.
     - [ ] Slice 3: chart canvas (candles + MA/EMA/BB/RSI/volume overlays).
     - [ ] Slice 4: blocks + code strategy modes (code mode = manual-only).
     - [ ] Slice 5: holdout comparison + parameter sweep.
