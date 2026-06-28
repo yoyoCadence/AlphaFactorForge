@@ -40,6 +40,7 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
   - Move chart, data controls, strategy editor, execution model, holdout, sweep, replay, strategy library, paper trading, and export flows into React modules.
   - Suggested folders: `src/components`, `src/pages`, `src/charts`, `src/stores`, `src/services`.
   - Reuse `src/core/*` pure functions and `tauri-client` wrappers instead of direct frontend persistence.
+  - Persist backtests through ONE mapping helper `metricsToBacktestSummary()` (camelCase `Metrics` -> snake_case `BacktestSummary`); do NOT inline the field mapping per component. Decided in PR #1.
   - Preserve the terminal-like dense visual style from the prototype.
 
 - [ ] Replace prototype localStorage strategy/data persistence with local-first Tauri storage
