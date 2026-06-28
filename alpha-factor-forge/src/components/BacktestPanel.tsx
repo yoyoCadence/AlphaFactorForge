@@ -39,6 +39,15 @@ const IND_FIELDS: { key: NumKey; label: string }[] = [
   { key: 'bbMult', label: 'BB 倍數' },
 ];
 
+// The overlay-driving periods most often tweaked while reading the chart —
+// surfaced as a quick row right under it. Same `strat` state as the full form.
+const QUICK_FIELDS: { key: NumKey; label: string }[] = [
+  { key: 'fastMA', label: '快線 MA' },
+  { key: 'slowMA', label: '慢線 MA' },
+  { key: 'emaPeriod', label: 'EMA' },
+  { key: 'rsiPeriod', label: 'RSI 週期' },
+];
+
 const EXEC_FIELDS: { key: NumKey; label: string }[] = [
   { key: 'feePct', label: '手續費 %' },
   { key: 'slipPct', label: '滑價 %' },
@@ -284,6 +293,20 @@ export function BacktestPanel(): React.ReactElement {
             </span>
           </div>
           <CandleChart candles={candles} strat={strat} show={show} />
+          <div style={{ display: 'flex', gap: 12, marginTop: 10, flexWrap: 'wrap', alignItems: 'flex-end', borderTop: '1px solid #efece5', paddingTop: 10 }}>
+            {QUICK_FIELDS.map((f) => (
+              <label key={f.key} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <span style={S.label}>{f.label}</span>
+                <input
+                  type="number"
+                  value={strat[f.key]}
+                  onChange={(e) => setNum(f.key, parseFloat(e.target.value) || 0)}
+                  style={{ ...S.input, width: 88 }}
+                />
+              </label>
+            ))}
+            <span style={{ fontSize: 10, color: '#aaa599', alignSelf: 'center' }}>調整即時重畫；完整參數見下方策略表單</span>
+          </div>
         </section>
       )}
 
