@@ -16,7 +16,7 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Next
 
-- [ ] UI port — Slice 3: chart canvas (candles + indicator overlays). See the slice plan under In Progress.
+- [ ] UI port — Slice 4: blocks + code strategy modes. See the slice plan under In Progress.
 
 ## In Progress
 
@@ -28,8 +28,8 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
   - **Slice plan (small, one PR each):**
     - [x] Slice 1: backtest pipeline service in `src/services/` (`strategy.ts` / `strategySignals.ts` / `backtestRunner.ts` / `metricsMapper.ts`) — params-mode strategy -> entry/exit signals (12 of 14 legacy signals; `stoch*` await a core STOCH indicator) -> `runBacktest` -> `metrics` -> `metricsToBacktestSummary`. 8 unit tests; `npm test` 33/33 + typecheck green. No UI.
     - [x] Slice 2: Backtest panel UI (params mode) — `src/components/BacktestPanel.tsx` + app shell in `main.tsx`. Dataset picker (SQLite) + JSON/sample candle import, strategy params form (12 signals + exec model), run via Slice 1 service, metrics table, save (strategy_def + backtest_summary via `metricsToBacktestSummary`). Helpers: `candleAdapter` (db↔core candle), `sampleData` (seeded synthetic, CSP-safe), `strategyRecord` (StrategyDef + hash). +7 tests (40/40), typecheck + build green. Removed the PR #1 bridge self-test. No chart/sweep/replay/live/library.
-    - [ ] Slice 3 (CURRENT): chart canvas (candles + MA/EMA/BB/RSI/volume overlays).
-    - [ ] Slice 4: blocks + code strategy modes (code mode = manual-only).
+    - [x] Slice 3: chart canvas — `src/charts/CandleChart.tsx` (+ pure `scale.ts`, unit-tested). Candlesticks + MA fast/slow + EMA + Bollinger overlays, volume strip, RSI subpanel (30/70 guides); overlay toggles; indicators via core/indicators (computed over full series, drawn over visible window). Wired into BacktestPanel (loads candles on dataset select). Static fit-to-width; pan/zoom + trade markers deferred. +6 tests (46/46), typecheck + build green.
+    - [ ] Slice 4 (CURRENT): blocks + code strategy modes (code mode = manual-only).
     - [ ] Slice 5: holdout comparison + parameter sweep.
     - [ ] Slice 6: bar replay + live signals.
     - [ ] Slice 7: strategy library + report (JSON/CSV) export.
