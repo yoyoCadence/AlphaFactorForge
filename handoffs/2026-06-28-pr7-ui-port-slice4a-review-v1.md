@@ -4,7 +4,7 @@ Date: 2026-06-28
 Repo: yoyoCadence/AlphaFactorForge
 Branch: feat/phase-a-ui-port-slice4a
 PR: #7
-Status: Needs one small fix before merge
+Status: Resolved — blank-operand fixed + blocks save verified (earlier "params" was a WAL/viewer staleness artifact, not a save bug); ready to merge after CI.
 
 ## Summary
 
@@ -177,3 +177,31 @@ dev` rebuild — please report the message text + the query rows.
 Separately noted (out of scope, not the cause): the `insert_strategy` UPSERT
 only refreshes `updated_at`; re-saving a same-hash strategy won't update mutable
 fields (name/lifecycle/etc.). Worth a small follow-up fix later.
+
+### Manual Verification Update — PowerShell DB query confirmed blocks
+
+Human re-tested with a direct PowerShell/Python SQLite query against:
+
+```text
+C:\Users\memor\AppData\Roaming\com.alphafactorforge.desktop\alphafactorforge.sqlite3
+```
+
+The query output showed a saved `blocks` row. The earlier SQLite Viewer screenshot
+showed only `params`, but that appears to be a viewer freshness/WAL visibility issue,
+not a failed save path. The directory contains the normal SQLite WAL sidecar files:
+
+```text
+alphafactorforge.sqlite3
+alphafactorforge.sqlite3-shm
+alphafactorforge.sqlite3-wal
+```
+
+Use the `.sqlite3` file as the entry point. Do not open or delete the `-wal` / `-shm`
+files manually. For final confirmation, prefer the direct query:
+
+```powershell
+py -c "import sqlite3, os; p=os.path.join(os.environ['APPDATA'],'com.alphafactorforge.desktop','alphafactorforge.sqlite3'); con=sqlite3.connect(p); print(con.execute('SELECT id,name,type,updated_at,substr(original_definition_json,1,120) FROM strategy_def ORDER BY id DESC LIMIT 5').fetchall()); con.close()"
+```
+
+Current manual DB result: blocks save verified. Remaining PR #7 gate is the normal
+post-fix CI/merge decision, not the earlier stale Viewer screenshot.
