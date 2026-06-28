@@ -45,6 +45,7 @@
 2. ✅ **backtest_summary 持久化**：`repositories::insert_backtest_summary`（upsert）+ `list_backtest_summaries` 已補；`db_commands::save_backtest_result`（改收型別化 `BacktestSummary`）/ `get_backtest_results` 已接通；TS `commands.ts` 同步加 `BacktestSummary` 介面。**仍需本機 `cargo check`**。trade 明細（`trades` 表）延到 UI 移植時再寫。
 3. **UI 移植**：把現有 `AlphaFactorForge.dc.html` 的圖表 / 指標 / 單策略回測 / holdout / sweep / replay / 報告匯出，拆進 `src/components` `src/pages` `src/charts`，改用 `core/*` 純函數與 `tauri-client` 存取資料。
    - code mode 保留為 **manual-only / unsafe-for-ai**，與 AI DSL 完全隔離（AI 永不走 code mode）。
+   - 存回測結果時，camelCase `Metrics` → snake_case `BacktestSummary` 一律走**單一 helper `metricsToBacktestSummary()`**，勿在各 component inline 映射（PR #1 定案）。
 4. **連線狀態**：`@tauri-apps/api` 版本對齊（v2）；`isTauri()` 判斷瀏覽器 dev 模式降級。
 
 驗證指令：
