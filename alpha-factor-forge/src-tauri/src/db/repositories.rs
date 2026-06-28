@@ -368,3 +368,74 @@ pub fn list_backtest_summaries(
     };
     Ok(rows)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A migrated in-memory DB — no temp files, isolated per test.
+    fn mem_db() -> Connection {
+        let conn = Connection::open_in_memory().expect("open in-memory db");
+        crate::db::apply_migrations(&conn).expect("apply migrations");
+        conn
+    }
+
+    fn blocks_strategy(hash: &str) -> StrategyDef {
+        StrategyDef {
+            id: None,
+            name: "blocks test".into(),
+            kind: "blocks".into(),
+            dsl_json: None,
+            original_definition_json:
+                r#"{"mode":"blocks","entryRules":[{"l":"price","op":"<","r":"bbLower"}]}"#.into(),
+            param_schema_json: None,
+            source: "manual".into(),
+            ai_prompt_hash: None,
+            strategy_hash: hash.into(),
+            lifecycle: "candidate".into(),
+            parent_strategy_id: None,
+        }
+    }
+
+    #[test]
+    fn insert_strategy_persists_blocks_type_and_definition() {
+        let conn = mem_db();
+        let id = insert_strategy(&conn, &blocks_strategy("hash-blocks-1")).unwrap();
+
+        let (kind, def): (String, String) = conn
+            .query_row(
+                "SELECT type, original_definition_json FROM strategy_def WHERE id = ?1",
+                params![id],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(kind, "blocks");
+        assert!(def.contains("\"mode\":\"blocks\""));
+
+        // and it reads back through the repository as a blocks strategy
+        let listed = list_strategies(&conn).unwrap();
+        assert_eq!(listed.len(), 1);
+        assert_eq!(listed[0].kind, "blocks");
+    }
+
+    #[test]
+    fn insert_strategy_upserts_on_hash_without_duplicating() {
+        let conn = mem_db();
+        let id1 = insert_strategy(&conn, &blocks_strategy("dup-hash")).unwrap();
+        let id2 = insert_strategy(&conn, &blocks_strategy("dup-hash")).unwrap();
+        assert_eq!(id1, id2, "same strategy_hash must not create a second row");
+
+        let count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM strategy_def WHERE strategy_hash = 'dup-hash'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(count, 1);
+        // NOTE: the current UPSERT only refreshes `updated_at`; it does NOT update
+        // type/name/definition on conflict. That is acceptable here because the
+        // hash already covers the full strategy, but re-saving edited mutable
+        // fields under the same hash is a known limitation (tasks.md follow-up).
+    }
+}

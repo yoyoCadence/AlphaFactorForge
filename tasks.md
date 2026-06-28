@@ -40,6 +40,11 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ### Phase A: Tauri Foundation
 
+- [ ] Refine `insert_strategy` UPSERT to refresh mutable fields
+  - Current `ON CONFLICT(strategy_hash) DO UPDATE SET updated_at` only touches `updated_at`; re-saving a same-hash strategy does NOT update name/lifecycle/source/definition.
+  - Acceptable today (hash covers the full strategy), but editing only a non-hashed field (e.g. name) and re-saving silently keeps the old value.
+  - Decide intended semantics and update the UPSERT; covered by `repositories::tests::insert_strategy_upserts_on_hash_without_duplicating` (documents current behavior).
+
 - [ ] Implement report/file export through Tauri commands
   - Keep JSON and CSV export behavior from the prototype.
   - Add a typed frontend wrapper for `export_report`.
@@ -120,6 +125,10 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Done
 
+- [x] Automate the blocks-save verification (Slice 4a follow-up; replaces manual SQLite checks).
+  - TS: strengthened `buildStrategyDef` tests — a blocks rules strategy persists `type='blocks'`, `JSON.parse(original_definition_json).mode === 'blocks'` with the rules intact, and params/blocks `strategy_hash` differ.
+  - Rust: `repositories::tests` integration tests on an in-memory migrated DB — `insert_strategy` round-trips `type='blocks'`, and a same-hash re-save does not duplicate (documents the current UPSERT-only-`updated_at` behavior).
+  - CI: added `cargo test --locked` to the `cargo-check` job so the Rust test runs on every PR. No schema change; no code mode. Manual SQLite Viewer checks are no longer the acceptance gate.
 - [x] Prepare the local Tauri verification environment.
   - Installed Rust/Rustup/Cargo 1.96, MSVC C++ build tools (VS Build Tools 2022), and Tauri CLI v2.
   - Generated multi-size icons (`icon.png`/`.ico`/`.icns` + platform sets) via `tauri icon`.

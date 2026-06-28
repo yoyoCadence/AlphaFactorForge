@@ -220,16 +220,34 @@ describe('buildBlocksSignals', () => {
   });
 });
 
-describe('buildStrategyDef', () => {
-  it('persists type from strat.mode and serializes the live definition', async () => {
-    const p = await buildStrategyDef(defaultStrategy(), '');
-    const b = await buildStrategyDef({ ...defaultStrategy(), mode: 'blocks' }, '');
-    expect(p.type).toBe('params');
-    expect(b.type).toBe('blocks');
-    expect(b.original_definition_json).toContain('"mode":"blocks"');
-    // mode is part of the hash, so params and blocks never dedup-collide
-    // (the insert UPSERT can't silently keep an old params row for a blocks save).
-    expect(p.strategy_hash).not.toBe(b.strategy_hash);
+describe('buildStrategyDef (blocks save path)', () => {
+  it('persists type=blocks and a parseable blocks definition from a rules strategy', async () => {
+    const blocks: ParamsStrategy = {
+      ...defaultStrategy(),
+      mode: 'blocks',
+      entryRules: [
+        { l: 'price', op: '<', r: 'bbLower' },
+        { l: 'rsi', op: '<', r: '30' },
+      ],
+      exitRules: [{ l: 'price', op: '>', r: 'bbMid' }],
+    };
+    const def = await buildStrategyDef(blocks, '');
+
+    expect(def.type).toBe('blocks');
+    const parsed = JSON.parse(def.original_definition_json);
+    expect(parsed.mode).toBe('blocks');
+    expect(parsed.entryRules).toHaveLength(2);
+    expect(parsed.exitRules).toHaveLength(1);
+  });
+
+  it('keeps params and blocks distinct so a blocks save cannot dedup onto a params row', async () => {
+    const params = await buildStrategyDef(defaultStrategy(), '');
+    const blocks = await buildStrategyDef({ ...defaultStrategy(), mode: 'blocks' }, '');
+    expect(params.type).toBe('params');
+    expect(blocks.type).toBe('blocks');
+    // mode is part of strategy_hash -> different hashes -> insert can't UPSERT a
+    // blocks save onto an existing params row (root cause that was ruled out).
+    expect(params.strategy_hash).not.toBe(blocks.strategy_hash);
   });
 });
 
