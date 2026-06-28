@@ -144,8 +144,10 @@ export function buildBlocksSignals(candles: Candle[], strat: ParamsStrategy): Si
   const series = resolveSeries(candles, strat);
   const known = new Set<string>(OPERAND_IDS);
   const operand = (name: string): Operand => {
-    if (known.has(name)) return series[name as OperandId];
-    const num = Number(name);
+    const key = name.trim();
+    if (known.has(key)) return series[key as OperandId];
+    if (!key) return Number.NaN; // blank/whitespace -> never compares true (avoid Number('') === 0)
+    const num = Number(key);
     return Number.isFinite(num) ? num : Number.NaN;
   };
   const evalRule = (r: Rule, i: number) => evalCond(operand(r.l), r.op, operand(r.r), i);

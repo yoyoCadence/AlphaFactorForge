@@ -210,6 +210,13 @@ describe('buildBlocksSignals', () => {
     expect(entry.every((v) => !v)).toBe(true);
     expect(exit.every((v) => !v)).toBe(true);
   });
+
+  it('a blank or whitespace right operand never fires (not a compare against 0)', () => {
+    const blank: ParamsStrategy = { ...defaultStrategy(), mode: 'blocks', entryRules: [{ l: 'price', op: '>', r: '' }], exitRules: [] };
+    expect(buildBlocksSignals(mk([1, 2, 3, 4]), blank).entry.every((v) => v === false)).toBe(true);
+    const ws: ParamsStrategy = { ...defaultStrategy(), mode: 'blocks', entryRules: [{ l: 'price', op: '>', r: '   ' }], exitRules: [] };
+    expect(buildBlocksSignals(mk([1, 2, 3, 4]), ws).entry.every((v) => v === false)).toBe(true);
+  });
 });
 
 describe('buildSignals dispatch', () => {
