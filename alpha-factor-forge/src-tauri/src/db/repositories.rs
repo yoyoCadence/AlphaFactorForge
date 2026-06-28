@@ -48,6 +48,65 @@ pub struct StrategyDef {
     pub parent_strategy_id: Option<i64>,
 }
 
+/// One row of `backtest_summary`. Mirrors the SQLite column set (snake_case).
+/// The identity quad `(strategy_id, dataset_id, segment)` is the unique key.
+/// Phase A persists `net_return..consecutive_losses` (from core/metrics, which
+/// the frontend maps from its camelCase `Metrics` shape); `gate_passed / score
+/// / *_json` stay `None` until Phase B fills them.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct BacktestSummary {
+    #[serde(default)]
+    pub id: Option<i64>,
+    pub strategy_id: i64,
+    pub dataset_id: i64,
+    pub segment: String, // train | validation | test | full (CHECK enforced)
+    pub start_time: i64,
+    pub end_time: i64,
+    #[serde(default)]
+    pub net_return: Option<f64>,
+    #[serde(default)]
+    pub cagr: Option<f64>,
+    #[serde(default)]
+    pub max_drawdown: Option<f64>,
+    #[serde(default)]
+    pub sharpe: Option<f64>,
+    #[serde(default)]
+    pub sortino: Option<f64>,
+    #[serde(default)]
+    pub calmar: Option<f64>,
+    #[serde(default)]
+    pub win_rate: Option<f64>,
+    #[serde(default)]
+    pub trade_count: Option<i64>,
+    #[serde(default)]
+    pub profit_factor: Option<f64>,
+    #[serde(default)]
+    pub avg_trade_return: Option<f64>,
+    #[serde(default)]
+    pub median_trade_return: Option<f64>,
+    #[serde(default)]
+    pub exposure: Option<f64>,
+    #[serde(default)]
+    pub turnover: Option<f64>,
+    #[serde(default)]
+    pub largest_win: Option<f64>,
+    #[serde(default)]
+    pub largest_loss: Option<f64>,
+    #[serde(default)]
+    pub consecutive_losses: Option<i64>,
+    // ---- Phase B (stay None in v1) ----
+    #[serde(default)]
+    pub gate_passed: Option<bool>,
+    #[serde(default)]
+    pub score: Option<f64>,
+    #[serde(default)]
+    pub score_breakdown_json: Option<String>,
+    #[serde(default)]
+    pub benchmark_result_json: Option<String>,
+    #[serde(default)]
+    pub created_at: Option<String>, // set by DB default; read-only
+}
+
 // ---------- datasets ----------
 
 pub fn insert_dataset(conn: &Connection, d: &Dataset) -> AppResult<i64> {
@@ -187,6 +246,125 @@ pub fn list_strategies(conn: &Connection) -> AppResult<Vec<StrategyDef>> {
 }
 
 // ---------- backtest_summary ----------
-// TODO(local): insert_backtest_summary + list_backtest_results with the full
-// metric column set. Phase A can store the JSON-serialized summary; Phase B
-// fills gate_passed / score / breakdown / benchmark columns.
+
+/// Upsert one summary row. Re-running the same `(strategy_id, dataset_id,
+/// segment)` overwrites the metrics (so a re-backtest refreshes in place rather
+/// than duplicating). Returns the row id.
+pub fn insert_backtest_summary(conn: &Connection, s: &BacktestSummary) -> AppResult<i64> {
+    conn.execute(
+        "INSERT INTO backtest_summary
+            (strategy_id, dataset_id, segment, start_time, end_time,
+             net_return, cagr, max_drawdown, sharpe, sortino, calmar, win_rate,
+             trade_count, profit_factor, avg_trade_return, median_trade_return,
+             exposure, turnover, largest_win, largest_loss, consecutive_losses,
+             gate_passed, score, score_breakdown_json, benchmark_result_json)
+         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25)
+         ON CONFLICT(strategy_id, dataset_id, segment) DO UPDATE SET
+             start_time            = excluded.start_time,
+             end_time              = excluded.end_time,
+             net_return            = excluded.net_return,
+             cagr                  = excluded.cagr,
+             max_drawdown          = excluded.max_drawdown,
+             sharpe                = excluded.sharpe,
+             sortino               = excluded.sortino,
+             calmar                = excluded.calmar,
+             win_rate              = excluded.win_rate,
+             trade_count           = excluded.trade_count,
+             profit_factor         = excluded.profit_factor,
+             avg_trade_return      = excluded.avg_trade_return,
+             median_trade_return   = excluded.median_trade_return,
+             exposure              = excluded.exposure,
+             turnover              = excluded.turnover,
+             largest_win           = excluded.largest_win,
+             largest_loss          = excluded.largest_loss,
+             consecutive_losses    = excluded.consecutive_losses,
+             gate_passed           = excluded.gate_passed,
+             score                 = excluded.score,
+             score_breakdown_json  = excluded.score_breakdown_json,
+             benchmark_result_json = excluded.benchmark_result_json",
+        params![
+            s.strategy_id, s.dataset_id, s.segment, s.start_time, s.end_time,
+            s.net_return, s.cagr, s.max_drawdown, s.sharpe, s.sortino, s.calmar, s.win_rate,
+            s.trade_count, s.profit_factor, s.avg_trade_return, s.median_trade_return,
+            s.exposure, s.turnover, s.largest_win, s.largest_loss, s.consecutive_losses,
+            s.gate_passed, s.score, s.score_breakdown_json, s.benchmark_result_json
+        ],
+    )?;
+    let id: i64 = conn.query_row(
+        "SELECT id FROM backtest_summary
+         WHERE strategy_id = ?1 AND dataset_id = ?2 AND segment = ?3",
+        params![s.strategy_id, s.dataset_id, s.segment],
+        |r| r.get(0),
+    )?;
+    Ok(id)
+}
+
+/// List summaries, newest first. Pass `strategy_id` to scope to one strategy.
+pub fn list_backtest_summaries(
+    conn: &Connection,
+    strategy_id: Option<i64>,
+) -> AppResult<Vec<BacktestSummary>> {
+    const COLS: &str = "id, strategy_id, dataset_id, segment, start_time, end_time,
+             net_return, cagr, max_drawdown, sharpe, sortino, calmar, win_rate,
+             trade_count, profit_factor, avg_trade_return, median_trade_return,
+             exposure, turnover, largest_win, largest_loss, consecutive_losses,
+             gate_passed, score, score_breakdown_json, benchmark_result_json, created_at";
+
+    let map_row = |r: &rusqlite::Row| -> rusqlite::Result<BacktestSummary> {
+        Ok(BacktestSummary {
+            id: Some(r.get(0)?),
+            strategy_id: r.get(1)?,
+            dataset_id: r.get(2)?,
+            segment: r.get(3)?,
+            start_time: r.get(4)?,
+            end_time: r.get(5)?,
+            net_return: r.get(6)?,
+            cagr: r.get(7)?,
+            max_drawdown: r.get(8)?,
+            sharpe: r.get(9)?,
+            sortino: r.get(10)?,
+            calmar: r.get(11)?,
+            win_rate: r.get(12)?,
+            trade_count: r.get(13)?,
+            profit_factor: r.get(14)?,
+            avg_trade_return: r.get(15)?,
+            median_trade_return: r.get(16)?,
+            exposure: r.get(17)?,
+            turnover: r.get(18)?,
+            largest_win: r.get(19)?,
+            largest_loss: r.get(20)?,
+            consecutive_losses: r.get(21)?,
+            gate_passed: r.get(22)?,
+            score: r.get(23)?,
+            score_breakdown_json: r.get(24)?,
+            benchmark_result_json: r.get(25)?,
+            created_at: Some(r.get(26)?),
+        })
+    };
+
+    let rows = match strategy_id {
+        Some(sid) => {
+            let sql = format!(
+                "SELECT {COLS} FROM backtest_summary
+                 WHERE strategy_id = ?1 ORDER BY created_at DESC, segment ASC"
+            );
+            let mut stmt = conn.prepare(&sql)?;
+            let rows = stmt
+                .query_map(params![sid], map_row)?
+                .collect::<Result<Vec<_>, _>>()?;
+            rows
+        }
+        None => {
+            let sql = format!(
+                "SELECT {COLS} FROM backtest_summary
+                 ORDER BY created_at DESC, segment ASC"
+            );
+            let mut stmt = conn.prepare(&sql)?;
+            let rows = stmt
+                .query_map([], map_row)?
+                .collect::<Result<Vec<_>, _>>()?;
+            rows
+        }
+    };
+    Ok(rows)
+}

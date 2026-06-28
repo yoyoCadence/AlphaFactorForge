@@ -3,7 +3,7 @@
 
 use tauri::State;
 
-use crate::db::repositories::{self, Candle, Dataset, StrategyDef};
+use crate::db::repositories::{self, BacktestSummary, Candle, Dataset, StrategyDef};
 use crate::error::{AppError, AppResult};
 use crate::AppState;
 
@@ -64,24 +64,23 @@ pub fn get_strategies(state: State<AppState>) -> AppResult<Vec<StrategyDef>> {
     repositories::list_strategies(&conn)
 }
 
-/// TODO(local): persist a full backtest summary (+ optional trades). Phase A
-/// can accept the JSON the core engine produced and store the columns.
+/// Persist one backtest summary row (upsert on strategy+dataset+segment).
+/// Phase A stores the metric columns; gate/score/benchmark stay null until
+/// Phase B. Trade-level detail (the `trades` table) is deferred to the UI port.
 #[tauri::command]
 pub fn save_backtest_result(
-    _state: State<AppState>,
-    _result_json: String,
+    state: State<AppState>,
+    summary: BacktestSummary,
 ) -> AppResult<i64> {
-    Err(AppError::NotImplemented(
-        "save_backtest_result: wire repositories::insert_backtest_summary (TODO.md)",
-    ))
+    let conn = state.db.lock().map_err(|_| AppError::Other("db lock poisoned".into()))?;
+    repositories::insert_backtest_summary(&conn, &summary)
 }
 
 #[tauri::command]
 pub fn get_backtest_results(
-    _state: State<AppState>,
-    _strategy_id: Option<i64>,
-) -> AppResult<Vec<serde_json::Value>> {
-    Err(AppError::NotImplemented(
-        "get_backtest_results: wire repositories list query (TODO.md)",
-    ))
+    state: State<AppState>,
+    strategy_id: Option<i64>,
+) -> AppResult<Vec<BacktestSummary>> {
+    let conn = state.db.lock().map_err(|_| AppError::Other("db lock poisoned".into()))?;
+    repositories::list_backtest_summaries(&conn, strategy_id)
 }

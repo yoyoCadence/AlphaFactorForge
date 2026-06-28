@@ -44,6 +44,39 @@ export interface StrategyDef {
   parent_strategy_id?: number | null;
 }
 
+// One backtest_summary row. snake_case mirrors the SQLite columns / Rust DTO.
+// NOTE: core/metrics emits a camelCase `Metrics`; map it onto these fields when
+// saving (e.g. netReturn -> net_return). gate_passed/score/*_json are Phase B.
+export interface BacktestSummary {
+  id?: number;
+  strategy_id: number;
+  dataset_id: number;
+  segment: 'train' | 'validation' | 'test' | 'full';
+  start_time: number;
+  end_time: number;
+  net_return?: number | null;
+  cagr?: number | null;
+  max_drawdown?: number | null;
+  sharpe?: number | null;
+  sortino?: number | null;
+  calmar?: number | null;
+  win_rate?: number | null;
+  trade_count?: number | null;
+  profit_factor?: number | null;
+  avg_trade_return?: number | null;
+  median_trade_return?: number | null;
+  exposure?: number | null;
+  turnover?: number | null;
+  largest_win?: number | null;
+  largest_loss?: number | null;
+  consecutive_losses?: number | null;
+  gate_passed?: boolean | null;
+  score?: number | null;
+  score_breakdown_json?: string | null;
+  benchmark_result_json?: string | null;
+  created_at?: string;
+}
+
 // ---- Database ----
 export const db = {
   init: () => invoke<string>('init_database'),
@@ -55,10 +88,10 @@ export const db = {
     invoke<number>('import_candles', { dataset, candles }),
   saveStrategy: (strategy: StrategyDef) => invoke<number>('save_strategy', { strategy }),
   getStrategies: () => invoke<StrategyDef[]>('get_strategies'),
-  saveBacktestResult: (resultJson: string) =>
-    invoke<number>('save_backtest_result', { resultJson }),
+  saveBacktestResult: (summary: BacktestSummary) =>
+    invoke<number>('save_backtest_result', { summary }),
   getBacktestResults: (strategyId?: number) =>
-    invoke<unknown[]>('get_backtest_results', { strategyId }),
+    invoke<BacktestSummary[]>('get_backtest_results', { strategyId }),
 };
 
 // ---- Secrets (Phase C) ----

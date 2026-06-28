@@ -8,6 +8,7 @@ mod db;
 mod error;
 
 use std::sync::Mutex;
+use tauri::Manager;
 
 /// Shared application state. The SQLite connection lives here behind a Mutex.
 /// (rusqlite Connection is not Sync; a Mutex keeps command handlers simple.

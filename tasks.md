@@ -18,8 +18,8 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 - [ ] Prepare the local Tauri verification environment
   - Confirm Rust 1.77+, Cargo, Tauri CLI v2, WebView2 Runtime, and MSVC build tools on Windows.
   - Current check: Node/npm are available; Rust/Cargo are not currently available on PATH.
-  - Generate or add required `alpha-factor-forge/src-tauri/icons/*` assets.
-  - Run `cd alpha-factor-forge/src-tauri && cargo check`.
+  - Icons present: `src-tauri/icons/icon.png` (+ `app-icon-source.png` 1254x1254); optional multi-size via `cargo tauri icon`.
+  - Run `cd alpha-factor-forge/src-tauri && cargo check` (verifies the new `backtest_summary` repository + commands compile).
 
 ## In Progress
 
@@ -31,11 +31,6 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
   - Confirm the native window opens.
   - Confirm SQLite initializes in OS app-data.
   - Confirm the bridge can list datasets.
-
-- [ ] Complete Phase A backtest result persistence
-  - Add `backtest_summary` insert/list repository functions.
-  - Wire `save_backtest_result` and `get_backtest_results`.
-  - Persist `trades` in compatibility with `0001_init.sql`.
 
 - [ ] Implement report/file export through Tauri commands
   - Keep JSON and CSV export behavior from the prototype.
@@ -123,6 +118,12 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Done
 
+- [x] Complete Phase A backtest result persistence (core).
+  - Added `repositories::insert_backtest_summary` (upsert on strategy+dataset+segment) and `list_backtest_summaries`.
+  - Wired `save_backtest_result` (now takes a typed `BacktestSummary`, not a raw JSON string) and `get_backtest_results`.
+  - Added the `BacktestSummary` interface to `tauri-client/commands.ts`; `npm test` + `npm run typecheck` green.
+  - Still needs local `cargo check` (no Rust toolchain in the authoring env). `trades`-table detail deferred to the UI port.
+- [x] Add Tauri app icon (`src-tauri/icons/icon.png` + `app-icon-source.png`); `tauri.conf.json` references it.
 - [x] Review the project archive and capture initial project context in `AGENTS.md`.
 - [x] Copy `HISTORY.md` and `CONVERSATION_HISTORY.md` into the workspace.
 - [x] Establish the canonical local source tree from `區塊鏈交易策略PWA.zip`.
