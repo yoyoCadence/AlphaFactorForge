@@ -29,6 +29,31 @@ export function barsPerYear(interval: string): number {
   return BARS_PER_YEAR[interval] ?? 365;
 }
 
+export interface ExecCostFractions {
+  feePct: number; // per side, fraction, >= 0
+  slippagePct: number; // per side, fraction, >= 0
+  sizingPct: number; // fraction of equity, clamped to [0.01, 1]
+}
+
+/**
+ * Legacy execution-model unit conversion + clamping, mirroring
+ * AlphaFactorForge.dc.html (runBacktestCore):
+ *   fee  = Math.max(0, feePct||0) / 100
+ *   slip = Math.max(0, slipPct||0) / 100
+ *   size = Math.min(1, Math.max(0.01, (sizePct||100) / 100))
+ * Clamping matters for edge inputs: negative fee/slip must NOT become a rebate,
+ * and sizePct 0 falls back to 100% (then the 0.01 floor / 1.0 cap apply).
+ */
+export function toExecCostFractions(
+  strat: Pick<ParamsStrategy, 'feePct' | 'slipPct' | 'sizePct'>,
+): ExecCostFractions {
+  return {
+    feePct: Math.max(0, strat.feePct || 0) / 100,
+    slippagePct: Math.max(0, strat.slipPct || 0) / 100,
+    sizingPct: Math.min(1, Math.max(0.01, (strat.sizePct || 100) / 100)),
+  };
+}
+
 export interface RunParamsBacktestArgs {
   candles: Candle[];
   strat: ParamsStrategy;
@@ -43,16 +68,17 @@ export interface RunParamsBacktestArgs {
 export function runParamsBacktest(args: RunParamsBacktestArgs): BacktestResult {
   const { candles, strat, interval } = args;
   const signals = buildParamsSignals(candles, strat);
+  const { feePct, slippagePct, sizingPct } = toExecCostFractions(strat);
 
   const cfg: BacktestConfig = {
     exec: {
       direction: strat.direction,
-      sizingPct: strat.sizePct / 100,
+      sizingPct,
       fillMode: strat.fillMode,
     },
     cost: {
-      feePct: strat.feePct / 100,
-      slippagePct: strat.slipPct / 100,
+      feePct,
+      slippagePct,
     },
     risk: {
       stopLossPct: strat.slPct > 0 ? strat.slPct / 100 : undefined,

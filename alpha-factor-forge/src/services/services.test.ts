@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import type { Candle } from '../core/backtest';
 import type { Metrics } from '../core/metrics';
 import { buildParamsSignals } from './strategySignals';
-import { runParamsBacktest, barsPerYear } from './backtestRunner';
+import { runParamsBacktest, barsPerYear, toExecCostFractions } from './backtestRunner';
 import { metricsToBacktestSummary } from './metricsMapper';
 import { defaultStrategy, type ParamsStrategy } from './strategy';
 
@@ -65,6 +65,31 @@ describe('barsPerYear', () => {
     expect(barsPerYear('1h')).toBe(8760);
     expect(barsPerYear('1d')).toBe(365);
     expect(barsPerYear('nonsense')).toBe(365);
+  });
+});
+
+describe('toExecCostFractions (legacy clamp)', () => {
+  it('converts normal percent units to fractions', () => {
+    expect(toExecCostFractions({ feePct: 0.05, slipPct: 0.02, sizePct: 100 })).toEqual({
+      feePct: 0.0005,
+      slippagePct: 0.0002,
+      sizingPct: 1,
+    });
+  });
+
+  it('clamps negative fee/slip to zero (no rebate)', () => {
+    const f = toExecCostFractions({ feePct: -1, slipPct: -5, sizePct: 50 });
+    expect(f.feePct).toBe(0);
+    expect(f.slippagePct).toBe(0);
+  });
+
+  it('treats sizePct 0 as the 100% fallback and caps above 100', () => {
+    expect(toExecCostFractions({ feePct: 0, slipPct: 0, sizePct: 0 }).sizingPct).toBe(1);
+    expect(toExecCostFractions({ feePct: 0, slipPct: 0, sizePct: 150 }).sizingPct).toBe(1);
+  });
+
+  it('floors a tiny sizePct at 0.01', () => {
+    expect(toExecCostFractions({ feePct: 0, slipPct: 0, sizePct: 0.5 }).sizingPct).toBe(0.01);
   });
 });
 
