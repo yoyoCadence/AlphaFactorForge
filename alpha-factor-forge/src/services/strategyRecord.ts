@@ -12,9 +12,10 @@ export async function buildStrategyDef(strat: ParamsStrategy, name: string): Pro
     feePct: strat.feePct,
     slippagePct: strat.slipPct,
   });
+  const autoName = strat.mode === 'blocks' ? 'blocks 策略' : `${strat.entrySig} → ${strat.exitSig}`;
   return {
-    name: name.trim() || `${strat.entrySig} → ${strat.exitSig}`,
-    type: 'params',
+    name: name.trim() || autoName,
+    type: strat.mode,
     dsl_json: null,
     original_definition_json: JSON.stringify(strat),
     param_schema_json: null,

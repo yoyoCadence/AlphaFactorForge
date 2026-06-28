@@ -1,12 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import type { Candle } from '../core/backtest';
 import type { Metrics } from '../core/metrics';
-import { buildParamsSignals } from './strategySignals';
+import { buildParamsSignals, buildBlocksSignals, buildSignals } from './strategySignals';
 import { runParamsBacktest, barsPerYear, toExecCostFractions } from './backtestRunner';
 import { metricsToBacktestSummary } from './metricsMapper';
 import { defaultStrategy, type ParamsStrategy } from './strategy';
 import { toCoreCandles } from './candleAdapter';
 import { makeSampleCandles } from './sampleData';
+import { buildStrategyDef } from './strategyRecord';
 
 /** Build flat candles from a close series (only closes matter for these tests). */
 const mk = (closes: number[]): Candle[] =>
@@ -170,5 +171,81 @@ describe('makeSampleCandles', () => {
     const res = runParamsBacktest({ candles, strat: defaultStrategy(), interval: '1h' });
     expect(res.equity.length).toBe(candles.length);
     expect(Number.isFinite(res.metrics.netReturn)).toBe(true);
+  });
+});
+
+describe('buildBlocksSignals', () => {
+  it('a maFast crossUp maSlow rule matches the params signal', () => {
+    const candles = mk([10, 8, 6, 8, 10, 12]);
+    const strat: ParamsStrategy = {
+      ...defaultStrategy(),
+      mode: 'blocks',
+      fastMA: 2,
+      slowMA: 3,
+      entryRules: [{ l: 'maFast', op: 'crossUp', r: 'maSlow' }],
+      exitRules: [{ l: 'maFast', op: 'crossDown', r: 'maSlow' }],
+    };
+    const { entry, exit } = buildBlocksSignals(candles, strat);
+    expect(entry).toEqual([false, false, false, false, true, false]);
+    expect(exit.every((v) => v === false)).toBe(true);
+  });
+
+  it('ANDs all rules (a contradictory pair never fires) and ignores bar 0', () => {
+    const t: ParamsStrategy = {
+      ...defaultStrategy(),
+      mode: 'blocks',
+      entryRules: [{ l: 'price', op: '>', r: '0' }, { l: 'price', op: '<', r: '0' }],
+      exitRules: [],
+    };
+    expect(buildBlocksSignals(mk([1, 2, 3, 4]), t).entry.every((v) => v === false)).toBe(true);
+
+    const single: ParamsStrategy = { ...defaultStrategy(), mode: 'blocks', entryRules: [{ l: 'price', op: '>', r: '0' }], exitRules: [] };
+    const e = buildBlocksSignals(mk([1, 2, 3, 4]), single).entry;
+    expect(e[0]).toBe(false);
+    expect(e.slice(1).every((v) => v === true)).toBe(true);
+  });
+
+  it('an empty rule list never fires', () => {
+    const t: ParamsStrategy = { ...defaultStrategy(), mode: 'blocks', entryRules: [], exitRules: [] };
+    const { entry, exit } = buildBlocksSignals(mk([1, 2, 3]), t);
+    expect(entry.every((v) => !v)).toBe(true);
+    expect(exit.every((v) => !v)).toBe(true);
+  });
+
+  it('a blank or whitespace right operand never fires (not a compare against 0)', () => {
+    const blank: ParamsStrategy = { ...defaultStrategy(), mode: 'blocks', entryRules: [{ l: 'price', op: '>', r: '' }], exitRules: [] };
+    expect(buildBlocksSignals(mk([1, 2, 3, 4]), blank).entry.every((v) => v === false)).toBe(true);
+    const ws: ParamsStrategy = { ...defaultStrategy(), mode: 'blocks', entryRules: [{ l: 'price', op: '>', r: '   ' }], exitRules: [] };
+    expect(buildBlocksSignals(mk([1, 2, 3, 4]), ws).entry.every((v) => v === false)).toBe(true);
+  });
+});
+
+describe('buildStrategyDef', () => {
+  it('persists type from strat.mode and serializes the live definition', async () => {
+    const p = await buildStrategyDef(defaultStrategy(), '');
+    const b = await buildStrategyDef({ ...defaultStrategy(), mode: 'blocks' }, '');
+    expect(p.type).toBe('params');
+    expect(b.type).toBe('blocks');
+    expect(b.original_definition_json).toContain('"mode":"blocks"');
+    // mode is part of the hash, so params and blocks never dedup-collide
+    // (the insert UPSERT can't silently keep an old params row for a blocks save).
+    expect(p.strategy_hash).not.toBe(b.strategy_hash);
+  });
+});
+
+describe('buildSignals dispatch', () => {
+  const candles = mk([10, 8, 6, 8, 10, 12]);
+  it('routes by mode', () => {
+    const p: ParamsStrategy = { ...defaultStrategy(), fastMA: 2, slowMA: 3 };
+    const b: ParamsStrategy = {
+      ...defaultStrategy(),
+      mode: 'blocks',
+      fastMA: 2,
+      slowMA: 3,
+      entryRules: [{ l: 'maFast', op: 'crossUp', r: 'maSlow' }],
+      exitRules: [{ l: 'maFast', op: 'crossDown', r: 'maSlow' }],
+    };
+    expect(buildSignals(candles, p)).toEqual(buildParamsSignals(candles, p));
+    expect(buildSignals(candles, b)).toEqual(buildBlocksSignals(candles, b));
   });
 });

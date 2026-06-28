@@ -1,10 +1,12 @@
-// Params-mode strategy shape for the UI port (Slice 1).
+// Strategy config for the UI port. One flat object (like the legacy defStrat),
+// with `mode` selecting how signals are built:
+//   - 'params' (Slice 1): pick a built-in entry/exit SignalId.
+//   - 'blocks' (Slice 4a): AND-lists of {operand, op, operand|const} rules.
+// 'code' mode (Slice 4b) will be added with a SAFE whitelist-AST interpreter —
+// never new Function/eval — and stays manual-only.
 //
-// Mirrors the params subset of the legacy prototype's defStrat() (see
-// AlphaFactorForge.dc.html). Percentages use the legacy UNIT convention
-// (feePct 0.05 = 0.05%, sizePct 100 = all-in, slPct 0 = off); backtestRunner
-// converts these to the fractions core/backtest expects. blocks/code modes
-// arrive in a later slice; code mode stays manual-only.
+// Percentages use the legacy UNIT convention (feePct 0.05 = 0.05%, sizePct 100
+// = all-in, slPct 0 = off); backtestRunner converts these to fractions.
 
 import type { Direction, FillMode } from '../core/backtest';
 
@@ -26,8 +28,29 @@ export type SignalId =
   | 'stochOversold'
   | 'stochOverbought';
 
+/** Comparison operators for blocks-mode rules (superset of the params ops). */
+export type RuleOp = '>' | '<' | '>=' | '<=' | 'crossUp' | 'crossDown';
+
+/** Named operands a blocks rule can reference. Limited to series the current
+ *  core indicator set can produce (stoch/atr/volMa await later indicators). */
+export const OPERAND_IDS = [
+  'price', 'open', 'high', 'low', 'volume',
+  'maFast', 'maSlow', 'ema', 'rsi',
+  'macd', 'macdSignal', 'macdHist',
+  'bbUpper', 'bbMid', 'bbLower',
+] as const;
+export type OperandId = (typeof OPERAND_IDS)[number];
+
+/** One blocks-mode condition: `l op r`, where `r` is an operand id OR a numeric
+ *  constant written as a string (e.g. "70"). All rules in a list AND together. */
+export interface Rule {
+  l: OperandId;
+  op: RuleOp;
+  r: string;
+}
+
 export interface ParamsStrategy {
-  mode: 'params';
+  mode: 'params' | 'blocks';
   // indicator periods
   fastMA: number;
   slowMA: number;
@@ -40,9 +63,12 @@ export interface ParamsStrategy {
   macdSignal: number;
   bbPeriod: number;
   bbMult: number;
-  // signals
+  // params-mode signals
   entrySig: SignalId;
   exitSig: SignalId;
+  // blocks-mode rules (AND within each list)
+  entryRules: Rule[];
+  exitRules: Rule[];
   // risk (legacy percent units; 0 = off)
   slPct: number;
   tpPct: number;
@@ -71,6 +97,8 @@ export function defaultStrategy(): ParamsStrategy {
     bbMult: 2,
     entrySig: 'maCrossUp',
     exitSig: 'maCrossDown',
+    entryRules: [{ l: 'maFast', op: 'crossUp', r: 'maSlow' }],
+    exitRules: [{ l: 'maFast', op: 'crossDown', r: 'maSlow' }],
     slPct: 0,
     tpPct: 0,
     feePct: 0.05,

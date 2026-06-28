@@ -9,7 +9,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { db, isTauri, type Candle, type Dataset } from '../tauri-client/commands';
 import { importDataset } from '../tauri-client/dbClient';
-import { defaultStrategy, type ParamsStrategy, type SignalId } from '../services/strategy';
+import { defaultStrategy, OPERAND_IDS, type ParamsStrategy, type SignalId, type Rule, type RuleOp, type OperandId } from '../services/strategy';
 import { SUPPORTED_SIGNALS } from '../services/strategySignals';
 import { runParamsBacktest } from '../services/backtestRunner';
 import { toCoreCandles } from '../services/candleAdapter';
@@ -67,6 +67,15 @@ const SIG_LABEL: Record<SignalId, string> = {
 };
 
 const OVERLAY_LABEL: Record<keyof OverlayToggles, string> = { ma: 'MA', ema: 'EMA', bb: 'BB', rsi: 'RSI', vol: '量' };
+
+const OPERAND_LABEL: Record<OperandId, string> = {
+  price: '價格', open: '開', high: '高', low: '低', volume: '量',
+  maFast: '快線', maSlow: '慢線', ema: 'EMA', rsi: 'RSI',
+  macd: 'MACD', macdSignal: 'MACD訊號', macdHist: 'MACD柱',
+  bbUpper: '布林上', bbMid: '布林中', bbLower: '布林下',
+};
+const RULE_OPS: RuleOp[] = ['>', '<', '>=', '<=', 'crossUp', 'crossDown'];
+const OP_LABEL: Record<RuleOp, string> = { '>': '>', '<': '<', '>=': '≥', '<=': '≤', crossUp: '上穿', crossDown: '下穿' };
 
 const METRIC_ROWS: { label: string; fmt: (m: Metrics) => string }[] = [
   { label: '淨報酬', fmt: (m) => pct(m.netReturn) },
@@ -130,6 +139,34 @@ const S = {
   } as React.CSSProperties,
   grid3: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 7 } as React.CSSProperties,
 };
+
+/** Editable AND-list of blocks-mode rules (left operand · op · right). */
+function RuleRows({ title, rules, onChange }: { title: string; rules: Rule[]; onChange: (rules: Rule[]) => void }): React.ReactElement {
+  const update = (i: number, patch: Partial<Rule>) => onChange(rules.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+  const add = () => onChange([...rules, { l: 'price', op: '>', r: 'maSlow' }]);
+  const remove = (i: number) => onChange(rules.filter((_, idx) => idx !== i));
+  return (
+    <div style={{ marginBottom: 8 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+        <span style={S.label}>{title}（全部成立才觸發）</span>
+        <button style={{ ...S.btnGhost, padding: '2px 8px' }} onClick={add}>＋ 規則</button>
+      </div>
+      {rules.length === 0 && <div style={{ fontSize: 11, color: '#aaa599' }}>（無規則 → 不觸發）</div>}
+      {rules.map((r, i) => (
+        <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 58px 1fr 22px', gap: 4, marginBottom: 4 }}>
+          <select value={r.l} onChange={(e) => update(i, { l: e.target.value as OperandId })} style={{ ...S.input, fontSize: 11 }}>
+            {OPERAND_IDS.map((id) => <option key={id} value={id}>{OPERAND_LABEL[id]}</option>)}
+          </select>
+          <select value={r.op} onChange={(e) => update(i, { op: e.target.value as RuleOp })} style={{ ...S.input, fontSize: 11, padding: '5px 2px' }}>
+            {RULE_OPS.map((op) => <option key={op} value={op}>{OP_LABEL[op]}</option>)}
+          </select>
+          <input list="operand-list" value={r.r} onChange={(e) => update(i, { r: e.target.value })} placeholder="series 或數字" style={{ ...S.input, fontSize: 11 }} />
+          <button onClick={() => remove(i)} title="刪除" style={{ ...S.btnGhost, padding: '2px 0' }}>×</button>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export function BacktestPanel(): React.ReactElement {
   const [datasets, setDatasets] = useState<Dataset[]>([]);
@@ -263,7 +300,7 @@ export function BacktestPanel(): React.ReactElement {
         endTime: selected.end_time,
       });
       await db.saveBacktestResult(summary);
-      setMsg(`已存檔：strategy #${strategyId} · dataset #${selected.id} · ${result.trades.length} trades`);
+      setMsg(`已存檔：strategy #${strategyId}（type=${def.type}）· dataset #${selected.id} · ${result.trades.length} trades`);
     } catch (e) {
       setErr(String(e));
     } finally {
@@ -348,25 +385,55 @@ export function BacktestPanel(): React.ReactElement {
           </section>
 
           <section style={S.card}>
-            <h2 style={S.h2}>策略（params 模式）</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7, marginBottom: 8 }}>
-              <label style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                <span style={S.label}>進場訊號</span>
-                <select value={strat.entrySig} onChange={(e) => setStrat((s) => ({ ...s, entrySig: e.target.value as SignalId }))} style={S.input}>
-                  {SUPPORTED_SIGNALS.map((id) => (
-                    <option key={id} value={id}>{SIG_LABEL[id]}</option>
-                  ))}
-                </select>
-              </label>
-              <label style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                <span style={S.label}>出場訊號</span>
-                <select value={strat.exitSig} onChange={(e) => setStrat((s) => ({ ...s, exitSig: e.target.value as SignalId }))} style={S.input}>
-                  {SUPPORTED_SIGNALS.map((id) => (
-                    <option key={id} value={id}>{SIG_LABEL[id]}</option>
-                  ))}
-                </select>
-              </label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <h2 style={{ ...S.h2, margin: 0 }}>策略</h2>
+              <div style={{ display: 'flex', gap: 2 }}>
+                {(['params', 'blocks'] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    onClick={() => setStrat((s) => ({ ...s, mode }))}
+                    style={{
+                      ...S.btnGhost,
+                      padding: '3px 10px',
+                      background: strat.mode === mode ? '#16150f' : '#efece5',
+                      color: strat.mode === mode ? '#fff' : '#16150f',
+                      borderColor: strat.mode === mode ? '#16150f' : '#d6d2c8',
+                    }}
+                  >
+                    {mode === 'params' ? '參數' : '積木'}
+                  </button>
+                ))}
+              </div>
             </div>
+
+            {strat.mode === 'params' ? (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7, marginBottom: 8 }}>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                  <span style={S.label}>進場訊號</span>
+                  <select value={strat.entrySig} onChange={(e) => setStrat((s) => ({ ...s, entrySig: e.target.value as SignalId }))} style={S.input}>
+                    {SUPPORTED_SIGNALS.map((id) => (
+                      <option key={id} value={id}>{SIG_LABEL[id]}</option>
+                    ))}
+                  </select>
+                </label>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                  <span style={S.label}>出場訊號</span>
+                  <select value={strat.exitSig} onChange={(e) => setStrat((s) => ({ ...s, exitSig: e.target.value as SignalId }))} style={S.input}>
+                    {SUPPORTED_SIGNALS.map((id) => (
+                      <option key={id} value={id}>{SIG_LABEL[id]}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            ) : (
+              <>
+                <datalist id="operand-list">
+                  {OPERAND_IDS.map((id) => <option key={id} value={id} />)}
+                </datalist>
+                <RuleRows title="進場規則" rules={strat.entryRules} onChange={(rules) => setStrat((s) => ({ ...s, entryRules: rules }))} />
+                <RuleRows title="出場規則" rules={strat.exitRules} onChange={(rules) => setStrat((s) => ({ ...s, exitRules: rules }))} />
+              </>
+            )}
 
             <div style={S.grid3}>
               {IND_FIELDS.map((f) => (
