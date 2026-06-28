@@ -100,6 +100,7 @@ Code and documentation should be written so another agent or human can continue 
 - Keep comments focused and actionable
 - Make placeholders explicit
 - Prefer obvious extension points over clever shortcuts
+- For cross-session / cross-agent context that does not belong in code — PR reviews, design decisions, task handoffs — write a tracked note under `handoffs/` (see `handoffs/README.md` for the naming convention, lifecycle, and template). Append a Resolution section when acted on; do not rely on private chat memory.
 
 ---
 
