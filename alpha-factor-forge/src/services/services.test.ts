@@ -5,6 +5,8 @@ import { buildParamsSignals } from './strategySignals';
 import { runParamsBacktest, barsPerYear, toExecCostFractions } from './backtestRunner';
 import { metricsToBacktestSummary } from './metricsMapper';
 import { defaultStrategy, type ParamsStrategy } from './strategy';
+import { toCoreCandles } from './candleAdapter';
+import { makeSampleCandles } from './sampleData';
 
 /** Build flat candles from a close series (only closes matter for these tests). */
 const mk = (closes: number[]): Candle[] =>
@@ -136,5 +138,37 @@ describe('metricsToBacktestSummary', () => {
     const s = metricsToBacktestSummary(m, { strategyId: 1, datasetId: 2, segment: 'train', startTime: 0, endTime: 1 });
     expect(s.profit_factor).toBeNull();
     expect(s.segment).toBe('train');
+  });
+});
+
+describe('toCoreCandles', () => {
+  it('maps persisted candle fields to the core short shape', () => {
+    const core = toCoreCandles([
+      { timestamp: 5, open: 1, high: 2, low: 0.5, close: 1.5, volume: 9 },
+    ]);
+    expect(core).toEqual([{ t: 5, o: 1, h: 2, l: 0.5, c: 1.5, v: 9 }]);
+  });
+});
+
+describe('makeSampleCandles', () => {
+  it('is deterministic for a given seed and well-formed', () => {
+    const a = makeSampleCandles({ count: 50, seed: 7 });
+    const b = makeSampleCandles({ count: 50, seed: 7 });
+    expect(a).toEqual(b);
+    expect(a.length).toBe(50);
+    // OHLC invariants + strictly increasing timestamps.
+    for (let i = 0; i < a.length; i++) {
+      expect(a[i].high).toBeGreaterThanOrEqual(a[i].low);
+      expect(a[i].high).toBeGreaterThanOrEqual(Math.max(a[i].open, a[i].close));
+      expect(a[i].low).toBeLessThanOrEqual(Math.min(a[i].open, a[i].close));
+      if (i > 0) expect(a[i].timestamp).toBeGreaterThan(a[i - 1].timestamp);
+    }
+  });
+
+  it('runs end to end through the backtest pipeline', () => {
+    const candles = toCoreCandles(makeSampleCandles({ count: 300, seed: 1 }));
+    const res = runParamsBacktest({ candles, strat: defaultStrategy(), interval: '1h' });
+    expect(res.equity.length).toBe(candles.length);
+    expect(Number.isFinite(res.metrics.netReturn)).toBe(true);
   });
 });
