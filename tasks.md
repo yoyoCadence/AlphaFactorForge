@@ -9,39 +9,39 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 - Legacy prototype: `AlphaFactorForge.dc.html` is a feature-rich browser PWA and remains the UI/behavior reference.
 - Target app: `alpha-factor-forge/` is the Tauri Desktop Phase A scaffold.
 - Baseline verified: `npm test`, `npm run typecheck`, and `npm run build` pass in `alpha-factor-forge/`.
-- Native Tauri is not verified yet: Rust/Cargo were not available on PATH during the latest check.
+- Native Tauri verified: Rust 1.96 / Cargo / MSVC build tools / Tauri CLI v2 installed; `cargo check` and `cargo tauri dev` both pass; multi-size icons generated.
+- PR #1 (backtest_summary persistence + app icons) merged to `main`; save->read round-trip + upsert self-test PASS in the running app. PR CI runs typecheck/test/build/cargo-check (all green).
 - Source-of-truth architecture: `STRATEGY_DISCOVERY.md` v3 and `README.md`.
 - Historical context: `HISTORY.md` and `CONVERSATION_HISTORY.md`.
 
 ## Next
 
-- [ ] Prepare the local Tauri verification environment
-  - Confirm Rust 1.77+, Cargo, Tauri CLI v2, WebView2 Runtime, and MSVC build tools on Windows.
-  - Current check: Node/npm are available; Rust/Cargo are not currently available on PATH.
-  - Icons present: `src-tauri/icons/icon.png` (+ `app-icon-source.png` 1254x1254); optional multi-size via `cargo tauri icon`.
-  - Run `cd alpha-factor-forge/src-tauri && cargo check` (verifies the new `backtest_summary` repository + commands compile).
+- [ ] UI port — Slice 2: Backtest panel UI (params mode) — starts after Slice 1 lands. See the slice plan under In Progress.
 
 ## In Progress
+
+- [ ] Port the legacy AlphaFactorForge PWA UI into the React/Tauri structure (incremental)
+  - Reality check: `AlphaFactorForge.dc.html` is a custom "dc"-framework export (`{{ }}` bindings, `<sc-for>`/`<sc-if>`, runtime `support.js`), ~1500 lines; app logic + initial state live in the `<script type="text/x-dc">` block (line ~685+). This is a REWRITE in React, not a copy-paste port.
+  - Constraints found: webview CSP is `default-src 'self'`, so live exchange `fetch` from the frontend is blocked (the legacy ran as a plain PWA); SQLite currently holds no candles. Data must arrive via import (file/JSON) or a future backend fetch command.
+  - Rules: reuse `src/core/*` + `tauri-client`; persist via one `metricsToBacktestSummary()` helper (PR #1 decision); code mode stays manual-only; do NOT mass-port — one small slice per PR.
+  - Legacy defaults to mirror (from the script block): symbols `BTCUSDT…` + intervals `1m..1d`; `defStrat()` params (fastMA 9 / slowMA 21 / rsi 14 / fee 0.05% / slip 0.02% / size 100% / fill close / long); 6 preset strategies; localStorage keys `cd_strat` / `cd_stratlib` / `cd_paper`.
+  - **Slice plan (small, one PR each):**
+    - [ ] Slice 1 (CURRENT): backtest pipeline service in `src/services/` — params-mode strategy -> entry/exit boolean signals (via `core/indicators`) -> `core/backtest.runBacktest` -> `core/metrics` -> `metricsToBacktestSummary`. Pure TS, unit-tested, no UI. Handles interval->barsPerYear and legacy %->fraction conversion. Unblocked + CI-verifiable.
+    - [ ] Slice 2: Backtest panel UI (params mode): dataset picker (SQLite) + minimal candle import, strategy params form, run, metrics table, save via the Slice 1 service. No chart/sweep/replay/live/library.
+    - [ ] Slice 3: chart canvas (candles + MA/EMA/BB/RSI/volume overlays).
+    - [ ] Slice 4: blocks + code strategy modes (code mode = manual-only).
+    - [ ] Slice 5: holdout comparison + parameter sweep.
+    - [ ] Slice 6: bar replay + live signals.
+    - [ ] Slice 7: strategy library + report (JSON/CSV) export.
+  - Carry-over detail (kept from backlog): suggested folders `src/components`, `src/pages`, `src/charts`, `src/stores`, `src/services`; preserve the terminal-like dense visual style; replace prototype localStorage persistence with SQLite via `tauri-client`.
 
 ## Backlog
 
 ### Phase A: Tauri Foundation
 
-- [ ] Launch the Tauri Phase A bridge locally with `cargo tauri dev`
-  - Confirm the native window opens.
-  - Confirm SQLite initializes in OS app-data.
-  - Confirm the bridge can list datasets.
-
 - [ ] Implement report/file export through Tauri commands
   - Keep JSON and CSV export behavior from the prototype.
   - Add a typed frontend wrapper for `export_report`.
-
-- [ ] Port the legacy AlphaFactorForge PWA UI into the React/Tauri structure
-  - Move chart, data controls, strategy editor, execution model, holdout, sweep, replay, strategy library, paper trading, and export flows into React modules.
-  - Suggested folders: `src/components`, `src/pages`, `src/charts`, `src/stores`, `src/services`.
-  - Reuse `src/core/*` pure functions and `tauri-client` wrappers instead of direct frontend persistence.
-  - Persist backtests through ONE mapping helper `metricsToBacktestSummary()` (camelCase `Metrics` -> snake_case `BacktestSummary`); do NOT inline the field mapping per component. Decided in PR #1.
-  - Preserve the terminal-like dense visual style from the prototype.
 
 - [ ] Replace prototype localStorage strategy/data persistence with local-first Tauri storage
   - Store datasets, candles, strategies, summaries, and trades in SQLite.
@@ -119,6 +119,15 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Done
 
+- [x] Prepare the local Tauri verification environment.
+  - Installed Rust/Rustup/Cargo 1.96, MSVC C++ build tools (VS Build Tools 2022), and Tauri CLI v2.
+  - Generated multi-size icons (`icon.png`/`.ico`/`.icns` + platform sets) via `tauri icon`.
+  - `cd alpha-factor-forge/src-tauri && cargo check` passes; PR CI `cargo-check` job also green.
+- [x] Launch the Tauri Phase A bridge locally with `cargo tauri dev`.
+  - Native window opens; title bar shows the app + icon.
+  - Status reads `database already initialized at startup`; SQLite created in OS app-data; bridge lists datasets (0 initially, expected).
+  - Verified end-to-end via the bridge-shell self-test: save->read round-trip + upsert returned PASS.
+  - Note: use `npm run tauri -- dev` if `cargo-tauri` is not installed as a cargo subcommand (`cargo install tauri-cli` enables `cargo tauri dev`).
 - [x] Complete Phase A backtest result persistence (core).
   - Added `repositories::insert_backtest_summary` (upsert on strategy+dataset+segment) and `list_backtest_summaries`.
   - Wired `save_backtest_result` (now takes a typed `BacktestSummary`, not a raw JSON string) and `get_backtest_results`.
