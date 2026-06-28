@@ -149,10 +149,10 @@ Legacy PWA：
 
 Tauri scaffold：
 
-- `save_backtest_result` 和 `get_backtest_results` 目前仍回傳 `NotImplemented`。
+- `save_backtest_result`／`get_backtest_results` 已實作：持久化到 `backtest_summary`（依 strategy+dataset+segment upsert）。仍待本機 `cargo check`。
 - `export_report` 是 stub。
 - AI、secrets、discovery commands 仍是 stubs。
-- App icons 目前是 placeholder；`cargo tauri dev` 需要真正的 icon assets。
+- App icon 已就位：`icons/icon.png`（另有 `app-icon-source.png` 1254×1254 原圖）。
 - Rust/Cargo 最近一次檢查時不在 PATH。
 
 ### 驗證指令
@@ -318,10 +318,10 @@ Legacy PWA:
 
 Tauri scaffold:
 
-- `save_backtest_result` and `get_backtest_results` currently return `NotImplemented`.
+- `save_backtest_result` / `get_backtest_results` are implemented: they persist to `backtest_summary` (upsert on strategy+dataset+segment). Still pending local `cargo check`.
 - `export_report` is a stub.
 - AI, secrets, and discovery commands are stubs.
-- App icons are placeholders; `cargo tauri dev` needs generated icon assets.
+- App icon is in place: `icons/icon.png` (plus `app-icon-source.png`, 1254×1254 source).
 - Rust/Cargo were not available on PATH during the latest check.
 
 ### Verification
@@ -487,10 +487,10 @@ Legacy PWA：
 
 Tauri scaffold：
 
-- `save_backtest_result` と `get_backtest_results` は現在 `NotImplemented` を返します。
+- `save_backtest_result` / `get_backtest_results` は実装済みです：`backtest_summary` に永続化します（strategy+dataset+segment で upsert）。ローカルでの `cargo check` が必要です。
 - `export_report` は stub です。
 - AI、secrets、discovery commands は stubs です。
-- App icons は placeholders です。`cargo tauri dev` には generated icon assets が必要です。
+- App icon は配置済みです：`icons/icon.png`（`app-icon-source.png` 1254×1254 原図あり）。
 - Rust/Cargo は最近の確認時点では PATH にありませんでした。
 
 ### 検証コマンド

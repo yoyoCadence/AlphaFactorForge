@@ -29,8 +29,8 @@
 - 🟡 `src-tauri/src/main.rs` — invoke handler 註冊齊全
 - ✅ `src-tauri/src/error.rs` — 錯誤型別
 - 🟡 `src-tauri/src/db/mod.rs` — 連線 + migration runner（邏輯完整）
-- 🟡 `src-tauri/src/db/repositories.rs` — datasets/candles/strategy CRUD 完整；**backtest_summary CRUD 待補**
-- 🟡 `src-tauri/src/commands/db_commands.rs` — 多數完整；`save/get_backtest_result` 回 NotImplemented
+- 🟡 `src-tauri/src/db/repositories.rs` — datasets/candles/strategy/**backtest_summary** CRUD 完整（upsert on strategy+dataset+segment）
+- 🟡 `src-tauri/src/commands/db_commands.rs` — 完整；`save/get_backtest_result` 已接通 `insert_backtest_summary` / `list_backtest_summaries`
 - ⬜ `src-tauri/src/commands/file_commands.rs` — export_report 待補
 - ⬜ `src-tauri/src/commands/ai_commands.rs` — Phase C
 - ⬜ `src-tauri/src/commands/secret_commands.rs` — Phase C（keychain）
@@ -41,8 +41,8 @@
 
 ## 需本機補完才能跑起來（Phase A 收尾）
 
-1. **Tauri 圖示**：`src-tauri/icons/icon.png`（與其他尺寸）。用 `cargo tauri icon path/to/logo.png` 產生。沒有圖示 `tauri dev` 會報錯。
-2. **backtest_summary 持久化**：補 `repositories::insert_backtest_summary` + `list`，接上 `db_commands::save/get_backtest_result`。
+1. ✅ **Tauri 圖示**：`src-tauri/icons/icon.png` 已就位（另有 `app-icon-source.png` 1254×1254 方形原圖）。`tauri.conf.json` 只要求 `icons/icon.png`，已滿足。可選：本機 `cargo tauri icon icons/app-icon-source.png` 產生各平台多尺寸（.ico/.icns/PNG set）。
+2. ✅ **backtest_summary 持久化**：`repositories::insert_backtest_summary`（upsert）+ `list_backtest_summaries` 已補；`db_commands::save_backtest_result`（改收型別化 `BacktestSummary`）/ `get_backtest_results` 已接通；TS `commands.ts` 同步加 `BacktestSummary` 介面。**仍需本機 `cargo check`**。trade 明細（`trades` 表）延到 UI 移植時再寫。
 3. **UI 移植**：把現有 `AlphaFactorForge.dc.html` 的圖表 / 指標 / 單策略回測 / holdout / sweep / replay / 報告匯出，拆進 `src/components` `src/pages` `src/charts`，改用 `core/*` 純函數與 `tauri-client` 存取資料。
    - code mode 保留為 **manual-only / unsafe-for-ai**，與 AI DSL 完全隔離（AI 永不走 code mode）。
 4. **連線狀態**：`@tauri-apps/api` 版本對齊（v2）；`isTauri()` 判斷瀏覽器 dev 模式降級。
