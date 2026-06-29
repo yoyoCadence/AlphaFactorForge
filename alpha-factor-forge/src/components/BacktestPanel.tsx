@@ -194,6 +194,59 @@ function CodeField({ label, value, onChange }: { label: string; value: string; o
   );
 }
 
+/** Numeric input that allows clearing / partial edits. Keeps a draft string
+ *  while focused (so backspace doesn't snap to 0 or a clamp), propagates the
+ *  number live only when the draft is a valid number, and normalises/clamps on
+ *  blur. min/max clamp on blur only — not while typing. */
+function NumberInput({
+  value,
+  onChange,
+  min,
+  max,
+  style,
+}: {
+  value: number;
+  onChange: (n: number) => void;
+  min?: number;
+  max?: number;
+  style?: React.CSSProperties;
+}): React.ReactElement {
+  const [draft, setDraft] = useState(String(value));
+
+  // Re-sync when the value changes externally, but don't clobber an in-progress
+  // edit that already parses to the same number (e.g. "5." while typing "5.5").
+  useEffect(() => {
+    if (parseFloat(draft) !== value) setDraft(String(value));
+  }, [value]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const clamp = (n: number) => {
+    let v = n;
+    if (min != null) v = Math.max(min, v);
+    if (max != null) v = Math.min(max, v);
+    return v;
+  };
+
+  return (
+    <input
+      type="number"
+      value={draft}
+      onChange={(e) => {
+        const raw = e.target.value;
+        setDraft(raw);
+        const n = parseFloat(raw);
+        if (raw !== '' && Number.isFinite(n)) onChange(n); // live, unclamped; empty/partial stays in the field
+      }}
+      onBlur={() => {
+        const n = parseFloat(draft);
+        const v = clamp(Number.isFinite(n) ? n : value);
+        onChange(v);
+        setDraft(String(v));
+      }}
+      style={style}
+    />
+  );
+}
+
 export function BacktestPanel(): React.ReactElement {
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [selId, setSelId] = useState<number | null>(null);
@@ -209,6 +262,9 @@ export function BacktestPanel(): React.ReactElement {
   const [candles, setCandles] = useState<CoreCandle[]>([]);
   const [loadingCandles, setLoadingCandles] = useState(false);
   const [show, setShow] = useState<OverlayToggles>({ ma: true, ema: false, bb: false, rsi: true, vol: true });
+  const [holdout, setHoldout] = useState(false);
+  const [holdoutPct, setHoldoutPct] = useState(30); // last N% of bars = out-of-sample
+  const [holdoutResult, setHoldoutResult] = useState<{ inSample: BacktestResult; outSample: BacktestResult } | null>(null);
 
   const refresh = useCallback(async () => {
     const ds = await db.getDatasets();
@@ -296,6 +352,7 @@ export function BacktestPanel(): React.ReactElement {
     setErr(null);
     setMsg(null);
     setResult(null);
+    setHoldoutResult(null);
     try {
       let cs = candles;
       if (!cs.length) {
@@ -303,7 +360,17 @@ export function BacktestPanel(): React.ReactElement {
         setCandles(cs);
       }
       if (!cs.length) throw new Error('此資料集沒有 K 線');
-      setResult(runParamsBacktest({ candles: cs, strat, interval: selected.interval }));
+      const interval = selected.interval;
+      setResult(runParamsBacktest({ candles: cs, strat, interval }));
+      if (holdout) {
+        // Same candles (so indicators keep full history); from/to restrict which
+        // bars are traded -> proper in-sample vs out-of-sample split.
+        const nn = cs.length;
+        const split = Math.max(1, Math.min(nn - 1, Math.floor(nn * (1 - holdoutPct / 100))));
+        const inSample = runParamsBacktest({ candles: cs, strat, interval, from: 0, to: split - 1 });
+        const outSample = runParamsBacktest({ candles: cs, strat, interval, from: split, to: nn - 1 });
+        setHoldoutResult({ inSample, outSample });
+      }
     } catch (e) {
       setErr(String(e));
     } finally {
@@ -334,6 +401,18 @@ export function BacktestPanel(): React.ReactElement {
     }
   }
 
+  // Columns for the metrics table: a single full-period column, or three
+  // (full / in-sample / out-of-sample) when holdout produced a split.
+  const metricCols = result
+    ? holdout && holdoutResult
+      ? [
+          { label: '全期', metrics: result.metrics },
+          { label: '樣本內', metrics: holdoutResult.inSample.metrics },
+          { label: '樣本外', metrics: holdoutResult.outSample.metrics },
+        ]
+      : [{ label: '', metrics: result.metrics }]
+    : [];
+
   return (
     <div>
       {err && <div style={{ ...S.card, borderColor: '#d23b2f', color: '#b23b2e', marginBottom: 12 }}>{err}</div>}
@@ -360,12 +439,7 @@ export function BacktestPanel(): React.ReactElement {
             {QUICK_FIELDS.map((f) => (
               <label key={f.key} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <span style={S.label}>{f.label}</span>
-                <input
-                  type="number"
-                  value={strat[f.key]}
-                  onChange={(e) => setNum(f.key, parseFloat(e.target.value) || 0)}
-                  style={{ ...S.input, width: 88 }}
-                />
+                <NumberInput value={strat[f.key]} onChange={(n) => setNum(f.key, n)} style={{ ...S.input, width: 88 }} />
               </label>
             ))}
             <span style={{ fontSize: 10, color: '#aaa599', alignSelf: 'center' }}>調整即時重畫；完整參數見下方策略表單</span>
@@ -480,12 +554,7 @@ export function BacktestPanel(): React.ReactElement {
               {IND_FIELDS.map((f) => (
                 <label key={f.key} style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                   <span style={S.label}>{f.label}</span>
-                  <input
-                    type="number"
-                    value={strat[f.key]}
-                    onChange={(e) => setNum(f.key, parseFloat(e.target.value) || 0)}
-                    style={S.input}
-                  />
+                  <NumberInput value={strat[f.key]} onChange={(n) => setNum(f.key, n)} style={S.input} />
                 </label>
               ))}
             </div>
@@ -495,12 +564,7 @@ export function BacktestPanel(): React.ReactElement {
               {EXEC_FIELDS.map((f) => (
                 <label key={f.key} style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                   <span style={S.label}>{f.label}</span>
-                  <input
-                    type="number"
-                    value={strat[f.key]}
-                    onChange={(e) => setNum(f.key, parseFloat(e.target.value) || 0)}
-                    style={S.input}
-                  />
+                  <NumberInput value={strat[f.key]} onChange={(n) => setNum(f.key, n)} style={S.input} />
                 </label>
               ))}
               <label style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -520,7 +584,36 @@ export function BacktestPanel(): React.ReactElement {
               </label>
             </div>
 
-            <button style={{ ...S.btn, width: '100%', marginTop: 12 }} onClick={run} disabled={running || !selected}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 12, fontSize: 11, color: '#8a8678', flexWrap: 'wrap' }}>
+              <input
+                type="checkbox"
+                checked={holdout}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setHoldout(checked);
+                  if (!checked) setHoldoutResult(null);
+                }}
+              />
+              Holdout 樣本外驗證
+              {holdout && (
+                <>
+                  <span style={{ color: '#cfccc4' }}>·</span>末
+                  <NumberInput
+                    value={holdoutPct}
+                    min={5}
+                    max={90}
+                    onChange={(n) => {
+                      setHoldoutPct(n);
+                      setHoldoutResult(null); // stale split no longer matches the new %
+                    }}
+                    style={{ ...S.input, width: 52, fontSize: 11, padding: '3px 5px' }}
+                  />
+                  % 為樣本外
+                </>
+              )}
+            </label>
+
+            <button style={{ ...S.btn, width: '100%', marginTop: 8 }} onClick={run} disabled={running || !selected}>
               {running ? '回測中…' : '▶ 執行回測'}
             </button>
           </section>
@@ -533,11 +626,23 @@ export function BacktestPanel(): React.ReactElement {
           {result && (
             <>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: "'IBM Plex Mono', monospace", fontSize: 12 }}>
+                {metricCols.length > 1 && (
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid #d6d2c8' }}>
+                      <th />
+                      {metricCols.map((c) => (
+                        <th key={c.label} style={{ padding: '4px', textAlign: 'right', fontSize: 10, fontWeight: 600, color: '#8a8678' }}>{c.label}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                )}
                 <tbody>
                   {METRIC_ROWS.map((r) => (
                     <tr key={r.label} style={{ borderBottom: '1px solid #efece5' }}>
                       <td style={{ padding: '5px 4px', color: '#8a8678' }}>{r.label}</td>
-                      <td style={{ padding: '5px 4px', textAlign: 'right', fontWeight: 600 }}>{r.fmt(result.metrics)}</td>
+                      {metricCols.map((c) => (
+                        <td key={c.label} style={{ padding: '5px 4px', textAlign: 'right', fontWeight: 600 }}>{r.fmt(c.metrics)}</td>
+                      ))}
                     </tr>
                   ))}
                 </tbody>
