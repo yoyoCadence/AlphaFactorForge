@@ -11,7 +11,7 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 - Baseline verified: `npm test`, `npm run typecheck`, and `npm run build` pass in `alpha-factor-forge/`.
 - Native Tauri verified: Rust 1.96 / Cargo / MSVC build tools / Tauri CLI v2 installed; `cargo check` and `cargo tauri dev` both pass; multi-size icons generated.
 - Progress (PRs #1–#8 merged): backtest_summary persistence + app icons; UI port Slice 1 (backtest pipeline service), Slice 2 (Backtest panel), Slice 3 (chart canvas), Slice 4a (blocks rule-builder mode); plus a save-path test-automation PR. `npm test` ~53 green.
-- Next: UI port Slice 4b — code strategy mode via a safe whitelist-AST interpreter (no `new Function`/`eval`). Design proposal in `handoffs/2026-06-28-slice4b-interpreter-design-v1.md`, pending decisions (var/op set, 4b-1/4b-2 split, caps).
+- Next: UI port Slice 4b-2 — code-mode UI tab in `BacktestPanel`. Slice 4b-1 (safe whitelist-AST interpreter, no `new Function`/`eval`; decisions settled) is done in the open PR; design in `handoffs/2026-06-28-slice4b-interpreter-design-v1.md`.
 - PR CI runs typecheck / test / build / cargo-check (now incl. `cargo test`) — green per PR; `main` requires branches up to date before merge.
 - Source-of-truth architecture: `STRATEGY_DISCOVERY.md` v3 and `README.md`.
 - Historical context: `HISTORY.md` and `CONVERSATION_HISTORY.md`.
