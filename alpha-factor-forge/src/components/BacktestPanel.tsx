@@ -11,6 +11,7 @@ import { db, isTauri, type Candle, type Dataset } from '../tauri-client/commands
 import { importDataset } from '../tauri-client/dbClient';
 import { defaultStrategy, OPERAND_IDS, type ParamsStrategy, type SignalId, type Rule, type RuleOp, type OperandId } from '../services/strategy';
 import { SUPPORTED_SIGNALS } from '../services/strategySignals';
+import { compileExpression } from '../services/exprInterpreter';
 import { runParamsBacktest } from '../services/backtestRunner';
 import { toCoreCandles } from '../services/candleAdapter';
 import { makeSampleCandles } from '../services/sampleData';
@@ -76,6 +77,8 @@ const OPERAND_LABEL: Record<OperandId, string> = {
 };
 const RULE_OPS: RuleOp[] = ['>', '<', '>=', '<=', 'crossUp', 'crossDown'];
 const OP_LABEL: Record<RuleOp, string> = { '>': '>', '<': '<', '>=': '≥', '<=': '≤', crossUp: '上穿', crossDown: '下穿' };
+
+const MODE_LABEL: Record<ParamsStrategy['mode'], string> = { params: '參數', blocks: '積木', code: '程式碼' };
 
 const METRIC_ROWS: { label: string; fmt: (m: Metrics) => string }[] = [
   { label: '淨報酬', fmt: (m) => pct(m.netReturn) },
@@ -165,6 +168,29 @@ function RuleRows({ title, rules, onChange }: { title: string; rules: Rule[]; on
         </div>
       ))}
     </div>
+  );
+}
+
+/** A code-mode expression field with live (per-keystroke) interpreter validation. */
+function CodeField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }): React.ReactElement {
+  let err: string | null = null;
+  try {
+    compileExpression(value, OPERAND_IDS);
+  } catch (e) {
+    err = e instanceof Error ? e.message : String(e);
+  }
+  return (
+    <label style={{ display: 'flex', flexDirection: 'column', gap: 3, marginBottom: 8 }}>
+      <span style={S.label}>{label}</span>
+      <textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        rows={2}
+        spellCheck={false}
+        style={{ ...S.input, fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, resize: 'vertical', borderColor: err ? '#d23b2f' : '#d6d2c8' }}
+      />
+      {err && <span style={{ fontSize: 10, color: '#b23b2e' }}>{err}</span>}
+    </label>
   );
 }
 
@@ -388,7 +414,7 @@ export function BacktestPanel(): React.ReactElement {
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
               <h2 style={{ ...S.h2, margin: 0 }}>策略</h2>
               <div style={{ display: 'flex', gap: 2 }}>
-                {(['params', 'blocks'] as const).map((mode) => (
+                {(['params', 'blocks', 'code'] as const).map((mode) => (
                   <button
                     key={mode}
                     onClick={() => setStrat((s) => ({ ...s, mode }))}
@@ -400,13 +426,13 @@ export function BacktestPanel(): React.ReactElement {
                       borderColor: strat.mode === mode ? '#16150f' : '#d6d2c8',
                     }}
                   >
-                    {mode === 'params' ? '參數' : '積木'}
+                    {MODE_LABEL[mode]}
                   </button>
                 ))}
               </div>
             </div>
 
-            {strat.mode === 'params' ? (
+            {strat.mode === 'params' && (
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7, marginBottom: 8 }}>
                 <label style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                   <span style={S.label}>進場訊號</span>
@@ -425,7 +451,8 @@ export function BacktestPanel(): React.ReactElement {
                   </select>
                 </label>
               </div>
-            ) : (
+            )}
+            {strat.mode === 'blocks' && (
               <>
                 <datalist id="operand-list">
                   {OPERAND_IDS.map((id) => <option key={id} value={id} />)}
@@ -433,6 +460,20 @@ export function BacktestPanel(): React.ReactElement {
                 <RuleRows title="進場規則" rules={strat.entryRules} onChange={(rules) => setStrat((s) => ({ ...s, entryRules: rules }))} />
                 <RuleRows title="出場規則" rules={strat.exitRules} onChange={(rules) => setStrat((s) => ({ ...s, exitRules: rules }))} />
               </>
+            )}
+            {strat.mode === 'code' && (
+              <div style={{ marginBottom: 8 }}>
+                <CodeField label="進場條件 (entry)" value={strat.entryCode} onChange={(v) => setStrat((s) => ({ ...s, entryCode: v }))} />
+                <CodeField label="出場條件 (exit)" value={strat.exitCode} onChange={(v) => setStrat((s) => ({ ...s, exitCode: v }))} />
+                <div style={{ fontSize: 10, color: '#8a8678', lineHeight: 1.5 }}>
+                  變數：{OPERAND_IDS.join(' ')}
+                  <br />
+                  函式：prev(x) · crossUp(a,b) · crossDown(a,b)　運算子：+ - * / &gt; &lt; &gt;= &lt;= == != &amp;&amp; || !
+                </div>
+                <div style={{ fontSize: 10, color: '#aaa599', marginTop: 4 }}>
+                  code 模式為手動專用，AI 不會使用；以安全直譯器求值（無 eval）。
+                </div>
+              </div>
             )}
 
             <div style={S.grid3}>
