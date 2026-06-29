@@ -209,6 +209,9 @@ export function BacktestPanel(): React.ReactElement {
   const [candles, setCandles] = useState<CoreCandle[]>([]);
   const [loadingCandles, setLoadingCandles] = useState(false);
   const [show, setShow] = useState<OverlayToggles>({ ma: true, ema: false, bb: false, rsi: true, vol: true });
+  const [holdout, setHoldout] = useState(false);
+  const [holdoutPct, setHoldoutPct] = useState(30); // last N% of bars = out-of-sample
+  const [holdoutResult, setHoldoutResult] = useState<{ inSample: BacktestResult; outSample: BacktestResult } | null>(null);
 
   const refresh = useCallback(async () => {
     const ds = await db.getDatasets();
@@ -296,6 +299,7 @@ export function BacktestPanel(): React.ReactElement {
     setErr(null);
     setMsg(null);
     setResult(null);
+    setHoldoutResult(null);
     try {
       let cs = candles;
       if (!cs.length) {
@@ -303,7 +307,17 @@ export function BacktestPanel(): React.ReactElement {
         setCandles(cs);
       }
       if (!cs.length) throw new Error('此資料集沒有 K 線');
-      setResult(runParamsBacktest({ candles: cs, strat, interval: selected.interval }));
+      const interval = selected.interval;
+      setResult(runParamsBacktest({ candles: cs, strat, interval }));
+      if (holdout) {
+        // Same candles (so indicators keep full history); from/to restrict which
+        // bars are traded -> proper in-sample vs out-of-sample split.
+        const nn = cs.length;
+        const split = Math.max(1, Math.min(nn - 1, Math.floor(nn * (1 - holdoutPct / 100))));
+        const inSample = runParamsBacktest({ candles: cs, strat, interval, from: 0, to: split - 1 });
+        const outSample = runParamsBacktest({ candles: cs, strat, interval, from: split, to: nn - 1 });
+        setHoldoutResult({ inSample, outSample });
+      }
     } catch (e) {
       setErr(String(e));
     } finally {
@@ -333,6 +347,18 @@ export function BacktestPanel(): React.ReactElement {
       setSaving(false);
     }
   }
+
+  // Columns for the metrics table: a single full-period column, or three
+  // (full / in-sample / out-of-sample) when holdout produced a split.
+  const metricCols = result
+    ? holdoutResult
+      ? [
+          { label: '全期', metrics: result.metrics },
+          { label: '樣本內', metrics: holdoutResult.inSample.metrics },
+          { label: '樣本外', metrics: holdoutResult.outSample.metrics },
+        ]
+      : [{ label: '', metrics: result.metrics }]
+    : [];
 
   return (
     <div>
@@ -520,7 +546,26 @@ export function BacktestPanel(): React.ReactElement {
               </label>
             </div>
 
-            <button style={{ ...S.btn, width: '100%', marginTop: 12 }} onClick={run} disabled={running || !selected}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 12, fontSize: 11, color: '#8a8678', flexWrap: 'wrap' }}>
+              <input type="checkbox" checked={holdout} onChange={(e) => setHoldout(e.target.checked)} />
+              Holdout 樣本外驗證
+              {holdout && (
+                <>
+                  <span style={{ color: '#cfccc4' }}>·</span>末
+                  <input
+                    type="number"
+                    value={holdoutPct}
+                    min={5}
+                    max={90}
+                    onChange={(e) => setHoldoutPct(Math.max(5, Math.min(90, parseFloat(e.target.value) || 30)))}
+                    style={{ ...S.input, width: 52, fontSize: 11, padding: '3px 5px' }}
+                  />
+                  % 為樣本外
+                </>
+              )}
+            </label>
+
+            <button style={{ ...S.btn, width: '100%', marginTop: 8 }} onClick={run} disabled={running || !selected}>
               {running ? '回測中…' : '▶ 執行回測'}
             </button>
           </section>
@@ -533,11 +578,23 @@ export function BacktestPanel(): React.ReactElement {
           {result && (
             <>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: "'IBM Plex Mono', monospace", fontSize: 12 }}>
+                {holdoutResult && (
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid #d6d2c8' }}>
+                      <th />
+                      {metricCols.map((c) => (
+                        <th key={c.label} style={{ padding: '4px', textAlign: 'right', fontSize: 10, fontWeight: 600, color: '#8a8678' }}>{c.label}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                )}
                 <tbody>
                   {METRIC_ROWS.map((r) => (
                     <tr key={r.label} style={{ borderBottom: '1px solid #efece5' }}>
                       <td style={{ padding: '5px 4px', color: '#8a8678' }}>{r.label}</td>
-                      <td style={{ padding: '5px 4px', textAlign: 'right', fontWeight: 600 }}>{r.fmt(result.metrics)}</td>
+                      {metricCols.map((c) => (
+                        <td key={c.label} style={{ padding: '5px 4px', textAlign: 'right', fontWeight: 600 }}>{r.fmt(c.metrics)}</td>
+                      ))}
                     </tr>
                   ))}
                 </tbody>
