@@ -11,14 +11,14 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 - Baseline verified: `npm test`, `npm run typecheck`, and `npm run build` pass in `alpha-factor-forge/`.
 - Native Tauri verified: Rust 1.96 / Cargo / MSVC build tools / Tauri CLI v2 installed; `cargo check` and `cargo tauri dev` both pass; multi-size icons generated.
 - Progress (PRs #1–#8 merged): backtest_summary persistence + app icons; UI port Slice 1 (backtest pipeline service), Slice 2 (Backtest panel), Slice 3 (chart canvas), Slice 4a (blocks rule-builder mode); plus a save-path test-automation PR. `npm test` ~53 green.
-- Next: UI port Slice 5b-2 — parameter-sweep UI (heatmap + apply best). Slice 5b-1 (pure sweep engine `paramSweep.ts` + 16 tests) done; Slice 5a (holdout / out-of-sample comparison) done; strategy editor has params/blocks/code modes (code via the safe interpreter, manual-only).
+- Next: UI port Slice 6 — bar replay + live signals. Slice 5b (parameter sweep: `paramSweep.ts` engine + `BacktestPanel` heatmap UI + apply best + `e2e/sweep.spec.ts`) done; Slice 5a (holdout / out-of-sample comparison) done; strategy editor has params/blocks/code modes (code via the safe interpreter, manual-only).
 - PR CI runs typecheck / test / build / cargo-check (now incl. `cargo test`) — green per PR; `main` requires branches up to date before merge.
 - Source-of-truth architecture: `STRATEGY_DISCOVERY.md` v3 and `README.md`.
 - Historical context: `HISTORY.md` and `CONVERSATION_HISTORY.md`.
 
 ## Next
 
-- [ ] UI port — Slice 5b-2: parameter-sweep UI (heatmap + apply best). Engine landed in Slice 5b-1; see the slice plan under In Progress.
+- [ ] UI port — Slice 6: bar replay + live signals. Slice 5b (parameter sweep: engine + UI/heatmap + apply best) done; see the slice plan under In Progress.
 
 ## In Progress
 
@@ -36,7 +36,7 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
     - [x] Slice 4b-2: code-mode UI — `BacktestPanel` 參數/積木/程式碼 mode tabs + a `CodeField` (entry/exit textareas with live interpreter validation + red error border) + whitelist variable/function hint + manual-only note. No backtest-logic change (4b-1 already wired `buildCodeSignals`/dispatch). typecheck + `npm test` 87 + build green.
     - [x] Slice 5a: holdout (out-of-sample) comparison — `BacktestPanel` Holdout toggle + split % (last N% = out-of-sample). `run()` reuses `runParamsBacktest` `from`/`to` to backtest in-sample [0,split) and out-of-sample [split,n) over the same candles (full indicator history); metrics table gains 全期 / 樣本內 / 樣本外 columns. Save still uses the full-period result. typecheck + `npm test` 87 + build green.
     - [x] Slice 5b-1: parameter-sweep engine + tests (no UI) — `src/services/paramSweep.ts`. Vary 1–2 numeric params (`SWEEP_PARAM_KEYS`: fastMA/slowMA/emaPeriod/rsiPeriod/rsiBuy/rsiSell/macdFast/macdSlow/bbPeriod) over min/max/step ranges, run `runParamsBacktest` per combo, score by a `SweepMetricId` (`net`/`sharpe`/`pf`/`winRate`/`calmar`/`dd`, dd stored as -maxDrawdown). Mirrors legacy runSweep: axis cap 64, combo cap 256 (throws), best requires trades>0, pf/calmar non-finite guards (Inf→99); reuses `from`/`to` to sweep a sub-range. Pure/deterministic; a single failing combo yields a null cell. +16 tests (103 total), typecheck + build green. No UI/AI/eval.
-    - [ ] Slice 5b-2 (CURRENT): parameter-sweep UI — a sweep panel in `BacktestPanel` (pick 1–2 params + ranges + metric, run `runParamSweep`, render a heatmap/table with the best cell highlighted + "apply best"). Uses the 5b-1 engine; no backtest-logic change.
+    - [x] Slice 5b-2: parameter-sweep UI — a collapsible 「參數掃描」 section in `BacktestPanel` (X param + min/max/step, optional 2-D Y, optimisation metric; live combo-count + dup/over-cap guards). Runs the 5b-1 `runParamSweep` (yields a frame so 「掃描中…」 paints), renders a red→yellow→green `SweepHeatmap` (value + trade count per cell, best cell outlined) and 「套用最佳」 which patches the strategy. data-testid hooks (`sweep-toggle`/`sweep-2d`/`sweep-combos`/`run-sweep`/`apply-best`/`sweep-best-cell`) + a new `e2e/sweep.spec.ts` flow. No backtest-logic change. typecheck + `npm test` 105 + build + e2e (2 specs) green.
     - [ ] Slice 6: bar replay + live signals.
     - [ ] Slice 7: strategy library + report (JSON/CSV) export.
   - Carry-over detail (kept from backlog): suggested folders `src/components`, `src/pages`, `src/charts`, `src/stores`, `src/services`; preserve the terminal-like dense visual style; replace prototype localStorage persistence with SQLite via `tauri-client`.
@@ -146,6 +146,7 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
   - `dataClient` seam: production/Tauri uses the real `tauri-client`; in Vite DEV only, `?mock=1` swaps in an in-memory mock (`mockClient`, seeded sample candles — no localStorage, no real DB; dead-code-eliminated from prod).
   - Playwright (chromium) running against `npm run dev`; CI `e2e` job; `npm run e2e` locally. Vitest scoped to `src` so it ignores `e2e/`.
   - First test `e2e/holdout.spec.ts`: Slice 5a Holdout stale-UI flow (load sample -> enable -> run -> 3 columns -> disable -> single column) + `data-testid` hooks.
+  - Second test `e2e/sweep.spec.ts` (Slice 5b-2): load sample -> expand 參數掃描 -> combo count -> run -> heatmap best cell -> apply best.
   - Explicitly does NOT replace real Tauri/Rust/SQLite verification (Rust integration tests + `cargo tauri dev` smoke still own that).
 - [x] Automate the blocks-save verification (Slice 4a follow-up; replaces manual SQLite checks).
   - TS: strengthened `buildStrategyDef` tests — a blocks rules strategy persists `type='blocks'`, `JSON.parse(original_definition_json).mode === 'blocks'` with the rules intact, and params/blocks `strategy_hash` differ.
