@@ -351,7 +351,7 @@ export function BacktestPanel(): React.ReactElement {
   // Columns for the metrics table: a single full-period column, or three
   // (full / in-sample / out-of-sample) when holdout produced a split.
   const metricCols = result
-    ? holdoutResult
+    ? holdout && holdoutResult
       ? [
           { label: '全期', metrics: result.metrics },
           { label: '樣本內', metrics: holdoutResult.inSample.metrics },
@@ -547,7 +547,15 @@ export function BacktestPanel(): React.ReactElement {
             </div>
 
             <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 12, fontSize: 11, color: '#8a8678', flexWrap: 'wrap' }}>
-              <input type="checkbox" checked={holdout} onChange={(e) => setHoldout(e.target.checked)} />
+              <input
+                type="checkbox"
+                checked={holdout}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setHoldout(checked);
+                  if (!checked) setHoldoutResult(null);
+                }}
+              />
               Holdout 樣本外驗證
               {holdout && (
                 <>
@@ -557,7 +565,10 @@ export function BacktestPanel(): React.ReactElement {
                     value={holdoutPct}
                     min={5}
                     max={90}
-                    onChange={(e) => setHoldoutPct(Math.max(5, Math.min(90, parseFloat(e.target.value) || 30)))}
+                    onChange={(e) => {
+                      setHoldoutPct(Math.max(5, Math.min(90, parseFloat(e.target.value) || 30)));
+                      setHoldoutResult(null); // stale split no longer matches the new %
+                    }}
                     style={{ ...S.input, width: 52, fontSize: 11, padding: '3px 5px' }}
                   />
                   % 為樣本外
@@ -578,7 +589,7 @@ export function BacktestPanel(): React.ReactElement {
           {result && (
             <>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: "'IBM Plex Mono', monospace", fontSize: 12 }}>
-                {holdoutResult && (
+                {metricCols.length > 1 && (
                   <thead>
                     <tr style={{ borderBottom: '1px solid #d6d2c8' }}>
                       <th />
