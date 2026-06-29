@@ -110,4 +110,13 @@ the regression test. After that, if CI remains green, PR #14 can be merged.
 
 ## Resolution
 
-Pending.
+Resolved in commit on `feat/ui-port-slice5b1-param-sweep` (after 25f1e8f).
+
+- `runParamSweep` now throws `RangeError('掃描 X / Y 參數必須不同')` when a 2-D
+  sweep names the same param on both axes (the overwrite bug the review flagged).
+- Also added the optional guard: an empty y-axis range (non-finite bound) throws
+  `RangeError('掃描 Y 軸範圍無效')`, mirroring the existing x-axis guard.
+- Regression tests added in `paramSweep.test.ts`: duplicate x/y key throws, and
+  an empty y-axis throws. `npm test` 105/105, typecheck + build green.
+
+Ready to merge once CI re-runs green.
