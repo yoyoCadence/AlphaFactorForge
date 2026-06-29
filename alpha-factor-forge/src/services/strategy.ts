@@ -50,7 +50,7 @@ export interface Rule {
 }
 
 export interface ParamsStrategy {
-  mode: 'params' | 'blocks';
+  mode: 'params' | 'blocks' | 'code';
   // indicator periods
   fastMA: number;
   slowMA: number;
@@ -69,6 +69,9 @@ export interface ParamsStrategy {
   // blocks-mode rules (AND within each list)
   entryRules: Rule[];
   exitRules: Rule[];
+  // code-mode expressions (manual-only; evaluated by the safe interpreter)
+  entryCode: string;
+  exitCode: string;
   // risk (legacy percent units; 0 = off)
   slPct: number;
   tpPct: number;
@@ -99,6 +102,8 @@ export function defaultStrategy(): ParamsStrategy {
     exitSig: 'maCrossDown',
     entryRules: [{ l: 'maFast', op: 'crossUp', r: 'maSlow' }],
     exitRules: [{ l: 'maFast', op: 'crossDown', r: 'maSlow' }],
+    entryCode: 'crossUp(macd, macdSignal)',
+    exitCode: 'crossDown(macd, macdSignal)',
     slPct: 0,
     tpPct: 0,
     feePct: 0.05,
