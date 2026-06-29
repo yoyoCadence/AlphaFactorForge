@@ -35,3 +35,32 @@ export function valueToY(v: number, e: Extent, top: number, height: number): num
   if (span <= 0) return top;
   return top + (1 - (v - e.min) / span) * height;
 }
+
+/** A single trade leg to mark on the chart: a bar index + buy/sell direction. */
+export interface TradeLeg {
+  index: number;
+  kind: 'buy' | 'sell';
+  leg: 'entry' | 'exit';
+}
+
+/**
+ * Flatten closed trades into chart legs. A trade has an entry and an exit; the
+ * buy/sell direction follows the side, like a trading terminal:
+ *   LONG  -> entry = buy,  exit = sell
+ *   SHORT -> entry = sell, exit = buy
+ * Times are mapped to bar indices via `timeToIndex` (a trade's entryTime/exitTime
+ * are candle `t` values); legs whose time is not in the map are dropped. Pure.
+ */
+export function tradeLegs(
+  trades: { entryTime: number; exitTime: number; side: 'LONG' | 'SHORT' }[],
+  timeToIndex: Map<number, number>,
+): TradeLeg[] {
+  const out: TradeLeg[] = [];
+  for (const t of trades) {
+    const ei = timeToIndex.get(t.entryTime);
+    const xi = timeToIndex.get(t.exitTime);
+    if (ei != null) out.push({ index: ei, kind: t.side === 'LONG' ? 'buy' : 'sell', leg: 'entry' });
+    if (xi != null) out.push({ index: xi, kind: t.side === 'LONG' ? 'sell' : 'buy', leg: 'exit' });
+  }
+  return out;
+}
