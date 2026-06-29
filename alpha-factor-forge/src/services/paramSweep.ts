@@ -150,6 +150,14 @@ export function runParamSweep(args: RunParamSweepArgs): SweepResult {
   const ys = sweep.y ? buildAxisValues(sweep.y.min, sweep.y.max, sweep.y.step) : [null];
 
   if (xs.length === 0) throw new RangeError('掃描 X 軸範圍無效');
+  // A 2-D sweep must vary two DIFFERENT params: if x.key === y.key the inner
+  // `variant[yKey] = yv` overwrites the x assignment, so every cell would be
+  // backtested with its y-value while still reporting its x-coordinate — a
+  // silently misleading grid for the 5b-2 heatmap / "apply best".
+  if (sweep.y && sweep.y.key === sweep.x.key) {
+    throw new RangeError('掃描 X / Y 參數必須不同');
+  }
+  if (sweep.y && ys.length === 0) throw new RangeError('掃描 Y 軸範圍無效');
   const combos = xs.length * ys.length;
   if (combos > SWEEP_MAX_COMBOS) {
     throw new RangeError(`組合數 ${combos} 過多（上限 ${SWEEP_MAX_COMBOS}），請縮小範圍或加大間距。`);

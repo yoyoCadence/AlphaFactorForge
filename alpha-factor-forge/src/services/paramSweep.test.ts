@@ -180,6 +180,27 @@ describe('runParamSweep', () => {
     expect(SWEEP_MAX_COMBOS).toBe(256);
   });
 
+  it('rejects a 2-D sweep that varies the same param on both axes', () => {
+    // x.key === y.key would let the y assignment overwrite x, producing a grid
+    // whose (x, y) coordinates lie about which value was actually backtested.
+    const sweep: SweepConfig = {
+      x: { key: 'fastMA', min: 5, max: 8, step: 1 },
+      y: { key: 'fastMA', min: 5, max: 8, step: 1 },
+      metric: 'net',
+    };
+    expect(() => runParamSweep({ candles, strat: base, interval: '1h', sweep })).toThrow(RangeError);
+    expect(() => runParamSweep({ candles, strat: base, interval: '1h', sweep })).toThrow(/X \/ Y/);
+  });
+
+  it('rejects an empty y-axis range (non-finite bound)', () => {
+    const sweep: SweepConfig = {
+      x: { key: 'fastMA', min: 5, max: 8, step: 1 },
+      y: { key: 'slowMA', min: NaN, max: 22, step: 1 },
+      metric: 'net',
+    };
+    expect(() => runParamSweep({ candles, strat: base, interval: '1h', sweep })).toThrow(/Y 軸/);
+  });
+
   it('honors a [from, to] sub-range (sweep in-sample only)', () => {
     const sweep: SweepConfig = { x: { key: 'fastMA', min: 5, max: 7, step: 1 }, metric: 'net' };
     const full = runParamSweep({ candles, strat: base, interval: '1h', sweep });
