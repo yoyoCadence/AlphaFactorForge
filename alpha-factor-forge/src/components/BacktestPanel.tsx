@@ -79,7 +79,7 @@ const SIG_LABEL: Record<SignalId, string> = {
   stochOversold: 'Stoch 超賣(未支援)', stochOverbought: 'Stoch 超買(未支援)',
 };
 
-const OVERLAY_LABEL: Record<keyof OverlayToggles, string> = { ma: 'MA', ema: 'EMA', bb: 'BB', rsi: 'RSI', vol: '量' };
+const OVERLAY_LABEL: Record<keyof OverlayToggles, string> = { ma: 'MA', ema: 'EMA', bb: 'BB', rsi: 'RSI', vol: '量', trades: '買賣' };
 
 const OPERAND_LABEL: Record<OperandId, string> = {
   price: '價格', open: '開', high: '高', low: '低', volume: '量',
@@ -407,7 +407,7 @@ export function BacktestPanel(): React.ReactElement {
   const [msg, setMsg] = useState<string | null>(null);
   const [candles, setCandles] = useState<CoreCandle[]>([]);
   const [loadingCandles, setLoadingCandles] = useState(false);
-  const [show, setShow] = useState<OverlayToggles>({ ma: true, ema: false, bb: false, rsi: true, vol: true });
+  const [show, setShow] = useState<OverlayToggles>({ ma: true, ema: false, bb: false, rsi: true, vol: true, trades: true });
   const [holdout, setHoldout] = useState(false);
   const [holdoutPct, setHoldoutPct] = useState(30); // last N% of bars = out-of-sample
   const [holdoutResult, setHoldoutResult] = useState<{ inSample: BacktestResult; outSample: BacktestResult } | null>(null);
@@ -656,7 +656,7 @@ export function BacktestPanel(): React.ReactElement {
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8, flexWrap: 'wrap' }}>
             <h2 style={{ ...S.h2, margin: 0 }}>圖表</h2>
             <div style={{ display: 'flex', gap: 10, fontSize: 11, color: '#8a8678' }}>
-              {(['ma', 'ema', 'bb', 'rsi', 'vol'] as (keyof OverlayToggles)[]).map((k) => (
+              {(['ma', 'ema', 'bb', 'rsi', 'vol', 'trades'] as (keyof OverlayToggles)[]).map((k) => (
                 <label key={k} style={{ display: 'flex', alignItems: 'center', gap: 3, cursor: 'pointer' }}>
                   <input type="checkbox" checked={show[k]} onChange={(e) => setShow((s) => ({ ...s, [k]: e.target.checked }))} />
                   {OVERLAY_LABEL[k]}
@@ -667,7 +667,7 @@ export function BacktestPanel(): React.ReactElement {
               {loadingCandles ? '載入中…' : `${selected?.symbol ?? ''} · ${candles.length} 根`}
             </span>
           </div>
-          <CandleChart candles={candles} strat={strat} show={show} />
+          <CandleChart candles={candles} strat={strat} show={show} trades={result?.trades} />
           <div style={{ display: 'flex', gap: 12, marginTop: 10, flexWrap: 'wrap', alignItems: 'flex-end', borderTop: '1px solid #efece5', paddingTop: 10 }}>
             {QUICK_FIELDS.map((f) => (
               <label key={f.key} data-testid={isAppliedKey(f.key) ? `quick-applied-${f.key}` : undefined} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>

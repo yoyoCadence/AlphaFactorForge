@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { extentOf, padExtent, valueToY } from './scale';
+import { extentOf, padExtent, valueToY, tradeLegs } from './scale';
 
 describe('extentOf', () => {
   it('ignores NaN/Infinity and returns min/max', () => {
@@ -31,5 +31,42 @@ describe('valueToY', () => {
 
   it('returns top for a zero span', () => {
     expect(valueToY(5, { min: 5, max: 5 }, 10, 200)).toBe(10);
+  });
+});
+
+describe('tradeLegs', () => {
+  // candles at t = 10,20,30,40,50 -> indices 0..4
+  const timeToIndex = new Map([10, 20, 30, 40, 50].map((t, i) => [t, i]));
+
+  it('maps a LONG trade to buy@entry / sell@exit at the right indices', () => {
+    const legs = tradeLegs([{ entryTime: 20, exitTime: 40, side: 'LONG' }], timeToIndex);
+    expect(legs).toEqual([
+      { index: 1, kind: 'buy', leg: 'entry' },
+      { index: 3, kind: 'sell', leg: 'exit' },
+    ]);
+  });
+
+  it('flips direction for a SHORT trade (sell@entry / buy@exit)', () => {
+    const legs = tradeLegs([{ entryTime: 10, exitTime: 50, side: 'SHORT' }], timeToIndex);
+    expect(legs).toEqual([
+      { index: 0, kind: 'sell', leg: 'entry' },
+      { index: 4, kind: 'buy', leg: 'exit' },
+    ]);
+  });
+
+  it('drops legs whose time is not a known candle', () => {
+    const legs = tradeLegs([{ entryTime: 20, exitTime: 999, side: 'LONG' }], timeToIndex);
+    expect(legs).toEqual([{ index: 1, kind: 'buy', leg: 'entry' }]);
+  });
+
+  it('flattens multiple trades in order', () => {
+    const legs = tradeLegs(
+      [
+        { entryTime: 10, exitTime: 20, side: 'LONG' },
+        { entryTime: 30, exitTime: 40, side: 'LONG' },
+      ],
+      timeToIndex,
+    );
+    expect(legs.map((l) => l.index)).toEqual([0, 1, 2, 3]);
   });
 });

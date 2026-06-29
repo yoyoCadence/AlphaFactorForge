@@ -9,8 +9,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { sma, ema, bbands, rsi, type Series } from '../core/indicators';
 import type { Candle as CoreCandle } from '../core/backtest';
+import type { ClosedTrade } from '../core/metrics';
 import type { ParamsStrategy } from '../services/strategy';
-import { extentOf, padExtent, valueToY } from './scale';
+import { extentOf, padExtent, valueToY, tradeLegs } from './scale';
 
 export interface OverlayToggles {
   ma: boolean;
@@ -18,12 +19,15 @@ export interface OverlayToggles {
   bb: boolean;
   rsi: boolean;
   vol: boolean;
+  trades: boolean;
 }
 
 export interface CandleChartProps {
   candles: CoreCandle[];
   strat: ParamsStrategy;
   show: OverlayToggles;
+  /** entry/exit markers from the latest backtest (drawn when show.trades). */
+  trades?: ClosedTrade[];
   height?: number;
   maxBars?: number;
 }
@@ -40,7 +44,7 @@ const COL = {
   rsi: '#16150f',
 };
 
-export function CandleChart({ candles, strat, show, height = 360, maxBars = 500 }: CandleChartProps): React.ReactElement {
+export function CandleChart({ candles, strat, show, trades, height = 360, maxBars = 500 }: CandleChartProps): React.ReactElement {
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [width, setWidth] = useState(0);
@@ -59,14 +63,37 @@ export function CandleChart({ candles, strat, show, height = 360, maxBars = 500 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || width <= 0 || candles.length === 0) return;
-    draw(canvas, width, height, candles, strat, show, maxBars);
-  }, [candles, strat, show, width, height, maxBars]);
+    draw(canvas, width, height, candles, strat, show, maxBars, trades);
+  }, [candles, strat, show, width, height, maxBars, trades]);
 
   return (
     <div ref={wrapRef} style={{ width: '100%' }}>
       <canvas ref={canvasRef} style={{ width: '100%', height, display: 'block' }} />
     </div>
   );
+}
+
+/** Filled triangle marker with a white outline. `apexY` is the point nearest
+ *  the candle; 'up' points up (buy, sits below the bar), 'down' points down. */
+function drawMarker(ctx: CanvasRenderingContext2D, x: number, apexY: number, dir: 'up' | 'down', color: string): void {
+  const s = 4; // half base width
+  const hgt = 7;
+  ctx.beginPath();
+  if (dir === 'up') {
+    ctx.moveTo(x, apexY);
+    ctx.lineTo(x - s, apexY + hgt);
+    ctx.lineTo(x + s, apexY + hgt);
+  } else {
+    ctx.moveTo(x, apexY);
+    ctx.lineTo(x - s, apexY - hgt);
+    ctx.lineTo(x + s, apexY - hgt);
+  }
+  ctx.closePath();
+  ctx.fillStyle = color;
+  ctx.fill();
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = '#fff';
+  ctx.stroke();
 }
 
 function draw(
@@ -77,6 +104,7 @@ function draw(
   strat: ParamsStrategy,
   show: OverlayToggles,
   maxBars: number,
+  trades?: ClosedTrade[],
 ): void {
   const dpr = window.devicePixelRatio || 1;
   canvas.width = Math.round(w * dpr);
@@ -195,6 +223,19 @@ function draw(
   polyline(maFast, COL.maFast);
   polyline(maSlow, COL.maSlow);
   polyline(emaArr, COL.ema);
+
+  // trade markers: buy ▲ below the low (green), sell ▼ above the high (red)
+  if (show.trades && trades && trades.length) {
+    const timeToIndex = new Map<number, number>();
+    for (let i = 0; i < candles.length; i++) timeToIndex.set(candles[i].t, i);
+    for (const lg of tradeLegs(trades, timeToIndex)) {
+      if (lg.index < start) continue;
+      const c = candles[lg.index];
+      const x = xc(lg.index);
+      if (lg.kind === 'buy') drawMarker(ctx, x, py(c.l) + 4, 'up', COL.up);
+      else drawMarker(ctx, x, py(c.h) - 4, 'down', COL.down);
+    }
+  }
 
   // volume strip
   if (show.vol) {
