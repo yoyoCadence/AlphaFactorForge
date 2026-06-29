@@ -532,6 +532,13 @@ export function BacktestPanel(): React.ReactElement {
   const sweepDupKey = sweepUse2d && sweepX.key === sweepY.key;
   const sweepTooMany = sweepCombos > SWEEP_MAX_COMBOS;
 
+  // Any sweep-config edit invalidates a shown result: the visible controls would
+  // otherwise describe a different sweep than the heatmap / 套用最佳 still acts on.
+  const clearSweep = () => {
+    setSweepResult(null);
+    setSweepErr(null);
+  };
+
   async function runSweep() {
     if (!selected || selected.id == null) {
       setSweepErr('請先選擇資料集');
@@ -849,17 +856,17 @@ export function BacktestPanel(): React.ReactElement {
           {sweepOpen && (
             <>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 200px', gap: 12, alignItems: 'start' }}>
-                <AxisEditor title="X 參數" axis={sweepX} onChange={setSweepX} />
+                <AxisEditor title="X 參數" axis={sweepX} onChange={(a) => { clearSweep(); setSweepX(a); }} />
                 <div>
                   <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#8a8678', marginBottom: 6 }}>
-                    <input type="checkbox" data-testid="sweep-2d" checked={sweepUse2d} onChange={(e) => setSweepUse2d(e.target.checked)} />
+                    <input type="checkbox" data-testid="sweep-2d" checked={sweepUse2d} onChange={(e) => { clearSweep(); setSweepUse2d(e.target.checked); }} />
                     第二維 Y（二維熱力圖）
                   </label>
-                  {sweepUse2d && <AxisEditor title="Y 參數" axis={sweepY} onChange={setSweepY} />}
+                  {sweepUse2d && <AxisEditor title="Y 參數" axis={sweepY} onChange={(a) => { clearSweep(); setSweepY(a); }} />}
                 </div>
                 <div style={{ display: 'grid', gap: 4 }}>
                   <span style={S.label}>最佳化指標</span>
-                  <select value={sweepMetric} onChange={(e) => setSweepMetric(e.target.value as SweepMetricId)} style={{ ...S.input, fontSize: 11 }}>
+                  <select data-testid="sweep-metric" value={sweepMetric} onChange={(e) => { clearSweep(); setSweepMetric(e.target.value as SweepMetricId); }} style={{ ...S.input, fontSize: 11 }}>
                     {SWEEP_METRIC_IDS.map((m) => <option key={m} value={m}>{SWEEP_METRIC_LABEL[m]}</option>)}
                   </select>
                   <span data-testid="sweep-combos" style={{ fontSize: 10, color: sweepTooMany || sweepDupKey ? '#b23b2e' : '#aaa599' }}>

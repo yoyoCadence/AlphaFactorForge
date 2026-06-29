@@ -27,3 +27,21 @@ test('parameter sweep runs, renders a heatmap, and applies the best combo', asyn
   await page.getByTestId('apply-best').click();
   await expect(page.getByText('已套用最佳參數')).toBeVisible();
 });
+
+// Stale-result regression (PR #15 review): changing any sweep config after a
+// completed run must clear the old heatmap / 套用最佳, forcing a rerun — so the
+// visible controls can never describe a different sweep than the action acts on.
+test('changing sweep config clears the previous result', async ({ page }) => {
+  await page.goto('/?mock=1');
+  await page.getByTestId('load-sample').click();
+  await page.getByTestId('sweep-toggle').click();
+
+  await page.getByTestId('run-sweep').click();
+  await expect(page.getByTestId('sweep-best-cell')).toBeVisible();
+  await expect(page.getByTestId('apply-best')).toBeVisible();
+
+  // change the optimisation metric -> stale heatmap + apply-best must disappear
+  await page.getByTestId('sweep-metric').selectOption('sharpe');
+  await expect(page.getByTestId('sweep-best-cell')).toHaveCount(0);
+  await expect(page.getByTestId('apply-best')).toHaveCount(0);
+});
