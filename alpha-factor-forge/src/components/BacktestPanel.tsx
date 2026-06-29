@@ -194,6 +194,59 @@ function CodeField({ label, value, onChange }: { label: string; value: string; o
   );
 }
 
+/** Numeric input that allows clearing / partial edits. Keeps a draft string
+ *  while focused (so backspace doesn't snap to 0 or a clamp), propagates the
+ *  number live only when the draft is a valid number, and normalises/clamps on
+ *  blur. min/max clamp on blur only — not while typing. */
+function NumberInput({
+  value,
+  onChange,
+  min,
+  max,
+  style,
+}: {
+  value: number;
+  onChange: (n: number) => void;
+  min?: number;
+  max?: number;
+  style?: React.CSSProperties;
+}): React.ReactElement {
+  const [draft, setDraft] = useState(String(value));
+
+  // Re-sync when the value changes externally, but don't clobber an in-progress
+  // edit that already parses to the same number (e.g. "5." while typing "5.5").
+  useEffect(() => {
+    if (parseFloat(draft) !== value) setDraft(String(value));
+  }, [value]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const clamp = (n: number) => {
+    let v = n;
+    if (min != null) v = Math.max(min, v);
+    if (max != null) v = Math.min(max, v);
+    return v;
+  };
+
+  return (
+    <input
+      type="number"
+      value={draft}
+      onChange={(e) => {
+        const raw = e.target.value;
+        setDraft(raw);
+        const n = parseFloat(raw);
+        if (raw !== '' && Number.isFinite(n)) onChange(n); // live, unclamped; empty/partial stays in the field
+      }}
+      onBlur={() => {
+        const n = parseFloat(draft);
+        const v = clamp(Number.isFinite(n) ? n : value);
+        onChange(v);
+        setDraft(String(v));
+      }}
+      style={style}
+    />
+  );
+}
+
 export function BacktestPanel(): React.ReactElement {
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [selId, setSelId] = useState<number | null>(null);
@@ -386,12 +439,7 @@ export function BacktestPanel(): React.ReactElement {
             {QUICK_FIELDS.map((f) => (
               <label key={f.key} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <span style={S.label}>{f.label}</span>
-                <input
-                  type="number"
-                  value={strat[f.key]}
-                  onChange={(e) => setNum(f.key, parseFloat(e.target.value) || 0)}
-                  style={{ ...S.input, width: 88 }}
-                />
+                <NumberInput value={strat[f.key]} onChange={(n) => setNum(f.key, n)} style={{ ...S.input, width: 88 }} />
               </label>
             ))}
             <span style={{ fontSize: 10, color: '#aaa599', alignSelf: 'center' }}>調整即時重畫；完整參數見下方策略表單</span>
@@ -506,12 +554,7 @@ export function BacktestPanel(): React.ReactElement {
               {IND_FIELDS.map((f) => (
                 <label key={f.key} style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                   <span style={S.label}>{f.label}</span>
-                  <input
-                    type="number"
-                    value={strat[f.key]}
-                    onChange={(e) => setNum(f.key, parseFloat(e.target.value) || 0)}
-                    style={S.input}
-                  />
+                  <NumberInput value={strat[f.key]} onChange={(n) => setNum(f.key, n)} style={S.input} />
                 </label>
               ))}
             </div>
@@ -521,12 +564,7 @@ export function BacktestPanel(): React.ReactElement {
               {EXEC_FIELDS.map((f) => (
                 <label key={f.key} style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                   <span style={S.label}>{f.label}</span>
-                  <input
-                    type="number"
-                    value={strat[f.key]}
-                    onChange={(e) => setNum(f.key, parseFloat(e.target.value) || 0)}
-                    style={S.input}
-                  />
+                  <NumberInput value={strat[f.key]} onChange={(n) => setNum(f.key, n)} style={S.input} />
                 </label>
               ))}
               <label style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -560,13 +598,12 @@ export function BacktestPanel(): React.ReactElement {
               {holdout && (
                 <>
                   <span style={{ color: '#cfccc4' }}>·</span>末
-                  <input
-                    type="number"
+                  <NumberInput
                     value={holdoutPct}
                     min={5}
                     max={90}
-                    onChange={(e) => {
-                      setHoldoutPct(Math.max(5, Math.min(90, parseFloat(e.target.value) || 30)));
+                    onChange={(n) => {
+                      setHoldoutPct(n);
                       setHoldoutResult(null); // stale split no longer matches the new %
                     }}
                     style={{ ...S.input, width: 52, fontSize: 11, padding: '3px 5px' }}
