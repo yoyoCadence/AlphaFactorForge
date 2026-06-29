@@ -18,7 +18,7 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Next
 
-- [ ] UI port — Slice 4b: code strategy mode (safe whitelist-AST interpreter; no new Function/eval). See the slice plan under In Progress.
+- [ ] UI port — Slice 4b-2: code-mode UI tab (BacktestPanel). See the slice plan under In Progress.
 
 ## In Progress
 
@@ -32,7 +32,8 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
     - [x] Slice 2: Backtest panel UI (params mode) — `src/components/BacktestPanel.tsx` + app shell in `main.tsx`. Dataset picker (SQLite) + JSON/sample candle import, strategy params form (12 signals + exec model), run via Slice 1 service, metrics table, save (strategy_def + backtest_summary via `metricsToBacktestSummary`). Helpers: `candleAdapter` (db↔core candle), `sampleData` (seeded synthetic, CSP-safe), `strategyRecord` (StrategyDef + hash). +7 tests (40/40), typecheck + build green. Removed the PR #1 bridge self-test. No chart/sweep/replay/live/library.
     - [x] Slice 3: chart canvas — `src/charts/CandleChart.tsx` (+ pure `scale.ts`, unit-tested). Candlesticks + MA fast/slow + EMA + Bollinger overlays, volume strip, RSI subpanel (30/70 guides); overlay toggles; indicators via core/indicators (computed over full series, drawn over visible window). Wired into BacktestPanel (loads candles on dataset select). Static fit-to-width; pan/zoom + trade markers deferred. +6 tests (46/46), typecheck + build green.
     - [x] Slice 4a: blocks (rule-builder) strategy mode — `mode: 'params' | 'blocks'` on the strategy; `Rule { l: OperandId, op, r }` AND-lists for entry/exit; `buildBlocksSignals` + `buildSignals` dispatcher over a generalized `evalCond` (adds `>=`/`<=`); 15 named operands from core/indicators (stoch/atr/volMa deferred). UI: 參數/積木 tabs + rule-builder rows (operand select · op · operand|const datalist) in `BacktestPanel`. `strategyRecord` type follows `strat.mode`. +4 tests (50/50), typecheck + build green.
-    - [ ] Slice 4b (CURRENT): code strategy mode — manual-only. MUST use a SAFE whitelist-AST expression interpreter; NO `new Function` / `eval` / dynamic exec anywhere (STRATEGY_DISCOVERY §0.3). AI may never reach code mode. Split out from 4a so the eval-sensitive part gets its own careful PR.
+    - [x] Slice 4b-1: code-mode safe interpreter + signals + tests (no UI/AI/eval) — `src/services/exprInterpreter.ts` (tokenizer → recursive-descent parser → restricted AST evaluator) + `buildCodeSignals` + `mode:'code'`/`entryCode`/`exitCode`. Whitelist: ops `+ - * / > < >= <= == != && || !` + parens; variables = blocks operands; functions `prev(x)` (1-bar), `crossUp(a,b)`, `crossDown(a,b)`; finite numeric literals only. Rejects member access/indexing/assignment/strings/ternary/unknown ids+calls/non-finite; caps source ≤1000, nodes ≤128, depth ≤16, no nested time-shift. No `eval`/`Function`; AI never reaches code mode. +37 tests (87 total), typecheck + build green.
+    - [ ] Slice 4b-2 (CURRENT): code-mode UI — BacktestPanel 程式碼 tab (entry/exit textareas + live error + whitelist hint), manual-only. Starts after 4b-1 lands (both touch BacktestPanel → sequence).
     - [ ] Slice 5: holdout comparison + parameter sweep.
     - [ ] Slice 6: bar replay + live signals.
     - [ ] Slice 7: strategy library + report (JSON/CSV) export.
