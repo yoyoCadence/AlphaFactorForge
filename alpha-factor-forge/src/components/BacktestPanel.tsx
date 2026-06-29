@@ -294,28 +294,39 @@ function NumberInput({
   );
 }
 
-/** One sweep axis: param picker + min / max / step. */
+/** One sweep axis on a single wrap-safe row: param picker + min / max / step.
+ *  Inline (not a column) so the optional 2-D Y row can't overlap neighbours. */
 function AxisEditor({ title, axis, onChange }: { title: string; axis: SweepAxisConfig; onChange: (a: SweepAxisConfig) => void }): React.ReactElement {
   return (
-    <div style={{ display: 'grid', gap: 4 }}>
-      <span style={S.label}>{title}</span>
-      <select value={axis.key} onChange={(e) => onChange({ ...axis, key: e.target.value as SweepParamKey })} style={{ ...S.input, fontSize: 11 }}>
-        {SWEEP_PARAM_KEYS.map((k) => <option key={k} value={k}>{SWEEP_PARAM_LABEL[k]}</option>)}
-      </select>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 4 }}>
-        {([['min', '起'], ['max', '迄'], ['step', '間距']] as const).map(([k, lbl]) => (
-          <label key={k} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <span style={S.label}>{lbl}</span>
-            <NumberInput value={axis[k]} onChange={(n) => onChange({ ...axis, [k]: n })} style={{ ...S.input, fontSize: 11 }} />
-          </label>
-        ))}
-      </div>
+    <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap', marginTop: 8 }}>
+      <label style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 150 }}>
+        <span style={S.label}>{title}</span>
+        <select value={axis.key} onChange={(e) => onChange({ ...axis, key: e.target.value as SweepParamKey })} style={{ ...S.input, fontSize: 11 }}>
+          {SWEEP_PARAM_KEYS.map((k) => <option key={k} value={k}>{SWEEP_PARAM_LABEL[k]}</option>)}
+        </select>
+      </label>
+      {([['min', '起'], ['max', '迄'], ['step', '間距']] as const).map(([k, lbl]) => (
+        <label key={k} style={{ display: 'flex', flexDirection: 'column', gap: 3, width: 76 }}>
+          <span style={S.label}>{lbl}</span>
+          <NumberInput value={axis[k]} onChange={(n) => onChange({ ...axis, [k]: n })} style={{ ...S.input, fontSize: 11 }} />
+        </label>
+      ))}
     </div>
   );
 }
 
-/** Red→yellow→green heatmap of a sweep grid; best cell is outlined. */
-function SweepHeatmap({ result }: { result: SweepResult }): React.ReactElement {
+/** Red→yellow→green heatmap of a sweep grid. Every cell is clickable to apply
+ *  its param combo; the best cell is outlined (★) and the applied cell is ringed
+ *  (✓), so the user always sees which combo is currently on the strategy. */
+function SweepHeatmap({
+  result,
+  applied,
+  onPick,
+}: {
+  result: SweepResult;
+  applied: { x: number; y: number | null } | null;
+  onPick: (x: number, y: number | null) => void;
+}): React.ReactElement {
   const { xs, ys, grid, best, lo, hi, metric, xKey, yKey } = result;
   const is2d = yKey != null;
   const span = hi - lo;
@@ -327,7 +338,8 @@ function SweepHeatmap({ result }: { result: SweepResult }): React.ReactElement {
     <div style={{ marginTop: 12, overflowX: 'auto' }}>
       <div style={{ fontSize: 11, color: '#8a8678', marginBottom: 6 }}>
         熱力圖 · 顏色越綠越佳（{SWEEP_METRIC_LABEL[metric]}）；橫軸 {SWEEP_PARAM_LABEL[xKey]}
-        {is2d ? `、縱軸 ${SWEEP_PARAM_LABEL[yKey]}` : ''}。每格為指標值，括號為交易次數；最佳格描黑框。
+        {is2d ? `、縱軸 ${SWEEP_PARAM_LABEL[yKey]}` : ''}。每格為指標值，括號為交易次數。
+        <b>點任一格</b>即套用該組合 · <span style={{ color: '#16150f' }}>★ 最佳</span> · <span style={{ color: '#2f6df0' }}>✓ 已套用（藍框）</span>。
       </div>
       <table style={{ borderCollapse: 'collapse' }}>
         <thead>
@@ -342,17 +354,34 @@ function SweepHeatmap({ result }: { result: SweepResult }): React.ReactElement {
               <th style={head}>{is2d ? String(ys[ri]) : ''}</th>
               {row.map((c, ci) => {
                 const isBest = best != null && c.x === best.x && c.y === best.y && c.metric === best.metric && c.trades > 0;
+                const isApplied = applied != null && applied.x === c.x && applied.y === c.y;
                 const t = c.metric == null ? 0 : span > 0 ? (c.metric - lo) / span : 1;
                 const bg = c.metric == null ? '#e8e6df' : heatColor(t);
                 return (
                   <td
                     key={ci}
-                    data-testid={isBest ? 'sweep-best-cell' : undefined}
-                    title={`${SWEEP_PARAM_LABEL[xKey]}=${c.x}${is2d ? ` · ${SWEEP_PARAM_LABEL[yKey]}=${c.y}` : ''}`}
-                    style={{ ...cell, background: bg, color: '#16150f', border: isBest ? '2px solid #16150f' : '1px solid #fff', fontWeight: isBest ? 700 : 500 }}
+                    data-testid={`sweep-cell-${c.x}${is2d ? `-${c.y}` : ''}`}
+                    onClick={() => onPick(c.x, c.y)}
+                    title={`點擊套用 ${SWEEP_PARAM_LABEL[xKey]}=${c.x}${is2d ? ` · ${SWEEP_PARAM_LABEL[yKey]}=${c.y}` : ''}`}
+                    style={{
+                      ...cell,
+                      background: bg,
+                      color: '#16150f',
+                      cursor: 'pointer',
+                      border: isBest ? '2px solid #16150f' : '1px solid #fff',
+                      outline: isApplied ? '3px solid #2f6df0' : 'none',
+                      outlineOffset: '-3px',
+                      fontWeight: isBest || isApplied ? 700 : 500,
+                    }}
                   >
                     <div>{fmtSweepMetric(metric, c.metric)}</div>
                     <div style={{ fontSize: 9, color: '#3c3a30' }}>({c.trades})</div>
+                    {(isApplied || isBest) && (
+                      <div style={{ fontSize: 9, fontWeight: 700, lineHeight: 1.2 }}>
+                        {isApplied && <span data-testid="sweep-applied-marker" style={{ color: '#2f6df0' }}>✓已套用</span>}
+                        {isBest && <span data-testid="sweep-best-marker" style={{ color: '#16150f', marginLeft: isApplied ? 3 : 0 }}>★</span>}
+                      </div>
+                    )}
                   </td>
                 );
               })}
@@ -391,6 +420,11 @@ export function BacktestPanel(): React.ReactElement {
   const [sweeping, setSweeping] = useState(false);
   const [sweepResult, setSweepResult] = useState<SweepResult | null>(null);
   const [sweepErr, setSweepErr] = useState<string | null>(null);
+  const [appliedCell, setAppliedCell] = useState<{ x: number; y: number | null } | null>(null);
+  // Which strategy params the last sweep-apply set — highlighted in the form +
+  // chart quick row so the user sees what the heatmap selection changed. A param
+  // drops out of the set the moment it is hand-edited (no longer "from sweep").
+  const [appliedKeys, setAppliedKeys] = useState<NumKey[]>([]);
 
   const refresh = useCallback(async () => {
     const ds = await db.getDatasets();
@@ -426,7 +460,17 @@ export function BacktestPanel(): React.ReactElement {
   }, [selId, datasets]);
 
   const selected = datasets.find((d) => d.id === selId) ?? null;
-  const setNum = (key: NumKey, value: number) => setStrat((s) => ({ ...s, [key]: value }));
+  const setNum = (key: NumKey, value: number) => {
+    setStrat((s) => ({ ...s, [key]: value }));
+    setAppliedKeys((ks) => (ks.includes(key) ? ks.filter((k) => k !== key) : ks));
+  };
+
+  // Highlight styling for a param that the last sweep-apply set (blue accent).
+  const isAppliedKey = (key: NumKey) => appliedKeys.includes(key);
+  const appliedInputStyle = (key: NumKey, base: React.CSSProperties): React.CSSProperties =>
+    isAppliedKey(key) ? { ...base, borderColor: '#2f6df0', background: '#eef4ff' } : base;
+  const appliedLabelStyle = (key: NumKey): React.CSSProperties =>
+    isAppliedKey(key) ? { ...S.label, color: '#2f6df0', fontWeight: 700 } : S.label;
 
   async function loadSample() {
     setBusyData(true);
@@ -534,9 +578,12 @@ export function BacktestPanel(): React.ReactElement {
 
   // Any sweep-config edit invalidates a shown result: the visible controls would
   // otherwise describe a different sweep than the heatmap / 套用最佳 still acts on.
+  // The applied-cell highlight is tied to that result, so it clears too.
   const clearSweep = () => {
     setSweepResult(null);
     setSweepErr(null);
+    setAppliedCell(null);
+    setAppliedKeys([]);
   };
 
   async function runSweep() {
@@ -547,6 +594,8 @@ export function BacktestPanel(): React.ReactElement {
     setSweeping(true);
     setSweepErr(null);
     setSweepResult(null);
+    setAppliedCell(null);
+    setAppliedKeys([]);
     // Let "掃描中…" paint before the (synchronous, up-to-256-backtest) run.
     await new Promise((r) => setTimeout(r, 20));
     try {
@@ -564,16 +613,25 @@ export function BacktestPanel(): React.ReactElement {
     }
   }
 
+  // Apply any sweep cell's param combo to the strategy + mark it as applied.
+  function applySweepCombo(r: SweepResult, x: number, y: number | null) {
+    setStrat((s) => {
+      const next: ParamsStrategy = { ...s, [r.xKey]: x };
+      if (r.yKey != null && y != null) next[r.yKey] = y;
+      return next;
+    });
+    setAppliedCell({ x, y });
+    const keys: NumKey[] = [r.xKey];
+    if (r.yKey != null && y != null) keys.push(r.yKey);
+    setAppliedKeys(keys);
+    const label = `${SWEEP_PARAM_LABEL[r.xKey]}=${x}${r.yKey != null && y != null ? ` · ${SWEEP_PARAM_LABEL[r.yKey]}=${y}` : ''}`;
+    setMsg(`已套用：${label}（記得再用樣本外驗證）`);
+  }
+
   function applySweepBest() {
     const r = sweepResult;
     if (!r || !r.best) return;
-    const best = r.best;
-    setStrat((s) => {
-      const next: ParamsStrategy = { ...s, [r.xKey]: best.x };
-      if (r.yKey != null && best.y != null) next[r.yKey] = best.y;
-      return next;
-    });
-    setMsg(`已套用最佳參數：${sweepBestLabel(r)}（記得再用樣本外驗證）`);
+    applySweepCombo(r, r.best.x, r.best.y);
   }
 
   // Columns for the metrics table: a single full-period column, or three
@@ -612,12 +670,12 @@ export function BacktestPanel(): React.ReactElement {
           <CandleChart candles={candles} strat={strat} show={show} />
           <div style={{ display: 'flex', gap: 12, marginTop: 10, flexWrap: 'wrap', alignItems: 'flex-end', borderTop: '1px solid #efece5', paddingTop: 10 }}>
             {QUICK_FIELDS.map((f) => (
-              <label key={f.key} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <span style={S.label}>{f.label}</span>
-                <NumberInput value={strat[f.key]} onChange={(n) => setNum(f.key, n)} style={{ ...S.input, width: 88 }} />
+              <label key={f.key} data-testid={isAppliedKey(f.key) ? `quick-applied-${f.key}` : undefined} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <span style={appliedLabelStyle(f.key)}>{isAppliedKey(f.key) ? `✓ ${f.label}` : f.label}</span>
+                <NumberInput value={strat[f.key]} onChange={(n) => setNum(f.key, n)} style={appliedInputStyle(f.key, { ...S.input, width: 88 })} />
               </label>
             ))}
-            <span style={{ fontSize: 10, color: '#aaa599', alignSelf: 'center' }}>調整即時重畫；完整參數見下方策略表單</span>
+            <span style={{ fontSize: 10, color: '#aaa599', alignSelf: 'center' }}>調整即時重畫；完整參數見下方策略表單（<span style={{ color: '#2f6df0' }}>✓ 藍框</span>＝由掃描套用）</span>
           </div>
         </section>
       )}
@@ -727,9 +785,9 @@ export function BacktestPanel(): React.ReactElement {
 
             <div style={S.grid3}>
               {IND_FIELDS.map((f) => (
-                <label key={f.key} style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                  <span style={S.label}>{f.label}</span>
-                  <NumberInput value={strat[f.key]} onChange={(n) => setNum(f.key, n)} style={S.input} />
+                <label key={f.key} data-testid={isAppliedKey(f.key) ? `applied-${f.key}` : undefined} style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                  <span style={appliedLabelStyle(f.key)}>{isAppliedKey(f.key) ? `✓ ${f.label}` : f.label}</span>
+                  <NumberInput value={strat[f.key]} onChange={(n) => setNum(f.key, n)} style={appliedInputStyle(f.key, S.input)} />
                 </label>
               ))}
             </div>
@@ -855,27 +913,28 @@ export function BacktestPanel(): React.ReactElement {
 
           {sweepOpen && (
             <>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 200px', gap: 12, alignItems: 'start' }}>
-                <AxisEditor title="X 參數" axis={sweepX} onChange={(a) => { clearSweep(); setSweepX(a); }} />
-                <div>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#8a8678', marginBottom: 6 }}>
-                    <input type="checkbox" data-testid="sweep-2d" checked={sweepUse2d} onChange={(e) => { clearSweep(); setSweepUse2d(e.target.checked); }} />
-                    第二維 Y（二維熱力圖）
-                  </label>
-                  {sweepUse2d && <AxisEditor title="Y 參數" axis={sweepY} onChange={(a) => { clearSweep(); setSweepY(a); }} />}
-                </div>
-                <div style={{ display: 'grid', gap: 4 }}>
+              {/* controls bar: metric + 2-D toggle + live combo count (axes get
+                  their own full-width rows below, so nothing can overlap) */}
+              <div style={{ display: 'flex', gap: 16, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                   <span style={S.label}>最佳化指標</span>
-                  <select data-testid="sweep-metric" value={sweepMetric} onChange={(e) => { clearSweep(); setSweepMetric(e.target.value as SweepMetricId); }} style={{ ...S.input, fontSize: 11 }}>
+                  <select data-testid="sweep-metric" value={sweepMetric} onChange={(e) => { clearSweep(); setSweepMetric(e.target.value as SweepMetricId); }} style={{ ...S.input, fontSize: 11, minWidth: 120 }}>
                     {SWEEP_METRIC_IDS.map((m) => <option key={m} value={m}>{SWEEP_METRIC_LABEL[m]}</option>)}
                   </select>
-                  <span data-testid="sweep-combos" style={{ fontSize: 10, color: sweepTooMany || sweepDupKey ? '#b23b2e' : '#aaa599' }}>
-                    {sweepDupKey ? 'X / Y 參數需不同' : `組合數 ${sweepCombos}${sweepTooMany ? `（超過上限 ${SWEEP_MAX_COMBOS}）` : ''}`}
-                  </span>
-                </div>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#8a8678' }}>
+                  <input type="checkbox" data-testid="sweep-2d" checked={sweepUse2d} onChange={(e) => { clearSweep(); setSweepUse2d(e.target.checked); }} />
+                  第二維 Y（二維熱力圖）
+                </label>
+                <span data-testid="sweep-combos" style={{ fontSize: 11, color: sweepTooMany || sweepDupKey ? '#b23b2e' : '#aaa599' }}>
+                  {sweepDupKey ? 'X / Y 參數需不同' : `組合數 ${sweepCombos}${sweepTooMany ? `（超過上限 ${SWEEP_MAX_COMBOS}）` : ''}`}
+                </span>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+              <AxisEditor title="X 參數" axis={sweepX} onChange={(a) => { clearSweep(); setSweepX(a); }} />
+              {sweepUse2d && <AxisEditor title="Y 參數" axis={sweepY} onChange={(a) => { clearSweep(); setSweepY(a); }} />}
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
                 <button data-testid="run-sweep" style={S.btn} onClick={runSweep} disabled={sweeping || sweepTooMany || sweepDupKey}>
                   {sweeping ? '掃描中…' : '▶ 執行掃描'}
                 </button>
@@ -886,7 +945,13 @@ export function BacktestPanel(): React.ReactElement {
               </div>
 
               {sweepErr && <div style={{ fontSize: 12, color: '#b23b2e', marginTop: 8 }}>{sweepErr}</div>}
-              {sweepResult && <SweepHeatmap result={sweepResult} />}
+              {sweepResult && (
+                <SweepHeatmap
+                  result={sweepResult}
+                  applied={appliedCell}
+                  onPick={(x, y) => applySweepCombo(sweepResult, x, y)}
+                />
+              )}
             </>
           )}
         </section>

@@ -18,14 +18,36 @@ test('parameter sweep runs, renders a heatmap, and applies the best combo', asyn
   // default 1-D config = fastMA 5..20 step 1 = 16 combos (pre-flight count)
   await expect(page.getByTestId('sweep-combos')).toContainText('組合數 16');
 
-  // run the sweep -> best cell + apply-best button appear
+  // run the sweep -> best cell (★) + apply-best button appear
   await page.getByTestId('run-sweep').click();
-  await expect(page.getByTestId('sweep-best-cell')).toBeVisible();
+  await expect(page.getByTestId('sweep-best-marker')).toBeVisible();
   await expect(page.getByTestId('apply-best')).toBeVisible();
 
-  // applying the best combo surfaces the confirmation message
+  // applying the best combo surfaces the confirmation message + applied mark
+  // ('已套用：' with the colon = the message card, not the '✓已套用' cell badge)
   await page.getByTestId('apply-best').click();
-  await expect(page.getByText('已套用最佳參數')).toBeVisible();
+  await expect(page.getByText(/已套用：/)).toBeVisible();
+  await expect(page.getByTestId('sweep-applied-marker')).toBeVisible();
+});
+
+// Slice 5b-3: any heatmap cell can be clicked to apply that combo, and the
+// applied cell gets a ✓ highlight so the user sees which combo is on the strategy.
+test('clicking a heatmap cell applies that combo and highlights it', async ({ page }) => {
+  await page.goto('/?mock=1');
+  await page.getByTestId('load-sample').click();
+  await page.getByTestId('sweep-toggle').click();
+  await page.getByTestId('run-sweep').click();
+  await expect(page.getByTestId('sweep-best-marker')).toBeVisible();
+
+  // click a specific (fastMA=7) cell -> applied highlight + confirmation
+  await page.getByTestId('sweep-cell-7').click();
+  await expect(page.getByTestId('sweep-applied-marker')).toBeVisible();
+  await expect(page.getByText('已套用：快線MA=7')).toBeVisible();
+
+  // the swept param is also highlighted in the strategy form (and reads the
+  // applied value), so it's clear which variable the heatmap changed
+  await expect(page.getByTestId('applied-fastMA')).toBeVisible();
+  await expect(page.getByTestId('applied-fastMA').getByRole('spinbutton')).toHaveValue('7');
 });
 
 // Stale-result regression (PR #15 review): changing any sweep config after a
@@ -37,11 +59,11 @@ test('changing sweep config clears the previous result', async ({ page }) => {
   await page.getByTestId('sweep-toggle').click();
 
   await page.getByTestId('run-sweep').click();
-  await expect(page.getByTestId('sweep-best-cell')).toBeVisible();
+  await expect(page.getByTestId('sweep-best-marker')).toBeVisible();
   await expect(page.getByTestId('apply-best')).toBeVisible();
 
   // change the optimisation metric -> stale heatmap + apply-best must disappear
   await page.getByTestId('sweep-metric').selectOption('sharpe');
-  await expect(page.getByTestId('sweep-best-cell')).toHaveCount(0);
+  await expect(page.getByTestId('sweep-best-marker')).toHaveCount(0);
   await expect(page.getByTestId('apply-best')).toHaveCount(0);
 });
