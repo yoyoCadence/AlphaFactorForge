@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { Candle } from '../core/backtest';
 import type { Metrics } from '../core/metrics';
-import { buildParamsSignals, buildBlocksSignals, buildSignals } from './strategySignals';
+import { buildParamsSignals, buildBlocksSignals, buildCodeSignals, buildSignals } from './strategySignals';
 import { runParamsBacktest, barsPerYear, toExecCostFractions } from './backtestRunner';
 import { metricsToBacktestSummary } from './metricsMapper';
 import { defaultStrategy, type ParamsStrategy } from './strategy';
@@ -265,5 +265,59 @@ describe('buildSignals dispatch', () => {
     };
     expect(buildSignals(candles, p)).toEqual(buildParamsSignals(candles, p));
     expect(buildSignals(candles, b)).toEqual(buildBlocksSignals(candles, b));
+  });
+
+  it('routes code mode to the interpreter', () => {
+    const c: ParamsStrategy = {
+      ...defaultStrategy(),
+      mode: 'code',
+      fastMA: 2,
+      slowMA: 3,
+      entryCode: 'crossUp(maFast, maSlow)',
+      exitCode: 'crossDown(maFast, maSlow)',
+    };
+    expect(buildSignals(candles, c)).toEqual(buildCodeSignals(candles, c));
+  });
+});
+
+describe('buildCodeSignals (code mode via safe interpreter)', () => {
+  it('matches the equivalent blocks/params cross at the verified index', () => {
+    const candles = mk([10, 8, 6, 8, 10, 12]);
+    const code: ParamsStrategy = {
+      ...defaultStrategy(),
+      mode: 'code',
+      fastMA: 2,
+      slowMA: 3,
+      entryCode: 'crossUp(maFast, maSlow)',
+      exitCode: 'crossDown(maFast, maSlow)',
+    };
+    const { entry, exit } = buildCodeSignals(candles, code);
+    expect(entry).toEqual([false, false, false, false, true, false]);
+    expect(exit.every((v) => v === false)).toBe(true);
+  });
+
+  it('evaluates a comparison + logical expression with rsi', () => {
+    const candles = mk([10, 9, 8, 9, 10, 11, 12, 13, 14, 15]);
+    const code: ParamsStrategy = {
+      ...defaultStrategy(),
+      mode: 'code',
+      rsiPeriod: 3,
+      entryCode: 'rsi < 80 && price > prev(price)',
+      exitCode: 'rsi > 80',
+    };
+    const res = buildCodeSignals(candles, code);
+    expect(res.entry).toHaveLength(candles.length);
+    expect(res.entry[0]).toBe(false); // i<1 never fires
+  });
+
+  it('throws on an invalid expression (surfaced to the UI in 4b-2)', () => {
+    const bad: ParamsStrategy = { ...defaultStrategy(), mode: 'code', entryCode: 'foo(1)' };
+    expect(() => buildCodeSignals(mk([1, 2, 3]), bad)).toThrow(/invalid expression/);
+  });
+
+  it('the default strategy code compiles and runs', () => {
+    const candles = toCoreCandles(makeSampleCandles({ count: 120, seed: 3 }));
+    const code: ParamsStrategy = { ...defaultStrategy(), mode: 'code' };
+    expect(() => buildCodeSignals(candles, code)).not.toThrow();
   });
 });

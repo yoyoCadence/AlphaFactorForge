@@ -9,6 +9,7 @@
 import { sma, ema, rsi, macd, bbands, type Series } from '../core/indicators';
 import type { Candle } from '../core/backtest';
 import { OPERAND_IDS, type ParamsStrategy, type SignalId, type Rule, type RuleOp, type OperandId } from './strategy';
+import { compileExpression, isTruthy } from './exprInterpreter';
 
 export interface SignalSeries {
   entry: boolean[];
@@ -163,6 +164,35 @@ export function buildBlocksSignals(candles: Candle[], strat: ParamsStrategy): Si
 }
 
 /** Dispatch by strategy mode. (code mode arrives in Slice 4b.) */
+// ---------- code mode (Slice 4b-1) ----------
+
+/** Build signals from manual code-mode expressions via the SAFE interpreter
+ *  (no eval/new Function). Throws if either expression is invalid (caller — the
+ *  UI in 4b-2 — surfaces the error). Operand series and NaN/`i<1 -> false`
+ *  semantics match blocks mode. */
+export function buildCodeSignals(candles: Candle[], strat: ParamsStrategy): SignalSeries {
+  const n = candles.length;
+  const series = resolveSeries(candles, strat);
+  const entryExpr = compileExpression(strat.entryCode, OPERAND_IDS);
+  const exitExpr = compileExpression(strat.exitCode, OPERAND_IDS);
+
+  const entry = new Array<boolean>(n);
+  const exit = new Array<boolean>(n);
+  for (let i = 0; i < n; i++) {
+    if (i < 1) {
+      entry[i] = false;
+      exit[i] = false;
+      continue;
+    }
+    entry[i] = isTruthy(entryExpr.evaluate(series, i));
+    exit[i] = isTruthy(exitExpr.evaluate(series, i));
+  }
+  return { entry, exit };
+}
+
+/** Dispatch by strategy mode. code mode stays manual-only (AI never reaches it). */
 export function buildSignals(candles: Candle[], strat: ParamsStrategy): SignalSeries {
-  return strat.mode === 'blocks' ? buildBlocksSignals(candles, strat) : buildParamsSignals(candles, strat);
+  if (strat.mode === 'blocks') return buildBlocksSignals(candles, strat);
+  if (strat.mode === 'code') return buildCodeSignals(candles, strat);
+  return buildParamsSignals(candles, strat);
 }
