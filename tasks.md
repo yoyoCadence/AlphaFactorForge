@@ -52,6 +52,15 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 - [ ] Code-mode UX polish: disable Run while an entry/exit expression is invalid
   - Today invalid code only shows a red border + error; pressing 執行回測 still goes through the existing error handling. Non-blocking (noted at Slice 4b-2).
 
+- [ ] Add more browser E2E flows for BacktestPanel (Playwright harness foundation landed — see Done)
+  - Goal: let Playwright exercise the same React UI behavior in Vite/browser mode without requiring manual Tauri WebView clicks.
+  - Foundation done: `dataClient` seam (prod = tauri-client; dev `?mock=1` = in-memory mock) + Playwright (chromium) + CI `e2e` job.
+  - [x] First regression done: Holdout stale-UI flow (load sample -> enable Holdout -> run -> 3 columns -> disable -> single column) — `e2e/holdout.spec.ts`.
+  - Remaining flows: params/blocks/code tab switching, invalid code expression error display, valid code run path, save-button UI messaging via the mock. (Keep one flow per PR.)
+  - Must stay test-only/dev-only. Do not route production code around Tauri security boundaries, do not replace typed `tauri-client` wrappers, and do not store real data in browser localStorage as a product path.
+  - This does NOT replace true Tauri verification. It validates frontend interaction and React state only; real Rust command wiring, SQLite persistence, migrations, AppData paths, and Tauri/WebView behavior still require Rust integration tests plus a small `cargo tauri dev` smoke checklist.
+  - Suggested shape: a small test harness entry point or dependency-injected client seam, seeded sample data fixtures, and Playwright tests that run against `npm run dev` in CI/local dev.
+
 - [ ] Implement report/file export through Tauri commands
   - Keep JSON and CSV export behavior from the prototype.
   - Add a typed frontend wrapper for `export_report`.
@@ -132,6 +141,11 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Done
 
+- [x] Browser E2E harness foundation + first regression (reduces manual UI testing).
+  - `dataClient` seam: production/Tauri uses the real `tauri-client`; in Vite DEV only, `?mock=1` swaps in an in-memory mock (`mockClient`, seeded sample candles — no localStorage, no real DB; dead-code-eliminated from prod).
+  - Playwright (chromium) running against `npm run dev`; CI `e2e` job; `npm run e2e` locally. Vitest scoped to `src` so it ignores `e2e/`.
+  - First test `e2e/holdout.spec.ts`: Slice 5a Holdout stale-UI flow (load sample -> enable -> run -> 3 columns -> disable -> single column) + `data-testid` hooks.
+  - Explicitly does NOT replace real Tauri/Rust/SQLite verification (Rust integration tests + `cargo tauri dev` smoke still own that).
 - [x] Automate the blocks-save verification (Slice 4a follow-up; replaces manual SQLite checks).
   - TS: strengthened `buildStrategyDef` tests — a blocks rules strategy persists `type='blocks'`, `JSON.parse(original_definition_json).mode === 'blocks'` with the rules intact, and params/blocks `strategy_hash` differ.
   - Rust: `repositories::tests` integration tests on an in-memory migrated DB — `insert_strategy` round-trips `type='blocks'`, and a same-hash re-save does not duplicate (documents the current UPSERT-only-`updated_at` behavior).

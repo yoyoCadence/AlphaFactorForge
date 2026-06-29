@@ -7,6 +7,11 @@ node_modules
 dist
 *.log
 
+# Playwright (E2E)
+/test-results
+/playwright-report
+/playwright/.cache
+
 # OS / editor
 .DS_Store
 .idea

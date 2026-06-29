@@ -7,8 +7,8 @@
 // tauri-client; all maths through core/* + src/services.
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { db, isTauri, type Candle, type Dataset } from '../tauri-client/commands';
-import { importDataset } from '../tauri-client/dbClient';
+import { db, isTauri, importDataset } from '../tauri-client/dataClient';
+import type { Candle, Dataset } from '../tauri-client/commands';
 import { defaultStrategy, OPERAND_IDS, type ParamsStrategy, type SignalId, type Rule, type RuleOp, type OperandId } from '../services/strategy';
 import { SUPPORTED_SIGNALS } from '../services/strategySignals';
 import { compileExpression } from '../services/exprInterpreter';
@@ -465,7 +465,7 @@ export function BacktestPanel(): React.ReactElement {
               ))}
             </select>
             <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
-              <button style={S.btnGhost} onClick={loadSample} disabled={busyData || !isTauri()}>
+              <button data-testid="load-sample" style={S.btnGhost} onClick={loadSample} disabled={busyData || !isTauri()}>
                 {busyData ? '處理中…' : '載入樣本資料'}
               </button>
               <button style={S.btnGhost} onClick={() => refresh().catch((e) => setErr(String(e)))} disabled={!isTauri()}>
@@ -587,6 +587,7 @@ export function BacktestPanel(): React.ReactElement {
             <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 12, fontSize: 11, color: '#8a8678', flexWrap: 'wrap' }}>
               <input
                 type="checkbox"
+                data-testid="holdout-toggle"
                 checked={holdout}
                 onChange={(e) => {
                   const checked = e.target.checked;
@@ -613,7 +614,7 @@ export function BacktestPanel(): React.ReactElement {
               )}
             </label>
 
-            <button style={{ ...S.btn, width: '100%', marginTop: 8 }} onClick={run} disabled={running || !selected}>
+            <button data-testid="run-backtest" style={{ ...S.btn, width: '100%', marginTop: 8 }} onClick={run} disabled={running || !selected}>
               {running ? '回測中…' : '▶ 執行回測'}
             </button>
           </section>
@@ -631,7 +632,7 @@ export function BacktestPanel(): React.ReactElement {
                     <tr style={{ borderBottom: '1px solid #d6d2c8' }}>
                       <th />
                       {metricCols.map((c) => (
-                        <th key={c.label} style={{ padding: '4px', textAlign: 'right', fontSize: 10, fontWeight: 600, color: '#8a8678' }}>{c.label}</th>
+                        <th key={c.label} data-testid={`col-${c.label}`} style={{ padding: '4px', textAlign: 'right', fontSize: 10, fontWeight: 600, color: '#8a8678' }}>{c.label}</th>
                       ))}
                     </tr>
                   </thead>

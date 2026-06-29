@@ -6,7 +6,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { db, isTauri } from './tauri-client/commands';
+import { db, isTauri } from './tauri-client/dataClient';
 import { BacktestPanel } from './components/BacktestPanel';
 
 function App(): React.ReactElement {
