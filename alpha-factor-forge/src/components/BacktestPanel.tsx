@@ -421,6 +421,10 @@ export function BacktestPanel(): React.ReactElement {
   const [sweepResult, setSweepResult] = useState<SweepResult | null>(null);
   const [sweepErr, setSweepErr] = useState<string | null>(null);
   const [appliedCell, setAppliedCell] = useState<{ x: number; y: number | null } | null>(null);
+  // Which strategy params the last sweep-apply set — highlighted in the form +
+  // chart quick row so the user sees what the heatmap selection changed. A param
+  // drops out of the set the moment it is hand-edited (no longer "from sweep").
+  const [appliedKeys, setAppliedKeys] = useState<NumKey[]>([]);
 
   const refresh = useCallback(async () => {
     const ds = await db.getDatasets();
@@ -456,7 +460,17 @@ export function BacktestPanel(): React.ReactElement {
   }, [selId, datasets]);
 
   const selected = datasets.find((d) => d.id === selId) ?? null;
-  const setNum = (key: NumKey, value: number) => setStrat((s) => ({ ...s, [key]: value }));
+  const setNum = (key: NumKey, value: number) => {
+    setStrat((s) => ({ ...s, [key]: value }));
+    setAppliedKeys((ks) => (ks.includes(key) ? ks.filter((k) => k !== key) : ks));
+  };
+
+  // Highlight styling for a param that the last sweep-apply set (blue accent).
+  const isAppliedKey = (key: NumKey) => appliedKeys.includes(key);
+  const appliedInputStyle = (key: NumKey, base: React.CSSProperties): React.CSSProperties =>
+    isAppliedKey(key) ? { ...base, borderColor: '#2f6df0', background: '#eef4ff' } : base;
+  const appliedLabelStyle = (key: NumKey): React.CSSProperties =>
+    isAppliedKey(key) ? { ...S.label, color: '#2f6df0', fontWeight: 700 } : S.label;
 
   async function loadSample() {
     setBusyData(true);
@@ -569,6 +583,7 @@ export function BacktestPanel(): React.ReactElement {
     setSweepResult(null);
     setSweepErr(null);
     setAppliedCell(null);
+    setAppliedKeys([]);
   };
 
   async function runSweep() {
@@ -580,6 +595,7 @@ export function BacktestPanel(): React.ReactElement {
     setSweepErr(null);
     setSweepResult(null);
     setAppliedCell(null);
+    setAppliedKeys([]);
     // Let "掃描中…" paint before the (synchronous, up-to-256-backtest) run.
     await new Promise((r) => setTimeout(r, 20));
     try {
@@ -605,6 +621,9 @@ export function BacktestPanel(): React.ReactElement {
       return next;
     });
     setAppliedCell({ x, y });
+    const keys: NumKey[] = [r.xKey];
+    if (r.yKey != null && y != null) keys.push(r.yKey);
+    setAppliedKeys(keys);
     const label = `${SWEEP_PARAM_LABEL[r.xKey]}=${x}${r.yKey != null && y != null ? ` · ${SWEEP_PARAM_LABEL[r.yKey]}=${y}` : ''}`;
     setMsg(`已套用：${label}（記得再用樣本外驗證）`);
   }
@@ -651,12 +670,12 @@ export function BacktestPanel(): React.ReactElement {
           <CandleChart candles={candles} strat={strat} show={show} />
           <div style={{ display: 'flex', gap: 12, marginTop: 10, flexWrap: 'wrap', alignItems: 'flex-end', borderTop: '1px solid #efece5', paddingTop: 10 }}>
             {QUICK_FIELDS.map((f) => (
-              <label key={f.key} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <span style={S.label}>{f.label}</span>
-                <NumberInput value={strat[f.key]} onChange={(n) => setNum(f.key, n)} style={{ ...S.input, width: 88 }} />
+              <label key={f.key} data-testid={isAppliedKey(f.key) ? `quick-applied-${f.key}` : undefined} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <span style={appliedLabelStyle(f.key)}>{isAppliedKey(f.key) ? `✓ ${f.label}` : f.label}</span>
+                <NumberInput value={strat[f.key]} onChange={(n) => setNum(f.key, n)} style={appliedInputStyle(f.key, { ...S.input, width: 88 })} />
               </label>
             ))}
-            <span style={{ fontSize: 10, color: '#aaa599', alignSelf: 'center' }}>調整即時重畫；完整參數見下方策略表單</span>
+            <span style={{ fontSize: 10, color: '#aaa599', alignSelf: 'center' }}>調整即時重畫；完整參數見下方策略表單（<span style={{ color: '#2f6df0' }}>✓ 藍框</span>＝由掃描套用）</span>
           </div>
         </section>
       )}
@@ -766,9 +785,9 @@ export function BacktestPanel(): React.ReactElement {
 
             <div style={S.grid3}>
               {IND_FIELDS.map((f) => (
-                <label key={f.key} style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                  <span style={S.label}>{f.label}</span>
-                  <NumberInput value={strat[f.key]} onChange={(n) => setNum(f.key, n)} style={S.input} />
+                <label key={f.key} data-testid={isAppliedKey(f.key) ? `applied-${f.key}` : undefined} style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                  <span style={appliedLabelStyle(f.key)}>{isAppliedKey(f.key) ? `✓ ${f.label}` : f.label}</span>
+                  <NumberInput value={strat[f.key]} onChange={(n) => setNum(f.key, n)} style={appliedInputStyle(f.key, S.input)} />
                 </label>
               ))}
             </div>

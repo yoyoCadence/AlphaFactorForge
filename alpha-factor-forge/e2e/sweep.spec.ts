@@ -43,6 +43,11 @@ test('clicking a heatmap cell applies that combo and highlights it', async ({ pa
   await page.getByTestId('sweep-cell-7').click();
   await expect(page.getByTestId('sweep-applied-marker')).toBeVisible();
   await expect(page.getByText('已套用：快線MA=7')).toBeVisible();
+
+  // the swept param is also highlighted in the strategy form (and reads the
+  // applied value), so it's clear which variable the heatmap changed
+  await expect(page.getByTestId('applied-fastMA')).toBeVisible();
+  await expect(page.getByTestId('applied-fastMA').getByRole('spinbutton')).toHaveValue('7');
 });
 
 // Stale-result regression (PR #15 review): changing any sweep config after a
