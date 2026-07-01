@@ -6,11 +6,11 @@
 // live / library yet — those are later slices. All persistence goes through
 // tauri-client; all maths through core/* + src/services.
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { db, isTauri, importDataset } from '../tauri-client/dataClient';
 import type { Candle, Dataset } from '../tauri-client/commands';
 import { defaultStrategy, OPERAND_IDS, type ParamsStrategy, type SignalId, type Rule, type RuleOp, type OperandId } from '../services/strategy';
-import { SUPPORTED_SIGNALS } from '../services/strategySignals';
+import { SUPPORTED_SIGNALS, buildSignals } from '../services/strategySignals';
 import { compileExpression } from '../services/exprInterpreter';
 import { runParamsBacktest } from '../services/backtestRunner';
 import {
@@ -30,7 +30,7 @@ import { makeSampleCandles } from '../services/sampleData';
 import { buildStrategyDef } from '../services/strategyRecord';
 import { metricsToBacktestSummary } from '../services/metricsMapper';
 import { CandleChart, type OverlayToggles } from '../charts/CandleChart';
-import { replayTick } from '../charts/scale';
+import { replayTick, positionAtTime } from '../charts/scale';
 import { HelpTip } from './HelpTip';
 import { FloatingPanel } from './FloatingPanel';
 import type { BacktestResult, Candle as CoreCandle } from '../core/backtest';
@@ -95,6 +95,8 @@ const OP_LABEL: Record<RuleOp, string> = { '>': '>', '<': '<', '>=': '≥', '<='
 
 const MODE_LABEL: Record<ParamsStrategy['mode'], string> = { params: '參數', blocks: '積木', code: '程式碼' };
 
+const POS_LABEL: Record<'LONG' | 'SHORT' | 'FLAT', string> = { LONG: '多', SHORT: '空', FLAT: '空手' };
+
 // Slice 5c — short explanations shown by the "?" HelpTip markers. Kept as one
 // map so the copy is easy to review/edit without hunting through the JSX.
 const HELP: Record<string, string> = {
@@ -108,7 +110,7 @@ const HELP: Record<string, string> = {
   save: '把策略與這次回測摘要寫入資料庫（strategy_def + backtest_summary，segment=full），經由 metricsToBacktestSummary()。',
   runSweep: `對每個參數組合各回測一次並畫成熱力圖（上限 ${SWEEP_MAX_COMBOS} 組）；掃描期間畫面顯示「掃描中…」。`,
   applyBest: '把最佳組合的參數套回策略表單（也可直接點熱力圖任一格套用該格的組合）。',
-  replay: '回放模式：用滑桿或 ◀ / ▶ 一根一根前進，或按 ⏵ 自動播放（速度 1×–4×）；圖表只畫到目前這根（之後的 K 線與買賣點會被隱藏），像重播當時看到的行情。',
+  replay: '回放模式：用滑桿或 ◀ / ▶ 一根一根前進，或按 ⏵ 自動播放（速度 1×–4×）；圖表只畫到目前這根，並顯示此根的進出場訊號與持倉（持倉依上次回測），之後的 K 線與買賣點會被隱藏，像重播當時看到的行情。',
 };
 
 const METRIC_ROWS: { label: string; fmt: (m: Metrics) => string }[] = [
@@ -522,6 +524,19 @@ export function BacktestPanel(): React.ReactElement {
     if (replayPlaying && replayCursor >= candles.length - 1) setReplayPlaying(false);
   }, [replayPlaying, replayCursor, candles.length]);
 
+  // Live signal series for the replay readout (Slice 6-3): entry/exit condition
+  // per bar via the same buildSignals the backtest uses. Memoized over
+  // candles+strat so it isn't recomputed on every autoplay tick (only the
+  // cursor moves); a code-mode parse error yields null (readout hides).
+  const signalSeries = useMemo(() => {
+    if (candles.length === 0) return null;
+    try {
+      return buildSignals(candles, strat);
+    } catch {
+      return null;
+    }
+  }, [candles, strat]);
+
   // Play/pause; starting from the last bar restarts replay from the first.
   const toggleReplayPlay = () => {
     if (replayPlaying) {
@@ -719,6 +734,16 @@ export function BacktestPanel(): React.ReactElement {
       : [{ label: '', metrics: result.metrics }]
     : [];
 
+  // Replay readout (Slice 6-3): the entry/exit condition + position for the bar
+  // under the cursor. Position comes from the last backtest's trades (consistent
+  // with the on-chart markers); '—' until a backtest has been run.
+  const replayIndex = Math.min(replayCursor, Math.max(0, candles.length - 1));
+  const liveEntry = signalSeries ? !!signalSeries.entry[replayIndex] : false;
+  const liveExit = signalSeries ? !!signalSeries.exit[replayIndex] : false;
+  const livePosition = result && candles.length > 0 ? positionAtTime(result.trades, candles[replayIndex].t) : null;
+  const posText = livePosition ? POS_LABEL[livePosition] : '—（回測後顯示）';
+  const posColor = livePosition === 'LONG' ? '#1f7a57' : livePosition === 'SHORT' ? '#b23b2e' : '#8a8678';
+
   // Chart / metrics content, factored out so it can render inline OR (Slice 8a)
   // enlarged inside a FloatingPanel. Same state either way -> edits reflow live.
   const renderChart = (chartHeight: number) => (
@@ -807,6 +832,15 @@ export function BacktestPanel(): React.ReactElement {
               </>
             )}
           </div>
+
+          {replayOn && signalSeries && (
+            <div data-testid="replay-signal" style={{ display: 'flex', gap: 14, marginTop: 6, flexWrap: 'wrap', alignItems: 'center', fontFamily: "'IBM Plex Mono', monospace", fontSize: 11 }}>
+              <span style={{ color: '#8a8678' }}>此根訊號</span>
+              <span style={{ color: liveEntry ? '#1f7a57' : '#aaa599', fontWeight: liveEntry ? 700 : 400 }}>進場 {liveEntry ? '✓ 成立' : '✗'}</span>
+              <span style={{ color: liveExit ? '#b23b2e' : '#aaa599', fontWeight: liveExit ? 700 : 400 }}>出場 {liveExit ? '✓ 成立' : '✗'}</span>
+              <span style={{ color: '#8a8678' }}>持倉 <b data-testid="replay-position" style={{ color: posColor }}>{posText}</b></span>
+            </div>
+          )}
 
           <div style={{ display: 'flex', gap: 12, marginTop: 10, flexWrap: 'wrap', alignItems: 'flex-end', borderTop: '1px solid #efece5', paddingTop: 10 }}>
             {QUICK_FIELDS.map((f) => (

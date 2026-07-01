@@ -93,3 +93,16 @@ export function tradeLegs(
   }
   return out;
 }
+
+/** The open position at candle time `t` (Slice 6-3 replay readout): the side of a
+ *  closed trade whose [entryTime, exitTime] covers `t`, else 'FLAT'. Bounds are
+ *  inclusive so the entry and exit bars read as in-position. Pure. */
+export function positionAtTime(
+  trades: { entryTime: number; exitTime: number; side: 'LONG' | 'SHORT' }[],
+  t: number,
+): 'LONG' | 'SHORT' | 'FLAT' {
+  for (const tr of trades) {
+    if (tr.entryTime <= t && t <= tr.exitTime) return tr.side;
+  }
+  return 'FLAT';
+}
