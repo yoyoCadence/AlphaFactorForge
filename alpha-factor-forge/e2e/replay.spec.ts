@@ -67,16 +67,16 @@ test('replay shows the live entry/exit signal + position at the cursor', async (
   await page.getByTestId('load-sample').click();
   await page.getByTestId('replay-toggle').check();
 
-  const signal = page.getByTestId('replay-signal');
+  const signal = page.getByTestId('bar-info');
   await expect(signal).toBeVisible();
   await expect(signal).toContainText('進場');
   await expect(signal).toContainText('出場');
   await expect(signal).toContainText('持倉');
 
   // position is unknown until a backtest has run...
-  await expect(page.getByTestId('replay-position')).toContainText('回測後顯示');
+  await expect(page.getByTestId('bar-position')).toContainText('回測後顯示');
 
   // ...and resolves to a concrete state once it has
   await page.getByTestId('run-backtest').click();
-  await expect(page.getByTestId('replay-position')).not.toContainText('回測後顯示');
+  await expect(page.getByTestId('bar-position')).not.toContainText('回測後顯示');
 });

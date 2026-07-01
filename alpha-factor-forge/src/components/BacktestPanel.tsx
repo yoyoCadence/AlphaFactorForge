@@ -449,6 +449,7 @@ export function BacktestPanel(): React.ReactElement {
   // Pop-out (Slice 8a): enlarge 圖表 / 回測績效 into a floating resizable panel.
   const [poppedChart, setPoppedChart] = useState(false);
   const [poppedMetrics, setPoppedMetrics] = useState(false);
+  const [hoverBar, setHoverBar] = useState<number | null>(null); // chart hover (Slice 9)
   const [holdout, setHoldout] = useState(false);
   const [holdoutPct, setHoldoutPct] = useState(30); // last N% of bars = out-of-sample
   const [holdoutResult, setHoldoutResult] = useState<{ inSample: BacktestResult; outSample: BacktestResult } | null>(null);
@@ -734,20 +735,27 @@ export function BacktestPanel(): React.ReactElement {
       : [{ label: '', metrics: result.metrics }]
     : [];
 
-  // Replay readout (Slice 6-3): the entry/exit condition + position for the bar
-  // under the cursor. Position comes from the last backtest's trades (consistent
-  // with the on-chart markers); '—' until a backtest has been run.
-  const replayIndex = Math.min(replayCursor, Math.max(0, candles.length - 1));
-  const liveEntry = signalSeries ? !!signalSeries.entry[replayIndex] : false;
-  const liveExit = signalSeries ? !!signalSeries.exit[replayIndex] : false;
-  const livePosition = result && candles.length > 0 ? positionAtTime(result.trades, candles[replayIndex].t) : null;
+  // Bar-info readout (Slice 9): the "active" bar is the hovered bar if hovering,
+  // else the replay cursor when replay is on, else none. Its OHLC + entry/exit
+  // condition + position (from the last backtest's trades) feed the 此根資訊 row,
+  // so pointing at any bar shows its info in ANY mode, not just at the cursor.
+  const activeBar =
+    hoverBar != null && hoverBar >= 0 && hoverBar < candles.length
+      ? hoverBar
+      : replayOn && candles.length > 0
+        ? Math.min(replayCursor, candles.length - 1)
+        : null;
+  const activeCandle = activeBar != null ? candles[activeBar] : null;
+  const liveEntry = activeBar != null && signalSeries ? !!signalSeries.entry[activeBar] : false;
+  const liveExit = activeBar != null && signalSeries ? !!signalSeries.exit[activeBar] : false;
+  const livePosition = activeBar != null && result ? positionAtTime(result.trades, candles[activeBar].t) : null;
   const posText = livePosition ? POS_LABEL[livePosition] : '—（回測後顯示）';
   const posColor = livePosition === 'LONG' ? '#1f7a57' : livePosition === 'SHORT' ? '#b23b2e' : '#8a8678';
 
   // Chart / metrics content, factored out so it can render inline OR (Slice 8a)
   // enlarged inside a FloatingPanel. Same state either way -> edits reflow live.
   const renderChart = (chartHeight: number) => (
-    <CandleChart candles={candles} strat={strat} show={show} trades={result?.trades} upto={replayOn ? replayCursor : undefined} height={chartHeight} />
+    <CandleChart candles={candles} strat={strat} show={show} trades={result?.trades} upto={replayOn ? replayCursor : undefined} onHoverBar={setHoverBar} height={chartHeight} />
   );
   const renderMetricsTable = (fontSize: number) => (
     <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: "'IBM Plex Mono', monospace", fontSize }}>
@@ -833,12 +841,13 @@ export function BacktestPanel(): React.ReactElement {
             )}
           </div>
 
-          {replayOn && signalSeries && (
-            <div data-testid="replay-signal" style={{ display: 'flex', gap: 14, marginTop: 6, flexWrap: 'wrap', alignItems: 'center', fontFamily: "'IBM Plex Mono', monospace", fontSize: 11 }}>
-              <span style={{ color: '#8a8678' }}>此根訊號</span>
+          {activeBar != null && activeCandle && (
+            <div data-testid="bar-info" style={{ display: 'flex', gap: 12, marginTop: 6, flexWrap: 'wrap', alignItems: 'center', fontFamily: "'IBM Plex Mono', monospace", fontSize: 11 }}>
+              <span style={{ color: '#8a8678' }}>第 {activeBar + 1} 根{hoverBar != null ? '（游標）' : ''}</span>
+              <span style={{ color: '#3c3a30' }}>開 {activeCandle.o.toFixed(2)} 高 {activeCandle.h.toFixed(2)} 低 {activeCandle.l.toFixed(2)} 收 {activeCandle.c.toFixed(2)} · 量 {activeCandle.v.toFixed(0)}</span>
               <span style={{ color: liveEntry ? '#1f7a57' : '#aaa599', fontWeight: liveEntry ? 700 : 400 }}>進場 {liveEntry ? '✓ 成立' : '✗'}</span>
               <span style={{ color: liveExit ? '#b23b2e' : '#aaa599', fontWeight: liveExit ? 700 : 400 }}>出場 {liveExit ? '✓ 成立' : '✗'}</span>
-              <span style={{ color: '#8a8678' }}>持倉 <b data-testid="replay-position" style={{ color: posColor }}>{posText}</b></span>
+              <span style={{ color: '#8a8678' }}>持倉 <b data-testid="bar-position" style={{ color: posColor }}>{posText}</b></span>
             </div>
           )}
 

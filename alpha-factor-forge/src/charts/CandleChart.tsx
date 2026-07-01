@@ -12,7 +12,7 @@ import { sma, ema, bbands, rsi, type Series } from '../core/indicators';
 import type { Candle as CoreCandle } from '../core/backtest';
 import type { ClosedTrade } from '../core/metrics';
 import type { ParamsStrategy } from '../services/strategy';
-import { extentOf, padExtent, valueToY, tradeLegs, replayWindow } from './scale';
+import { extentOf, padExtent, valueToY, tradeLegs, replayWindow, barAtX } from './scale';
 
 export interface OverlayToggles {
   ma: boolean;
@@ -32,6 +32,9 @@ export interface CandleChartProps {
   /** Bar-replay cursor: when set, draw only candles up to this index (inclusive)
    *  and mark it as the current bar. Undefined = show the latest bars (no replay). */
   upto?: number;
+  /** Called with the bar index under the mouse on hover, or null on leave
+   *  (Slice 9). Drives the shared 「此根資訊」 readout in BacktestPanel. */
+  onHoverBar?: (index: number | null) => void;
   height?: number;
   maxBars?: number;
 }
@@ -47,12 +50,17 @@ const COL = {
   bb: '#b9b4a8',
   rsi: '#16150f',
   playhead: '#2f6df0',
+  crosshair: '#3c3a30',
 };
 
-export function CandleChart({ candles, strat, show, trades, upto, height = 360, maxBars = 500 }: CandleChartProps): React.ReactElement {
+export function CandleChart({ candles, strat, show, trades, upto, onHoverBar, height = 360, maxBars = 500 }: CandleChartProps): React.ReactElement {
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [width, setWidth] = useState(0);
+  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+  // Latest bar geometry, written by draw(), read by the hover handler to map a
+  // mouse x back to a bar index (avoids re-deriving the layout on every move).
+  const layoutRef = useRef<Layout | null>(null);
 
   useEffect(() => {
     const el = wrapRef.current;
@@ -67,13 +75,40 @@ export function CandleChart({ candles, strat, show, trades, upto, height = 360, 
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || width <= 0 || candles.length === 0) return;
-    draw(canvas, width, height, candles, strat, show, maxBars, trades, upto);
-  }, [candles, strat, show, width, height, maxBars, trades, upto]);
+    if (!canvas || width <= 0 || candles.length === 0) {
+      layoutRef.current = null;
+      return;
+    }
+    layoutRef.current = draw(canvas, width, height, candles, strat, show, maxBars, trades, upto, hoverIndex);
+  }, [candles, strat, show, width, height, maxBars, trades, upto, hoverIndex]);
+
+  const handleMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const lay = layoutRef.current;
+    const canvas = canvasRef.current;
+    if (!lay || !canvas) return;
+    const x = e.clientX - canvas.getBoundingClientRect().left;
+    const idx = barAtX(x, lay.padL, lay.plotW, lay.start, lay.n);
+    if (idx !== hoverIndex) {
+      setHoverIndex(idx);
+      onHoverBar?.(idx);
+    }
+  };
+  const handleLeave = () => {
+    if (hoverIndex !== null) {
+      setHoverIndex(null);
+      onHoverBar?.(null);
+    }
+  };
 
   return (
     <div ref={wrapRef} style={{ width: '100%' }}>
-      <canvas ref={canvasRef} style={{ width: '100%', height, display: 'block' }} />
+      <canvas
+        ref={canvasRef}
+        data-testid="candle-canvas"
+        onMouseMove={handleMove}
+        onMouseLeave={handleLeave}
+        style={{ width: '100%', height, display: 'block', cursor: 'crosshair' }}
+      />
     </div>
   );
 }
@@ -101,6 +136,14 @@ function drawMarker(ctx: CanvasRenderingContext2D, x: number, apexY: number, dir
   ctx.stroke();
 }
 
+/** Bar geometry returned by draw() so the hover handler can invert x -> bar. */
+interface Layout {
+  padL: number;
+  plotW: number;
+  start: number;
+  n: number;
+}
+
 function draw(
   canvas: HTMLCanvasElement,
   w: number,
@@ -109,14 +152,15 @@ function draw(
   strat: ParamsStrategy,
   show: OverlayToggles,
   maxBars: number,
-  trades?: ClosedTrade[],
-  upto?: number,
-): void {
+  trades: ClosedTrade[] | undefined,
+  upto: number | undefined,
+  hoverIndex: number | null,
+): Layout {
   const dpr = window.devicePixelRatio || 1;
   canvas.width = Math.round(w * dpr);
   canvas.height = Math.round(h * dpr);
   const ctx = canvas.getContext('2d');
-  if (!ctx) return;
+  if (!ctx) return { padL: 0, plotW: 0, start: 0, n: 0 };
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, w, h);
   ctx.fillStyle = '#fff';
@@ -315,4 +359,21 @@ function draw(
     ctx.stroke();
     ctx.restore();
   }
+
+  // hover crosshair: a dashed vertical guide at the bar under the mouse
+  if (hoverIndex != null && hoverIndex >= start && hoverIndex <= end) {
+    const x = xc(hoverIndex);
+    ctx.save();
+    ctx.strokeStyle = COL.crosshair;
+    ctx.globalAlpha = 0.85;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([2, 2]);
+    ctx.beginPath();
+    ctx.moveTo(x, padTop);
+    ctx.lineTo(x, h - padBottom);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  return { padL, plotW, start, n };
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { extentOf, padExtent, valueToY, tradeLegs, replayWindow, replayTick, positionAtTime } from './scale';
+import { extentOf, padExtent, valueToY, tradeLegs, replayWindow, replayTick, positionAtTime, barAtX } from './scale';
 
 describe('extentOf', () => {
   it('ignores NaN/Infinity and returns min/max', () => {
@@ -70,6 +70,27 @@ describe('replayTick', () => {
   it('handles a single-bar / empty series', () => {
     expect(replayTick(0, 1)).toEqual({ cursor: 0, atEnd: true });
     expect(replayTick(0, 0)).toEqual({ cursor: 0, atEnd: true });
+  });
+});
+
+describe('barAtX', () => {
+  // padL 6, plotW 600, start 0, n 60 -> bar width 10
+  it('maps an x pixel to the bar under it', () => {
+    expect(barAtX(6, 6, 600, 0, 60)).toBe(0);
+    expect(barAtX(15, 6, 600, 0, 60)).toBe(0); // within bar 0's [6,16)
+    expect(barAtX(16, 6, 600, 0, 60)).toBe(1);
+    expect(barAtX(106, 6, 600, 0, 60)).toBe(10);
+  });
+
+  it('clamps to the visible window and honours a start offset', () => {
+    expect(barAtX(0, 6, 600, 0, 60)).toBe(0); // left of the plot -> first bar
+    expect(barAtX(9999, 6, 600, 0, 60)).toBe(59); // right of the plot -> last bar
+    expect(barAtX(6, 6, 500, 100, 50)).toBe(100); // start offset
+    expect(barAtX(9999, 6, 500, 100, 50)).toBe(149);
+  });
+
+  it('returns start for an empty window', () => {
+    expect(barAtX(50, 6, 600, 7, 0)).toBe(7);
   });
 });
 

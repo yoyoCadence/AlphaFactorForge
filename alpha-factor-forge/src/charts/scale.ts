@@ -56,6 +56,17 @@ export function replayWindow(
   return { start: end + 1 - n, end };
 }
 
+/** Inverse of the bar x-mapping (Slice 9 chart hover): the bar index under
+ *  CSS-pixel `x`. `padL` is the left plot inset, `plotW` the plot width, `start`
+ *  the first visible bar, `n` the visible bar count. Result is clamped to the
+ *  visible window [start, start+n-1]. Pure. */
+export function barAtX(x: number, padL: number, plotW: number, start: number, n: number): number {
+  if (n <= 0) return start;
+  const bw = plotW / n;
+  const i = start + Math.floor((x - padL) / bw);
+  return Math.max(start, Math.min(start + n - 1, i));
+}
+
 /** One autoplay step of the replay cursor (Slice 6-2): advance by one bar,
  *  clamped to the last bar. `atEnd` is true once the cursor has reached the last
  *  bar, so the caller can stop the timer. Pure. */
