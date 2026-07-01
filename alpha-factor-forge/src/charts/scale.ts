@@ -56,6 +56,15 @@ export function replayWindow(
   return { start: end + 1 - n, end };
 }
 
+/** One autoplay step of the replay cursor (Slice 6-2): advance by one bar,
+ *  clamped to the last bar. `atEnd` is true once the cursor has reached the last
+ *  bar, so the caller can stop the timer. Pure. */
+export function replayTick(cursor: number, total: number): { cursor: number; atEnd: boolean } {
+  const last = Math.max(0, total - 1);
+  const next = Math.min(cursor + 1, last);
+  return { cursor: next, atEnd: next >= last };
+}
+
 /** A single trade leg to mark on the chart: a bar index + buy/sell direction. */
 export interface TradeLeg {
   index: number;

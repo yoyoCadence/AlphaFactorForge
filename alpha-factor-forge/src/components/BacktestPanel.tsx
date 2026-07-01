@@ -30,6 +30,7 @@ import { makeSampleCandles } from '../services/sampleData';
 import { buildStrategyDef } from '../services/strategyRecord';
 import { metricsToBacktestSummary } from '../services/metricsMapper';
 import { CandleChart, type OverlayToggles } from '../charts/CandleChart';
+import { replayTick } from '../charts/scale';
 import { HelpTip } from './HelpTip';
 import { FloatingPanel } from './FloatingPanel';
 import type { BacktestResult, Candle as CoreCandle } from '../core/backtest';
@@ -107,7 +108,7 @@ const HELP: Record<string, string> = {
   save: '把策略與這次回測摘要寫入資料庫（strategy_def + backtest_summary，segment=full），經由 metricsToBacktestSummary()。',
   runSweep: `對每個參數組合各回測一次並畫成熱力圖（上限 ${SWEEP_MAX_COMBOS} 組）；掃描期間畫面顯示「掃描中…」。`,
   applyBest: '把最佳組合的參數套回策略表單（也可直接點熱力圖任一格套用該格的組合）。',
-  replay: '回放模式：用滑桿或 ◀ / ▶ 一根一根前進，圖表只畫到目前這根（之後的 K 線與買賣點會被隱藏），像重播當時看到的行情。',
+  replay: '回放模式：用滑桿或 ◀ / ▶ 一根一根前進，或按 ⏵ 自動播放（速度 1×–4×）；圖表只畫到目前這根（之後的 K 線與買賣點會被隱藏），像重播當時看到的行情。',
 };
 
 const METRIC_ROWS: { label: string; fmt: (m: Metrics) => string }[] = [
@@ -441,6 +442,8 @@ export function BacktestPanel(): React.ReactElement {
   // clips to bars [.., cursor]. Cursor resets to the latest bar when candles change.
   const [replayOn, setReplayOn] = useState(false);
   const [replayCursor, setReplayCursor] = useState(0);
+  const [replayPlaying, setReplayPlaying] = useState(false); // autoplay (Slice 6-2)
+  const [replaySpeed, setReplaySpeed] = useState(1); // 1× / 2× / 4×
   // Pop-out (Slice 8a): enlarge 圖表 / 回測績效 into a floating resizable panel.
   const [poppedChart, setPoppedChart] = useState(false);
   const [poppedMetrics, setPoppedMetrics] = useState(false);
@@ -499,7 +502,35 @@ export function BacktestPanel(): React.ReactElement {
   // (dataset switch / import), so it's always in bounds and starts "at now".
   useEffect(() => {
     setReplayCursor(Math.max(0, candles.length - 1));
+    setReplayPlaying(false);
   }, [candles]);
+
+  // Autoplay tick (Slice 6-2): while playing, advance the cursor one bar every
+  // 400/speed ms. The interval is re-created only when play/speed/candles change
+  // (a functional update reads the latest cursor), so playback stays smooth.
+  useEffect(() => {
+    if (!replayOn || !replayPlaying) return;
+    const id = setInterval(() => {
+      setReplayCursor((c) => replayTick(c, candles.length).cursor);
+    }, 400 / replaySpeed);
+    return () => clearInterval(id);
+  }, [replayOn, replayPlaying, replaySpeed, candles.length]);
+
+  // Stop autoplay once the cursor reaches the last bar (kept out of the tick
+  // updater so state stays pure / StrictMode-safe).
+  useEffect(() => {
+    if (replayPlaying && replayCursor >= candles.length - 1) setReplayPlaying(false);
+  }, [replayPlaying, replayCursor, candles.length]);
+
+  // Play/pause; starting from the last bar restarts replay from the first.
+  const toggleReplayPlay = () => {
+    if (replayPlaying) {
+      setReplayPlaying(false);
+      return;
+    }
+    if (replayCursor >= candles.length - 1) setReplayCursor(0);
+    setReplayPlaying(true);
+  };
 
   const selected = datasets.find((d) => d.id === selId) ?? null;
   const setNum = (key: NumKey, value: number) => {
@@ -746,7 +777,7 @@ export function BacktestPanel(): React.ReactElement {
 
           <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap', alignItems: 'center', borderTop: '1px solid #efece5', paddingTop: 10 }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#8a8678' }}>
-              <input type="checkbox" data-testid="replay-toggle" checked={replayOn} onChange={(e) => setReplayOn(e.target.checked)} />
+              <input type="checkbox" data-testid="replay-toggle" checked={replayOn} onChange={(e) => { setReplayOn(e.target.checked); if (!e.target.checked) setReplayPlaying(false); }} />
               回放模式
             </label>
             <HelpTip id="replay" label="回放" text={HELP.replay} />
@@ -754,6 +785,7 @@ export function BacktestPanel(): React.ReactElement {
               <>
                 <button data-testid="replay-reset" style={{ ...S.btnGhost, padding: '3px 8px' }} title="回到最新" onClick={() => setReplayCursor(Math.max(0, candles.length - 1))}>⏮</button>
                 <button data-testid="replay-back" style={{ ...S.btnGhost, padding: '3px 8px' }} title="上一根" onClick={() => setReplayCursor((c) => Math.max(0, c - 1))}>◀</button>
+                <button data-testid="replay-play" style={{ ...S.btnGhost, padding: '3px 8px' }} title={replayPlaying ? '暫停' : '播放'} onClick={toggleReplayPlay}>{replayPlaying ? '⏸' : '⏵'}</button>
                 <input
                   type="range"
                   data-testid="replay-cursor"
@@ -764,6 +796,11 @@ export function BacktestPanel(): React.ReactElement {
                   style={{ flex: 1, minWidth: 140 }}
                 />
                 <button data-testid="replay-fwd" style={{ ...S.btnGhost, padding: '3px 8px' }} title="下一根" onClick={() => setReplayCursor((c) => Math.min(candles.length - 1, c + 1))}>▶</button>
+                <select data-testid="replay-speed" value={replaySpeed} onChange={(e) => setReplaySpeed(Number(e.target.value))} title="播放速度" style={{ ...S.input, width: 56, fontSize: 11, padding: '3px 4px' }}>
+                  <option value={1}>1×</option>
+                  <option value={2}>2×</option>
+                  <option value={4}>4×</option>
+                </select>
                 <span data-testid="replay-readout" style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: '#16150f', minWidth: 120 }}>
                   第 {Math.min(replayCursor, candles.length - 1) + 1} / {candles.length} 根
                 </span>
