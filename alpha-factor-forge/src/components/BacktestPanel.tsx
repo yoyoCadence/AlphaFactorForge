@@ -106,6 +106,7 @@ const HELP: Record<string, string> = {
   save: '把策略與這次回測摘要寫入資料庫（strategy_def + backtest_summary，segment=full），經由 metricsToBacktestSummary()。',
   runSweep: `對每個參數組合各回測一次並畫成熱力圖（上限 ${SWEEP_MAX_COMBOS} 組）；掃描期間畫面顯示「掃描中…」。`,
   applyBest: '把最佳組合的參數套回策略表單（也可直接點熱力圖任一格套用該格的組合）。',
+  replay: '回放模式：用滑桿或 ◀ / ▶ 一根一根前進，圖表只畫到目前這根（之後的 K 線與買賣點會被隱藏），像重播當時看到的行情。',
 };
 
 const METRIC_ROWS: { label: string; fmt: (m: Metrics) => string }[] = [
@@ -424,6 +425,10 @@ export function BacktestPanel(): React.ReactElement {
   const [candles, setCandles] = useState<CoreCandle[]>([]);
   const [loadingCandles, setLoadingCandles] = useState(false);
   const [show, setShow] = useState<OverlayToggles>({ ma: true, ema: false, bb: false, rsi: true, vol: true, trades: true });
+  // Bar replay (Slice 6-1): step a cursor through the loaded candles; the chart
+  // clips to bars [.., cursor]. Cursor resets to the latest bar when candles change.
+  const [replayOn, setReplayOn] = useState(false);
+  const [replayCursor, setReplayCursor] = useState(0);
   const [holdout, setHoldout] = useState(false);
   const [holdoutPct, setHoldoutPct] = useState(30); // last N% of bars = out-of-sample
   const [holdoutResult, setHoldoutResult] = useState<{ inSample: BacktestResult; outSample: BacktestResult } | null>(null);
@@ -474,6 +479,12 @@ export function BacktestPanel(): React.ReactElement {
       cancelled = true;
     };
   }, [selId, datasets]);
+
+  // Keep the replay cursor at the latest bar whenever the candle set changes
+  // (dataset switch / import), so it's always in bounds and starts "at now".
+  useEffect(() => {
+    setReplayCursor(Math.max(0, candles.length - 1));
+  }, [candles]);
 
   const selected = datasets.find((d) => d.id === selId) ?? null;
   const setNum = (key: NumKey, value: number) => {
@@ -683,7 +694,35 @@ export function BacktestPanel(): React.ReactElement {
               {loadingCandles ? '載入中…' : `${selected?.symbol ?? ''} · ${candles.length} 根`}
             </span>
           </div>
-          <CandleChart candles={candles} strat={strat} show={show} trades={result?.trades} />
+          <CandleChart candles={candles} strat={strat} show={show} trades={result?.trades} upto={replayOn ? replayCursor : undefined} />
+
+          <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap', alignItems: 'center', borderTop: '1px solid #efece5', paddingTop: 10 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#8a8678' }}>
+              <input type="checkbox" data-testid="replay-toggle" checked={replayOn} onChange={(e) => setReplayOn(e.target.checked)} />
+              回放模式
+            </label>
+            <HelpTip id="replay" label="回放" text={HELP.replay} />
+            {replayOn && (
+              <>
+                <button data-testid="replay-reset" style={{ ...S.btnGhost, padding: '3px 8px' }} title="回到最新" onClick={() => setReplayCursor(Math.max(0, candles.length - 1))}>⏮</button>
+                <button data-testid="replay-back" style={{ ...S.btnGhost, padding: '3px 8px' }} title="上一根" onClick={() => setReplayCursor((c) => Math.max(0, c - 1))}>◀</button>
+                <input
+                  type="range"
+                  data-testid="replay-cursor"
+                  min={0}
+                  max={Math.max(0, candles.length - 1)}
+                  value={Math.min(replayCursor, candles.length - 1)}
+                  onChange={(e) => setReplayCursor(Number(e.target.value))}
+                  style={{ flex: 1, minWidth: 140 }}
+                />
+                <button data-testid="replay-fwd" style={{ ...S.btnGhost, padding: '3px 8px' }} title="下一根" onClick={() => setReplayCursor((c) => Math.min(candles.length - 1, c + 1))}>▶</button>
+                <span data-testid="replay-readout" style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: '#16150f', minWidth: 120 }}>
+                  第 {Math.min(replayCursor, candles.length - 1) + 1} / {candles.length} 根
+                </span>
+              </>
+            )}
+          </div>
+
           <div style={{ display: 'flex', gap: 12, marginTop: 10, flexWrap: 'wrap', alignItems: 'flex-end', borderTop: '1px solid #efece5', paddingTop: 10 }}>
             {QUICK_FIELDS.map((f) => (
               <label key={f.key} data-testid={isAppliedKey(f.key) ? `quick-applied-${f.key}` : undefined} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>

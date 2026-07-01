@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { extentOf, padExtent, valueToY, tradeLegs } from './scale';
+import { extentOf, padExtent, valueToY, tradeLegs, replayWindow } from './scale';
 
 describe('extentOf', () => {
   it('ignores NaN/Infinity and returns min/max', () => {
@@ -31,6 +31,32 @@ describe('valueToY', () => {
 
   it('returns top for a zero span', () => {
     expect(valueToY(5, { min: 5, max: 5 }, 10, 200)).toBe(10);
+  });
+});
+
+describe('replayWindow', () => {
+  it('with upto=null shows the last maxBars bars (pre-6-1 behaviour)', () => {
+    expect(replayWindow(1000, null, 500)).toEqual({ start: 500, end: 999 });
+    // fewer bars than maxBars -> the whole series
+    expect(replayWindow(10, null, 500)).toEqual({ start: 0, end: 9 });
+  });
+
+  it('ends the window at the cursor and keeps up to maxBars bars', () => {
+    // cursor early -> window starts at 0
+    expect(replayWindow(600, 100, 500)).toEqual({ start: 0, end: 100 });
+    // cursor past the maxBars span -> window slides to end at the cursor
+    expect(replayWindow(600, 550, 500)).toEqual({ start: 51, end: 550 });
+  });
+
+  it('floors and clamps the cursor into [0, total-1]', () => {
+    expect(replayWindow(600, 100.9, 500)).toEqual({ start: 0, end: 100 });
+    expect(replayWindow(600, -5, 500)).toEqual({ start: 0, end: 0 });
+    expect(replayWindow(600, 999, 500)).toEqual({ start: 100, end: 599 });
+  });
+
+  it('handles an empty series and a degenerate maxBars', () => {
+    expect(replayWindow(0, null, 500)).toEqual({ start: 0, end: -1 });
+    expect(replayWindow(600, 300, 0)).toEqual({ start: 300, end: 300 }); // cap floored to 1
   });
 });
 

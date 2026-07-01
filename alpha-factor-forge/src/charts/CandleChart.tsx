@@ -3,15 +3,16 @@
 // Static fit-to-width render of the latest `maxBars` candles: price pane
 // (candles + MA fast/slow + EMA + Bollinger), a volume strip, and an RSI
 // subpanel. Indicators come from core/indicators (computed over the full series
-// so warm-up is correct, then drawn over the visible window). Pan/zoom and
-// trade markers are deferred to a later slice. Pure drawing — no IO/state writes.
+// so warm-up is correct, then drawn over the visible window). An optional `upto`
+// cursor clips the window to bars [.., upto] for bar replay (a dashed playhead
+// marks it). Pan/zoom is deferred to a later slice. Pure drawing — no IO/state.
 
 import React, { useEffect, useRef, useState } from 'react';
 import { sma, ema, bbands, rsi, type Series } from '../core/indicators';
 import type { Candle as CoreCandle } from '../core/backtest';
 import type { ClosedTrade } from '../core/metrics';
 import type { ParamsStrategy } from '../services/strategy';
-import { extentOf, padExtent, valueToY, tradeLegs } from './scale';
+import { extentOf, padExtent, valueToY, tradeLegs, replayWindow } from './scale';
 
 export interface OverlayToggles {
   ma: boolean;
@@ -28,6 +29,9 @@ export interface CandleChartProps {
   show: OverlayToggles;
   /** entry/exit markers from the latest backtest (drawn when show.trades). */
   trades?: ClosedTrade[];
+  /** Bar-replay cursor: when set, draw only candles up to this index (inclusive)
+   *  and mark it as the current bar. Undefined = show the latest bars (no replay). */
+  upto?: number;
   height?: number;
   maxBars?: number;
 }
@@ -42,9 +46,10 @@ const COL = {
   ema: '#7c3aed',
   bb: '#b9b4a8',
   rsi: '#16150f',
+  playhead: '#2f6df0',
 };
 
-export function CandleChart({ candles, strat, show, trades, height = 360, maxBars = 500 }: CandleChartProps): React.ReactElement {
+export function CandleChart({ candles, strat, show, trades, upto, height = 360, maxBars = 500 }: CandleChartProps): React.ReactElement {
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [width, setWidth] = useState(0);
@@ -63,8 +68,8 @@ export function CandleChart({ candles, strat, show, trades, height = 360, maxBar
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || width <= 0 || candles.length === 0) return;
-    draw(canvas, width, height, candles, strat, show, maxBars, trades);
-  }, [candles, strat, show, width, height, maxBars, trades]);
+    draw(canvas, width, height, candles, strat, show, maxBars, trades, upto);
+  }, [candles, strat, show, width, height, maxBars, trades, upto]);
 
   return (
     <div ref={wrapRef} style={{ width: '100%' }}>
@@ -105,6 +110,7 @@ function draw(
   show: OverlayToggles,
   maxBars: number,
   trades?: ClosedTrade[],
+  upto?: number,
 ): void {
   const dpr = window.devicePixelRatio || 1;
   canvas.width = Math.round(w * dpr);
@@ -130,8 +136,11 @@ function draw(
   const volTop = priceTop + priceH + gap;
   const rsiTop = (show.vol ? volTop + volH : priceTop + priceH) + gap;
 
-  const n = Math.min(candles.length, maxBars);
-  const start = candles.length - n;
+  // Visible bar window. Without `upto` this is the latest `maxBars` bars (the
+  // pre-replay behaviour); with `upto` it ends at the replay cursor. `end` is
+  // inclusive; indicators are still computed over the full series below.
+  const { start, end } = replayWindow(candles.length, upto, maxBars);
+  const n = end - start + 1;
   const bw = plotW / n;
   const xc = (i: number) => padL + (i - start + 0.5) * bw;
 
@@ -144,7 +153,7 @@ function draw(
 
   // price extent over the visible window (candles + overlays)
   const vals: number[] = [];
-  for (let i = start; i < candles.length; i++) {
+  for (let i = start; i <= end; i++) {
     vals.push(candles[i].h, candles[i].l);
     for (const s of [maFast, maSlow, emaArr, bb?.upper, bb?.lower]) {
       if (s && Number.isFinite(s[i])) vals.push(s[i]);
@@ -172,7 +181,7 @@ function draw(
 
   // candles
   const bodyW = Math.max(1, bw * 0.7);
-  for (let i = start; i < candles.length; i++) {
+  for (let i = start; i <= end; i++) {
     const c = candles[i];
     const x = xc(i);
     const up = c.c >= c.o;
@@ -197,7 +206,7 @@ function draw(
     ctx.lineWidth = 1.25;
     ctx.beginPath();
     let started = false;
-    for (let i = start; i < candles.length; i++) {
+    for (let i = start; i <= end; i++) {
       const v = s[i];
       if (!Number.isFinite(v)) {
         started = false;
@@ -229,7 +238,7 @@ function draw(
     const timeToIndex = new Map<number, number>();
     for (let i = 0; i < candles.length; i++) timeToIndex.set(candles[i].t, i);
     for (const lg of tradeLegs(trades, timeToIndex)) {
-      if (lg.index < start) continue;
+      if (lg.index < start || lg.index > end) continue;
       const c = candles[lg.index];
       const x = xc(lg.index);
       if (lg.kind === 'buy') drawMarker(ctx, x, py(c.l) + 4, 'up', COL.up);
@@ -240,9 +249,9 @@ function draw(
   // volume strip
   if (show.vol) {
     let maxVol = 0;
-    for (let i = start; i < candles.length; i++) maxVol = Math.max(maxVol, candles[i].v);
+    for (let i = start; i <= end; i++) maxVol = Math.max(maxVol, candles[i].v);
     if (maxVol > 0) {
-      for (let i = start; i < candles.length; i++) {
+      for (let i = start; i <= end; i++) {
         const c = candles[i];
         const bh = (c.v / maxVol) * volH;
         ctx.fillStyle = c.c >= c.o ? COL.up : COL.down;
@@ -272,7 +281,7 @@ function draw(
     ctx.lineWidth = 1.25;
     ctx.beginPath();
     let started = false;
-    for (let i = start; i < candles.length; i++) {
+    for (let i = start; i <= end; i++) {
       const v = rsiArr[i];
       if (!Number.isFinite(v)) {
         started = false;
@@ -290,5 +299,20 @@ function draw(
     ctx.stroke();
     ctx.fillStyle = COL.axis;
     ctx.fillText('RSI', padL + 2, rsiTop + 6);
+  }
+
+  // replay playhead: a dashed vertical guide at the current (last visible) bar
+  if (upto != null) {
+    const x = xc(end);
+    ctx.save();
+    ctx.strokeStyle = COL.playhead;
+    ctx.globalAlpha = 0.6;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    ctx.moveTo(x, padTop);
+    ctx.lineTo(x, h - padBottom);
+    ctx.stroke();
+    ctx.restore();
   }
 }
