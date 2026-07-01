@@ -36,6 +36,26 @@ export function valueToY(v: number, e: Extent, top: number, height: number): num
   return top + (1 - (v - e.min) / span) * height;
 }
 
+/** The inclusive bar window [start, end] the chart should draw for bar replay.
+ *  `upto` is the replay cursor (index of the last visible bar); null/undefined
+ *  means "up to the latest bar" (i.e. no replay — the pre-6-1 behaviour). `end`
+ *  is floored and clamped to [0, total-1]; the window shows up to `maxBars` bars
+ *  ending at `end`. An empty series yields { start: 0, end: -1 } (draw nothing). */
+export function replayWindow(
+  total: number,
+  upto: number | null | undefined,
+  maxBars: number,
+): { start: number; end: number } {
+  if (total <= 0) return { start: 0, end: -1 };
+  const last = total - 1;
+  let end = upto == null ? last : Math.floor(upto);
+  if (end < 0) end = 0;
+  if (end > last) end = last;
+  const cap = Math.max(1, Math.floor(maxBars));
+  const n = Math.min(end + 1, cap);
+  return { start: end + 1 - n, end };
+}
+
 /** A single trade leg to mark on the chart: a bar index + buy/sell direction. */
 export interface TradeLeg {
   index: number;
