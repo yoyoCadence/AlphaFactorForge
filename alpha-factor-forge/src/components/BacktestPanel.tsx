@@ -30,6 +30,7 @@ import { makeSampleCandles } from '../services/sampleData';
 import { buildStrategyDef } from '../services/strategyRecord';
 import { metricsToBacktestSummary } from '../services/metricsMapper';
 import { CandleChart, type OverlayToggles } from '../charts/CandleChart';
+import { HelpTip } from './HelpTip';
 import type { BacktestResult, Candle as CoreCandle } from '../core/backtest';
 import type { Metrics } from '../core/metrics';
 
@@ -91,6 +92,21 @@ const RULE_OPS: RuleOp[] = ['>', '<', '>=', '<=', 'crossUp', 'crossDown'];
 const OP_LABEL: Record<RuleOp, string> = { '>': '>', '<': '<', '>=': '≥', '<=': '≤', crossUp: '上穿', crossDown: '下穿' };
 
 const MODE_LABEL: Record<ParamsStrategy['mode'], string> = { params: '參數', blocks: '積木', code: '程式碼' };
+
+// Slice 5c — short explanations shown by the "?" HelpTip markers. Kept as one
+// map so the copy is easy to review/edit without hunting through the JSX.
+const HELP: Record<string, string> = {
+  dataset: '選擇或匯入 K 線資料集：載入內建樣本、貼上 JSON 匯入，或選既有資料集（SQLite）。回測與掃描都以此資料為輸入。',
+  strategy: '定義進出場邏輯。參數＝挑現成訊號；積木＝用運算元組規則；程式碼＝手動撰寫安全運算式（AI 不會使用此模式）。',
+  exec: '回測的成交假設：手續費、滑價、部位大小、停損／停利、方向（做多／做空／雙向），以及成交價（當根收盤或次根開盤）。',
+  holdout: '把最後 N% 的 K 線留作樣本外（out-of-sample）。回測會同時列出全期／樣本內／樣本外，用來檢查是否過度擬合。',
+  metrics: '策略在此資料集上的表現：淨報酬、CAGR、最大回撤、Sharpe／Sortino／Calmar、勝率、交易數、獲利因子等。',
+  sweep: `自動改變 1–2 個參數掃過設定範圍，用熱力圖找較佳組合（上限 ${SWEEP_MAX_COMBOS} 組）。注意：歷史最佳常過度擬合，務必再用樣本外驗證。`,
+  run: '以目前策略與執行模型，在選定資料集上跑一次回測；結果顯示於右側「回測績效」。',
+  save: '把策略與這次回測摘要寫入資料庫（strategy_def + backtest_summary，segment=full），經由 metricsToBacktestSummary()。',
+  runSweep: `對每個參數組合各回測一次並畫成熱力圖（上限 ${SWEEP_MAX_COMBOS} 組）；掃描期間畫面顯示「掃描中…」。`,
+  applyBest: '把最佳組合的參數套回策略表單（也可直接點熱力圖任一格套用該格的組合）。',
+};
 
 const METRIC_ROWS: { label: string; fmt: (m: Metrics) => string }[] = [
   { label: '淨報酬', fmt: (m) => pct(m.netReturn) },
@@ -684,7 +700,10 @@ export function BacktestPanel(): React.ReactElement {
         {/* left column: data + strategy */}
         <div style={{ display: 'grid', gap: 12 }}>
           <section style={S.card}>
-            <h2 style={S.h2}>資料集</h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, margin: '0 0 8px' }}>
+              <h2 style={{ ...S.h2, margin: 0 }}>資料集</h2>
+              <HelpTip id="dataset" label="資料集" text={HELP.dataset} />
+            </div>
             <select
               value={selId ?? ''}
               onChange={(e) => setSelId(e.target.value ? Number(e.target.value) : null)}
@@ -720,6 +739,7 @@ export function BacktestPanel(): React.ReactElement {
           <section style={S.card}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
               <h2 style={{ ...S.h2, margin: 0 }}>策略</h2>
+              <HelpTip id="strategy" label="策略" text={HELP.strategy} />
               <div style={{ display: 'flex', gap: 2 }}>
                 {(['params', 'blocks', 'code'] as const).map((mode) => (
                   <button
@@ -792,7 +812,10 @@ export function BacktestPanel(): React.ReactElement {
               ))}
             </div>
 
-            <h2 style={{ ...S.h2, margin: '12px 0 8px' }}>執行模型</h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, margin: '12px 0 8px' }}>
+              <h2 style={{ ...S.h2, margin: 0 }}>執行模型</h2>
+              <HelpTip id="exec" label="執行模型" text={HELP.exec} />
+            </div>
             <div style={S.grid3}>
               {EXEC_FIELDS.map((f) => (
                 <label key={f.key} style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -817,45 +840,54 @@ export function BacktestPanel(): React.ReactElement {
               </label>
             </div>
 
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 12, fontSize: 11, color: '#8a8678', flexWrap: 'wrap' }}>
-              <input
-                type="checkbox"
-                data-testid="holdout-toggle"
-                checked={holdout}
-                onChange={(e) => {
-                  const checked = e.target.checked;
-                  setHoldout(checked);
-                  if (!checked) setHoldoutResult(null);
-                }}
-              />
-              Holdout 樣本外驗證
-              {holdout && (
-                <>
-                  <span style={{ color: '#cfccc4' }}>·</span>末
-                  <NumberInput
-                    value={holdoutPct}
-                    min={5}
-                    max={90}
-                    onChange={(n) => {
-                      setHoldoutPct(n);
-                      setHoldoutResult(null); // stale split no longer matches the new %
-                    }}
-                    style={{ ...S.input, width: 52, fontSize: 11, padding: '3px 5px' }}
-                  />
-                  % 為樣本外
-                </>
-              )}
-            </label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 12, flexWrap: 'wrap' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#8a8678', flexWrap: 'wrap' }}>
+                <input
+                  type="checkbox"
+                  data-testid="holdout-toggle"
+                  checked={holdout}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setHoldout(checked);
+                    if (!checked) setHoldoutResult(null);
+                  }}
+                />
+                Holdout 樣本外驗證
+                {holdout && (
+                  <>
+                    <span style={{ color: '#cfccc4' }}>·</span>末
+                    <NumberInput
+                      value={holdoutPct}
+                      min={5}
+                      max={90}
+                      onChange={(n) => {
+                        setHoldoutPct(n);
+                        setHoldoutResult(null); // stale split no longer matches the new %
+                      }}
+                      style={{ ...S.input, width: 52, fontSize: 11, padding: '3px 5px' }}
+                    />
+                    % 為樣本外
+                  </>
+                )}
+              </label>
+              <HelpTip id="holdout" label="Holdout" text={HELP.holdout} />
+            </div>
 
-            <button data-testid="run-backtest" style={{ ...S.btn, width: '100%', marginTop: 8 }} onClick={run} disabled={running || !selected}>
-              {running ? '回測中…' : '▶ 執行回測'}
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
+              <button data-testid="run-backtest" style={{ ...S.btn, flex: 1 }} onClick={run} disabled={running || !selected}>
+                {running ? '回測中…' : '▶ 執行回測'}
+              </button>
+              <HelpTip id="run" label="執行回測" text={HELP.run} align="right" />
+            </div>
           </section>
         </div>
 
         {/* right column: results */}
         <section style={S.card}>
-          <h2 style={S.h2}>回測績效</h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, margin: '0 0 8px' }}>
+            <h2 style={{ ...S.h2, margin: 0 }}>回測績效</h2>
+            <HelpTip id="metrics" label="回測績效" text={HELP.metrics} />
+          </div>
           {!result && <p style={{ color: '#aaa599', fontSize: 12 }}>尚未回測 — 選資料集、設策略後按「執行回測」。</p>}
           {result && (
             <>
@@ -892,6 +924,7 @@ export function BacktestPanel(): React.ReactElement {
                 <button style={S.btn} onClick={save} disabled={saving}>
                   {saving ? '儲存中…' : '儲存結果'}
                 </button>
+                <HelpTip id="save" label="儲存結果" text={HELP.save} align="right" />
               </div>
               <p style={{ color: '#aaa599', fontSize: 11, marginTop: 8 }}>
                 儲存會寫入 strategy_def + backtest_summary（segment=full），經由 metricsToBacktestSummary()。
@@ -905,6 +938,7 @@ export function BacktestPanel(): React.ReactElement {
         <section style={{ ...S.card, marginTop: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: sweepOpen ? 10 : 0, flexWrap: 'wrap' }}>
             <h2 style={{ ...S.h2, margin: 0 }}>參數掃描（最佳化）</h2>
+            <HelpTip id="sweep" label="參數掃描" text={HELP.sweep} />
             <button data-testid="sweep-toggle" style={{ ...S.btnGhost, padding: '3px 10px' }} onClick={() => setSweepOpen((o) => !o)}>
               {sweepOpen ? '收合' : '展開'}
             </button>
@@ -938,8 +972,12 @@ export function BacktestPanel(): React.ReactElement {
                 <button data-testid="run-sweep" style={S.btn} onClick={runSweep} disabled={sweeping || sweepTooMany || sweepDupKey}>
                   {sweeping ? '掃描中…' : '▶ 執行掃描'}
                 </button>
+                <HelpTip id="run-sweep" label="執行掃描" text={HELP.runSweep} />
                 {sweepResult?.best && (
-                  <button data-testid="apply-best" style={S.btnGhost} onClick={applySweepBest}>套用最佳：{sweepBestLabel(sweepResult)}</button>
+                  <>
+                    <button data-testid="apply-best" style={S.btnGhost} onClick={applySweepBest}>套用最佳：{sweepBestLabel(sweepResult)}</button>
+                    <HelpTip id="apply-best" label="套用最佳" text={HELP.applyBest} />
+                  </>
                 )}
                 <span style={{ fontSize: 10, color: '#8a7a3a' }}>注意：歷史最佳常為過度擬合，務必再用樣本外驗證。</span>
               </div>
