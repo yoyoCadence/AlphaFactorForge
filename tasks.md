@@ -18,7 +18,7 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Next
 
-- [ ] UI port — Slice 6: bar replay + live signals. Slice 6-1 (chart replay cursor) done; next = 6-2 (autoplay + speed), then 6-3 (live signal-at-cursor readout). See the slice plan under In Progress.
+- [ ] UI port — Slice 6-2: bar-replay autoplay (▶/⏸ + speed) driving the cursor via a timer. Slice 8a (pop-out floating panel) done; then 6-3 (live signal readout), Slice 7 (library/export), and later Slice 8b (real Tauri window, if multi-monitor wanted). See the slice plan under In Progress.
 
 ## In Progress
 
@@ -45,9 +45,9 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
       - [ ] Slice 6-2: autoplay — ▶/⏸ play + speed (1×/2×/4×) driving the cursor via a timer; reuses the 6-1 cursor.
       - [ ] Slice 6-3: live signal readout — at the current replay bar, show whether the strategy's entry/exit condition is TRUE plus the running position, reusing the existing signals services (no live exchange fetch — CSP-blocked; replay-driven only).
     - [ ] Slice 7: strategy library + report (JSON/CSV) export.
-    - [ ] Slice 8 (user-requested 2026-07-01; independent of 6/7, can be pulled forward): pop-out 圖表 and 回測績效 into an enlarge-able view via a button, while the other sections stay usable at the same time (non-modal).
-      - Design decision (Mode A before coding — do NOT implement yet): (a) **in-app floating resizable/draggable panel** — recommended default: one window, reuses the same React state directly, non-modal so the left-column controls stay live, low-risk/reversible; 「放大縮小」 = drag-resize + a zoom control. vs (b) **real Tauri second OS window** — most literal 「獨立視窗」, native OS resize, but needs multi-window setup + cross-window state sync via Tauri events + a CSP review; heavier, touches `src-tauri`.
-      - Either way: an 「放大」 button on the 圖表 and 回測績效 section headers; the pop-out must NOT block the left-column controls (dataset / strategy / exec), so edits still reflow the enlarged view live. UI-first; no backtest/logic change.
+    - [ ] Slice 8 (user-requested 2026-07-01): pop-out 圖表 / 回測績效 into an enlarge-able view via a button, non-modal so the other sections stay usable. **Decision 2026-07-01: do (a) now; keep (b) as a future advanced version.**
+      - [x] Slice 8a: in-app floating resizable/draggable panel — reusable `src/components/FloatingPanel.tsx` (title-bar drag + bottom-right corner resize + ✕/Esc close, `position:fixed`, `role=dialog aria-modal=false`, NON-modal — no backdrop — with a render-prop giving children the inner size so the chart canvas fills it). `BacktestPanel` factors chart + metrics into `renderChart(h)` / `renderMetricsTable(fontSize)` and adds an 「放大/收合」 button on the 圖表 and 回測績效 headers; when popped the section shows a `PoppedOutNote` inline and the content renders enlarged in the panel, still driven by the same React state so left-column edits reflow live. Chart pop-out defaults over the results area so strategy controls stay clear. UI-only; no backtest/logic change. +`e2e/popout.spec.ts` (chart: open → run backtest from the still-usable left column → close; metrics: open → Esc close). typecheck + `npm test` 113 + build + e2e (10 specs) green.
+      - [ ] Slice 8b (future / advanced): real Tauri second OS window for true multi-monitor pop-out. Needs a `?window=…` route mounting just the chart/metrics + Rust `WebviewWindowBuilder` + cross-window state sync via Tauri events; NOT browser-e2e-testable (cargo tauri dev smoke owns it). Only if multi-monitor is wanted — benefit is OS-level window management (drag to another screen), which (a) can't do.
   - Carry-over detail (kept from backlog): suggested folders `src/components`, `src/pages`, `src/charts`, `src/stores`, `src/services`; preserve the terminal-like dense visual style; replace prototype localStorage persistence with SQLite via `tauri-client`.
 
 ## Backlog

@@ -31,6 +31,7 @@ import { buildStrategyDef } from '../services/strategyRecord';
 import { metricsToBacktestSummary } from '../services/metricsMapper';
 import { CandleChart, type OverlayToggles } from '../charts/CandleChart';
 import { HelpTip } from './HelpTip';
+import { FloatingPanel } from './FloatingPanel';
 import type { BacktestResult, Candle as CoreCandle } from '../core/backtest';
 import type { Metrics } from '../core/metrics';
 
@@ -410,6 +411,17 @@ function SweepHeatmap({
   );
 }
 
+/** Inline stand-in shown where the chart / metrics normally sit while that
+ *  section is popped out into a FloatingPanel (Slice 8a). */
+function PoppedOutNote({ label, onClose }: { label: string; onClose: () => void }): React.ReactElement {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '18px 12px', background: '#f4f2ec', border: '1px dashed #cfccc4', color: '#8a8678', fontSize: 12 }}>
+      {label}已彈出放大檢視。
+      <button style={{ ...S.btnGhost, padding: '2px 8px' }} onClick={onClose}>收合</button>
+    </div>
+  );
+}
+
 export function BacktestPanel(): React.ReactElement {
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [selId, setSelId] = useState<number | null>(null);
@@ -429,6 +441,9 @@ export function BacktestPanel(): React.ReactElement {
   // clips to bars [.., cursor]. Cursor resets to the latest bar when candles change.
   const [replayOn, setReplayOn] = useState(false);
   const [replayCursor, setReplayCursor] = useState(0);
+  // Pop-out (Slice 8a): enlarge 圖表 / 回測績效 into a floating resizable panel.
+  const [poppedChart, setPoppedChart] = useState(false);
+  const [poppedMetrics, setPoppedMetrics] = useState(false);
   const [holdout, setHoldout] = useState(false);
   const [holdoutPct, setHoldoutPct] = useState(30); // last N% of bars = out-of-sample
   const [holdoutResult, setHoldoutResult] = useState<{ inSample: BacktestResult; outSample: BacktestResult } | null>(null);
@@ -673,6 +688,36 @@ export function BacktestPanel(): React.ReactElement {
       : [{ label: '', metrics: result.metrics }]
     : [];
 
+  // Chart / metrics content, factored out so it can render inline OR (Slice 8a)
+  // enlarged inside a FloatingPanel. Same state either way -> edits reflow live.
+  const renderChart = (chartHeight: number) => (
+    <CandleChart candles={candles} strat={strat} show={show} trades={result?.trades} upto={replayOn ? replayCursor : undefined} height={chartHeight} />
+  );
+  const renderMetricsTable = (fontSize: number) => (
+    <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: "'IBM Plex Mono', monospace", fontSize }}>
+      {metricCols.length > 1 && (
+        <thead>
+          <tr style={{ borderBottom: '1px solid #d6d2c8' }}>
+            <th />
+            {metricCols.map((c) => (
+              <th key={c.label} data-testid={`col-${c.label}`} style={{ padding: '4px', textAlign: 'right', fontSize: fontSize - 2, fontWeight: 600, color: '#8a8678' }}>{c.label}</th>
+            ))}
+          </tr>
+        </thead>
+      )}
+      <tbody>
+        {METRIC_ROWS.map((r) => (
+          <tr key={r.label} style={{ borderBottom: '1px solid #efece5' }}>
+            <td style={{ padding: '5px 4px', color: '#8a8678' }}>{r.label}</td>
+            {metricCols.map((c) => (
+              <td key={c.label} style={{ padding: '5px 4px', textAlign: 'right', fontWeight: 600 }}>{r.fmt(c.metrics)}</td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+
   return (
     <div>
       {err && <div style={{ ...S.card, borderColor: '#d23b2f', color: '#b23b2e', marginBottom: 12 }}>{err}</div>}
@@ -693,8 +738,11 @@ export function BacktestPanel(): React.ReactElement {
             <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: '#aaa599' }}>
               {loadingCandles ? '載入中…' : `${selected?.symbol ?? ''} · ${candles.length} 根`}
             </span>
+            <button data-testid="popout-chart" title="放大到獨立面板" style={{ ...S.btnGhost, padding: '3px 10px', marginLeft: 'auto' }} onClick={() => setPoppedChart((v) => !v)}>
+              {poppedChart ? '⤡ 收合' : '⤢ 放大'}
+            </button>
           </div>
-          <CandleChart candles={candles} strat={strat} show={show} trades={result?.trades} upto={replayOn ? replayCursor : undefined} />
+          {poppedChart ? <PoppedOutNote label="圖表" onClose={() => setPoppedChart(false)} /> : renderChart(360)}
 
           <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap', alignItems: 'center', borderTop: '1px solid #efece5', paddingTop: 10 }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#8a8678' }}>
@@ -926,32 +974,16 @@ export function BacktestPanel(): React.ReactElement {
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, margin: '0 0 8px' }}>
             <h2 style={{ ...S.h2, margin: 0 }}>回測績效</h2>
             <HelpTip id="metrics" label="回測績效" text={HELP.metrics} />
+            {result && (
+              <button data-testid="popout-metrics" title="放大到獨立面板" style={{ ...S.btnGhost, padding: '3px 10px', marginLeft: 'auto' }} onClick={() => setPoppedMetrics((v) => !v)}>
+                {poppedMetrics ? '⤡ 收合' : '⤢ 放大'}
+              </button>
+            )}
           </div>
           {!result && <p style={{ color: '#aaa599', fontSize: 12 }}>尚未回測 — 選資料集、設策略後按「執行回測」。</p>}
           {result && (
             <>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: "'IBM Plex Mono', monospace", fontSize: 12 }}>
-                {metricCols.length > 1 && (
-                  <thead>
-                    <tr style={{ borderBottom: '1px solid #d6d2c8' }}>
-                      <th />
-                      {metricCols.map((c) => (
-                        <th key={c.label} data-testid={`col-${c.label}`} style={{ padding: '4px', textAlign: 'right', fontSize: 10, fontWeight: 600, color: '#8a8678' }}>{c.label}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                )}
-                <tbody>
-                  {METRIC_ROWS.map((r) => (
-                    <tr key={r.label} style={{ borderBottom: '1px solid #efece5' }}>
-                      <td style={{ padding: '5px 4px', color: '#8a8678' }}>{r.label}</td>
-                      {metricCols.map((c) => (
-                        <td key={c.label} style={{ padding: '5px 4px', textAlign: 'right', fontWeight: 600 }}>{r.fmt(c.metrics)}</td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              {poppedMetrics ? <PoppedOutNote label="回測績效" onClose={() => setPoppedMetrics(false)} /> : renderMetricsTable(12)}
 
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 12 }}>
                 <input
@@ -1032,6 +1064,19 @@ export function BacktestPanel(): React.ReactElement {
             </>
           )}
         </section>
+      )}
+
+      {/* Slice 8a pop-outs: non-modal floating panels rendering the same content
+          enlarged; the left-column controls stay usable while these are open. */}
+      {poppedChart && candles.length > 0 && (
+        <FloatingPanel title="圖表" testId="chart-popout" initial={{ x: 430, y: 70, w: 800, h: 540 }} onClose={() => setPoppedChart(false)}>
+          {(s) => renderChart(s.h)}
+        </FloatingPanel>
+      )}
+      {poppedMetrics && result && (
+        <FloatingPanel title="回測績效" testId="metrics-popout" initial={{ x: 220, y: 130, w: 460, h: 520 }} onClose={() => setPoppedMetrics(false)}>
+          {() => renderMetricsTable(15)}
+        </FloatingPanel>
       )}
     </div>
   );
