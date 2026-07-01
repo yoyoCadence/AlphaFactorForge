@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { extentOf, padExtent, valueToY, tradeLegs, replayWindow, replayTick } from './scale';
+import { extentOf, padExtent, valueToY, tradeLegs, replayWindow, replayTick, positionAtTime } from './scale';
 
 describe('extentOf', () => {
   it('ignores NaN/Infinity and returns min/max', () => {
@@ -70,6 +70,27 @@ describe('replayTick', () => {
   it('handles a single-bar / empty series', () => {
     expect(replayTick(0, 1)).toEqual({ cursor: 0, atEnd: true });
     expect(replayTick(0, 0)).toEqual({ cursor: 0, atEnd: true });
+  });
+});
+
+describe('positionAtTime', () => {
+  const trades = [
+    { entryTime: 20, exitTime: 40, side: 'LONG' as const },
+    { entryTime: 60, exitTime: 80, side: 'SHORT' as const },
+  ];
+
+  it('returns the covering trade side (bounds inclusive)', () => {
+    expect(positionAtTime(trades, 30)).toBe('LONG');
+    expect(positionAtTime(trades, 20)).toBe('LONG'); // entry bar
+    expect(positionAtTime(trades, 40)).toBe('LONG'); // exit bar
+    expect(positionAtTime(trades, 70)).toBe('SHORT');
+  });
+
+  it('returns FLAT before, between, and after trades', () => {
+    expect(positionAtTime(trades, 10)).toBe('FLAT');
+    expect(positionAtTime(trades, 50)).toBe('FLAT');
+    expect(positionAtTime(trades, 99)).toBe('FLAT');
+    expect(positionAtTime([], 30)).toBe('FLAT');
   });
 });
 

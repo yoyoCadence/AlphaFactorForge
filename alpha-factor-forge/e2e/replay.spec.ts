@@ -59,3 +59,24 @@ test('autoplay advances the cursor and stops at the end', async ({ page }) => {
   await expect(page.getByTestId('replay-readout')).toContainText('第 600 / 600 根', { timeout: 5000 });
   await expect(page.getByTestId('replay-play')).toContainText('⏵');
 });
+
+// Slice 6-3 — live signal readout: at the current replay bar, show whether the
+// entry/exit condition is TRUE plus the position (from the last backtest).
+test('replay shows the live entry/exit signal + position at the cursor', async ({ page }) => {
+  await page.goto('/?mock=1');
+  await page.getByTestId('load-sample').click();
+  await page.getByTestId('replay-toggle').check();
+
+  const signal = page.getByTestId('replay-signal');
+  await expect(signal).toBeVisible();
+  await expect(signal).toContainText('進場');
+  await expect(signal).toContainText('出場');
+  await expect(signal).toContainText('持倉');
+
+  // position is unknown until a backtest has run...
+  await expect(page.getByTestId('replay-position')).toContainText('回測後顯示');
+
+  // ...and resolves to a concrete state once it has
+  await page.getByTestId('run-backtest').click();
+  await expect(page.getByTestId('replay-position')).not.toContainText('回測後顯示');
+});
