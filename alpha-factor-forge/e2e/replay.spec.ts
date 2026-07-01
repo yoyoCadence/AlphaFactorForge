@@ -39,3 +39,23 @@ test('replay cursor steps, scrubs, and resets', async ({ page }) => {
   await page.getByTestId('replay-toggle').uncheck();
   await expect(page.getByTestId('replay-readout')).toHaveCount(0);
 });
+
+// Slice 6-2 — autoplay: ⏵ advances the cursor on a timer and auto-stops at the
+// last bar. Start a few bars from the end at 4× so it finishes fast/deterministic.
+test('autoplay advances the cursor and stops at the end', async ({ page }) => {
+  await page.goto('/?mock=1');
+  await page.getByTestId('load-sample').click();
+  await page.getByTestId('replay-toggle').check();
+
+  await page.getByTestId('replay-cursor').fill('595');
+  await expect(page.getByTestId('replay-readout')).toContainText('第 596 / 600 根');
+  await page.getByTestId('replay-speed').selectOption('4');
+
+  // play -> button shows the pause glyph while running
+  await page.getByTestId('replay-play').click();
+  await expect(page.getByTestId('replay-play')).toContainText('⏸');
+
+  // the timer advances to the last bar and autoplay stops (button back to play)
+  await expect(page.getByTestId('replay-readout')).toContainText('第 600 / 600 根', { timeout: 5000 });
+  await expect(page.getByTestId('replay-play')).toContainText('⏵');
+});

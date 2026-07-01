@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { extentOf, padExtent, valueToY, tradeLegs, replayWindow } from './scale';
+import { extentOf, padExtent, valueToY, tradeLegs, replayWindow, replayTick } from './scale';
 
 describe('extentOf', () => {
   it('ignores NaN/Infinity and returns min/max', () => {
@@ -57,6 +57,19 @@ describe('replayWindow', () => {
   it('handles an empty series and a degenerate maxBars', () => {
     expect(replayWindow(0, null, 500)).toEqual({ start: 0, end: -1 });
     expect(replayWindow(600, 300, 0)).toEqual({ start: 300, end: 300 }); // cap floored to 1
+  });
+});
+
+describe('replayTick', () => {
+  it('advances one bar and flags the end', () => {
+    expect(replayTick(100, 600)).toEqual({ cursor: 101, atEnd: false });
+    expect(replayTick(598, 600)).toEqual({ cursor: 599, atEnd: true }); // reaches last bar
+    expect(replayTick(599, 600)).toEqual({ cursor: 599, atEnd: true }); // clamps at last bar
+  });
+
+  it('handles a single-bar / empty series', () => {
+    expect(replayTick(0, 1)).toEqual({ cursor: 0, atEnd: true });
+    expect(replayTick(0, 0)).toEqual({ cursor: 0, atEnd: true });
   });
 });
 
