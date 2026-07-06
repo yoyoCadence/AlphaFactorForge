@@ -38,6 +38,7 @@ fn main() {
             commands::db_commands::save_backtest_result,
             commands::db_commands::get_backtest_results,
             // --- Files (Phase A, minimal) ---
+            commands::file_commands::save_report,
             commands::file_commands::export_report,
             // --- AI (Phase C stub) ---
             commands::ai_commands::generate_strategy_dsl,
