@@ -7,7 +7,7 @@
 // tauri-client; all maths through core/* + src/services.
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { db, isTauri, importDataset } from '../tauri-client/dataClient';
+import { db, files, isTauri, importDataset } from '../tauri-client/dataClient';
 import type { Candle, Dataset } from '../tauri-client/commands';
 import { defaultStrategy, OPERAND_IDS, type ParamsStrategy, type SignalId, type Rule, type RuleOp, type OperandId } from '../services/strategy';
 import { SUPPORTED_SIGNALS, buildSignals } from '../services/strategySignals';
@@ -29,6 +29,7 @@ import { toCoreCandles } from '../services/candleAdapter';
 import { makeSampleCandles } from '../services/sampleData';
 import { buildStrategyDef } from '../services/strategyRecord';
 import { metricsToBacktestSummary } from '../services/metricsMapper';
+import { reportToJson, suggestedFilename, tradesToCsv } from '../services/reportExport';
 import { CandleChart, type OverlayToggles } from '../charts/CandleChart';
 import { replayTick, positionAtTime } from '../charts/scale';
 import { HelpTip } from './HelpTip';
@@ -433,6 +434,7 @@ export function BacktestPanel(): React.ReactElement {
   const [result, setResult] = useState<BacktestResult | null>(null);
   const [running, setRunning] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [exporting, setExporting] = useState<'json' | 'csv' | null>(null);
   const [busyData, setBusyData] = useState(false);
   const [importText, setImportText] = useState('');
   const [err, setErr] = useState<string | null>(null);
@@ -657,6 +659,31 @@ export function BacktestPanel(): React.ReactElement {
       setErr(String(e));
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function exportResult(ext: 'json' | 'csv') {
+    if (!selected || !result) return;
+    setExporting(ext);
+    setErr(null);
+    setMsg(null);
+    try {
+      const at = Date.now();
+      const dataset = {
+        symbol: selected.symbol,
+        interval: selected.interval,
+        startTime: selected.start_time,
+        endTime: selected.end_time,
+      };
+      const contents = ext === 'json'
+        ? reportToJson({ strategyName: stratName, strategy: strat, dataset, result, exportedAt: at })
+        : tradesToCsv(result.trades);
+      const path = await files.saveReport(suggestedFilename(dataset, ext, at), contents);
+      setMsg(`已匯出 ${ext.toUpperCase()}：${path}`);
+    } catch (e) {
+      setErr(String(e));
+    } finally {
+      setExporting(null);
     }
   }
 
@@ -1064,6 +1091,15 @@ export function BacktestPanel(): React.ReactElement {
           {result && (
             <>
               {poppedMetrics ? <PoppedOutNote label="回測績效" onClose={() => setPoppedMetrics(false)} /> : renderMetricsTable(12)}
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 12, flexWrap: 'wrap' }}>
+                <button data-testid="export-json" style={S.btnGhost} onClick={() => exportResult('json')} disabled={exporting != null}>
+                  {exporting === 'json' ? '匯出 JSON 中...' : '匯出 JSON'}
+                </button>
+                <button data-testid="export-csv" style={S.btnGhost} onClick={() => exportResult('csv')} disabled={exporting != null}>
+                  {exporting === 'csv' ? '匯出 CSV 中...' : '匯出 CSV'}
+                </button>
+              </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 12 }}>
                 <input

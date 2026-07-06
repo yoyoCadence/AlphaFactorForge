@@ -94,6 +94,12 @@ export const db = {
     invoke<BacktestSummary[]>('get_backtest_results', { strategyId }),
 };
 
+// ---- Files ----
+export const files = {
+  saveReport: (suggestedFilename: string, contents: string) =>
+    invoke<string>('save_report', { suggestedFilename, contents }),
+};
+
 // ---- Secrets (Phase C) ----
 export const secrets = {
   saveKey: (provider: string, key: string) => invoke<void>('save_ai_api_key', { provider, key }),

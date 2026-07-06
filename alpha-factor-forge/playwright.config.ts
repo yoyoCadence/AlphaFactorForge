@@ -8,6 +8,10 @@ import { defineConfig, devices } from '@playwright/test';
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
+  // The Vite/mock UI suite is fast but flaky on Windows when many browser
+  // workers cold-load the shared dev server at once; keep the default command
+  // deterministic for local PR checks and CI.
+  workers: 1,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   reporter: 'list',

@@ -44,6 +44,25 @@ export function makeMockClient() {
       summaries.filter((s) => strategyId == null || s.strategy_id === strategyId),
   };
 
+  const files = {
+    saveReport: async (suggestedFilename: string, contents: string) => {
+      if (typeof document === 'undefined' || typeof Blob === 'undefined') {
+        return `mock-download:${suggestedFilename}`;
+      }
+      const blob = new Blob([contents], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = suggestedFilename;
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      globalThis.setTimeout(() => URL.revokeObjectURL(url), 0);
+      return `browser-download:${suggestedFilename}`;
+    },
+  };
+
   const importDataset = async (input: ImportCandlesInput): Promise<number> => {
     const rows = input.candles;
     if (!rows.length) throw new Error('no candles to import');
@@ -63,5 +82,5 @@ export function makeMockClient() {
     return id;
   };
 
-  return { db, importDataset, isTauri: () => true };
+  return { db, files, importDataset, isTauri: () => true };
 }
