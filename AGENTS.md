@@ -117,7 +117,9 @@ Before opening or updating a PR:
 - Before pushing, check the branch against `origin/main` again — if `main` moved, rebase first
 - Do not re-submit duplicate generated assets or older runtime code under the same filenames
 
-### Codex PR Opening Flow
+### Codex-Only PR Opening Flow
+
+This subsection is specifically for Codex running in the Windows sandbox. Other agents and human contributors that do not see the Codex `127.0.0.1:9` proxy issue may use the normal GitHub CLI, connector, or web PR flow while still following the branch / PR hygiene rules above.
 
 Use this exact flow when publishing Codex work from this Windows sandbox:
 
