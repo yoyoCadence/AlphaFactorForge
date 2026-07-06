@@ -8,6 +8,7 @@ import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { db, isTauri } from './tauri-client/dataClient';
 import { BacktestPanel } from './components/BacktestPanel';
+import './styles.css';
 
 function App(): React.ReactElement {
   const [status, setStatus] = useState<string>('booting…');

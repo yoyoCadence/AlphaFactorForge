@@ -156,6 +156,10 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Done
 
+- [x] Improve button press feedback and export download status.
+  - Added global button hover/active/focus/disabled feedback for the React app.
+  - Added explicit JSON/CSV export status messaging (`正在準備...` / `下載完成...`) beside the export buttons.
+  - Updated `e2e/export.spec.ts`; `npm run typecheck`, `npm test` 125, `npm run build`, and `npm run e2e` 14 passed.
 - [x] Browser E2E harness foundation + first regression (reduces manual UI testing).
   - `dataClient` seam: production/Tauri uses the real `tauri-client`; in Vite DEV only, `?mock=1` swaps in an in-memory mock (`mockClient`, seeded sample candles — no localStorage, no real DB; dead-code-eliminated from prod).
   - Playwright (chromium) running against `npm run dev`; CI `e2e` job; `npm run e2e` locally. Vitest scoped to `src` so it ignores `e2e/`.
