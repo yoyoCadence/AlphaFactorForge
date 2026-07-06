@@ -117,6 +117,37 @@ Before opening or updating a PR:
 - Before pushing, check the branch against `origin/main` again — if `main` moved, rebase first
 - Do not re-submit duplicate generated assets or older runtime code under the same filenames
 
+### Codex PR Opening Flow
+
+Use this exact flow when publishing Codex work from this Windows sandbox:
+
+1. Inspect scope first:
+   ```powershell
+   git status -sb
+   git diff --stat
+   ```
+2. Commit only the intended files with explicit paths. Avoid `git add -A` unless the whole worktree is confirmed in scope.
+3. Fetch and rebase before pushing:
+   ```powershell
+   git fetch origin
+   git rebase origin/main
+   ```
+   If the sandbox blocks `.git` metadata writes, rerun the same git command with escalation; do not change source files to work around it.
+4. Re-run the relevant verification commands after the rebase.
+5. Push the branch:
+   ```powershell
+   git push -u origin <branch-name>
+   ```
+6. Prefer the GitHub connector to open a draft PR. If the connector returns `403 Resource not accessible by integration`, use `gh pr create` as fallback.
+7. In this sandbox, `gh auth status` may falsely report `GITHUB_TOKEN` invalid because `HTTPS_PROXY`, `HTTP_PROXY`, and `ALL_PROXY` are set to `http://127.0.0.1:9`. For PR creation fallback, clear only those proxy variables for the command and keep token values private:
+   ```powershell
+   $env:HTTPS_PROXY=''; $env:HTTP_PROXY=''; $env:ALL_PROXY='';
+   gh auth status
+   gh pr create --draft --base main --head <branch-name> --title "<title>" --body-file <body-file>
+   ```
+   Never print token values. If auth still fails after clearing proxies, ask the user to authenticate or use the GitHub web PR URL from `git push`.
+8. PR bodies should include: summary, what changed, validation checklist, and any manual test checklist items requested from the user.
+
 ---
 
 ## 8. Task Lifecycle
