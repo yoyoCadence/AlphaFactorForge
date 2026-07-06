@@ -435,6 +435,7 @@ export function BacktestPanel(): React.ReactElement {
   const [running, setRunning] = useState(false);
   const [saving, setSaving] = useState(false);
   const [exporting, setExporting] = useState<'json' | 'csv' | null>(null);
+  const [exportNotice, setExportNotice] = useState<{ kind: 'busy' | 'done'; text: string } | null>(null);
   const [busyData, setBusyData] = useState(false);
   const [importText, setImportText] = useState('');
   const [err, setErr] = useState<string | null>(null);
@@ -667,6 +668,7 @@ export function BacktestPanel(): React.ReactElement {
     setExporting(ext);
     setErr(null);
     setMsg(null);
+    setExportNotice({ kind: 'busy', text: `正在準備 ${ext.toUpperCase()} 下載...` });
     try {
       const at = Date.now();
       const dataset = {
@@ -680,7 +682,9 @@ export function BacktestPanel(): React.ReactElement {
         : tradesToCsv(result.trades);
       const path = await files.saveReport(suggestedFilename(dataset, ext, at), contents);
       setMsg(`已匯出 ${ext.toUpperCase()}：${path}`);
+      setExportNotice({ kind: 'done', text: `${ext.toUpperCase()} 下載完成：${path}` });
     } catch (e) {
+      setExportNotice(null);
       setErr(String(e));
     } finally {
       setExporting(null);
@@ -911,7 +915,7 @@ export function BacktestPanel(): React.ReactElement {
               ))}
             </select>
             <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
-              <button data-testid="load-sample" style={S.btnGhost} onClick={loadSample} disabled={busyData || !isTauri()}>
+              <button data-testid="load-sample" style={S.btnGhost} onClick={loadSample} disabled={busyData || !isTauri()} aria-busy={busyData}>
                 {busyData ? '處理中…' : '載入樣本資料'}
               </button>
               <button style={S.btnGhost} onClick={() => refresh().catch((e) => setErr(String(e)))} disabled={!isTauri()}>
@@ -925,7 +929,7 @@ export function BacktestPanel(): React.ReactElement {
               rows={3}
               style={{ ...S.input, fontSize: 11, resize: 'vertical' }}
             />
-            <button style={{ ...S.btnGhost, marginTop: 6 }} onClick={importJson} disabled={busyData || !importText.trim() || !isTauri()}>
+            <button style={{ ...S.btnGhost, marginTop: 6 }} onClick={importJson} disabled={busyData || !importText.trim() || !isTauri()} aria-busy={busyData}>
               匯入 JSON
             </button>
           </section>
@@ -1068,7 +1072,7 @@ export function BacktestPanel(): React.ReactElement {
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
-              <button data-testid="run-backtest" style={{ ...S.btn, flex: 1 }} onClick={run} disabled={running || !selected}>
+              <button data-testid="run-backtest" style={{ ...S.btn, flex: 1 }} onClick={run} disabled={running || !selected} aria-busy={running}>
                 {running ? '回測中…' : '▶ 執行回測'}
               </button>
               <HelpTip id="run" label="執行回測" text={HELP.run} align="right" />
@@ -1093,12 +1097,25 @@ export function BacktestPanel(): React.ReactElement {
               {poppedMetrics ? <PoppedOutNote label="回測績效" onClose={() => setPoppedMetrics(false)} /> : renderMetricsTable(12)}
 
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 12, flexWrap: 'wrap' }}>
-                <button data-testid="export-json" style={S.btnGhost} onClick={() => exportResult('json')} disabled={exporting != null}>
+                <button data-testid="export-json" style={S.btnGhost} onClick={() => exportResult('json')} disabled={exporting != null} aria-busy={exporting === 'json'}>
                   {exporting === 'json' ? '匯出 JSON 中...' : '匯出 JSON'}
                 </button>
-                <button data-testid="export-csv" style={S.btnGhost} onClick={() => exportResult('csv')} disabled={exporting != null}>
+                <button data-testid="export-csv" style={S.btnGhost} onClick={() => exportResult('csv')} disabled={exporting != null} aria-busy={exporting === 'csv'}>
                   {exporting === 'csv' ? '匯出 CSV 中...' : '匯出 CSV'}
                 </button>
+                {exportNotice && (
+                  <span
+                    aria-live="polite"
+                    data-testid="export-status"
+                    style={{
+                      color: exportNotice.kind === 'done' ? '#1f7a57' : '#8a7a3a',
+                      fontFamily: "'IBM Plex Mono', monospace",
+                      fontSize: 11,
+                    }}
+                  >
+                    {exportNotice.text}
+                  </span>
+                )}
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 12 }}>
@@ -1108,7 +1125,7 @@ export function BacktestPanel(): React.ReactElement {
                   placeholder="策略名稱（可留空）"
                   style={{ ...S.input, flex: 1 }}
                 />
-                <button style={S.btn} onClick={save} disabled={saving}>
+                <button style={S.btn} onClick={save} disabled={saving} aria-busy={saving}>
                   {saving ? '儲存中…' : '儲存結果'}
                 </button>
                 <HelpTip id="save" label="儲存結果" text={HELP.save} align="right" />
@@ -1156,7 +1173,7 @@ export function BacktestPanel(): React.ReactElement {
               {sweepUse2d && <AxisEditor title="Y 參數" axis={sweepY} onChange={(a) => { clearSweep(); setSweepY(a); }} />}
 
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
-                <button data-testid="run-sweep" style={S.btn} onClick={runSweep} disabled={sweeping || sweepTooMany || sweepDupKey}>
+                <button data-testid="run-sweep" style={S.btn} onClick={runSweep} disabled={sweeping || sweepTooMany || sweepDupKey} aria-busy={sweeping}>
                   {sweeping ? '掃描中…' : '▶ 執行掃描'}
                 </button>
                 <HelpTip id="run-sweep" label="執行掃描" text={HELP.runSweep} />

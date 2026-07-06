@@ -23,6 +23,8 @@ test('exports the latest backtest as JSON and trades CSV', async ({ page }) => {
   expect(report.schema).toBe(1);
   expect(report.dataset.symbol).toBe('SAMPLE');
   expect(report.metrics.tradeCount).toBe(report.tradeCount);
+  await expect(page.getByTestId('export-status')).toContainText('JSON');
+  await expect(page.getByTestId('export-status')).toContainText('下載完成');
 
   const [csvDownload] = await Promise.all([
     page.waitForEvent('download'),
@@ -33,4 +35,6 @@ test('exports the latest backtest as JSON and trades CSV', async ({ page }) => {
   expect(csvPath).toBeTruthy();
   const csv = readFileSync(csvPath!, 'utf8');
   expect(csv.split('\n')[0]).toBe('entry_time,entry_time_iso,exit_time,exit_time_iso,side,entry_price,exit_price,pnl,pnl_pct,bars');
+  await expect(page.getByTestId('export-status')).toContainText('CSV');
+  await expect(page.getByTestId('export-status')).toContainText('下載完成');
 });
