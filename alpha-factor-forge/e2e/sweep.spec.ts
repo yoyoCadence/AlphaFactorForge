@@ -68,29 +68,41 @@ test('changing sweep config clears the previous result', async ({ page }) => {
   await expect(page.getByTestId('apply-best')).toHaveCount(0);
 });
 
-// BUG-001: with Holdout on, the sweep must optimise on the IN-SAMPLE segment
-// only (the out-of-sample tail is reserved for honest validation, not tuning).
-// The sweep section announces the in-sample scope, and the note is reactive to
-// the Holdout toggle.
-test('sweep announces in-sample-only scope when holdout is on', async ({ page }) => {
+// BUG-001 (+ ultrareview follow-up): with Holdout on, the sweep must optimise on
+// the IN-SAMPLE segment only (the out-of-sample tail is reserved for honest
+// validation, not tuning). This RUNS the Holdout-on sweep end to end and asserts
+// its winning combo differs from the full-period sweep on the same seeded data —
+// so silently dropping the in-sample from/to wiring (while keeping the copy)
+// would make the two equal and fail here. It also checks the scope note is
+// reactive to the Holdout toggle.
+test('sweep optimises in-sample only when holdout is on', async ({ page }) => {
   await page.goto('/?mock=1');
   await page.getByTestId('load-sample').click();
   await page.getByTestId('sweep-toggle').click();
 
-  // holdout off by default -> no in-sample scope note (sweep spans full period)
+  // full-period sweep (holdout off): no scope note, capture the winning combo
   await expect(page.getByTestId('sweep-scope')).toHaveCount(0);
+  await page.getByTestId('run-sweep').click();
+  await expect(page.getByTestId('apply-best')).toBeVisible();
+  const fullBest = ((await page.getByTestId('apply-best').textContent()) ?? '').trim();
+  expect(fullBest).not.toEqual('');
 
-  // enable holdout (default 30% out-of-sample) -> sweep scopes to the front 70%
+  // enable holdout (default 30% out-of-sample) -> sweep announces the front 70%
   await page.getByTestId('holdout-toggle').check();
   await expect(page.getByTestId('sweep-scope')).toBeVisible();
   await expect(page.getByTestId('sweep-scope')).toContainText('僅樣本內');
   await expect(page.getByTestId('sweep-scope')).toContainText('70%');
 
-  // reactive: turning holdout back off removes the note again
+  // actually RUN the in-sample sweep and capture its winning combo
+  await page.getByTestId('run-sweep').click();
+  await expect(page.getByTestId('apply-best')).toBeVisible();
+  const inSampleBest = ((await page.getByTestId('apply-best').textContent()) ?? '').trim();
+
+  // in-sample (front 70% of bars) must yield a different best than the full
+  // period, proving the from/to range actually reached the sweep engine
+  expect(inSampleBest).not.toEqual(fullBest);
+
+  // reactive: turning holdout back off removes the in-sample scope note
   await page.getByTestId('holdout-toggle').uncheck();
   await expect(page.getByTestId('sweep-scope')).toHaveCount(0);
-
-  // the sweep still runs and renders a heatmap (holdout off = full period)
-  await page.getByTestId('run-sweep').click();
-  await expect(page.getByTestId('sweep-best-marker')).toBeVisible();
 });
