@@ -40,6 +40,8 @@ fn main() {
             // --- Files (Phase A, minimal) ---
             commands::file_commands::save_report,
             commands::file_commands::export_report,
+            // --- Native pop-out windows (Phase A UI) ---
+            commands::window_commands::open_popout_window,
             // --- AI (Phase C stub) ---
             commands::ai_commands::generate_strategy_dsl,
             commands::ai_commands::validate_strategy_dsl,

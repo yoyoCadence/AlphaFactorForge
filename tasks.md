@@ -11,14 +11,14 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 - Baseline verified: `npm test`, `npm run typecheck`, and `npm run build` pass in `alpha-factor-forge/`.
 - Native Tauri verified: Rust 1.96 / Cargo / MSVC build tools / Tauri CLI v2 installed; `cargo check` and `cargo tauri dev` both pass; multi-size icons generated.
 - Progress (PRs #1–#8 merged): backtest_summary persistence + app icons; UI port Slice 1 (backtest pipeline service), Slice 2 (Backtest panel), Slice 3 (chart canvas), Slice 4a (blocks rule-builder mode); plus a save-path test-automation PR. `npm test` ~53 green.
-- Next: decide whether to implement optional Slice 8b (real Tauri second OS window for multi-monitor). Slice 10 chart wheel zoom + drag-pan is complete; Slice 7 report export + SQLite strategy library is complete.
+- Next: Slice 8b-2 — real Tauri metrics OS window. Slice 8b-1 chart OS window, Slice 10 pan/zoom, and Slice 7 report export + SQLite strategy library are complete.
 - PR CI runs typecheck / test / build / cargo-check (now incl. `cargo test`) — green per PR; `main` requires branches up to date before merge.
 - Source-of-truth architecture: `STRATEGY_DISCOVERY.md` v3 and `README.md`.
 - Historical context: `HISTORY.md` and `CONVERSATION_HISTORY.md`.
 
 ## Next
 
-- [ ] Decision / optional UI port — Slice 8b: real Tauri second OS window for true multi-monitor pop-out. Implement only if OS-level window management is still wanted.
+- [ ] UI port — Slice 8b-2: real Tauri metrics OS window; extract the shared metrics renderer, then add its child route + typed snapshot sync.
 
 ## In Progress
 
@@ -53,7 +53,9 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
       - [x] Slice 10-2: drag-pan — pointer-capture drag on a zoomed visible window with a 4px movement threshold, so a short press remains hover/click and only a true drag hides the crosshair. Pure `panBarWindow` preserves bar count and clamps to dataset bounds or the replay cursor; dragging right reveals older bars, dragging left reveals newer. Replay resumes follow mode when panned back to its right boundary; a historical panned window never paints a false playhead at its right edge. Canvas exposes grab/grabbing cursors plus diagnostic start/end data attributes. +3 scale tests (136 total) + `e2e/pan.spec.ts` (click-vs-drag + index shift/count preservation + replay boundary). typecheck + build + cargo check/test + e2e 19 green.
     - [ ] Slice 8 (user-requested 2026-07-01): pop-out 圖表 / 回測績效 into an enlarge-able view via a button, non-modal so the other sections stay usable. **Decision 2026-07-01: do (a) now; keep (b) as a future advanced version.**
       - [x] Slice 8a: in-app floating resizable/draggable panel — reusable `src/components/FloatingPanel.tsx` (title-bar drag + bottom-right corner resize + ✕/Esc close, `position:fixed`, `role=dialog aria-modal=false`, NON-modal — no backdrop — with a render-prop giving children the inner size so the chart canvas fills it). `BacktestPanel` factors chart + metrics into `renderChart(h)` / `renderMetricsTable(fontSize)` and adds an 「放大/收合」 button on the 圖表 and 回測績效 headers; when popped the section shows a `PoppedOutNote` inline and the content renders enlarged in the panel, still driven by the same React state so left-column edits reflow live. Chart pop-out defaults over the results area so strategy controls stay clear. UI-only; no backtest/logic change. +`e2e/popout.spec.ts` (chart: open → run backtest from the still-usable left column → close; metrics: open → Esc close). typecheck + `npm test` 113 + build + e2e (10 specs) green.
-      - [ ] Slice 8b (future / advanced): real Tauri second OS window for true multi-monitor pop-out. Needs a `?window=…` route mounting just the chart/metrics + Rust `WebviewWindowBuilder` + cross-window state sync via Tauri events; NOT browser-e2e-testable (cargo tauri dev smoke owns it). Only if multi-monitor is wanted — benefit is OS-level window management (drag to another screen), which (a) can't do.
+      - [ ] Slice 8b: real Tauri second OS windows for true multi-monitor pop-out. Split to preserve one-small-slice-per-PR:
+        - [x] Slice 8b-1: chart OS window — async Rust `open_popout_window("chart")` uses a stable single-instance label, focuses an existing window, or builds resizable `index.html?window=chart` via `WebviewWindowBuilder` (async avoids the documented Windows WebView2 deadlock). `ChartPopoutWindow` mounts without the main workspace; a typed `windowBridge` ready handshake + targeted snapshot/cursor events sync dataset candles, strategy, overlays, trades, and replay while preserving child-local zoom/pan. Full candles are not resent on replay ticks. +2 TS tests (138 total), +2 Rust tests (6 total), +`e2e/native-window.spec.ts` (20 E2E total); typecheck + build + cargo check/test green. Native click/open smoke remains a PR manual checklist because the Windows Computer Use helper pipe was unavailable after the required retry.
+        - [ ] Slice 8b-2: metrics OS window — first extract the shared metrics renderer, then add its child mount + snapshot sync in a separate PR.
     - [x] Slice 9 (user-requested 2026-07-01): chart hover crosshair + unified 「此根資訊」 readout — extends the Slice 6-3 row so pointing at ANY bar shows its info in ANY mode (not just at the replay cursor). Pure `barAtX(x,padL,plotW,start,n)` in `scale.ts` (mouse-x→bar index, clamped) + `CandleChart` reports the hovered bar via `onHoverBar` (mouse handlers read a `layoutRef` written by `draw()`, which now returns its geometry) and draws a dashed crosshair; canvas gets `cursor:crosshair` + `data-testid`. `BacktestPanel`: `hoverBar` state; `activeBar = hovered ?? (replay cursor if on)`; the row (renamed `bar-info`/`bar-position`) shows 第N根 · 開高低收·量 · 進場/出場 · 持倉, gated on `activeBar != null` so it appears on hover even without replay. +3 unit tests (120 total) + `e2e/hover.spec.ts` (hover shows row w/ OHLC, leave hides) + renamed replay readout testids. typecheck + build + e2e (13 specs) green.
   - Carry-over detail (kept from backlog): suggested folders `src/components`, `src/pages`, `src/charts`, `src/stores`, `src/services`; preserve the terminal-like dense visual style; replace prototype localStorage persistence with SQLite via `tauri-client`.
 
@@ -157,6 +159,12 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 - [ ] Full closed-loop AI automation.
 
 ## Done
+
+- [x] UI port — Slice 8b-1 real Tauri chart OS window.
+  - Added an async Rust single-instance/focus command for a resizable native chart window, avoiding the documented synchronous-command WebView2 deadlock on Windows.
+  - Added a chart-only child mount and typed ready/snapshot/cursor event bridge; replay ticks send cursor-only updates instead of the full candle dataset.
+  - Preserved child-local chart zoom/pan by retaining candle identity for same-dataset snapshot updates.
+  - Added frontend/Rust tests and child-route E2E; real second-window click/open remains a manual Tauri checklist because Windows UI automation was unavailable.
 
 - [x] UI port — Slice 10-2 chart drag-pan.
   - Added pointer-captured horizontal panning for zoomed charts with whole-bar clamping at dataset and replay boundaries.
