@@ -67,3 +67,30 @@ test('changing sweep config clears the previous result', async ({ page }) => {
   await expect(page.getByTestId('sweep-best-marker')).toHaveCount(0);
   await expect(page.getByTestId('apply-best')).toHaveCount(0);
 });
+
+// BUG-001: with Holdout on, the sweep must optimise on the IN-SAMPLE segment
+// only (the out-of-sample tail is reserved for honest validation, not tuning).
+// The sweep section announces the in-sample scope, and the note is reactive to
+// the Holdout toggle.
+test('sweep announces in-sample-only scope when holdout is on', async ({ page }) => {
+  await page.goto('/?mock=1');
+  await page.getByTestId('load-sample').click();
+  await page.getByTestId('sweep-toggle').click();
+
+  // holdout off by default -> no in-sample scope note (sweep spans full period)
+  await expect(page.getByTestId('sweep-scope')).toHaveCount(0);
+
+  // enable holdout (default 30% out-of-sample) -> sweep scopes to the front 70%
+  await page.getByTestId('holdout-toggle').check();
+  await expect(page.getByTestId('sweep-scope')).toBeVisible();
+  await expect(page.getByTestId('sweep-scope')).toContainText('僅樣本內');
+  await expect(page.getByTestId('sweep-scope')).toContainText('70%');
+
+  // reactive: turning holdout back off removes the note again
+  await page.getByTestId('holdout-toggle').uncheck();
+  await expect(page.getByTestId('sweep-scope')).toHaveCount(0);
+
+  // the sweep still runs and renders a heatmap (holdout off = full period)
+  await page.getByTestId('run-sweep').click();
+  await expect(page.getByTestId('sweep-best-marker')).toBeVisible();
+});

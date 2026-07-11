@@ -108,7 +108,7 @@ const HELP: Record<string, string> = {
   exec: '回測的成交假設：手續費、滑價、部位大小、停損／停利、方向（做多／做空／雙向），以及成交價（當根收盤或次根開盤）。',
   holdout: '把最後 N% 的 K 線留作樣本外（out-of-sample）。回測會同時列出全期／樣本內／樣本外，用來檢查是否過度擬合。',
   metrics: '策略在此資料集上的表現：淨報酬、CAGR、最大回撤、Sharpe／Sortino／Calmar、勝率、交易數、獲利因子等。',
-  sweep: `自動改變 1–2 個參數掃過設定範圍，用熱力圖找較佳組合（上限 ${SWEEP_MAX_COMBOS} 組）。注意：歷史最佳常過度擬合，務必再用樣本外驗證。`,
+  sweep: `自動改變 1–2 個參數掃過設定範圍，用熱力圖找較佳組合（上限 ${SWEEP_MAX_COMBOS} 組）。注意：歷史最佳常過度擬合，務必再用樣本外驗證。開啟 Holdout 時，掃描只使用樣本內資料（末段樣本外不參與最佳化）。`,
   run: '以目前策略與執行模型，在選定資料集上跑一次回測；結果顯示於右側「回測績效」。',
   save: '把策略與這次回測摘要寫入資料庫（strategy_def + backtest_summary，segment=full），經由 metricsToBacktestSummary()。',
   runSweep: `對每個參數組合各回測一次並畫成熱力圖（上限 ${SWEEP_MAX_COMBOS} 組）；掃描期間畫面顯示「掃描中…」。`,
@@ -136,6 +136,14 @@ function pct(x: number): string {
 }
 function num(x: number): string {
   return Number.isFinite(x) ? x.toFixed(2) : '—';
+}
+
+/** Split index for holdout: in-sample is [0, i-1], out-of-sample is [i, n-1]
+ *  (the last `holdoutPct`% of bars). Clamped so both sides stay non-empty.
+ *  Shared by the backtest run() and the param sweep so they optimise/validate
+ *  on the exact same boundary (BUG-001). */
+function holdoutSplitIndex(n: number, holdoutPct: number): number {
+  return Math.max(1, Math.min(n - 1, Math.floor(n * (1 - holdoutPct / 100))));
 }
 
 const SWEEP_PARAM_LABEL: Record<SweepParamKey, string> = {
@@ -709,7 +717,7 @@ export function BacktestPanel(): React.ReactElement {
         // Same candles (so indicators keep full history); from/to restrict which
         // bars are traded -> proper in-sample vs out-of-sample split.
         const nn = cs.length;
-        const split = Math.max(1, Math.min(nn - 1, Math.floor(nn * (1 - holdoutPct / 100))));
+        const split = holdoutSplitIndex(nn, holdoutPct);
         const inSample = runParamsBacktest({ candles: cs, strat, interval, from: 0, to: split - 1 });
         const outSample = runParamsBacktest({ candles: cs, strat, interval, from: split, to: nn - 1 });
         setHoldoutResult({ inSample, outSample });
@@ -827,7 +835,11 @@ export function BacktestPanel(): React.ReactElement {
         setCandles(cs);
       }
       if (!cs.length) throw new Error('此資料集沒有 K 線');
-      setSweepResult(runParamSweep({ candles: cs, strat, interval: selected.interval, sweep: sweepConfig }));
+      // BUG-001: when holdout is on, optimise on the IN-SAMPLE segment only so
+      // the out-of-sample tail stays untouched for honest validation. Same split
+      // boundary as run() (shared holdoutSplitIndex).
+      const sweepRange = holdout ? { from: 0, to: holdoutSplitIndex(cs.length, holdoutPct) - 1 } : {};
+      setSweepResult(runParamSweep({ candles: cs, strat, interval: selected.interval, sweep: sweepConfig, ...sweepRange }));
     } catch (e) {
       setSweepErr(e instanceof Error ? e.message : String(e));
     } finally {
@@ -1297,6 +1309,14 @@ export function BacktestPanel(): React.ReactElement {
 
           {sweepOpen && (
             <>
+              {/* BUG-001: when holdout is on, the sweep optimises on the in-sample
+                  segment only — say so up front so the heatmap isn't misread as
+                  full-period. */}
+              {holdout && (
+                <div data-testid="sweep-scope" style={{ fontSize: 11, color: '#2f6df0', marginBottom: 10 }}>
+                  掃描範圍：僅樣本內（前 {100 - holdoutPct}%）；末 {holdoutPct}% 樣本外保留驗證，不參與最佳化。
+                </div>
+              )}
               {/* controls bar: metric + 2-D toggle + live combo count (axes get
                   their own full-width rows below, so nothing can overlap) */}
               <div style={{ display: 'flex', gap: 16, alignItems: 'flex-end', flexWrap: 'wrap' }}>
