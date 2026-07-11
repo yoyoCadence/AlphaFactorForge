@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { extentOf, padExtent, valueToY, tradeLegs, replayWindow, replayTick, positionAtTime, barAtX } from './scale';
+import { extentOf, padExtent, valueToY, tradeLegs, replayWindow, replayTick, positionAtTime, barAtX, reconcileBarWindow, zoomBarWindow } from './scale';
 
 describe('extentOf', () => {
   it('ignores NaN/Infinity and returns min/max', () => {
@@ -57,6 +57,39 @@ describe('replayWindow', () => {
   it('handles an empty series and a degenerate maxBars', () => {
     expect(replayWindow(0, null, 500)).toEqual({ start: 0, end: -1 });
     expect(replayWindow(600, 300, 0)).toEqual({ start: 300, end: 300 }); // cap floored to 1
+  });
+});
+
+describe('reconcileBarWindow', () => {
+  it('clamps a normal window without changing its bar count', () => {
+    expect(reconcileBarWindow({ start: 950, end: 1049 }, 1000)).toEqual({ start: 900, end: 999 });
+    expect(reconcileBarWindow({ start: -20, end: 79 }, 1000)).toEqual({ start: 0, end: 99 });
+  });
+
+  it('follows the replay cursor and never reveals future bars', () => {
+    expect(reconcileBarWindow({ start: 100, end: 199 }, 1000, 350)).toEqual({ start: 251, end: 350 });
+    expect(reconcileBarWindow({ start: 100, end: 199 }, 1000, 40)).toEqual({ start: 0, end: 40 });
+  });
+});
+
+describe('zoomBarWindow', () => {
+  it('zooms in around the anchor bar and preserves its relative position', () => {
+    const before = { start: 100, end: 199 }; // 100 bars; anchor 149 is near centre
+    const after = zoomBarWindow(before, 149, -100, 999, 10, 500);
+    expect(after).toEqual({ start: 110, end: 189 }); // 80 bars
+    const beforeRatio = (149 - before.start + 0.5) / 100;
+    const afterRatio = (149 - after.start + 0.5) / 80;
+    expect(Math.abs(afterRatio - beforeRatio)).toBeLessThan(0.01);
+  });
+
+  it('zooms out and clamps at the data boundary / configured cap', () => {
+    expect(zoomBarWindow({ start: 100, end: 199 }, 149, 100, 219, 10, 500)).toEqual({ start: 88, end: 212 });
+    expect(zoomBarWindow({ start: 0, end: 499 }, 250, 100, 999, 10, 500)).toEqual({ start: 0, end: 499 });
+  });
+
+  it('honours the minimum and handles empty bounds', () => {
+    expect(zoomBarWindow({ start: 0, end: 9 }, 5, -100, 99, 10, 500)).toEqual({ start: 0, end: 9 });
+    expect(zoomBarWindow({ start: 0, end: -1 }, 0, -100, -1)).toEqual({ start: 0, end: -1 });
   });
 });
 
