@@ -1,0 +1,11 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "chart-window-sync",
+  "description": "Allow the main and chart pop-out windows to exchange typed chart snapshots and cursor updates.",
+  "windows": ["main", "chart-popout-window"],
+  "permissions": [
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
+    "core:event:allow-emit-to"
+  ]
+}

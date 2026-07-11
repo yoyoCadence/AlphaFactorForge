@@ -76,4 +76,30 @@ mod tests {
             .expect("metrics is deferred to Slice 8b-2");
         assert!(err.to_string().contains("unsupported pop-out window kind"));
     }
+
+    #[test]
+    fn chart_sync_capability_covers_both_windows_and_required_events() {
+        let capability: serde_json::Value = serde_json::from_str(include_str!(
+            "../../capabilities/chart-window-sync.json"
+        ))
+        .expect("chart sync capability must be valid JSON");
+
+        let windows = capability["windows"]
+            .as_array()
+            .expect("chart sync capability must declare windows");
+        for label in ["main", "chart-popout-window"] {
+            assert!(windows.iter().any(|window| window == label));
+        }
+
+        let permissions = capability["permissions"]
+            .as_array()
+            .expect("chart sync capability must declare permissions");
+        for permission in [
+            "core:event:allow-listen",
+            "core:event:allow-unlisten",
+            "core:event:allow-emit-to",
+        ] {
+            assert!(permissions.iter().any(|entry| entry == permission));
+        }
+    }
 }
