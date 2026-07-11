@@ -1,18 +1,19 @@
 // Slice 3 — candlestick canvas with indicator overlays.
 //
-// Static fit-to-width render of the latest `maxBars` candles: price pane
+// Fit-to-width / wheel-zoom render of the latest `maxBars` candles: price pane
 // (candles + MA fast/slow + EMA + Bollinger), a volume strip, and an RSI
 // subpanel. Indicators come from core/indicators (computed over the full series
 // so warm-up is correct, then drawn over the visible window). An optional `upto`
 // cursor clips the window to bars [.., upto] for bar replay (a dashed playhead
-// marks it). Pan/zoom is deferred to a later slice. Pure drawing — no IO/state.
+// marks it). Slice 10-1 adds cursor-anchored wheel zoom + reset; drag-pan remains
+// deferred to 10-2. Pure drawing — no IO.
 
 import React, { useEffect, useRef, useState } from 'react';
 import { sma, ema, bbands, rsi, type Series } from '../core/indicators';
 import type { Candle as CoreCandle } from '../core/backtest';
 import type { ClosedTrade } from '../core/metrics';
 import type { ParamsStrategy } from '../services/strategy';
-import { extentOf, padExtent, valueToY, tradeLegs, replayWindow, barAtX } from './scale';
+import { extentOf, padExtent, valueToY, tradeLegs, replayWindow, barAtX, reconcileBarWindow, zoomBarWindow, type BarWindow } from './scale';
 
 export interface OverlayToggles {
   ma: boolean;
@@ -58,6 +59,7 @@ export function CandleChart({ candles, strat, show, trades, upto, onHoverBar, he
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [width, setWidth] = useState(0);
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+  const [viewWindow, setViewWindow] = useState<BarWindow | null>(null);
   // Latest bar geometry, written by draw(), read by the hover handler to map a
   // mouse x back to a bar index (avoids re-deriving the layout on every move).
   const layoutRef = useRef<Layout | null>(null);
@@ -73,14 +75,27 @@ export function CandleChart({ candles, strat, show, trades, upto, onHoverBar, he
     return () => ro.disconnect();
   }, []);
 
+  const replayMode = upto != null;
+  useEffect(() => {
+    // A dataset change or entering/leaving replay starts from a predictable fit
+    // window. Replay cursor movement itself preserves the zoom level below.
+    setViewWindow(null);
+  }, [candles, replayMode, maxBars]);
+
+  const fittedWindow = replayWindow(candles.length, upto, maxBars);
+  const visibleWindow = viewWindow
+    ? reconcileBarWindow(viewWindow, candles.length, upto)
+    : fittedWindow;
+  const visibleCount = Math.max(0, visibleWindow.end - visibleWindow.start + 1);
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || width <= 0 || candles.length === 0) {
       layoutRef.current = null;
       return;
     }
-    layoutRef.current = draw(canvas, width, height, candles, strat, show, maxBars, trades, upto, hoverIndex);
-  }, [candles, strat, show, width, height, maxBars, trades, upto, hoverIndex]);
+    layoutRef.current = draw(canvas, width, height, candles, strat, show, visibleWindow, trades, upto, hoverIndex);
+  }, [candles, strat, show, width, height, trades, upto, hoverIndex, visibleWindow.start, visibleWindow.end]);
 
   const handleMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const lay = layoutRef.current;
@@ -100,8 +115,29 @@ export function CandleChart({ candles, strat, show, trades, upto, onHoverBar, he
     }
   };
 
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    // React/Chromium may register wheel delegation as passive, which makes
+    // preventDefault() ineffective and scrolls the whole page while zooming.
+    // Bind directly with passive:false so chart zoom exclusively consumes it.
+    const handleWheel = (e: WheelEvent) => {
+      const lay = layoutRef.current;
+      if (!lay || lay.n <= 0) return;
+      e.preventDefault();
+      const x = e.clientX - canvas.getBoundingClientRect().left;
+      const anchor = barAtX(x, lay.padL, lay.plotW, lay.start, lay.n);
+      const last = candles.length - 1;
+      const boundsEnd = upto == null ? last : Math.max(0, Math.min(last, Math.floor(upto)));
+      const next = zoomBarWindow({ start: lay.start, end: lay.end }, anchor, e.deltaY, boundsEnd, 10, maxBars);
+      setViewWindow(next.start === fittedWindow.start && next.end === fittedWindow.end ? null : next);
+    };
+    canvas.addEventListener('wheel', handleWheel, { passive: false });
+    return () => canvas.removeEventListener('wheel', handleWheel);
+  }, [candles.length, upto, maxBars, fittedWindow.start, fittedWindow.end]);
+
   return (
-    <div ref={wrapRef} style={{ width: '100%' }}>
+    <div ref={wrapRef} style={{ width: '100%', position: 'relative' }}>
       <canvas
         ref={canvasRef}
         data-testid="candle-canvas"
@@ -109,6 +145,19 @@ export function CandleChart({ candles, strat, show, trades, upto, onHoverBar, he
         onMouseLeave={handleLeave}
         style={{ width: '100%', height, display: 'block', cursor: 'crosshair' }}
       />
+      <div style={{ position: 'absolute', top: 8, right: 62, display: 'flex', alignItems: 'center', gap: 5, padding: '2px 4px', background: 'rgba(255,255,255,0.88)', border: '1px solid #efece5', fontFamily: "'IBM Plex Mono', monospace", fontSize: 10 }}>
+        <span data-testid="chart-zoom-status" aria-live="polite">顯示 {visibleCount} 根</span>
+        <button
+          type="button"
+          data-testid="chart-zoom-reset"
+          title="重置為自動適配"
+          disabled={viewWindow == null}
+          onClick={() => setViewWindow(null)}
+          style={{ padding: '1px 5px', border: '1px solid #d6d2c8', background: '#f4f2ec', color: '#3c3a30', font: 'inherit', cursor: viewWindow == null ? 'default' : 'pointer' }}
+        >
+          重置
+        </button>
+      </div>
     </div>
   );
 }
@@ -141,6 +190,7 @@ interface Layout {
   padL: number;
   plotW: number;
   start: number;
+  end: number;
   n: number;
 }
 
@@ -151,7 +201,7 @@ function draw(
   candles: CoreCandle[],
   strat: ParamsStrategy,
   show: OverlayToggles,
-  maxBars: number,
+  visibleWindow: BarWindow,
   trades: ClosedTrade[] | undefined,
   upto: number | undefined,
   hoverIndex: number | null,
@@ -160,7 +210,7 @@ function draw(
   canvas.width = Math.round(w * dpr);
   canvas.height = Math.round(h * dpr);
   const ctx = canvas.getContext('2d');
-  if (!ctx) return { padL: 0, plotW: 0, start: 0, n: 0 };
+  if (!ctx) return { padL: 0, plotW: 0, start: 0, end: -1, n: 0 };
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, w, h);
   ctx.fillStyle = '#fff';
@@ -180,10 +230,9 @@ function draw(
   const volTop = priceTop + priceH + gap;
   const rsiTop = (show.vol ? volTop + volH : priceTop + priceH) + gap;
 
-  // Visible bar window. Without `upto` this is the latest `maxBars` bars (the
-  // pre-replay behaviour); with `upto` it ends at the replay cursor. `end` is
+  // Visible bar window is owned by the component's fit/zoom state. `end` is
   // inclusive; indicators are still computed over the full series below.
-  const { start, end } = replayWindow(candles.length, upto, maxBars);
+  const { start, end } = visibleWindow;
   const n = end - start + 1;
   const bw = plotW / n;
   const xc = (i: number) => padL + (i - start + 0.5) * bw;
@@ -375,5 +424,5 @@ function draw(
     ctx.restore();
   }
 
-  return { padL, plotW, start, n };
+  return { padL, plotW, start, end, n };
 }

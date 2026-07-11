@@ -6,6 +6,11 @@ export interface Extent {
   max: number;
 }
 
+export interface BarWindow {
+  start: number;
+  end: number;
+}
+
 /** Min/max over finite values, ignoring NaN/Infinity. Degenerate inputs get a
  *  safe non-zero span so divisions by (max-min) never blow up. */
 export function extentOf(values: number[]): Extent {
@@ -54,6 +59,57 @@ export function replayWindow(
   const cap = Math.max(1, Math.floor(maxBars));
   const n = Math.min(end + 1, cap);
   return { start: end + 1 - n, end };
+}
+
+/** Clamp a persisted chart window to the currently available bars. During bar
+ *  replay the window follows the replay cursor while preserving its bar count,
+ *  so zoom never reveals future candles and the playhead remains visible. */
+export function reconcileBarWindow(
+  window: BarWindow,
+  total: number,
+  upto?: number | null,
+): BarWindow {
+  if (total <= 0) return { start: 0, end: -1 };
+  const last = total - 1;
+  const limit = Math.max(0, Math.min(last, upto == null ? last : Math.floor(upto)));
+  const requested = Math.max(1, Math.floor(window.end) - Math.floor(window.start) + 1);
+  const count = Math.min(requested, limit + 1);
+
+  if (upto != null) return { start: limit + 1 - count, end: limit };
+
+  let start = Math.floor(window.start);
+  start = Math.max(0, Math.min(limit + 1 - count, start));
+  return { start, end: start + count - 1 };
+}
+
+/** Wheel-zoom an inclusive bar window, keeping the bar under the mouse at the
+ *  same relative x position when bounds allow it. Negative delta zooms in;
+ *  positive delta zooms out. The result is clamped to [0,boundsEnd] and to the
+ *  configured min/max visible-bar counts. */
+export function zoomBarWindow(
+  window: BarWindow,
+  anchor: number,
+  deltaY: number,
+  boundsEnd: number,
+  minBars = 10,
+  maxBars = 500,
+): BarWindow {
+  if (boundsEnd < 0) return { start: 0, end: -1 };
+  const current = reconcileBarWindow(window, boundsEnd + 1);
+  const count = current.end - current.start + 1;
+  const maxCount = Math.max(1, Math.min(Math.floor(maxBars), boundsEnd + 1));
+  const minCount = Math.max(1, Math.min(Math.floor(minBars), maxCount));
+  if (deltaY === 0) return current;
+
+  const factor = deltaY < 0 ? 0.8 : 1.25;
+  const nextCount = Math.max(minCount, Math.min(maxCount, Math.round(count * factor)));
+  if (nextCount === count) return current;
+
+  const fixedAnchor = Math.max(current.start, Math.min(current.end, Math.floor(anchor)));
+  const anchorRatio = (fixedAnchor - current.start + 0.5) / count;
+  let start = Math.round(fixedAnchor + 0.5 - anchorRatio * nextCount);
+  start = Math.max(0, Math.min(boundsEnd + 1 - nextCount, start));
+  return { start, end: start + nextCount - 1 };
 }
 
 /** Inverse of the bar x-mapping (Slice 9 chart hover): the bar index under

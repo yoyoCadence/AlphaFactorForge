@@ -11,14 +11,14 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 - Baseline verified: `npm test`, `npm run typecheck`, and `npm run build` pass in `alpha-factor-forge/`.
 - Native Tauri verified: Rust 1.96 / Cargo / MSVC build tools / Tauri CLI v2 installed; `cargo check` and `cargo tauri dev` both pass; multi-size icons generated.
 - Progress (PRs #1–#8 merged): backtest_summary persistence + app icons; UI port Slice 1 (backtest pipeline service), Slice 2 (Backtest panel), Slice 3 (chart canvas), Slice 4a (blocks rule-builder mode); plus a save-path test-automation PR. `npm test` ~53 green.
-- Next: UI port Slice 10 — chart pan/zoom, then optional Slice 8b (real Tauri second window). Slice 7 is complete: report JSON/CSV export and the SQLite-backed strategy library are wired into the React/Tauri app.
+- Next: UI port Slice 10-2 — chart drag-pan, then optional Slice 8b (real Tauri second window). Slice 10-1 wheel zoom is complete; Slice 7 report export + SQLite strategy library is complete.
 - PR CI runs typecheck / test / build / cargo-check (now incl. `cargo test`) — green per PR; `main` requires branches up to date before merge.
 - Source-of-truth architecture: `STRATEGY_DISCOVERY.md` v3 and `README.md`.
 - Historical context: `HISTORY.md` and `CONVERSATION_HISTORY.md`.
 
 ## Next
 
-- [ ] UI port — Slice 10: chart pan/zoom (wheel zoom first, then drag-pan); afterward consider Slice 8b (real Tauri second window). See the slice plan under In Progress.
+- [ ] UI port — Slice 10-2: chart drag-pan; distinguish press/drag from the existing hover crosshair and preserve replay no-future-data bounds.
 
 ## In Progress
 
@@ -48,7 +48,9 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
       - [x] Slice 7-1: pure report/export formatters (no UI/IO) — `src/services/reportExport.ts`: `buildReport`/`reportToJson` (a schema-versioned JSON snapshot: app + exportedAt ISO + strategyName + full strategy + dataset meta + metrics + trades), `tradesToCsv` (header + one round-trip-trade per row, +ISO times, RFC-4180-ish quoting), `suggestedFilename` (fs-safe `AlphaFactorForge_<symbol>_<interval>_<date>.<ext>`). +5 unit tests (125 total). typecheck + build green. No UI; module unused until 7-2 wires it.
       - [x] Slice 7-2: export UI + file write — 「匯出 JSON / 匯出 CSV」 buttons on 回測績效 call the 7-1 formatters (`reportToJson` / `tradesToCsv`) and a typed `files.saveReport` wrapper. Tauri command `save_report` writes sanitized `.json` / `.csv` filenames to the OS Downloads directory and avoids overwriting existing files; dev/mock uses a browser Blob download fallback. +2 Rust helper tests + `e2e/export.spec.ts`; typecheck + `npm test` 125 + build + `cargo check --locked` + `cargo test --locked` 4 + `npm run e2e` 14 green. Playwright now uses one worker by default to avoid Windows/Vite cold-load flakes in the mock browser suite.
       - [x] Slice 7-3: strategy library — list SQLite-saved strategies through the existing `get_strategies` Tauri command + typed client; validate persisted definitions before loading them into the params/blocks/code form; refresh after save; unsupported DSL rows remain read-only in the list. Strategy name now lives with the editor so it remains visible after loading clears stale backtest results. +3 unit tests and `e2e/strategy-library.spec.ts`; typecheck + `npm test` 128 + build + cargo check/test + e2e 15 green. Replaces the prototype's localStorage `cd_stratlib`; delete remains optional/deferred.
-    - [ ] Slice 10 (user-requested 2026-07-01; deferred pan/zoom, low priority): chart pan/zoom in the ported app (the legacy prototype had it; the port has been static fit-to-width since Slice 3). Introduce a visible-window state and reconcile it with replay `upto` + `maxBars`. Split: 10-1 wheel zoom (anchor on the bar under the cursor; a 重置 back to fit) · 10-2 drag-pan (mousedown+drag; distinguish from the Slice 9 hover crosshair — press = pan, release = hover). Touches `CandleChart` heavily; do after Slice 7.
+    - [ ] Slice 10 (user-requested 2026-07-01; deferred pan/zoom, low priority): chart pan/zoom in the ported app (the legacy prototype had it; the port had been static fit-to-width since Slice 3). Introduce a visible-window state and reconcile it with replay `upto` + `maxBars`. Touches `CandleChart` heavily; do after Slice 7.
+      - [x] Slice 10-1: cursor-anchored wheel zoom + reset-to-fit — `CandleChart` owns an inclusive visible-bar window; negative/positive wheel deltas zoom in/out by 0.8×/1.25× around the bar under the mouse, clamped to 10–`maxBars` bars and dataset bounds. During replay, `reconcileBarWindow` preserves the zoom count while following `upto`, so future candles remain hidden and the playhead stays visible. Dataset changes and replay enter/exit reset to fit. Overlay shows 「顯示 N 根」 + a reset button. The canvas uses a native `{ passive: false }` wheel listener so zoom never scrolls the surrounding page. +5 pure scale tests (133 total) + `e2e/zoom.spec.ts` (normal zoom/reset/max-fit + page position lock + replay boundary). typecheck + build + cargo check/test + e2e 17 green.
+      - [ ] Slice 10-2: drag-pan — mousedown+drag the zoomed visible window; distinguish press/drag from the Slice 9 hover crosshair, and clamp against dataset/replay bounds.
     - [ ] Slice 8 (user-requested 2026-07-01): pop-out 圖表 / 回測績效 into an enlarge-able view via a button, non-modal so the other sections stay usable. **Decision 2026-07-01: do (a) now; keep (b) as a future advanced version.**
       - [x] Slice 8a: in-app floating resizable/draggable panel — reusable `src/components/FloatingPanel.tsx` (title-bar drag + bottom-right corner resize + ✕/Esc close, `position:fixed`, `role=dialog aria-modal=false`, NON-modal — no backdrop — with a render-prop giving children the inner size so the chart canvas fills it). `BacktestPanel` factors chart + metrics into `renderChart(h)` / `renderMetricsTable(fontSize)` and adds an 「放大/收合」 button on the 圖表 and 回測績效 headers; when popped the section shows a `PoppedOutNote` inline and the content renders enlarged in the panel, still driven by the same React state so left-column edits reflow live. Chart pop-out defaults over the results area so strategy controls stay clear. UI-only; no backtest/logic change. +`e2e/popout.spec.ts` (chart: open → run backtest from the still-usable left column → close; metrics: open → Esc close). typecheck + `npm test` 113 + build + e2e (10 specs) green.
       - [ ] Slice 8b (future / advanced): real Tauri second OS window for true multi-monitor pop-out. Needs a `?window=…` route mounting just the chart/metrics + Rust `WebviewWindowBuilder` + cross-window state sync via Tauri events; NOT browser-e2e-testable (cargo tauri dev smoke owns it). Only if multi-monitor is wanted — benefit is OS-level window management (drag to another screen), which (a) can't do.
@@ -155,6 +157,12 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 - [ ] Full closed-loop AI automation.
 
 ## Done
+
+- [x] UI port — Slice 10-1 chart wheel zoom.
+  - Added a cursor-anchored visible-window zoom with explicit visible-bar count and reset-to-fit control.
+  - Kept bar replay bounded at its cursor while preserving the selected zoom level; dataset/replay mode changes return to a predictable fit window.
+  - Fixed wheel event handling with a non-passive native listener so zooming does not move the surrounding page.
+  - Added pure window-math unit coverage and real wheel-input Playwright coverage without relying on canvas pixel assertions.
 
 - [x] UI port — Slice 7-3 strategy library.
   - Added an SQLite-backed saved-strategy picker with refresh and load actions; saving a backtest refreshes and selects the saved row.
