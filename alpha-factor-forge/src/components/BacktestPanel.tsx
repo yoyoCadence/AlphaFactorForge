@@ -8,7 +8,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { db, files, isTauri, importDataset } from '../tauri-client/dataClient';
-import type { Candle, Dataset } from '../tauri-client/commands';
+import type { Candle, Dataset, StrategyDef } from '../tauri-client/commands';
 import { defaultStrategy, OPERAND_IDS, type ParamsStrategy, type SignalId, type Rule, type RuleOp, type OperandId } from '../services/strategy';
 import { SUPPORTED_SIGNALS, buildSignals } from '../services/strategySignals';
 import { compileExpression } from '../services/exprInterpreter';
@@ -28,6 +28,7 @@ import {
 import { toCoreCandles } from '../services/candleAdapter';
 import { makeSampleCandles } from '../services/sampleData';
 import { buildStrategyDef } from '../services/strategyRecord';
+import { strategyFromDef } from '../services/strategyLibrary';
 import { metricsToBacktestSummary } from '../services/metricsMapper';
 import { reportToJson, suggestedFilename, tradesToCsv } from '../services/reportExport';
 import { CandleChart, type OverlayToggles } from '../charts/CandleChart';
@@ -431,6 +432,9 @@ export function BacktestPanel(): React.ReactElement {
   const [selId, setSelId] = useState<number | null>(null);
   const [strat, setStrat] = useState<ParamsStrategy>(defaultStrategy);
   const [stratName, setStratName] = useState('');
+  const [savedStrategies, setSavedStrategies] = useState<StrategyDef[]>([]);
+  const [savedStrategyId, setSavedStrategyId] = useState<number | null>(null);
+  const [loadingStrategies, setLoadingStrategies] = useState(false);
   const [result, setResult] = useState<BacktestResult | null>(null);
   const [running, setRunning] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -477,9 +481,23 @@ export function BacktestPanel(): React.ReactElement {
     setSelId((prev) => prev ?? ds[0]?.id ?? null);
   }, []);
 
+  const refreshStrategies = useCallback(async () => {
+    setLoadingStrategies(true);
+    try {
+      const rows = await db.getStrategies();
+      setSavedStrategies(rows);
+      setSavedStrategyId((current) => current != null && rows.some((row) => row.id === current) ? current : null);
+      return rows;
+    } finally {
+      setLoadingStrategies(false);
+    }
+  }, []);
+
   useEffect(() => {
-    if (isTauri()) refresh().catch((e) => setErr(String(e)));
-  }, [refresh]);
+    if (isTauri()) {
+      Promise.all([refresh(), refreshStrategies()]).catch((e) => setErr(String(e)));
+    }
+  }, [refresh, refreshStrategies]);
 
   // Load candles for the chart whenever the selected dataset changes.
   useEffect(() => {
@@ -655,11 +673,32 @@ export function BacktestPanel(): React.ReactElement {
         endTime: selected.end_time,
       });
       await db.saveBacktestResult(summary);
+      await refreshStrategies();
+      setSavedStrategyId(strategyId);
       setMsg(`已存檔：strategy #${strategyId}（type=${def.type}）· dataset #${selected.id} · ${result.trades.length} trades`);
     } catch (e) {
       setErr(String(e));
     } finally {
       setSaving(false);
+    }
+  }
+
+  function loadSavedStrategy() {
+    const def = savedStrategies.find((row) => row.id === savedStrategyId);
+    if (!def) return;
+    setErr(null);
+    try {
+      const loaded = strategyFromDef(def);
+      setStrat(loaded);
+      setStratName(def.name);
+      setResult(null);
+      setHoldoutResult(null);
+      setSweepResult(null);
+      setAppliedCell(null);
+      setAppliedKeys([]);
+      setMsg(`已載入策略：${def.name}（${def.type}）；請重新執行回測。`);
+    } catch (e) {
+      setErr(`無法載入「${def.name}」：${String(e)}`);
     }
   }
 
@@ -942,6 +981,8 @@ export function BacktestPanel(): React.ReactElement {
                 {(['params', 'blocks', 'code'] as const).map((mode) => (
                   <button
                     key={mode}
+                    data-testid={`strategy-mode-${mode}`}
+                    aria-pressed={strat.mode === mode}
                     onClick={() => setStrat((s) => ({ ...s, mode }))}
                     style={{
                       ...S.btnGhost,
@@ -955,6 +996,49 @@ export function BacktestPanel(): React.ReactElement {
                   </button>
                 ))}
               </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, marginBottom: 10, paddingBottom: 10, borderBottom: '1px solid #efece5', flexWrap: 'wrap' }}>
+              <label style={{ display: 'flex', flex: 1, minWidth: 160, flexDirection: 'column', gap: 3 }}>
+                <span style={S.label}>目前策略名稱</span>
+                <input
+                  data-testid="strategy-name"
+                  value={stratName}
+                  onChange={(e) => setStratName(e.target.value)}
+                  placeholder="策略名稱（可留空）"
+                  style={S.input}
+                />
+              </label>
+              <label style={{ display: 'flex', flex: 1, minWidth: 180, flexDirection: 'column', gap: 3 }}>
+                <span style={S.label}>策略庫（SQLite）</span>
+                <select
+                  data-testid="strategy-library-select"
+                  value={savedStrategyId ?? ''}
+                  onChange={(e) => setSavedStrategyId(e.target.value ? Number(e.target.value) : null)}
+                  style={S.input}
+                  disabled={loadingStrategies}
+                >
+                  <option value="">{loadingStrategies ? '讀取中…' : savedStrategies.length === 0 ? '尚無已存策略' : '選擇已存策略'}</option>
+                  {savedStrategies.filter((row) => row.id != null).map((row) => (
+                    <option key={row.id} value={row.id} disabled={!['params', 'blocks', 'code'].includes(row.type)}>
+                      {row.name} · {row.type}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button data-testid="load-strategy" style={S.btnGhost} onClick={loadSavedStrategy} disabled={savedStrategyId == null || loadingStrategies}>
+                載入
+              </button>
+              <button
+                data-testid="refresh-strategies"
+                title="重新讀取策略庫"
+                style={S.btnGhost}
+                onClick={() => refreshStrategies().catch((e) => setErr(String(e)))}
+                disabled={loadingStrategies}
+                aria-busy={loadingStrategies}
+              >
+                重新整理
+              </button>
             </div>
 
             {strat.mode === 'params' && (
@@ -1119,13 +1203,7 @@ export function BacktestPanel(): React.ReactElement {
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 12 }}>
-                <input
-                  value={stratName}
-                  onChange={(e) => setStratName(e.target.value)}
-                  placeholder="策略名稱（可留空）"
-                  style={{ ...S.input, flex: 1 }}
-                />
-                <button style={S.btn} onClick={save} disabled={saving} aria-busy={saving}>
+                <button data-testid="save-result" style={{ ...S.btn, flex: 1 }} onClick={save} disabled={saving} aria-busy={saving}>
                   {saving ? '儲存中…' : '儲存結果'}
                 </button>
                 <HelpTip id="save" label="儲存結果" text={HELP.save} align="right" />
