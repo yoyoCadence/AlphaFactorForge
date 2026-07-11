@@ -160,6 +160,11 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Done
 
+- [x] Fix legacy saved-strategy loading compatibility.
+  - Restored params rows saved before rule/code fields existed and blocks rows saved before code fields existed by filling only those historically absent, inactive-mode fields from current safe defaults.
+  - Kept strict rejection for missing active-mode fields, partially missing field pairs, and malformed persisted values.
+  - Added three regression cases; typecheck, 141 unit tests, build, 7 Rust tests, and 20 browser E2E tests pass on the post-Slice-8b-1 baseline.
+
 - [x] UI port — Slice 8b-1 real Tauri chart OS window.
   - Added an async Rust single-instance/focus command for a resizable native chart window, avoiding the documented synchronous-command WebView2 deadlock on Windows.
   - Added a chart-only child mount and typed ready/snapshot/cursor event bridge; replay ticks send cursor-only updates instead of the full candle dataset.

@@ -1,10 +1,12 @@
 // Safe strategy_def -> editable form conversion for the SQLite strategy library.
 // Persisted JSON is an IO boundary: validate it before it reaches React state or
-// the signal/backtest pipeline. Defaults are not silently applied because every
-// strategy saved by this app contains the complete ParamsStrategy shape.
+// the signal/backtest pipeline. The only defaults applied are for two known
+// historical shapes from before blocks/code fields were added; active fields
+// and present persisted fields remain strictly validated.
 
 import type { StrategyDef } from '../tauri-client/commands';
 import {
+  defaultStrategy,
   OPERAND_IDS,
   type OperandId,
   type ParamsStrategy,
@@ -72,9 +74,25 @@ export function strategyFromDef(def: StrategyDef): ParamsStrategy {
   if (!isOneOf(value.entrySig, SIGNALS) || !isOneOf(value.exitSig, SIGNALS)) {
     throw new Error('策略訊號識別碼無效');
   }
-  if (typeof value.entryCode !== 'string' || typeof value.exitCode !== 'string') {
+
+  const defaults = defaultStrategy();
+  const rulesWereNotPersisted = value.entryRules === undefined && value.exitRules === undefined;
+  const canRestoreLegacyRules = value.mode === 'params' && rulesWereNotPersisted;
+  const entryRules = canRestoreLegacyRules
+    ? defaults.entryRules
+    : parseRules(value.entryRules, 'entryRules');
+  const exitRules = canRestoreLegacyRules
+    ? defaults.exitRules
+    : parseRules(value.exitRules, 'exitRules');
+
+  const codeWasNotPersisted = value.entryCode === undefined && value.exitCode === undefined;
+  const canRestoreLegacyCode = value.mode !== 'code' && codeWasNotPersisted;
+  if (!canRestoreLegacyCode && (typeof value.entryCode !== 'string' || typeof value.exitCode !== 'string')) {
     throw new Error('策略程式碼欄位必須是字串');
   }
+  const entryCode = canRestoreLegacyCode ? defaults.entryCode : value.entryCode as string;
+  const exitCode = canRestoreLegacyCode ? defaults.exitCode : value.exitCode as string;
+
   if (!isOneOf(value.fillMode, ['close', 'nextOpen'] as const)) throw new Error('策略成交模式無效');
   if (!isOneOf(value.direction, ['long', 'short', 'both'] as const)) throw new Error('策略方向無效');
 
@@ -83,10 +101,10 @@ export function strategyFromDef(def: StrategyDef): ParamsStrategy {
     ...numbers,
     entrySig: value.entrySig,
     exitSig: value.exitSig,
-    entryRules: parseRules(value.entryRules, 'entryRules'),
-    exitRules: parseRules(value.exitRules, 'exitRules'),
-    entryCode: value.entryCode,
-    exitCode: value.exitCode,
+    entryRules,
+    exitRules,
+    entryCode,
+    exitCode,
     fillMode: value.fillMode,
     direction: value.direction,
   };

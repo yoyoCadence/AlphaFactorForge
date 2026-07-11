@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Fixed loading legacy params and blocks strategies saved before rule-builder or manual-code fields were introduced, while retaining strict validation for active and malformed fields.
 - Added Slice 8b-1 native chart pop-out: open or focus a resizable Tauri OS window and keep its chart/replay state synchronized through typed targeted events with least-privilege Tauri event permissions.
 - Added Slice 10-2 chart drag-pan: drag zoomed charts with pointer capture, preserve click/hover behavior through a movement threshold, and clamp historical views to dataset/replay boundaries.
 - Added Slice 10-1 chart wheel zoom: zoom around the candle under the cursor without scrolling the page, display the visible-bar count, reset to fit, and preserve replay no-future-data bounds.
