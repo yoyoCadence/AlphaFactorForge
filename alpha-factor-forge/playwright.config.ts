@@ -1,5 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const e2ePort = process.env.E2E_PORT ?? '5173';
+const e2eUrl = `http://localhost:${e2ePort}`;
+
 // Browser E2E for the React UI, run against the Vite dev server with the
 // in-memory mock data client (?mock=1). This validates frontend interaction /
 // React state only — it does NOT replace real Tauri/Rust/SQLite verification
@@ -16,13 +19,13 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   reporter: 'list',
   use: {
-    baseURL: 'http://localhost:5173',
+    baseURL: e2eUrl,
     trace: 'on-first-retry',
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: {
-    command: 'npm run dev',
-    url: 'http://localhost:5173',
+    command: `npm run dev -- --port ${e2ePort} --strictPort`,
+    url: e2eUrl,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },
