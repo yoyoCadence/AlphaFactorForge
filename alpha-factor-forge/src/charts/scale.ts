@@ -112,6 +112,19 @@ export function zoomBarWindow(
   return { start, end: start + nextCount - 1 };
 }
 
+/** Shift an inclusive visible window by whole bars while preserving its size.
+ *  Negative deltas reveal older bars; positive deltas reveal newer bars. The
+ *  result is clamped to [0,boundsEnd], which is the replay cursor during replay
+ *  so panning can never reveal future candles. */
+export function panBarWindow(window: BarWindow, deltaBars: number, boundsEnd: number): BarWindow {
+  if (boundsEnd < 0) return { start: 0, end: -1 };
+  const current = reconcileBarWindow(window, boundsEnd + 1);
+  const count = current.end - current.start + 1;
+  const maxStart = Math.max(0, boundsEnd + 1 - count);
+  const start = Math.max(0, Math.min(maxStart, current.start + Math.round(deltaBars)));
+  return { start, end: start + count - 1 };
+}
+
 /** Inverse of the bar x-mapping (Slice 9 chart hover): the bar index under
  *  CSS-pixel `x`. `padL` is the left plot inset, `plotW` the plot width, `start`
  *  the first visible bar, `n` the visible bar count. Result is clamped to the

@@ -5,15 +5,15 @@
 // subpanel. Indicators come from core/indicators (computed over the full series
 // so warm-up is correct, then drawn over the visible window). An optional `upto`
 // cursor clips the window to bars [.., upto] for bar replay (a dashed playhead
-// marks it). Slice 10-1 adds cursor-anchored wheel zoom + reset; drag-pan remains
-// deferred to 10-2. Pure drawing — no IO.
+// marks it). Slice 10 adds cursor-anchored wheel zoom, reset, and drag-pan with
+// replay-safe bounds. Pure drawing — no IO.
 
 import React, { useEffect, useRef, useState } from 'react';
 import { sma, ema, bbands, rsi, type Series } from '../core/indicators';
 import type { Candle as CoreCandle } from '../core/backtest';
 import type { ClosedTrade } from '../core/metrics';
 import type { ParamsStrategy } from '../services/strategy';
-import { extentOf, padExtent, valueToY, tradeLegs, replayWindow, barAtX, reconcileBarWindow, zoomBarWindow, type BarWindow } from './scale';
+import { extentOf, padExtent, valueToY, tradeLegs, replayWindow, barAtX, reconcileBarWindow, zoomBarWindow, panBarWindow, type BarWindow } from './scale';
 
 export interface OverlayToggles {
   ma: boolean;
@@ -60,6 +60,9 @@ export function CandleChart({ candles, strat, show, trades, upto, onHoverBar, he
   const [width, setWidth] = useState(0);
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
   const [viewWindow, setViewWindow] = useState<BarWindow | null>(null);
+  const [followReplay, setFollowReplay] = useState(true);
+  const [dragging, setDragging] = useState(false);
+  const dragRef = useRef<{ pointerId: number; startX: number; window: BarWindow; barWidth: number; moved: boolean } | null>(null);
   // Latest bar geometry, written by draw(), read by the hover handler to map a
   // mouse x back to a bar index (avoids re-deriving the layout on every move).
   const layoutRef = useRef<Layout | null>(null);
@@ -80,11 +83,18 @@ export function CandleChart({ candles, strat, show, trades, upto, onHoverBar, he
     // A dataset change or entering/leaving replay starts from a predictable fit
     // window. Replay cursor movement itself preserves the zoom level below.
     setViewWindow(null);
+    setFollowReplay(true);
+    setDragging(false);
+    dragRef.current = null;
   }, [candles, replayMode, maxBars]);
 
   const fittedWindow = replayWindow(candles.length, upto, maxBars);
+  const last = candles.length - 1;
+  const boundsEnd = upto == null ? last : Math.max(0, Math.min(last, Math.floor(upto)));
   const visibleWindow = viewWindow
-    ? reconcileBarWindow(viewWindow, candles.length, upto)
+    ? replayMode && followReplay
+      ? reconcileBarWindow(viewWindow, candles.length, upto)
+      : reconcileBarWindow(viewWindow, boundsEnd + 1)
     : fittedWindow;
   const visibleCount = Math.max(0, visibleWindow.end - visibleWindow.start + 1);
 
@@ -97,11 +107,11 @@ export function CandleChart({ candles, strat, show, trades, upto, onHoverBar, he
     layoutRef.current = draw(canvas, width, height, candles, strat, show, visibleWindow, trades, upto, hoverIndex);
   }, [candles, strat, show, width, height, trades, upto, hoverIndex, visibleWindow.start, visibleWindow.end]);
 
-  const handleMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const updateHover = (clientX: number) => {
     const lay = layoutRef.current;
     const canvas = canvasRef.current;
     if (!lay || !canvas) return;
-    const x = e.clientX - canvas.getBoundingClientRect().left;
+    const x = clientX - canvas.getBoundingClientRect().left;
     const idx = barAtX(x, lay.padL, lay.plotW, lay.start, lay.n);
     if (idx !== hoverIndex) {
       setHoverIndex(idx);
@@ -113,6 +123,54 @@ export function CandleChart({ candles, strat, show, trades, upto, onHoverBar, he
       setHoverIndex(null);
       onHoverBar?.(null);
     }
+  };
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const lay = layoutRef.current;
+    if (e.button !== 0 || viewWindow == null || !lay || lay.n <= 0) return;
+    e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    dragRef.current = {
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      window: { start: lay.start, end: lay.end },
+      barWidth: lay.plotW / lay.n,
+      moved: false,
+    };
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== e.pointerId) {
+      updateHover(e.clientX);
+      return;
+    }
+    const dx = e.clientX - drag.startX;
+    if (!drag.moved && Math.abs(dx) < 4) {
+      updateHover(e.clientX);
+      return;
+    }
+    e.preventDefault();
+    if (!drag.moved) {
+      drag.moved = true;
+      setDragging(true);
+      setHoverIndex(null);
+      onHoverBar?.(null);
+    }
+    // Dragging content right reveals older bars; dragging left reveals newer.
+    const next = panBarWindow(drag.window, -dx / drag.barWidth, boundsEnd);
+    setViewWindow(next);
+    if (replayMode) setFollowReplay(next.end === boundsEnd);
+  };
+
+  const finishPointer = (e: React.PointerEvent<HTMLCanvasElement>, cancelled = false) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== e.pointerId) return;
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
+    dragRef.current = null;
+    setDragging(false);
+    if (cancelled) handleLeave();
+    else updateHover(e.clientX);
   };
 
   useEffect(() => {
@@ -127,32 +185,36 @@ export function CandleChart({ candles, strat, show, trades, upto, onHoverBar, he
       e.preventDefault();
       const x = e.clientX - canvas.getBoundingClientRect().left;
       const anchor = barAtX(x, lay.padL, lay.plotW, lay.start, lay.n);
-      const last = candles.length - 1;
-      const boundsEnd = upto == null ? last : Math.max(0, Math.min(last, Math.floor(upto)));
       const next = zoomBarWindow({ start: lay.start, end: lay.end }, anchor, e.deltaY, boundsEnd, 10, maxBars);
-      setViewWindow(next.start === fittedWindow.start && next.end === fittedWindow.end ? null : next);
+      const isFit = next.start === fittedWindow.start && next.end === fittedWindow.end;
+      setViewWindow(isFit ? null : next);
+      if (isFit) setFollowReplay(true);
+      else if (replayMode && next.end === boundsEnd) setFollowReplay(true);
     };
     canvas.addEventListener('wheel', handleWheel, { passive: false });
     return () => canvas.removeEventListener('wheel', handleWheel);
-  }, [candles.length, upto, maxBars, fittedWindow.start, fittedWindow.end]);
+  }, [boundsEnd, replayMode, maxBars, fittedWindow.start, fittedWindow.end]);
 
   return (
     <div ref={wrapRef} style={{ width: '100%', position: 'relative' }}>
       <canvas
         ref={canvasRef}
         data-testid="candle-canvas"
-        onMouseMove={handleMove}
-        onMouseLeave={handleLeave}
-        style={{ width: '100%', height, display: 'block', cursor: 'crosshair' }}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={finishPointer}
+        onPointerCancel={(e) => finishPointer(e, true)}
+        onPointerLeave={() => { if (!dragRef.current) handleLeave(); }}
+        style={{ width: '100%', height, display: 'block', cursor: dragging ? 'grabbing' : viewWindow != null ? 'grab' : 'crosshair', touchAction: 'none', userSelect: 'none' }}
       />
       <div style={{ position: 'absolute', top: 8, right: 62, display: 'flex', alignItems: 'center', gap: 5, padding: '2px 4px', background: 'rgba(255,255,255,0.88)', border: '1px solid #efece5', fontFamily: "'IBM Plex Mono', monospace", fontSize: 10 }}>
-        <span data-testid="chart-zoom-status" aria-live="polite">顯示 {visibleCount} 根</span>
+        <span data-testid="chart-zoom-status" data-window-start={visibleWindow.start} data-window-end={visibleWindow.end} data-dragging={dragging} aria-live="polite">顯示 {visibleCount} 根</span>
         <button
           type="button"
           data-testid="chart-zoom-reset"
           title="重置為自動適配"
           disabled={viewWindow == null}
-          onClick={() => setViewWindow(null)}
+          onClick={() => { setViewWindow(null); setFollowReplay(true); }}
           style={{ padding: '1px 5px', border: '1px solid #d6d2c8', background: '#f4f2ec', color: '#3c3a30', font: 'inherit', cursor: viewWindow == null ? 'default' : 'pointer' }}
         >
           重置
@@ -394,9 +456,10 @@ function draw(
     ctx.fillText('RSI', padL + 2, rsiTop + 6);
   }
 
-  // replay playhead: a dashed vertical guide at the current (last visible) bar
-  if (upto != null) {
-    const x = xc(end);
+  // replay playhead: draw only when the actual cursor is inside a panned window.
+  const playhead = upto == null ? null : Math.max(0, Math.min(candles.length - 1, Math.floor(upto)));
+  if (playhead != null && playhead >= start && playhead <= end) {
+    const x = xc(playhead);
     ctx.save();
     ctx.strokeStyle = COL.playhead;
     ctx.globalAlpha = 0.6;
