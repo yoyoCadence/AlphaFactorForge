@@ -1,5 +1,7 @@
 ﻿# AlphaFactorForge — Phase A scaffold TODO / 檔案狀態
 
+> 狀態快照（測試數、slice 進度、環境驗證）以根目錄 `tasks.md`「Current Snapshot」為唯一事實來源；本檔為 Phase A 的**檔案級狀態對照表**（FULL/SKELETON/STUB），非進度板。
+
 圖例：✅ FULL（完整可用）｜🟡 SKELETON（可編譯骨架，待補實作）｜⬜ STUB（佔位，Phase B/C）
 
 > **本生成環境只能驗證 ✅ 的 TS 純邏輯（`npm test` / `npm run typecheck`）。**
