@@ -6,7 +6,7 @@
 // live / library yet — those are later slices. All persistence goes through
 // tauri-client; all maths through core/* + src/services.
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { db, files, isTauri, importDataset } from '../tauri-client/dataClient';
 import type { Candle, Dataset, StrategyDef } from '../tauri-client/commands';
 import { defaultStrategy, OPERAND_IDS, type ParamsStrategy, type SignalId, type Rule, type RuleOp, type OperandId } from '../services/strategy';
@@ -35,6 +35,7 @@ import { CandleChart, type OverlayToggles } from '../charts/CandleChart';
 import { replayTick, positionAtTime } from '../charts/scale';
 import { HelpTip } from './HelpTip';
 import { FloatingPanel } from './FloatingPanel';
+import { popoutWindows, type ChartWindowSnapshot } from '../tauri-client/windowBridge';
 import type { BacktestResult, Candle as CoreCandle } from '../core/backtest';
 import type { Metrics } from '../core/metrics';
 
@@ -456,6 +457,8 @@ export function BacktestPanel(): React.ReactElement {
   // Pop-out (Slice 8a): enlarge 圖表 / 回測績效 into a floating resizable panel.
   const [poppedChart, setPoppedChart] = useState(false);
   const [poppedMetrics, setPoppedMetrics] = useState(false);
+  const [nativeChartOpened, setNativeChartOpened] = useState(false);
+  const [openingNativeChart, setOpeningNativeChart] = useState(false);
   const [hoverBar, setHoverBar] = useState<number | null>(null); // chart hover (Slice 9)
   const [holdout, setHoldout] = useState(false);
   const [holdoutPct, setHoldoutPct] = useState(30); // last N% of bars = out-of-sample
@@ -570,6 +573,66 @@ export function BacktestPanel(): React.ReactElement {
   };
 
   const selected = datasets.find((d) => d.id === selId) ?? null;
+  const chartWindowSnapshot: ChartWindowSnapshot = {
+    datasetKey: selected?.dataset_hash ?? `none:${candles.length}`,
+    title: selected ? `${selected.symbol} · ${selected.interval}` : '尚無資料集',
+    candles,
+    strat,
+    show,
+    trades: result?.trades ?? [],
+    upto: replayOn ? replayCursor : undefined,
+  };
+  const chartWindowSnapshotRef = useRef(chartWindowSnapshot);
+  chartWindowSnapshotRef.current = chartWindowSnapshot;
+
+  // Child window registers its listeners first, then asks the main window for
+  // the latest complete snapshot. This avoids an open-vs-listen race.
+  useEffect(() => {
+    let disposed = false;
+    let unlisten: (() => void) | undefined;
+    popoutWindows.onChartReady(() => {
+      void popoutWindows.publishChart(chartWindowSnapshotRef.current).catch((e) => !disposed && setErr(String(e)));
+    })
+      .then((off) => {
+        if (disposed) off();
+        else unlisten = off;
+      })
+      .catch((e) => !disposed && setErr(String(e)));
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
+  }, []);
+
+  // Full snapshots are for substantive chart changes. Replay ticks use the
+  // small cursor event below so autoplay never re-sends the full candle array.
+  useEffect(() => {
+    if (!nativeChartOpened) return;
+    void popoutWindows.publishChart(chartWindowSnapshotRef.current).catch((e) => setErr(String(e)));
+  }, [nativeChartOpened, candles, strat, show, result?.trades, selected]);
+
+  useEffect(() => {
+    if (!nativeChartOpened) return;
+    void popoutWindows.publishChartCursor({ upto: replayOn ? replayCursor : undefined }).catch((e) => setErr(String(e)));
+  }, [nativeChartOpened, replayOn, replayCursor]);
+
+  async function openNativeChartWindow() {
+    setOpeningNativeChart(true);
+    setErr(null);
+    try {
+      await popoutWindows.openChart();
+      setNativeChartOpened(true);
+      // Existing windows are focused rather than recreated, so push immediately;
+      // a newly created window also requests this state through the ready event.
+      await popoutWindows.publishChart(chartWindowSnapshotRef.current);
+      setMsg('已開啟原生圖表視窗；可拖曳到其他螢幕。');
+    } catch (e) {
+      setErr(`無法開啟原生圖表視窗：${String(e)}`);
+    } finally {
+      setOpeningNativeChart(false);
+    }
+  }
+
   const setNum = (key: NumKey, value: number) => {
     setStrat((s) => ({ ...s, [key]: value }));
     setAppliedKeys((ks) => (ks.includes(key) ? ks.filter((k) => k !== key) : ks));
@@ -872,7 +935,12 @@ export function BacktestPanel(): React.ReactElement {
             <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: '#aaa599' }}>
               {loadingCandles ? '載入中…' : `${selected?.symbol ?? ''} · ${candles.length} 根`}
             </span>
-            <button data-testid="popout-chart" title="放大到獨立面板" style={{ ...S.btnGhost, padding: '3px 10px', marginLeft: 'auto' }} onClick={() => setPoppedChart((v) => !v)}>
+            {popoutWindows.isAvailable() && (
+              <button data-testid="native-popout-chart" title="另開可移到其他螢幕的原生視窗" style={{ ...S.btnGhost, padding: '3px 10px', marginLeft: 'auto' }} onClick={openNativeChartWindow} disabled={openingNativeChart} aria-busy={openingNativeChart}>
+                {openingNativeChart ? '開啟中…' : '↗ 新視窗'}
+              </button>
+            )}
+            <button data-testid="popout-chart" title="放大到獨立面板" style={{ ...S.btnGhost, padding: '3px 10px', marginLeft: popoutWindows.isAvailable() ? 0 : 'auto' }} onClick={() => setPoppedChart((v) => !v)}>
               {poppedChart ? '⤡ 收合' : '⤢ 放大'}
             </button>
           </div>

@@ -8,6 +8,7 @@ import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { db, isTauri } from './tauri-client/dataClient';
 import { BacktestPanel } from './components/BacktestPanel';
+import { ChartPopoutWindow } from './components/ChartPopoutWindow';
 import './styles.css';
 
 function App(): React.ReactElement {
@@ -43,4 +44,5 @@ function App(): React.ReactElement {
 }
 
 const el = document.getElementById('root');
-if (el) createRoot(el).render(<App />);
+const childWindow = new URLSearchParams(globalThis.location?.search ?? '').get('window');
+if (el) createRoot(el).render(childWindow === 'chart' ? <ChartPopoutWindow /> : <App />);

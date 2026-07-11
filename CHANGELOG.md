@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added Slice 8b-1 native chart pop-out: open or focus a resizable Tauri OS window and keep its chart/replay state synchronized through typed targeted events with least-privilege Tauri event permissions.
 - Added Slice 10-2 chart drag-pan: drag zoomed charts with pointer capture, preserve click/hover behavior through a movement threshold, and clamp historical views to dataset/replay boundaries.
 - Added Slice 10-1 chart wheel zoom: zoom around the candle under the cursor without scrolling the page, display the visible-bar count, reset to fit, and preserve replay no-future-data bounds.
 - Added Slice 7-3 strategy library: list SQLite-saved strategies, safely load params/blocks/code definitions back into the editor, and refresh the library after saving.
