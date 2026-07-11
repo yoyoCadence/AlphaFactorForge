@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { extentOf, padExtent, valueToY, tradeLegs, replayWindow, replayTick, positionAtTime, barAtX, reconcileBarWindow, zoomBarWindow } from './scale';
+import { extentOf, padExtent, valueToY, tradeLegs, replayWindow, replayTick, positionAtTime, barAtX, reconcileBarWindow, zoomBarWindow, panBarWindow } from './scale';
 
 describe('extentOf', () => {
   it('ignores NaN/Infinity and returns min/max', () => {
@@ -90,6 +90,24 @@ describe('zoomBarWindow', () => {
   it('honours the minimum and handles empty bounds', () => {
     expect(zoomBarWindow({ start: 0, end: 9 }, 5, -100, 99, 10, 500)).toEqual({ start: 0, end: 9 });
     expect(zoomBarWindow({ start: 0, end: -1 }, 0, -100, -1)).toEqual({ start: 0, end: -1 });
+  });
+});
+
+describe('panBarWindow', () => {
+  it('shifts by whole bars while preserving the visible count', () => {
+    expect(panBarWindow({ start: 100, end: 199 }, -20, 999)).toEqual({ start: 80, end: 179 });
+    expect(panBarWindow({ start: 100, end: 199 }, 35, 999)).toEqual({ start: 135, end: 234 });
+  });
+
+  it('rounds fractional movement and clamps both data boundaries', () => {
+    expect(panBarWindow({ start: 100, end: 199 }, 2.6, 999)).toEqual({ start: 103, end: 202 });
+    expect(panBarWindow({ start: 10, end: 109 }, -999, 999)).toEqual({ start: 0, end: 99 });
+    expect(panBarWindow({ start: 800, end: 899 }, 999, 899)).toEqual({ start: 800, end: 899 });
+  });
+
+  it('uses boundsEnd as the replay no-future-data boundary', () => {
+    expect(panBarWindow({ start: 100, end: 199 }, 999, 250)).toEqual({ start: 151, end: 250 });
+    expect(panBarWindow({ start: 0, end: -1 }, 1, -1)).toEqual({ start: 0, end: -1 });
   });
 });
 
