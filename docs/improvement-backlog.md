@@ -9,12 +9,12 @@
 
 > ### 2026-07-12 狀態更新（審計後已變動，優先讀這段）
 > 審計（2026-07-07）之後、本文件落地之前，以下已透過 PR 合併進 `main`，**規格保留為記錄但不需再執行**：
-> - **FEAT-001 策略庫 = PR #27（Slice 7-3）已完成**（inline 在 `BacktestPanel`：`savedStrategies` + `services/strategyLibrary` + `strategy-library-select` testid）。
+> - **FEAT-001 策略庫 = PR #27（Slice 7-3）已完成**（`savedStrategies` + `services/strategyLibrary` + `strategy-library-select` testid）。當時 inline 在 `BacktestPanel`；**後於 REF-003b（PR #41）隨策略表單一起移入 `components/StrategySection.tsx`**，未另立 `LibrarySection`。
 > - **Slice 10-1/10-2 圖表 wheel-zoom / drag-pan = PR #28 / #29 已完成**（原列文末「Avoid for now」，現已落地；`CandleChart.tsx` 增至 ~491 行）。
 > - **Slice 8b 原生圖表視窗 = PR #30 已完成**（新 `ChartPopoutWindow.tsx`）。
 > - **fix：載入 legacy 策略 = PR #31 已完成**。
 >
-> 因此 `BacktestPanel.tsx` 已增至 **1362 行 / 43 個 useState**（審計時 1217 / ~30）——**REF-001~003 拆解比審計時更迫切**；策略庫是 inline 落地，REF-003 應多抽一個 `LibrarySection`。
+> 因此 `BacktestPanel.tsx` 一度增至 **1362 行 / 43 個 useState**（審計時 1217 / ~30）——**REF-001~003(+003b) 拆解比審計時更迫切**。（策略庫當時 inline；REF-003b 已把它連同策略表單抽入 `StrategySection`，見文末收尾更新。）
 >
 > **修正後的實際起手順序：DOC-001 → BUG-001 → REF-001 → REF-002 → REF-003 → TEST-002 → FEAT-002 → REF-004 → PERF-001 → …**（FEAT-001 已移除；下表原始編號保留供對照）。
 >
@@ -307,7 +307,7 @@ Verify: (1) BacktestPanel < 400 lines; (2) export/holdout/popout specs untouched
 
 ## FEAT-001 — 策略庫（tasks.md Slice 7-3）
 
-> **狀態：✅ 已完成（PR #27，Slice 7-3）。策略庫已 inline 落地於 `BacktestPanel`。以下規格保留為歷史記錄，不需再執行。** 若日後要把它抽成獨立 `LibrarySection`，併入 REF-003 處理。
+> **狀態：✅ 已完成（PR #27，Slice 7-3）。** 策略庫最初 inline 於 `BacktestPanel`，**現已隨 REF-003b（PR #41）移入 `components/StrategySection.tsx`**（未另立 `LibrarySection`）。以下規格保留為歷史記錄，不需再執行；文中 `LibrarySection` / delete_strategy 等為當時未採用的原始構想。
 
 - **Category**: Product
 - **Objective**: 列出已儲存策略、載回表單、可刪除——取代 legacy 的 localStorage `cd_stratlib`，關閉「存了拿不回」的回訪斷點。

@@ -11,14 +11,15 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 - Baseline verified: `npm test`, `npm run typecheck`, and `npm run build` pass in `alpha-factor-forge/`.
 - Native Tauri verified: Rust 1.96 / Cargo / MSVC build tools / Tauri CLI v2 installed; `cargo check` and `cargo tauri dev` both pass; multi-size icons generated.
 - Progress (through PR #41): Phase A backtest pipeline; chart (canvas + overlays + trade markers + wheel-zoom + drag-pan + hover + bar replay); params/blocks/code strategy modes; holdout; parameter sweep + interactive heatmap; report export (Slice 7-2); SQLite strategy library (Slice 7-3); native chart OS window (Slice 8b-1); plus the 2026-07-07 project audit (`docs/` blueprint) and its backlog work: DOC-001 (docs single-source), BUG-001 (sweep-respects-holdout), and the full BacktestPanel decomposition REF-001→003b (Sweep / Chart / Dataset / Results / Strategy sections — **`BacktestPanel.tsx` 1382 → 385 lines**, now a pure orchestration layer; audit refactor phase complete). Current tests: 141 vitest + 21 Playwright e2e green per PR.
-- Next: Slice 8b-2 — real Tauri metrics OS window. Slice 8b-1 chart OS window, Slice 10 pan/zoom, and Slice 7 report export + SQLite strategy library are complete.
+- Next: TEST-002 (backtest golden tests + legacy parity) — the audit backlog's front now that the refactor phase is closed. The UI-port track's Slice 8b-2 (real Tauri metrics OS window) stays queued behind it. Slice 8b-1 chart OS window, Slice 10 pan/zoom, and Slice 7 report export + SQLite strategy library are complete.
 - PR CI runs typecheck / test / build / cargo-check (now incl. `cargo test`) — green per PR; `main` requires branches up to date before merge.
 - Source-of-truth architecture: `STRATEGY_DISCOVERY.md` v3 and `README.md`.
 - Historical context: `HISTORY.md` and `CONVERSATION_HISTORY.md`.
 
 ## Next
 
-- [ ] UI port — Slice 8b-2: real Tauri metrics OS window; extract the shared metrics renderer, then add its child route + typed snapshot sync.
+- [ ] TEST-002 — backtest engine golden tests + legacy parity report (audit backlog `docs/improvement-backlog.md`). Lock the current `core/backtest` behaviour before any engine change; no product-code edits. (Front of the audit backlog now that the REF refactor phase is closed.)
+- [ ] UI port — Slice 8b-2: real Tauri metrics OS window; extract the shared metrics renderer, then add its child route + typed snapshot sync. (UI-port track; queued behind TEST-002.)
 
 ## In Progress
 
@@ -174,7 +175,7 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 - [x] REF-001 — extract SweepSection from BacktestPanel (PR #37; audit backlog, move-only).
   - Moved the parameter-sweep block (state/handlers/`AxisEditor`/`SweepHeatmap`/JSX) into `components/SweepSection.tsx`; extracted shared `components/panelStyles.ts` (`S`), `components/NumberInput.tsx`, and `services/holdout.ts`. `BacktestPanel` 1382 → 1047 lines; every sweep `data-testid` preserved.
-  - Zero behaviour change: typecheck / 141 vitest / build / 21 e2e green. Next in the decomposition: REF-002 (ChartSection, incl. Slice 10 pan/zoom + Slice 8b cursor sync), REF-003 (Dataset/Results/Library).
+  - Zero behaviour change: typecheck / 141 vitest / build / 21 e2e green. (The rest of the decomposition — REF-002 ChartSection #39, REF-003 Dataset/Results #40, REF-003b StrategySection #41 — is now complete; see the entries above.)
 
 - [x] BUG-001 — parameter sweep respects Holdout (PR #34; audit backlog `docs/improvement-backlog.md`).
   - When Holdout is on, the sweep now optimises on the in-sample segment only (shared `holdoutSplitIndex` with `run()`); Holdout-off keeps full-period behaviour unchanged.
