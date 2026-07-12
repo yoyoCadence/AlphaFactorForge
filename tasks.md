@@ -10,7 +10,7 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 - Target app: `alpha-factor-forge/` is the Tauri Desktop Phase A scaffold.
 - Baseline verified: `npm test`, `npm run typecheck`, and `npm run build` pass in `alpha-factor-forge/`.
 - Native Tauri verified: Rust 1.96 / Cargo / MSVC build tools / Tauri CLI v2 installed; `cargo check` and `cargo tauri dev` both pass; multi-size icons generated.
-- Progress (through PR #34): Phase A backtest pipeline; chart (canvas + overlays + trade markers + wheel-zoom + drag-pan + hover + bar replay); params/blocks/code strategy modes; holdout; parameter sweep + interactive heatmap; report export (Slice 7-2); SQLite strategy library (Slice 7-3); native chart OS window (Slice 8b-1); plus the 2026-07-07 project audit (`docs/` blueprint) and its first two backlog fixes (DOC-001 docs single-source, BUG-001 sweep-respects-holdout). Current tests: 141 vitest + 21 Playwright e2e green per PR.
+- Progress (through PR #37): Phase A backtest pipeline; chart (canvas + overlays + trade markers + wheel-zoom + drag-pan + hover + bar replay); params/blocks/code strategy modes; holdout; parameter sweep + interactive heatmap; report export (Slice 7-2); SQLite strategy library (Slice 7-3); native chart OS window (Slice 8b-1); plus the 2026-07-07 project audit (`docs/` blueprint) and its backlog work so far (DOC-001 docs single-source, BUG-001 sweep-respects-holdout, REF-001 SweepSection extraction from BacktestPanel). Current tests: 141 vitest + 21 Playwright e2e green per PR.
 - Next: Slice 8b-2 — real Tauri metrics OS window. Slice 8b-1 chart OS window, Slice 10 pan/zoom, and Slice 7 report export + SQLite strategy library are complete.
 - PR CI runs typecheck / test / build / cargo-check (now incl. `cargo test`) — green per PR; `main` requires branches up to date before merge.
 - Source-of-truth architecture: `STRATEGY_DISCOVERY.md` v3 and `README.md`.
@@ -160,10 +160,14 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Done
 
+- [x] REF-001 — extract SweepSection from BacktestPanel (PR #37; audit backlog, move-only).
+  - Moved the parameter-sweep block (state/handlers/`AxisEditor`/`SweepHeatmap`/JSX) into `components/SweepSection.tsx`; extracted shared `components/panelStyles.ts` (`S`), `components/NumberInput.tsx`, and `services/holdout.ts`. `BacktestPanel` 1382 → 1047 lines; every sweep `data-testid` preserved.
+  - Zero behaviour change: typecheck / 141 vitest / build / 21 e2e green. Next in the decomposition: REF-002 (ChartSection, incl. Slice 10 pan/zoom + Slice 8b cursor sync), REF-003 (Dataset/Results/Library).
+
 - [x] BUG-001 — parameter sweep respects Holdout (PR #34; audit backlog `docs/improvement-backlog.md`).
   - When Holdout is on, the sweep now optimises on the in-sample segment only (shared `holdoutSplitIndex` with `run()`); Holdout-off keeps full-period behaviour unchanged.
   - Added a reactive in-sample scope note (`data-testid="sweep-scope"`) and a sweep e2e flow. typecheck / 141 vitest / build / 21 e2e green.
-  - Follow-up (from ultrareview, low): strengthen the sweep e2e to actually run a Holdout-on sweep — tracked as the next PR.
+  - Follow-up (from ultrareview, low; PR #36): the sweep e2e now runs a Holdout-on sweep and asserts its winning combo differs from the full-period sweep, guarding the in-sample `from/to` wiring against silent removal.
 
 - [x] DOC-001 — status single source of truth (PR #33; audit backlog).
   - Removed stale/contradictory status claims from README (中/EN/JP), AGENTS.md §0.1, and `alpha-factor-forge/TODO.md`; status now points here (Current Snapshot). Kept the "never `npm audit fix --force`" warning.
