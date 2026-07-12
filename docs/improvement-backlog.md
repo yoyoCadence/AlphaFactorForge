@@ -17,6 +17,9 @@
 > 因此 `BacktestPanel.tsx` 已增至 **1362 行 / 43 個 useState**（審計時 1217 / ~30）——**REF-001~003 拆解比審計時更迫切**；策略庫是 inline 落地，REF-003 應多抽一個 `LibrarySection`。
 >
 > **修正後的實際起手順序：DOC-001 → BUG-001 → REF-001 → REF-002 → REF-003 → TEST-002 → FEAT-002 → REF-004 → PERF-001 → …**（FEAT-001 已移除；下表原始編號保留供對照）。
+>
+> ### 2026-07-12 收尾更新（「Must do now」層完成）
+> **DOC-001（#33）、BUG-001（#34）、REF-001（#37）、REF-002（#39）、REF-003（#40）+ REF-003b（#41）全部已合併。** `BacktestPanel.tsx` 由 **1382 → 385 行**，拆成 Sweep / Chart / Dataset / Results / Strategy 五個 section，成為純編排層——審計重構階段（含 ultrareview 追加的 `< 400` 收尾）正式關閉。**目前佇列前緣＝「Should do later」層：TEST-002 → FEAT-002 → REF-004 → PERF-001 → TEST-001 → SEC-001**（Optional：UX-002 / DOC-002；blocked：TEST-003 等 Open Question Q3）。Open Questions Q1–Q6（masterplan §8）仍待 maintainer 裁決。
 
 ## 執行順序總覽
 
@@ -24,9 +27,9 @@
 | --- | --- | --- | --- | --- |
 | 1 | DOC-001 文件狀態單一事實來源 | **Must do now** | S | 無 |
 | 2 | BUG-001 參數掃描尊重 Holdout | **Must do now** | S | 無 |
-| 3 | REF-001 抽出 SweepSection | **Must do now** | S-M | BUG-001 先合併 |
-| 4 | REF-002 抽出 ChartSection | **Must do now** | M | REF-001 |
-| 5 | REF-003 抽出 DatasetSection + ResultsSection | **Must do now** | M | REF-002 |
+| ~~3~~ | ~~REF-001 抽出 SweepSection~~ ✅ **已完成 (PR #37)** | — | — | — |
+| ~~4~~ | ~~REF-002 抽出 ChartSection~~ ✅ **已完成 (PR #39)** | — | — | — |
+| ~~5~~ | ~~REF-003 抽出 DatasetSection + ResultsSection~~ ✅ **已完成 (PR #40 + #41 REF-003b)** | — | — | — |
 | ~~6~~ | ~~FEAT-001 策略庫（=tasks.md Slice 7-3）~~ ✅ **已完成 (PR #27)** | — | — | — |
 | 7 | TEST-002 回測引擎 golden tests + 對照報告 | Should do later | S-M | 無（先於任何引擎修改） |
 | 8 | FEAT-002 交易明細（trades）持久化 | Should do later | M | TEST-002 建議先行 |
@@ -253,6 +256,8 @@ Verify: (1) replay/hover/popout specs untouched + green; (2) moved effects ident
 
 ## REF-003 — 抽出 DatasetSection 與 ResultsSection，BacktestPanel 成為編排層
 
+> **狀態：✅ 已完成。** DatasetSection + ResultsSection = PR #40（811→648 行）；`< 400` 驗收由 **REF-003b（PR #41）抽出 StrategySection** 達成（648→**385 行**）。REF-003 原文把策略表單留在 panel，ultrareview 指出這樣達不到 `< 400`，故追加 003b 把策略卡（含內嵌策略庫）也抽出。整個 REF 系列（001/002/003/003b）到此關閉。以下規格保留為記錄。
+
 - **Category**: Refactor
 - **Objective**: 第三刀：資料集 card → `DatasetSection.tssx`；回測績效 card（metrics 表、匯出、儲存、metrics pop-out）→ `ResultsSection.tsx`。完成後 BacktestPanel 剩策略表單 + 執行模型 + holdout + run + 各 section 編排，目標 < 400 行。
 - **Context**: 收尾 audit R2。策略表單暫留 panel（它與 strat state 是同一件事，下一步如需再拆另立任務）。
@@ -276,10 +281,10 @@ Verify: (1) replay/hover/popout specs untouched + green; (2) moved effects ident
 - **Risk level**: Medium
 - **Validation plan**: 同前兩步；手動全流程走一遍（載樣本→回測→holdout 三欄→匯出兩鍵→儲存→pop-out metrics）。
 - **Acceptance criteria**:
-  - [ ] BacktestPanel.tsx < 400 行
-  - [ ] export/holdout/popout specs 未修改且全綠
-  - [ ] 全部既有 testid 存在；儲存與匯出行為不變
-  - [ ] REF 系列總結表附在 PR
+  - [x] BacktestPanel.tsx < 400 行（385 行，由 REF-003b 達成）
+  - [x] export/holdout/popout specs 未修改且全綠
+  - [x] 全部既有 testid 存在；儲存與匯出行為不變
+  - [x] REF 系列總結表附在 PR（#41）
 
 ### Suggested prompt for coding agent
 

@@ -10,7 +10,7 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 - Target app: `alpha-factor-forge/` is the Tauri Desktop Phase A scaffold.
 - Baseline verified: `npm test`, `npm run typecheck`, and `npm run build` pass in `alpha-factor-forge/`.
 - Native Tauri verified: Rust 1.96 / Cargo / MSVC build tools / Tauri CLI v2 installed; `cargo check` and `cargo tauri dev` both pass; multi-size icons generated.
-- Progress (through PR #37): Phase A backtest pipeline; chart (canvas + overlays + trade markers + wheel-zoom + drag-pan + hover + bar replay); params/blocks/code strategy modes; holdout; parameter sweep + interactive heatmap; report export (Slice 7-2); SQLite strategy library (Slice 7-3); native chart OS window (Slice 8b-1); plus the 2026-07-07 project audit (`docs/` blueprint) and its backlog work so far (DOC-001 docs single-source, BUG-001 sweep-respects-holdout, REF-001 SweepSection extraction from BacktestPanel). Current tests: 141 vitest + 21 Playwright e2e green per PR.
+- Progress (through PR #41): Phase A backtest pipeline; chart (canvas + overlays + trade markers + wheel-zoom + drag-pan + hover + bar replay); params/blocks/code strategy modes; holdout; parameter sweep + interactive heatmap; report export (Slice 7-2); SQLite strategy library (Slice 7-3); native chart OS window (Slice 8b-1); plus the 2026-07-07 project audit (`docs/` blueprint) and its backlog work: DOC-001 (docs single-source), BUG-001 (sweep-respects-holdout), and the full BacktestPanel decomposition REF-001→003b (Sweep / Chart / Dataset / Results / Strategy sections — **`BacktestPanel.tsx` 1382 → 385 lines**, now a pure orchestration layer; audit refactor phase complete). Current tests: 141 vitest + 21 Playwright e2e green per PR.
 - Next: Slice 8b-2 — real Tauri metrics OS window. Slice 8b-1 chart OS window, Slice 10 pan/zoom, and Slice 7 report export + SQLite strategy library are complete.
 - PR CI runs typecheck / test / build / cargo-check (now incl. `cargo test`) — green per PR; `main` requires branches up to date before merge.
 - Source-of-truth architecture: `STRATEGY_DISCOVERY.md` v3 and `README.md`.
@@ -159,6 +159,18 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 - [ ] Full closed-loop AI automation.
 
 ## Done
+
+- [x] REF-003b — extract StrategySection; BacktestPanel becomes the orchestrator (PR #41; audit backlog, move-only).
+  - Moved the strategy card (mode tabs, library picker, params/blocks/code editors, indicator/exec grids, Holdout toggle, Run) into `components/StrategySection.tsx`. **`BacktestPanel` 648 → 385 lines — the REF-003 `< 400` acceptance criterion is now met (finished per the REF-003 ultrareview).** This closes the audit refactor phase: the panel now only holds shared state + handlers and composes Chart / Dataset / Strategy / Results / Sweep sections.
+  - Zero behaviour change: typecheck / 141 vitest / build / 21 e2e green; every strategy `data-testid` preserved.
+
+- [x] REF-003 — extract Dataset/Results sections (PR #40; audit backlog, move-only).
+  - `components/DatasetSection.tsx` (資料集 card) + `components/ResultsSection.tsx` (metrics table + export + save + metrics pop-out). `BacktestPanel` 811 → 648 lines. The `< 400` target was completed by the REF-003b follow-up (the strategy form + embedded library was the remaining large block).
+  - Zero behaviour change: typecheck / 141 vitest / build / 21 e2e green.
+
+- [x] REF-002 — extract ChartSection (PR #39; audit backlog, move-only).
+  - Moved the chart concern (canvas + overlays + bar replay + hover 此根資訊 readout + quick param row + Slice 8a pop-out + Slice 8b native-window snapshot/cursor sync) into `components/ChartSection.tsx`; shared `components/PoppedOutNote.tsx` + `components/panelTypes.ts`. `BacktestPanel` 1047 → 811 lines. Rendered unconditionally so the always-on native-window "ready" listener registers exactly as the inline code did.
+  - Zero behaviour change: typecheck / 141 vitest / build / 21 e2e green.
 
 - [x] REF-001 — extract SweepSection from BacktestPanel (PR #37; audit backlog, move-only).
   - Moved the parameter-sweep block (state/handlers/`AxisEditor`/`SweepHeatmap`/JSX) into `components/SweepSection.tsx`; extracted shared `components/panelStyles.ts` (`S`), `components/NumberInput.tsx`, and `services/holdout.ts`. `BacktestPanel` 1382 → 1047 lines; every sweep `data-testid` preserved.
