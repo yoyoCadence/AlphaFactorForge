@@ -6,11 +6,11 @@
 // live / library yet — those are later slices. All persistence goes through
 // tauri-client; all maths through core/* + src/services.
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { db, files, isTauri, importDataset } from '../tauri-client/dataClient';
 import type { Candle, Dataset, StrategyDef } from '../tauri-client/commands';
 import { defaultStrategy, OPERAND_IDS, type ParamsStrategy, type SignalId, type Rule, type RuleOp, type OperandId } from '../services/strategy';
-import { SUPPORTED_SIGNALS, buildSignals } from '../services/strategySignals';
+import { SUPPORTED_SIGNALS } from '../services/strategySignals';
 import { compileExpression } from '../services/exprInterpreter';
 import { runParamsBacktest } from '../services/backtestRunner';
 import { SWEEP_MAX_COMBOS } from '../services/paramSweep';
@@ -21,21 +21,16 @@ import { buildStrategyDef } from '../services/strategyRecord';
 import { strategyFromDef } from '../services/strategyLibrary';
 import { metricsToBacktestSummary } from '../services/metricsMapper';
 import { reportToJson, suggestedFilename, tradesToCsv } from '../services/reportExport';
-import { CandleChart, type OverlayToggles } from '../charts/CandleChart';
-import { replayTick, positionAtTime } from '../charts/scale';
 import { HelpTip } from './HelpTip';
 import { FloatingPanel } from './FloatingPanel';
 import { NumberInput } from './NumberInput';
 import { SweepSection } from './SweepSection';
+import { ChartSection } from './ChartSection';
+import { PoppedOutNote } from './PoppedOutNote';
 import { S } from './panelStyles';
-import { popoutWindows, type ChartWindowSnapshot } from '../tauri-client/windowBridge';
+import type { NumKey } from './panelTypes';
 import type { BacktestResult, Candle as CoreCandle } from '../core/backtest';
 import type { Metrics } from '../core/metrics';
-
-type NumKey =
-  | 'fastMA' | 'slowMA' | 'emaPeriod' | 'rsiPeriod' | 'rsiBuy' | 'rsiSell'
-  | 'macdFast' | 'macdSlow' | 'macdSignal' | 'bbPeriod' | 'bbMult'
-  | 'feePct' | 'slipPct' | 'sizePct' | 'slPct' | 'tpPct';
 
 const IND_FIELDS: { key: NumKey; label: string }[] = [
   { key: 'fastMA', label: '快線 MA' },
@@ -49,15 +44,6 @@ const IND_FIELDS: { key: NumKey; label: string }[] = [
   { key: 'macdSignal', label: 'MACD 訊號' },
   { key: 'bbPeriod', label: 'BB 週期' },
   { key: 'bbMult', label: 'BB 倍數' },
-];
-
-// The overlay-driving periods most often tweaked while reading the chart —
-// surfaced as a quick row right under it. Same `strat` state as the full form.
-const QUICK_FIELDS: { key: NumKey; label: string }[] = [
-  { key: 'fastMA', label: '快線 MA' },
-  { key: 'slowMA', label: '慢線 MA' },
-  { key: 'emaPeriod', label: 'EMA' },
-  { key: 'rsiPeriod', label: 'RSI 週期' },
 ];
 
 const EXEC_FIELDS: { key: NumKey; label: string }[] = [
@@ -78,8 +64,6 @@ const SIG_LABEL: Record<SignalId, string> = {
   stochOversold: 'Stoch 超賣(未支援)', stochOverbought: 'Stoch 超買(未支援)',
 };
 
-const OVERLAY_LABEL: Record<keyof OverlayToggles, string> = { ma: 'MA', ema: 'EMA', bb: 'BB', rsi: 'RSI', vol: '量', trades: '買賣' };
-
 const OPERAND_LABEL: Record<OperandId, string> = {
   price: '價格', open: '開', high: '高', low: '低', volume: '量',
   maFast: '快線', maSlow: '慢線', ema: 'EMA', rsi: 'RSI',
@@ -90,8 +74,6 @@ const RULE_OPS: RuleOp[] = ['>', '<', '>=', '<=', 'crossUp', 'crossDown'];
 const OP_LABEL: Record<RuleOp, string> = { '>': '>', '<': '<', '>=': '≥', '<=': '≤', crossUp: '上穿', crossDown: '下穿' };
 
 const MODE_LABEL: Record<ParamsStrategy['mode'], string> = { params: '參數', blocks: '積木', code: '程式碼' };
-
-const POS_LABEL: Record<'LONG' | 'SHORT' | 'FLAT', string> = { LONG: '多', SHORT: '空', FLAT: '空手' };
 
 // Slice 5c — short explanations shown by the "?" HelpTip markers. Kept as one
 // map so the copy is easy to review/edit without hunting through the JSX.
@@ -203,17 +185,6 @@ function CodeField({ label, value, onChange }: { label: string; value: string; o
   );
 }
 
-/** Inline stand-in shown where the chart / metrics normally sit while that
- *  section is popped out into a FloatingPanel (Slice 8a). */
-function PoppedOutNote({ label, onClose }: { label: string; onClose: () => void }): React.ReactElement {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '18px 12px', background: '#f4f2ec', border: '1px dashed #cfccc4', color: '#8a8678', fontSize: 12 }}>
-      {label}已彈出放大檢視。
-      <button style={{ ...S.btnGhost, padding: '2px 8px' }} onClick={onClose}>收合</button>
-    </div>
-  );
-}
-
 export function BacktestPanel(): React.ReactElement {
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [selId, setSelId] = useState<number | null>(null);
@@ -233,19 +204,9 @@ export function BacktestPanel(): React.ReactElement {
   const [msg, setMsg] = useState<string | null>(null);
   const [candles, setCandles] = useState<CoreCandle[]>([]);
   const [loadingCandles, setLoadingCandles] = useState(false);
-  const [show, setShow] = useState<OverlayToggles>({ ma: true, ema: false, bb: false, rsi: true, vol: true, trades: true });
-  // Bar replay (Slice 6-1): step a cursor through the loaded candles; the chart
-  // clips to bars [.., cursor]. Cursor resets to the latest bar when candles change.
-  const [replayOn, setReplayOn] = useState(false);
-  const [replayCursor, setReplayCursor] = useState(0);
-  const [replayPlaying, setReplayPlaying] = useState(false); // autoplay (Slice 6-2)
-  const [replaySpeed, setReplaySpeed] = useState(1); // 1× / 2× / 4×
-  // Pop-out (Slice 8a): enlarge 圖表 / 回測績效 into a floating resizable panel.
-  const [poppedChart, setPoppedChart] = useState(false);
+  // Pop-out (Slice 8a): enlarge 回測績效 into a floating resizable panel. The
+  // chart pop-out + replay / hover / native-window state live in ChartSection now.
   const [poppedMetrics, setPoppedMetrics] = useState(false);
-  const [nativeChartOpened, setNativeChartOpened] = useState(false);
-  const [openingNativeChart, setOpeningNativeChart] = useState(false);
-  const [hoverBar, setHoverBar] = useState<number | null>(null); // chart hover (Slice 9)
   const [holdout, setHoldout] = useState(false);
   const [holdoutPct, setHoldoutPct] = useState(30); // last N% of bars = out-of-sample
   const [holdoutResult, setHoldoutResult] = useState<{ inSample: BacktestResult; outSample: BacktestResult } | null>(null);
@@ -305,113 +266,7 @@ export function BacktestPanel(): React.ReactElement {
     };
   }, [selId, datasets]);
 
-  // Keep the replay cursor at the latest bar whenever the candle set changes
-  // (dataset switch / import), so it's always in bounds and starts "at now".
-  useEffect(() => {
-    setReplayCursor(Math.max(0, candles.length - 1));
-    setReplayPlaying(false);
-  }, [candles]);
-
-  // Autoplay tick (Slice 6-2): while playing, advance the cursor one bar every
-  // 400/speed ms. The interval is re-created only when play/speed/candles change
-  // (a functional update reads the latest cursor), so playback stays smooth.
-  useEffect(() => {
-    if (!replayOn || !replayPlaying) return;
-    const id = setInterval(() => {
-      setReplayCursor((c) => replayTick(c, candles.length).cursor);
-    }, 400 / replaySpeed);
-    return () => clearInterval(id);
-  }, [replayOn, replayPlaying, replaySpeed, candles.length]);
-
-  // Stop autoplay once the cursor reaches the last bar (kept out of the tick
-  // updater so state stays pure / StrictMode-safe).
-  useEffect(() => {
-    if (replayPlaying && replayCursor >= candles.length - 1) setReplayPlaying(false);
-  }, [replayPlaying, replayCursor, candles.length]);
-
-  // Live signal series for the replay readout (Slice 6-3): entry/exit condition
-  // per bar via the same buildSignals the backtest uses. Memoized over
-  // candles+strat so it isn't recomputed on every autoplay tick (only the
-  // cursor moves); a code-mode parse error yields null (readout hides).
-  const signalSeries = useMemo(() => {
-    if (candles.length === 0) return null;
-    try {
-      return buildSignals(candles, strat);
-    } catch {
-      return null;
-    }
-  }, [candles, strat]);
-
-  // Play/pause; starting from the last bar restarts replay from the first.
-  const toggleReplayPlay = () => {
-    if (replayPlaying) {
-      setReplayPlaying(false);
-      return;
-    }
-    if (replayCursor >= candles.length - 1) setReplayCursor(0);
-    setReplayPlaying(true);
-  };
-
   const selected = datasets.find((d) => d.id === selId) ?? null;
-  const chartWindowSnapshot: ChartWindowSnapshot = {
-    datasetKey: selected?.dataset_hash ?? `none:${candles.length}`,
-    title: selected ? `${selected.symbol} · ${selected.interval}` : '尚無資料集',
-    candles,
-    strat,
-    show,
-    trades: result?.trades ?? [],
-    upto: replayOn ? replayCursor : undefined,
-  };
-  const chartWindowSnapshotRef = useRef(chartWindowSnapshot);
-  chartWindowSnapshotRef.current = chartWindowSnapshot;
-
-  // Child window registers its listeners first, then asks the main window for
-  // the latest complete snapshot. This avoids an open-vs-listen race.
-  useEffect(() => {
-    let disposed = false;
-    let unlisten: (() => void) | undefined;
-    popoutWindows.onChartReady(() => {
-      void popoutWindows.publishChart(chartWindowSnapshotRef.current).catch((e) => !disposed && setErr(String(e)));
-    })
-      .then((off) => {
-        if (disposed) off();
-        else unlisten = off;
-      })
-      .catch((e) => !disposed && setErr(String(e)));
-    return () => {
-      disposed = true;
-      unlisten?.();
-    };
-  }, []);
-
-  // Full snapshots are for substantive chart changes. Replay ticks use the
-  // small cursor event below so autoplay never re-sends the full candle array.
-  useEffect(() => {
-    if (!nativeChartOpened) return;
-    void popoutWindows.publishChart(chartWindowSnapshotRef.current).catch((e) => setErr(String(e)));
-  }, [nativeChartOpened, candles, strat, show, result?.trades, selected]);
-
-  useEffect(() => {
-    if (!nativeChartOpened) return;
-    void popoutWindows.publishChartCursor({ upto: replayOn ? replayCursor : undefined }).catch((e) => setErr(String(e)));
-  }, [nativeChartOpened, replayOn, replayCursor]);
-
-  async function openNativeChartWindow() {
-    setOpeningNativeChart(true);
-    setErr(null);
-    try {
-      await popoutWindows.openChart();
-      setNativeChartOpened(true);
-      // Existing windows are focused rather than recreated, so push immediately;
-      // a newly created window also requests this state through the ready event.
-      await popoutWindows.publishChart(chartWindowSnapshotRef.current);
-      setMsg('已開啟原生圖表視窗；可拖曳到其他螢幕。');
-    } catch (e) {
-      setErr(`無法開啟原生圖表視窗：${String(e)}`);
-    } finally {
-      setOpeningNativeChart(false);
-    }
-  }
 
   const setNum = (key: NumKey, value: number) => {
     setStrat((s) => ({ ...s, [key]: value }));
@@ -596,28 +451,8 @@ export function BacktestPanel(): React.ReactElement {
       : [{ label: '', metrics: result.metrics }]
     : [];
 
-  // Bar-info readout (Slice 9): the "active" bar is the hovered bar if hovering,
-  // else the replay cursor when replay is on, else none. Its OHLC + entry/exit
-  // condition + position (from the last backtest's trades) feed the 此根資訊 row,
-  // so pointing at any bar shows its info in ANY mode, not just at the cursor.
-  const activeBar =
-    hoverBar != null && hoverBar >= 0 && hoverBar < candles.length
-      ? hoverBar
-      : replayOn && candles.length > 0
-        ? Math.min(replayCursor, candles.length - 1)
-        : null;
-  const activeCandle = activeBar != null ? candles[activeBar] : null;
-  const liveEntry = activeBar != null && signalSeries ? !!signalSeries.entry[activeBar] : false;
-  const liveExit = activeBar != null && signalSeries ? !!signalSeries.exit[activeBar] : false;
-  const livePosition = activeBar != null && result ? positionAtTime(result.trades, candles[activeBar].t) : null;
-  const posText = livePosition ? POS_LABEL[livePosition] : '—（回測後顯示）';
-  const posColor = livePosition === 'LONG' ? '#1f7a57' : livePosition === 'SHORT' ? '#b23b2e' : '#8a8678';
-
-  // Chart / metrics content, factored out so it can render inline OR (Slice 8a)
+  // Metrics table content, factored out so it can render inline OR (Slice 8a)
   // enlarged inside a FloatingPanel. Same state either way -> edits reflow live.
-  const renderChart = (chartHeight: number) => (
-    <CandleChart candles={candles} strat={strat} show={show} trades={result?.trades} upto={replayOn ? replayCursor : undefined} onHoverBar={setHoverBar} height={chartHeight} />
-  );
   const renderMetricsTable = (fontSize: number) => (
     <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: "'IBM Plex Mono', monospace", fontSize }}>
       {metricCols.length > 1 && (
@@ -648,86 +483,18 @@ export function BacktestPanel(): React.ReactElement {
       {err && <div style={{ ...S.card, borderColor: '#d23b2f', color: '#b23b2e', marginBottom: 12 }}>{err}</div>}
       {msg && <div style={{ ...S.card, borderColor: '#2d9f73', color: '#1f7a57', marginBottom: 12 }}>{msg}</div>}
 
-      {candles.length > 0 && (
-        <section style={{ ...S.card, marginBottom: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8, flexWrap: 'wrap' }}>
-            <h2 style={{ ...S.h2, margin: 0 }}>圖表</h2>
-            <div style={{ display: 'flex', gap: 10, fontSize: 11, color: '#8a8678' }}>
-              {(['ma', 'ema', 'bb', 'rsi', 'vol', 'trades'] as (keyof OverlayToggles)[]).map((k) => (
-                <label key={k} style={{ display: 'flex', alignItems: 'center', gap: 3, cursor: 'pointer' }}>
-                  <input type="checkbox" checked={show[k]} onChange={(e) => setShow((s) => ({ ...s, [k]: e.target.checked }))} />
-                  {OVERLAY_LABEL[k]}
-                </label>
-              ))}
-            </div>
-            <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: '#aaa599' }}>
-              {loadingCandles ? '載入中…' : `${selected?.symbol ?? ''} · ${candles.length} 根`}
-            </span>
-            {popoutWindows.isAvailable() && (
-              <button data-testid="native-popout-chart" title="另開可移到其他螢幕的原生視窗" style={{ ...S.btnGhost, padding: '3px 10px', marginLeft: 'auto' }} onClick={openNativeChartWindow} disabled={openingNativeChart} aria-busy={openingNativeChart}>
-                {openingNativeChart ? '開啟中…' : '↗ 新視窗'}
-              </button>
-            )}
-            <button data-testid="popout-chart" title="放大到獨立面板" style={{ ...S.btnGhost, padding: '3px 10px', marginLeft: popoutWindows.isAvailable() ? 0 : 'auto' }} onClick={() => setPoppedChart((v) => !v)}>
-              {poppedChart ? '⤡ 收合' : '⤢ 放大'}
-            </button>
-          </div>
-          {poppedChart ? <PoppedOutNote label="圖表" onClose={() => setPoppedChart(false)} /> : renderChart(360)}
-
-          <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap', alignItems: 'center', borderTop: '1px solid #efece5', paddingTop: 10 }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#8a8678' }}>
-              <input type="checkbox" data-testid="replay-toggle" checked={replayOn} onChange={(e) => { setReplayOn(e.target.checked); if (!e.target.checked) setReplayPlaying(false); }} />
-              回放模式
-            </label>
-            <HelpTip id="replay" label="回放" text={HELP.replay} />
-            {replayOn && (
-              <>
-                <button data-testid="replay-reset" style={{ ...S.btnGhost, padding: '3px 8px' }} title="回到最新" onClick={() => setReplayCursor(Math.max(0, candles.length - 1))}>⏮</button>
-                <button data-testid="replay-back" style={{ ...S.btnGhost, padding: '3px 8px' }} title="上一根" onClick={() => setReplayCursor((c) => Math.max(0, c - 1))}>◀</button>
-                <button data-testid="replay-play" style={{ ...S.btnGhost, padding: '3px 8px' }} title={replayPlaying ? '暫停' : '播放'} onClick={toggleReplayPlay}>{replayPlaying ? '⏸' : '⏵'}</button>
-                <input
-                  type="range"
-                  data-testid="replay-cursor"
-                  min={0}
-                  max={Math.max(0, candles.length - 1)}
-                  value={Math.min(replayCursor, candles.length - 1)}
-                  onChange={(e) => setReplayCursor(Number(e.target.value))}
-                  style={{ flex: 1, minWidth: 140 }}
-                />
-                <button data-testid="replay-fwd" style={{ ...S.btnGhost, padding: '3px 8px' }} title="下一根" onClick={() => setReplayCursor((c) => Math.min(candles.length - 1, c + 1))}>▶</button>
-                <select data-testid="replay-speed" value={replaySpeed} onChange={(e) => setReplaySpeed(Number(e.target.value))} title="播放速度" style={{ ...S.input, width: 56, fontSize: 11, padding: '3px 4px' }}>
-                  <option value={1}>1×</option>
-                  <option value={2}>2×</option>
-                  <option value={4}>4×</option>
-                </select>
-                <span data-testid="replay-readout" style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: '#16150f', minWidth: 120 }}>
-                  第 {Math.min(replayCursor, candles.length - 1) + 1} / {candles.length} 根
-                </span>
-              </>
-            )}
-          </div>
-
-          {activeBar != null && activeCandle && (
-            <div data-testid="bar-info" style={{ display: 'flex', gap: 12, marginTop: 6, flexWrap: 'wrap', alignItems: 'center', fontFamily: "'IBM Plex Mono', monospace", fontSize: 11 }}>
-              <span style={{ color: '#8a8678' }}>第 {activeBar + 1} 根{hoverBar != null ? '（游標）' : ''}</span>
-              <span style={{ color: '#3c3a30' }}>開 {activeCandle.o.toFixed(2)} 高 {activeCandle.h.toFixed(2)} 低 {activeCandle.l.toFixed(2)} 收 {activeCandle.c.toFixed(2)} · 量 {activeCandle.v.toFixed(0)}</span>
-              <span style={{ color: liveEntry ? '#1f7a57' : '#aaa599', fontWeight: liveEntry ? 700 : 400 }}>進場 {liveEntry ? '✓ 成立' : '✗'}</span>
-              <span style={{ color: liveExit ? '#b23b2e' : '#aaa599', fontWeight: liveExit ? 700 : 400 }}>出場 {liveExit ? '✓ 成立' : '✗'}</span>
-              <span style={{ color: '#8a8678' }}>持倉 <b data-testid="bar-position" style={{ color: posColor }}>{posText}</b></span>
-            </div>
-          )}
-
-          <div style={{ display: 'flex', gap: 12, marginTop: 10, flexWrap: 'wrap', alignItems: 'flex-end', borderTop: '1px solid #efece5', paddingTop: 10 }}>
-            {QUICK_FIELDS.map((f) => (
-              <label key={f.key} data-testid={isAppliedKey(f.key) ? `quick-applied-${f.key}` : undefined} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <span style={appliedLabelStyle(f.key)}>{isAppliedKey(f.key) ? `✓ ${f.label}` : f.label}</span>
-                <NumberInput value={strat[f.key]} onChange={(n) => setNum(f.key, n)} style={appliedInputStyle(f.key, { ...S.input, width: 88 })} />
-              </label>
-            ))}
-            <span style={{ fontSize: 10, color: '#aaa599', alignSelf: 'center' }}>調整即時重畫；完整參數見下方策略表單（<span style={{ color: '#2f6df0' }}>✓ 藍框</span>＝由掃描套用）</span>
-          </div>
-        </section>
-      )}
+      <ChartSection
+        candles={candles}
+        strat={strat}
+        result={result}
+        selected={selected}
+        loadingCandles={loadingCandles}
+        appliedKeys={appliedKeys}
+        onChangeParam={setNum}
+        onError={setErr}
+        onMessage={setMsg}
+        helpReplayText={HELP.replay}
+      />
 
       <div style={S.panel}>
         {/* left column: data + strategy */}
@@ -1031,13 +798,9 @@ export function BacktestPanel(): React.ReactElement {
         />
       )}
 
-      {/* Slice 8a pop-outs: non-modal floating panels rendering the same content
-          enlarged; the left-column controls stay usable while these are open. */}
-      {poppedChart && candles.length > 0 && (
-        <FloatingPanel title="圖表" testId="chart-popout" initial={{ x: 430, y: 70, w: 800, h: 540 }} onClose={() => setPoppedChart(false)}>
-          {(s) => renderChart(s.h)}
-        </FloatingPanel>
-      )}
+      {/* Slice 8a metrics pop-out: non-modal floating panel rendering the metrics
+          enlarged; the left-column controls stay usable while it is open. (The
+          chart pop-out lives in ChartSection now.) */}
       {poppedMetrics && result && (
         <FloatingPanel title="回測績效" testId="metrics-popout" initial={{ x: 220, y: 130, w: 460, h: 520 }} onClose={() => setPoppedMetrics(false)}>
           {() => renderMetricsTable(15)}
