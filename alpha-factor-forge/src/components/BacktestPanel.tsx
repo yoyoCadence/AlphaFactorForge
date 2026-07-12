@@ -7,7 +7,7 @@
 // tauri-client; all maths through core/* + src/services.
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { db, files, isTauri, importDataset } from '../tauri-client/dataClient';
+import { db, isTauri, importDataset } from '../tauri-client/dataClient';
 import type { Candle, Dataset, StrategyDef } from '../tauri-client/commands';
 import { defaultStrategy, OPERAND_IDS, type ParamsStrategy, type SignalId, type Rule, type RuleOp, type OperandId } from '../services/strategy';
 import { SUPPORTED_SIGNALS } from '../services/strategySignals';
@@ -20,17 +20,15 @@ import { makeSampleCandles } from '../services/sampleData';
 import { buildStrategyDef } from '../services/strategyRecord';
 import { strategyFromDef } from '../services/strategyLibrary';
 import { metricsToBacktestSummary } from '../services/metricsMapper';
-import { reportToJson, suggestedFilename, tradesToCsv } from '../services/reportExport';
 import { HelpTip } from './HelpTip';
-import { FloatingPanel } from './FloatingPanel';
 import { NumberInput } from './NumberInput';
 import { SweepSection } from './SweepSection';
 import { ChartSection } from './ChartSection';
-import { PoppedOutNote } from './PoppedOutNote';
+import { DatasetSection } from './DatasetSection';
+import { ResultsSection } from './ResultsSection';
 import { S } from './panelStyles';
 import type { NumKey } from './panelTypes';
 import type { BacktestResult, Candle as CoreCandle } from '../core/backtest';
-import type { Metrics } from '../core/metrics';
 
 const IND_FIELDS: { key: NumKey; label: string }[] = [
   { key: 'fastMA', label: '快線 MA' },
@@ -90,28 +88,6 @@ const HELP: Record<string, string> = {
   applyBest: '把最佳組合的參數套回策略表單（也可直接點熱力圖任一格套用該格的組合）。',
   replay: '回放模式：用滑桿或 ◀ / ▶ 一根一根前進，或按 ⏵ 自動播放（速度 1×–4×）；圖表只畫到目前這根，並顯示此根的進出場訊號與持倉（持倉依上次回測），之後的 K 線與買賣點會被隱藏，像重播當時看到的行情。',
 };
-
-const METRIC_ROWS: { label: string; fmt: (m: Metrics) => string }[] = [
-  { label: '淨報酬', fmt: (m) => pct(m.netReturn) },
-  { label: 'CAGR', fmt: (m) => pct(m.cagr) },
-  { label: '最大回撤', fmt: (m) => pct(m.maxDrawdown) },
-  { label: 'Sharpe', fmt: (m) => num(m.sharpe) },
-  { label: 'Sortino', fmt: (m) => num(m.sortino) },
-  { label: 'Calmar', fmt: (m) => num(m.calmar) },
-  { label: '勝率', fmt: (m) => pct(m.winRate) },
-  { label: '交易數', fmt: (m) => String(m.tradeCount) },
-  { label: 'Profit Factor', fmt: (m) => (Number.isFinite(m.profitFactor) ? num(m.profitFactor) : '∞') },
-  { label: '平均每筆', fmt: (m) => pct(m.avgTradeReturn) },
-  { label: '曝險', fmt: (m) => pct(m.exposure) },
-  { label: '換手', fmt: (m) => num(m.turnover) },
-];
-
-function pct(x: number): string {
-  return `${(x * 100).toFixed(2)}%`;
-}
-function num(x: number): string {
-  return Number.isFinite(x) ? x.toFixed(2) : '—';
-}
 
 /** Read a finite number from one of several candidate keys, else throw. */
 function pickNum(o: Record<string, unknown>, keys: string[]): number {
@@ -196,17 +172,12 @@ export function BacktestPanel(): React.ReactElement {
   const [result, setResult] = useState<BacktestResult | null>(null);
   const [running, setRunning] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [exporting, setExporting] = useState<'json' | 'csv' | null>(null);
-  const [exportNotice, setExportNotice] = useState<{ kind: 'busy' | 'done'; text: string } | null>(null);
   const [busyData, setBusyData] = useState(false);
   const [importText, setImportText] = useState('');
   const [err, setErr] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [candles, setCandles] = useState<CoreCandle[]>([]);
   const [loadingCandles, setLoadingCandles] = useState(false);
-  // Pop-out (Slice 8a): enlarge 回測績效 into a floating resizable panel. The
-  // chart pop-out + replay / hover / native-window state live in ChartSection now.
-  const [poppedMetrics, setPoppedMetrics] = useState(false);
   const [holdout, setHoldout] = useState(false);
   const [holdoutPct, setHoldoutPct] = useState(30); // last N% of bars = out-of-sample
   const [holdoutResult, setHoldoutResult] = useState<{ inSample: BacktestResult; outSample: BacktestResult } | null>(null);
@@ -399,34 +370,6 @@ export function BacktestPanel(): React.ReactElement {
     }
   }
 
-  async function exportResult(ext: 'json' | 'csv') {
-    if (!selected || !result) return;
-    setExporting(ext);
-    setErr(null);
-    setMsg(null);
-    setExportNotice({ kind: 'busy', text: `正在準備 ${ext.toUpperCase()} 下載...` });
-    try {
-      const at = Date.now();
-      const dataset = {
-        symbol: selected.symbol,
-        interval: selected.interval,
-        startTime: selected.start_time,
-        endTime: selected.end_time,
-      };
-      const contents = ext === 'json'
-        ? reportToJson({ strategyName: stratName, strategy: strat, dataset, result, exportedAt: at })
-        : tradesToCsv(result.trades);
-      const path = await files.saveReport(suggestedFilename(dataset, ext, at), contents);
-      setMsg(`已匯出 ${ext.toUpperCase()}：${path}`);
-      setExportNotice({ kind: 'done', text: `${ext.toUpperCase()} 下載完成：${path}` });
-    } catch (e) {
-      setExportNotice(null);
-      setErr(String(e));
-    } finally {
-      setExporting(null);
-    }
-  }
-
   // Load candles if the panel hasn't yet (mirrors run()'s empty-candles path),
   // so a sweep can run even before the chart-load effect has populated them.
   // Passed to SweepSection (REF-001).
@@ -438,45 +381,6 @@ export function BacktestPanel(): React.ReactElement {
     }
     return cs;
   };
-
-  // Columns for the metrics table: a single full-period column, or three
-  // (full / in-sample / out-of-sample) when holdout produced a split.
-  const metricCols = result
-    ? holdout && holdoutResult
-      ? [
-          { label: '全期', metrics: result.metrics },
-          { label: '樣本內', metrics: holdoutResult.inSample.metrics },
-          { label: '樣本外', metrics: holdoutResult.outSample.metrics },
-        ]
-      : [{ label: '', metrics: result.metrics }]
-    : [];
-
-  // Metrics table content, factored out so it can render inline OR (Slice 8a)
-  // enlarged inside a FloatingPanel. Same state either way -> edits reflow live.
-  const renderMetricsTable = (fontSize: number) => (
-    <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: "'IBM Plex Mono', monospace", fontSize }}>
-      {metricCols.length > 1 && (
-        <thead>
-          <tr style={{ borderBottom: '1px solid #d6d2c8' }}>
-            <th />
-            {metricCols.map((c) => (
-              <th key={c.label} data-testid={`col-${c.label}`} style={{ padding: '4px', textAlign: 'right', fontSize: fontSize - 2, fontWeight: 600, color: '#8a8678' }}>{c.label}</th>
-            ))}
-          </tr>
-        </thead>
-      )}
-      <tbody>
-        {METRIC_ROWS.map((r) => (
-          <tr key={r.label} style={{ borderBottom: '1px solid #efece5' }}>
-            <td style={{ padding: '5px 4px', color: '#8a8678' }}>{r.label}</td>
-            {metricCols.map((c) => (
-              <td key={c.label} style={{ padding: '5px 4px', textAlign: 'right', fontWeight: 600 }}>{r.fmt(c.metrics)}</td>
-            ))}
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  );
 
   return (
     <div>
@@ -499,42 +403,19 @@ export function BacktestPanel(): React.ReactElement {
       <div style={S.panel}>
         {/* left column: data + strategy */}
         <div style={{ display: 'grid', gap: 12 }}>
-          <section style={S.card}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, margin: '0 0 8px' }}>
-              <h2 style={{ ...S.h2, margin: 0 }}>資料集</h2>
-              <HelpTip id="dataset" label="資料集" text={HELP.dataset} />
-            </div>
-            <select
-              value={selId ?? ''}
-              onChange={(e) => setSelId(e.target.value ? Number(e.target.value) : null)}
-              style={{ ...S.input, marginBottom: 8 }}
-            >
-              {datasets.length === 0 && <option value="">（尚無資料集）</option>}
-              {datasets.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.symbol} · {d.interval} · {d.candle_count} 根
-                </option>
-              ))}
-            </select>
-            <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
-              <button data-testid="load-sample" style={S.btnGhost} onClick={loadSample} disabled={busyData || !isTauri()} aria-busy={busyData}>
-                {busyData ? '處理中…' : '載入樣本資料'}
-              </button>
-              <button style={S.btnGhost} onClick={() => refresh().catch((e) => setErr(String(e)))} disabled={!isTauri()}>
-                重新整理
-              </button>
-            </div>
-            <textarea
-              value={importText}
-              onChange={(e) => setImportText(e.target.value)}
-              placeholder='貼上 K 線 JSON：[{ "t":.., "o":.., "h":.., "l":.., "c":.., "v":.. }, …] 或 { "symbol":"BTCUSDT","interval":"1h","candles":[…] }'
-              rows={3}
-              style={{ ...S.input, fontSize: 11, resize: 'vertical' }}
-            />
-            <button style={{ ...S.btnGhost, marginTop: 6 }} onClick={importJson} disabled={busyData || !importText.trim() || !isTauri()} aria-busy={busyData}>
-              匯入 JSON
-            </button>
-          </section>
+          <DatasetSection
+            datasets={datasets}
+            selId={selId}
+            busyData={busyData}
+            importText={importText}
+            tauriAvailable={isTauri()}
+            helpText={HELP.dataset}
+            onSelectDataset={setSelId}
+            onLoadSample={loadSample}
+            onRefresh={() => refresh().catch((e) => setErr(String(e)))}
+            onImportTextChange={setImportText}
+            onImportJson={importJson}
+          />
 
           <section style={S.card}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
@@ -727,56 +608,20 @@ export function BacktestPanel(): React.ReactElement {
           </section>
         </div>
 
-        {/* right column: results */}
-        <section style={S.card}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, margin: '0 0 8px' }}>
-            <h2 style={{ ...S.h2, margin: 0 }}>回測績效</h2>
-            <HelpTip id="metrics" label="回測績效" text={HELP.metrics} />
-            {result && (
-              <button data-testid="popout-metrics" title="放大到獨立面板" style={{ ...S.btnGhost, padding: '3px 10px', marginLeft: 'auto' }} onClick={() => setPoppedMetrics((v) => !v)}>
-                {poppedMetrics ? '⤡ 收合' : '⤢ 放大'}
-              </button>
-            )}
-          </div>
-          {!result && <p style={{ color: '#aaa599', fontSize: 12 }}>尚未回測 — 選資料集、設策略後按「執行回測」。</p>}
-          {result && (
-            <>
-              {poppedMetrics ? <PoppedOutNote label="回測績效" onClose={() => setPoppedMetrics(false)} /> : renderMetricsTable(12)}
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 12, flexWrap: 'wrap' }}>
-                <button data-testid="export-json" style={S.btnGhost} onClick={() => exportResult('json')} disabled={exporting != null} aria-busy={exporting === 'json'}>
-                  {exporting === 'json' ? '匯出 JSON 中...' : '匯出 JSON'}
-                </button>
-                <button data-testid="export-csv" style={S.btnGhost} onClick={() => exportResult('csv')} disabled={exporting != null} aria-busy={exporting === 'csv'}>
-                  {exporting === 'csv' ? '匯出 CSV 中...' : '匯出 CSV'}
-                </button>
-                {exportNotice && (
-                  <span
-                    aria-live="polite"
-                    data-testid="export-status"
-                    style={{
-                      color: exportNotice.kind === 'done' ? '#1f7a57' : '#8a7a3a',
-                      fontFamily: "'IBM Plex Mono', monospace",
-                      fontSize: 11,
-                    }}
-                  >
-                    {exportNotice.text}
-                  </span>
-                )}
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 12 }}>
-                <button data-testid="save-result" style={{ ...S.btn, flex: 1 }} onClick={save} disabled={saving} aria-busy={saving}>
-                  {saving ? '儲存中…' : '儲存結果'}
-                </button>
-                <HelpTip id="save" label="儲存結果" text={HELP.save} align="right" />
-              </div>
-              <p style={{ color: '#aaa599', fontSize: 11, marginTop: 8 }}>
-                儲存會寫入 strategy_def + backtest_summary（segment=full），經由 metricsToBacktestSummary()。
-              </p>
-            </>
-          )}
-        </section>
+        {/* right column: results (metrics table + export + save + metrics pop-out) */}
+        <ResultsSection
+          result={result}
+          holdout={holdout}
+          holdoutResult={holdoutResult}
+          selected={selected}
+          strat={strat}
+          stratName={stratName}
+          saving={saving}
+          onSave={save}
+          onError={setErr}
+          onMessage={setMsg}
+          help={{ metrics: HELP.metrics, save: HELP.save }}
+        />
       </div>
 
       {candles.length > 0 && (
@@ -798,14 +643,6 @@ export function BacktestPanel(): React.ReactElement {
         />
       )}
 
-      {/* Slice 8a metrics pop-out: non-modal floating panel rendering the metrics
-          enlarged; the left-column controls stay usable while it is open. (The
-          chart pop-out lives in ChartSection now.) */}
-      {poppedMetrics && result && (
-        <FloatingPanel title="回測績效" testId="metrics-popout" initial={{ x: 220, y: 130, w: 460, h: 520 }} onClose={() => setPoppedMetrics(false)}>
-          {() => renderMetricsTable(15)}
-        </FloatingPanel>
-      )}
     </div>
   );
 }
