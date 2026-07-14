@@ -10,15 +10,14 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 - Target app: `alpha-factor-forge/` is the Tauri Desktop Phase A scaffold.
 - Baseline verified: `npm test`, `npm run typecheck`, and `npm run build` pass in `alpha-factor-forge/`.
 - Native Tauri verified: Rust 1.96 / Cargo / MSVC build tools / Tauri CLI v2 installed; `cargo check` and `cargo tauri dev` both pass; multi-size icons generated.
-- Progress (through PR #43 + BUG-002): Phase A backtest pipeline; chart (canvas + overlays + trade markers + wheel-zoom + drag-pan + hover + bar replay); params/blocks/code strategy modes; holdout; parameter sweep + interactive heatmap; report export (Slice 7-2); SQLite strategy library (Slice 7-3); native chart OS window (Slice 8b-1); plus the 2026-07-07 project audit (`docs/` blueprint) and its backlog work: DOC-001, BUG-001, REF-001→003b, TEST-002 (golden lock + legacy parity), and Backtest Correctness Phase 1 BUG-002 (fee-inclusive accounting + settled EOD metrics). Current tests: 156 vitest + 21 Playwright e2e.
-- Next: BUG-003 (fill timing + risk exits), then BUG-004 (direction/input contract), then UI-port Slice 8b-2. Slice 8b-1 chart OS window, Slice 10 pan/zoom, Slice 7 report export + SQLite strategy library, TEST-002, and BUG-002 are complete.
+- Progress (through PR #44 + BUG-003): Phase A backtest pipeline; chart (canvas + overlays + trade markers + wheel-zoom + drag-pan + hover + bar replay); params/blocks/code strategy modes; holdout; parameter sweep + interactive heatmap; report export (Slice 7-2); SQLite strategy library (Slice 7-3); native chart OS window (Slice 8b-1); plus the 2026-07-07 project audit (`docs/` blueprint) and its backlog work: DOC-001, BUG-001, REF-001→003b, TEST-002 (golden lock + legacy parity), and Backtest Correctness Phases 1–2 (fee-inclusive accounting, settled EOD metrics, execution-bar scheduling, and gap-aware risk fills). Current tests: 166 vitest + 21 Playwright e2e.
+- Next: BUG-004 (direction/input contract), then UI-port Slice 8b-2. Slice 8b-1 chart OS window, Slice 10 pan/zoom, Slice 7 report export + SQLite strategy library, TEST-002, BUG-002, and BUG-003 are complete.
 - PR CI runs typecheck / test / build / cargo-check (now incl. `cargo test`) — green per PR; `main` requires branches up to date before merge.
 - Source-of-truth architecture: `STRATEGY_DISCOVERY.md` v3 and `README.md`.
 - Historical context: `HISTORY.md` and `CONVERSATION_HISTORY.md`.
 
 ## Next
 
-- [ ] BUG-003 — backtest fill timing + risk exits: make `nextOpen` timestamps use the execution bar; apply gap-aware SL/TP fills + exit slippage; keep conservative SL-first when intrabar order is unknown. (Backtest Correctness Phase 2; after BUG-002.)
 - [ ] BUG-004 — backtest direction/input contract: restore legacy `both` reversal semantics and make the core reject invalid normalized fractions while UI/service remains the only legacy-percent conversion boundary. (Backtest Correctness Phase 3; after BUG-003.)
 - [ ] UI port — Slice 8b-2: real Tauri metrics OS window; extract the shared metrics renderer, then add its child route + typed snapshot sync. (UI-port track.)
 
@@ -161,6 +160,11 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 - [ ] Full closed-loop AI automation.
 
 ## Done
+
+- [x] BUG-003 — backtest fill timing + risk exits (Backtest Correctness Phase 2).
+  - `nextOpen` signals now create pending orders that execute on the following tested candle, so fills use the execution bar's timestamp/index and its open no longer leaks into the signal-bar equity point; final-bar signals do not fill beyond the tested range.
+  - SL/TP exits now use gap-aware open/threshold prices plus the correct closing-side slippage for long and short positions, retain conservative SL-first handling without sub-bars, and apply normal exit slippage to EOD settlement.
+  - Added 10 hand-calculated timing/risk/EOD tests and intentionally updated affected golden timestamps, risk-exit prices, and derived metrics. `npm run typecheck`, 166 vitest, production build, and all 21 Playwright e2e tests pass.
 
 - [x] BUG-002 — backtest accounting + EOD settlement contract (Backtest Correctness Phase 1).
   - Adopted `docs/backtest-execution-contract.md`: normalized core units, fee-inclusive entry budget, long accounting, unleveraged 1× short collateral, settled metrics baseline/endpoint, and the approved BUG-003/004 follow-ups.

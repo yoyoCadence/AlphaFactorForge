@@ -1,6 +1,6 @@
 # Backtest Execution Contract
 
-Status: adopted target semantics (maintainer direction, 2026-07-14). Implementation is intentionally split across BUG-002 → BUG-004 so each result-changing assumption has focused tests and review.
+Status: adopted target semantics (maintainer direction, 2026-07-14). BUG-002 and BUG-003 implement the accounting and fill-policy portions; BUG-004 remains the focused direction/input follow-up.
 
 This contract is normative for `alpha-factor-forge/src/core/backtest`. The golden suite records actual output; when an approved correction changes that output, the affected golden values must be updated with a changelog explanation.
 
@@ -68,12 +68,12 @@ For both sides, `pnlPct = netTradePnl / entryNotional`.
 - If a position remains after the final candle, it is force-closed and the final equity point is replaced with settled cash/equity.
 - `netReturn` and CAGR use configured `startEquity`, not the first post-action equity point.
 - Per-bar return statistics and maximum drawdown include the transition from `startEquity` to the first equity point.
-- EOD fill-price slippage is handled by BUG-003; BUG-002 first makes settlement and fee accounting internally consistent with the current raw-close policy.
+- An EOD force-close uses the final candle close plus normal closing-side slippage before the settled final equity point is written.
 
 ## Fill time and risk exits (BUG-003)
 
-- `nextOpen` signals fill on the next candle open; trade time and holding bars use that execution candle.
-- SL/TP uses a gap-aware base price and normal closing-side slippage.
+- `nextOpen` signals create a pending order only when another tested candle exists. That order fills at the start of the next candle, before its risk checks and equity point; trade time and holding bars use the execution candle. A final-candle signal cannot fill beyond the tested range.
+- SL/TP uses a gap-aware base price and normal closing-side slippage: long SL `min(open, stop)`, long TP `max(open, target)`, short SL `max(open, stop)`, and short TP `min(open, target)` before sell-side (long) or buy-side (short) slippage.
 - Without sub-bars, a candle touching both SL and TP resolves conservatively as SL first.
 - A future Bar Magnifier may use actual sub-bar order but must not silently change the no-sub-bar fallback.
 
