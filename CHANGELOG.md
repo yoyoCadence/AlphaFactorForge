@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added backtest-engine golden behaviour tests and a legacy parity report covering execution timing, risk fills, short accounting, end-of-data settlement, and `both` direction semantics without changing product behaviour.
 - Fixed parameter sweep leaking out-of-sample data when Holdout is on: the sweep now optimises on the in-sample segment only (same split as the backtest), and the sweep panel states its in-sample scope so the heatmap is not misread as full-period.
 - Fixed loading legacy params and blocks strategies saved before rule-builder or manual-code fields were introduced, while retaining strict validation for active and malformed fields.
 - Added Slice 8b-1 native chart pop-out: open or focus a resizable Tauri OS window and keep its chart/replay state synchronized through typed targeted events with least-privilege Tauri event permissions.

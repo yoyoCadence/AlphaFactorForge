@@ -10,16 +10,15 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 - Target app: `alpha-factor-forge/` is the Tauri Desktop Phase A scaffold.
 - Baseline verified: `npm test`, `npm run typecheck`, and `npm run build` pass in `alpha-factor-forge/`.
 - Native Tauri verified: Rust 1.96 / Cargo / MSVC build tools / Tauri CLI v2 installed; `cargo check` and `cargo tauri dev` both pass; multi-size icons generated.
-- Progress (through PR #41): Phase A backtest pipeline; chart (canvas + overlays + trade markers + wheel-zoom + drag-pan + hover + bar replay); params/blocks/code strategy modes; holdout; parameter sweep + interactive heatmap; report export (Slice 7-2); SQLite strategy library (Slice 7-3); native chart OS window (Slice 8b-1); plus the 2026-07-07 project audit (`docs/` blueprint) and its backlog work: DOC-001 (docs single-source), BUG-001 (sweep-respects-holdout), and the full BacktestPanel decomposition REF-001→003b (Sweep / Chart / Dataset / Results / Strategy sections — **`BacktestPanel.tsx` 1382 → 385 lines**, now a pure orchestration layer; audit refactor phase complete). Current tests: 141 vitest + 21 Playwright e2e green per PR.
-- Next: TEST-002 (backtest golden tests + legacy parity) — the audit backlog's front now that the refactor phase is closed. The UI-port track's Slice 8b-2 (real Tauri metrics OS window) stays queued behind it. Slice 8b-1 chart OS window, Slice 10 pan/zoom, and Slice 7 report export + SQLite strategy library are complete.
+- Progress (through PR #42 + TEST-002): Phase A backtest pipeline; chart (canvas + overlays + trade markers + wheel-zoom + drag-pan + hover + bar replay); params/blocks/code strategy modes; holdout; parameter sweep + interactive heatmap; report export (Slice 7-2); SQLite strategy library (Slice 7-3); native chart OS window (Slice 8b-1); plus the 2026-07-07 project audit (`docs/` blueprint) and its backlog work: DOC-001 (docs single-source), BUG-001 (sweep-respects-holdout), the full BacktestPanel decomposition REF-001→003b (Sweep / Chart / Dataset / Results / Strategy sections — **`BacktestPanel.tsx` 1382 → 385 lines**, now a pure orchestration layer; audit refactor phase complete), and TEST-002 (backtest golden lock + legacy parity report). Current tests: 150 vitest; the 21 Playwright e2e baseline is unchanged (TEST-002 is test/docs only).
+- Next: UI-port Slice 8b-2 (real Tauri metrics OS window). Slice 8b-1 chart OS window, Slice 10 pan/zoom, Slice 7 report export + SQLite strategy library, and TEST-002 are complete.
 - PR CI runs typecheck / test / build / cargo-check (now incl. `cargo test`) — green per PR; `main` requires branches up to date before merge.
 - Source-of-truth architecture: `STRATEGY_DISCOVERY.md` v3 and `README.md`.
 - Historical context: `HISTORY.md` and `CONVERSATION_HISTORY.md`.
 
 ## Next
 
-- [ ] TEST-002 — backtest engine golden tests + legacy parity report (audit backlog `docs/improvement-backlog.md`). Lock the current `core/backtest` behaviour before any engine change; no product-code edits. (Front of the audit backlog now that the REF refactor phase is closed.)
-- [ ] UI port — Slice 8b-2: real Tauri metrics OS window; extract the shared metrics renderer, then add its child route + typed snapshot sync. (UI-port track; queued behind TEST-002.)
+- [ ] UI port — Slice 8b-2: real Tauri metrics OS window; extract the shared metrics renderer, then add its child route + typed snapshot sync. (UI-port track.)
 
 ## In Progress
 
@@ -160,6 +159,11 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 - [ ] Full closed-loop AI automation.
 
 ## Done
+
+- [x] TEST-002 — backtest engine golden tests + legacy parity report (audit backlog; no product-code edits).
+  - Added four hard-coded golden configurations over `makeSampleCandles({ seed: 42, count: 300 })`, locking trade count, first/last trade time + price, net return, max drawdown, and Sharpe; added five boundary cases for same-bar signals, one candle, `from === to`, zero UI size, and negative UI costs.
+  - Added `docs/engine-parity-report.md` with seven evidence-linked current/legacy comparisons and a follow-up BUG task template. It records recommendations only; maintainer decisions on engine semantics remain open.
+  - `core/backtest/index.ts` is unchanged. `npm run typecheck` and all 150 vitest tests pass.
 
 - [x] REF-003b — extract StrategySection; BacktestPanel becomes the orchestrator (PR #41; audit backlog, move-only).
   - Moved the strategy card (mode tabs, library picker, params/blocks/code editors, indicator/exec grids, Holdout toggle, Run) into `components/StrategySection.tsx`. **`BacktestPanel` 648 → 385 lines — the REF-003 `< 400` acceptance criterion is now met (finished per the REF-003 ultrareview).** This closes the audit refactor phase: the panel now only holds shared state + handlers and composes Chart / Dataset / Strategy / Results / Sweep sections.
