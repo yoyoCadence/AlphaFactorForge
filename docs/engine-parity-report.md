@@ -1,6 +1,6 @@
 # Backtest Engine / Legacy Parity Report
 
-> Status: decision input only. This report records observed behaviour; it does not approve that behaviour or change product code. Any engine change requires a separate maintainer-approved task and an intentional update to the golden expectations.
+> Status: parity record plus maintainer decisions. TEST-002 created the observation-only baseline; the maintainer adopted `backtest-execution-contract.md` on 2026-07-14. Result-changing corrections are implemented separately in BUG-002 → BUG-004 with intentional golden updates.
 
 ## Scope and baseline
 
@@ -40,16 +40,16 @@ Each configuration fixes the trade count, first/last trade timestamps and prices
 
 ### 4. Short cash and collateral accounting
 
-- **Current engine:** A short entry subtracts notional plus entry fee as reserved collateral (`index.ts:129-138`). Mark-to-market equity adds the collateral plus unrealized PnL (`:168-174`); closing returns the entry notional and realizes the price difference minus exit fee (`:100-110`). Quantity is computed after subtracting the entry fee from the budget (`:132-135`). The emitted trade PnL is price-return based and does not subtract fees (`:114-124`).
+- **Current engine (BUG-002):** Entry budget explicitly includes notional plus its fee (`index.ts:129-140`). A short reserves 1× entry notional as collateral; mark-to-market equity is free cash + collateral + unrealized PnL (`:170-178`). Closing releases collateral and emits fee-inclusive PnL/PnL% (`:102-125`).
 - **Legacy:** A short entry credits sale proceeds minus entry fee and holds a negative position (`AlphaFactorForge.dc.html:1103`); equity is always `cash + pos * close` (`:1127`). Closing debits buy-to-cover price plus fee (`:1093-1101`). Quantity uses the full notional before fee, and the round-trip PnL explicitly subtracts both fees (`:1094-1100`).
-- **Recommendation for maintainer decision:** Before selecting either representation, add a hand-calculated accounting table for flat/up/down prices with and without fees and require `cash`, final equity, and trade PnL to reconcile. Candidate fixes must address fee-inclusive trade PnL and quantity semantics together, not merely remove the current “dead” local variables.
+- **Decision:** Adopt the explicit unleveraged 1× collateral model with fee-inclusive entry budgeting and require `finalEquity = startEquity + sum(trade.pnl)`. BUG-002 implements this with hand-calculated long/short/partial-size/multi-trade tests. Borrow interest, funding, leverage, and liquidation remain out of Phase A scope.
 - **Impact:** Short quantity, per-trade PnL, equity curve, net return, drawdown, and all PnL-derived statistics. This is a high-blast-radius behaviour change.
 
 ### 5. End-of-data forced close
 
-- **Current engine:** The position is force-closed at the final candle's raw close (`index.ts:177-178`), without slippage. The final equity point is recorded before that close (`:168-175`), and metrics are computed from the existing equity curve (`:180-185`), so final close fees and settlement are not reflected in the metric endpoint.
+- **Current engine (BUG-002):** The position is still force-closed at the final candle's raw close pending BUG-003 (`index.ts:181-182`), but the final equity point is now replaced with settled cash including the exit fee (`:183-185`). Metrics receive configured `startEquity` and use the settled endpoint (`:187-193`; `metrics/index.ts:86-110`).
 - **Legacy:** The final candle close is passed through closing-side slippage before settlement (`AlphaFactorForge.dc.html:1129`). Its headline net return is calculated from post-settlement cash (`:1130-1133`), although its previously collected equity series is also pre-settlement.
-- **Recommendation for maintainer decision:** Treat exit-price policy and final metric-equity reconciliation as one explicit bug candidate. If corrected, append or replace the final equity point with settled equity and document whether EOD uses normal slippage.
+- **Decision:** Metrics and the final equity point must use settled equity; BUG-002 implements that accounting decision. EOD closing-side slippage remains an approved BUG-003 fill-policy correction so it can be reviewed with all other exit fills.
 - **Impact:** Any run ending with an open position; trade exit price, net return, final equity, fees, and consistency between the trade list and metrics.
 
 ### 6. `direction: both` semantics
@@ -68,7 +68,7 @@ Each configuration fixes the trade count, first/last trade timestamps and prices
 
 ## Decision summary
 
-No row above is decided by TEST-002. Until a maintainer records a decision, the golden suite intentionally preserves current output, including divergences from legacy. The highest-blast-radius candidates are short accounting, `both` semantics, and EOD metric reconciliation. `nextOpen` timestamps and risk-exit fill policy are narrower but still change persisted/report data.
+The maintainer adopted the target semantics in `backtest-execution-contract.md` on 2026-07-14. BUG-002 resolves the accounting and settled-equity portions in rows 4–5; BUG-003 will resolve rows 1–3 plus EOD slippage; BUG-004 will resolve rows 6–7. Until each focused correction lands, its golden values continue to preserve the corresponding current output.
 
 ## Follow-up task template if a behaviour is approved for correction
 

@@ -68,6 +68,8 @@ export function maxDrawdown(equity: EquityPoint[]): number {
 export interface MetricsInput {
   trades: ClosedTrade[];
   equity: EquityPoint[];
+  /** account equity immediately before the tested segment's first bar. */
+  startEquity?: number;
   /** total bars in the tested segment, for exposure/turnover. */
   totalBars: number;
   /** bars per year for the interval, for CAGR/annualization. */
@@ -81,8 +83,8 @@ export function computeMetrics(input: MetricsInput): Metrics {
   const { trades, equity, totalBars, barsPerYear } = input;
   const rf = input.riskFreePerBar ?? 0;
 
-  const start = equity.length ? equity[0].equity : 1;
-  const end = equity.length ? equity[equity.length - 1].equity : 1;
+  const start = input.startEquity ?? (equity.length ? equity[0].equity : 1);
+  const end = equity.length ? equity[equity.length - 1].equity : start;
   const netReturn = start > 0 ? end / start - 1 : 0;
 
   const years = barsPerYear > 0 ? totalBars / barsPerYear : 0;
@@ -90,9 +92,10 @@ export function computeMetrics(input: MetricsInput): Metrics {
 
   // per-bar equity returns for Sharpe/Sortino
   const rets: number[] = [];
-  for (let i = 1; i < equity.length; i++) {
-    const prev = equity[i - 1].equity;
-    if (prev > 0) rets.push(equity[i].equity / prev - 1);
+  let previousEquity = input.startEquity;
+  for (const point of equity) {
+    if (previousEquity != null && previousEquity > 0) rets.push(point.equity / previousEquity - 1);
+    previousEquity = point.equity;
   }
   const excess = rets.map((r) => r - rf);
   const sd = std(excess);
@@ -101,7 +104,10 @@ export function computeMetrics(input: MetricsInput): Metrics {
   const sharpe = sd > 0 ? (mean(excess) / sd) * ann : 0;
   const sortino = downside > 0 ? (mean(excess) / downside) * ann : 0;
 
-  const mdd = maxDrawdown(equity);
+  const drawdownEquity = input.startEquity != null && equity.length
+    ? [{ time: equity[0].time, equity: input.startEquity }, ...equity]
+    : equity;
+  const mdd = maxDrawdown(drawdownEquity);
   const calmar = mdd > 0 ? cagr / mdd : 0;
 
   const pnls = trades.map((t) => t.pnl);
