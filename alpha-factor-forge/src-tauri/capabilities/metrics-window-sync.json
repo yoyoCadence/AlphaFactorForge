@@ -1,0 +1,11 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "metrics-window-sync",
+  "description": "Allow the main and metrics pop-out windows to exchange typed performance snapshots.",
+  "windows": ["main", "metrics-popout-window"],
+  "permissions": [
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
+    "core:event:allow-emit-to"
+  ]
+}

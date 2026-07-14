@@ -26,6 +26,15 @@ fn popout_spec(kind: &str) -> AppResult<PopoutSpec> {
             min_width: 640.0,
             min_height: 420.0,
         }),
+        "metrics" => Ok(PopoutSpec {
+            label: "metrics-popout-window",
+            title: "AlphaFactorForge — Metrics",
+            route: "index.html?window=metrics",
+            width: 680.0,
+            height: 720.0,
+            min_width: 420.0,
+            min_height: 420.0,
+        }),
         _ => Err(AppError::Other(format!(
             "unsupported pop-out window kind: {kind}"
         ))),
@@ -70,19 +79,27 @@ mod tests {
     }
 
     #[test]
+    fn metrics_popout_spec_has_stable_label_and_child_route() {
+        let spec = popout_spec("metrics").unwrap();
+        assert_eq!(spec.label, "metrics-popout-window");
+        assert_eq!(spec.route, "index.html?window=metrics");
+        assert!(spec.width >= spec.min_width);
+        assert!(spec.height >= spec.min_height);
+    }
+
+    #[test]
     fn rejects_unknown_popout_kinds() {
-        let err = popout_spec("metrics")
+        let err = popout_spec("unknown")
             .err()
-            .expect("metrics is deferred to Slice 8b-2");
+            .expect("unknown pop-out kinds must be rejected");
         assert!(err.to_string().contains("unsupported pop-out window kind"));
     }
 
     #[test]
     fn chart_sync_capability_covers_both_windows_and_required_events() {
-        let capability: serde_json::Value = serde_json::from_str(include_str!(
-            "../../capabilities/chart-window-sync.json"
-        ))
-        .expect("chart sync capability must be valid JSON");
+        let capability: serde_json::Value =
+            serde_json::from_str(include_str!("../../capabilities/chart-window-sync.json"))
+                .expect("chart sync capability must be valid JSON");
 
         let windows = capability["windows"]
             .as_array()
@@ -94,6 +111,32 @@ mod tests {
         let permissions = capability["permissions"]
             .as_array()
             .expect("chart sync capability must declare permissions");
+        for permission in [
+            "core:event:allow-listen",
+            "core:event:allow-unlisten",
+            "core:event:allow-emit-to",
+        ] {
+            assert!(permissions.iter().any(|entry| entry == permission));
+        }
+    }
+
+    #[test]
+    fn metrics_sync_capability_covers_only_its_windows_and_required_events() {
+        let capability: serde_json::Value =
+            serde_json::from_str(include_str!("../../capabilities/metrics-window-sync.json"))
+                .expect("metrics sync capability must be valid JSON");
+
+        let windows = capability["windows"]
+            .as_array()
+            .expect("metrics sync capability must declare windows");
+        assert_eq!(windows.len(), 2);
+        for label in ["main", "metrics-popout-window"] {
+            assert!(windows.iter().any(|window| window == label));
+        }
+
+        let permissions = capability["permissions"]
+            .as_array()
+            .expect("metrics sync capability must declare permissions");
         for permission in [
             "core:event:allow-listen",
             "core:event:allow-unlisten",
