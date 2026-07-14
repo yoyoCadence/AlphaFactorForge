@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Restored legacy `direction: both` reversal semantics so entry requests long and exit requests short in both close and `nextOpen` modes, and made the pure backtest core reject non-finite or out-of-range normalized sizing/cost/risk fractions instead of silently clamping them. This intentionally changes all affected `both` trades and metrics while leaving UI/service percentage conversion in `backtestRunner`.
 - Corrected backtest fill semantics so `nextOpen` orders execute on the following candle without leaking that open into the signal-bar equity, SL/TP exits use gap-aware prices plus closing-side slippage with conservative SL-first ambiguity handling, and EOD settlement applies normal exit slippage. This intentionally changes affected trade timestamps, risk-exit prices, and derived golden metrics.
 - Corrected backtest accounting so long/short trades report fee-inclusive PnL, 100% sizing budgets entry fees without negative free cash, 1× short collateral reconciles on wins and losses, and EOD metrics use settled final equity from the configured starting balance. This intentionally updates golden metric values without changing trade count, fill time, or fill price.
 - Added backtest-engine golden behaviour tests and a legacy parity report covering execution timing, risk fills, short accounting, end-of-data settlement, and `both` direction semantics without changing product behaviour.
