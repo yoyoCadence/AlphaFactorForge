@@ -71,6 +71,11 @@ interface OpenPos {
   qty: number;
 }
 
+interface PendingNextOpen {
+  exit: boolean;
+  entrySide: 'LONG' | 'SHORT' | null;
+}
+
 /** Apply per-side slippage to a fill price (buys pay up, sells receive less). */
 function fill(price: number, buy: boolean, slip: number): number {
   return buy ? price * (1 + slip) : price * (1 - slip);
@@ -92,13 +97,7 @@ export function runBacktest(candles: Candle[], signals: Signals, cfg: BacktestCo
   let pos: OpenPos | null = null;
   const trades: ClosedTrade[] = [];
   const equity: EquityPoint[] = [];
-
-  const priceAt = (i: number, buy: boolean): { idx: number; px: number } => {
-    if (fillMode === 'nextOpen' && i + 1 <= to) {
-      return { idx: i + 1, px: fill(candles[i + 1].o, buy, slippagePct) };
-    }
-    return { idx: i, px: fill(candles[i].c, buy, slippagePct) };
-  };
+  let pendingNextOpen: PendingNextOpen | null = null;
 
   const close = (i: number, price: number, _reason: string) => {
     if (!pos) return;
@@ -127,9 +126,7 @@ export function runBacktest(candles: Candle[], signals: Signals, cfg: BacktestCo
     pos = null;
   };
 
-  const open = (i: number, side: 'LONG' | 'SHORT') => {
-    const buy = side === 'LONG';
-    const { idx, px } = priceAt(i, buy);
+  const open = (i: number, side: 'LONG' | 'SHORT', px: number) => {
     const budget = cash * Math.min(1, Math.max(0, sizingPct));
     // sizingPct budgets entry notional + its fee, so 100% sizing never makes
     // free cash negative merely to pay the entry commission.
@@ -138,11 +135,27 @@ export function runBacktest(candles: Candle[], signals: Signals, cfg: BacktestCo
     const qty = px > 0 ? entryNotional / px : 0;
     if (qty <= 0) return;
     cash -= entryNotional + entryFee;
-    pos = { side, entryIdx: idx, entryTime: candles[idx].t, entryPrice: px, entryNotional, entryFee, qty };
+    pos = { side, entryIdx: i, entryTime: candles[i].t, entryPrice: px, entryNotional, entryFee, qty };
   };
+
+  const requestedEntrySide = (): 'LONG' | 'SHORT' => direction === 'short' ? 'SHORT' : 'LONG';
 
   for (let i = from; i <= to; i++) {
     const c = candles[i];
+
+    // Signals from the previous bar become fills only now, at this bar's open.
+    // This keeps nextOpen prices out of the prior signal bar's equity point.
+    if (fillMode === 'nextOpen' && pendingNextOpen) {
+      const pendingExitPos = pos as OpenPos | null;
+      if (pendingNextOpen.exit && pendingExitPos) {
+        close(i, fill(c.o, pendingExitPos.side === 'SHORT', slippagePct), 'signal');
+      }
+      if (pendingNextOpen.entrySide && !pos) {
+        const side = pendingNextOpen.entrySide;
+        open(i, side, fill(c.o, side === 'LONG', slippagePct));
+      }
+      pendingNextOpen = null;
+    }
 
     // intrabar SL/TP check (approximate: order unknown without sub-bars)
     const riskPos = pos as OpenPos | null;
@@ -151,21 +164,28 @@ export function runBacktest(candles: Candle[], signals: Signals, cfg: BacktestCo
       const slPrice = sl != null ? (isLong ? riskPos.entryPrice * (1 - sl) : riskPos.entryPrice * (1 + sl)) : null;
       const tpPrice = tp != null ? (isLong ? riskPos.entryPrice * (1 + tp) : riskPos.entryPrice * (1 - tp)) : null;
       if (slPrice != null && ((isLong && c.l <= slPrice) || (!isLong && c.h >= slPrice))) {
-        close(i, slPrice, 'stop-loss');
+        const base = isLong ? Math.min(c.o, slPrice) : Math.max(c.o, slPrice);
+        close(i, fill(base, !isLong, slippagePct), 'stop-loss');
       } else if (tpPrice != null && ((isLong && c.h >= tpPrice) || (!isLong && c.l <= tpPrice))) {
-        close(i, tpPrice, 'take-profit');
+        const base = isLong ? Math.max(c.o, tpPrice) : Math.min(c.o, tpPrice);
+        close(i, fill(base, !isLong, slippagePct), 'take-profit');
       }
     }
 
-    const exitPos = pos as OpenPos | null;
-    if (exitPos && signals.exit[i]) {
-      const { px } = priceAt(i, exitPos.side === 'SHORT');
-      close(i, px, 'signal');
-    }
-
-    if (!(pos as OpenPos | null) && signals.entry[i]) {
-      if (direction === 'long' || direction === 'both') open(i, 'LONG');
-      else if (direction === 'short') open(i, 'SHORT');
+    if (fillMode === 'close') {
+      const exitPos = pos as OpenPos | null;
+      if (exitPos && signals.exit[i]) {
+        close(i, fill(c.c, exitPos.side === 'SHORT', slippagePct), 'signal');
+      }
+      if (!(pos as OpenPos | null) && signals.entry[i]) {
+        const side = requestedEntrySide();
+        open(i, side, fill(c.c, side === 'LONG', slippagePct));
+      }
+    } else if (i < to) {
+      const hasPosition = (pos as OpenPos | null) != null;
+      const exit = hasPosition && signals.exit[i];
+      const entrySide = signals.entry[i] && (!hasPosition || exit) ? requestedEntrySide() : null;
+      if (exit || entrySide) pendingNextOpen = { exit, entrySide };
     }
 
     // mark-to-market equity
@@ -179,8 +199,10 @@ export function runBacktest(candles: Candle[], signals: Signals, cfg: BacktestCo
     equity.push({ time: c.t, equity: eq });
   }
 
-  // force-close at the end
-  if (pos) close(to, candles[to].c, 'eod');
+  // Force-close at the end using the normal closing side of slippage. A final
+  // nextOpen signal has no execution candle and therefore cannot create a fill.
+  const endPos = pos as OpenPos | null;
+  if (endPos) close(to, fill(candles[to].c, endPos.side === 'SHORT', slippagePct), 'eod');
   // The curve keeps one point per tested candle, but its endpoint must be the
   // settled account value (including EOD exit fee) used by headline metrics.
   if (equity.length) equity[equity.length - 1] = { time: equity[equity.length - 1].time, equity: cash };
