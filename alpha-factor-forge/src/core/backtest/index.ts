@@ -5,6 +5,7 @@
 // Phase A scope: long/short, percent-equity or fixed sizing, fee+slippage,
 // next-bar or close fill, optional SL/TP. The Discovery engine (Phase B) and
 // the DSL compiler feed signals in; this engine never knows about indicators.
+// Adopted semantics and phased correction status: docs/backtest-execution-contract.md.
 
 import { computeMetrics, type ClosedTrade, type EquityPoint, type Metrics } from '../metrics';
 
@@ -65,6 +66,8 @@ interface OpenPos {
   entryIdx: number;
   entryTime: number;
   entryPrice: number;
+  entryNotional: number;
+  entryFee: number;
   qty: number;
 }
 
@@ -99,28 +102,26 @@ export function runBacktest(candles: Candle[], signals: Signals, cfg: BacktestCo
 
   const close = (i: number, price: number, _reason: string) => {
     if (!pos) return;
-    const buyToClose = pos.side === 'SHORT';
-    const raw = pos.side === 'LONG' ? price * pos.qty : pos.entryPrice * pos.qty + (pos.entryPrice - price) * pos.qty;
-    const exitFee = price * pos.qty * feePct;
+    const exitNotional = price * pos.qty;
+    const exitFee = exitNotional * feePct;
+    const grossPnl = pos.side === 'LONG'
+      ? (price - pos.entryPrice) * pos.qty
+      : (pos.entryPrice - price) * pos.qty;
+    const pnl = grossPnl - pos.entryFee - exitFee;
     if (pos.side === 'LONG') {
-      cash += price * pos.qty - exitFee;
+      cash += exitNotional - exitFee;
     } else {
-      // short: profit = (entry - exit) * qty; settle borrowed value
-      cash += (pos.entryPrice - price) * pos.qty - exitFee;
-      cash += pos.entryPrice * pos.qty; // return collateral booked at open
+      // Phase A short = unleveraged 1x collateral + realised price PnL.
+      cash += pos.entryNotional + grossPnl - exitFee;
     }
-    void buyToClose;
-    void raw;
-    const pnlPct = pos.side === 'LONG' ? price / pos.entryPrice - 1 : pos.entryPrice / price - 1;
-    const pnlAbs = pnlPct * pos.entryPrice * pos.qty;
     trades.push({
       entryTime: pos.entryTime,
       exitTime: candles[i].t,
       side: pos.side,
       entryPrice: pos.entryPrice,
       exitPrice: price,
-      pnl: pnlAbs,
-      pnlPct,
+      pnl,
+      pnlPct: pos.entryNotional > 0 ? pnl / pos.entryNotional : 0,
       bars: i - pos.entryIdx,
     });
     pos = null;
@@ -130,12 +131,14 @@ export function runBacktest(candles: Candle[], signals: Signals, cfg: BacktestCo
     const buy = side === 'LONG';
     const { idx, px } = priceAt(i, buy);
     const budget = cash * Math.min(1, Math.max(0, sizingPct));
-    const entryFee = budget * feePct;
-    const qty = px > 0 ? (budget - entryFee) / px : 0;
+    // sizingPct budgets entry notional + its fee, so 100% sizing never makes
+    // free cash negative merely to pay the entry commission.
+    const entryNotional = budget / (1 + feePct);
+    const entryFee = entryNotional * feePct;
+    const qty = px > 0 ? entryNotional / px : 0;
     if (qty <= 0) return;
-    if (side === 'LONG') cash -= px * qty + entryFee;
-    else cash -= px * qty + entryFee; // reserve collateral; returned on close
-    pos = { side, entryIdx: idx, entryTime: candles[idx].t, entryPrice: px, qty };
+    cash -= entryNotional + entryFee;
+    pos = { side, entryIdx: idx, entryTime: candles[idx].t, entryPrice: px, entryNotional, entryFee, qty };
   };
 
   for (let i = from; i <= to; i++) {
@@ -169,19 +172,25 @@ export function runBacktest(candles: Candle[], signals: Signals, cfg: BacktestCo
     let eq = cash;
     const markPos = pos as OpenPos | null;
     if (markPos) {
-      eq += markPos.side === 'LONG' ? c.c * markPos.qty : (markPos.entryPrice - c.c) * markPos.qty + markPos.entryPrice * markPos.qty;
+      eq += markPos.side === 'LONG'
+        ? c.c * markPos.qty
+        : markPos.entryNotional + (markPos.entryPrice - c.c) * markPos.qty;
     }
     equity.push({ time: c.t, equity: eq });
   }
 
   // force-close at the end
   if (pos) close(to, candles[to].c, 'eod');
+  // The curve keeps one point per tested candle, but its endpoint must be the
+  // settled account value (including EOD exit fee) used by headline metrics.
+  if (equity.length) equity[equity.length - 1] = { time: equity[equity.length - 1].time, equity: cash };
 
   const metrics = computeMetrics({
     trades,
     equity,
     totalBars: to - from + 1,
     barsPerYear: cfg.barsPerYear,
+    startEquity: start,
   });
 
   return { trades, equity, metrics };

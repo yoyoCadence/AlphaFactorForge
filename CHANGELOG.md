@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Corrected backtest accounting so long/short trades report fee-inclusive PnL, 100% sizing budgets entry fees without negative free cash, 1× short collateral reconciles on wins and losses, and EOD metrics use settled final equity from the configured starting balance. This intentionally updates golden metric values without changing trade count, fill time, or fill price.
 - Added backtest-engine golden behaviour tests and a legacy parity report covering execution timing, risk fills, short accounting, end-of-data settlement, and `both` direction semantics without changing product behaviour.
 - Fixed parameter sweep leaking out-of-sample data when Holdout is on: the sweep now optimises on the in-sample segment only (same split as the backtest), and the sweep panel states its in-sample scope so the heatmap is not misread as full-period.
 - Fixed loading legacy params and blocks strategies saved before rule-builder or manual-code fields were introduced, while retaining strict validation for active and malformed fields.
