@@ -1,6 +1,6 @@
 # Backtest Execution Contract
 
-Status: adopted target semantics (maintainer direction, 2026-07-14). BUG-002 and BUG-003 implement the accounting and fill-policy portions; BUG-004 remains the focused direction/input follow-up.
+Status: adopted and implemented target semantics (maintainer direction, 2026-07-14). BUG-002 through BUG-004 cover accounting, fill policy, direction, and normalized-fraction validation.
 
 This contract is normative for `alpha-factor-forge/src/core/backtest`. The golden suite records actual output; when an approved correction changes that output, the affected golden values must be updated with a changelog explanation.
 
@@ -20,7 +20,8 @@ For every deterministic run:
 - UI/service strategy fields retain legacy percent units (`feePct: 0.05` means 0.05%, `sizePct: 100` means 100%).
 - `backtestRunner` is the single conversion boundary from legacy percent units to normalized fractions.
 - Core `BacktestConfig` uses normalized fractions (`feePct: 0.0005`, `sizingPct: 1`).
-- BUG-004 will make core reject invalid normalized values. It will not duplicate legacy fallback rules inside the engine.
+- Core accepts `sizingPct`, `feePct`, and `slippagePct` in `[0, 1]`. Active `stopLossPct` and `takeProfitPct` must be in `(0, 1]`; `undefined` disables that risk rule.
+- Non-finite or out-of-range normalized fractions throw a `RangeError`. Core does not clamp them or duplicate UI/service legacy fallbacks.
 
 ## Entry budget and fees (BUG-002)
 
@@ -81,7 +82,9 @@ For both sides, `pnlPct = netTradePnl / entryNotional`.
 
 - `long`: entry opens long; exit closes long.
 - `short`: entry opens short; exit closes short.
-- `both`: retain legacy reversal semantics for the current two-signal model—entry requests long and exit requests short, closing the opposite side before reversal.
+- `both`: retain legacy reversal semantics for the current two-signal model—entry requests long and exit requests short. If the requested side differs from the current side, the engine closes the current position and opens the requested side at the same execution base with the appropriate closing/opening slippage.
+- If entry and exit are both true on one bar in `both` mode, entry takes precedence and requests long. A signal requesting the already-held side does nothing.
+- Close fills reverse on the signal candle close; `nextOpen` fills reverse on the following tested candle open. A final-candle signal cannot create a reversal beyond the tested range.
 - A future four-signal model may replace this with explicit long-entry/long-exit/short-entry/short-exit semantics through a separately versioned change.
 
 ## Deliberate non-goals

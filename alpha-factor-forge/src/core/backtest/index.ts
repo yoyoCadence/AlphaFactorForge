@@ -23,24 +23,24 @@ export type FillMode = 'close' | 'nextOpen';
 
 export interface ExecutionModel {
   direction: Direction;
-  sizingPct: number; // % of equity per position (0..1); 1 = all-in
+  sizingPct: number; // normalized fraction [0, 1]; 1 = all-in
   fillMode: FillMode;
 }
 
 export interface CostModel {
-  feePct: number; // per side, fraction (0.0005 = 0.05%)
-  slippagePct: number; // per side, fraction
+  feePct: number; // per side, normalized fraction [0, 1] (0.0005 = 0.05%)
+  slippagePct: number; // per side, normalized fraction [0, 1]
 }
 
 export interface RiskModel {
-  stopLossPct?: number; // fraction; undefined = none
-  takeProfitPct?: number;
+  stopLossPct?: number; // active normalized fraction (0, 1]; undefined = none
+  takeProfitPct?: number; // active normalized fraction (0, 1]; undefined = none
 }
 
 export interface Signals {
-  /** entry[i] true => open in the execution direction at bar i. */
+  /** entry[i] true => open in the execution direction; `both` requests LONG. */
   entry: boolean[];
-  /** exit[i] true => close an open position at bar i. */
+  /** exit[i] true => close long/short mode; `both` requests SHORT. */
   exit: boolean[];
 }
 
@@ -81,10 +81,31 @@ function fill(price: number, buy: boolean, slip: number): number {
   return buy ? price * (1 + slip) : price * (1 - slip);
 }
 
+function assertNormalizedFraction(path: string, value: number, allowZero: boolean): void {
+  const belowMinimum = allowZero ? value < 0 : value <= 0;
+  if (!Number.isFinite(value) || belowMinimum || value > 1) {
+    const range = allowZero ? '[0, 1]' : '(0, 1]';
+    throw new RangeError(`BacktestConfig.${path} must be a finite normalized fraction in ${range}`);
+  }
+}
+
+function validateNormalizedFractions(cfg: BacktestConfig): void {
+  assertNormalizedFraction('exec.sizingPct', cfg.exec.sizingPct, true);
+  assertNormalizedFraction('cost.feePct', cfg.cost.feePct, true);
+  assertNormalizedFraction('cost.slippagePct', cfg.cost.slippagePct, true);
+  if (cfg.risk?.stopLossPct !== undefined) {
+    assertNormalizedFraction('risk.stopLossPct', cfg.risk.stopLossPct, false);
+  }
+  if (cfg.risk?.takeProfitPct !== undefined) {
+    assertNormalizedFraction('risk.takeProfitPct', cfg.risk.takeProfitPct, false);
+  }
+}
+
 /**
  * Run the backtest. Deterministic: identical inputs -> identical output.
  */
 export function runBacktest(candles: Candle[], signals: Signals, cfg: BacktestConfig): BacktestResult {
+  validateNormalizedFractions(cfg);
   const start = cfg.startEquity ?? 10_000;
   const from = Math.max(0, cfg.from ?? 0);
   const to = Math.min(candles.length - 1, cfg.to ?? candles.length - 1);
@@ -127,7 +148,7 @@ export function runBacktest(candles: Candle[], signals: Signals, cfg: BacktestCo
   };
 
   const open = (i: number, side: 'LONG' | 'SHORT', px: number) => {
-    const budget = cash * Math.min(1, Math.max(0, sizingPct));
+    const budget = cash * sizingPct;
     // sizingPct budgets entry notional + its fee, so 100% sizing never makes
     // free cash negative merely to pay the entry commission.
     const entryNotional = budget / (1 + feePct);
@@ -139,6 +160,9 @@ export function runBacktest(candles: Candle[], signals: Signals, cfg: BacktestCo
   };
 
   const requestedEntrySide = (): 'LONG' | 'SHORT' => direction === 'short' ? 'SHORT' : 'LONG';
+  const requestedBothSide = (i: number): 'LONG' | 'SHORT' | null => (
+    signals.entry[i] ? 'LONG' : signals.exit[i] ? 'SHORT' : null
+  );
 
   for (let i = from; i <= to; i++) {
     const c = candles[i];
@@ -173,19 +197,38 @@ export function runBacktest(candles: Candle[], signals: Signals, cfg: BacktestCo
     }
 
     if (fillMode === 'close') {
-      const exitPos = pos as OpenPos | null;
-      if (exitPos && signals.exit[i]) {
-        close(i, fill(c.c, exitPos.side === 'SHORT', slippagePct), 'signal');
-      }
-      if (!(pos as OpenPos | null) && signals.entry[i]) {
-        const side = requestedEntrySide();
-        open(i, side, fill(c.c, side === 'LONG', slippagePct));
+      if (direction === 'both') {
+        const desiredSide = requestedBothSide(i);
+        const currentPos = pos as OpenPos | null;
+        if (desiredSide && currentPos?.side !== desiredSide) {
+          if (currentPos) {
+            close(i, fill(c.c, currentPos.side === 'SHORT', slippagePct), 'reverse');
+          }
+          open(i, desiredSide, fill(c.c, desiredSide === 'LONG', slippagePct));
+        }
+      } else {
+        const exitPos = pos as OpenPos | null;
+        if (exitPos && signals.exit[i]) {
+          close(i, fill(c.c, exitPos.side === 'SHORT', slippagePct), 'signal');
+        }
+        if (!(pos as OpenPos | null) && signals.entry[i]) {
+          const side = requestedEntrySide();
+          open(i, side, fill(c.c, side === 'LONG', slippagePct));
+        }
       }
     } else if (i < to) {
-      const hasPosition = (pos as OpenPos | null) != null;
-      const exit = hasPosition && signals.exit[i];
-      const entrySide = signals.entry[i] && (!hasPosition || exit) ? requestedEntrySide() : null;
-      if (exit || entrySide) pendingNextOpen = { exit, entrySide };
+      const currentPos = pos as OpenPos | null;
+      if (direction === 'both') {
+        const desiredSide = requestedBothSide(i);
+        if (desiredSide && currentPos?.side !== desiredSide) {
+          pendingNextOpen = { exit: currentPos != null, entrySide: desiredSide };
+        }
+      } else {
+        const hasPosition = currentPos != null;
+        const exit = hasPosition && signals.exit[i];
+        const entrySide = signals.entry[i] && (!hasPosition || exit) ? requestedEntrySide() : null;
+        if (exit || entrySide) pendingNextOpen = { exit, entrySide };
+      }
     }
 
     // mark-to-market equity

@@ -10,9 +10,9 @@ import {
   type Signals,
 } from './index';
 
-// Behaviour lock only: these expectations record CURRENT engine output. They
-// are not an endorsement that the execution assumptions are financially
-// correct. See docs/engine-parity-report.md before changing any value here.
+// Golden contract lock: these expectations record the adopted engine output.
+// See docs/backtest-execution-contract.md and docs/engine-parity-report.md
+// before changing any value here.
 const GOLDEN_CANDLES = toCoreCandles(makeSampleCandles({ seed: 42, count: 300 }));
 
 function alternatingSignals(count: number): Signals {
@@ -93,7 +93,7 @@ const GOLDEN_CASES: Array<{ name: string; config: BacktestConfig; expected: Gold
       risk: { stopLossPct: 0.02, takeProfitPct: 0.04 },
     },
     expected: {
-      tradeCount: 15,
+      tradeCount: 30,
       first: {
         entryTime: 1_704_085_200_000,
         exitTime: 1_704_106_800_000,
@@ -101,14 +101,14 @@ const GOLDEN_CASES: Array<{ name: string; config: BacktestConfig; expected: Gold
         exitPrice: 100.03196866087768,
       },
       last: {
-        entryTime: 1_705_093_200_000,
-        exitTime: 1_705_118_400_000,
-        entryPrice: 115.46141284576223,
-        exitPrice: 117.15940225611321,
+        entryTime: 1_705_118_400_000,
+        exitTime: 1_705_143_600_000,
+        entryPrice: 117.15940225611321,
+        exitPrice: 115.22308734887379,
       },
-      netReturn: -0.004775387411850351,
-      maxDrawdown: 0.05325022427784083,
-      sharpe: -0.3412716253585222,
+      netReturn: -0.09844932924649896,
+      maxDrawdown: 0.1522517591744462,
+      sharpe: -6.091142548283741,
     },
   },
   {
