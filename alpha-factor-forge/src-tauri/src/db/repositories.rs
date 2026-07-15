@@ -200,12 +200,19 @@ pub fn get_candles(conn: &Connection, dataset_id: i64, from: i64, to: i64) -> Ap
 // ---------- strategy_def ----------
 
 pub fn insert_strategy(conn: &Connection, s: &StrategyDef) -> AppResult<i64> {
+    // A hash conflict represents the same strategy definition/execution model,
+    // so refresh only mutable presentation/provenance fields. `lifecycle` is
+    // deliberately preserved because validation owns that review state; a
+    // routine re-save must never demote a validated/rejected row to candidate.
     conn.execute(
         "INSERT INTO strategy_def
             (name, type, dsl_json, original_definition_json, param_schema_json,
              source, ai_prompt_hash, strategy_hash, lifecycle, parent_strategy_id)
          VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)
-         ON CONFLICT(strategy_hash) DO UPDATE SET updated_at = datetime('now')",
+         ON CONFLICT(strategy_hash) DO UPDATE SET
+             name       = excluded.name,
+             source     = excluded.source,
+             updated_at = datetime('now')",
         params![
             s.name, s.kind, s.dsl_json, s.original_definition_json, s.param_schema_json,
             s.source, s.ai_prompt_hash, s.strategy_hash, s.lifecycle, s.parent_strategy_id
@@ -422,7 +429,19 @@ mod tests {
     fn insert_strategy_upserts_on_hash_without_duplicating() {
         let conn = mem_db();
         let id1 = insert_strategy(&conn, &blocks_strategy("dup-hash")).unwrap();
-        let id2 = insert_strategy(&conn, &blocks_strategy("dup-hash")).unwrap();
+        conn.execute(
+            "UPDATE strategy_def SET lifecycle = 'validated' WHERE id = ?1",
+            params![id1],
+        )
+        .unwrap();
+
+        let mut resaved = blocks_strategy("dup-hash");
+        resaved.name = "renamed blocks strategy".into();
+        resaved.source = "sweep".into();
+        // The frontend currently submits candidate on each manual save. The DB
+        // must retain the validation-owned lifecycle already on the row.
+        resaved.lifecycle = "candidate".into();
+        let id2 = insert_strategy(&conn, &resaved).unwrap();
         assert_eq!(id1, id2, "same strategy_hash must not create a second row");
 
         let count: i64 = conn
@@ -433,9 +452,32 @@ mod tests {
             )
             .unwrap();
         assert_eq!(count, 1);
-        // NOTE: the current UPSERT only refreshes `updated_at`; it does NOT update
-        // type/name/definition on conflict. That is acceptable here because the
-        // hash already covers the full strategy, but re-saving edited mutable
-        // fields under the same hash is a known limitation (tasks.md follow-up).
+
+        let (name, source, lifecycle): (String, String, String) = conn
+            .query_row(
+                "SELECT name, source, lifecycle FROM strategy_def WHERE id = ?1",
+                params![id1],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            )
+            .unwrap();
+        assert_eq!(name, "renamed blocks strategy");
+        assert_eq!(source, "sweep");
+        assert_eq!(lifecycle, "validated");
+    }
+
+    #[test]
+    fn insert_strategy_persists_rename_for_same_hash() {
+        let conn = mem_db();
+        let mut original = blocks_strategy("rename-hash");
+        original.name = "old name".into();
+        insert_strategy(&conn, &original).unwrap();
+
+        let mut renamed = blocks_strategy("rename-hash");
+        renamed.name = "new name".into();
+        insert_strategy(&conn, &renamed).unwrap();
+
+        let listed = list_strategies(&conn).unwrap();
+        assert_eq!(listed.len(), 1);
+        assert_eq!(listed[0].name, "new name");
     }
 }

@@ -10,8 +10,8 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 - Target app: `alpha-factor-forge/` is the Tauri Desktop Phase A scaffold.
 - Baseline verified: `npm test`, `npm run typecheck`, and `npm run build` pass in `alpha-factor-forge/`.
 - Native Tauri verified: Rust 1.96 / Cargo / MSVC build tools / Tauri CLI v2 installed; `cargo check` and `cargo tauri dev` both pass; multi-size icons generated.
-- Progress (through BUG-004 + UI-port Slice 8b-2): Phase A backtest pipeline; chart (canvas + overlays + trade markers + wheel-zoom + drag-pan + hover + bar replay); params/blocks/code strategy modes; holdout; parameter sweep + interactive heatmap; report export (Slice 7-2); SQLite strategy library (Slice 7-3); native chart + metrics OS windows (Slice 8b); plus the 2026-07-07 project audit (`docs/` blueprint) and its backlog work: DOC-001, BUG-001, REF-001→003b, TEST-002 (golden lock + legacy parity), and Backtest Correctness Phases 1–3 (fee-inclusive accounting, settled metrics, execution-bar/risk fills, legacy `both` reversal, and normalized-fraction validation). Current tests: 193 vitest + 22 Playwright e2e.
-- Next: no task is currently staged; select the next small slice from Backlog after Slice 8b-2 merges.
+- Progress (through REF-004 + BUG-004 + UI-port Slice 8b-2): Phase A backtest pipeline; chart (canvas + overlays + trade markers + wheel-zoom + drag-pan + hover + bar replay); params/blocks/code strategy modes; holdout; parameter sweep + interactive heatmap; report export (Slice 7-2); SQLite strategy library (Slice 7-3); native chart + metrics OS windows (Slice 8b); mutable-field strategy UPSERT semantics (REF-004); plus the 2026-07-07 project audit (`docs/` blueprint) and its backlog work: DOC-001, BUG-001, REF-001→004, TEST-002 (golden lock + legacy parity), and Backtest Correctness Phases 1–3 (fee-inclusive accounting, settled metrics, execution-bar/risk fills, legacy `both` reversal, and normalized-fraction validation). Current tests: 193 vitest + 22 Playwright e2e.
+- Next: no task is currently staged; select the next small slice from Backlog after REF-004 merges.
 - PR CI runs typecheck / test / build / cargo-check (now incl. `cargo test`) — green per PR; `main` requires branches up to date before merge.
 - Source-of-truth architecture: `STRATEGY_DISCOVERY.md` v3 and `README.md`.
 - Historical context: `HISTORY.md` and `CONVERSATION_HISTORY.md`.
@@ -62,11 +62,6 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 ## Backlog
 
 ### Phase A: Tauri Foundation
-
-- [ ] Refine `insert_strategy` UPSERT to refresh mutable fields
-  - Current `ON CONFLICT(strategy_hash) DO UPDATE SET updated_at` only touches `updated_at`; re-saving a same-hash strategy does NOT update name/lifecycle/source/definition.
-  - Acceptable today (hash covers the full strategy), but editing only a non-hashed field (e.g. name) and re-saving silently keeps the old value.
-  - Decide intended semantics and update the UPSERT; covered by `repositories::tests::insert_strategy_upserts_on_hash_without_duplicating` (documents current behavior).
 
 - [ ] Code-mode UX polish: disable Run while an entry/exit expression is invalid
   - Today invalid code only shows a red border + error; pressing 執行回測 still goes through the existing error handling. Non-blocking (noted at Slice 4b-2).
@@ -159,6 +154,11 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 - [ ] Full closed-loop AI automation.
 
 ## Done
+
+- [x] REF-004 — refine `insert_strategy` UPSERT mutable-field semantics.
+  - Same-hash re-saves now refresh `name`, `source`, and `updated_at`, while preserving the existing row id, definition-owned fields, and validation-owned `lifecycle` so a routine frontend save cannot demote a validated/rejected strategy to `candidate`.
+  - Updated the existing no-duplicate test to cover rename/source refresh plus lifecycle preservation, and added a focused rename-persistence regression. No migration, hash, TypeScript, or UI changes.
+  - `cargo check --locked`, 10 Rust tests, `npm run typecheck`, 193 vitest, production build, and all 22 Playwright e2e tests pass. No manual checklist is required because migrated in-memory SQLite tests own this repository behavior.
 
 - [x] UI port — Slice 8b-2: real Tauri metrics OS window.
   - Extracted the shared full/Holdout metrics renderer so the existing inline and floating views and the new native child window use one formatter and column model.

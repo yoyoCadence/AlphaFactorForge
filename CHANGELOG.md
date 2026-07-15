@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Fixed same-hash strategy re-saves so mutable names and sources refresh in SQLite without creating duplicates or overwriting the validation-owned lifecycle state.
 - Added Slice 8b-2 native metrics pop-out: the inline, floating, and standalone Tauri views now share one full/Holdout metrics renderer, while typed targeted events keep a stable single-instance OS window synchronized under a dedicated least-privilege capability.
 - Restored legacy `direction: both` reversal semantics so entry requests long and exit requests short in both close and `nextOpen` modes, and made the pure backtest core reject non-finite or out-of-range normalized sizing/cost/risk fractions instead of silently clamping them. This intentionally changes all affected `both` trades and metrics while leaving UI/service percentage conversion in `backtestRunner`.
 - Corrected backtest fill semantics so `nextOpen` orders execute on the following candle without leaking that open into the signal-bar equity, SL/TP exits use gap-aware prices plus closing-side slippage with conservative SL-first ambiguity handling, and EOD settlement applies normal exit slippage. This intentionally changes affected trade timestamps, risk-exit prices, and derived golden metrics.
