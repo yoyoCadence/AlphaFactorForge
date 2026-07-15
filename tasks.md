@@ -10,8 +10,8 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 - Target app: `alpha-factor-forge/` is the Tauri Desktop Phase A scaffold.
 - Baseline verified: `npm test`, `npm run typecheck`, and `npm run build` pass in `alpha-factor-forge/`.
 - Native Tauri verified: Rust 1.96 / Cargo / MSVC build tools / Tauri CLI v2 installed; `cargo check` and `cargo tauri dev` both pass; multi-size icons generated.
-- Progress (through REF-004 + BUG-004 + UI-port Slice 8b-2): Phase A backtest pipeline; chart (canvas + overlays + trade markers + wheel-zoom + drag-pan + hover + bar replay); params/blocks/code strategy modes; holdout; parameter sweep + interactive heatmap; report export (Slice 7-2); SQLite strategy library (Slice 7-3); native chart + metrics OS windows (Slice 8b); mutable-field strategy UPSERT semantics (REF-004); plus the 2026-07-07 project audit (`docs/` blueprint) and its backlog work: DOC-001, BUG-001, REF-001→004, TEST-002 (golden lock + legacy parity), and Backtest Correctness Phases 1–3 (fee-inclusive accounting, settled metrics, execution-bar/risk fills, legacy `both` reversal, and normalized-fraction validation). Current tests: 193 vitest + 22 Playwright e2e.
-- Next: no task is currently staged; select the next small slice from Backlog after REF-004 merges.
+- Progress (through code-mode UX polish + REF-004 + BUG-004 + UI-port Slice 8b-2): Phase A backtest pipeline; chart (canvas + overlays + trade markers + wheel-zoom + drag-pan + hover + bar replay); params/blocks/code strategy modes with invalid-expression Run guard; holdout; parameter sweep + interactive heatmap; report export (Slice 7-2); SQLite strategy library (Slice 7-3); native chart + metrics OS windows (Slice 8b); mutable-field strategy UPSERT semantics (REF-004); plus the 2026-07-07 project audit (`docs/` blueprint) and its backlog work: DOC-001, BUG-001, REF-001→004, TEST-002 (golden lock + legacy parity), and Backtest Correctness Phases 1–3 (fee-inclusive accounting, settled metrics, execution-bar/risk fills, legacy `both` reversal, and normalized-fraction validation). Current tests: 193 vitest + 23 Playwright e2e.
+- Next: no task is currently staged; select the next small slice from Backlog after the code-mode UX polish merges.
 - PR CI runs typecheck / test / build / cargo-check (now incl. `cargo test`) — green per PR; `main` requires branches up to date before merge.
 - Source-of-truth architecture: `STRATEGY_DISCOVERY.md` v3 and `README.md`.
 - Historical context: `HISTORY.md` and `CONVERSATION_HISTORY.md`.
@@ -63,14 +63,12 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ### Phase A: Tauri Foundation
 
-- [ ] Code-mode UX polish: disable Run while an entry/exit expression is invalid
-  - Today invalid code only shows a red border + error; pressing 執行回測 still goes through the existing error handling. Non-blocking (noted at Slice 4b-2).
-
 - [ ] Add more browser E2E flows for BacktestPanel (Playwright harness foundation landed — see Done)
   - Goal: let Playwright exercise the same React UI behavior in Vite/browser mode without requiring manual Tauri WebView clicks.
   - Foundation done: `dataClient` seam (prod = tauri-client; dev `?mock=1` = in-memory mock) + Playwright (chromium) + CI `e2e` job.
   - [x] First regression done: Holdout stale-UI flow (load sample -> enable Holdout -> run -> 3 columns -> disable -> single column) — `e2e/holdout.spec.ts`.
-  - Remaining flows: params/blocks/code tab switching, invalid code expression error display, valid code run path, save-button UI messaging via the mock. (Keep one flow per PR.)
+  - [x] Code validation flow: invalid entry/exit expressions show accessible errors and disable Run; params mode remains usable; repairing both expressions restores a successful code-mode run — `e2e/code-validation.spec.ts`.
+  - Remaining flows: full params/blocks/code tab-state switching and save-button UI messaging via the mock. (Keep one flow per PR.)
   - Must stay test-only/dev-only. Do not route production code around Tauri security boundaries, do not replace typed `tauri-client` wrappers, and do not store real data in browser localStorage as a product path.
   - This does NOT replace true Tauri verification. It validates frontend interaction and React state only; real Rust command wiring, SQLite persistence, migrations, AppData paths, and Tauri/WebView behavior still require Rust integration tests plus a small `cargo tauri dev` smoke checklist.
   - Suggested shape: a small test harness entry point or dependency-injected client seam, seeded sample data fixtures, and Playwright tests that run against `npm run dev` in CI/local dev.
@@ -154,6 +152,11 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 - [ ] Full closed-loop AI automation.
 
 ## Done
+
+- [x] Code-mode UX polish — disable Run while an entry/exit expression is invalid.
+  - Entry and exit fields now share one synchronous validation result with the Run button, so either invalid expression blocks code-mode execution before the existing runtime fallback; dormant code expressions do not block params or blocks mode.
+  - Added `aria-invalid` plus error-description links to both fields and a browser/mock regression covering invalid entry, mode switching, invalid exit, repairs, and a successful code-mode backtest.
+  - `npm run typecheck`, 193 vitest, production build, and all 23 Playwright e2e tests pass. No Rust/SQLite paths changed, and no manual checklist is required because the browser flow owns the interaction.
 
 - [x] REF-004 — refine `insert_strategy` UPSERT mutable-field semantics.
   - Same-hash re-saves now refresh `name`, `source`, and `updated_at`, while preserving the existing row id, definition-owned fields, and validation-owned `lifecycle` so a routine frontend save cannot demote a validated/rejected strategy to `candidate`.

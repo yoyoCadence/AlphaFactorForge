@@ -67,6 +67,28 @@ const OP_LABEL: Record<RuleOp, string> = { '>': '>', '<': '<', '>=': '≥', '<='
 
 const MODE_LABEL: Record<ParamsStrategy['mode'], string> = { params: '參數', blocks: '積木', code: '程式碼' };
 
+interface CodeExpressionValidation {
+  entryError: string | null;
+  exitError: string | null;
+  valid: boolean;
+}
+
+function expressionError(value: string): string | null {
+  try {
+    compileExpression(value, OPERAND_IDS);
+    return null;
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error);
+  }
+}
+
+/** Validate both manual code-mode expressions through the same interpreter used at run time. */
+function validateCodeExpressions(entryCode: string, exitCode: string): CodeExpressionValidation {
+  const entryError = expressionError(entryCode);
+  const exitError = expressionError(exitCode);
+  return { entryError, exitError, valid: entryError == null && exitError == null };
+}
+
 /** Editable AND-list of blocks-mode rules (left operand · op · right). */
 function RuleRows({ title, rules, onChange }: { title: string; rules: Rule[]; onChange: (rules: Rule[]) => void }): React.ReactElement {
   const update = (i: number, patch: Partial<Rule>) => onChange(rules.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
@@ -96,24 +118,22 @@ function RuleRows({ title, rules, onChange }: { title: string; rules: Rule[]; on
 }
 
 /** A code-mode expression field with live (per-keystroke) interpreter validation. */
-function CodeField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }): React.ReactElement {
-  let err: string | null = null;
-  try {
-    compileExpression(value, OPERAND_IDS);
-  } catch (e) {
-    err = e instanceof Error ? e.message : String(e);
-  }
+function CodeField({ id, label, value, error, onChange }: { id: string; label: string; value: string; error: string | null; onChange: (v: string) => void }): React.ReactElement {
+  const errorId = `${id}-error`;
   return (
     <label style={{ display: 'flex', flexDirection: 'column', gap: 3, marginBottom: 8 }}>
       <span style={S.label}>{label}</span>
       <textarea
+        id={id}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         rows={2}
         spellCheck={false}
-        style={{ ...S.input, fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, resize: 'vertical', borderColor: err ? '#d23b2f' : '#d6d2c8' }}
+        aria-invalid={error != null}
+        aria-describedby={error ? errorId : undefined}
+        style={{ ...S.input, fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, resize: 'vertical', borderColor: error ? '#d23b2f' : '#d6d2c8' }}
       />
-      {err && <span style={{ fontSize: 10, color: '#b23b2e' }}>{err}</span>}
+      {error && <span id={errorId} style={{ fontSize: 10, color: '#b23b2e' }}>{error}</span>}
     </label>
   );
 }
@@ -169,6 +189,8 @@ export function StrategySection({
     isAppliedKey(key) ? { ...base, borderColor: '#2f6df0', background: '#eef4ff' } : base;
   const appliedLabelStyle = (key: NumKey): React.CSSProperties =>
     isAppliedKey(key) ? { ...S.label, color: '#2f6df0', fontWeight: 700 } : S.label;
+  const codeValidation = validateCodeExpressions(strat.entryCode, strat.exitCode);
+  const codeModeAllowsRun = strat.mode !== 'code' || codeValidation.valid;
 
   return (
     <section style={S.card}>
@@ -270,8 +292,8 @@ export function StrategySection({
       )}
       {strat.mode === 'code' && (
         <div style={{ marginBottom: 8 }}>
-          <CodeField label="進場條件 (entry)" value={strat.entryCode} onChange={(v) => onStratChange((s) => ({ ...s, entryCode: v }))} />
-          <CodeField label="出場條件 (exit)" value={strat.exitCode} onChange={(v) => onStratChange((s) => ({ ...s, exitCode: v }))} />
+          <CodeField id="strategy-entry-code" label="進場條件 (entry)" value={strat.entryCode} error={codeValidation.entryError} onChange={(v) => onStratChange((s) => ({ ...s, entryCode: v }))} />
+          <CodeField id="strategy-exit-code" label="出場條件 (exit)" value={strat.exitCode} error={codeValidation.exitError} onChange={(v) => onStratChange((s) => ({ ...s, exitCode: v }))} />
           <div style={{ fontSize: 10, color: '#8a8678', lineHeight: 1.5 }}>
             變數：{OPERAND_IDS.join(' ')}
             <br />
@@ -347,7 +369,13 @@ export function StrategySection({
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
-        <button data-testid="run-backtest" style={{ ...S.btn, flex: 1 }} onClick={onRun} disabled={running || !canRun} aria-busy={running}>
+        <button
+          data-testid="run-backtest"
+          style={{ ...S.btn, flex: 1 }}
+          onClick={onRun}
+          disabled={running || !canRun || !codeModeAllowsRun}
+          aria-busy={running}
+        >
           {running ? '回測中…' : '▶ 執行回測'}
         </button>
         <HelpTip id="run" label="執行回測" text={help.run} align="right" />
