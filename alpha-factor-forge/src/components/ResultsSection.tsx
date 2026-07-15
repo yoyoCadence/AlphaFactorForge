@@ -1,44 +1,22 @@
 // Backtest-results section, extracted from BacktestPanel (REF-003, move-only).
 //
-// Owns the metrics table (full / in-sample / out-of-sample columns), the report
-// export (JSON/CSV) with its status line, the Slice 8a metrics pop-out, and their
-// local state (exporting / exportNotice / poppedMetrics). The backtest result,
-// holdout split, strategy, and the save action stay in BacktestPanel and arrive
-// as props. Behaviour is identical to the pre-extraction inline block.
+// Owns the shared metrics table (full / in-sample / out-of-sample columns), the
+// report export (JSON/CSV), the Slice 8a in-app pop-out, and the Slice 8b native
+// metrics-window snapshot sync. The backtest result, holdout split, strategy,
+// and save action stay in BacktestPanel and arrive as props.
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { BacktestResult } from '../core/backtest';
-import type { Metrics } from '../core/metrics';
 import type { ParamsStrategy } from '../services/strategy';
 import type { Dataset } from '../tauri-client/commands';
 import { files } from '../tauri-client/dataClient';
+import { popoutWindows, type MetricsWindowSnapshot } from '../tauri-client/windowBridge';
 import { reportToJson, suggestedFilename, tradesToCsv } from '../services/reportExport';
 import { HelpTip } from './HelpTip';
 import { FloatingPanel } from './FloatingPanel';
+import { MetricsTable } from './MetricsTable';
 import { PoppedOutNote } from './PoppedOutNote';
 import { S } from './panelStyles';
-
-function pct(x: number): string {
-  return `${(x * 100).toFixed(2)}%`;
-}
-function num(x: number): string {
-  return Number.isFinite(x) ? x.toFixed(2) : '—';
-}
-
-const METRIC_ROWS: { label: string; fmt: (m: Metrics) => string }[] = [
-  { label: '淨報酬', fmt: (m) => pct(m.netReturn) },
-  { label: 'CAGR', fmt: (m) => pct(m.cagr) },
-  { label: '最大回撤', fmt: (m) => pct(m.maxDrawdown) },
-  { label: 'Sharpe', fmt: (m) => num(m.sharpe) },
-  { label: 'Sortino', fmt: (m) => num(m.sortino) },
-  { label: 'Calmar', fmt: (m) => num(m.calmar) },
-  { label: '勝率', fmt: (m) => pct(m.winRate) },
-  { label: '交易數', fmt: (m) => String(m.tradeCount) },
-  { label: 'Profit Factor', fmt: (m) => (Number.isFinite(m.profitFactor) ? num(m.profitFactor) : '∞') },
-  { label: '平均每筆', fmt: (m) => pct(m.avgTradeReturn) },
-  { label: '曝險', fmt: (m) => pct(m.exposure) },
-  { label: '換手', fmt: (m) => num(m.turnover) },
-];
 
 export interface ResultsSectionProps {
   result: BacktestResult | null;
@@ -73,45 +51,64 @@ export function ResultsSection({
   const [exporting, setExporting] = useState<'json' | 'csv' | null>(null);
   const [exportNotice, setExportNotice] = useState<{ kind: 'busy' | 'done'; text: string } | null>(null);
   const [poppedMetrics, setPoppedMetrics] = useState(false);
+  const [nativeMetricsOpened, setNativeMetricsOpened] = useState(false);
+  const [openingNativeMetrics, setOpeningNativeMetrics] = useState(false);
 
-  // Columns for the metrics table: a single full-period column, or three
-  // (full / in-sample / out-of-sample) when holdout produced a split.
-  const metricCols = result
-    ? holdout && holdoutResult
-      ? [
-          { label: '全期', metrics: result.metrics },
-          { label: '樣本內', metrics: holdoutResult.inSample.metrics },
-          { label: '樣本外', metrics: holdoutResult.outSample.metrics },
-        ]
-      : [{ label: '', metrics: result.metrics }]
-    : [];
+  const metricsWindowSnapshot: MetricsWindowSnapshot | null = result
+    ? {
+        title: selected ? `${selected.symbol} · ${selected.interval}` : '回測績效',
+        full: result.metrics,
+        ...(holdout && holdoutResult
+          ? { inSample: holdoutResult.inSample.metrics, outSample: holdoutResult.outSample.metrics }
+          : {}),
+      }
+    : null;
+  const metricsWindowSnapshotRef = useRef(metricsWindowSnapshot);
+  metricsWindowSnapshotRef.current = metricsWindowSnapshot;
 
-  // Metrics table content, factored out so it can render inline OR (Slice 8a)
-  // enlarged inside a FloatingPanel. Same state either way -> edits reflow live.
-  const renderMetricsTable = (fontSize: number) => (
-    <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: "'IBM Plex Mono', monospace", fontSize }}>
-      {metricCols.length > 1 && (
-        <thead>
-          <tr style={{ borderBottom: '1px solid #d6d2c8' }}>
-            <th />
-            {metricCols.map((c) => (
-              <th key={c.label} data-testid={`col-${c.label}`} style={{ padding: '4px', textAlign: 'right', fontSize: fontSize - 2, fontWeight: 600, color: '#8a8678' }}>{c.label}</th>
-            ))}
-          </tr>
-        </thead>
-      )}
-      <tbody>
-        {METRIC_ROWS.map((r) => (
-          <tr key={r.label} style={{ borderBottom: '1px solid #efece5' }}>
-            <td style={{ padding: '5px 4px', color: '#8a8678' }}>{r.label}</td>
-            {metricCols.map((c) => (
-              <td key={c.label} style={{ padding: '5px 4px', textAlign: 'right', fontWeight: 600 }}>{r.fmt(c.metrics)}</td>
-            ))}
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  );
+  // The child registers its listener first, then requests the latest snapshot,
+  // avoiding the same open-vs-listen race handled by the chart window.
+  useEffect(() => {
+    let disposed = false;
+    let unlisten: (() => void) | undefined;
+    popoutWindows.onMetricsReady(() => {
+      void popoutWindows.publishMetrics(metricsWindowSnapshotRef.current).catch((e) => !disposed && onError(String(e)));
+    })
+      .then((off) => {
+        if (disposed) off();
+        else unlisten = off;
+      })
+      .catch((e) => !disposed && onError(String(e)));
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Once opened, keep the native view aligned with later backtests and Holdout
+  // changes. Existing windows also receive an immediate snapshot when focused.
+  useEffect(() => {
+    if (!nativeMetricsOpened) return;
+    void popoutWindows.publishMetrics(metricsWindowSnapshotRef.current).catch((e) => onError(String(e)));
+  }, [nativeMetricsOpened, result, holdout, holdoutResult, selected]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function openNativeMetricsWindow() {
+    if (!metricsWindowSnapshotRef.current) return;
+    setOpeningNativeMetrics(true);
+    onError(null);
+    try {
+      await popoutWindows.openMetrics();
+      setNativeMetricsOpened(true);
+      // Re-read after the async open/focus operation: a new backtest, dataset
+      // switch, or Holdout change may have replaced or cleared the result.
+      await popoutWindows.publishMetrics(metricsWindowSnapshotRef.current);
+      onMessage('已開啟原生績效視窗；可拖曳到其他螢幕。');
+    } catch (e) {
+      onError(`無法開啟原生績效視窗：${String(e)}`);
+    } finally {
+      setOpeningNativeMetrics(false);
+    }
+  }
 
   async function exportResult(ext: 'json' | 'csv') {
     if (!selected || !result) return;
@@ -147,8 +144,13 @@ export function ResultsSection({
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, margin: '0 0 8px' }}>
           <h2 style={{ ...S.h2, margin: 0 }}>回測績效</h2>
           <HelpTip id="metrics" label="回測績效" text={help.metrics} />
+          {result && popoutWindows.isAvailable() && (
+            <button data-testid="native-popout-metrics" title="另開可移到其他螢幕的原生視窗" style={{ ...S.btnGhost, padding: '3px 10px', marginLeft: 'auto' }} onClick={openNativeMetricsWindow} disabled={openingNativeMetrics} aria-busy={openingNativeMetrics}>
+              {openingNativeMetrics ? '開啟中…' : '↗ 新視窗'}
+            </button>
+          )}
           {result && (
-            <button data-testid="popout-metrics" title="放大到獨立面板" style={{ ...S.btnGhost, padding: '3px 10px', marginLeft: 'auto' }} onClick={() => setPoppedMetrics((v) => !v)}>
+            <button data-testid="popout-metrics" title="放大到獨立面板" style={{ ...S.btnGhost, padding: '3px 10px', marginLeft: popoutWindows.isAvailable() ? 0 : 'auto' }} onClick={() => setPoppedMetrics((v) => !v)}>
               {poppedMetrics ? '⤡ 收合' : '⤢ 放大'}
             </button>
           )}
@@ -156,7 +158,7 @@ export function ResultsSection({
         {!result && <p style={{ color: '#aaa599', fontSize: 12 }}>尚未回測 — 選資料集、設策略後按「執行回測」。</p>}
         {result && (
           <>
-            {poppedMetrics ? <PoppedOutNote label="回測績效" onClose={() => setPoppedMetrics(false)} /> : renderMetricsTable(12)}
+            {poppedMetrics ? <PoppedOutNote label="回測績效" onClose={() => setPoppedMetrics(false)} /> : metricsWindowSnapshot && <MetricsTable data={metricsWindowSnapshot} fontSize={12} />}
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 12, flexWrap: 'wrap' }}>
               <button data-testid="export-json" style={S.btnGhost} onClick={() => exportResult('json')} disabled={exporting != null} aria-busy={exporting === 'json'}>
@@ -197,7 +199,7 @@ export function ResultsSection({
           enlarged; the rest of the app stays usable while it is open. */}
       {poppedMetrics && result && (
         <FloatingPanel title="回測績效" testId="metrics-popout" initial={{ x: 220, y: 130, w: 460, h: 520 }} onClose={() => setPoppedMetrics(false)}>
-          {() => renderMetricsTable(15)}
+          {() => metricsWindowSnapshot && <MetricsTable data={metricsWindowSnapshot} fontSize={15} />}
         </FloatingPanel>
       )}
     </>
