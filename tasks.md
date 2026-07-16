@@ -11,18 +11,15 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 - Baseline verified: `npm test`, `npm run typecheck`, and `npm run build` pass in `alpha-factor-forge/`.
 - Native Tauri verified: Rust 1.96 / Cargo / MSVC build tools / Tauri CLI v2 installed; `cargo check` and `cargo tauri dev` both pass; multi-size icons generated.
 - Progress (through FEAT-002 + code-mode UX polish + REF-004 + BUG-004 + UI-port Slice 8b-2): Phase A backtest pipeline and transactional SQLite persistence (datasets, candles, strategies, summaries, and closed trades); chart (canvas + overlays + trade markers + wheel-zoom + drag-pan + hover + bar replay); params/blocks/code strategy modes with invalid-expression Run guard; holdout; parameter sweep + interactive heatmap; report export (Slice 7-2); SQLite strategy library (Slice 7-3); native chart + metrics OS windows (Slice 8b); mutable-field strategy UPSERT semantics (REF-004); plus the 2026-07-07 project audit (`docs/` blueprint) and its backlog work: DOC-001, BUG-001, REF-001→004, TEST-001→002 (browser E2E flows, golden lock, and legacy parity), and Backtest Correctness Phases 1–3 (fee-inclusive accounting, settled metrics, execution-bar/risk fills, legacy `both` reversal, and normalized-fraction validation). Current tests: 196 vitest + 25 Playwright e2e.
-- Security snapshot (2026-07-16): SEC-001 classifies five affected dev-tool package nodes (3 moderate / 1 high / 1 critical); the production-only audit is clean. See `docs/security-audit-npm.md`.
-- Next: SEC-002 stages the minimum coordinated Vite/Vitest security upgrade; no automatic or forced audit fix.
+- Security snapshot (2026-07-16): SEC-002 exact-pins Vite 6.4.3 + Vitest 3.2.6; full and production-only audits both report zero. See `docs/security-audit-npm.md`.
+- Next: no task is currently staged; select the next small Phase B slice after SEC-002 merges.
 - PR CI runs typecheck / test / build / cargo-check (now incl. `cargo test`) — green per PR; `main` requires branches up to date before merge.
 - Source-of-truth architecture: `STRATEGY_DISCOVERY.md` v3 and `README.md`.
 - Historical context: `HISTORY.md` and `CONVERSATION_HISTORY.md`.
 
 ## Next
 
-- [ ] SEC-002 — Upgrade the development toolchain to the minimum patched Vite/Vitest lines.
-  - Target `vite@6.4.3` and `vitest@3.2.6`; keep `@vitejs/plugin-react@4.7.0` only if the installed peer graph remains valid.
-  - Apply explicit versions and review the lockfile; do not run any form of `npm audit fix`.
-  - Require zero full/production audit findings plus typecheck, unit, build, and browser E2E gates.
+- None.
 
 ## In Progress
 
@@ -126,6 +123,12 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 - [ ] Full closed-loop AI automation.
 
 ## Done
+
+- [x] SEC-002 — Upgrade the development toolchain to the minimum patched Vite/Vitest lines.
+  - Exact-pinned `vite@6.4.3` and `vitest@3.2.6`; the reviewed lockfile resolves `esbuild@0.25.12`, `@vitest/mocker@3.2.6`, and `vite-node@3.2.4` while retaining the compatible `@vitejs/plugin-react@4.7.0` peer.
+  - Used an explicit targeted install only—no `npm audit fix`, forced upgrade, dependency override, or product source change.
+  - Updated the audit report, README status in three languages, and CHANGELOG; full and production-only audits both report zero.
+  - Validation: `npm run typecheck`; `npm test` (196); `npm run build`; `npm run e2e` (25); dependency tree has no invalid peers; a short-lived Vite smoke bound only to loopback (`::1`).
 
 - [x] SEC-001 — Review npm audit findings without forced breaking upgrades.
   - Added `docs/security-audit-npm.md` with a reproducible lockfile/runtime snapshot, all five affected package-node paths, the five underlying advisories, exposure preconditions, patched floors, and an actionable classification.

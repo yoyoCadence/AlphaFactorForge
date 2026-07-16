@@ -2,13 +2,25 @@
 
 Audit date: **2026-07-16 (Asia/Taipei)**
 
+## Remediation status — SEC-002
+
+SEC-002 completed the minimum coordinated upgrade on 2026-07-16 without using any form of `npm audit fix`:
+
+- Direct dev tools are exact-pinned to `vite@6.4.3` and `vitest@3.2.6`.
+- The resolved graph keeps `@vitejs/plugin-react@4.7.0`, upgrades `esbuild` to `0.25.12`, `@vitest/mocker` to `3.2.6`, and `vite-node` to `3.2.4`, with no invalid peers.
+- The remediated `package-lock.json` Git blob is `1d19f2978b10c4e0a18c626044620f212965daab`.
+- Both `npm audit --json` and `npm audit --omit=dev --json` report zero findings.
+- Typecheck, 196 unit tests, production build, and 25 Playwright E2E tests pass; a short-lived local Vite smoke confirmed that the dev server still listens on loopback only (`::1`).
+
+The remainder of this document preserves the original SEC-001 evidence and decision trail that led to the remediation.
+
 ## Executive summary
 
-`npm audit --json` currently reports **5 affected package nodes**: 3 moderate, 1 high, and 1 critical. All five are development-tool dependencies under Vite or Vitest. `npm audit --omit=dev --json` reports **0 production findings**.
+The SEC-001 `npm audit --json` snapshot reported **5 affected package nodes**: 3 moderate, 1 high, and 1 critical. All five were development-tool dependencies under Vite or Vitest. `npm audit --omit=dev --json` reported **0 production findings**.
 
 This does not make the findings irrelevant. AlphaFactorForge development runs on Windows and starts a local Vite server, which overlaps with several advisory preconditions. No dependency was changed in SEC-001 because the smallest complete remediation crosses the current Vite 5 and Vitest 2 major-version boundaries.
 
-Recommendation: classify all five package nodes as **`needs-window`**, keep the short-term development-server restrictions below, and handle the coordinated Vite/Vitest upgrade as a separate, fully tested task. Do not run any form of `npm audit fix`, especially `npm audit fix --force`.
+The SEC-001 recommendation was to classify all five package nodes as **`needs-window`** and handle the coordinated Vite/Vitest upgrade as a separate, fully tested task. SEC-002 has now completed that task. The prohibition on `npm audit fix`, especially `npm audit fix --force`, remains in force for future advisories.
 
 ## Reproducible snapshot
 
