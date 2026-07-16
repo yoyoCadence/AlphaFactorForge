@@ -77,6 +77,19 @@ export interface BacktestSummary {
   created_at?: string;
 }
 
+// One closed trade written under a backtest_summary row. `bars` is not part of
+// the Phase A schema; fee/slippage remain NULL in Rust until recorded per trade.
+export interface TradeRow {
+  entry_time: number;
+  exit_time: number;
+  side: 'LONG' | 'SHORT';
+  entry_price: number;
+  exit_price: number;
+  pnl: number;
+  pnl_pct: number;
+  reason: string | null;
+}
+
 // ---- Database ----
 export const db = {
   init: () => invoke<string>('init_database'),
@@ -88,8 +101,8 @@ export const db = {
     invoke<number>('import_candles', { dataset, candles }),
   saveStrategy: (strategy: StrategyDef) => invoke<number>('save_strategy', { strategy }),
   getStrategies: () => invoke<StrategyDef[]>('get_strategies'),
-  saveBacktestResult: (summary: BacktestSummary) =>
-    invoke<number>('save_backtest_result', { summary }),
+  saveBacktestResult: (summary: BacktestSummary, trades: TradeRow[]) =>
+    invoke<number>('save_backtest_result', { summary, trades }),
   getBacktestResults: (strategyId?: number) =>
     invoke<BacktestSummary[]>('get_backtest_results', { strategyId }),
 };
