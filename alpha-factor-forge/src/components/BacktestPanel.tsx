@@ -2,7 +2,7 @@
 //
 // Vertical slice: pick/import a dataset (SQLite) -> edit params-mode strategy ->
 // run via the Slice 1 service (core/* under the hood) -> show metrics -> save
-// the result (strategy_def + backtest_summary). No chart / sweep / replay /
+// the result (strategy_def + backtest_summary + trades). No chart / sweep / replay /
 // live / library yet — those are later slices. All persistence goes through
 // tauri-client; all maths through core/* + src/services.
 
@@ -18,6 +18,7 @@ import { makeSampleCandles } from '../services/sampleData';
 import { buildStrategyDef } from '../services/strategyRecord';
 import { strategyFromDef } from '../services/strategyLibrary';
 import { metricsToBacktestSummary } from '../services/metricsMapper';
+import { tradesToRows } from '../services/tradesMapper';
 import { SweepSection } from './SweepSection';
 import { ChartSection } from './ChartSection';
 import { DatasetSection } from './DatasetSection';
@@ -37,7 +38,7 @@ const HELP: Record<string, string> = {
   metrics: '策略在此資料集上的表現：淨報酬、CAGR、最大回撤、Sharpe／Sortino／Calmar、勝率、交易數、獲利因子等。',
   sweep: `自動改變 1–2 個參數掃過設定範圍，用熱力圖找較佳組合（上限 ${SWEEP_MAX_COMBOS} 組）。注意：歷史最佳常過度擬合，務必再用樣本外驗證。開啟 Holdout 時，掃描只使用樣本內資料（末段樣本外不參與最佳化）。`,
   run: '以目前策略與執行模型，在選定資料集上跑一次回測；結果顯示於右側「回測績效」。',
-  save: '把策略與這次回測摘要寫入資料庫（strategy_def + backtest_summary，segment=full），經由 metricsToBacktestSummary()。',
+  save: '把策略、回測摘要與交易明細寫入資料庫（strategy_def + backtest_summary + trades，segment=full）。',
   runSweep: `對每個參數組合各回測一次並畫成熱力圖（上限 ${SWEEP_MAX_COMBOS} 組）；掃描期間畫面顯示「掃描中…」。`,
   applyBest: '把最佳組合的參數套回策略表單（也可直接點熱力圖任一格套用該格的組合）。',
   replay: '回放模式：用滑桿或 ◀ / ▶ 一根一根前進，或按 ⏵ 自動播放（速度 1×–4×）；圖表只畫到目前這根，並顯示此根的進出場訊號與持倉（持倉依上次回測），之後的 K 線與買賣點會被隱藏，像重播當時看到的行情。',
@@ -239,7 +240,7 @@ export function BacktestPanel(): React.ReactElement {
         startTime: selected.start_time,
         endTime: selected.end_time,
       });
-      await db.saveBacktestResult(summary);
+      await db.saveBacktestResult(summary, tradesToRows(result.trades));
       await refreshStrategies();
       setSavedStrategyId(strategyId);
       setMsg(`已存檔：strategy #${strategyId}（type=${def.type}）· dataset #${selected.id} · ${result.trades.length} trades`);

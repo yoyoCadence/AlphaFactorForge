@@ -3,7 +3,7 @@
 
 use tauri::State;
 
-use crate::db::repositories::{self, BacktestSummary, Candle, Dataset, StrategyDef};
+use crate::db::repositories::{self, BacktestSummary, Candle, Dataset, StrategyDef, TradeRow};
 use crate::error::{AppError, AppResult};
 use crate::AppState;
 
@@ -64,16 +64,20 @@ pub fn get_strategies(state: State<AppState>) -> AppResult<Vec<StrategyDef>> {
     repositories::list_strategies(&conn)
 }
 
-/// Persist one backtest summary row (upsert on strategy+dataset+segment).
+/// Persist one backtest summary and its closed trades atomically.
 /// Phase A stores the metric columns; gate/score/benchmark stay null until
-/// Phase B. Trade-level detail (the `trades` table) is deferred to the UI port.
+/// Phase B. Re-saving the same summary key replaces its prior trade rows.
 #[tauri::command]
 pub fn save_backtest_result(
     state: State<AppState>,
     summary: BacktestSummary,
+    trades: Vec<TradeRow>,
 ) -> AppResult<i64> {
-    let conn = state.db.lock().map_err(|_| AppError::Other("db lock poisoned".into()))?;
-    repositories::insert_backtest_summary(&conn, &summary)
+    let mut conn = state
+        .db
+        .lock()
+        .map_err(|_| AppError::Other("db lock poisoned".into()))?;
+    repositories::save_backtest_result(&mut conn, &summary, &trades)
 }
 
 #[tauri::command]

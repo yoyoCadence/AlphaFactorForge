@@ -7,7 +7,7 @@
 // replace real Tauri/Rust/SQLite verification (Rust integration tests +
 // `cargo tauri dev` smoke still own that).
 
-import type { Candle, Dataset, StrategyDef, BacktestSummary } from './commands';
+import type { Candle, Dataset, StrategyDef, BacktestSummary, TradeRow } from './commands';
 import type { ImportCandlesInput } from './dbClient';
 
 export function makeMockClient() {
@@ -15,6 +15,9 @@ export function makeMockClient() {
   const candlesByDs = new Map<number, Candle[]>();
   const strategies: StrategyDef[] = [];
   const summaries: BacktestSummary[] = [];
+  // There is no trades reader yet, but the E2E seam still mirrors SQLite's
+  // replace-on-summary-key persistence instead of silently dropping the rows.
+  const tradesBySummaryId = new Map<number, TradeRow[]>();
   let nextId = 1;
 
   const db = {
@@ -35,9 +38,18 @@ export function makeMockClient() {
       return id;
     },
     getStrategies: async () => strategies.slice(),
-    saveBacktestResult: async (summary: BacktestSummary) => {
-      const id = nextId++;
-      summaries.push({ ...summary, id });
+    saveBacktestResult: async (summary: BacktestSummary, trades: TradeRow[]) => {
+      const existingIndex = summaries.findIndex(
+        (row) => row.strategy_id === summary.strategy_id
+          && row.dataset_id === summary.dataset_id
+          && row.segment === summary.segment,
+      );
+      const existingId = existingIndex >= 0 ? summaries[existingIndex].id : undefined;
+      const id = existingId ?? nextId++;
+      const stored = { ...summary, id };
+      if (existingIndex >= 0) summaries[existingIndex] = stored;
+      else summaries.push(stored);
+      tradesBySummaryId.set(id, trades.map((trade) => ({ ...trade })));
       return id;
     },
     getBacktestResults: async (strategyId?: number) =>

@@ -189,7 +189,7 @@ export function ResultsSection({
               <HelpTip id="save" label="儲存結果" text={help.save} align="right" />
             </div>
             <p style={{ color: '#aaa599', fontSize: 11, marginTop: 8 }}>
-              儲存會寫入 strategy_def + backtest_summary（segment=full），經由 metricsToBacktestSummary()。
+              儲存會寫入 strategy_def + backtest_summary + trades（segment=full）。
             </p>
           </>
         )}

@@ -10,8 +10,8 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 - Target app: `alpha-factor-forge/` is the Tauri Desktop Phase A scaffold.
 - Baseline verified: `npm test`, `npm run typecheck`, and `npm run build` pass in `alpha-factor-forge/`.
 - Native Tauri verified: Rust 1.96 / Cargo / MSVC build tools / Tauri CLI v2 installed; `cargo check` and `cargo tauri dev` both pass; multi-size icons generated.
-- Progress (through code-mode UX polish + REF-004 + BUG-004 + UI-port Slice 8b-2): Phase A backtest pipeline; chart (canvas + overlays + trade markers + wheel-zoom + drag-pan + hover + bar replay); params/blocks/code strategy modes with invalid-expression Run guard; holdout; parameter sweep + interactive heatmap; report export (Slice 7-2); SQLite strategy library (Slice 7-3); native chart + metrics OS windows (Slice 8b); mutable-field strategy UPSERT semantics (REF-004); plus the 2026-07-07 project audit (`docs/` blueprint) and its backlog work: DOC-001, BUG-001, REF-001→004, TEST-001→002 (browser E2E flows, golden lock, and legacy parity), and Backtest Correctness Phases 1–3 (fee-inclusive accounting, settled metrics, execution-bar/risk fills, legacy `both` reversal, and normalized-fraction validation). Current tests: 193 vitest + 25 Playwright e2e.
-- Next: no task is currently staged; select the next small slice from Backlog after the save-message E2E flow merges.
+- Progress (through FEAT-002 + code-mode UX polish + REF-004 + BUG-004 + UI-port Slice 8b-2): Phase A backtest pipeline and transactional SQLite persistence (datasets, candles, strategies, summaries, and closed trades); chart (canvas + overlays + trade markers + wheel-zoom + drag-pan + hover + bar replay); params/blocks/code strategy modes with invalid-expression Run guard; holdout; parameter sweep + interactive heatmap; report export (Slice 7-2); SQLite strategy library (Slice 7-3); native chart + metrics OS windows (Slice 8b); mutable-field strategy UPSERT semantics (REF-004); plus the 2026-07-07 project audit (`docs/` blueprint) and its backlog work: DOC-001, BUG-001, REF-001→004, TEST-001→002 (browser E2E flows, golden lock, and legacy parity), and Backtest Correctness Phases 1–3 (fee-inclusive accounting, settled metrics, execution-bar/risk fills, legacy `both` reversal, and normalized-fraction validation). Current tests: 196 vitest + 25 Playwright e2e.
+- Next: no task is currently staged; select the next small slice from Backlog after FEAT-002 merges.
 - PR CI runs typecheck / test / build / cargo-check (now incl. `cargo test`) — green per PR; `main` requires branches up to date before merge.
 - Source-of-truth architecture: `STRATEGY_DISCOVERY.md` v3 and `README.md`.
 - Historical context: `HISTORY.md` and `CONVERSATION_HISTORY.md`.
@@ -62,14 +62,6 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 ## Backlog
 
 ### Phase A: Tauri Foundation
-
-- [ ] Implement report/file export through Tauri commands
-  - Keep JSON and CSV export behavior from the prototype.
-  - Add a typed frontend wrapper for `export_report`.
-
-- [ ] Replace prototype localStorage strategy/data persistence with local-first Tauri storage
-  - Store datasets, candles, strategies, summaries, and trades in SQLite.
-  - Keep localStorage limited to non-sensitive UI preferences.
 
 - [ ] Resolve prototype issues before or during the port
   - Verify/fix RSI panel refresh after symbol/interval changes.
@@ -142,6 +134,12 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 - [ ] Full closed-loop AI automation.
 
 ## Done
+
+- [x] FEAT-002 — Persist trade-detail rows with each saved backtest summary.
+  - Added one typed `ClosedTrade` → `TradeRow` mapper and passed the rows through the existing Tauri client boundary.
+  - Rust now upserts the summary, deletes prior child rows, and inserts the replacement trades in one transaction; regression tests cover replace, partial-insert rollback, and strategy-delete cascade semantics with foreign keys enabled.
+  - Kept migration `0001_init.sql` unchanged: holding bars are not stored, per-trade fee/slippage remain `NULL`, and a trades-reading UI stays deferred to Results Explorer.
+  - Validation: `npm run typecheck`; `npm test` (196); `npm run build`; `cargo check --locked`; `cargo test --locked` (13); `npm run e2e` (25).
 
 - [x] Complete the planned browser E2E flows for BacktestPanel.
   - The dev-only `dataClient` mock seam now supports durable Chromium coverage without routing production around typed Tauri clients or storing product data in browser localStorage.

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added transactional trade-detail persistence: saving a backtest now writes its closed trades with the summary, replaces prior rows on the same strategy/dataset/segment key, and rolls back the whole replacement if any trade insert fails.
 - Disabled Run in code mode whenever either manual entry/exit expression is invalid, while keeping params and blocks mode available; the live compiler errors are now programmatically linked to their fields for assistive technology.
 - Fixed same-hash strategy re-saves so mutable names and sources refresh in SQLite without creating duplicates or overwriting the validation-owned lifecycle state.
 - Added Slice 8b-2 native metrics pop-out: the inline, floating, and standalone Tauri views now share one full/Holdout metrics renderer, while typed targeted events keep a stable single-instance OS window synchronized under a dedicated least-privilege capability.

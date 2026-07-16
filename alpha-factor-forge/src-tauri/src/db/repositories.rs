@@ -107,6 +107,22 @@ pub struct BacktestSummary {
     pub created_at: Option<String>, // set by DB default; read-only
 }
 
+/// One closed trade persisted under a `backtest_summary` row.
+///
+/// Phase A does not expose per-trade fee/slippage, so those SQLite columns
+/// intentionally remain NULL. Holding bars are not part of the current schema.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TradeRow {
+    pub entry_time: i64,
+    pub exit_time: i64,
+    pub side: String,
+    pub entry_price: f64,
+    pub exit_price: f64,
+    pub pnl: f64,
+    pub pnl_pct: f64,
+    pub reason: Option<String>,
+}
+
 // ---------- datasets ----------
 
 pub fn insert_dataset(conn: &Connection, d: &Dataset) -> AppResult<i64> {
@@ -306,6 +322,50 @@ pub fn insert_backtest_summary(conn: &Connection, s: &BacktestSummary) -> AppRes
     Ok(id)
 }
 
+/// Atomically upsert a summary and replace all trade rows attached to it.
+///
+/// Re-running the same strategy/dataset/segment must never accumulate stale
+/// trades. Keeping the upsert, delete, and inserts in one transaction also
+/// preserves the previous complete result if any replacement row fails.
+pub fn save_backtest_result(
+    conn: &mut Connection,
+    summary: &BacktestSummary,
+    trades: &[TradeRow],
+) -> AppResult<i64> {
+    let tx = conn.transaction()?;
+    let summary_id = insert_backtest_summary(&tx, summary)?;
+
+    tx.execute(
+        "DELETE FROM trades WHERE backtest_summary_id = ?1",
+        params![summary_id],
+    )?;
+
+    {
+        let mut stmt = tx.prepare(
+            "INSERT INTO trades
+                (backtest_summary_id, entry_time, exit_time, side,
+                 entry_price, exit_price, pnl, pnl_pct, fee, slippage, reason)
+             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,NULL,NULL,?9)",
+        )?;
+        for trade in trades {
+            stmt.execute(params![
+                summary_id,
+                trade.entry_time,
+                trade.exit_time,
+                trade.side,
+                trade.entry_price,
+                trade.exit_price,
+                trade.pnl,
+                trade.pnl_pct,
+                trade.reason,
+            ])?;
+        }
+    }
+
+    tx.commit()?;
+    Ok(summary_id)
+}
+
 /// List summaries, newest first. Pass `strategy_id` to scope to one strategy.
 pub fn list_backtest_summaries(
     conn: &Connection,
@@ -383,6 +443,8 @@ mod tests {
     /// A migrated in-memory DB — no temp files, isolated per test.
     fn mem_db() -> Connection {
         let conn = Connection::open_in_memory().expect("open in-memory db");
+        conn.pragma_update(None, "foreign_keys", "ON")
+            .expect("enable foreign keys");
         crate::db::apply_migrations(&conn).expect("apply migrations");
         conn
     }
@@ -401,6 +463,71 @@ mod tests {
             strategy_hash: hash.into(),
             lifecycle: "candidate".into(),
             parent_strategy_id: None,
+        }
+    }
+
+    fn saved_parent_rows(conn: &Connection) -> (i64, i64) {
+        let dataset_id = insert_dataset(
+            conn,
+            &Dataset {
+                id: None,
+                exchange: "test".into(),
+                symbol: "BTCUSDT".into(),
+                interval: "1h".into(),
+                start_time: 1,
+                end_time: 10,
+                candle_count: 10,
+                source: "test".into(),
+                dataset_hash: "trade-test-dataset".into(),
+            },
+        )
+        .unwrap();
+        let strategy_id = insert_strategy(conn, &blocks_strategy("trade-test-strategy")).unwrap();
+        (strategy_id, dataset_id)
+    }
+
+    fn summary(strategy_id: i64, dataset_id: i64, net_return: f64) -> BacktestSummary {
+        BacktestSummary {
+            id: None,
+            strategy_id,
+            dataset_id,
+            segment: "full".into(),
+            start_time: 1,
+            end_time: 10,
+            net_return: Some(net_return),
+            cagr: None,
+            max_drawdown: None,
+            sharpe: None,
+            sortino: None,
+            calmar: None,
+            win_rate: None,
+            trade_count: None,
+            profit_factor: None,
+            avg_trade_return: None,
+            median_trade_return: None,
+            exposure: None,
+            turnover: None,
+            largest_win: None,
+            largest_loss: None,
+            consecutive_losses: None,
+            gate_passed: None,
+            score: None,
+            score_breakdown_json: None,
+            benchmark_result_json: None,
+            created_at: None,
+        }
+    }
+
+    fn trade(entry_time: i64, exit_time: i64, reason: Option<&str>) -> TradeRow {
+        TradeRow {
+            entry_time,
+            exit_time,
+            side: "LONG".into(),
+            entry_price: 100.0,
+            exit_price: 110.0,
+            pnl: 10.0,
+            pnl_pct: 0.1,
+            reason: reason.map(str::to_owned),
         }
     }
 
@@ -479,5 +606,108 @@ mod tests {
         let listed = list_strategies(&conn).unwrap();
         assert_eq!(listed.len(), 1);
         assert_eq!(listed[0].name, "new name");
+    }
+
+    #[test]
+    fn save_backtest_result_replaces_trades_for_same_summary() {
+        let mut conn = mem_db();
+        let (strategy_id, dataset_id) = saved_parent_rows(&conn);
+        let original = summary(strategy_id, dataset_id, 0.1);
+        let summary_id = save_backtest_result(
+            &mut conn,
+            &original,
+            &[trade(1, 2, None), trade(3, 4, None)],
+        )
+        .unwrap();
+
+        let replacement = summary(strategy_id, dataset_id, 0.2);
+        let replacement_id =
+            save_backtest_result(&mut conn, &replacement, &[trade(5, 6, Some("signal"))])
+                .unwrap();
+
+        assert_eq!(replacement_id, summary_id);
+        let (count, entry_time, reason): (i64, i64, Option<String>) = conn
+            .query_row(
+                "SELECT COUNT(*), MIN(entry_time), MAX(reason)
+                 FROM trades WHERE backtest_summary_id = ?1",
+                params![summary_id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .unwrap();
+        assert_eq!(count, 1, "replacement must not accumulate old trades");
+        assert_eq!(entry_time, 5);
+        assert_eq!(reason.as_deref(), Some("signal"));
+
+        let net_return: f64 = conn
+            .query_row(
+                "SELECT net_return FROM backtest_summary WHERE id = ?1",
+                params![summary_id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(net_return, 0.2);
+    }
+
+    #[test]
+    fn save_backtest_result_rolls_back_summary_and_trades_together() {
+        let mut conn = mem_db();
+        let (strategy_id, dataset_id) = saved_parent_rows(&conn);
+        let original = summary(strategy_id, dataset_id, 0.1);
+        let summary_id =
+            save_backtest_result(&mut conn, &original, &[trade(1, 2, None)]).unwrap();
+
+        conn.execute_batch(
+            "CREATE TRIGGER reject_marked_trade
+             BEFORE INSERT ON trades
+             WHEN NEW.reason = 'reject'
+             BEGIN SELECT RAISE(ABORT, 'rejected test trade'); END;",
+        )
+        .unwrap();
+
+        let replacement = summary(strategy_id, dataset_id, 0.9);
+        let result = save_backtest_result(
+            &mut conn,
+            &replacement,
+            &[trade(3, 4, None), trade(7, 8, Some("reject"))],
+        );
+        assert!(result.is_err());
+
+        let (net_return, count, entry_time): (f64, i64, i64) = conn
+            .query_row(
+                "SELECT s.net_return, COUNT(t.id), MIN(t.entry_time)
+                 FROM backtest_summary s
+                 JOIN trades t ON t.backtest_summary_id = s.id
+                 WHERE s.id = ?1",
+                params![summary_id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .unwrap();
+        assert_eq!(net_return, 0.1, "failed replacement must roll back summary");
+        assert_eq!(count, 1, "failed replacement must retain prior trades");
+        assert_eq!(entry_time, 1);
+    }
+
+    #[test]
+    fn deleting_strategy_cascades_to_summary_and_trades() {
+        let mut conn = mem_db();
+        let (strategy_id, dataset_id) = saved_parent_rows(&conn);
+        save_backtest_result(
+            &mut conn,
+            &summary(strategy_id, dataset_id, 0.1),
+            &[trade(1, 2, None)],
+        )
+        .unwrap();
+
+        conn.execute("DELETE FROM strategy_def WHERE id = ?1", params![strategy_id])
+            .unwrap();
+
+        let summaries: i64 = conn
+            .query_row("SELECT COUNT(*) FROM backtest_summary", [], |row| row.get(0))
+            .unwrap();
+        let trades: i64 = conn
+            .query_row("SELECT COUNT(*) FROM trades", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(summaries, 0);
+        assert_eq!(trades, 0);
     }
 }
