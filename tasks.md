@@ -11,14 +11,18 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 - Baseline verified: `npm test`, `npm run typecheck`, and `npm run build` pass in `alpha-factor-forge/`.
 - Native Tauri verified: Rust 1.96 / Cargo / MSVC build tools / Tauri CLI v2 installed; `cargo check` and `cargo tauri dev` both pass; multi-size icons generated.
 - Progress (through FEAT-002 + code-mode UX polish + REF-004 + BUG-004 + UI-port Slice 8b-2): Phase A backtest pipeline and transactional SQLite persistence (datasets, candles, strategies, summaries, and closed trades); chart (canvas + overlays + trade markers + wheel-zoom + drag-pan + hover + bar replay); params/blocks/code strategy modes with invalid-expression Run guard; holdout; parameter sweep + interactive heatmap; report export (Slice 7-2); SQLite strategy library (Slice 7-3); native chart + metrics OS windows (Slice 8b); mutable-field strategy UPSERT semantics (REF-004); plus the 2026-07-07 project audit (`docs/` blueprint) and its backlog work: DOC-001, BUG-001, REF-001→004, TEST-001→002 (browser E2E flows, golden lock, and legacy parity), and Backtest Correctness Phases 1–3 (fee-inclusive accounting, settled metrics, execution-bar/risk fills, legacy `both` reversal, and normalized-fraction validation). Current tests: 196 vitest + 25 Playwright e2e.
-- Next: no task is currently staged; select the next small slice from Backlog after FEAT-002 merges.
+- Security snapshot (2026-07-16): SEC-001 classifies five affected dev-tool package nodes (3 moderate / 1 high / 1 critical); the production-only audit is clean. See `docs/security-audit-npm.md`.
+- Next: SEC-002 stages the minimum coordinated Vite/Vitest security upgrade; no automatic or forced audit fix.
 - PR CI runs typecheck / test / build / cargo-check (now incl. `cargo test`) — green per PR; `main` requires branches up to date before merge.
 - Source-of-truth architecture: `STRATEGY_DISCOVERY.md` v3 and `README.md`.
 - Historical context: `HISTORY.md` and `CONVERSATION_HISTORY.md`.
 
 ## Next
 
-- None.
+- [ ] SEC-002 — Upgrade the development toolchain to the minimum patched Vite/Vitest lines.
+  - Target `vite@6.4.3` and `vitest@3.2.6`; keep `@vitejs/plugin-react@4.7.0` only if the installed peer graph remains valid.
+  - Apply explicit versions and review the lockfile; do not run any form of `npm audit fix`.
+  - Require zero full/production audit findings plus typecheck, unit, build, and browser E2E gates.
 
 ## In Progress
 
@@ -60,18 +64,6 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
   - Carry-over detail (kept from backlog): suggested folders `src/components`, `src/pages`, `src/charts`, `src/stores`, `src/services`; preserve the terminal-like dense visual style; replace prototype localStorage persistence with SQLite via `tauri-client`.
 
 ## Backlog
-
-### Phase A: Tauri Foundation
-
-- [ ] Resolve prototype issues before or during the port
-  - Verify/fix RSI panel refresh after symbol/interval changes.
-  - Verify MA period wiring in chart drawing against strategy state.
-  - Verify Bar Replay signal-to-bar alignment.
-  - Decide whether to add a Service Worker for the legacy PWA or defer because Tauri is now the target.
-
-- [ ] Review npm audit findings without forced breaking upgrades
-  - `npm install` reported 5 vulnerabilities.
-  - Prefer targeted upgrades after checking Vite/Tauri compatibility.
 
 ### Phase B: Discovery And Validation
 
@@ -134,6 +126,18 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 - [ ] Full closed-loop AI automation.
 
 ## Done
+
+- [x] SEC-001 — Review npm audit findings without forced breaking upgrades.
+  - Added `docs/security-audit-npm.md` with a reproducible lockfile/runtime snapshot, all five affected package-node paths, the five underlying advisories, exposure preconditions, patched floors, and an actionable classification.
+  - All findings are dev-only; `npm audit --omit=dev --json` reports zero. Every affected node is `needs-window` because a complete fix crosses the current Vite 5 / Vitest 2 majors.
+  - Recommended a separate minimum-patched upgrade (`vite@6.4.3` + `vitest@3.2.6`) and retained the ban on automatic/forced audit fixes. `package.json` and `package-lock.json` are unchanged.
+  - Validation: full audit reproduced 3 moderate / 1 high / 1 critical; production-only audit 0; `npm run typecheck` passed; dependency-file diff is empty.
+
+- [x] Reconcile the legacy prototype-issue carry-over before selecting new work.
+  - Dataset changes already reload candles, so RSI refreshes from the new series; chart drawing already derives MA periods from current strategy state.
+  - Replay and hover use one active-bar index across candle, signal, and position readouts, with unit and browser regressions covering boundaries and alignment.
+  - Service Worker work remains intentionally deferred because Tauri is the target architecture; the legacy PWA is a read-only behavior reference.
+  - This was a status reconciliation only; no product or test files changed.
 
 - [x] FEAT-002 — Persist trade-detail rows with each saved backtest summary.
   - Added one typed `ClosedTrade` → `TradeRow` mapper and passed the rows through the existing Tauri client boundary.
