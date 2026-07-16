@@ -10,9 +10,9 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 - Target app: `alpha-factor-forge/` is the Tauri Desktop Phase A scaffold.
 - Baseline verified: `npm test`, `npm run typecheck`, and `npm run build` pass in `alpha-factor-forge/`.
 - Native Tauri verified: Rust 1.96 / Cargo / MSVC build tools / Tauri CLI v2 installed; `cargo check` and `cargo tauri dev` both pass; multi-size icons generated.
-- Progress (through FEAT-002 + code-mode UX polish + REF-004 + BUG-004 + UI-port Slice 8b-2): Phase A backtest pipeline and transactional SQLite persistence (datasets, candles, strategies, summaries, and closed trades); chart (canvas + overlays + trade markers + wheel-zoom + drag-pan + hover + bar replay); params/blocks/code strategy modes with invalid-expression Run guard; holdout; parameter sweep + interactive heatmap; report export (Slice 7-2); SQLite strategy library (Slice 7-3); native chart + metrics OS windows (Slice 8b); mutable-field strategy UPSERT semantics (REF-004); plus the 2026-07-07 project audit (`docs/` blueprint) and its backlog work: DOC-001, BUG-001, REF-001→004, TEST-001→002 (browser E2E flows, golden lock, and legacy parity), and Backtest Correctness Phases 1–3 (fee-inclusive accounting, settled metrics, execution-bar/risk fills, legacy `both` reversal, and normalized-fraction validation). Current tests: 196 vitest + 25 Playwright e2e.
+- Progress (through VAL-001 + FEAT-002 + code-mode UX polish + REF-004 + BUG-004 + UI-port Slice 8b-2): Phase A backtest pipeline and transactional SQLite persistence (datasets, candles, strategies, summaries, and closed trades); Phase B's pure deterministic Train/Validation/Test + embargo split contract; chart (canvas + overlays + trade markers + wheel-zoom + drag-pan + hover + bar replay); params/blocks/code strategy modes with invalid-expression Run guard; holdout; parameter sweep + interactive heatmap; report export (Slice 7-2); SQLite strategy library (Slice 7-3); native chart + metrics OS windows (Slice 8b); mutable-field strategy UPSERT semantics (REF-004); plus the 2026-07-07 project audit (`docs/` blueprint) and its backlog work: DOC-001, BUG-001, REF-001→004, TEST-001→002 (browser E2E flows, golden lock, and legacy parity), and Backtest Correctness Phases 1–3 (fee-inclusive accounting, settled metrics, execution-bar/risk fills, legacy `both` reversal, and normalized-fraction validation). Current tests: 220 vitest + 25 Playwright e2e.
 - Security snapshot (2026-07-16): SEC-002 exact-pins Vite 6.4.3 + Vitest 3.2.6; full and production-only audits both report zero. See `docs/security-audit-npm.md`.
-- Next: no task is currently staged; select the next small Phase B slice after SEC-002 merges.
+- Next: no task is currently staged; select the next small Phase B integration slice after VAL-001 merges.
 - PR CI runs typecheck / test / build / cargo-check (now incl. `cargo test`) — green per PR; `main` requires branches up to date before merge.
 - Source-of-truth architecture: `STRATEGY_DISCOVERY.md` v3 and `README.md`.
 - Historical context: `HISTORY.md` and `CONVERSATION_HISTORY.md`.
@@ -65,6 +65,7 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 ### Phase B: Discovery And Validation
 
 - [ ] Implement Phase B validation foundations
+  - [x] VAL-001: lock the pure deterministic 60/20/20 bar split and equal-embargo range contract.
   - Add Train/Validation/Test split with embargo.
   - Keep Test hidden from ranking and prompts.
   - Add walk-forward only after the basic split is stable.
@@ -123,6 +124,13 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 - [ ] Full closed-loop AI automation.
 
 ## Done
+
+- [x] VAL-001 — deterministic Train/Validation/Test + embargo split contract.
+  - Added a pure `src/core/validation/split.ts` planner with inclusive `from`/`to` ranges compatible with the existing backtest boundary contract; no React, DOM, IO, persistence, or runner dependency.
+  - V1 first excludes two equal caller-supplied embargo gaps, then allocates usable bars at fixed 60/20/20 ratios with exact integer largest-remainder math and deterministic Train→Validation→Test ties.
+  - Invalid/insufficient input fails closed; 24 focused tests cover exact ranges, all five remainder residues, zero/nonzero embargo, total coverage, invalid inputs, and `Number.MAX_SAFE_INTEGER` precision.
+  - Added `docs/validation-split-contract.md`; Test remains unwired from generation, tuning, ranking, prompts, UI, and hidden-Test reveal flows.
+  - Validation: `npm run typecheck`; `npm test` (220); `npm run build`. Independent review closed one safe-integer precision blocker and approved the corrected implementation with blocker 0.
 
 - [x] SEC-002 — Upgrade the development toolchain to the minimum patched Vite/Vitest lines.
   - Exact-pinned `vite@6.4.3` and `vitest@3.2.6`; the reviewed lockfile resolves `esbuild@0.25.12`, `@vitest/mocker@3.2.6`, and `vite-node@3.2.4` while retaining the compatible `@vitejs/plugin-react@4.7.0` peer.
