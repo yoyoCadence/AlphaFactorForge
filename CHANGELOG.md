@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added the Phase B validation split foundation: a pure deterministic Train/Validation/Test planner that excludes two equal embargo gaps, allocates usable bars at fixed 60/20/20 ratios with exact integer largest-remainder math, and fails closed on invalid or insufficient input.
 - Upgraded and exact-pinned Vite from 5.4.21 to 6.4.3 and Vitest from 2.1.9 to 3.2.6, pulling patched esbuild 0.25.12 and clearing all five recorded development-tool audit findings without changing product runtime code.
 - Added transactional trade-detail persistence: saving a backtest now writes its closed trades with the summary, replaces prior rows on the same strategy/dataset/segment key, and rolls back the whole replacement if any trade insert fails.
 - Disabled Run in code mode whenever either manual entry/exit expression is invalid, while keeping params and blocks mode available; the live compiler errors are now programmatically linked to their fields for assistive technology.
