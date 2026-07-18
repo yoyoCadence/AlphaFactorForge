@@ -8,6 +8,7 @@
 import type { ParamsStrategy } from './strategy';
 import type { BacktestResult } from '../core/backtest';
 import type { ClosedTrade, Metrics } from '../core/metrics';
+import { nonFiniteStatus, type NonFiniteStatus } from './nonFinite';
 
 const APP = 'AlphaFactorForge';
 
@@ -27,6 +28,12 @@ export interface ReportInput {
   exportedAt?: number;
 }
 
+/** Metrics with every top-level numeric field narrowed to finite-or-null so
+ *  the report is JSON-safe (schema 2, METRIC-001). */
+export type ReportMetrics = {
+  [K in keyof Metrics]: Metrics[K] extends number ? number | null : Metrics[K];
+};
+
 export interface ReportJson {
   app: string;
   schema: number;
@@ -34,22 +41,49 @@ export interface ReportJson {
   strategyName: string;
   strategy: ParamsStrategy;
   dataset: ReportDatasetMeta;
-  metrics: Metrics;
+  metrics: ReportMetrics;
+  /** Explicit status for every metric that is null above because it was
+   *  non-finite (e.g. Sortino with no downside) — never rely on
+   *  JSON.stringify's silent Infinity -> null conversion (METRIC-001). */
+  metricsNonFinite: Partial<Record<keyof Metrics, NonFiniteStatus>>;
   tradeCount: number;
   trades: ClosedTrade[];
+}
+
+/** Encode metrics for JSON: non-finite numeric fields become null + an
+ *  explicit status entry. monthlyReturns are equity ratios and stay finite by
+ *  construction, so the record passes through unchanged. */
+function encodeMetrics(metrics: Metrics): {
+  values: ReportMetrics;
+  nonFinite: Partial<Record<keyof Metrics, NonFiniteStatus>>;
+} {
+  const values: Record<string, unknown> = { ...metrics };
+  const nonFinite: Partial<Record<keyof Metrics, NonFiniteStatus>> = {};
+  for (const key of Object.keys(metrics) as (keyof Metrics)[]) {
+    const v = metrics[key];
+    if (typeof v !== 'number') continue;
+    const status = nonFiniteStatus(v);
+    if (status) {
+      nonFinite[key] = status;
+      values[key] = null;
+    }
+  }
+  return { values: values as ReportMetrics, nonFinite };
 }
 
 /** Build the structured JSON report object. Pure. */
 export function buildReport(input: ReportInput): ReportJson {
   const at = input.exportedAt ?? Date.now();
+  const { values, nonFinite } = encodeMetrics(input.result.metrics);
   return {
     app: APP,
-    schema: 1,
+    schema: 2,
     exportedAt: new Date(at).toISOString(),
     strategyName: input.strategyName?.trim() || '(未命名)',
     strategy: input.strategy,
     dataset: input.dataset,
-    metrics: input.result.metrics,
+    metrics: values,
+    metricsNonFinite: nonFinite,
     tradeCount: input.result.trades.length,
     trades: input.result.trades,
   };

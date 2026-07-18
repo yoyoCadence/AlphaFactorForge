@@ -26,7 +26,7 @@ describe('buildReport / reportToJson', () => {
   it('produces a parseable report with the expected shape', () => {
     const r = JSON.parse(reportToJson(input));
     expect(r.app).toBe('AlphaFactorForge');
-    expect(r.schema).toBe(1);
+    expect(r.schema).toBe(2);
     expect(r.exportedAt).toBe('2026-07-01T08:30:00.000Z');
     expect(r.strategyName).toBe('demo'); // trimmed
     expect(r.dataset).toEqual({ symbol: 'SAMPLE', interval: '1h', startTime: 1_000_000, endTime: 4_000_000 });
@@ -39,6 +39,30 @@ describe('buildReport / reportToJson', () => {
   it('falls back to a placeholder name when blank', () => {
     expect(buildReport({ ...input, strategyName: '   ' }).strategyName).toBe('(未命名)');
     expect(buildReport({ ...input, strategyName: undefined }).strategyName).toBe('(未命名)');
+  });
+
+  it('encodes non-finite metrics as null + an explicit status (METRIC-001)', () => {
+    const withInf = {
+      ...input,
+      result: {
+        ...result,
+        metrics: { ...metrics, sortino: Infinity, calmar: -Infinity, sharpe: NaN } as Metrics,
+      },
+    };
+    // JSON round-trip must preserve the statuses, not silently null them.
+    const r = JSON.parse(reportToJson(withInf));
+    expect(r.metrics.sortino).toBeNull();
+    expect(r.metrics.calmar).toBeNull();
+    expect(r.metrics.sharpe).toBeNull();
+    expect(r.metricsNonFinite).toEqual({
+      sortino: 'positive_infinity',
+      calmar: 'negative_infinity',
+      sharpe: 'nan',
+    });
+    // finite fields stay numeric and produce no status entry
+    expect(r.metrics.netReturn).toBe(0.12);
+    const clean = buildReport(input);
+    expect(clean.metricsNonFinite).toEqual({});
   });
 });
 

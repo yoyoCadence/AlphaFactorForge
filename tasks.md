@@ -10,21 +10,16 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 - Target app: `alpha-factor-forge/` is the Tauri Desktop Phase A scaffold.
 - Baseline verified: `npm test`, `npm run typecheck`, and `npm run build` pass in `alpha-factor-forge/`.
 - Native Tauri verified: Rust 1.96 / Cargo / MSVC build tools / Tauri CLI v2 installed; `cargo check` and `cargo tauri dev` both pass; multi-size icons generated.
-- Progress (through GATE-001 + FEAT-002 + code-mode UX polish + REF-004 + BUG-004 + UI-port Slice 8b-2): Phase A backtest pipeline and transactional SQLite persistence (datasets, candles, strategies, summaries, and closed trades); Phase B's pure deterministic Train/Validation/Test + embargo split contract, its Train/Validation segmented backtest runner (Test never executed), usage-aware embargo derivation (max used-signal lookback + explicit holding allowance), the full §6 benchmark suite (Buy & Hold / SMA 50/200 / RSI 14 30-70 / Bollinger 20-2 + seeded Random Entry Monte Carlo with matched holding periods), and the §5.1 hard elimination gate (explicit thresholds, fail-closed evidence); chart (canvas + overlays + trade markers + wheel-zoom + drag-pan + hover + bar replay); params/blocks/code strategy modes with invalid-expression Run guard; holdout; parameter sweep + interactive heatmap; report export (Slice 7-2); SQLite strategy library (Slice 7-3); native chart + metrics OS windows (Slice 8b); mutable-field strategy UPSERT semantics (REF-004); plus the 2026-07-07 project audit (`docs/` blueprint) and its backlog work: DOC-001, BUG-001, REF-001→004, TEST-001→002 (browser E2E flows, golden lock, and legacy parity), and Backtest Correctness Phases 1–3 (fee-inclusive accounting, settled metrics, execution-bar/risk fills, legacy `both` reversal, and normalized-fraction validation). Current tests: 264 vitest + 25 Playwright e2e.
+- Progress (through GATE-001 + FEAT-002 + code-mode UX polish + REF-004 + BUG-004 + UI-port Slice 8b-2): Phase A backtest pipeline and transactional SQLite persistence (datasets, candles, strategies, summaries, and closed trades); Phase B's pure deterministic Train/Validation/Test + embargo split contract, its Train/Validation segmented backtest runner (Test never executed), usage-aware embargo derivation (max used-signal lookback + explicit holding allowance), the full §6 benchmark suite (Buy & Hold / SMA 50/200 / RSI 14 30-70 / Bollinger 20-2 + seeded Random Entry Monte Carlo with matched holding periods), and the §5.1 hard elimination gate (explicit thresholds, fail-closed evidence); chart (canvas + overlays + trade markers + wheel-zoom + drag-pan + hover + bar replay); params/blocks/code strategy modes with invalid-expression Run guard; holdout; parameter sweep + interactive heatmap; report export (Slice 7-2); SQLite strategy library (Slice 7-3); native chart + metrics OS windows (Slice 8b); mutable-field strategy UPSERT semantics (REF-004); plus the 2026-07-07 project audit (`docs/` blueprint) and its backlog work: DOC-001, BUG-001, REF-001→004, TEST-001→002 (browser E2E flows, golden lock, and legacy parity), and Backtest Correctness Phases 1–3 (fee-inclusive accounting, settled metrics, execution-bar/risk fills, legacy `both` reversal, and normalized-fraction validation). Current tests: 271 vitest + 25 Playwright e2e.
 - Security snapshot (2026-07-16): SEC-002 exact-pins Vite 6.4.3 + Vitest 3.2.6; full and production-only audits both report zero. See `docs/security-audit-npm.md`.
-- Next: reviewer Resolution for SCORE-001 is recorded (handoff, PR #61) — METRIC-001 (core Sortino/Calmar/non-finite correctness) must be completed first; SCORE-001 implementation follows the Resolution, not the original proposal.
+- Next: METRIC-001 (reviewer-mandated core metrics correctness) is implemented — SCORE-001 starts after it merges, following the PR #61 handoff Resolution (not the original proposal).
 - PR CI runs typecheck / test / build / cargo-check (now incl. `cargo test`) — green per PR; `main` requires branches up to date before merge.
 - Source-of-truth architecture: `STRATEGY_DISCOVERY.md` v3 and `README.md`.
 - Historical context: `HISTORY.md` and `CONVERSATION_HISTORY.md`.
 
 ## Next
 
-- [ ] METRIC-001: core metrics correctness required by the SCORE-001 Resolution (reviewer-mandated blocker).
-  - `core/metrics`: downside deviation becomes `sqrt(mean(min(0, excessReturn)^2))` over ALL bar returns; Sortino = `+Infinity` when downside is 0 with positive mean excess (other zero-denominator → 0); Calmar = `+Infinity` when `maxDrawdown === 0 && cagr > 0` (other zero-denominator → 0).
-  - Non-finite values must never reach DB/JSON via implicit `null` — represent them with an explicit status at the persistence boundary.
-  - Tests lock: single downside observation, no downside, positive CAGR + zero drawdown, non-positive-return zero-denominator. Golden-test updates for changed Sortino values are expected and must be intentional.
-
-- [ ] SCORE-001: §5.2 weighted ranking score (pure service, no UI) — **blocked on METRIC-001**.
+- [ ] SCORE-001: §5.2 weighted ranking score (pure service, no UI) — **unblocked once METRIC-001 (PR pending) merges**.
   - Reviewer decisions D1–D5 are recorded in the Resolution of `handoffs/2026-07-19-score-001-design-proposal-v1.md` (PR #61); implementation follows the Resolution wherever it differs from the original proposal (notably: revised Consistency formula, canonical cross-mode complexity units, `formulaVersion: score-v1`, JSON-safe `rawStatus` breakdown).
   - Do not move to In Progress until METRIC-001 is Done.
 
@@ -135,6 +130,13 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 - [ ] Full closed-loop AI automation.
 
 ## Done
+
+- [x] METRIC-001 — core metrics correctness mandated by the SCORE-001 Resolution (Next → In Progress → Done in one session).
+  - `core/metrics`: downside deviation is now `sqrt(mean(min(0, excess)^2))` over ALL bar returns, so a single downside observation yields a finite positive Sortino instead of 0; Sortino = `+Infinity` only when downside is 0 with positive mean excess; Calmar = `+Infinity` when drawdown is 0 with positive CAGR; every other zero-denominator case stays 0. Sharpe unchanged.
+  - Explicit non-finite handling at JSON boundaries: new `services/nonFinite.ts` (`positive_infinity` / `negative_infinity` / `nan`, matching the Resolution's `rawStatus` vocabulary); the JSON report bumps to schema 2 with finite-or-null metric values plus a `metricsNonFinite` status map — never relying on `JSON.stringify`'s silent Infinity→null. The SQLite mapper's explicit finite→null narrowing is documented and test-locked (nullable REAL columns; DB status columns deferred to a future schema slice).
+  - No golden updates were needed: goldens lock Sharpe (unchanged), not Sortino/Calmar; the sweep's existing Inf→99 guard already covers the now-reachable infinite Calmar.
+  - +7 tests (6 metric locks incl. the four reviewer-mandated cases + report status round-trip; extended the mapper null-narrowing lock).
+  - Validation: `npm run typecheck`; `npm test` (271); `npm run build`.
 
 - [x] GATE-001 — §5.1 hard elimination gate (pure judgment, no UI).
   - Added `alpha-factor-forge/src/services/gate.ts`: `evaluateGate` judges a candidate segment result plus the complete §6 benchmark outputs against explicit thresholds and returns a full per-criterion verdict (fixed §5.1 order, observed value + threshold + pass, and the exact config) for reproducible recording. It runs no backtests.
