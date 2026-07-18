@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added usage-aware embargo derivation for the validation split: a pure service computes the split gap from the slowest indicator lookback the strategy's active params/blocks/code signals actually read, plus an explicit caller-approved holding allowance, returning a recordable breakdown and failing closed on unsupported or invalid input.
 - Added the Phase B segmented validation runner: a pure service that plans the deterministic Train/Validation/Test split and backtests only the Train and Validation ranges through the existing pipeline, keeping embargo bars unevaluated and the hidden Test segment entirely unexecuted.
 - Added the Phase B validation split foundation: a pure deterministic Train/Validation/Test planner that excludes two equal embargo gaps, allocates usable bars at fixed 60/20/20 ratios with exact integer largest-remainder math, and fails closed on invalid or insufficient input.
 - Upgraded and exact-pinned Vite from 5.4.21 to 6.4.3 and Vitest from 2.1.9 to 3.2.6, pulling patched esbuild 0.25.12 and clearing all five recorded development-tool audit findings without changing product runtime code.

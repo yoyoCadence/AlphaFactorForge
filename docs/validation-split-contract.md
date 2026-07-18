@@ -21,6 +21,16 @@ The ranges use zero-based inclusive `from` / `to` indexes so a future caller can
 
 The planner does not calculate the embargo size. A future discovery configuration must derive it explicitly, for example from the strategy's maximum indicator lookback plus an approved holding-period allowance, and record that value for reproducibility.
 
+## Embargo derivation (VAL-003)
+
+`alpha-factor-forge/src/services/embargo.ts` implements that derivation: `deriveEmbargoBars(strat, holdingAllowanceBars)` returns `embargoBars = maxSignalLookbackBars + holdingAllowanceBars` plus the recordable breakdown.
+
+- Usage-aware: only the indicators the strategy's active-mode entry/exit signals actually reference count (params signal ids, blocks rule operands, or the code expressions' validated ASTs). Unused configured periods never inflate the embargo.
+- Lookback conventions (bars of history; first defined output index is `lookback - 1`, matching `core/indicators` warm-up): `sma(p)`/`ema(p)`/`bbands(p)` → `p` (the EMA seed convention is recorded and accepted); `rsi(p)` → `p + 1`; MACD line → `max(fast, slow)`; MACD signal/hist → `max(fast, slow) + signalPeriod - 1`; raw price/volume series → 1; `prev`/`crossUp`/`crossDown` add one bar because they read bar `i - 1`.
+- `holdingAllowanceBars` remains a caller-approved explicit value (0 must be stated, never implied) covering trades that could span a segment boundary.
+- Fail closed: unsupported `stoch*` signals, invalid code expressions, non-positive used periods, and a negative or non-integer allowance throw instead of guessing.
+- The returned breakdown must be recorded alongside the run (a later persistence slice owns where).
+
 ## Non-goals
 
 - Replacing the existing two-way, user-adjustable Holdout display/sweep split.

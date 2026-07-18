@@ -10,18 +10,16 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 - Target app: `alpha-factor-forge/` is the Tauri Desktop Phase A scaffold.
 - Baseline verified: `npm test`, `npm run typecheck`, and `npm run build` pass in `alpha-factor-forge/`.
 - Native Tauri verified: Rust 1.96 / Cargo / MSVC build tools / Tauri CLI v2 installed; `cargo check` and `cargo tauri dev` both pass; multi-size icons generated.
-- Progress (through VAL-002 + FEAT-002 + code-mode UX polish + REF-004 + BUG-004 + UI-port Slice 8b-2): Phase A backtest pipeline and transactional SQLite persistence (datasets, candles, strategies, summaries, and closed trades); Phase B's pure deterministic Train/Validation/Test + embargo split contract plus its Train/Validation segmented backtest runner (Test never executed); chart (canvas + overlays + trade markers + wheel-zoom + drag-pan + hover + bar replay); params/blocks/code strategy modes with invalid-expression Run guard; holdout; parameter sweep + interactive heatmap; report export (Slice 7-2); SQLite strategy library (Slice 7-3); native chart + metrics OS windows (Slice 8b); mutable-field strategy UPSERT semantics (REF-004); plus the 2026-07-07 project audit (`docs/` blueprint) and its backlog work: DOC-001, BUG-001, REF-001→004, TEST-001→002 (browser E2E flows, golden lock, and legacy parity), and Backtest Correctness Phases 1–3 (fee-inclusive accounting, settled metrics, execution-bar/risk fills, legacy `both` reversal, and normalized-fraction validation). Current tests: 226 vitest + 25 Playwright e2e.
+- Progress (through VAL-003 + FEAT-002 + code-mode UX polish + REF-004 + BUG-004 + UI-port Slice 8b-2): Phase A backtest pipeline and transactional SQLite persistence (datasets, candles, strategies, summaries, and closed trades); Phase B's pure deterministic Train/Validation/Test + embargo split contract, its Train/Validation segmented backtest runner (Test never executed), and usage-aware embargo derivation (max used-signal lookback + explicit holding allowance); chart (canvas + overlays + trade markers + wheel-zoom + drag-pan + hover + bar replay); params/blocks/code strategy modes with invalid-expression Run guard; holdout; parameter sweep + interactive heatmap; report export (Slice 7-2); SQLite strategy library (Slice 7-3); native chart + metrics OS windows (Slice 8b); mutable-field strategy UPSERT semantics (REF-004); plus the 2026-07-07 project audit (`docs/` blueprint) and its backlog work: DOC-001, BUG-001, REF-001→004, TEST-001→002 (browser E2E flows, golden lock, and legacy parity), and Backtest Correctness Phases 1–3 (fee-inclusive accounting, settled metrics, execution-bar/risk fills, legacy `both` reversal, and normalized-fraction validation). Current tests: 240 vitest + 25 Playwright e2e.
 - Security snapshot (2026-07-16): SEC-002 exact-pins Vite 6.4.3 + Vitest 3.2.6; full and production-only audits both report zero. See `docs/security-audit-npm.md`.
-- Next: no task is currently staged; select the next small Phase B slice (e.g. embargo derivation config or Gate + Score foundations) after VAL-002 merges.
+- Next: no task is currently staged; select the next small Phase B slice (e.g. Gate + Score foundations, or a validation-run record that persists the derivation + plan) after VAL-003 merges.
 - PR CI runs typecheck / test / build / cargo-check (now incl. `cargo test`) — green per PR; `main` requires branches up to date before merge.
 - Source-of-truth architecture: `STRATEGY_DISCOVERY.md` v3 and `README.md`.
 - Historical context: `HISTORY.md` and `CONVERSATION_HISTORY.md`.
 
 ## Next
 
-- None. (VAL-002 was staged here from the Phase B backlog after VAL-001 merged, moved to In Progress, and completed — see Done.)
-
-## In Progress
+- None. (VAL-003 was staged here from the Phase B backlog after VAL-002 merged, moved to In Progress, and completed — see Done.)
 
 - [ ] Port the legacy AlphaFactorForge PWA UI into the React/Tauri structure (incremental)
   - Reality check: `AlphaFactorForge.dc.html` is a custom "dc"-framework export (`{{ }}` bindings, `<sc-for>`/`<sc-if>`, runtime `support.js`), ~1500 lines; app logic + initial state live in the `<script type="text/x-dc">` block (line ~685+). This is a REWRITE in React, not a copy-paste port.
@@ -67,6 +65,7 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 - [ ] Implement Phase B validation foundations
   - [x] VAL-001: lock the pure deterministic 60/20/20 bar split and equal-embargo range contract.
   - [x] VAL-002: run the split plan through the backtest pipeline (Train + Validation segments only; Test never executed).
+  - [x] VAL-003: usage-aware embargo derivation (max used-signal lookback + explicit holding allowance, recordable breakdown).
   - Keep Test hidden from ranking and prompts (holds so far: nothing runs or reads the Test segment).
   - Add walk-forward only after the basic split is stable.
 
@@ -124,6 +123,13 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 - [ ] Full closed-loop AI automation.
 
 ## Done
+
+- [x] VAL-003 — usage-aware embargo derivation for the validation split.
+  - Added pure `alpha-factor-forge/src/services/embargo.ts`: `deriveEmbargoBars(strat, holdingAllowanceBars)` returns `embargoBars = maxSignalLookbackBars + holdingAllowanceBars` with a recordable breakdown; `maxSignalLookbackBars` counts only the indicators the active mode's entry/exit signals actually reference (params signal ids, blocks rule operands, or the code expressions' interpreter-validated ASTs), using each core indicator's real warm-up (`sma`/`ema`/`bbands` → p, `rsi` → p+1, MACD signal/hist → max(fast, slow) + signal − 1) and adding one bar for `prev`/cross semantics.
+  - Fail closed: unsupported `stoch*` signals, invalid code expressions, non-positive used periods, and a negative or non-integer allowance throw; unused configured periods never inflate the embargo or throw.
+  - Documented the conventions in `docs/validation-split-contract.md` (new "Embargo derivation (VAL-003)" section). The module stays unwired until a later slice records the breakdown with a validation run; no UI, persistence, ranking, or Rust changes.
+  - 14 focused tests across params/blocks/code modes, usage-awareness, fail-closed inputs, and `planValidationSplit` integration sanity.
+  - Validation: `npm run typecheck`; `npm test` (240); `npm run build`.
 
 - [x] VAL-002 — run the split plan through the existing backtest pipeline (Train + Validation only).
   - Added pure `alpha-factor-forge/src/services/validationRun.ts`: `runValidationBacktests` plans `planValidationSplit(candles.length, embargoBars)` and backtests the Train and Validation inclusive ranges via the existing `runParamsBacktest` `from`/`to` (full indicator history — the same causal pattern as Holdout; embargo bars are never evaluated).
