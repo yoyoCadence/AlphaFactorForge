@@ -12,14 +12,16 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 - Native Tauri verified: Rust 1.96 / Cargo / MSVC build tools / Tauri CLI v2 installed; `cargo check` and `cargo tauri dev` both pass; multi-size icons generated.
 - Progress (through GATE-001 + FEAT-002 + code-mode UX polish + REF-004 + BUG-004 + UI-port Slice 8b-2): Phase A backtest pipeline and transactional SQLite persistence (datasets, candles, strategies, summaries, and closed trades); Phase B's pure deterministic Train/Validation/Test + embargo split contract, its Train/Validation segmented backtest runner (Test never executed), usage-aware embargo derivation (max used-signal lookback + explicit holding allowance), the full §6 benchmark suite (Buy & Hold / SMA 50/200 / RSI 14 30-70 / Bollinger 20-2 + seeded Random Entry Monte Carlo with matched holding periods), and the §5.1 hard elimination gate (explicit thresholds, fail-closed evidence); chart (canvas + overlays + trade markers + wheel-zoom + drag-pan + hover + bar replay); params/blocks/code strategy modes with invalid-expression Run guard; holdout; parameter sweep + interactive heatmap; report export (Slice 7-2); SQLite strategy library (Slice 7-3); native chart + metrics OS windows (Slice 8b); mutable-field strategy UPSERT semantics (REF-004); plus the 2026-07-07 project audit (`docs/` blueprint) and its backlog work: DOC-001, BUG-001, REF-001→004, TEST-001→002 (browser E2E flows, golden lock, and legacy parity), and Backtest Correctness Phases 1–3 (fee-inclusive accounting, settled metrics, execution-bar/risk fills, legacy `both` reversal, and normalized-fraction validation). Current tests: 264 vitest + 25 Playwright e2e.
 - Security snapshot (2026-07-16): SEC-002 exact-pins Vite 6.4.3 + Vitest 3.2.6; full and production-only audits both report zero. See `docs/security-audit-npm.md`.
-- Next: no task is currently staged; select the next small Phase B slice (e.g. SCORE-001 §5.2 weighted ranking score over gate-passing candidates, or a validation-run record that persists the derivation + plan + verdict) after GATE-001 merges.
+- Next: SCORE-001 (§5.2 weighted ranking score) is staged, blocked on reviewer decisions D1–D5 in `handoffs/2026-07-19-score-001-design-proposal-v1.md`; implementation starts only after its Resolution is recorded.
 - PR CI runs typecheck / test / build / cargo-check (now incl. `cargo test`) — green per PR; `main` requires branches up to date before merge.
 - Source-of-truth architecture: `STRATEGY_DISCOVERY.md` v3 and `README.md`.
 - Historical context: `HISTORY.md` and `CONVERSATION_HISTORY.md`.
 
 ## Next
 
-- None. (GATE-001 was staged here from the Phase B backlog after BENCH-002 merged, moved to In Progress, and completed — see Done.)
+- [ ] SCORE-001: §5.2 weighted ranking score (pure service, no UI) — **blocked on reviewer decisions**.
+  - Design proposal with decision points D1–D5 (normalization, regime deferral, component caps, penalty caps, interface): `handoffs/2026-07-19-score-001-design-proposal-v1.md`.
+  - Do not move to In Progress until the handoff's Resolution records the decisions; implementation follows the Resolution wherever it differs from the proposal.
 
 ## In Progress
 
