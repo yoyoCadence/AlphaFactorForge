@@ -10,16 +10,18 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 - Target app: `alpha-factor-forge/` is the Tauri Desktop Phase A scaffold.
 - Baseline verified: `npm test`, `npm run typecheck`, and `npm run build` pass in `alpha-factor-forge/`.
 - Native Tauri verified: Rust 1.96 / Cargo / MSVC build tools / Tauri CLI v2 installed; `cargo check` and `cargo tauri dev` both pass; multi-size icons generated.
-- Progress (through VAL-003 + FEAT-002 + code-mode UX polish + REF-004 + BUG-004 + UI-port Slice 8b-2): Phase A backtest pipeline and transactional SQLite persistence (datasets, candles, strategies, summaries, and closed trades); Phase B's pure deterministic Train/Validation/Test + embargo split contract, its Train/Validation segmented backtest runner (Test never executed), and usage-aware embargo derivation (max used-signal lookback + explicit holding allowance); chart (canvas + overlays + trade markers + wheel-zoom + drag-pan + hover + bar replay); params/blocks/code strategy modes with invalid-expression Run guard; holdout; parameter sweep + interactive heatmap; report export (Slice 7-2); SQLite strategy library (Slice 7-3); native chart + metrics OS windows (Slice 8b); mutable-field strategy UPSERT semantics (REF-004); plus the 2026-07-07 project audit (`docs/` blueprint) and its backlog work: DOC-001, BUG-001, REF-001→004, TEST-001→002 (browser E2E flows, golden lock, and legacy parity), and Backtest Correctness Phases 1–3 (fee-inclusive accounting, settled metrics, execution-bar/risk fills, legacy `both` reversal, and normalized-fraction validation). Current tests: 240 vitest + 25 Playwright e2e.
+- Progress (through BENCH-001 + FEAT-002 + code-mode UX polish + REF-004 + BUG-004 + UI-port Slice 8b-2): Phase A backtest pipeline and transactional SQLite persistence (datasets, candles, strategies, summaries, and closed trades); Phase B's pure deterministic Train/Validation/Test + embargo split contract, its Train/Validation segmented backtest runner (Test never executed), usage-aware embargo derivation (max used-signal lookback + explicit holding allowance), and the deterministic benchmark suite (Buy & Hold / SMA 50/200 / RSI 14 30-70 / Bollinger 20-2); chart (canvas + overlays + trade markers + wheel-zoom + drag-pan + hover + bar replay); params/blocks/code strategy modes with invalid-expression Run guard; holdout; parameter sweep + interactive heatmap; report export (Slice 7-2); SQLite strategy library (Slice 7-3); native chart + metrics OS windows (Slice 8b); mutable-field strategy UPSERT semantics (REF-004); plus the 2026-07-07 project audit (`docs/` blueprint) and its backlog work: DOC-001, BUG-001, REF-001→004, TEST-001→002 (browser E2E flows, golden lock, and legacy parity), and Backtest Correctness Phases 1–3 (fee-inclusive accounting, settled metrics, execution-bar/risk fills, legacy `both` reversal, and normalized-fraction validation). Current tests: 248 vitest + 25 Playwright e2e.
 - Security snapshot (2026-07-16): SEC-002 exact-pins Vite 6.4.3 + Vitest 3.2.6; full and production-only audits both report zero. See `docs/security-audit-npm.md`.
-- Next: no task is currently staged; select the next small Phase B slice (e.g. Gate + Score foundations, or a validation-run record that persists the derivation + plan) after VAL-003 merges.
+- Next: no task is currently staged; select the next small Phase B slice (e.g. BENCH-002 Random Entry Monte Carlo, Gate comparison rules over the benchmark runs, or a validation-run record that persists the derivation + plan) after BENCH-001 merges.
 - PR CI runs typecheck / test / build / cargo-check (now incl. `cargo test`) — green per PR; `main` requires branches up to date before merge.
 - Source-of-truth architecture: `STRATEGY_DISCOVERY.md` v3 and `README.md`.
 - Historical context: `HISTORY.md` and `CONVERSATION_HISTORY.md`.
 
 ## Next
 
-- None. (VAL-003 was staged here from the Phase B backlog after VAL-002 merged, moved to In Progress, and completed — see Done.)
+- None. (BENCH-001 was staged here from the Phase B backlog after VAL-003 merged, moved to In Progress, and completed — see Done.)
+
+## In Progress
 
 - [ ] Port the legacy AlphaFactorForge PWA UI into the React/Tauri structure (incremental)
   - Reality check: `AlphaFactorForge.dc.html` is a custom "dc"-framework export (`{{ }}` bindings, `<sc-for>`/`<sc-if>`, runtime `support.js`), ~1500 lines; app logic + initial state live in the `<script type="text/x-dc">` block (line ~685+). This is a REWRITE in React, not a copy-paste port.
@@ -73,6 +75,7 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
   - Gate: minimum trades, cost-adjusted average trade, rolling-window consistency, max drawdown, concentration limits, benchmark wins.
   - Score: OOS CAGR, Sortino, Calmar, regime robustness, profit factor, consistency, complexity/turnover/data-mining penalties.
   - Benchmarks: Buy & Hold, SMA, RSI, Bollinger, Random Entry.
+  - [x] BENCH-001: the four deterministic benchmarks (Buy & Hold, SMA 50/200, RSI 14 30/70, Bollinger 20/2) as a pure suite; Random Entry Monte Carlo remains (BENCH-002).
 
 - [ ] Add duplicate skip and result reuse
   - Use `strategy_hash`, `dataset_hash`, and segment.
@@ -123,6 +126,13 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 - [ ] Full closed-loop AI automation.
 
 ## Done
+
+- [x] BENCH-001 — deterministic benchmark suite (pure service, no UI).
+  - Added `alpha-factor-forge/src/services/benchmarks.ts`: `runDeterministicBenchmarks` runs the four `STRATEGY_DISCOVERY.md` §6 deterministic baselines — Buy & Hold (hand-built signals: enter first tested close, hold to the engine's EOD settlement), SMA 50/200 cross, RSI 14 30/70 reversion, Bollinger 20/2 mean reversion — over one candles × segment in a fixed order through the existing pipeline.
+  - Fairness conventions recorded in `docs/benchmark-suite-contract.md`: benchmarks inherit the candidate's fee/slippage but always run long-only, 100% sizing, close fill, no SL/TP; segment restriction uses the engine's inclusive `from`/`to`; an empty series fails closed.
+  - Random Entry Monte Carlo is deferred to BENCH-002 (needs matched holding-period distribution, run count, seed, and percentile conventions); Gate comparison rules are a later slice — this slice only produces per-benchmark metrics.
+  - 8 focused tests: doc-definition lock, hand-calculated Buy & Hold (full range, sub-segment, cost effect), fixed suite order, pipeline parity for the signal benchmarks, determinism, and empty-input failure. Also restored the `## In Progress` board header dropped by the VAL-003 PR.
+  - Validation: `npm run typecheck`; `npm test` (248); `npm run build`.
 
 - [x] VAL-003 — usage-aware embargo derivation for the validation split.
   - Added pure `alpha-factor-forge/src/services/embargo.ts`: `deriveEmbargoBars(strat, holdingAllowanceBars)` returns `embargoBars = maxSignalLookbackBars + holdingAllowanceBars` with a recordable breakdown; `maxSignalLookbackBars` counts only the indicators the active mode's entry/exit signals actually reference (params signal ids, blocks rule operands, or the code expressions' interpreter-validated ASTs), using each core indicator's real warm-up (`sma`/`ema`/`bbands` → p, `rsi` → p+1, MACD signal/hist → max(fast, slow) + signal − 1) and adding one bar for `prev`/cross semantics.
