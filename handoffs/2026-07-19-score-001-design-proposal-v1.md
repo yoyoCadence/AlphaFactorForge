@@ -3,8 +3,8 @@
 Date: 2026-07-19
 Repo: yoyoCadence/AlphaFactorForge
 Branch: docs/handoff-score-001-proposal
-PR: (this handoff PR)
-Status: open question — implementation must not start until a Resolution records the decisions below
+PR: #61
+Status: resolved — D1–D5 decided (see Resolution); SCORE-001 stays blocked until METRIC-001 is completed
 
 ## Summary
 
@@ -79,4 +79,110 @@ Proposal only — no code, no tests to run. Current baseline on `main`: 264 vite
 
 ## Resolution (added when acted on)
 
-(Reviewer: record D1–D5 decisions here, then implementation may start.)
+Date: 2026-07-19. Decider: Codex (reviewer), delivered as a PR #61 comment by @yoyoCadence; transcribed verbatim below. **Implementation authority: this Resolution > the original proposal above, wherever they differ.**
+
+> 結論：方向同意，但不可按提案原文直接實作。
+
+### Mandated execution order
+
+1. Append these D1–D5 decisions to this Resolution (done — this section).
+2. After the Resolution is appended, this handoff PR proceeds through normal review/merge.
+3. First create and complete the small correctness task **METRIC-001**.
+4. **SCORE-001 must not move to In Progress, and product implementation must not start, until METRIC-001 is complete.**
+5. SCORE-001 delivers the pure score service only; Gate→Score ordering and min-score / top-K promotion policy belong to the later runner slice.
+
+### Blocking: METRIC-001 (core metrics correctness)
+
+Current `alpha-factor-forge/src/core/metrics/index.ts` is inconsistent with the proposal's assumptions:
+
+- `index.ts:102-105` takes a plain standard deviation of the negative excess-return subset; with a single negative sample `downside = 0`, so Sortino returns 0.
+- `index.ts:111` makes Calmar 0 whenever `maxDrawdown === 0`; a positive-CAGR, zero-drawdown candidate gets no Calmar credit.
+- `profitFactor` can already be `Infinity` (`index.ts:140`); `JSON.stringify(Infinity)` silently becomes `null`, so a breakdown must never persist non-finite values directly.
+
+METRIC-001 decisions:
+
+- `downsideDeviation = sqrt(mean(min(0, excessReturn)^2))` over ALL bar returns (not the negative subset).
+- `downsideDeviation === 0 && meanExcess > 0` → Sortino = `+Infinity`; every other zero-denominator case → 0.
+- `maxDrawdown === 0 && cagr > 0` → Calmar = `+Infinity`; every other zero-denominator case → 0.
+- Tests must lock: single downside observation, no downside at all, positive CAGR + zero drawdown, and non-positive-return zero-denominator cases.
+- Non-finite values in DB/JSON must be represented by an explicit status, never by relying on JSON's implicit `null` conversion.
+
+### D1 — Normalization (final)
+
+Option A adopted: fixed, recorded, deterministic normalization; cohort rank/z-score rejected.
+
+- v1 caps provisionally keep the proposal's values and are stored in full in the resolved `ScoreConfig`.
+- The breakdown gains `formulaVersion: score-v1`.
+- The score is the UNclamped raw weighted sum: `sum(positive) - sum(penalties)`.
+- Only scores with the same formulaVersion/config are directly comparable; a 0–100 presentation may only ever be a UI projection.
+
+### D2 — RegimeRobustness (final)
+
+Deferred to REGIME-001. Fixed placeholder:
+
+```ts
+{ raw: null, normalized: null, contribution: 0, status: deferred, weight: 0 }
+```
+
+Until REGIME-001 exists, any non-zero regime weight must throw `RangeError` — never silently ignored, and never `normalized = 0` pretending to be a tested-but-poor result.
+
+### D3 — Positive components (final)
+
+CAGR / Sortino / Calmar / ProfitFactor caps provisionally keep the proposal's values, but METRIC-001 must land first:
+
+- CAGR `clamp01(cagr / 1.0)`; Sortino `clamp01(sortino / 5)`; Calmar `clamp01(calmar / 5)`; PF `clamp01((pf - 1) / 2)`.
+- A legitimate positive Infinity → `normalized = 1`, but `raw` must be a JSON-safe status.
+- NaN / negative Infinity / insufficient evidence → `normalized = 0` recorded as `invalid` / `insufficient`; the final score is always finite.
+
+Consistency REVISED (the proposal's `clamp01((1/σ)/10)` is rejected — it would give every σ ≤ 10% a perfect score):
+
+- Only finite Validation monthly returns; at least **3 months**.
+- σ is the population standard deviation.
+- `normalized = 1 / (1 + 10 * σ)`.
+- Evidence records at least `monthCount` and `monthlyStdDev`.
+
+### D4 — Penalties (final)
+
+Complexity — the proposal's per-mode counting is rejected; adopted instead:
+
+```text
+complexityUnits =
+  canonicalDecisionNodeCount
+  + activeIndicatorParameterCount
+  + enabledRiskRuleCount
+```
+
+- params: map each SignalId to canonical operator/function + operand/literal nodes.
+- blocks: each rule counts operator + operands/literal, plus AND connectors.
+- code: the interpreter's actual AST node count.
+- Active indicator parameters count only the distinct fields the entry/exit signals actually reference.
+- Enabled SL and TP each +1; fee/slippage/size/fill/direction never count.
+- Semantically equivalent params/blocks/code MA-cross strategies MUST yield identical units, locked by test.
+- Cap 40, weight 0.5 provisional.
+
+Turnover — cap 0.1, weight 0.5 provisional. The contract must state that `metrics.turnover = closedTrades / totalBars` is a trade-frequency proxy, not notional turnover; evidence records the proxy definition version plus closedTradeCount/totalBars where available.
+
+DataMining — N must be a positive safe integer >= 1. N = the number of **unique hypotheses** finally considered in the candidate's full search lineage; cache reuse / duplicates do not double-count. All candidates in a lineage use the FINAL N, recomputed after the search completes; running counts are forbidden (order dependence). Manual one-offs pass N = 1 explicitly. Keep `clamp01(log10(N) / 4)`, weight 1. Evidence records N and basis `lineage-final-unique`. Sharing N within a lineage does not change intra-lineage ranking, only absolute scores / cross-lineage comparison; this is a heuristic and must not be presented as a full Deflated Sharpe correction. The later runner must define the promotion policy.
+
+### D5 — Interface and discipline (final)
+
+- v1 reads only `ValidationRunResult.validation`; Train must not be read; Test must still never be executed or enter ranking.
+- The breakdown is fully JSON-safe: every numeric field is a finite number or null.
+- Each entry at minimum: `{ id, raw, rawStatus, normalized, weight, contribution, evidence? }`.
+- `rawStatus` distinguishes at least: `finite | positive_infinity | insufficient | invalid | deferred`.
+- Top level at minimum: `formulaVersion`, `segment: validation`, finite `score`, components, penalties, resolved config, tested-combination evidence.
+- Caps must be finite and > 0; weights finite and >= 0; the regime weight may only be 0 until REGIME-001.
+- The score service does not pretend to enforce gate ordering; the future runner only calls score for `GateVerdict.pass === true`.
+
+### SCORE-001 acceptance checklist (from the reviewer)
+
+- Deterministic: same input/config → identical breakdown.
+- Resolved config fully recorded.
+- Invalid caps/weights/N → `RangeError`.
+- Non-zero weight on the deferred regime component is rejected.
+- Positive Infinity → normalized 1, JSON round-trip preserves the status.
+- NaN / negative Infinity / insufficient months fail closed; score always finite.
+- Consistency cases: σ = 0, low σ, high σ, and fewer than 3 months.
+- params/blocks/code equivalent-strategy complexity parity.
+- The same lineage uses the same final N regardless of execution order.
+- The Test segment is never read or executed.

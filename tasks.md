@@ -12,16 +12,21 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 - Native Tauri verified: Rust 1.96 / Cargo / MSVC build tools / Tauri CLI v2 installed; `cargo check` and `cargo tauri dev` both pass; multi-size icons generated.
 - Progress (through GATE-001 + FEAT-002 + code-mode UX polish + REF-004 + BUG-004 + UI-port Slice 8b-2): Phase A backtest pipeline and transactional SQLite persistence (datasets, candles, strategies, summaries, and closed trades); Phase B's pure deterministic Train/Validation/Test + embargo split contract, its Train/Validation segmented backtest runner (Test never executed), usage-aware embargo derivation (max used-signal lookback + explicit holding allowance), the full §6 benchmark suite (Buy & Hold / SMA 50/200 / RSI 14 30-70 / Bollinger 20-2 + seeded Random Entry Monte Carlo with matched holding periods), and the §5.1 hard elimination gate (explicit thresholds, fail-closed evidence); chart (canvas + overlays + trade markers + wheel-zoom + drag-pan + hover + bar replay); params/blocks/code strategy modes with invalid-expression Run guard; holdout; parameter sweep + interactive heatmap; report export (Slice 7-2); SQLite strategy library (Slice 7-3); native chart + metrics OS windows (Slice 8b); mutable-field strategy UPSERT semantics (REF-004); plus the 2026-07-07 project audit (`docs/` blueprint) and its backlog work: DOC-001, BUG-001, REF-001→004, TEST-001→002 (browser E2E flows, golden lock, and legacy parity), and Backtest Correctness Phases 1–3 (fee-inclusive accounting, settled metrics, execution-bar/risk fills, legacy `both` reversal, and normalized-fraction validation). Current tests: 264 vitest + 25 Playwright e2e.
 - Security snapshot (2026-07-16): SEC-002 exact-pins Vite 6.4.3 + Vitest 3.2.6; full and production-only audits both report zero. See `docs/security-audit-npm.md`.
-- Next: SCORE-001 (§5.2 weighted ranking score) is staged, blocked on reviewer decisions D1–D5 in `handoffs/2026-07-19-score-001-design-proposal-v1.md`; implementation starts only after its Resolution is recorded.
+- Next: reviewer Resolution for SCORE-001 is recorded (handoff, PR #61) — METRIC-001 (core Sortino/Calmar/non-finite correctness) must be completed first; SCORE-001 implementation follows the Resolution, not the original proposal.
 - PR CI runs typecheck / test / build / cargo-check (now incl. `cargo test`) — green per PR; `main` requires branches up to date before merge.
 - Source-of-truth architecture: `STRATEGY_DISCOVERY.md` v3 and `README.md`.
 - Historical context: `HISTORY.md` and `CONVERSATION_HISTORY.md`.
 
 ## Next
 
-- [ ] SCORE-001: §5.2 weighted ranking score (pure service, no UI) — **blocked on reviewer decisions**.
-  - Design proposal with decision points D1–D5 (normalization, regime deferral, component caps, penalty caps, interface): `handoffs/2026-07-19-score-001-design-proposal-v1.md`.
-  - Do not move to In Progress until the handoff's Resolution records the decisions; implementation follows the Resolution wherever it differs from the proposal.
+- [ ] METRIC-001: core metrics correctness required by the SCORE-001 Resolution (reviewer-mandated blocker).
+  - `core/metrics`: downside deviation becomes `sqrt(mean(min(0, excessReturn)^2))` over ALL bar returns; Sortino = `+Infinity` when downside is 0 with positive mean excess (other zero-denominator → 0); Calmar = `+Infinity` when `maxDrawdown === 0 && cagr > 0` (other zero-denominator → 0).
+  - Non-finite values must never reach DB/JSON via implicit `null` — represent them with an explicit status at the persistence boundary.
+  - Tests lock: single downside observation, no downside, positive CAGR + zero drawdown, non-positive-return zero-denominator. Golden-test updates for changed Sortino values are expected and must be intentional.
+
+- [ ] SCORE-001: §5.2 weighted ranking score (pure service, no UI) — **blocked on METRIC-001**.
+  - Reviewer decisions D1–D5 are recorded in the Resolution of `handoffs/2026-07-19-score-001-design-proposal-v1.md` (PR #61); implementation follows the Resolution wherever it differs from the original proposal (notably: revised Consistency formula, canonical cross-mode complexity units, `formulaVersion: score-v1`, JSON-safe `rawStatus` breakdown).
+  - Do not move to In Progress until METRIC-001 is Done.
 
 ## In Progress
 
