@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added the Random Entry Monte Carlo benchmark: seeded deterministic simulations that match the candidate's trade count and holding-period distribution at random non-overlapping positions in the same segment, run through the real engine with inherited costs, and report the candidate's percentile against the simulated net-return distribution; the pass threshold stays with the upcoming Gate rules.
 - Added the deterministic benchmark suite: Buy & Hold, SMA 50/200 cross, RSI 14 30/70 reversion, and Bollinger 20/2 mean reversion now run as pure baselines over the same candles and segment through the existing backtest pipeline, inheriting the candidate's fee and slippage while staying long-only with full sizing; Random Entry Monte Carlo and the Gate comparison rules remain later slices.
 - Added usage-aware embargo derivation for the validation split: a pure service computes the split gap from the slowest indicator lookback the strategy's active params/blocks/code signals actually read, plus an explicit caller-approved holding allowance, returning a recordable breakdown and failing closed on unsupported or invalid input.
 - Added the Phase B segmented validation runner: a pure service that plans the deterministic Train/Validation/Test split and backtests only the Train and Validation ranges through the existing pipeline, keeping embargo bars unevaluated and the hidden Test segment entirely unexecuted.

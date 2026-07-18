@@ -10,16 +10,16 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 - Target app: `alpha-factor-forge/` is the Tauri Desktop Phase A scaffold.
 - Baseline verified: `npm test`, `npm run typecheck`, and `npm run build` pass in `alpha-factor-forge/`.
 - Native Tauri verified: Rust 1.96 / Cargo / MSVC build tools / Tauri CLI v2 installed; `cargo check` and `cargo tauri dev` both pass; multi-size icons generated.
-- Progress (through BENCH-001 + FEAT-002 + code-mode UX polish + REF-004 + BUG-004 + UI-port Slice 8b-2): Phase A backtest pipeline and transactional SQLite persistence (datasets, candles, strategies, summaries, and closed trades); Phase B's pure deterministic Train/Validation/Test + embargo split contract, its Train/Validation segmented backtest runner (Test never executed), usage-aware embargo derivation (max used-signal lookback + explicit holding allowance), and the deterministic benchmark suite (Buy & Hold / SMA 50/200 / RSI 14 30-70 / Bollinger 20-2); chart (canvas + overlays + trade markers + wheel-zoom + drag-pan + hover + bar replay); params/blocks/code strategy modes with invalid-expression Run guard; holdout; parameter sweep + interactive heatmap; report export (Slice 7-2); SQLite strategy library (Slice 7-3); native chart + metrics OS windows (Slice 8b); mutable-field strategy UPSERT semantics (REF-004); plus the 2026-07-07 project audit (`docs/` blueprint) and its backlog work: DOC-001, BUG-001, REF-001→004, TEST-001→002 (browser E2E flows, golden lock, and legacy parity), and Backtest Correctness Phases 1–3 (fee-inclusive accounting, settled metrics, execution-bar/risk fills, legacy `both` reversal, and normalized-fraction validation). Current tests: 248 vitest + 25 Playwright e2e.
+- Progress (through BENCH-002 + FEAT-002 + code-mode UX polish + REF-004 + BUG-004 + UI-port Slice 8b-2): Phase A backtest pipeline and transactional SQLite persistence (datasets, candles, strategies, summaries, and closed trades); Phase B's pure deterministic Train/Validation/Test + embargo split contract, its Train/Validation segmented backtest runner (Test never executed), usage-aware embargo derivation (max used-signal lookback + explicit holding allowance), and the full §6 benchmark suite (Buy & Hold / SMA 50/200 / RSI 14 30-70 / Bollinger 20-2 + seeded Random Entry Monte Carlo with matched holding periods); chart (canvas + overlays + trade markers + wheel-zoom + drag-pan + hover + bar replay); params/blocks/code strategy modes with invalid-expression Run guard; holdout; parameter sweep + interactive heatmap; report export (Slice 7-2); SQLite strategy library (Slice 7-3); native chart + metrics OS windows (Slice 8b); mutable-field strategy UPSERT semantics (REF-004); plus the 2026-07-07 project audit (`docs/` blueprint) and its backlog work: DOC-001, BUG-001, REF-001→004, TEST-001→002 (browser E2E flows, golden lock, and legacy parity), and Backtest Correctness Phases 1–3 (fee-inclusive accounting, settled metrics, execution-bar/risk fills, legacy `both` reversal, and normalized-fraction validation). Current tests: 257 vitest + 25 Playwright e2e.
 - Security snapshot (2026-07-16): SEC-002 exact-pins Vite 6.4.3 + Vitest 3.2.6; full and production-only audits both report zero. See `docs/security-audit-npm.md`.
-- Next: no task is currently staged; select the next small Phase B slice (e.g. BENCH-002 Random Entry Monte Carlo, Gate comparison rules over the benchmark runs, or a validation-run record that persists the derivation + plan) after BENCH-001 merges.
+- Next: no task is currently staged; select the next small Phase B slice (e.g. GATE-001 hard-threshold rules over metrics + the complete benchmark suite, or a validation-run record that persists the derivation + plan) after BENCH-002 merges.
 - PR CI runs typecheck / test / build / cargo-check (now incl. `cargo test`) — green per PR; `main` requires branches up to date before merge.
 - Source-of-truth architecture: `STRATEGY_DISCOVERY.md` v3 and `README.md`.
 - Historical context: `HISTORY.md` and `CONVERSATION_HISTORY.md`.
 
 ## Next
 
-- None. (BENCH-001 was staged here from the Phase B backlog after VAL-003 merged, moved to In Progress, and completed — see Done.)
+- None. (BENCH-002 was staged here from the Phase B backlog after BENCH-001 merged, moved to In Progress, and completed — see Done.)
 
 ## In Progress
 
@@ -75,7 +75,8 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
   - Gate: minimum trades, cost-adjusted average trade, rolling-window consistency, max drawdown, concentration limits, benchmark wins.
   - Score: OOS CAGR, Sortino, Calmar, regime robustness, profit factor, consistency, complexity/turnover/data-mining penalties.
   - Benchmarks: Buy & Hold, SMA, RSI, Bollinger, Random Entry.
-  - [x] BENCH-001: the four deterministic benchmarks (Buy & Hold, SMA 50/200, RSI 14 30/70, Bollinger 20/2) as a pure suite; Random Entry Monte Carlo remains (BENCH-002).
+  - [x] BENCH-001: the four deterministic benchmarks (Buy & Hold, SMA 50/200, RSI 14 30/70, Bollinger 20/2) as a pure suite.
+  - [x] BENCH-002: seeded Random Entry Monte Carlo with matched trade count + holding periods; returns the distribution + candidate percentile (no pass/fail — Gate owns the threshold).
 
 - [ ] Add duplicate skip and result reuse
   - Use `strategy_hash`, `dataset_hash`, and segment.
@@ -126,6 +127,12 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 - [ ] Full closed-loop AI automation.
 
 ## Done
+
+- [x] BENCH-002 — Random Entry Monte Carlo benchmark (pure service, no UI).
+  - Added `alpha-factor-forge/src/services/randomEntry.ts`: `runRandomEntryBenchmark` simulates N seeded runs that place the candidate's closed-trade count at random non-overlapping segment positions, holding periods sampled with replacement from the candidate's own `bars` (clamped ≥ 1), executed by the real engine long-only / 100% sizing / close fill with inherited costs; returns the per-run `netReturn` distribution + the candidate's strictly-beaten percentile. One `mulberry32(seed)` stream with a fixed consumption order; runs default 200, capped 1000; `planRandomTrades` exported for direct placement tests.
+  - No pass/fail verdict — the §6 "≥ 95th percentile" threshold belongs to the Gate slice. Fail closed on empty series/segment, zero candidate trades, invalid runs/seed. Clip/drop conventions recorded in `docs/benchmark-suite-contract.md` (BENCH-002 section); `mulberry32` is now exported from `sampleData.ts` so the workspace keeps exactly one PRNG.
+  - 9 focused tests: hand-verified placement (back-to-back, clip, drop), seeded invariants, determinism + seed sensitivity, default run count, percentile extremes, paired cost effect, fail-closed inputs, and an end-to-end real-candidate ranking. This completes the §6 benchmark set.
+  - Validation: `npm run typecheck`; `npm test` (257); `npm run build`.
 
 - [x] BENCH-001 — deterministic benchmark suite (pure service, no UI).
   - Added `alpha-factor-forge/src/services/benchmarks.ts`: `runDeterministicBenchmarks` runs the four `STRATEGY_DISCOVERY.md` §6 deterministic baselines — Buy & Hold (hand-built signals: enter first tested close, hold to the engine's EOD settlement), SMA 50/200 cross, RSI 14 30/70 reversion, Bollinger 20/2 mean reversion — over one candles × segment in a fixed order through the existing pipeline.
