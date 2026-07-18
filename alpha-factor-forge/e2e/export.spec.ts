@@ -20,9 +20,10 @@ test('exports the latest backtest as JSON and trades CSV', async ({ page }) => {
   expect(jsonPath).toBeTruthy();
   const report = JSON.parse(readFileSync(jsonPath!, 'utf8'));
   expect(report.app).toBe('AlphaFactorForge');
-  expect(report.schema).toBe(1);
+  expect(report.schema).toBe(2); // METRIC-001: explicit non-finite metric statuses
   expect(report.dataset.symbol).toBe('SAMPLE');
   expect(report.metrics.tradeCount).toBe(report.tradeCount);
+  expect(typeof report.metricsNonFinite).toBe('object');
   await expect(page.getByTestId('export-status')).toContainText('JSON');
   await expect(page.getByTestId('export-status')).toContainText('下載完成');
 
