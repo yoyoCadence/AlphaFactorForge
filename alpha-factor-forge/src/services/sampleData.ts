@@ -13,8 +13,9 @@ export interface SampleOptions {
   seed?: number; // same seed -> same series
 }
 
-/** mulberry32 PRNG — small, fast, deterministic. */
-function mulberry32(seed: number): () => number {
+/** mulberry32 PRNG — small, fast, deterministic. Also reused by the Random
+ *  Entry benchmark (BENCH-002) so the workspace has exactly one PRNG. */
+export function mulberry32(seed: number): () => number {
   let s = seed >>> 0;
   return () => {
     s = (s + 0x6d2b79f5) | 0;
