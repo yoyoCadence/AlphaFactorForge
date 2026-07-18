@@ -135,9 +135,14 @@ describe('metricsToBacktestSummary', () => {
   });
 
   it('coerces non-finite metrics to null and respects an explicit segment', () => {
-    const m: Metrics = { ...zeroMetrics(), profitFactor: Infinity };
+    // METRIC-001: Sortino/Calmar can now be legitimately +Infinity; the DB
+    // columns are nullable REALs, so the mapper narrows explicitly to null
+    // (the JSON report keeps the status via metricsNonFinite).
+    const m: Metrics = { ...zeroMetrics(), profitFactor: Infinity, sortino: Infinity, calmar: Infinity };
     const s = metricsToBacktestSummary(m, { strategyId: 1, datasetId: 2, segment: 'train', startTime: 0, endTime: 1 });
     expect(s.profit_factor).toBeNull();
+    expect(s.sortino).toBeNull();
+    expect(s.calmar).toBeNull();
     expect(s.segment).toBe('train');
   });
 });

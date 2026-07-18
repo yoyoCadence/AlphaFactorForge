@@ -20,7 +20,12 @@ export interface SummaryKeys {
   endTime: number;
 }
 
-/** JSON can't carry Infinity/NaN; persist non-finite metrics as null. */
+/** The SQLite summary columns are plain nullable REALs, so a non-finite
+ *  metric (e.g. METRIC-001's legitimately infinite Sortino/Calmar) narrows to
+ *  null here EXPLICITLY — never via JSON.stringify's silent conversion. The
+ *  exported JSON report preserves the full status (`metricsNonFinite`);
+ *  adding status columns to the DB is a future schema slice if the
+ *  distinction is ever needed at the SQL layer. */
 const finite = (x: number): number | null => (Number.isFinite(x) ? x : null);
 
 export function metricsToBacktestSummary(metrics: Metrics, keys: SummaryKeys): BacktestSummary {

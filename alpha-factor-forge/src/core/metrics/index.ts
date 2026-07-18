@@ -54,6 +54,14 @@ function std(xs: number[]): number {
   return Math.sqrt(mean(xs.map((x) => (x - m) ** 2)));
 }
 
+/** Downside deviation over ALL samples: sqrt(mean(min(0, x)^2)). Unlike a
+ *  std-dev of the negative subset, a single negative sample still yields a
+ *  positive value (METRIC-001, SCORE-001 handoff Resolution). */
+function downsideDeviation(xs: number[]): number {
+  if (!xs.length) return 0;
+  return Math.sqrt(mean(xs.map((x) => Math.min(0, x) ** 2)));
+}
+
 /** Max peak-to-trough drawdown of an equity curve, as a positive fraction. */
 export function maxDrawdown(equity: EquityPoint[]): number {
   let peak = -Infinity;
@@ -99,16 +107,21 @@ export function computeMetrics(input: MetricsInput): Metrics {
   }
   const excess = rets.map((r) => r - rf);
   const sd = std(excess);
-  const downside = std(excess.filter((r) => r < 0));
+  const downside = downsideDeviation(excess);
+  const meanExcess = mean(excess);
   const ann = barsPerYear > 0 ? Math.sqrt(barsPerYear) : 1;
-  const sharpe = sd > 0 ? (mean(excess) / sd) * ann : 0;
-  const sortino = downside > 0 ? (mean(excess) / downside) * ann : 0;
+  const sharpe = sd > 0 ? (meanExcess / sd) * ann : 0;
+  // METRIC-001: no downside with positive mean excess is legitimately infinite
+  // risk-adjusted return; every other zero-denominator case stays 0. Callers
+  // that persist to JSON must encode non-finite values with an explicit status.
+  const sortino = downside > 0 ? (meanExcess / downside) * ann : meanExcess > 0 ? Infinity : 0;
 
   const drawdownEquity = input.startEquity != null && equity.length
     ? [{ time: equity[0].time, equity: input.startEquity }, ...equity]
     : equity;
   const mdd = maxDrawdown(drawdownEquity);
-  const calmar = mdd > 0 ? cagr / mdd : 0;
+  // METRIC-001: positive CAGR with zero drawdown is infinite Calmar, not 0.
+  const calmar = mdd > 0 ? cagr / mdd : cagr > 0 ? Infinity : 0;
 
   const pnls = trades.map((t) => t.pnl);
   const retPcts = trades.map((t) => t.pnlPct);
