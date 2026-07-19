@@ -2,7 +2,10 @@ import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 
-import { buildIndicatorParityFixture } from '../src/parity/indicatorFixture';
+import {
+  buildIndicatorParityFixture,
+  canonicalizeFixtureSource,
+} from '../src/parity/indicatorFixture';
 
 const projectRoot = process.cwd();
 const sources = {
@@ -13,7 +16,9 @@ const sources = {
 const outputPath = resolve(projectRoot, 'fixtures/rs-core/indicators-v1.json');
 
 async function sourceHash(relativePath: string): Promise<string> {
-  const contents = await readFile(resolve(projectRoot, relativePath));
+  const contents = canonicalizeFixtureSource(
+    await readFile(resolve(projectRoot, relativePath), 'utf8'),
+  );
   return `sha256:${createHash('sha256').update(contents).digest('hex')}`;
 }
 

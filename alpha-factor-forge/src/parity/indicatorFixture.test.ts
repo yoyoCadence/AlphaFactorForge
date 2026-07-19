@@ -4,13 +4,23 @@ import { sha256Hex } from '../core/hashing';
 import indicatorSource from '../core/indicators/index.ts?raw';
 import sampleDataSource from '../services/sampleData.ts?raw';
 import generatorSource from './indicatorFixture.ts?raw';
-import { buildIndicatorParityFixture } from './indicatorFixture';
+import {
+  buildIndicatorParityFixture,
+  canonicalizeFixtureSource,
+  FIXTURE_SOURCE_HASH_ENCODING,
+} from './indicatorFixture';
 
 async function hashSource(source: string): Promise<string> {
-  return `sha256:${await sha256Hex(source)}`;
+  return `sha256:${await sha256Hex(canonicalizeFixtureSource(source))}`;
 }
 
 describe('RS-CORE indicator parity fixture', () => {
+  it('canonicalizes checkout line endings before source hashing', () => {
+    expect(canonicalizeFixtureSource('first\r\nsecond\rthird\n')).toBe(
+      'first\nsecond\nthird\n',
+    );
+  });
+
   it('is exactly reproducible from the current TypeScript reference sources', async () => {
     const regenerated = buildIndicatorParityFixture({
       generator: await hashSource(generatorSource),
@@ -21,6 +31,7 @@ describe('RS-CORE indicator parity fixture', () => {
   });
 
   it('declares the reviewable tolerance and exact warm-up contract', () => {
+    expect(fixture.generator.sourceHashEncoding).toBe(FIXTURE_SOURCE_HASH_ENCODING);
     expect(fixture.tolerance.default).toEqual({ absolute: 1e-12, relative: 1e-10 });
     const parityCase = fixture.cases[0];
     const length = parityCase.input.candles.length;

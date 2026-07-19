@@ -12,8 +12,10 @@ reference implementation; Rust remains a pure computation library.
   to rewrite `fixtures/rs-core/indicators-v1.json`.
 - The committed fixture contains its schema and contract versions, candle
   inputs, indicator parameters, expected aligned series, source SHA-256 hashes,
-  and tolerance policy. `null` represents an exact warm-up `NaN` position; an
-  infinite expected value is rejected during generation.
+  and tolerance policy. Source text is hashed as canonical UTF-8 with LF line
+  endings (`utf8-lf-v1`), so Windows CRLF checkout policy cannot alter fixture
+  metadata. `null` represents an exact warm-up `NaN` position; an infinite
+  expected value is rejected during generation.
 - Exact fields include versions, identifiers, parameters, timestamps, array
   lengths, and warm-up positions. Finite numeric leaves pass when
   `absolute error <= 1e-12` or `relative error <= 1e-10`.

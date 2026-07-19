@@ -22,6 +22,11 @@ export const PARITY_FIXTURE_SCHEMA_VERSION = 'rs-core-parity-fixture-v1';
 export const INDICATOR_CONTRACT_VERSION = 'indicator-v1';
 export const CANDLE_CONTRACT_VERSION = 'ohlcv-candle-v1';
 export const SAMPLE_INPUT_CONTRACT_VERSION = 'sample-candles-v1';
+export const FIXTURE_SOURCE_HASH_ENCODING = 'utf8-lf-v1';
+
+export function canonicalizeFixtureSource(source: string): string {
+  return source.replace(/\r\n?/g, '\n');
+}
 
 export interface FixtureSourceHashes {
   generator: string;
@@ -134,6 +139,7 @@ export function buildIndicatorParityFixture(sourceHashes: FixtureSourceHashes) {
     generator: {
       command: 'npm run fixtures:indicators',
       referenceRuntime: 'typescript',
+      sourceHashEncoding: FIXTURE_SOURCE_HASH_ENCODING,
       sourceHashes,
     },
     tolerance: {

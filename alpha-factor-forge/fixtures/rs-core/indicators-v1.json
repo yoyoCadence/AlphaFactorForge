@@ -9,10 +9,11 @@
   "generator": {
     "command": "npm run fixtures:indicators",
     "referenceRuntime": "typescript",
+    "sourceHashEncoding": "utf8-lf-v1",
     "sourceHashes": {
-      "generator": "sha256:071d93c6b978dd5c8b1b1d3a462b3b78046080bfc96afe37dfe99b7dbdbfdead",
+      "generator": "sha256:80295651b41f4dec30b2da93b2b4185fcad3b8d8ab623f9de8da1ad742225fad",
       "indicators": "sha256:046dd9b97ee52d091ce69ff8f4809f59fc6ef049cb8fcdf129f7b0b9603583b5",
-      "sampleData": "sha256:f42d07954f40ec4103ef52036cbfd35c68998c087d474fa924ee045ef82cca03"
+      "sampleData": "sha256:7f4d2bc3a8a1a3d542bb1d522e3da29edcf318eec863d0bb5def798e1c205100"
     }
   },
   "tolerance": {
