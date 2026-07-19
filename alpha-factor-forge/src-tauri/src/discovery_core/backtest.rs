@@ -1,4 +1,4 @@
-﻿//! `backtest-execution-v1`: pure Rust parity port of `src/core/backtest`.
+//! `backtest-execution-v1`: pure Rust parity port of `src/core/backtest`.
 //!
 //! Semantics mirror the TypeScript reference engine exactly, per
 //! docs/backtest-execution-contract.md and the BUG-002/003/004 corrections:
@@ -131,7 +131,11 @@ fn assert_normalized_fraction(
     value: f64,
     allow_zero: bool,
 ) -> Result<(), BacktestError> {
-    let below_minimum = if allow_zero { value < 0.0 } else { value <= 0.0 };
+    let below_minimum = if allow_zero {
+        value < 0.0
+    } else {
+        value <= 0.0
+    };
     if !value.is_finite() || below_minimum || value > 1.0 {
         let range = if allow_zero { "[0, 1]" } else { "(0, 1]" };
         return Err(BacktestError(format!(
@@ -359,7 +363,11 @@ pub fn run_backtest(
                     if current_side != Some(desired_side) {
                         if current_side.is_some() {
                             let sell_side = current_side == Some(TradeSide::Short);
-                            state.close(candles, index, fill(candle.close, sell_side, slippage_pct));
+                            state.close(
+                                candles,
+                                index,
+                                fill(candle.close, sell_side, slippage_pct),
+                            );
                         }
                         state.open(
                             candles,
@@ -371,7 +379,8 @@ pub fn run_backtest(
                 }
             } else {
                 if state.pos.is_some() && signal_at(&signals.exit, index) {
-                    let sell_side = state.pos.as_ref().map(|pos| pos.side) == Some(TradeSide::Short);
+                    let sell_side =
+                        state.pos.as_ref().map(|pos| pos.side) == Some(TradeSide::Short);
                     state.close(candles, index, fill(candle.close, sell_side, slippage_pct));
                 }
                 if state.pos.is_none() && signal_at(&signals.entry, index) {
@@ -414,9 +423,7 @@ pub fn run_backtest(
         if let Some(pos) = &state.pos {
             mark += match pos.side {
                 TradeSide::Long => candle.close * pos.qty,
-                TradeSide::Short => {
-                    pos.entry_notional + (pos.entry_price - candle.close) * pos.qty
-                }
+                TradeSide::Short => pos.entry_notional + (pos.entry_price - candle.close) * pos.qty,
             };
         }
         equity.push(EquityPoint {

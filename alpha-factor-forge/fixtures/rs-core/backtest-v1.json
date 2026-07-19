@@ -11,7 +11,7 @@
     "referenceRuntime": "typescript",
     "sourceHashEncoding": "utf8-lf-v1",
     "sourceHashes": {
-      "generator": "sha256:765f41fb3298909f3aa9bd32350614ff2f85f1365505e13f0bb48ebcb3614dce",
+      "generator": "sha256:6658d4fad7fdbf564a79b323526f7c22da0d9abde4423f2bbcf3c2f2d7bd6ad6",
       "backtest": "sha256:0c562ee057140c1502c45fa146c88d3f16a21facfe8f0f7118ec69be82270a9a",
       "metrics": "sha256:a291515dfeb056b997e5473f35c453be61213c3aca2589fbeb0c94e138ed6f32",
       "sampleData": "sha256:7f4d2bc3a8a1a3d542bb1d522e3da29edcf318eec863d0bb5def798e1c205100"
@@ -2230,6 +2230,153 @@
           "monthlyReturns": {
             "2024-01": 0
           }
+        }
+      }
+    },
+    {
+      "id": "empty-candles-boundary",
+      "input": {
+        "candles": [],
+        "signals": {
+          "entry": [],
+          "exit": []
+        },
+        "config": {
+          "exec": {
+            "direction": "long",
+            "sizingPct": 1,
+            "fillMode": "close"
+          },
+          "cost": {
+            "feePct": 0,
+            "slippagePct": 0
+          },
+          "barsPerYear": 8760
+        }
+      },
+      "expected": {
+        "trades": [],
+        "equity": [],
+        "metrics": {
+          "netReturn": 0,
+          "cagr": 0,
+          "maxDrawdown": 0,
+          "sharpe": 0,
+          "sortino": 0,
+          "calmar": 0,
+          "winRate": 0,
+          "tradeCount": 0,
+          "profitFactor": 0,
+          "avgTradeReturn": 0,
+          "medianTradeReturn": 0,
+          "avgHoldingBars": 0,
+          "exposure": 0,
+          "turnover": 0,
+          "largestWin": 0,
+          "largestLoss": 0,
+          "consecutiveLosses": 0,
+          "monthlyReturns": {}
+        }
+      }
+    },
+    {
+      "id": "inverted-range-empty-evaluation",
+      "input": {
+        "candles": [
+          {
+            "timestamp": 1704067200000,
+            "open": 100,
+            "high": 100.2,
+            "low": 99.8,
+            "close": 100,
+            "volume": 1
+          },
+          {
+            "timestamp": 1704070800000,
+            "open": 100,
+            "high": 102.204,
+            "low": 99.8,
+            "close": 102,
+            "volume": 1
+          },
+          {
+            "timestamp": 1704074400000,
+            "open": 102,
+            "high": 104.208,
+            "low": 101.796,
+            "close": 104,
+            "volume": 1
+          },
+          {
+            "timestamp": 1704078000000,
+            "open": 104,
+            "high": 104.208,
+            "low": 102.794,
+            "close": 103,
+            "volume": 1
+          },
+          {
+            "timestamp": 1704081600000,
+            "open": 103,
+            "high": 105.21,
+            "low": 102.794,
+            "close": 105,
+            "volume": 1
+          }
+        ],
+        "signals": {
+          "entry": [
+            true,
+            false,
+            false,
+            true,
+            false
+          ],
+          "exit": [
+            false,
+            true,
+            false,
+            false,
+            true
+          ]
+        },
+        "config": {
+          "exec": {
+            "direction": "long",
+            "sizingPct": 1,
+            "fillMode": "close"
+          },
+          "cost": {
+            "feePct": 0,
+            "slippagePct": 0
+          },
+          "barsPerYear": 8760,
+          "from": 3,
+          "to": 1
+        }
+      },
+      "expected": {
+        "trades": [],
+        "equity": [],
+        "metrics": {
+          "netReturn": 0,
+          "cagr": 0,
+          "maxDrawdown": 0,
+          "sharpe": 0,
+          "sortino": 0,
+          "calmar": 0,
+          "winRate": 0,
+          "tradeCount": 0,
+          "profitFactor": 0,
+          "avgTradeReturn": 0,
+          "medianTradeReturn": 0,
+          "avgHoldingBars": 0,
+          "exposure": 0,
+          "turnover": 0,
+          "largestWin": 0,
+          "largestLoss": 0,
+          "consecutiveLosses": 0,
+          "monthlyReturns": {}
         }
       }
     },

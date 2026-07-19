@@ -145,29 +145,74 @@ fn assert_leaf(path: &str, actual: f64, expected: &MetricLeaf, tolerance: Numeri
     }
 }
 
-fn assert_metrics(case_id: &str, actual: &Metrics, expected: &ExpectedMetrics, tol: NumericTolerance) {
+fn assert_metrics(
+    case_id: &str,
+    actual: &Metrics,
+    expected: &ExpectedMetrics,
+    tol: NumericTolerance,
+) {
     let p = |field: &str| format!("{case_id}.metrics.{field}");
-    assert_leaf(&p("netReturn"), actual.net_return, &expected.net_return, tol);
+    assert_leaf(
+        &p("netReturn"),
+        actual.net_return,
+        &expected.net_return,
+        tol,
+    );
     assert_leaf(&p("cagr"), actual.cagr, &expected.cagr, tol);
-    assert_leaf(&p("maxDrawdown"), actual.max_drawdown, &expected.max_drawdown, tol);
+    assert_leaf(
+        &p("maxDrawdown"),
+        actual.max_drawdown,
+        &expected.max_drawdown,
+        tol,
+    );
     assert_leaf(&p("sharpe"), actual.sharpe, &expected.sharpe, tol);
     assert_leaf(&p("sortino"), actual.sortino, &expected.sortino, tol);
     assert_leaf(&p("calmar"), actual.calmar, &expected.calmar, tol);
     assert_leaf(&p("winRate"), actual.win_rate, &expected.win_rate, tol);
-    assert_eq!(actual.trade_count as f64, expected.trade_count, "{}", p("tradeCount"));
-    assert_leaf(&p("profitFactor"), actual.profit_factor, &expected.profit_factor, tol);
-    assert_leaf(&p("avgTradeReturn"), actual.avg_trade_return, &expected.avg_trade_return, tol);
+    assert_eq!(
+        actual.trade_count as f64,
+        expected.trade_count,
+        "{}",
+        p("tradeCount")
+    );
+    assert_leaf(
+        &p("profitFactor"),
+        actual.profit_factor,
+        &expected.profit_factor,
+        tol,
+    );
+    assert_leaf(
+        &p("avgTradeReturn"),
+        actual.avg_trade_return,
+        &expected.avg_trade_return,
+        tol,
+    );
     assert_leaf(
         &p("medianTradeReturn"),
         actual.median_trade_return,
         &expected.median_trade_return,
         tol,
     );
-    assert_leaf(&p("avgHoldingBars"), actual.avg_holding_bars, &expected.avg_holding_bars, tol);
+    assert_leaf(
+        &p("avgHoldingBars"),
+        actual.avg_holding_bars,
+        &expected.avg_holding_bars,
+        tol,
+    );
     assert_leaf(&p("exposure"), actual.exposure, &expected.exposure, tol);
     assert_leaf(&p("turnover"), actual.turnover, &expected.turnover, tol);
-    assert_leaf(&p("largestWin"), actual.largest_win, &expected.largest_win, tol);
-    assert_leaf(&p("largestLoss"), actual.largest_loss, &expected.largest_loss, tol);
+    assert_leaf(
+        &p("largestWin"),
+        actual.largest_win,
+        &expected.largest_win,
+        tol,
+    );
+    assert_leaf(
+        &p("largestLoss"),
+        actual.largest_loss,
+        &expected.largest_loss,
+        tol,
+    );
     assert_eq!(
         actual.consecutive_losses as f64,
         expected.consecutive_losses,
@@ -196,7 +241,34 @@ fn rust_backtest_engine_matches_the_committed_typescript_fixture() {
     assert_eq!(fixture.contracts.candle, CANDLE_CONTRACT_VERSION);
     assert_eq!(fixture.contracts.execution, EXECUTION_CONTRACT_VERSION);
     assert_eq!(fixture.contracts.metrics, METRICS_CONTRACT_VERSION);
-    assert!(fixture.cases.len() >= 17, "expected the full case set");
+    // Exact inventory (PR #69 review): an accidental case deletion must fail.
+    let expected_ids = [
+        "long-close-two-roundtrips",
+        "long-close-costs-partial-sizing",
+        "short-close-win-and-loss",
+        "both-close-reversals",
+        "long-nextopen-pending-and-final-bar",
+        "both-nextopen-reversal",
+        "long-stoploss-gap-through",
+        "long-takeprofit-then-gap-up",
+        "short-stoploss-and-takeprofit",
+        "stoploss-wins-ambiguous-bar",
+        "full-sizing-budgets-entry-fee",
+        "eod-settles-open-position",
+        "from-to-subrange",
+        "single-bar-from-equals-to",
+        "no-trades-zero-metrics",
+        "empty-candles-boundary",
+        "inverted-range-empty-evaluation",
+        "rising-no-downside-infinite-ratios",
+        "sample-daily-long-nextopen-risk",
+        "sample-daily-both-close",
+    ];
+    let actual_ids: Vec<&str> = fixture.cases.iter().map(|case| case.id.as_str()).collect();
+    assert_eq!(
+        actual_ids, expected_ids,
+        "case inventory must match exactly"
+    );
 
     let tolerance = fixture.tolerance.default;
     for case in &fixture.cases {
@@ -217,10 +289,25 @@ fn rust_backtest_engine_matches_the_committed_typescript_fixture() {
             assert_eq!(actual.exit_time, expected.exit_time, "{path}.exitTime");
             assert_eq!(actual.side, expected.side, "{path}.side");
             assert_eq!(actual.bars, expected.bars, "{path}.bars");
-            assert_close(&format!("{path}.entryPrice"), actual.entry_price, expected.entry_price, tolerance);
-            assert_close(&format!("{path}.exitPrice"), actual.exit_price, expected.exit_price, tolerance);
+            assert_close(
+                &format!("{path}.entryPrice"),
+                actual.entry_price,
+                expected.entry_price,
+                tolerance,
+            );
+            assert_close(
+                &format!("{path}.exitPrice"),
+                actual.exit_price,
+                expected.exit_price,
+                tolerance,
+            );
             assert_close(&format!("{path}.pnl"), actual.pnl, expected.pnl, tolerance);
-            assert_close(&format!("{path}.pnlPct"), actual.pnl_pct, expected.pnl_pct, tolerance);
+            assert_close(
+                &format!("{path}.pnlPct"),
+                actual.pnl_pct,
+                expected.pnl_pct,
+                tolerance,
+            );
         }
 
         assert_eq!(
@@ -234,7 +321,12 @@ fn rust_backtest_engine_matches_the_committed_typescript_fixture() {
         {
             let path = format!("{}.equity[{index}]", case.id);
             assert_eq!(actual.time, expected.time, "{path}.time");
-            assert_close(&format!("{path}.equity"), actual.equity, expected.equity, tolerance);
+            assert_close(
+                &format!("{path}.equity"),
+                actual.equity,
+                expected.equity,
+                tolerance,
+            );
         }
 
         assert_metrics(&case.id, &result.metrics, &case.expected.metrics, tolerance);

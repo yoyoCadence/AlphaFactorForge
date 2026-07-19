@@ -252,3 +252,31 @@ Date: 2026-07-19. Implementer: Claude. Branch:
 RS-CORE-002 is Done pending merge. The only newly unblocked implementation
 slice is RS-CORE-003 (params signals plus split/embargo parity); runner
 orchestration remains blocked.
+
+### RS-CORE-002 review correction (append-only update)
+
+Date: 2026-07-19. Fix for the PR #69 Codex review findings.
+
+- The 3 fail-closed error cases are now HELD by the TypeScript reference:
+  fixture generation and the vitest freshness test both execute them against
+  the real TS engine and require a `RangeError` whose message contains the
+  recorded fragment, before Rust consumes the same fixture.
+- Added the Resolution-mandated empty boundaries as cross-language cases:
+  `empty-candles-boundary` (no candles at all) and
+  `inverted-range-empty-evaluation` (a from/to pair evaluating no bar,
+  totalBars < 0 semantics included). The correct success-case count is **20**
+  (the earlier record said 17 while the fixture held 18); TS and Rust now
+  both assert the exact 20-case inventory by id, so an accidental deletion
+  fails on either side.
+- The new discovery_core Rust files now pass a targeted `rustfmt --check`
+  (repo-wide legacy fmt debt untouched).
+- Adopted: `sourceHashEncoding` now reuses RS-CORE-001's
+  `FIXTURE_SOURCE_HASH_ENCODING` constant, asserted in the freshness test.
+  Carried, not absorbed: the RS-CORE-001 indicator edge-fixture suggestion
+  (constant RSI, period ≥ length, ROC zero base) remains open for a later
+  indicator-fixture change; the `metrics.rs` UTC `.expect()` must become
+  propagated fail-closed validation before RUNNER-EXEC wires execution paths
+  (boundary comment added in code).
+- Re-verification: fixture regeneration blob-identical; 315 Vitest tests,
+  typecheck, production build, cargo check, 34 Rust tests, targeted rustfmt
+  check all pass.

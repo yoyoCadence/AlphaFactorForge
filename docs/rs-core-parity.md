@@ -58,16 +58,21 @@ later runner slice.
 ## RS-CORE-002: backtest engine and metrics
 
 `src/parity/backtestFixture.ts` + `npm run fixtures:backtest` own the committed
-`backtest-parity-v1` envelope (`fixtures/rs-core/backtest-v1.json`): 17
+`backtest-parity-v1` envelope (`fixtures/rs-core/backtest-v1.json`): 20
 behaviour cases plus 3 fail-closed config error cases. The case set covers the
 `docs/engine-parity-report.md` semantics — long/short/both across close and
 nextOpen fills, same-bar exit+entry, `both` simultaneous-signal entry-wins,
 gap-aware SL/TP with SL-first ambiguity, fee-budgeted 100% sizing, EOD
-settlement, from/to boundaries, zero-trade metrics, METRIC-001 `+Infinity`
-Sortino/Calmar/profit-factor statuses, and two 180-day sample cases spanning
-multiple UTC calendar months with risk exits. Expected outputs come from the
-real TypeScript engine; generation-time sanity invariants fail the build if a
-scenario stops exercising its target branch.
+settlement, from/to boundaries including the empty boundaries (an empty candle
+series and an inverted from/to range that evaluates no bar), zero-trade
+metrics, METRIC-001 `+Infinity` Sortino/Calmar/profit-factor statuses, and two
+180-day sample cases spanning multiple UTC calendar months with risk exits.
+Expected outputs come from the real TypeScript engine; generation-time sanity
+invariants fail the build if a scenario stops exercising its target branch.
+The error cases are also HELD by the TypeScript reference: generation and the
+vitest freshness test both run them against the TS engine and require a
+`RangeError` carrying the recorded fragment, and both sides lock the exact
+20-case inventory by id.
 
 `discovery_core/backtest.rs` (`backtest-execution-v1`) and
 `discovery_core/metrics.rs` (`metrics-v1`) are the pure Rust ports. Their

@@ -12,6 +12,8 @@ import { makeSampleCandles } from '../services/sampleData';
 import type { NonFiniteStatus } from '../services/nonFinite';
 import { nonFiniteStatus } from '../services/nonFinite';
 
+import { FIXTURE_SOURCE_HASH_ENCODING } from './indicatorFixture';
+
 export const BACKTEST_PARITY_FIXTURE_VERSION = 'backtest-parity-v1';
 export const PARITY_FIXTURE_SCHEMA_VERSION = 'rs-core-parity-fixture-v1';
 export const CANDLE_CONTRACT_VERSION = 'ohlcv-candle-v1';
@@ -297,6 +299,31 @@ function buildCases(): CaseDefinition[] {
       sanity: (result) => expectTrades('no-trades-zero-metrics', result.trades.length, 0),
     },
     {
+      // PR #66 Resolution empty boundary: no candles at all.
+      id: 'empty-candles-boundary',
+      candles: [],
+      signals: { entry: [], exit: [] },
+      config: baseConfig(),
+      sanity: (result) => {
+        expectTrades('empty-candles-boundary', result.trades.length, 0);
+        if (result.equity.length !== 0) throw new Error('empty candles must emit no equity points');
+        if (Object.keys(result.metrics.monthlyReturns).length !== 0) {
+          throw new Error('empty candles must emit an empty monthly map');
+        }
+      },
+    },
+    {
+      // PR #66 Resolution empty boundary: a from/to pair that evaluates no bar.
+      id: 'inverted-range-empty-evaluation',
+      candles: path([100, 102, 104, 103, 105]),
+      signals: signalArrays(5, [0, 3], [1, 4]),
+      config: baseConfig({ from: 3, to: 1 }),
+      sanity: (result) => {
+        expectTrades('inverted-range-empty-evaluation', result.trades.length, 0);
+        if (result.equity.length !== 0) throw new Error('inverted range must evaluate no bar');
+      },
+    },
+    {
       id: 'rising-no-downside-infinite-ratios',
       candles: path([100, 102, 104, 106, 108, 110]),
       signals: signalArrays(6, [0], []),
@@ -356,7 +383,7 @@ export interface ErrorCaseDefinition {
 function buildErrorCases(): ErrorCaseDefinition[] {
   const candles = path([100, 101, 102]);
   const signals = signalArrays(3, [0], [2]);
-  return [
+  const cases: ErrorCaseDefinition[] = [
     {
       id: 'sizing-above-one-fails-closed',
       input: { candles, signals, config: baseConfig({ exec: { sizingPct: 1.5 } }) },
@@ -373,6 +400,29 @@ function buildErrorCases(): ErrorCaseDefinition[] {
       expectedErrorIncludes: 'risk.stopLossPct',
     },
   ];
+  // PR #69 review: the TypeScript REFERENCE must hold these expectations —
+  // each error case really runs against the TS engine at generation time and
+  // must throw a RangeError carrying the recorded fragment.
+  for (const errorCase of cases) {
+    let thrown: unknown = null;
+    try {
+      runBacktest(toCore(errorCase.input.candles), errorCase.input.signals, errorCase.input.config);
+    } catch (error) {
+      thrown = error;
+    }
+    if (thrown === null) {
+      throw new Error(`${errorCase.id}: the TS reference engine did not throw`);
+    }
+    if (!(thrown instanceof RangeError)) {
+      throw new Error(`${errorCase.id}: the TS reference must throw a RangeError`);
+    }
+    if (!thrown.message.includes(errorCase.expectedErrorIncludes)) {
+      throw new Error(
+        `${errorCase.id}: TS error "${thrown.message}" must mention ${errorCase.expectedErrorIncludes}`,
+      );
+    }
+  }
+  return cases;
 }
 
 const encodeLeaf = (value: number): MetricLeaf => nonFiniteStatus(value) ?? value;
@@ -441,7 +491,7 @@ export function buildBacktestParityFixture(sourceHashes: FixtureSourceHashes) {
     generator: {
       command: 'npm run fixtures:backtest',
       referenceRuntime: 'typescript',
-      sourceHashEncoding: 'utf8-lf-v1',
+      sourceHashEncoding: FIXTURE_SOURCE_HASH_ENCODING,
       sourceHashes,
     },
     tolerance: {
