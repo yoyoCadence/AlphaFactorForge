@@ -77,6 +77,20 @@ export interface BacktestSummary {
   created_at?: string;
 }
 
+// One validation_records row (PERSIST-001): an append-only immutable decision
+// audit snapshot. `record_json` is the self-contained validation-record-v1
+// envelope; gate fail => score null, gate pass => finite score (DB CHECK).
+export interface ValidationRecordRow {
+  id?: number;
+  strategy_id: number;
+  dataset_id: number;
+  record_version: string;
+  gate_passed: boolean;
+  score?: number | null;
+  record_json: string;
+  created_at?: string;
+}
+
 // One closed trade written under a backtest_summary row. `bars` is not part of
 // the Phase A schema; fee/slippage remain NULL in Rust until recorded per trade.
 export interface TradeRow {
@@ -105,6 +119,25 @@ export const db = {
     invoke<number>('save_backtest_result', { summary, trades }),
   getBacktestResults: (strategyId?: number) =>
     invoke<BacktestSummary[]>('get_backtest_results', { strategyId }),
+  /** PERSIST-001: atomically save Train + Validation summaries/trades and the
+   *  immutable validation record in ONE backend transaction. */
+  saveValidationRecord: (
+    trainSummary: BacktestSummary,
+    trainTrades: TradeRow[],
+    validationSummary: BacktestSummary,
+    validationTrades: TradeRow[],
+    record: ValidationRecordRow,
+  ) =>
+    invoke<number>('save_validation_record', {
+      trainSummary,
+      trainTrades,
+      validationSummary,
+      validationTrades,
+      record,
+    }),
+  listValidationRecords: (strategyId?: number) =>
+    invoke<ValidationRecordRow[]>('list_validation_records', { strategyId }),
+  getValidationRecord: (id: number) => invoke<ValidationRecordRow>('get_validation_record', { id }),
 };
 
 // ---- Files ----

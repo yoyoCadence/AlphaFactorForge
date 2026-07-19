@@ -8,7 +8,8 @@
 import type { ParamsStrategy } from './strategy';
 import type { BacktestResult } from '../core/backtest';
 import type { ClosedTrade, Metrics } from '../core/metrics';
-import { nonFiniteStatus, type NonFiniteStatus } from './nonFinite';
+import type { NonFiniteStatus } from './nonFinite';
+import { encodeMetrics, type EncodedMetricValues } from './metricsCodec';
 
 const APP = 'AlphaFactorForge';
 
@@ -29,10 +30,9 @@ export interface ReportInput {
 }
 
 /** Metrics with every top-level numeric field narrowed to finite-or-null so
- *  the report is JSON-safe (schema 2, METRIC-001). */
-export type ReportMetrics = {
-  [K in keyof Metrics]: Metrics[K] extends number ? number | null : Metrics[K];
-};
+ *  the report is JSON-safe (schema 2, METRIC-001). Encoding now lives in the
+ *  shared metricsCodec (PERSIST-001) — this alias keeps the report's name. */
+export type ReportMetrics = EncodedMetricValues;
 
 export interface ReportJson {
   app: string;
@@ -48,27 +48,6 @@ export interface ReportJson {
   metricsNonFinite: Partial<Record<keyof Metrics, NonFiniteStatus>>;
   tradeCount: number;
   trades: ClosedTrade[];
-}
-
-/** Encode metrics for JSON: non-finite numeric fields become null + an
- *  explicit status entry. monthlyReturns are equity ratios and stay finite by
- *  construction, so the record passes through unchanged. */
-function encodeMetrics(metrics: Metrics): {
-  values: ReportMetrics;
-  nonFinite: Partial<Record<keyof Metrics, NonFiniteStatus>>;
-} {
-  const values: Record<string, unknown> = { ...metrics };
-  const nonFinite: Partial<Record<keyof Metrics, NonFiniteStatus>> = {};
-  for (const key of Object.keys(metrics) as (keyof Metrics)[]) {
-    const v = metrics[key];
-    if (typeof v !== 'number') continue;
-    const status = nonFiniteStatus(v);
-    if (status) {
-      nonFinite[key] = status;
-      values[key] = null;
-    }
-  }
-  return { values: values as ReportMetrics, nonFinite };
 }
 
 /** Build the structured JSON report object. Pure. */

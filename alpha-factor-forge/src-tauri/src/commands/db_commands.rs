@@ -3,7 +3,9 @@
 
 use tauri::State;
 
-use crate::db::repositories::{self, BacktestSummary, Candle, Dataset, StrategyDef, TradeRow};
+use crate::db::repositories::{
+    self, BacktestSummary, Candle, Dataset, StrategyDef, TradeRow, ValidationRecordRow,
+};
 use crate::error::{AppError, AppResult};
 use crate::AppState;
 
@@ -87,4 +89,48 @@ pub fn get_backtest_results(
 ) -> AppResult<Vec<BacktestSummary>> {
     let conn = state.db.lock().map_err(|_| AppError::Other("db lock poisoned".into()))?;
     repositories::list_backtest_summaries(&conn, strategy_id)
+}
+
+/// PERSIST-001 (PR #64 handoff Resolution): atomically persist one validation
+/// bundle — Train summary + trades, Validation summary + trades, and the
+/// immutable append-only validation record — in ONE transaction. The bundle
+/// is fully validated BEFORE the transaction opens; any write failure rolls
+/// everything back. Returns the new record id.
+#[tauri::command]
+pub fn save_validation_record(
+    state: State<AppState>,
+    train_summary: BacktestSummary,
+    train_trades: Vec<TradeRow>,
+    validation_summary: BacktestSummary,
+    validation_trades: Vec<TradeRow>,
+    record: ValidationRecordRow,
+) -> AppResult<i64> {
+    repositories::validate_validation_bundle(&train_summary, &validation_summary, &record)?;
+    let mut conn = state
+        .db
+        .lock()
+        .map_err(|_| AppError::Other("db lock poisoned".into()))?;
+    repositories::save_validation_bundle(
+        &mut conn,
+        &train_summary,
+        &train_trades,
+        &validation_summary,
+        &validation_trades,
+        &record,
+    )
+}
+
+#[tauri::command]
+pub fn list_validation_records(
+    state: State<AppState>,
+    strategy_id: Option<i64>,
+) -> AppResult<Vec<ValidationRecordRow>> {
+    let conn = state.db.lock().map_err(|_| AppError::Other("db lock poisoned".into()))?;
+    repositories::list_validation_records(&conn, strategy_id)
+}
+
+#[tauri::command]
+pub fn get_validation_record(state: State<AppState>, id: i64) -> AppResult<ValidationRecordRow> {
+    let conn = state.db.lock().map_err(|_| AppError::Other("db lock poisoned".into()))?;
+    repositories::get_validation_record(&conn, id)
 }

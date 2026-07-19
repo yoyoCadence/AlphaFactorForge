@@ -7,7 +7,14 @@
 // replace real Tauri/Rust/SQLite verification (Rust integration tests +
 // `cargo tauri dev` smoke still own that).
 
-import type { Candle, Dataset, StrategyDef, BacktestSummary, TradeRow } from './commands';
+import type {
+  Candle,
+  Dataset,
+  StrategyDef,
+  BacktestSummary,
+  TradeRow,
+  ValidationRecordRow,
+} from './commands';
 import type { ImportCandlesInput } from './dbClient';
 
 export function makeMockClient() {
@@ -18,6 +25,7 @@ export function makeMockClient() {
   // There is no trades reader yet, but the E2E seam still mirrors SQLite's
   // replace-on-summary-key persistence instead of silently dropping the rows.
   const tradesBySummaryId = new Map<number, TradeRow[]>();
+  const validationRecords: ValidationRecordRow[] = [];
   let nextId = 1;
 
   const db = {
@@ -54,6 +62,46 @@ export function makeMockClient() {
     },
     getBacktestResults: async (strategyId?: number) =>
       summaries.filter((s) => strategyId == null || s.strategy_id === strategyId),
+    // PERSIST-001 parity: mirrors the Rust command's pre-validation and
+    // all-or-nothing semantics (validate first, then apply every write).
+    saveValidationRecord: async (
+      trainSummary: BacktestSummary,
+      trainTrades: TradeRow[],
+      validationSummary: BacktestSummary,
+      validationTrades: TradeRow[],
+      record: ValidationRecordRow,
+    ) => {
+      if (trainSummary.segment !== 'train' || validationSummary.segment !== 'validation') {
+        throw new Error('bundle segments must be train + validation');
+      }
+      for (const s of [trainSummary, validationSummary]) {
+        if (s.strategy_id !== record.strategy_id || s.dataset_id !== record.dataset_id) {
+          throw new Error('summary identity must match the record');
+        }
+      }
+      const scored = record.score != null;
+      if (record.gate_passed !== scored) {
+        throw new Error('gate_passed must agree with score nullability');
+      }
+      if (JSON.parse(record.record_json).version !== record.record_version) {
+        throw new Error('record_version must match the record_json envelope');
+      }
+      await db.saveBacktestResult(trainSummary, trainTrades);
+      await db.saveBacktestResult(validationSummary, validationTrades);
+      const id = nextId++;
+      validationRecords.push({ ...record, id, created_at: new Date().toISOString() });
+      return id;
+    },
+    listValidationRecords: async (strategyId?: number) =>
+      validationRecords
+        .filter((r) => strategyId == null || r.strategy_id === strategyId)
+        .slice()
+        .reverse(),
+    getValidationRecord: async (id: number) => {
+      const row = validationRecords.find((r) => r.id === id);
+      if (!row) throw new Error(`no validation record ${id}`);
+      return row;
+    },
   };
 
   const files = {
