@@ -224,3 +224,31 @@ conversion. The regenerated fixture SHA-256 is
 Local re-verification: deterministic regeneration, 311 Vitest tests,
 typecheck, production build, and 32 Rust tests pass. No indicator semantics,
 tolerance, runner boundary, DB, event, thread, or UI behavior changed.
+
+### RS-CORE-002 implementation record (append-only update)
+
+Date: 2026-07-19. Implementer: Claude. Branch:
+`feat/rs-core-002-backtest-parity`.
+
+- Added `src/parity/backtestFixture.ts`, `npm run fixtures:backtest`, and the
+  committed `backtest-parity-v1` envelope: 17 behaviour cases covering the
+  `docs/engine-parity-report.md` semantics (long/short/both × close/nextOpen,
+  same-bar conflicts, `both` entry-wins, gap-aware SL/TP with SL-first
+  ambiguity, fee-budgeted full sizing, EOD settlement, from/to boundaries,
+  zero trades, METRIC-001 `+Infinity` statuses, and two 180-day multi-month
+  sample cases with risk exits) plus 3 fail-closed config error cases.
+  Expected outputs come from the real TypeScript engine; generation-time
+  sanity invariants reject degenerate scenarios.
+- Added pure Rust `discovery_core/backtest.rs` (`backtest-execution-v1`) and
+  `discovery_core/metrics.rs` (`metrics-v1`) with no Tauri, rusqlite, thread,
+  event, or UI dependency. The parity tests lock trades (timestamps/side/bars
+  exact, prices/PnL within the declared tolerance), full equity curves, every
+  metric leaf including exact non-finite statuses and UTC monthly-return keys,
+  and the exact error-message fragments. The Test segment is never executed.
+- Verification: fixture regeneration is blob-identical across consecutive
+  runs; 313 Vitest tests, TypeScript typecheck, production build, cargo check,
+  and 34 Rust tests pass. Playwright is untouched (no UI/mock surface).
+
+RS-CORE-002 is Done pending merge. The only newly unblocked implementation
+slice is RS-CORE-003 (params signals plus split/embargo parity); runner
+orchestration remains blocked.
