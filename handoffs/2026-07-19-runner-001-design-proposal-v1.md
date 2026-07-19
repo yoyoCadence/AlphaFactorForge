@@ -204,3 +204,23 @@ Date: 2026-07-19. Implementer: Codex. Branch:
 RS-CORE-001 is Done. The only newly unblocked implementation slice is
 RS-CORE-002 (backtest engine, trades/equity, and METRIC-001 parity); runner
 orchestration remains blocked.
+
+### RS-CORE-001 CI portability correction (append-only update)
+
+Date: 2026-07-19. Fix commit: `0ba1631`.
+
+The first PR #68 Linux test run exposed a metadata-only portability defect:
+`sampleData.ts` was hashed from CRLF bytes by the Windows generator but from LF
+bytes by the Linux Vitest checkout. Indicator inputs and expected numeric series
+were unchanged; only `generator.sourceHashes.sampleData` differed. The other CI
+jobs (typecheck, build, cargo-check, and E2E) passed.
+
+Source hashing is now explicitly versioned as `utf8-lf-v1`. The generator and
+freshness test share one CRLF/CR-to-LF canonicalization function before SHA-256,
+the fixture records that encoding, and a direct regression test locks the
+conversion. The regenerated fixture SHA-256 is
+`35eef00a1494c130a12236664dba54d7704b3a568274971c928c984484cd267e`.
+
+Local re-verification: deterministic regeneration, 311 Vitest tests,
+typecheck, production build, and 32 Rust tests pass. No indicator semantics,
+tolerance, runner boundary, DB, event, thread, or UI behavior changed.
