@@ -15,8 +15,9 @@ import type {
   TradeRow,
   ValidationRecordRow,
 } from './commands';
-import type { ImportCandlesInput } from './dbClient';
+import { prepareDatasetImport, type ImportCandlesInput } from './dbClient';
 import { assertValidBundle } from '../services/validationRecord';
+import { strategyHashFromDefinitionJson } from '../core/hashing';
 
 export function makeMockClient() {
   const datasets: Dataset[] = [];
@@ -36,12 +37,46 @@ export function makeMockClient() {
     getCandles: async (datasetId: number, from: number, to: number) =>
       (candlesByDs.get(datasetId) ?? []).filter((c) => c.timestamp >= from && c.timestamp <= to),
     importCandles: async (dataset: Dataset, rows: Candle[]) => {
+      const prepared = await prepareDatasetImport({
+        exchange: dataset.exchange,
+        symbol: dataset.symbol,
+        interval: dataset.interval,
+        source: dataset.source,
+        candles: rows,
+      });
+      if (
+        dataset.dataset_hash !== prepared.dataset.dataset_hash
+        || dataset.start_time !== prepared.dataset.start_time
+        || dataset.end_time !== prepared.dataset.end_time
+        || dataset.candle_count !== prepared.dataset.candle_count
+      ) {
+        throw new Error('dataset identity or derived metadata mismatch');
+      }
+      const existing = datasets.find((row) => row.dataset_hash === dataset.dataset_hash);
+      if (existing) {
+        const existingRows = candlesByDs.get(existing.id!) ?? [];
+        const sameDataset = existing.exchange === dataset.exchange
+          && existing.symbol === dataset.symbol
+          && existing.interval === dataset.interval
+          && existing.start_time === dataset.start_time
+          && existing.end_time === dataset.end_time
+          && existing.candle_count === dataset.candle_count
+          && existing.source === dataset.source;
+        const sameRows = JSON.stringify(existingRows) === JSON.stringify(prepared.candles);
+        if (!sameDataset || !sameRows) throw new Error('dataset hash conflicts with stored payload');
+        return existing.id!;
+      }
       const id = nextId++;
       datasets.push({ ...dataset, id });
-      candlesByDs.set(id, rows.slice());
+      candlesByDs.set(id, prepared.candles.map((row) => ({ ...row })));
       return id;
     },
     saveStrategy: async (def: StrategyDef) => {
+      const expectedHash = await strategyHashFromDefinitionJson(def.original_definition_json);
+      const parsed = JSON.parse(def.original_definition_json) as Record<string, unknown>;
+      if (def.strategy_hash !== expectedHash || def.type !== parsed.mode) {
+        throw new Error('strategy identity mismatch');
+      }
       const id = nextId++;
       strategies.push({ ...def, id });
       return id;
@@ -115,22 +150,8 @@ export function makeMockClient() {
   };
 
   const importDataset = async (input: ImportCandlesInput): Promise<number> => {
-    const rows = input.candles;
-    if (!rows.length) throw new Error('no candles to import');
-    const id = nextId++;
-    datasets.push({
-      id,
-      exchange: input.exchange,
-      symbol: input.symbol,
-      interval: input.interval,
-      start_time: rows[0].timestamp,
-      end_time: rows[rows.length - 1].timestamp,
-      candle_count: rows.length,
-      source: input.source,
-      dataset_hash: `mock-${input.symbol}-${input.interval}-${id}`,
-    });
-    candlesByDs.set(id, rows.slice());
-    return id;
+    const prepared = await prepareDatasetImport(input);
+    return db.importCandles(prepared.dataset, prepared.candles);
   };
 
   return { db, files, importDataset, isTauri: () => true };

@@ -68,10 +68,11 @@ describe('hashing — stable + order-independent', () => {
     expect(a).toBe(b);
   });
 
-  it('datasetHash differs when bounds differ', async () => {
-    const base = { exchange: 'binance', symbol: 'BTCUSDT', interval: '1h', startTime: 0, endTime: 100 };
-    const h1 = await datasetHash(base);
-    const h2 = await datasetHash({ ...base, endTime: 200 });
+  it('datasetHash differs when candle content differs', async () => {
+    const meta = { exchange: 'binance', symbol: 'BTCUSDT', interval: '1h' };
+    const base = [{ timestamp: 0, open: 1, high: 2, low: 0.5, close: 1.5, volume: 100 }];
+    const h1 = await datasetHash(meta, base);
+    const h2 = await datasetHash(meta, [{ ...base[0], close: 1.6 }]);
     expect(h1).not.toBe(h2);
   });
 });

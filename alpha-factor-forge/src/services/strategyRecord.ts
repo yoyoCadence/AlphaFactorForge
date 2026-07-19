@@ -6,7 +6,7 @@ import { strategyHash } from '../core/hashing';
 import type { StrategyDef } from '../tauri-client/commands';
 import type { ParamsStrategy } from './strategy';
 
-/** Async because strategy_hash uses SHA-256 (Web Crypto) when available. */
+/** Async because durable strategy-v2 identity requires Web Crypto SHA-256. */
 export async function buildStrategyDef(strat: ParamsStrategy, name: string): Promise<StrategyDef> {
   const hash = await strategyHash(strat, {
     feePct: strat.feePct,

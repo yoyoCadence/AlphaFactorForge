@@ -6,6 +6,7 @@
 mod commands;
 mod db;
 mod error;
+mod identity;
 
 use std::sync::Mutex;
 use tauri::Manager;

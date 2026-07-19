@@ -2,7 +2,7 @@
 // commands and adds hashing so imports get a correct dataset_hash. Keeps
 // hashing in the shared core module (single source of truth).
 
-import { datasetHash } from '../core/hashing';
+import { normalizeDatasetCandles, normalizedDatasetHash } from '../core/hashing';
 import { db, type Candle, type Dataset } from './commands';
 
 export interface ImportCandlesInput {
@@ -13,30 +13,45 @@ export interface ImportCandlesInput {
   candles: Candle[];
 }
 
-/** Compute the dataset hash, then import the dataset + candles via backend. */
-export async function importDataset(input: ImportCandlesInput): Promise<number> {
-  const { candles } = input;
-  if (!candles.length) throw new Error('no candles to import');
+export interface PreparedDatasetImport {
+  dataset: Dataset;
+  candles: Candle[];
+}
+
+/** Build the exact immutable payload sent across the Tauri boundary. */
+export async function prepareDatasetImport(
+  input: ImportCandlesInput,
+): Promise<PreparedDatasetImport> {
+  const candles = normalizeDatasetCandles(input.candles);
   const start_time = candles[0].timestamp;
   const end_time = candles[candles.length - 1].timestamp;
-  const hash = await datasetHash({
-    exchange: input.exchange,
-    symbol: input.symbol,
-    interval: input.interval,
-    startTime: start_time,
-    endTime: end_time,
-  });
-  const dataset: Dataset = {
-    exchange: input.exchange,
-    symbol: input.symbol,
-    interval: input.interval,
-    start_time,
-    end_time,
-    candle_count: candles.length,
-    source: input.source,
-    dataset_hash: hash,
+  const hash = await normalizedDatasetHash(
+    {
+      exchange: input.exchange,
+      symbol: input.symbol,
+      interval: input.interval,
+    },
+    candles,
+  );
+  return {
+    candles,
+    dataset: {
+      exchange: input.exchange,
+      symbol: input.symbol,
+      interval: input.interval,
+      start_time,
+      end_time,
+      candle_count: candles.length,
+      source: input.source,
+      dataset_hash: hash,
+    },
   };
-  return db.importCandles(dataset, candles);
+}
+
+/** Compute the durable identity, then atomically import through the backend. */
+export async function importDataset(input: ImportCandlesInput): Promise<number> {
+  const prepared = await prepareDatasetImport(input);
+  return db.importCandles(prepared.dataset, prepared.candles);
 }
 
 export const dbClient = { importDataset, ...db };
