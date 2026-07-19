@@ -309,3 +309,38 @@ Date: 2026-07-20. Implementer: Claude. Branch:
 RS-CORE-003 is Done pending merge. The only newly unblocked implementation
 slice is RS-CORE-004 (deterministic benchmarks + mulberry32/Random Entry
 parity); runner orchestration remains blocked.
+
+### RS-CORE-003 review correction (append-only update)
+
+Date: 2026-07-19. Fix for the PR #70 Codex review findings. Chronology
+correction first: the RS-CORE-003 implementation record above misstated its
+date as 2026-07-20; the correct date is 2026-07-19 (this correction is
+append-only, the original text is retained as written).
+
+- [P1] Safe-integer boundary parity: TypeScript `embargo.ts` now applies
+  `safeLookback` checked arithmetic to every DERIVED lookback (+1/+2, MACD
+  composite, blocks/code cross bonuses) and to the final
+  `lookback + holdingAllowanceBars`, failing closed where IEEE-754 would
+  silently round past `Number.MAX_SAFE_INTEGER`. Rust `embargo.rs` rejects
+  raw periods above `JS_MAX_SAFE_INTEGER` BEFORE any `usize -> i64`
+  conversion (the previous `as i64` could wrap) and uses checked adds with
+  the same bound on every intermediate and the final sum. Both sides emit
+  identical error fragments.
+- [P1] Fixture boundary cases added, all HELD by the TS reference:
+  `embargo-period-above-safe-range` (raw period MAX_SAFE+1),
+  `embargo-derived-lookback-overflow` (legal MAX_SAFE period whose +1
+  derivation leaves the safe range — the reviewer's RSI reproduction),
+  `embargo-allowance-overflow` (final sum overflow), and the SUCCESS case
+  `embargo-exact-safe-boundary` (embargoBars lands exactly on
+  MAX_SAFE_INTEGER, asserted in the freshness test).
+- [P2] Rust now asserts the exact ordered error-case ID inventories for all
+  three groups (signals/split/embargo), not just counts.
+- [P2] The `embargo.rs` module doc no longer claims non-params usage "fails
+  closed here by construction": the recorded contract is that RUNNER-CONFIG
+  must reject non-params candidate modes before this module, which accepts an
+  already-validated params-only projection (unsupported signal ids still fail
+  closed). Docs/PR wording corrected to say EXPECTED OUTPUT leaves are exact
+  while inputs carry floats.
+- Re-verification: fixture regenerated (blob-identical across consecutive
+  runs); vitest, typecheck, build, cargo check, cargo tests, and targeted
+  rustfmt all pass — exact counts recorded in the PR thread.

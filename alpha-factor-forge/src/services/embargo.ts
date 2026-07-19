@@ -42,6 +42,16 @@ function period(value: number, name: string): number {
   return value;
 }
 
+/** Derived lookback arithmetic must stay EXACT: IEEE-754 silently rounds past
+ *  Number.MAX_SAFE_INTEGER, which would diverge from the Rust port's exact
+ *  i64 math (PR #70 review). Any overflowing derivation fails closed. */
+function safeLookback(value: number, context: string): number {
+  if (!Number.isSafeInteger(value)) {
+    throw new RangeError(`${context} exceeds the safe integer range`);
+  }
+  return value;
+}
+
 /** History bars one named operand series reads (usage-aware; validates only
  *  the periods that operand actually depends on). */
 function operandLookback(id: OperandId, strat: ParamsStrategy): number {
@@ -59,15 +69,16 @@ function operandLookback(id: OperandId, strat: ParamsStrategy): number {
     case 'ema':
       return period(strat.emaPeriod, 'emaPeriod');
     case 'rsi':
-      return period(strat.rsiPeriod, 'rsiPeriod') + 1;
+      return safeLookback(period(strat.rsiPeriod, 'rsiPeriod') + 1, 'derived signal lookback');
     case 'macd':
       return Math.max(period(strat.macdFast, 'macdFast'), period(strat.macdSlow, 'macdSlow'));
     case 'macdSignal':
     case 'macdHist':
-      return (
+      return safeLookback(
         Math.max(period(strat.macdFast, 'macdFast'), period(strat.macdSlow, 'macdSlow')) +
-        period(strat.macdSignal, 'macdSignal') -
-        1
+          period(strat.macdSignal, 'macdSignal') -
+          1,
+        'derived signal lookback',
       );
     case 'bbUpper':
     case 'bbMid':
@@ -82,19 +93,22 @@ function paramsSignalLookback(id: SignalId, strat: ParamsStrategy): number {
   switch (id) {
     case 'maCrossUp':
     case 'maCrossDown':
-      return Math.max(operandLookback('maFast', strat), operandLookback('maSlow', strat)) + 1;
+      return safeLookback(
+        Math.max(operandLookback('maFast', strat), operandLookback('maSlow', strat)) + 1,
+        'derived signal lookback',
+      );
     case 'emaCrossUp':
     case 'emaCrossDown':
-      return operandLookback('ema', strat) + 1;
+      return safeLookback(operandLookback('ema', strat) + 1, 'derived signal lookback');
     case 'priceAboveSlow':
     case 'priceBelowSlow':
       return operandLookback('maSlow', strat);
     case 'rsiOversold':
     case 'rsiOverbought':
-      return operandLookback('rsi', strat) + 1;
+      return safeLookback(operandLookback('rsi', strat) + 1, 'derived signal lookback');
     case 'macdCrossUp':
     case 'macdCrossDown':
-      return operandLookback('macdSignal', strat) + 1;
+      return safeLookback(operandLookback('macdSignal', strat) + 1, 'derived signal lookback');
     case 'bbLowerTouch':
     case 'bbUpperTouch':
       return operandLookback('bbUpper', strat);
@@ -123,7 +137,9 @@ function blocksRuleLookback(rule: Rule, strat: ParamsStrategy): number {
     operandLookback(rule.l, strat),
     ruleOperandLookback(rule.r, strat),
   );
-  return rule.op === 'crossUp' || rule.op === 'crossDown' ? base + 1 : base;
+  return rule.op === 'crossUp' || rule.op === 'crossDown'
+    ? safeLookback(base + 1, 'derived signal lookback')
+    : base;
 }
 
 // ---------- code mode ----------
@@ -141,7 +157,8 @@ function astLookback(node: ExprNode, strat: ParamsStrategy): number {
       return Math.max(astLookback(node.left, strat), astLookback(node.right, strat));
     case 'call': {
       const args = node.args.map((a) => astLookback(a, strat));
-      return Math.max(...args, 0) + 1; // prev/crossUp/crossDown all read i - 1
+      // prev/crossUp/crossDown all read i - 1
+      return safeLookback(Math.max(...args, 0) + 1, 'derived signal lookback');
     }
   }
 }
@@ -187,8 +204,12 @@ export function deriveEmbargoBars(
     throw new RangeError('holdingAllowanceBars must be a non-negative safe integer');
   }
   const lookback = maxSignalLookbackBars(strat);
+  const embargoBars = safeLookback(
+    lookback + holdingAllowanceBars,
+    'derived embargoBars',
+  );
   return {
-    embargoBars: lookback + holdingAllowanceBars,
+    embargoBars,
     maxSignalLookbackBars: lookback,
     holdingAllowanceBars,
   };

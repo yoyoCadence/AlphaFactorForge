@@ -104,8 +104,16 @@ ported.
   reference — generation and the vitest freshness test execute the real TS
   functions and require the recorded fragment — and Rust rejects the same
   inputs with the same fragments.
-- Everything in this fixture compares EXACTLY (booleans and integers; no
-  float leaves). Both languages assert the exact case inventories by id.
+- Every EXPECTED OUTPUT leaf compares EXACTLY (signal booleans; split and
+  embargo integers). Inputs still contain floats (OHLCV, RSI thresholds,
+  `bbMult`) — exactness is a property of the outputs. Derived embargo
+  arithmetic is bounded to the JavaScript safe-integer range on BOTH sides
+  (checked in TS via `safeLookback`, in Rust via bounded conversion +
+  checked adds), with boundary cases locking a raw period past
+  `MAX_SAFE_INTEGER`, a legal period whose derived lookback overflows, an
+  allowance sum that overflows, and a success case landing exactly on
+  `MAX_SAFE_INTEGER`. Both languages assert the exact success AND error case
+  inventories by id.
 
 `discovery_core/signals.rs` (`params-signals-v1`), `split.rs`
 (`validation-split-v1`), and `embargo.rs` (`embargo-derivation-v1`) are the

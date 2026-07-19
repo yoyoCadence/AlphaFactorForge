@@ -70,6 +70,7 @@ describe('RS-CORE signals/split parity fixture', () => {
       'embargo-price-vs-slow',
       'embargo-with-allowance',
       'embargo-unused-period-ignored',
+      'embargo-exact-safe-boundary',
     ]);
     expect(fixture.signalErrorCases.map((c) => c.id)).toEqual(['signals-stoch-unsupported']);
     expect(fixture.splitErrorCases.map((c) => c.id)).toEqual([
@@ -82,7 +83,13 @@ describe('RS-CORE signals/split parity fixture', () => {
       'embargo-stoch-unsupported',
       'embargo-invalid-used-period',
       'embargo-negative-allowance',
+      'embargo-period-above-safe-range',
+      'embargo-derived-lookback-overflow',
+      'embargo-allowance-overflow',
     ]);
+    // The exact-boundary case must land EXACTLY on MAX_SAFE in the fixture.
+    const boundary = fixture.embargoCases.find((c) => c.id === 'embargo-exact-safe-boundary')!;
+    expect(boundary.expected.embargoBars).toBe(Number.MAX_SAFE_INTEGER);
   });
 
   it('the TS reference itself rejects every committed error case', () => {

@@ -177,6 +177,7 @@ fn rust_embargo_derivations_match_the_committed_typescript_fixture() {
         "embargo-price-vs-slow",
         "embargo-with-allowance",
         "embargo-unused-period-ignored",
+        "embargo-exact-safe-boundary",
     ];
     let actual_ids: Vec<&str> = fixture
         .embargo_cases
@@ -196,7 +197,45 @@ fn rust_embargo_derivations_match_the_committed_typescript_fixture() {
 fn rust_rejects_every_committed_error_case() {
     let fixture = parse_fixture();
 
-    assert_eq!(fixture.signal_error_cases.len(), 1);
+    // Exact error-case inventories (PR #70 review): identity changes must
+    // fail on the Rust side too, not just counts.
+    let signal_error_ids: Vec<&str> = fixture
+        .signal_error_cases
+        .iter()
+        .map(|case| case.id.as_str())
+        .collect();
+    assert_eq!(signal_error_ids, ["signals-stoch-unsupported"]);
+    let split_error_ids: Vec<&str> = fixture
+        .split_error_cases
+        .iter()
+        .map(|case| case.id.as_str())
+        .collect();
+    assert_eq!(
+        split_error_ids,
+        [
+            "split-too-few-usable-bars",
+            "split-embargo-consumes-bars",
+            "split-negative-total",
+            "split-negative-embargo",
+        ]
+    );
+    let embargo_error_ids: Vec<&str> = fixture
+        .embargo_error_cases
+        .iter()
+        .map(|case| case.id.as_str())
+        .collect();
+    assert_eq!(
+        embargo_error_ids,
+        [
+            "embargo-stoch-unsupported",
+            "embargo-invalid-used-period",
+            "embargo-negative-allowance",
+            "embargo-period-above-safe-range",
+            "embargo-derived-lookback-overflow",
+            "embargo-allowance-overflow",
+        ]
+    );
+
     for case in &fixture.signal_error_cases {
         let error = build_params_signals(&case.input.candles, &case.input.config)
             .expect_err(&format!("{} must fail closed", case.id));
@@ -208,7 +247,6 @@ fn rust_rejects_every_committed_error_case() {
         );
     }
 
-    assert_eq!(fixture.split_error_cases.len(), 4);
     for case in &fixture.split_error_cases {
         let error = plan_validation_split(case.input.total_bars, case.input.embargo_bars)
             .expect_err(&format!("{} must fail closed", case.id));
@@ -220,7 +258,6 @@ fn rust_rejects_every_committed_error_case() {
         );
     }
 
-    assert_eq!(fixture.embargo_error_cases.len(), 3);
     for case in &fixture.embargo_error_cases {
         let error = derive_embargo_bars(&case.input.config, case.input.holding_allowance_bars)
             .expect_err(&format!("{} must fail closed", case.id));

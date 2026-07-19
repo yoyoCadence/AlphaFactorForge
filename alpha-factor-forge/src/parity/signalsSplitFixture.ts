@@ -192,6 +192,8 @@ interface EmbargoCaseDefinition {
   holdingAllowanceBars: number;
 }
 
+const MAX_SAFE = Number.MAX_SAFE_INTEGER;
+
 function buildEmbargoCases(): EmbargoCaseDefinition[] {
   return [
     { id: 'embargo-default-ma-cross', config: paramsConfig(), holdingAllowanceBars: 0 },
@@ -201,6 +203,10 @@ function buildEmbargoCases(): EmbargoCaseDefinition[] {
     { id: 'embargo-price-vs-slow', config: paramsConfig({ entrySig: 'priceAboveSlow', exitSig: 'priceBelowSlow' }), holdingAllowanceBars: 0 },
     { id: 'embargo-with-allowance', config: paramsConfig(), holdingAllowanceBars: 8 },
     { id: 'embargo-unused-period-ignored', config: paramsConfig({ emaPeriod: 500 }), holdingAllowanceBars: 0 },
+    // PR #70 review: embargoBars lands EXACTLY on Number.MAX_SAFE_INTEGER
+    // (default MA-cross lookback 22 + this allowance) and must stay exact in
+    // both languages.
+    { id: 'embargo-exact-safe-boundary', config: paramsConfig(), holdingAllowanceBars: MAX_SAFE - 22 },
   ];
 }
 
@@ -294,6 +300,28 @@ export function buildSignalsSplitParityFixture(sourceHashes: FixtureSourceHashes
     { id: 'embargo-stoch-unsupported', config: paramsConfig({ entrySig: 'stochOverbought' }), allowance: 0, fragment: 'stoch' },
     { id: 'embargo-invalid-used-period', config: paramsConfig({ fastMA: 0 }), allowance: 0, fragment: 'fastMA' },
     { id: 'embargo-negative-allowance', config: paramsConfig(), allowance: -1, fragment: 'holdingAllowanceBars' },
+    // PR #70 review safe-integer boundaries: a raw period past MAX_SAFE, a
+    // legal period whose DERIVED lookback leaves the safe range (IEEE-754
+    // would silently round where i64 would not), and an allowance sum that
+    // overflows the final embargoBars.
+    {
+      id: 'embargo-period-above-safe-range',
+      config: paramsConfig({ entrySig: 'rsiOversold', exitSig: 'rsiOverbought', rsiPeriod: MAX_SAFE + 1 }),
+      allowance: 0,
+      fragment: 'rsiPeriod must be a positive integer',
+    },
+    {
+      id: 'embargo-derived-lookback-overflow',
+      config: paramsConfig({ entrySig: 'rsiOversold', exitSig: 'rsiOverbought', rsiPeriod: MAX_SAFE }),
+      allowance: 0,
+      fragment: 'derived signal lookback exceeds the safe integer range',
+    },
+    {
+      id: 'embargo-allowance-overflow',
+      config: paramsConfig(),
+      allowance: MAX_SAFE,
+      fragment: 'derived embargoBars exceeds the safe integer range',
+    },
   ];
   const embargoErrorCases = embargoErrorInputs.map((definition) => ({
     ...heldError(
@@ -319,8 +347,10 @@ export function buildSignalsSplitParityFixture(sourceHashes: FixtureSourceHashes
       sourceHashes,
     },
     tolerance: {
-      // Every expected output in this fixture is exact: booleans, integer bar
-      // ranges/counts, and integer lookbacks. No float leaves exist.
+      // Every EXPECTED OUTPUT leaf is exact: booleans, integer bar
+      // ranges/counts, and integer lookbacks. Inputs still carry floats
+      // (OHLCV values, RSI thresholds, bbMult) — exactness is a property of
+      // the outputs, not the whole envelope.
       exact: [
         'schemaVersion and contract versions',
         'case ids and inputs',
