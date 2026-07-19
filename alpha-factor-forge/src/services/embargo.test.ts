@@ -84,6 +84,49 @@ describe('maxSignalLookbackBars — code mode', () => {
   });
 });
 
+describe('safe-integer composite arithmetic (PR #70 review)', () => {
+  // The reviewer's rounding-cancellation reproduction: `a + b - 1` lets the
+  // intermediate IEEE-754 rounding be masked by the subtraction. The
+  // TypeScript-only blocks/code macdSignal/macdHist operand must fail closed.
+  const boundary = {
+    ...base,
+    macdFast: Number.MAX_SAFE_INTEGER,
+    macdSlow: 1,
+    macdSignal: 2,
+  };
+
+  it('blocks-mode plain macdHist compare fails closed at the boundary', () => {
+    const blocks: ParamsStrategy = {
+      ...boundary,
+      mode: 'blocks',
+      entryRules: [{ l: 'macdHist', op: '>', r: '0' }],
+      exitRules: [],
+    };
+    expect(() => maxSignalLookbackBars(blocks)).toThrow(/safe integer range/);
+  });
+
+  it('code-mode macdHist expression fails closed at the boundary', () => {
+    const code: ParamsStrategy = {
+      ...boundary,
+      mode: 'code',
+      entryCode: 'macdHist > 0',
+      exitCode: '0',
+    };
+    expect(() => maxSignalLookbackBars(code)).toThrow(/safe integer range/);
+  });
+
+  it('the exact MAX_SAFE composite (signal 1 adds nothing) is still accepted', () => {
+    const exact: ParamsStrategy = {
+      ...boundary,
+      macdSignal: 1,
+      mode: 'blocks',
+      entryRules: [{ l: 'macdHist', op: '>', r: '0' }],
+      exitRules: [],
+    };
+    expect(maxSignalLookbackBars(exact)).toBe(Number.MAX_SAFE_INTEGER);
+  });
+});
+
 describe('deriveEmbargoBars', () => {
   it('adds the explicit holding allowance and returns a recordable breakdown', () => {
     expect(deriveEmbargoBars(base, 0)).toEqual({

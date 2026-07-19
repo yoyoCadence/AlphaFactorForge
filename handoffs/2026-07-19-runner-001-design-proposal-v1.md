@@ -280,3 +280,82 @@ Date: 2026-07-19. Fix for the PR #69 Codex review findings.
 - Re-verification: fixture regeneration blob-identical; 315 Vitest tests,
   typecheck, production build, cargo check, 34 Rust tests, targeted rustfmt
   check all pass.
+
+### RS-CORE-003 implementation record (append-only update)
+
+Date: 2026-07-20. Implementer: Claude. Branch:
+`feat/rs-core-003-signals-split-parity`.
+
+- Added `src/parity/signalsSplitFixture.ts`, `npm run fixtures:signals-split`,
+  and the committed `signals-split-parity-v1` envelope: 7 params-signal cases
+  (hand-verified exact MA-cross index + one sample case per signal family),
+  9 split cases (all five usable-bar residues, zero/non-zero embargo, the
+  JS safe-integer extreme), 7 embargo-derivation cases, and 8 error cases
+  HELD by the TypeScript reference (generation and the vitest freshness test
+  execute the real TS functions and require the recorded fragment). Every
+  expected leaf is exact — booleans and integers only; both languages assert
+  the exact case inventories by id.
+- Added pure Rust `discovery_core/signals.rs` (`params-signals-v1`),
+  `split.rs` (`validation-split-v1`), and `embargo.rs`
+  (`embargo-derivation-v1`), all free of Tauri/rusqlite/threads/events/UI.
+  Per D2, only params mode is ported: blocks/code signal building and
+  lookback derivation stay TypeScript-only and the expression interpreter is
+  not ported; unsupported ids fail closed with the TS message.
+- Verification: fixture regeneration blob-identical; 318 Vitest tests,
+  typecheck, production build, cargo check, 38 Rust tests (4 new parity
+  suites passing first run), and targeted rustfmt check on the new files all
+  pass. Playwright untouched (no UI/mock surface).
+
+RS-CORE-003 is Done pending merge. The only newly unblocked implementation
+slice is RS-CORE-004 (deterministic benchmarks + mulberry32/Random Entry
+parity); runner orchestration remains blocked.
+
+### RS-CORE-003 review correction (append-only update)
+
+Date: 2026-07-19. Fix for the PR #70 Codex review findings. Chronology
+correction first: the RS-CORE-003 implementation record above misstated its
+date as 2026-07-20; the correct date is 2026-07-19 (this correction is
+append-only, the original text is retained as written).
+
+- [P1] Safe-integer boundary parity: TypeScript `embargo.ts` now applies
+  `safeLookback` checked arithmetic to every DERIVED lookback (+1/+2, MACD
+  composite, blocks/code cross bonuses) and to the final
+  `lookback + holdingAllowanceBars`, failing closed where IEEE-754 would
+  silently round past `Number.MAX_SAFE_INTEGER`. Rust `embargo.rs` rejects
+  raw periods above `JS_MAX_SAFE_INTEGER` BEFORE any `usize -> i64`
+  conversion (the previous `as i64` could wrap) and uses checked adds with
+  the same bound on every intermediate and the final sum. Both sides emit
+  identical error fragments.
+- [P1] Fixture boundary cases added, all HELD by the TS reference:
+  `embargo-period-above-safe-range` (raw period MAX_SAFE+1),
+  `embargo-derived-lookback-overflow` (legal MAX_SAFE period whose +1
+  derivation leaves the safe range — the reviewer's RSI reproduction),
+  `embargo-allowance-overflow` (final sum overflow), and the SUCCESS case
+  `embargo-exact-safe-boundary` (embargoBars lands exactly on
+  MAX_SAFE_INTEGER, asserted in the freshness test).
+- [P2] Rust now asserts the exact ordered error-case ID inventories for all
+  three groups (signals/split/embargo), not just counts.
+- [P2] The `embargo.rs` module doc no longer claims non-params usage "fails
+  closed here by construction": the recorded contract is that RUNNER-CONFIG
+  must reject non-params candidate modes before this module, which accepts an
+  already-validated params-only projection (unsupported signal ids still fail
+  closed). Docs/PR wording corrected to say EXPECTED OUTPUT leaves are exact
+  while inputs carry floats.
+- Re-verification: fixture regenerated (blob-identical across consecutive
+  runs); vitest, typecheck, build, cargo check, cargo tests, and targeted
+  rustfmt all pass — exact counts recorded in the PR thread.
+
+### RS-CORE-003 second review correction (append-only update)
+
+Date: 2026-07-19. Fix for the PR #70 third-round finding: post-hoc
+`isSafeInteger` cannot detect an intermediate IEEE-754 rounding that a later
+subtraction cancels (`a + b - 1`). All derived lookback additions and the
+final embargo sum now go through a PRE-checked `safeAdd` (overflow tested
+before the add), and the MACD composite is reassociated as
+`slowest + (signalPeriod - 1)`. The reviewer's blocks `macdHist > 0`
+reproduction and its code-mode twin are locked as TypeScript unit
+regressions (blocks/code stay TS-only, so they do not enter the Rust
+fixture); the exact-`MAX_SAFE` composite remains accepted. Current fixture
+ledger for one-glance reading: 7 signal + 9 split + 8 embargo success cases
+and 11 error cases (1 signal + 4 split + 6 embargo); expected OUTPUT leaves
+are exact booleans/integers while inputs still carry floats.

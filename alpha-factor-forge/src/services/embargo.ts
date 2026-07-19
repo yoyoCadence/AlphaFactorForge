@@ -42,6 +42,18 @@ function period(value: number, name: string): number {
   return value;
 }
 
+/** Pre-checked addition over non-negative safe integers. The overflow test
+ *  runs BEFORE the add: IEEE-754 rounding past Number.MAX_SAFE_INTEGER can be
+ *  cancelled by a later subtraction (PR #70 review, `a + b - 1`), so an
+ *  after-the-fact isSafeInteger check cannot be trusted. Every derived
+ *  lookback addition and the final embargo sum go through this helper. */
+function safeAdd(left: number, right: number, context: string): number {
+  if (left > Number.MAX_SAFE_INTEGER - right) {
+    throw new RangeError(`${context} exceeds the safe integer range`);
+  }
+  return left + right;
+}
+
 /** History bars one named operand series reads (usage-aware; validates only
  *  the periods that operand actually depends on). */
 function operandLookback(id: OperandId, strat: ParamsStrategy): number {
@@ -59,15 +71,17 @@ function operandLookback(id: OperandId, strat: ParamsStrategy): number {
     case 'ema':
       return period(strat.emaPeriod, 'emaPeriod');
     case 'rsi':
-      return period(strat.rsiPeriod, 'rsiPeriod') + 1;
+      return safeAdd(period(strat.rsiPeriod, 'rsiPeriod'), 1, 'derived signal lookback');
     case 'macd':
       return Math.max(period(strat.macdFast, 'macdFast'), period(strat.macdSlow, 'macdSlow'));
     case 'macdSignal':
     case 'macdHist':
-      return (
-        Math.max(period(strat.macdFast, 'macdFast'), period(strat.macdSlow, 'macdSlow')) +
-        period(strat.macdSignal, 'macdSignal') -
-        1
+      // Reassociated as slowest + (signal - 1) so the pre-checked add sees
+      // the true magnitude — `a + b - 1` lets rounding cancel (PR #70).
+      return safeAdd(
+        Math.max(period(strat.macdFast, 'macdFast'), period(strat.macdSlow, 'macdSlow')),
+        period(strat.macdSignal, 'macdSignal') - 1,
+        'derived signal lookback',
       );
     case 'bbUpper':
     case 'bbMid':
@@ -82,19 +96,23 @@ function paramsSignalLookback(id: SignalId, strat: ParamsStrategy): number {
   switch (id) {
     case 'maCrossUp':
     case 'maCrossDown':
-      return Math.max(operandLookback('maFast', strat), operandLookback('maSlow', strat)) + 1;
+      return safeAdd(
+        Math.max(operandLookback('maFast', strat), operandLookback('maSlow', strat)),
+        1,
+        'derived signal lookback',
+      );
     case 'emaCrossUp':
     case 'emaCrossDown':
-      return operandLookback('ema', strat) + 1;
+      return safeAdd(operandLookback('ema', strat), 1, 'derived signal lookback');
     case 'priceAboveSlow':
     case 'priceBelowSlow':
       return operandLookback('maSlow', strat);
     case 'rsiOversold':
     case 'rsiOverbought':
-      return operandLookback('rsi', strat) + 1;
+      return safeAdd(operandLookback('rsi', strat), 1, 'derived signal lookback');
     case 'macdCrossUp':
     case 'macdCrossDown':
-      return operandLookback('macdSignal', strat) + 1;
+      return safeAdd(operandLookback('macdSignal', strat), 1, 'derived signal lookback');
     case 'bbLowerTouch':
     case 'bbUpperTouch':
       return operandLookback('bbUpper', strat);
@@ -123,7 +141,9 @@ function blocksRuleLookback(rule: Rule, strat: ParamsStrategy): number {
     operandLookback(rule.l, strat),
     ruleOperandLookback(rule.r, strat),
   );
-  return rule.op === 'crossUp' || rule.op === 'crossDown' ? base + 1 : base;
+  return rule.op === 'crossUp' || rule.op === 'crossDown'
+    ? safeAdd(base, 1, 'derived signal lookback')
+    : base;
 }
 
 // ---------- code mode ----------
@@ -141,7 +161,8 @@ function astLookback(node: ExprNode, strat: ParamsStrategy): number {
       return Math.max(astLookback(node.left, strat), astLookback(node.right, strat));
     case 'call': {
       const args = node.args.map((a) => astLookback(a, strat));
-      return Math.max(...args, 0) + 1; // prev/crossUp/crossDown all read i - 1
+      // prev/crossUp/crossDown all read i - 1
+      return safeAdd(Math.max(...args, 0), 1, 'derived signal lookback');
     }
   }
 }
@@ -187,8 +208,9 @@ export function deriveEmbargoBars(
     throw new RangeError('holdingAllowanceBars must be a non-negative safe integer');
   }
   const lookback = maxSignalLookbackBars(strat);
+  const embargoBars = safeAdd(lookback, holdingAllowanceBars, 'derived embargoBars');
   return {
-    embargoBars: lookback + holdingAllowanceBars,
+    embargoBars,
     maxSignalLookbackBars: lookback,
     holdingAllowanceBars,
   };
