@@ -82,6 +82,35 @@ non-finite statuses and monthly-return keys, and the exact fail-closed error
 fragments. Engine semantics changes require a contract-version bump, a
 regenerated reviewed fixture diff, and a matching Rust update.
 
-RS-CORE-003 extends this harness with params signals plus split/embargo
-parity. Runner orchestration remains excluded, and the hidden Test segment is
-never executed.
+## RS-CORE-003: params signals, validation split, embargo derivation
+
+`src/parity/signalsSplitFixture.ts` + `npm run fixtures:signals-split` own the
+committed `signals-split-parity-v1` envelope
+(`fixtures/rs-core/signals-split-v1.json`). Per the Resolution D2, only the
+params-mode paths are ported; blocks/code signal building and their lookback
+derivation stay TypeScript-only, and the expression interpreter is never
+ported.
+
+- 7 signal cases (a hand-verified exact MA-cross index plus one sample case
+  per family: MA/EMA cross, price-vs-slow, RSI thresholds, MACD cross,
+  Bollinger touch) lock the exact entry/exit boolean arrays, including bar-0
+  never signalling and warm-up `NaN` comparing false.
+- 9 split cases lock exact integer plans for all five usable-bar residues,
+  zero and non-zero embargo, and the JavaScript safe-integer extreme.
+- 7 embargo cases lock the derivation breakdowns (per-family lookbacks, the
+  holding allowance, and usage-awareness of unused periods).
+- 8 error cases (unsupported `stoch*`, split input/insufficient-bar failures,
+  invalid used period, negative allowance) are HELD by the TypeScript
+  reference — generation and the vitest freshness test execute the real TS
+  functions and require the recorded fragment — and Rust rejects the same
+  inputs with the same fragments.
+- Everything in this fixture compares EXACTLY (booleans and integers; no
+  float leaves). Both languages assert the exact case inventories by id.
+
+`discovery_core/signals.rs` (`params-signals-v1`), `split.rs`
+(`validation-split-v1`), and `embargo.rs` (`embargo-derivation-v1`) are the
+pure Rust ports, all Tauri/SQLite/thread/event/UI-free.
+
+RS-CORE-004 extends this harness with the deterministic benchmarks plus
+mulberry32/Random Entry parity. Runner orchestration remains excluded, and the
+hidden Test segment is never executed.

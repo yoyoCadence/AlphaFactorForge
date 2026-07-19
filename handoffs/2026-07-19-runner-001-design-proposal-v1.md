@@ -280,3 +280,32 @@ Date: 2026-07-19. Fix for the PR #69 Codex review findings.
 - Re-verification: fixture regeneration blob-identical; 315 Vitest tests,
   typecheck, production build, cargo check, 34 Rust tests, targeted rustfmt
   check all pass.
+
+### RS-CORE-003 implementation record (append-only update)
+
+Date: 2026-07-20. Implementer: Claude. Branch:
+`feat/rs-core-003-signals-split-parity`.
+
+- Added `src/parity/signalsSplitFixture.ts`, `npm run fixtures:signals-split`,
+  and the committed `signals-split-parity-v1` envelope: 7 params-signal cases
+  (hand-verified exact MA-cross index + one sample case per signal family),
+  9 split cases (all five usable-bar residues, zero/non-zero embargo, the
+  JS safe-integer extreme), 7 embargo-derivation cases, and 8 error cases
+  HELD by the TypeScript reference (generation and the vitest freshness test
+  execute the real TS functions and require the recorded fragment). Every
+  expected leaf is exact — booleans and integers only; both languages assert
+  the exact case inventories by id.
+- Added pure Rust `discovery_core/signals.rs` (`params-signals-v1`),
+  `split.rs` (`validation-split-v1`), and `embargo.rs`
+  (`embargo-derivation-v1`), all free of Tauri/rusqlite/threads/events/UI.
+  Per D2, only params mode is ported: blocks/code signal building and
+  lookback derivation stay TypeScript-only and the expression interpreter is
+  not ported; unsupported ids fail closed with the TS message.
+- Verification: fixture regeneration blob-identical; 318 Vitest tests,
+  typecheck, production build, cargo check, 38 Rust tests (4 new parity
+  suites passing first run), and targeted rustfmt check on the new files all
+  pass. Playwright untouched (no UI/mock surface).
+
+RS-CORE-003 is Done pending merge. The only newly unblocked implementation
+slice is RS-CORE-004 (deterministic benchmarks + mulberry32/Random Entry
+parity); runner orchestration remains blocked.
