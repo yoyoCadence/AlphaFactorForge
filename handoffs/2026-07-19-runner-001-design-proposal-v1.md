@@ -4,7 +4,7 @@ Date: 2026-07-19
 Repo: yoyoCadence/AlphaFactorForge
 Branch: docs/handoff-runner-001-proposal
 PR: (this handoff PR)
-Status: open question — implementation must not start until a Resolution records the decisions below
+Status: resolved — implementation follows the Resolution below; IDENTITY-001 is first
 
 ## Summary
 
@@ -81,4 +81,101 @@ Proposal only — no code. Baseline on `main` (post-PERSIST-001, PR #65): 300 vi
 
 ## Resolution (added when acted on)
 
-(Reviewer: record D1–D7 decisions here, then implementation may start with the approved slice order.)
+Date: 2026-07-19. Decider: Codex (reviewer), delivered as PR #66 review guidance.
+**Implementation authority: this Resolution > the original proposal wherever they differ.**
+
+### Mandated execution order
+
+1. Merge this resolved handoff before implementation.
+2. Execute one independently reviewable slice per PR, in the D7 order below.
+3. Move only the active slice to In Progress; later slices remain blocked on their predecessor's verification gate.
+4. Do not start any runner execution/thread/event work before RS-CORE-005, RUNNER-CONFIG-001, and RUNNER-STORE-001 have merged.
+
+### D0 — Durable identity prerequisite (added by review)
+
+The existing durable identity is not safe enough for discovery reuse:
+
+- `datasetHash()` hashes exchange/symbol/interval/bounds/version but not candle values.
+- Re-importing a conflicting payload can reuse the dataset row while `INSERT OR IGNORE` retains old candles.
+- `sha256Hex()` falls back to FNV when Web Crypto is unavailable, so one durable identity can use different algorithms in different runtimes.
+
+Before any Rust parity or discovery-cache work, deliver **IDENTITY-001**:
+
+- Durable hashes are versioned SHA-256 identities (for example `strategy-v2:` and `dataset-content-v2:`). A persisted identity must never change algorithm by runtime; absence of SHA-256 fails closed. FNV may only be an explicitly ephemeral fingerprint.
+- Dataset content identity covers field-mapping/schema version, metadata, and the complete timestamp-sorted OHLCV byte representation. The backend recomputes and verifies it at import rather than trusting the frontend.
+- Dataset row and candles import in one transaction. The same content hash may only reuse an identical payload; a contradictory payload is rejected, and import failure cannot leave an empty or mixed dataset.
+- Legacy unversioned hashes are ineligible for discovery cross-run identity/reuse until rehashed or re-imported.
+- TS and Rust v2 hash fixtures compare exactly.
+
+If IDENTITY-001 needs a migration, the runner linkage migration uses the next available number; implementation must not permanently assume it will be `0003`.
+
+### D1 — Computation location (final)
+
+Adopt **Option A: phased pure-Rust engine port with committed TS-reference parity fixtures**. Reject the hidden-WebView and Node-sidecar options.
+
+- Rust discovery-core modules remain independent of Tauri and rusqlite. Threading, DB access, and events arrive only after all parity gates pass.
+- Do not port the sample-candle generator into runtime Rust. TS may use it only to produce committed fixture candle inputs; generated sample data is not discovery evaluation data.
+- Preserve Rust 1.77 compatibility, the no-dynamic-code rule, and the prohibition on Test-segment execution.
+
+### D2 — v1 candidate space (final)
+
+- Params mode only. Blocks and AI DSL are deferred; code mode is permanently excluded.
+- Config explicitly records versioned base preset definitions and whitelisted finite numeric axes. Unknown fields/keys and invalid ranges/steps fail closed.
+- Preflight the raw Cartesian product, then apply cross-field validity rules and canonical `strategy-v2` hash deduplication. Record `raw`, `prunedInvalid`, `duplicates`, and `finalUnique` counts.
+- Stable candidate index is assigned after sorting by canonical strategy hash, so input object/preset order and thread completion order cannot affect identity.
+- Score N is the enumeration-complete `finalUnique` count, computed by the runner and shared by the whole lineage. Callers cannot supply N.
+- v1 UI/default candidate cap is 256; the engine hard cap is 4096. Exceeding the raw-product cap fails before jobs are created. Changing the hard cap requires a config-contract bump and performance evidence.
+
+### D3 — Cross-language parity harness (final)
+
+- TypeScript remains the reference. Fixture envelopes include fixture schema version, all relevant contract versions, inputs, expected outputs, tolerance policy, and generator commit/hash.
+- Integers/times/indexes/booleans/enums/array lengths and the raw PRNG u32 sequence compare exactly. JSON objects compare structurally (key order irrelevant; array order significant). METRIC-001 statuses compare exactly.
+- Floats use a declared per-field policy, with a default of `abs <= 1e-12 OR rel <= 1e-10`; trade/equity/metric classes may declare reviewed overrides. Tolerance changes are contract changes.
+- Compare Random Entry distributions, trades, equity, metrics, and ScoreBreakdown at numeric leaves; never require byte-string JSON equality.
+- Fixtures cover the cases locked in `docs/engine-parity-report.md`: long/short/both, close/nextOpen, SL/TP, same-bar conflicts, costs, last-bar settlement, empty/range boundaries, and non-finite semantics.
+- Fixtures regenerate only through an explicit script; the generated diff is reviewed like source.
+
+### D4 — `discovery-config-v1` (final)
+
+The strict input-only envelope records contract versions, dataset id plus content hash v2, resolved presets/axes, split contract, embargo allowance, gate and score configs, start equity, resolved benchmark costs, Random Entry runs, root seed, candidate caps, and max concurrency.
+
+- Reject seed derivation from DB run id or candidate index. `rootSeed` is an explicit stored u32.
+- Derive candidate-purpose sub-seeds with a versioned deterministic SHA-256 input such as `seed-v1 + rootSeed + datasetContentHash + strategyHash + purpose`, taking a fixed-endian u32. Row ids, thread ids, enumeration order, and completion order never participate.
+- N is derived from enumeration, not accepted from config. Benchmark costs store resolved numeric values rather than only a mutable source pointer.
+- Start revalidates dataset id/content hash. Unknown fields, version mismatch, non-finite values, and caps fail closed.
+- Concurrency affects performance only. Default is `max(1, logicalCores - 1)` and an override must be within `1..=logicalCores`.
+
+### D5 — State machine, jobs, checkpoint, events (final)
+
+- The scheduling unit is one candidate assessment. Its Train and Validation job rows are paired child/checkpoint rows and transition together. Test rows never exist.
+- v1 permits only one non-terminal discovery run globally (`running` or `paused`). A paused run must resume or cancel before a new run starts.
+- The runner migration adds candidate index and uniqueness sufficient to prevent duplicate `(run, candidate, segment)` jobs. `validation_records` receives nullable run linkage and a uniqueness rule allowing at most one assessment for the same run/strategy/dataset.
+- One candidate's final commit is one SQLite transaction: Train/Validation summaries and trades, append-only validation record, both job rows, run progress, and strategy lifecycle all commit or all roll back. Refactor the PERSIST writer to accept a caller-owned transaction; never append a record and patch job state later.
+- Crash recovery changes orphan `running` runs to `paused` and paired `running` jobs to `queued`. The app never resumes CPU work automatically; the user explicitly resumes. `done` means the atomic assessment exists.
+- Pause stops dequeueing and lets an in-flight candidate finish/commit. Cancel is cooperative at candidate boundaries; a result observing cancel before commit is discarded, unfinished jobs become skipped, and no partial record persists. Engine/system failure fails the run with evidence; it is not silently retried.
+- Emit versioned events only after DB commit, with monotonic sequence, run/job id, and candidate index. Progress/result contain digests, and done is terminal. Compute workers share immutable candle data and never touch SQLite; one coordinator/writer owns DB writes.
+- v1 duplicate handling is enumeration deduplication plus same-run completed-checkpoint skipping. **Cross-run result reuse is deferred**: current summaries are mutable UPSERT views whose key omits split/engine contract, and trades are not an immutable execution cache. Cross-run reuse requires a separate versioned immutable-cache slice.
+
+State transitions are fixed: `idle -> running`; `running -> paused|completed|failed|cancelled`; `paused -> running|cancelled`; terminal states never resume.
+
+### D6 — Promotion policy (final)
+
+- Gate pass precedes Score. Score ranks only; v1 has no minimum score or top-K cutoff. Test never executes.
+- `strategy_def.lifecycle` is a coarse global state: pass moves candidate/rejected to validated; fail moves only candidate to rejected. A validated strategy is not automatically demoted by a later dataset/run failure; that evidence remains in its immutable validation record. This avoids completion-order-dependent lifecycle changes.
+- Manual UI saves remain candidate. Runner lifecycle updates are part of the D5 candidate transaction.
+- On run completion, `best_strategy_id` is the highest finite-score Gate passer, with ties resolved by candidate index then strategy hash. It remains null when no candidate passes.
+
+### D7 — Final one-PR slice order
+
+0. **IDENTITY-001** — durable strategy/data hash v2, backend verification, atomic immutable dataset import.
+1. **RS-CORE-001** — parity harness foundation, Rust candle/types, indicators; sample candles are fixture input only.
+2. **RS-CORE-002** — backtest engine and metrics parity.
+3. **RS-CORE-003** — params signals plus split/embargo parity.
+4. **RS-CORE-004** — deterministic benchmarks plus mulberry32/Random Entry parity.
+5. **RS-CORE-005** — Gate and Score structural parity.
+6. **RUNNER-CONFIG-001** — strict config parsing, enumeration/deduplication, v2 hashes, seed derivation, and caps; pure, no DB/threads.
+7. **RUNNER-STORE-001** — next migration, run/job repositories, atomic candidate commit, recovery/idempotency tests; no worker pool/events.
+8. **RUNNER-EXEC-001** — fixed CPU worker pool, commands, pause/resume/cancel, single writer, and versioned events; no frontend UI.
+9. **RUNNER-UI-001** — typed frontend wrappers and throttled progress/results UI.
+
+The first implementation slice after this handoff merges is IDENTITY-001. Do not start a monolithic RUNNER-001.
