@@ -344,3 +344,18 @@ append-only, the original text is retained as written).
 - Re-verification: fixture regenerated (blob-identical across consecutive
   runs); vitest, typecheck, build, cargo check, cargo tests, and targeted
   rustfmt all pass — exact counts recorded in the PR thread.
+
+### RS-CORE-003 second review correction (append-only update)
+
+Date: 2026-07-19. Fix for the PR #70 third-round finding: post-hoc
+`isSafeInteger` cannot detect an intermediate IEEE-754 rounding that a later
+subtraction cancels (`a + b - 1`). All derived lookback additions and the
+final embargo sum now go through a PRE-checked `safeAdd` (overflow tested
+before the add), and the MACD composite is reassociated as
+`slowest + (signalPeriod - 1)`. The reviewer's blocks `macdHist > 0`
+reproduction and its code-mode twin are locked as TypeScript unit
+regressions (blocks/code stay TS-only, so they do not enter the Rust
+fixture); the exact-`MAX_SAFE` composite remains accepted. Current fixture
+ledger for one-glance reading: 7 signal + 9 split + 8 embargo success cases
+and 11 error cases (1 signal + 4 split + 6 embargo); expected OUTPUT leaves
+are exact booleans/integers while inputs still carry floats.

@@ -97,13 +97,19 @@ ported.
   never signalling and warm-up `NaN` comparing false.
 - 9 split cases lock exact integer plans for all five usable-bar residues,
   zero and non-zero embargo, and the JavaScript safe-integer extreme.
-- 7 embargo cases lock the derivation breakdowns (per-family lookbacks, the
-  holding allowance, and usage-awareness of unused periods).
-- 8 error cases (unsupported `stoch*`, split input/insufficient-bar failures,
-  invalid used period, negative allowance) are HELD by the TypeScript
+- 8 embargo cases lock the derivation breakdowns (per-family lookbacks, the
+  holding allowance, usage-awareness of unused periods, and a success case
+  landing embargoBars exactly on `MAX_SAFE_INTEGER`).
+- 11 error cases (1 signal + 4 split + 6 embargo: unsupported `stoch*`, split
+  input/insufficient-bar failures, invalid used period, negative allowance,
+  and the safe-integer boundary rejections) are HELD by the TypeScript
   reference — generation and the vitest freshness test execute the real TS
   functions and require the recorded fragment — and Rust rejects the same
-  inputs with the same fragments.
+  inputs with the same fragments. Derived-lookback additions use PRE-checked
+  arithmetic (`safeAdd`, overflow tested before the add) because IEEE-754
+  rounding can be cancelled by later subtraction; the TS-only blocks/code
+  `macdSignal`/`macdHist` composite is regression-locked in the embargo unit
+  tests.
 - Every EXPECTED OUTPUT leaf compares EXACTLY (signal booleans; split and
   embargo integers). Inputs still contain floats (OHLCV, RSI thresholds,
   `bbMult`) — exactness is a property of the outputs. Derived embargo
