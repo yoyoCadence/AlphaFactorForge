@@ -156,3 +156,17 @@ TypeScript:
 - the Gate pass/fail discriminated union cannot express an illegal score state; Train Phase-B fields all null; Validation Phase-B fields per D3.
 - benchmark record embeds exact configs and full Random Entry evidence; metrics/Gate non-finite values explicitly encoded; a missed nested non-finite fails closed; full record JSON round-trips deepEqual.
 - the Test segment is never read, executed, or persisted; typed Tauri invoke argument names exactly match the Rust command.
+
+### Resolution addendum (2026-07-19, pre-merge reviewer follow-up)
+
+Mandatory implementation condition added to the D1 schema — the migration must also lock the D3 invariant at the DB layer:
+
+```sql
+CHECK (
+    (gate_passed = 0 AND score IS NULL)
+    OR
+    (gate_passed = 1 AND score IS NOT NULL)
+)
+```
+
+The Rust command remains responsible for validating the finite score and the JSON contents; the SQL CHECK is the second line of defense. (Same follow-up also required the PR #64 description to carry a RESOLVED banner so agents reading only the PR front page cannot pick up the rejected Option A — applied to the PR body.)
