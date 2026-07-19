@@ -5,7 +5,7 @@
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
 
-use crate::error::AppResult;
+use crate::error::{AppError, AppResult};
 
 // ---------- DTOs (mirror the SQLite schema; shared shapes with frontend TS) ----------
 
@@ -121,6 +121,25 @@ pub struct TradeRow {
     pub pnl: f64,
     pub pnl_pct: f64,
     pub reason: Option<String>,
+}
+
+/// One `validation_records` row (PERSIST-001, PR #64 handoff Resolution):
+/// an append-only immutable decision audit snapshot. `record_json` is the
+/// self-contained `validation-record-v1` envelope. There is NO update or
+/// delete path in v1; `backtest_summary` stays the mutable "latest" view.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ValidationRecordRow {
+    #[serde(default)]
+    pub id: Option<i64>,
+    pub strategy_id: i64,
+    pub dataset_id: i64,
+    pub record_version: String,
+    pub gate_passed: bool,
+    #[serde(default)]
+    pub score: Option<f64>,
+    pub record_json: String,
+    #[serde(default)]
+    pub created_at: Option<String>, // set by DB default; read-only
 }
 
 // ---------- datasets ----------
@@ -322,26 +341,24 @@ pub fn insert_backtest_summary(conn: &Connection, s: &BacktestSummary) -> AppRes
     Ok(id)
 }
 
-/// Atomically upsert a summary and replace all trade rows attached to it.
-///
-/// Re-running the same strategy/dataset/segment must never accumulate stale
-/// trades. Keeping the upsert, delete, and inserts in one transaction also
-/// preserves the previous complete result if any replacement row fails.
-pub fn save_backtest_result(
-    conn: &mut Connection,
+/// Upsert a summary and replace its trade rows on the CURRENT connection.
+/// Callers own the transaction boundary: `save_backtest_result` wraps this in
+/// its own transaction, and `save_validation_bundle` runs it (twice) inside
+/// the whole-bundle transaction.
+fn write_backtest_result(
+    conn: &Connection,
     summary: &BacktestSummary,
     trades: &[TradeRow],
 ) -> AppResult<i64> {
-    let tx = conn.transaction()?;
-    let summary_id = insert_backtest_summary(&tx, summary)?;
+    let summary_id = insert_backtest_summary(conn, summary)?;
 
-    tx.execute(
+    conn.execute(
         "DELETE FROM trades WHERE backtest_summary_id = ?1",
         params![summary_id],
     )?;
 
     {
-        let mut stmt = tx.prepare(
+        let mut stmt = conn.prepare(
             "INSERT INTO trades
                 (backtest_summary_id, entry_time, exit_time, side,
                  entry_price, exit_price, pnl, pnl_pct, fee, slippage, reason)
@@ -362,6 +379,21 @@ pub fn save_backtest_result(
         }
     }
 
+    Ok(summary_id)
+}
+
+/// Atomically upsert a summary and replace all trade rows attached to it.
+///
+/// Re-running the same strategy/dataset/segment must never accumulate stale
+/// trades. Keeping the upsert, delete, and inserts in one transaction also
+/// preserves the previous complete result if any replacement row fails.
+pub fn save_backtest_result(
+    conn: &mut Connection,
+    summary: &BacktestSummary,
+    trades: &[TradeRow],
+) -> AppResult<i64> {
+    let tx = conn.transaction()?;
+    let summary_id = write_backtest_result(&tx, summary, trades)?;
     tx.commit()?;
     Ok(summary_id)
 }
@@ -434,6 +466,215 @@ pub fn list_backtest_summaries(
         }
     };
     Ok(rows)
+}
+
+// ---------- validation records (PERSIST-001) ----------
+
+/// Pre-transaction validation of the whole bundle (Resolution D5). Pure over
+/// its inputs so the command can reject bad bundles BEFORE any write starts;
+/// the SQLite CHECKs remain the second line of defense.
+pub fn validate_validation_bundle(
+    train_summary: &BacktestSummary,
+    validation_summary: &BacktestSummary,
+    record: &ValidationRecordRow,
+) -> AppResult<()> {
+    let fail = |msg: &str| Err(AppError::Other(format!("invalid validation bundle: {msg}")));
+
+    if train_summary.segment != "train" {
+        return fail("first summary must be the train segment");
+    }
+    if validation_summary.segment != "validation" {
+        return fail("second summary must be the validation segment");
+    }
+    for s in [train_summary, validation_summary] {
+        if s.strategy_id != record.strategy_id || s.dataset_id != record.dataset_id {
+            return fail("summary identity must match the record");
+        }
+    }
+    if train_summary.gate_passed.is_some()
+        || train_summary.score.is_some()
+        || train_summary.score_breakdown_json.is_some()
+        || train_summary.benchmark_result_json.is_some()
+    {
+        return fail("train summary Phase B fields must be null");
+    }
+    if validation_summary.gate_passed != Some(record.gate_passed) {
+        return fail("validation summary gate_passed must match the record");
+    }
+    if validation_summary.benchmark_result_json.is_none() {
+        return fail("validation summary requires the benchmark record");
+    }
+    if record.gate_passed {
+        // PR #65 review: non-null was not enough — the latest view and the
+        // immutable row must agree on the SAME finite score.
+        let row_score = match record.score {
+            Some(score) if score.is_finite() => score,
+            _ => return fail("a passing gate requires a finite score"),
+        };
+        match validation_summary.score {
+            Some(score) if score.is_finite() && score == row_score => {}
+            _ => return fail("validation summary score must equal the record score"),
+        }
+        if validation_summary.score_breakdown_json.is_none() {
+            return fail("a passing gate requires validation score + breakdown");
+        }
+    } else {
+        if record.score.is_some()
+            || validation_summary.score.is_some()
+            || validation_summary.score_breakdown_json.is_some()
+        {
+            return fail("a failing gate forbids any score fields");
+        }
+    }
+
+    // The record_json envelope must agree with the row AND with the summary's
+    // latest-view snapshots — otherwise a self-contradictory audit record
+    // would be appended forever (PR #65 review).
+    let envelope: serde_json::Value = serde_json::from_str(&record.record_json)?;
+    if envelope.get("version").and_then(|v| v.as_str()) != Some(record.record_version.as_str()) {
+        return fail("record_version must match the record_json envelope version");
+    }
+    if envelope.get("strategyId").and_then(|v| v.as_i64()) != Some(record.strategy_id)
+        || envelope.get("datasetId").and_then(|v| v.as_i64()) != Some(record.dataset_id)
+    {
+        return fail("record_json identity must match the record row");
+    }
+    if envelope.get("gatePassed").and_then(|v| v.as_bool()) != Some(record.gate_passed) {
+        return fail("record_json gatePassed must match the record row");
+    }
+    let env_score = envelope.get("score");
+    if record.gate_passed {
+        let env_score_value = env_score.and_then(|s| s.get("score")).and_then(|v| v.as_f64());
+        if env_score_value != record.score {
+            return fail("record_json score must equal the record row score");
+        }
+        let breakdown: serde_json::Value = serde_json::from_str(
+            validation_summary
+                .score_breakdown_json
+                .as_deref()
+                .expect("checked above"),
+        )?;
+        if env_score != Some(&breakdown) {
+            return fail("validation summary breakdown must equal the record snapshot");
+        }
+    } else if env_score.map(|v| !v.is_null()).unwrap_or(true) {
+        return fail("a failing gate requires a null record_json score");
+    }
+    // PR #65 second review: the benchmark must be a REAL bench-record-v1
+    // object — JSON null / non-objects / wrong versions must never
+    // impersonate the required benchmark evidence.
+    let benchmark: serde_json::Value = serde_json::from_str(
+        validation_summary
+            .benchmark_result_json
+            .as_deref()
+            .expect("checked above"),
+    )?;
+    let bench_shape_ok = benchmark
+        .as_object()
+        .map(|o| {
+            o.get("version").and_then(|v| v.as_str()) == Some("bench-record-v1")
+                && o.get("benchmarks").map(|b| b.is_array()).unwrap_or(false)
+                && o.get("randomEntry").map(|r| r.is_object()).unwrap_or(false)
+        })
+        .unwrap_or(false);
+    if !bench_shape_ok {
+        return fail("validation summary benchmark must be a bench-record-v1 object");
+    }
+    if envelope.get("benchmark") != Some(&benchmark) {
+        return fail("validation summary benchmark must equal the record snapshot");
+    }
+    Ok(())
+}
+
+/// Append one immutable record (plain INSERT — never an upsert).
+fn insert_validation_record(conn: &Connection, r: &ValidationRecordRow) -> AppResult<i64> {
+    conn.execute(
+        "INSERT INTO validation_records
+            (strategy_id, dataset_id, record_version, gate_passed, score, record_json)
+         VALUES (?1,?2,?3,?4,?5,?6)",
+        params![
+            r.strategy_id,
+            r.dataset_id,
+            r.record_version,
+            r.gate_passed,
+            r.score,
+            r.record_json
+        ],
+    )?;
+    Ok(conn.last_insert_rowid())
+}
+
+/// Atomically persist one validation bundle: Train summary + trades,
+/// Validation summary + trades, and the immutable record — all in ONE
+/// transaction. Any failure rolls the whole bundle back (Resolution D5).
+/// Callers must run `validate_validation_bundle` first.
+pub fn save_validation_bundle(
+    conn: &mut Connection,
+    train_summary: &BacktestSummary,
+    train_trades: &[TradeRow],
+    validation_summary: &BacktestSummary,
+    validation_trades: &[TradeRow],
+    record: &ValidationRecordRow,
+) -> AppResult<i64> {
+    let tx = conn.transaction()?;
+    write_backtest_result(&tx, train_summary, train_trades)?;
+    write_backtest_result(&tx, validation_summary, validation_trades)?;
+    let record_id = insert_validation_record(&tx, record)?;
+    tx.commit()?;
+    Ok(record_id)
+}
+
+const VALIDATION_RECORD_COLS: &str =
+    "id, strategy_id, dataset_id, record_version, gate_passed, score, record_json, created_at";
+
+fn map_validation_record(r: &rusqlite::Row) -> rusqlite::Result<ValidationRecordRow> {
+    Ok(ValidationRecordRow {
+        id: Some(r.get(0)?),
+        strategy_id: r.get(1)?,
+        dataset_id: r.get(2)?,
+        record_version: r.get(3)?,
+        gate_passed: r.get(4)?,
+        score: r.get(5)?,
+        record_json: r.get(6)?,
+        created_at: Some(r.get(7)?),
+    })
+}
+
+/// List records newest first. Pass `strategy_id` to scope to one strategy.
+pub fn list_validation_records(
+    conn: &Connection,
+    strategy_id: Option<i64>,
+) -> AppResult<Vec<ValidationRecordRow>> {
+    let rows = match strategy_id {
+        Some(sid) => {
+            let sql = format!(
+                "SELECT {VALIDATION_RECORD_COLS} FROM validation_records
+                 WHERE strategy_id = ?1 ORDER BY created_at DESC, id DESC"
+            );
+            let mut stmt = conn.prepare(&sql)?;
+            let rows = stmt
+                .query_map(params![sid], map_validation_record)?
+                .collect::<Result<Vec<_>, _>>()?;
+            rows
+        }
+        None => {
+            let sql = format!(
+                "SELECT {VALIDATION_RECORD_COLS} FROM validation_records
+                 ORDER BY created_at DESC, id DESC"
+            );
+            let mut stmt = conn.prepare(&sql)?;
+            let rows = stmt
+                .query_map([], map_validation_record)?
+                .collect::<Result<Vec<_>, _>>()?;
+            rows
+        }
+    };
+    Ok(rows)
+}
+
+pub fn get_validation_record(conn: &Connection, id: i64) -> AppResult<ValidationRecordRow> {
+    let sql = format!("SELECT {VALIDATION_RECORD_COLS} FROM validation_records WHERE id = ?1");
+    Ok(conn.query_row(&sql, params![id], map_validation_record)?)
 }
 
 #[cfg(test)]
@@ -709,5 +950,291 @@ mod tests {
             .unwrap();
         assert_eq!(summaries, 0);
         assert_eq!(trades, 0);
+    }
+
+    // ---------- PERSIST-001: validation records ----------
+
+    fn seg_summary(strategy_id: i64, dataset_id: i64, segment: &str) -> BacktestSummary {
+        let mut s = summary(strategy_id, dataset_id, 0.1);
+        s.segment = segment.into();
+        s
+    }
+
+    const TEST_BREAKDOWN: &str = r#"{"formulaVersion":"score-v1","score":2.65}"#;
+    const TEST_BENCHMARK: &str =
+        r#"{"version":"bench-record-v1","benchmarks":[],"randomEntry":{"runs":20}}"#;
+
+    fn record_json_for(strategy_id: i64, dataset_id: i64, gate_passed: bool) -> String {
+        let score = if gate_passed { TEST_BREAKDOWN.to_string() } else { "null".to_string() };
+        format!(
+            r#"{{"version":"validation-record-v1","strategyId":{strategy_id},"datasetId":{dataset_id},"gatePassed":{gate_passed},"score":{score},"benchmark":{TEST_BENCHMARK}}}"#
+        )
+    }
+
+    fn passing_bundle(
+        strategy_id: i64,
+        dataset_id: i64,
+    ) -> (BacktestSummary, BacktestSummary, ValidationRecordRow) {
+        let train = seg_summary(strategy_id, dataset_id, "train");
+        let mut validation = seg_summary(strategy_id, dataset_id, "validation");
+        validation.gate_passed = Some(true);
+        validation.score = Some(2.65);
+        validation.score_breakdown_json = Some(TEST_BREAKDOWN.into());
+        validation.benchmark_result_json = Some(TEST_BENCHMARK.into());
+        let record = ValidationRecordRow {
+            id: None,
+            strategy_id,
+            dataset_id,
+            record_version: "validation-record-v1".into(),
+            gate_passed: true,
+            score: Some(2.65),
+            record_json: record_json_for(strategy_id, dataset_id, true),
+            created_at: None,
+        };
+        (train, validation, record)
+    }
+
+    fn failing_bundle(
+        strategy_id: i64,
+        dataset_id: i64,
+    ) -> (BacktestSummary, BacktestSummary, ValidationRecordRow) {
+        let (train, mut validation, mut record) = passing_bundle(strategy_id, dataset_id);
+        validation.gate_passed = Some(false);
+        validation.score = None;
+        validation.score_breakdown_json = None;
+        record.gate_passed = false;
+        record.score = None;
+        record.record_json = record_json_for(strategy_id, dataset_id, false);
+        (train, validation, record)
+    }
+
+    fn count(conn: &Connection, table: &str) -> i64 {
+        conn.query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |r| r.get(0))
+            .unwrap()
+    }
+
+    #[test]
+    fn migrations_apply_0002_and_rerun_idempotently() {
+        let conn = mem_db();
+        assert_eq!(count(&conn, "validation_records"), 0, "table must exist");
+        crate::db::apply_migrations(&conn).expect("re-run must be a no-op");
+        assert_eq!(count(&conn, "schema_migrations"), 2);
+    }
+
+    #[test]
+    fn migration_0002_upgrades_an_existing_0001_database_preserving_data() {
+        // Simulate a DB created before 0002 existed.
+        let conn = Connection::open_in_memory().unwrap();
+        conn.pragma_update(None, "foreign_keys", "ON").unwrap();
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS schema_migrations (
+                version    TEXT PRIMARY KEY,
+                applied_at TEXT NOT NULL DEFAULT (datetime('now'))
+            );",
+        )
+        .unwrap();
+        conn.execute_batch(include_str!("../../migrations/0001_init.sql"))
+            .unwrap();
+        conn.execute(
+            "INSERT INTO schema_migrations (version) VALUES ('0001_init')",
+            [],
+        )
+        .unwrap();
+        let _ = saved_parent_rows(&conn);
+
+        crate::db::apply_migrations(&conn).expect("upgrade to 0002");
+
+        assert_eq!(count(&conn, "strategy_def"), 1, "existing data survives");
+        assert_eq!(count(&conn, "datasets"), 1);
+        assert_eq!(count(&conn, "validation_records"), 0, "new table exists");
+        assert_eq!(count(&conn, "schema_migrations"), 2);
+    }
+
+    #[test]
+    fn validation_record_checks_enforce_gate_score_invariant_and_fks() {
+        let conn = mem_db();
+        let (strategy_id, dataset_id) = saved_parent_rows(&conn);
+        let insert = |sid: i64, gate: i64, score: Option<f64>| {
+            conn.execute(
+                "INSERT INTO validation_records
+                    (strategy_id, dataset_id, record_version, gate_passed, score, record_json)
+                 VALUES (?1,?2,'validation-record-v1',?3,?4,'{}')",
+                params![sid, dataset_id, gate, score],
+            )
+        };
+        assert!(insert(strategy_id, 2, None).is_err(), "gate_passed must be 0/1");
+        assert!(insert(strategy_id, 0, Some(1.0)).is_err(), "fail + score violates the D3 CHECK");
+        assert!(insert(strategy_id, 1, None).is_err(), "pass without score violates the D3 CHECK");
+        assert!(insert(strategy_id, 0, None).is_ok());
+        assert!(insert(strategy_id, 1, Some(2.5)).is_ok());
+        assert!(insert(9999, 0, None).is_err(), "unknown strategy_id must violate the FK");
+    }
+
+    #[test]
+    fn validate_validation_bundle_rejects_inconsistent_bundles() {
+        let (train, validation, record) = passing_bundle(1, 2);
+        assert!(validate_validation_bundle(&train, &validation, &record).is_ok());
+
+        // swapped segments
+        assert!(validate_validation_bundle(&validation, &train, &record).is_err());
+
+        // identity mismatch
+        let (t, v, mut r) = passing_bundle(1, 2);
+        r.strategy_id = 9;
+        assert!(validate_validation_bundle(&t, &v, &r).is_err());
+
+        // train row must keep Phase B fields null
+        let (mut t, v, r) = passing_bundle(1, 2);
+        t.gate_passed = Some(false);
+        assert!(validate_validation_bundle(&t, &v, &r).is_err());
+
+        // validation row must carry the benchmark record
+        let (t, mut v, r) = passing_bundle(1, 2);
+        v.benchmark_result_json = None;
+        assert!(validate_validation_bundle(&t, &v, &r).is_err());
+
+        // a consistent failing bundle is legal…
+        let (t, v, r) = failing_bundle(1, 2);
+        assert!(validate_validation_bundle(&t, &v, &r).is_ok());
+
+        // …but a failing gate with any score field is not
+        let (t, mut v, mut r) = passing_bundle(1, 2);
+        r.gate_passed = false;
+        v.gate_passed = Some(false);
+        r.record_json = record_json_for(1, 2, false);
+        assert!(validate_validation_bundle(&t, &v, &r).is_err(), "record.score still set");
+        r.score = None;
+        assert!(validate_validation_bundle(&t, &v, &r).is_err(), "summary score still set");
+
+        // passing gate requires a FINITE score
+        let (t, mut v, mut r) = passing_bundle(1, 2);
+        r.score = Some(f64::INFINITY);
+        v.score = Some(f64::INFINITY);
+        assert!(validate_validation_bundle(&t, &v, &r).is_err());
+
+        // record_version must match the JSON envelope
+        let (t, v, mut r) = passing_bundle(1, 2);
+        r.record_json = r#"{"version":"something-else"}"#.into();
+        assert!(validate_validation_bundle(&t, &v, &r).is_err());
+    }
+
+    #[test]
+    fn validate_validation_bundle_rejects_contradictory_scores_and_envelopes() {
+        // summary score finite but DIFFERENT from the record row (PR #65 P1)
+        let (t, mut v, r) = passing_bundle(1, 2);
+        v.score = Some(999.0);
+        assert!(validate_validation_bundle(&t, &v, &r).is_err());
+
+        // envelope identity contradicts the row
+        let (t, v, mut r) = passing_bundle(1, 2);
+        r.record_json = record_json_for(9, 2, true);
+        assert!(validate_validation_bundle(&t, &v, &r).is_err());
+
+        // envelope gatePassed contradicts the row
+        let (t, v, mut r) = passing_bundle(1, 2);
+        r.record_json = record_json_for(1, 2, false);
+        assert!(validate_validation_bundle(&t, &v, &r).is_err());
+
+        // envelope score value contradicts the row score
+        let (t, v, mut r) = passing_bundle(1, 2);
+        r.record_json = r.record_json.replace("2.65", "9.99");
+        assert!(validate_validation_bundle(&t, &v, &r).is_err());
+
+        // summary breakdown snapshot differs from the envelope's
+        let (t, mut v, r) = passing_bundle(1, 2);
+        v.score_breakdown_json = Some(r#"{"formulaVersion":"score-v1","score":2.65,"x":1}"#.into());
+        assert!(validate_validation_bundle(&t, &v, &r).is_err());
+
+        // summary benchmark snapshot differs from the envelope's (valid shape)
+        let (t, mut v, r) = passing_bundle(1, 2);
+        v.benchmark_result_json =
+            Some(r#"{"version":"bench-record-v1","benchmarks":[1],"randomEntry":{"runs":20}}"#.into());
+        assert!(validate_validation_bundle(&t, &v, &r).is_err());
+
+        // key-order differences alone are NOT a mismatch (structural compare)
+        let (t, mut v, r) = passing_bundle(1, 2);
+        v.score_breakdown_json = Some(r#"{"score":2.65,"formulaVersion":"score-v1"}"#.into());
+        assert!(validate_validation_bundle(&t, &v, &r).is_ok());
+    }
+
+    #[test]
+    fn validate_validation_bundle_requires_a_real_benchmark_object() {
+        // PR #65 second review: even a CONSISTENT null/non-object/wrong-version
+        // pair (summary + envelope agreeing) must be rejected — no audit
+        // record may exist without real benchmark evidence.
+        let cases = [
+            "null",
+            "[]",
+            "{}",
+            r#"{"version":"bench-record-v999","benchmarks":[],"randomEntry":{}}"#,
+            r#"{"version":"bench-record-v1","benchmarks":{},"randomEntry":{}}"#,
+            r#"{"version":"bench-record-v1","benchmarks":[]}"#,
+        ];
+        for bogus in cases {
+            let (t, mut v, mut r) = passing_bundle(1, 2);
+            v.benchmark_result_json = Some(bogus.into());
+            r.record_json = r.record_json.replace(TEST_BENCHMARK, bogus);
+            assert!(
+                validate_validation_bundle(&t, &v, &r).is_err(),
+                "benchmark impersonation must be rejected: {bogus}"
+            );
+        }
+    }
+
+    #[test]
+    fn save_validation_bundle_commits_and_appends_immutably() {
+        let mut conn = mem_db();
+        let (strategy_id, dataset_id) = saved_parent_rows(&conn);
+        let (train, validation, record) = passing_bundle(strategy_id, dataset_id);
+
+        let record_id = save_validation_bundle(
+            &mut conn,
+            &train,
+            &[trade(1, 2, None)],
+            &validation,
+            &[trade(3, 4, None), trade(5, 6, None)],
+            &record,
+        )
+        .unwrap();
+
+        assert_eq!(count(&conn, "backtest_summary"), 2);
+        assert_eq!(count(&conn, "trades"), 3);
+        let read = get_validation_record(&conn, record_id).unwrap();
+        assert_eq!(read.record_json, record.record_json, "exact JSON reads back");
+        assert!(read.gate_passed);
+        assert_eq!(read.score, Some(2.65));
+
+        // Append-only: a re-run appends a SECOND record while the summaries
+        // upsert (latest view) and the trades replace.
+        let id2 = save_validation_bundle(&mut conn, &train, &[], &validation, &[], &record).unwrap();
+        assert_ne!(record_id, id2);
+        assert_eq!(list_validation_records(&conn, Some(strategy_id)).unwrap().len(), 2);
+        assert_eq!(list_validation_records(&conn, None).unwrap().len(), 2);
+        assert_eq!(count(&conn, "backtest_summary"), 2, "summaries stay the latest view");
+        assert_eq!(count(&conn, "trades"), 0, "trade rows replaced by the re-run");
+    }
+
+    #[test]
+    fn save_validation_bundle_rolls_back_the_whole_bundle_on_failure() {
+        let mut conn = mem_db();
+        let (strategy_id, dataset_id) = saved_parent_rows(&conn);
+        let (train, mut validation, record) = passing_bundle(strategy_id, dataset_id);
+        // Bypass command-level pre-validation on purpose: an illegal segment
+        // makes the SECOND summary insert violate the schema CHECK after the
+        // train summary already wrote inside the transaction.
+        validation.segment = "bogus".into();
+
+        let result = save_validation_bundle(
+            &mut conn,
+            &train,
+            &[trade(1, 2, None)],
+            &validation,
+            &[],
+            &record,
+        );
+        assert!(result.is_err());
+        assert_eq!(count(&conn, "backtest_summary"), 0, "train summary must roll back");
+        assert_eq!(count(&conn, "trades"), 0);
+        assert_eq!(count(&conn, "validation_records"), 0);
     }
 }

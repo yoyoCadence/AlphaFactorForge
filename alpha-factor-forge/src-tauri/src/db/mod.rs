@@ -11,10 +11,13 @@ use crate::error::AppResult;
 
 /// Ordered migrations. Each is applied once; applied versions are tracked
 /// in the `schema_migrations` table. ADD new migrations to the END only.
-const MIGRATIONS: &[(&str, &str)] = &[(
-    "0001_init",
-    include_str!("../../migrations/0001_init.sql"),
-)];
+const MIGRATIONS: &[(&str, &str)] = &[
+    ("0001_init", include_str!("../../migrations/0001_init.sql")),
+    (
+        "0002_validation_records",
+        include_str!("../../migrations/0002_validation_records.sql"),
+    ),
+];
 
 /// Open the database in the OS app-data dir and run pending migrations.
 pub fn initialize(app: &AppHandle) -> AppResult<Connection> {

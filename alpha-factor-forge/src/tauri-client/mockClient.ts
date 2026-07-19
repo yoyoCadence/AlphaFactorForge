@@ -7,8 +7,16 @@
 // replace real Tauri/Rust/SQLite verification (Rust integration tests +
 // `cargo tauri dev` smoke still own that).
 
-import type { Candle, Dataset, StrategyDef, BacktestSummary, TradeRow } from './commands';
+import type {
+  Candle,
+  Dataset,
+  StrategyDef,
+  BacktestSummary,
+  TradeRow,
+  ValidationRecordRow,
+} from './commands';
 import type { ImportCandlesInput } from './dbClient';
+import { assertValidBundle } from '../services/validationRecord';
 
 export function makeMockClient() {
   const datasets: Dataset[] = [];
@@ -18,6 +26,7 @@ export function makeMockClient() {
   // There is no trades reader yet, but the E2E seam still mirrors SQLite's
   // replace-on-summary-key persistence instead of silently dropping the rows.
   const tradesBySummaryId = new Map<number, TradeRow[]>();
+  const validationRecords: ValidationRecordRow[] = [];
   let nextId = 1;
 
   const db = {
@@ -54,6 +63,36 @@ export function makeMockClient() {
     },
     getBacktestResults: async (strategyId?: number) =>
       summaries.filter((s) => strategyId == null || s.strategy_id === strategyId),
+    // PERSIST-001 parity: runs the SAME shared bundle validator the composer
+    // targets (the TS mirror of Rust's validate_validation_bundle), so
+    // `?mock=1` rejects exactly the bundles native Tauri rejects, then
+    // applies every write all-or-nothing.
+    saveValidationRecord: async (
+      trainSummary: BacktestSummary,
+      trainTrades: TradeRow[],
+      validationSummary: BacktestSummary,
+      validationTrades: TradeRow[],
+      record: ValidationRecordRow,
+    ) => {
+      assertValidBundle({ trainSummary, trainTrades, validationSummary, validationTrades, record });
+      await db.saveBacktestResult(trainSummary, trainTrades);
+      await db.saveBacktestResult(validationSummary, validationTrades);
+      const id = nextId++;
+      validationRecords.push({ ...record, id, created_at: new Date().toISOString() });
+      return id;
+    },
+    // Reads return DETACHED copies so callers can never mutate the mock's
+    // append-only records in place (PR #65 review).
+    listValidationRecords: async (strategyId?: number) =>
+      validationRecords
+        .filter((r) => strategyId == null || r.strategy_id === strategyId)
+        .map((r) => ({ ...r }))
+        .reverse(),
+    getValidationRecord: async (id: number) => {
+      const row = validationRecords.find((r) => r.id === id);
+      if (!row) throw new Error(`no validation record ${id}`);
+      return { ...row };
+    },
   };
 
   const files = {

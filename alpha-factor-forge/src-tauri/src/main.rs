@@ -37,6 +37,10 @@ fn main() {
             commands::db_commands::get_strategies,
             commands::db_commands::save_backtest_result,
             commands::db_commands::get_backtest_results,
+            // --- Validation records (Phase B, PERSIST-001) ---
+            commands::db_commands::save_validation_record,
+            commands::db_commands::list_validation_records,
+            commands::db_commands::get_validation_record,
             // --- Files (Phase A, minimal) ---
             commands::file_commands::save_report,
             commands::file_commands::export_report,
