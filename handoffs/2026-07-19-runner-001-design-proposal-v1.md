@@ -224,3 +224,59 @@ conversion. The regenerated fixture SHA-256 is
 Local re-verification: deterministic regeneration, 311 Vitest tests,
 typecheck, production build, and 32 Rust tests pass. No indicator semantics,
 tolerance, runner boundary, DB, event, thread, or UI behavior changed.
+
+### RS-CORE-002 implementation record (append-only update)
+
+Date: 2026-07-19. Implementer: Claude. Branch:
+`feat/rs-core-002-backtest-parity`.
+
+- Added `src/parity/backtestFixture.ts`, `npm run fixtures:backtest`, and the
+  committed `backtest-parity-v1` envelope: 17 behaviour cases covering the
+  `docs/engine-parity-report.md` semantics (long/short/both × close/nextOpen,
+  same-bar conflicts, `both` entry-wins, gap-aware SL/TP with SL-first
+  ambiguity, fee-budgeted full sizing, EOD settlement, from/to boundaries,
+  zero trades, METRIC-001 `+Infinity` statuses, and two 180-day multi-month
+  sample cases with risk exits) plus 3 fail-closed config error cases.
+  Expected outputs come from the real TypeScript engine; generation-time
+  sanity invariants reject degenerate scenarios.
+- Added pure Rust `discovery_core/backtest.rs` (`backtest-execution-v1`) and
+  `discovery_core/metrics.rs` (`metrics-v1`) with no Tauri, rusqlite, thread,
+  event, or UI dependency. The parity tests lock trades (timestamps/side/bars
+  exact, prices/PnL within the declared tolerance), full equity curves, every
+  metric leaf including exact non-finite statuses and UTC monthly-return keys,
+  and the exact error-message fragments. The Test segment is never executed.
+- Verification: fixture regeneration is blob-identical across consecutive
+  runs; 313 Vitest tests, TypeScript typecheck, production build, cargo check,
+  and 34 Rust tests pass. Playwright is untouched (no UI/mock surface).
+
+RS-CORE-002 is Done pending merge. The only newly unblocked implementation
+slice is RS-CORE-003 (params signals plus split/embargo parity); runner
+orchestration remains blocked.
+
+### RS-CORE-002 review correction (append-only update)
+
+Date: 2026-07-19. Fix for the PR #69 Codex review findings.
+
+- The 3 fail-closed error cases are now HELD by the TypeScript reference:
+  fixture generation and the vitest freshness test both execute them against
+  the real TS engine and require a `RangeError` whose message contains the
+  recorded fragment, before Rust consumes the same fixture.
+- Added the Resolution-mandated empty boundaries as cross-language cases:
+  `empty-candles-boundary` (no candles at all) and
+  `inverted-range-empty-evaluation` (a from/to pair evaluating no bar,
+  totalBars < 0 semantics included). The correct success-case count is **20**
+  (the earlier record said 17 while the fixture held 18); TS and Rust now
+  both assert the exact 20-case inventory by id, so an accidental deletion
+  fails on either side.
+- The new discovery_core Rust files now pass a targeted `rustfmt --check`
+  (repo-wide legacy fmt debt untouched).
+- Adopted: `sourceHashEncoding` now reuses RS-CORE-001's
+  `FIXTURE_SOURCE_HASH_ENCODING` constant, asserted in the freshness test.
+  Carried, not absorbed: the RS-CORE-001 indicator edge-fixture suggestion
+  (constant RSI, period ≥ length, ROC zero base) remains open for a later
+  indicator-fixture change; the `metrics.rs` UTC `.expect()` must become
+  propagated fail-closed validation before RUNNER-EXEC wires execution paths
+  (boundary comment added in code).
+- Re-verification: fixture regeneration blob-identical; 315 Vitest tests,
+  typecheck, production build, cargo check, 34 Rust tests, targeted rustfmt
+  check all pass.
