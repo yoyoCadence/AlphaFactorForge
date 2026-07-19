@@ -29,7 +29,13 @@ import type { RandomEntryBenchmark } from './randomEntry';
 import type { GateVerdict, GateCriterionId, GateConfig } from './gate';
 import type { ScoreBreakdown } from './score';
 import { SCORE_FORMULA_VERSION } from './score';
-import { assertJsonSafe, encodeMetrics, type EncodedMetrics } from './metricsCodec';
+import {
+  assertJsonSafe,
+  deepSnapshot,
+  encodeMetrics,
+  toJsonSafeString,
+  type EncodedMetrics,
+} from './metricsCodec';
 import { nonFiniteStatus, type NonFiniteStatus } from './nonFinite';
 import { metricsToBacktestSummary } from './metricsMapper';
 import { tradesToRows } from './tradesMapper';
@@ -83,6 +89,8 @@ export function buildBenchmarkRecord(args: BuildBenchmarkRecordArgs): BenchmarkR
   if (missing.length > 0) {
     throw new RangeError(`missing deterministic benchmark(s): ${missing.join(', ')}`);
   }
+  // deepSnapshot everywhere: the snapshot must share NO references with the
+  // caller's inputs (strategy rule arrays included) — PR #65 review.
   return {
     version: BENCHMARK_RECORD_VERSION,
     benchmarkContract: BENCHMARK_CONTRACT_VERSION,
@@ -92,9 +100,13 @@ export function buildBenchmarkRecord(args: BuildBenchmarkRecordArgs): BenchmarkR
     costs: { ...args.costs },
     benchmarks: DETERMINISTIC_BENCHMARK_IDS.map((id) => {
       const run = byId.get(id)!;
-      return { id, strat: run.strat ? { ...run.strat } : null, metrics: encodeMetrics(run.result.metrics) };
+      return {
+        id,
+        strat: run.strat ? deepSnapshot(run.strat) : null,
+        metrics: encodeMetrics(run.result.metrics),
+      };
     }),
-    randomEntry: { ...args.randomEntry, netReturns: [...args.randomEntry.netReturns] },
+    randomEntry: deepSnapshot(args.randomEntry),
   };
 }
 
@@ -134,7 +146,7 @@ export function encodeGateVerdict(verdict: GateVerdict): EncodedGateVerdict {
         ...(c.detail !== undefined ? { detail: c.detail } : {}),
       };
     }),
-    config: { ...verdict.config },
+    config: deepSnapshot(verdict.config),
   };
 }
 
@@ -205,6 +217,8 @@ export function buildValidationRecord(args: BuildValidationRecordArgs): Validati
     }
   }
 
+  // Every nested part is deep-snapshotted so later caller-side mutation can
+  // never rewrite this "immutable" record (PR #65 review).
   const record: ValidationRecord = {
     version: VALIDATION_RECORD_VERSION,
     contracts: {
@@ -217,14 +231,14 @@ export function buildValidationRecord(args: BuildValidationRecordArgs): Validati
     strategyHash: args.strategyHash,
     datasetId: args.datasetId,
     datasetHash: args.datasetHash,
-    embargo: { ...args.embargo },
-    splitPlan: args.splitPlan,
+    embargo: deepSnapshot(args.embargo),
+    splitPlan: deepSnapshot(args.splitPlan),
     trainMetrics: encodeMetrics(args.validationRun.train.metrics),
     validationMetrics: encodeMetrics(args.validationRun.validation.metrics),
-    benchmark: args.benchmark,
+    benchmark: deepSnapshot(args.benchmark),
     gate: encodeGateVerdict(outcome.gate),
     gatePassed: outcome.passed,
-    score: outcome.passed ? outcome.score : null,
+    score: outcome.passed ? deepSnapshot(outcome.score) : null,
     testedCombinations: { n: args.testedCombinations, basis: 'lineage-final-unique' },
   };
 
@@ -276,6 +290,9 @@ export function buildValidationBundle(args: BuildValidationBundleArgs): Validati
     ...segmentTimes(validationRun.train.equity),
   });
 
+  // Guard IMMEDIATELY before every stringify: a value mutated after the
+  // record was built must fail closed here, never become a silent JSON null
+  // (PR #65 review reproduction).
   const validationSummary: BacktestSummary = {
     ...metricsToBacktestSummary(validationRun.validation.metrics, {
       strategyId: record.strategyId,
@@ -285,8 +302,10 @@ export function buildValidationBundle(args: BuildValidationBundleArgs): Validati
     }),
     gate_passed: record.gatePassed,
     score: record.score ? record.score.score : null,
-    score_breakdown_json: record.score ? JSON.stringify(record.score) : null,
-    benchmark_result_json: JSON.stringify(record.benchmark),
+    score_breakdown_json: record.score
+      ? toJsonSafeString(record.score, 'score breakdown')
+      : null,
+    benchmark_result_json: toJsonSafeString(record.benchmark, 'benchmark record'),
   };
 
   const row: ValidationRecordRow = {
@@ -295,7 +314,7 @@ export function buildValidationBundle(args: BuildValidationBundleArgs): Validati
     record_version: record.version,
     gate_passed: record.gatePassed,
     score: record.score ? record.score.score : null,
-    record_json: JSON.stringify(record),
+    record_json: toJsonSafeString(record, 'validation record'),
   };
 
   return {
@@ -305,4 +324,97 @@ export function buildValidationBundle(args: BuildValidationBundleArgs): Validati
     validationTrades: tradesToRows(validationRun.validation.trades),
     record: row,
   };
+}
+
+// ---------- shared bundle validation (mirrors the Rust trust boundary) ----------
+
+/**
+ * TS mirror of the Rust `validate_validation_bundle` (PR #65 review): the dev
+ * mock client runs THIS, so `?mock=1` rejects exactly the bundles native
+ * Tauri rejects. Composer-produced bundles always pass; hand-built or
+ * post-mutated bundles that contradict themselves fail closed.
+ */
+export function assertValidBundle(bundle: ValidationBundle): void {
+  const { trainSummary, validationSummary, record } = bundle;
+  const fail = (msg: string): never => {
+    throw new Error(`invalid validation bundle: ${msg}`);
+  };
+
+  if (trainSummary.segment !== 'train') fail('first summary must be the train segment');
+  if (validationSummary.segment !== 'validation') {
+    fail('second summary must be the validation segment');
+  }
+  for (const s of [trainSummary, validationSummary]) {
+    if (s.strategy_id !== record.strategy_id || s.dataset_id !== record.dataset_id) {
+      fail('summary identity must match the record');
+    }
+  }
+  if (
+    trainSummary.gate_passed != null ||
+    trainSummary.score != null ||
+    trainSummary.score_breakdown_json != null ||
+    trainSummary.benchmark_result_json != null
+  ) {
+    fail('train summary Phase B fields must be null');
+  }
+  if (validationSummary.gate_passed !== record.gate_passed) {
+    fail('validation summary gate_passed must match the record');
+  }
+  if (validationSummary.benchmark_result_json == null) {
+    fail('validation summary requires the benchmark record');
+  }
+
+  if (record.gate_passed) {
+    if (record.score == null || !Number.isFinite(record.score)) {
+      fail('a passing gate requires a finite score');
+    }
+    if (validationSummary.score !== record.score) {
+      fail('validation summary score must equal the record score');
+    }
+    if (validationSummary.score_breakdown_json == null) {
+      fail('a passing gate requires the score breakdown');
+    }
+  } else if (
+    record.score != null ||
+    validationSummary.score != null ||
+    validationSummary.score_breakdown_json != null
+  ) {
+    fail('a failing gate forbids any score fields');
+  }
+
+  let env: Record<string, unknown>;
+  try {
+    env = JSON.parse(record.record_json) as Record<string, unknown>;
+  } catch {
+    return fail('record_json must be valid JSON');
+  }
+  if (env.version !== record.record_version) {
+    fail('record_version must match the record_json envelope version');
+  }
+  if (env.strategyId !== record.strategy_id || env.datasetId !== record.dataset_id) {
+    fail('record_json identity must match the record row');
+  }
+  if (env.gatePassed !== record.gate_passed) {
+    fail('record_json gatePassed must match the record row');
+  }
+  const envScore = env.score as { score?: unknown } | null;
+  if (record.gate_passed) {
+    if (envScore == null || envScore.score !== record.score) {
+      fail('record_json score must equal the record row score');
+    }
+    if (
+      JSON.stringify(env.score) !==
+      JSON.stringify(JSON.parse(validationSummary.score_breakdown_json!))
+    ) {
+      fail('validation summary breakdown must equal the record snapshot');
+    }
+  } else if (envScore !== null) {
+    fail('a failing gate requires a null record_json score');
+  }
+  if (
+    JSON.stringify(env.benchmark) !==
+    JSON.stringify(JSON.parse(validationSummary.benchmark_result_json!))
+  ) {
+    fail('validation summary benchmark must equal the record snapshot');
+  }
 }

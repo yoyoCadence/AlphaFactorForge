@@ -24,9 +24,10 @@ export interface EncodedMetrics {
 
 /** Encode metrics for JSON: non-finite numeric fields become null + a status
  *  entry. monthlyReturns are equity ratios and stay finite by construction,
- *  so the record passes through unchanged. */
+ *  but the record is CLONED so the snapshot never aliases the caller's
+ *  object (PR #65 review: shallow copies made "immutable" records mutable). */
 export function encodeMetrics(metrics: Metrics): EncodedMetrics {
-  const values: Record<string, unknown> = { ...metrics };
+  const values: Record<string, unknown> = { ...metrics, monthlyReturns: { ...metrics.monthlyReturns } };
   const nonFinite: Partial<Record<keyof Metrics, NonFiniteStatus>> = {};
   for (const key of Object.keys(metrics) as (keyof Metrics)[]) {
     const v = metrics[key];
@@ -38,6 +39,30 @@ export function encodeMetrics(metrics: Metrics): EncodedMetrics {
     }
   }
   return { values: values as EncodedMetricValues, nonFinite };
+}
+
+/**
+ * Deep clone a plain-data value (objects/arrays/primitives) so a snapshot
+ * shares NO references with its source. Unlike a JSON round-trip this
+ * preserves non-finite numbers, so a later `assertJsonSafe` still sees them
+ * instead of a silently-nulled copy. Functions/classes are not supported —
+ * snapshots are plain data by contract.
+ */
+export function deepSnapshot<T>(value: T): T {
+  if (value === null || typeof value !== 'object') return value;
+  if (Array.isArray(value)) return value.map((item) => deepSnapshot(item)) as T;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(value)) out[k] = deepSnapshot(v);
+  return out as T;
+}
+
+/** The ONLY sanctioned path to a persisted JSON string: guard, then
+ *  stringify. Placing the recursive check immediately at the serialization
+ *  boundary means a value mutated AFTER snapshotting still fails closed
+ *  instead of becoming a silent JSON null (PR #65 review). */
+export function toJsonSafeString(value: unknown, label: string): string {
+  assertJsonSafe(value, label);
+  return JSON.stringify(value);
 }
 
 /**

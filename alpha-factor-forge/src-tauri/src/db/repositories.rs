@@ -505,11 +505,17 @@ pub fn validate_validation_bundle(
         return fail("validation summary requires the benchmark record");
     }
     if record.gate_passed {
-        match record.score {
-            Some(score) if score.is_finite() => {}
+        // PR #65 review: non-null was not enough — the latest view and the
+        // immutable row must agree on the SAME finite score.
+        let row_score = match record.score {
+            Some(score) if score.is_finite() => score,
             _ => return fail("a passing gate requires a finite score"),
+        };
+        match validation_summary.score {
+            Some(score) if score.is_finite() && score == row_score => {}
+            _ => return fail("validation summary score must equal the record score"),
         }
-        if validation_summary.score.is_none() || validation_summary.score_breakdown_json.is_none() {
+        if validation_summary.score_breakdown_json.is_none() {
             return fail("a passing gate requires validation score + breakdown");
         }
     } else {
@@ -521,9 +527,47 @@ pub fn validate_validation_bundle(
         }
     }
 
+    // The record_json envelope must agree with the row AND with the summary's
+    // latest-view snapshots — otherwise a self-contradictory audit record
+    // would be appended forever (PR #65 review).
     let envelope: serde_json::Value = serde_json::from_str(&record.record_json)?;
     if envelope.get("version").and_then(|v| v.as_str()) != Some(record.record_version.as_str()) {
         return fail("record_version must match the record_json envelope version");
+    }
+    if envelope.get("strategyId").and_then(|v| v.as_i64()) != Some(record.strategy_id)
+        || envelope.get("datasetId").and_then(|v| v.as_i64()) != Some(record.dataset_id)
+    {
+        return fail("record_json identity must match the record row");
+    }
+    if envelope.get("gatePassed").and_then(|v| v.as_bool()) != Some(record.gate_passed) {
+        return fail("record_json gatePassed must match the record row");
+    }
+    let env_score = envelope.get("score");
+    if record.gate_passed {
+        let env_score_value = env_score.and_then(|s| s.get("score")).and_then(|v| v.as_f64());
+        if env_score_value != record.score {
+            return fail("record_json score must equal the record row score");
+        }
+        let breakdown: serde_json::Value = serde_json::from_str(
+            validation_summary
+                .score_breakdown_json
+                .as_deref()
+                .expect("checked above"),
+        )?;
+        if env_score != Some(&breakdown) {
+            return fail("validation summary breakdown must equal the record snapshot");
+        }
+    } else if env_score.map(|v| !v.is_null()).unwrap_or(true) {
+        return fail("a failing gate requires a null record_json score");
+    }
+    let benchmark: serde_json::Value = serde_json::from_str(
+        validation_summary
+            .benchmark_result_json
+            .as_deref()
+            .expect("checked above"),
+    )?;
+    if envelope.get("benchmark") != Some(&benchmark) {
+        return fail("validation summary benchmark must equal the record snapshot");
     }
     Ok(())
 }
@@ -902,6 +946,16 @@ mod tests {
         s
     }
 
+    const TEST_BREAKDOWN: &str = r#"{"formulaVersion":"score-v1","score":2.65}"#;
+    const TEST_BENCHMARK: &str = r#"{"version":"bench-record-v1","benchmarks":[]}"#;
+
+    fn record_json_for(strategy_id: i64, dataset_id: i64, gate_passed: bool) -> String {
+        let score = if gate_passed { TEST_BREAKDOWN.to_string() } else { "null".to_string() };
+        format!(
+            r#"{{"version":"validation-record-v1","strategyId":{strategy_id},"datasetId":{dataset_id},"gatePassed":{gate_passed},"score":{score},"benchmark":{TEST_BENCHMARK}}}"#
+        )
+    }
+
     fn passing_bundle(
         strategy_id: i64,
         dataset_id: i64,
@@ -910,8 +964,8 @@ mod tests {
         let mut validation = seg_summary(strategy_id, dataset_id, "validation");
         validation.gate_passed = Some(true);
         validation.score = Some(2.65);
-        validation.score_breakdown_json = Some(r#"{"formulaVersion":"score-v1"}"#.into());
-        validation.benchmark_result_json = Some(r#"{"version":"bench-record-v1"}"#.into());
+        validation.score_breakdown_json = Some(TEST_BREAKDOWN.into());
+        validation.benchmark_result_json = Some(TEST_BENCHMARK.into());
         let record = ValidationRecordRow {
             id: None,
             strategy_id,
@@ -919,9 +973,23 @@ mod tests {
             record_version: "validation-record-v1".into(),
             gate_passed: true,
             score: Some(2.65),
-            record_json: r#"{"version":"validation-record-v1"}"#.into(),
+            record_json: record_json_for(strategy_id, dataset_id, true),
             created_at: None,
         };
+        (train, validation, record)
+    }
+
+    fn failing_bundle(
+        strategy_id: i64,
+        dataset_id: i64,
+    ) -> (BacktestSummary, BacktestSummary, ValidationRecordRow) {
+        let (train, mut validation, mut record) = passing_bundle(strategy_id, dataset_id);
+        validation.gate_passed = Some(false);
+        validation.score = None;
+        validation.score_breakdown_json = None;
+        record.gate_passed = false;
+        record.score = None;
+        record.record_json = record_json_for(strategy_id, dataset_id, false);
         (train, validation, record)
     }
 
@@ -1010,16 +1078,18 @@ mod tests {
         v.benchmark_result_json = None;
         assert!(validate_validation_bundle(&t, &v, &r).is_err());
 
-        // failing gate forbids score fields everywhere
+        // a consistent failing bundle is legal…
+        let (t, v, r) = failing_bundle(1, 2);
+        assert!(validate_validation_bundle(&t, &v, &r).is_ok());
+
+        // …but a failing gate with any score field is not
         let (t, mut v, mut r) = passing_bundle(1, 2);
         r.gate_passed = false;
         v.gate_passed = Some(false);
+        r.record_json = record_json_for(1, 2, false);
         assert!(validate_validation_bundle(&t, &v, &r).is_err(), "record.score still set");
         r.score = None;
         assert!(validate_validation_bundle(&t, &v, &r).is_err(), "summary score still set");
-        v.score = None;
-        v.score_breakdown_json = None;
-        assert!(validate_validation_bundle(&t, &v, &r).is_ok());
 
         // passing gate requires a FINITE score
         let (t, mut v, mut r) = passing_bundle(1, 2);
@@ -1031,6 +1101,44 @@ mod tests {
         let (t, v, mut r) = passing_bundle(1, 2);
         r.record_json = r#"{"version":"something-else"}"#.into();
         assert!(validate_validation_bundle(&t, &v, &r).is_err());
+    }
+
+    #[test]
+    fn validate_validation_bundle_rejects_contradictory_scores_and_envelopes() {
+        // summary score finite but DIFFERENT from the record row (PR #65 P1)
+        let (t, mut v, r) = passing_bundle(1, 2);
+        v.score = Some(999.0);
+        assert!(validate_validation_bundle(&t, &v, &r).is_err());
+
+        // envelope identity contradicts the row
+        let (t, v, mut r) = passing_bundle(1, 2);
+        r.record_json = record_json_for(9, 2, true);
+        assert!(validate_validation_bundle(&t, &v, &r).is_err());
+
+        // envelope gatePassed contradicts the row
+        let (t, v, mut r) = passing_bundle(1, 2);
+        r.record_json = record_json_for(1, 2, false);
+        assert!(validate_validation_bundle(&t, &v, &r).is_err());
+
+        // envelope score value contradicts the row score
+        let (t, v, mut r) = passing_bundle(1, 2);
+        r.record_json = r.record_json.replace("2.65", "9.99");
+        assert!(validate_validation_bundle(&t, &v, &r).is_err());
+
+        // summary breakdown snapshot differs from the envelope's
+        let (t, mut v, r) = passing_bundle(1, 2);
+        v.score_breakdown_json = Some(r#"{"formulaVersion":"score-v1","score":2.65,"x":1}"#.into());
+        assert!(validate_validation_bundle(&t, &v, &r).is_err());
+
+        // summary benchmark snapshot differs from the envelope's
+        let (t, mut v, r) = passing_bundle(1, 2);
+        v.benchmark_result_json = Some(r#"{"version":"bench-record-v1","benchmarks":[1]}"#.into());
+        assert!(validate_validation_bundle(&t, &v, &r).is_err());
+
+        // key-order differences alone are NOT a mismatch (structural compare)
+        let (t, mut v, r) = passing_bundle(1, 2);
+        v.score_breakdown_json = Some(r#"{"score":2.65,"formulaVersion":"score-v1"}"#.into());
+        assert!(validate_validation_bundle(&t, &v, &r).is_ok());
     }
 
     #[test]

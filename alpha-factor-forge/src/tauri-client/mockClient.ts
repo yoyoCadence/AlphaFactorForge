@@ -16,6 +16,7 @@ import type {
   ValidationRecordRow,
 } from './commands';
 import type { ImportCandlesInput } from './dbClient';
+import { assertValidBundle } from '../services/validationRecord';
 
 export function makeMockClient() {
   const datasets: Dataset[] = [];
@@ -62,8 +63,10 @@ export function makeMockClient() {
     },
     getBacktestResults: async (strategyId?: number) =>
       summaries.filter((s) => strategyId == null || s.strategy_id === strategyId),
-    // PERSIST-001 parity: mirrors the Rust command's pre-validation and
-    // all-or-nothing semantics (validate first, then apply every write).
+    // PERSIST-001 parity: runs the SAME shared bundle validator the composer
+    // targets (the TS mirror of Rust's validate_validation_bundle), so
+    // `?mock=1` rejects exactly the bundles native Tauri rejects, then
+    // applies every write all-or-nothing.
     saveValidationRecord: async (
       trainSummary: BacktestSummary,
       trainTrades: TradeRow[],
@@ -71,36 +74,24 @@ export function makeMockClient() {
       validationTrades: TradeRow[],
       record: ValidationRecordRow,
     ) => {
-      if (trainSummary.segment !== 'train' || validationSummary.segment !== 'validation') {
-        throw new Error('bundle segments must be train + validation');
-      }
-      for (const s of [trainSummary, validationSummary]) {
-        if (s.strategy_id !== record.strategy_id || s.dataset_id !== record.dataset_id) {
-          throw new Error('summary identity must match the record');
-        }
-      }
-      const scored = record.score != null;
-      if (record.gate_passed !== scored) {
-        throw new Error('gate_passed must agree with score nullability');
-      }
-      if (JSON.parse(record.record_json).version !== record.record_version) {
-        throw new Error('record_version must match the record_json envelope');
-      }
+      assertValidBundle({ trainSummary, trainTrades, validationSummary, validationTrades, record });
       await db.saveBacktestResult(trainSummary, trainTrades);
       await db.saveBacktestResult(validationSummary, validationTrades);
       const id = nextId++;
       validationRecords.push({ ...record, id, created_at: new Date().toISOString() });
       return id;
     },
+    // Reads return DETACHED copies so callers can never mutate the mock's
+    // append-only records in place (PR #65 review).
     listValidationRecords: async (strategyId?: number) =>
       validationRecords
         .filter((r) => strategyId == null || r.strategy_id === strategyId)
-        .slice()
+        .map((r) => ({ ...r }))
         .reverse(),
     getValidationRecord: async (id: number) => {
       const row = validationRecords.find((r) => r.id === id);
       if (!row) throw new Error(`no validation record ${id}`);
-      return row;
+      return { ...row };
     },
   };
 

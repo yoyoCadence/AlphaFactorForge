@@ -274,3 +274,38 @@ describe('buildValidationBundle (D3 semantics)', () => {
     expect(() => buildValidationBundle({ record, validationRun: other })).toThrow(/snapshot/);
   });
 });
+
+describe('immutability + serialization boundaries (PR #65 review)', () => {
+  it('mutating the original inputs after build never changes the record', () => {
+    const run = validationRun();
+    const outcome = passingOutcome(run);
+    const args = recordArgs(outcome, run);
+    const record = buildValidationRecord(args);
+    const frozen = JSON.parse(JSON.stringify(record));
+
+    // mutate every input that used to be aliased by the snapshot
+    args.benchmark.benchmarks[1].strat!.entryRules.push({ l: 'rsi', op: '<', r: '30' });
+    (args.benchmark.randomEntry.netReturns as number[])[0] = 123;
+    (args.splitPlan as unknown as { totalBars: number }).totalBars = 999;
+    args.embargo.embargoBars = 999;
+    run.train.metrics.monthlyReturns['2099-01'] = 1;
+    if (outcome.passed) outcome.score.components[0].weight = 99;
+
+    expect(JSON.parse(JSON.stringify(record))).toEqual(frozen);
+  });
+
+  it('a non-finite injected AFTER build fails closed at the stringify boundary', () => {
+    const run = validationRun();
+    const record = buildValidationRecord(recordArgs(passingOutcome(run), run));
+    (record.benchmark.randomEntry.netReturns as number[])[0] = Infinity;
+    // must throw, never persist a silently-nulled JSON (review reproduction)
+    expect(() => buildValidationBundle({ record, validationRun: run })).toThrow(/non-finite/);
+  });
+
+  it('NaN injected into the score breakdown also fails closed', () => {
+    const run = validationRun();
+    const record = buildValidationRecord(recordArgs(passingOutcome(run), run));
+    (record.score!.components[0] as { contribution: number }).contribution = NaN;
+    expect(() => buildValidationBundle({ record, validationRun: run })).toThrow(/non-finite/);
+  });
+});
