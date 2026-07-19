@@ -12,14 +12,19 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 - Native Tauri verified: Rust 1.96 / Cargo / MSVC build tools / Tauri CLI v2 installed; `cargo check` and `cargo tauri dev` both pass; multi-size icons generated.
 - Progress (through PERSIST-001 + FEAT-002 + code-mode UX polish + REF-004 + BUG-004 + UI-port Slice 8b-2): Phase A backtest pipeline and transactional SQLite persistence (datasets, candles, strategies, summaries, and closed trades); Phase B's pure deterministic Train/Validation/Test + embargo split contract, its Train/Validation segmented backtest runner (Test never executed), usage-aware embargo derivation (max used-signal lookback + explicit holding allowance), the full §6 benchmark suite (Buy & Hold / SMA 50/200 / RSI 14 30-70 / Bollinger 20-2 + seeded Random Entry Monte Carlo with matched holding periods), the §5.1 hard elimination gate (explicit thresholds, fail-closed evidence), corrected Sortino/Calmar + explicit non-finite persistence (METRIC-001), the §5.2 score-v1 ranking breakdown (SCORE-001, per the PR #61 handoff Resolution), and immutable validation-record persistence (PERSIST-001, per the PR #64 handoff Resolution: migration 0002, atomic bundle save, shared metrics codec); chart (canvas + overlays + trade markers + wheel-zoom + drag-pan + hover + bar replay); params/blocks/code strategy modes with invalid-expression Run guard; holdout; parameter sweep + interactive heatmap; report export (Slice 7-2); SQLite strategy library (Slice 7-3); native chart + metrics OS windows (Slice 8b); mutable-field strategy UPSERT semantics (REF-004); plus the 2026-07-07 project audit (`docs/` blueprint) and its backlog work: DOC-001, BUG-001, REF-001→004, TEST-001→002 (browser E2E flows, golden lock, and legacy parity), and Backtest Correctness Phases 1–3 (fee-inclusive accounting, settled metrics, execution-bar/risk fills, legacy `both` reversal, and normalized-fraction validation). Current tests: 300 vitest + 21 Rust + 25 Playwright e2e.
 - Security snapshot (2026-07-16): SEC-002 exact-pins Vite 6.4.3 + Vitest 3.2.6; full and production-only audits both report zero. See `docs/security-audit-npm.md`.
-- Next: no task is currently staged; candidates after PERSIST-001 merges: the discovery runner (orchestrate split→benchmarks→Gate→Score→record, lifecycle promotion policy), REGIME-001 (regime classifier for the deferred score component), or Results Explorer read-side UI over `validation_records`.
+- Next: IDENTITY-001 is the first approved discovery-runner prerequisite: versioned durable SHA-256 strategy/data identities, candle-content hashing, backend verification, and atomic immutable dataset import. The resolved program then proceeds through RS-CORE-001..005, RUNNER-CONFIG/STORE/EXEC, and RUNNER-UI in order.
 - PR CI runs typecheck / test / build / cargo-check (now incl. `cargo test`) — green per PR; `main` requires branches up to date before merge.
 - Source-of-truth architecture: `STRATEGY_DISCOVERY.md` v3 and `README.md`.
 - Historical context: `HISTORY.md` and `CONVERSATION_HISTORY.md`.
 
 ## Next
 
-- None. (PERSIST-001 moved to In Progress after the handoff PR #64 merged, and completed — see Done.)
+- [ ] **IDENTITY-001** — durable identity prerequisite (first approved slice; not started).
+  - Versioned SHA-256-only durable `strategy-v2` / `dataset-content-v2` hashes; persisted identities never fall back to FNV.
+  - Dataset identity includes normalized complete candle contents; backend recomputes/verifies it; dataset row + candles import atomically; legacy unversioned hashes cannot participate in discovery reuse until rehashed/re-imported.
+  - Full execution contract and slice order: `handoffs/2026-07-19-runner-001-design-proposal-v1.md` Resolution.
+- [ ] Discovery-runner program — blocked behind IDENTITY-001, then strictly ordered: RS-CORE-001 → 002 → 003 → 004 → 005 → RUNNER-CONFIG-001 → RUNNER-STORE-001 → RUNNER-EXEC-001 → RUNNER-UI-001.
+  - Rust backend computation is final; hidden WebView and Node sidecar are rejected. Cross-run result reuse remains Backlog until a versioned immutable execution cache exists.
 
 ## In Progress
 
