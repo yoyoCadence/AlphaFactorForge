@@ -1,0 +1,26 @@
+{
+  "fixtureVersion": "identity-v2-fixture-1",
+  "strategy": {
+    "definition": {
+      "mode": "params",
+      "fastMA": 9,
+      "slowMA": 21,
+      "feePct": 0.05,
+      "slipPct": 0.02,
+      "entrySig": "maCrossUp",
+      "exitSig": "maCrossDown",
+      "flags": [true, false, null],
+      "nested": { "z": 1.25, "a": "stable" }
+    },
+    "execModel": { "feePct": 0.05, "slippagePct": 0.02 },
+    "expectedHash": "strategy-v2:24f084bcc29d91237677594c94f6fb65dd8288274de868611dc9ec3ceaf7b89f"
+  },
+  "dataset": {
+    "meta": { "exchange": "binance", "symbol": "BTCUSDT", "interval": "1h" },
+    "candles": [
+      { "timestamp": 1721005200000, "open": 101.25, "high": 104.5, "low": 100.75, "close": 103.125, "volume": 15.5 },
+      { "timestamp": 1721001600000, "open": 100, "high": 102.25, "low": 99.5, "close": 101.25, "volume": 12 }
+    ],
+    "expectedHash": "dataset-content-v2:5fa7cd02b9a28a91239589e12c37845a7c9b7a4abdf11402c74d9cce5999de60"
+  }
+}

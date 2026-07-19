@@ -40,8 +40,8 @@ pub fn get_candles(
     repositories::get_candles(&conn, dataset_id, from, to)
 }
 
-/// Import a batch of candles. The frontend computes `dataset_hash` with the
-/// shared core/hashing module and passes the dataset meta + rows.
+/// Import a batch of candles. Rust recomputes the v2 content identity and owns
+/// the single transaction for the dataset row plus every candle.
 #[tauri::command]
 pub fn import_candles(
     state: State<AppState>,
@@ -49,15 +49,13 @@ pub fn import_candles(
     candles: Vec<Candle>,
 ) -> AppResult<i64> {
     let mut conn = state.db.lock().map_err(|_| AppError::Other("db lock poisoned".into()))?;
-    let dataset_id = repositories::insert_dataset(&conn, &dataset)?;
-    repositories::insert_candles(&mut conn, dataset_id, &candles)?;
-    Ok(dataset_id)
+    repositories::import_dataset_with_candles(&mut conn, &dataset, &candles)
 }
 
 #[tauri::command]
 pub fn save_strategy(state: State<AppState>, strategy: StrategyDef) -> AppResult<i64> {
     let conn = state.db.lock().map_err(|_| AppError::Other("db lock poisoned".into()))?;
-    repositories::insert_strategy(&conn, &strategy)
+    repositories::insert_verified_strategy(&conn, &strategy)
 }
 
 #[tauri::command]

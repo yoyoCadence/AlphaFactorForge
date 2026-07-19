@@ -2,7 +2,7 @@
 // strategy_def + backtest_summary CRUD enough to satisfy the v1 delivery.
 // Functions marked `todo!()` need local completion (see TODO.md).
 
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 
 use crate::error::{AppError, AppResult};
@@ -22,7 +22,7 @@ pub struct Dataset {
     pub dataset_hash: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Candle {
     pub timestamp: i64,
     pub open: f64,
@@ -144,7 +144,129 @@ pub struct ValidationRecordRow {
 
 // ---------- datasets ----------
 
-pub fn insert_dataset(conn: &Connection, d: &Dataset) -> AppResult<i64> {
+/// Verify a v2 content identity and import the immutable dataset payload in one
+/// transaction. Re-importing byte-identical content is idempotent; a hash row
+/// whose metadata or candles disagree is treated as corruption and rejected.
+pub fn import_dataset_with_candles(
+    conn: &mut Connection,
+    dataset: &Dataset,
+    candles: &[Candle],
+) -> AppResult<i64> {
+    let normalized = crate::identity::verify_dataset_identity(dataset, candles)?;
+    let tx = conn.transaction()?;
+    let existing: Option<Dataset> = tx
+        .query_row(
+            "SELECT id, exchange, symbol, interval, start_time, end_time,
+                    candle_count, source, dataset_hash
+             FROM datasets WHERE dataset_hash = ?1",
+            [&dataset.dataset_hash],
+            |row| {
+                Ok(Dataset {
+                    id: Some(row.get(0)?),
+                    exchange: row.get(1)?,
+                    symbol: row.get(2)?,
+                    interval: row.get(3)?,
+                    start_time: row.get(4)?,
+                    end_time: row.get(5)?,
+                    candle_count: row.get(6)?,
+                    source: row.get(7)?,
+                    dataset_hash: row.get(8)?,
+                })
+            },
+        )
+        .optional()?;
+
+    if let Some(existing) = existing {
+        let dataset_id = existing.id.expect("queried dataset id");
+        let same_metadata = existing.exchange == dataset.exchange
+            && existing.symbol == dataset.symbol
+            && existing.interval == dataset.interval
+            && existing.start_time == dataset.start_time
+            && existing.end_time == dataset.end_time
+            && existing.candle_count == dataset.candle_count
+            && existing.source == dataset.source;
+        let stored = {
+            let mut statement = tx.prepare(
+                "SELECT timestamp, open, high, low, close, volume
+                 FROM candles WHERE dataset_id = ?1 ORDER BY timestamp ASC",
+            )?;
+            let rows = statement
+                .query_map([dataset_id], |row| {
+                    Ok(Candle {
+                        timestamp: row.get(0)?,
+                        open: row.get(1)?,
+                        high: row.get(2)?,
+                        low: row.get(3)?,
+                        close: row.get(4)?,
+                        volume: row.get(5)?,
+                    })
+                })?
+                .collect::<Result<Vec<_>, _>>()?;
+            rows
+        };
+        let same_candles = stored.len() == normalized.len()
+            && stored
+                .iter()
+                .zip(&normalized)
+                .all(|(left, right)| candles_equal(left, right));
+        if !same_metadata || !same_candles {
+            return Err(AppError::Other(
+                "dataset hash conflicts with stored immutable payload".into(),
+            ));
+        }
+        tx.commit()?;
+        return Ok(dataset_id);
+    }
+
+    tx.execute(
+        "INSERT INTO datasets
+            (exchange, symbol, interval, start_time, end_time, candle_count, source, dataset_hash)
+         VALUES (?1,?2,?3,?4,?5,?6,?7,?8)",
+        params![
+            dataset.exchange,
+            dataset.symbol,
+            dataset.interval,
+            dataset.start_time,
+            dataset.end_time,
+            dataset.candle_count,
+            dataset.source,
+            dataset.dataset_hash
+        ],
+    )?;
+    let dataset_id = tx.last_insert_rowid();
+    {
+        let mut statement = tx.prepare(
+            "INSERT INTO candles
+                (dataset_id, timestamp, open, high, low, close, volume)
+             VALUES (?1,?2,?3,?4,?5,?6,?7)",
+        )?;
+        for candle in &normalized {
+            statement.execute(params![
+                dataset_id,
+                candle.timestamp,
+                candle.open,
+                candle.high,
+                candle.low,
+                candle.close,
+                candle.volume
+            ])?;
+        }
+    }
+    tx.commit()?;
+    Ok(dataset_id)
+}
+
+fn candles_equal(left: &Candle, right: &Candle) -> bool {
+    left.timestamp == right.timestamp
+        && left.open.to_bits() == right.open.to_bits()
+        && left.high.to_bits() == right.high.to_bits()
+        && left.low.to_bits() == right.low.to_bits()
+        && left.close.to_bits() == right.close.to_bits()
+        && left.volume.to_bits() == right.volume.to_bits()
+}
+
+#[cfg(test)]
+fn insert_dataset(conn: &Connection, d: &Dataset) -> AppResult<i64> {
     conn.execute(
         "INSERT INTO datasets
             (exchange, symbol, interval, start_time, end_time, candle_count, source, dataset_hash)
@@ -191,25 +313,6 @@ pub fn list_datasets(conn: &Connection) -> AppResult<Vec<Dataset>> {
 
 // ---------- candles ----------
 
-/// Bulk insert candles for a dataset inside a single transaction.
-pub fn insert_candles(conn: &mut Connection, dataset_id: i64, candles: &[Candle]) -> AppResult<usize> {
-    let tx = conn.transaction()?;
-    {
-        let mut stmt = tx.prepare(
-            "INSERT OR IGNORE INTO candles
-                (dataset_id, timestamp, open, high, low, close, volume)
-             VALUES (?1,?2,?3,?4,?5,?6,?7)",
-        )?;
-        for c in candles {
-            stmt.execute(params![
-                dataset_id, c.timestamp, c.open, c.high, c.low, c.close, c.volume
-            ])?;
-        }
-    }
-    tx.commit()?;
-    Ok(candles.len())
-}
-
 pub fn get_candles(conn: &Connection, dataset_id: i64, from: i64, to: i64) -> AppResult<Vec<Candle>> {
     let mut stmt = conn.prepare(
         "SELECT timestamp, open, high, low, close, volume
@@ -234,7 +337,13 @@ pub fn get_candles(conn: &Connection, dataset_id: i64, from: i64, to: i64) -> Ap
 
 // ---------- strategy_def ----------
 
-pub fn insert_strategy(conn: &Connection, s: &StrategyDef) -> AppResult<i64> {
+/// Product write boundary: reject legacy/forged hashes before persistence.
+pub fn insert_verified_strategy(conn: &Connection, strategy: &StrategyDef) -> AppResult<i64> {
+    crate::identity::verify_strategy_identity(strategy)?;
+    insert_strategy(conn, strategy)
+}
+
+fn insert_strategy(conn: &Connection, s: &StrategyDef) -> AppResult<i64> {
     // A hash conflict represents the same strategy definition/execution model,
     // so refresh only mutable presentation/provenance fields. `lifecycle` is
     // deliberately preserved because validation owns that review state; a
@@ -707,6 +816,51 @@ mod tests {
         }
     }
 
+    fn identity_candles() -> Vec<Candle> {
+        vec![
+            Candle {
+                timestamp: 2,
+                open: 101.0,
+                high: 103.0,
+                low: 100.0,
+                close: 102.0,
+                volume: 12.0,
+            },
+            Candle {
+                timestamp: 1,
+                open: 100.0,
+                high: 102.0,
+                low: 99.0,
+                close: 101.0,
+                volume: 10.0,
+            },
+        ]
+    }
+
+    fn identity_dataset(candles: &[Candle]) -> Dataset {
+        let mut dataset = Dataset {
+            id: None,
+            exchange: "binance".into(),
+            symbol: "BTCUSDT".into(),
+            interval: "1h".into(),
+            start_time: candles.iter().map(|candle| candle.timestamp).min().unwrap(),
+            end_time: candles.iter().map(|candle| candle.timestamp).max().unwrap(),
+            candle_count: candles.len() as i64,
+            source: "test-fixture".into(),
+            dataset_hash: String::new(),
+        };
+        dataset.dataset_hash = crate::identity::dataset_content_hash(&dataset, candles).unwrap();
+        dataset
+    }
+
+    fn verified_blocks_strategy() -> StrategyDef {
+        let definition = r#"{"mode":"blocks","feePct":0.05,"slipPct":0.02,"entryRules":[{"l":"price","op":"<","r":"bbLower"}]}"#;
+        let hash = crate::identity::strategy_hash_from_definition_json(definition).unwrap();
+        let mut strategy = blocks_strategy(&hash);
+        strategy.original_definition_json = definition.into();
+        strategy
+    }
+
     fn saved_parent_rows(conn: &Connection) -> (i64, i64) {
         let dataset_id = insert_dataset(
             conn,
@@ -791,6 +945,86 @@ mod tests {
         let listed = list_strategies(&conn).unwrap();
         assert_eq!(listed.len(), 1);
         assert_eq!(listed[0].kind, "blocks");
+    }
+
+    #[test]
+    fn verified_strategy_rejects_forged_and_legacy_hashes() {
+        let conn = mem_db();
+        let valid = verified_blocks_strategy();
+        assert!(insert_verified_strategy(&conn, &valid).is_ok());
+
+        let mut forged = valid;
+        forged.strategy_hash = "legacy-or-forged".into();
+        assert!(insert_verified_strategy(&conn, &forged).is_err());
+        let mut wrong_mode = verified_blocks_strategy();
+        wrong_mode.kind = "params".into();
+        assert!(insert_verified_strategy(&conn, &wrong_mode).is_err());
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM strategy_def", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn atomic_dataset_import_is_sorted_and_idempotent() {
+        let mut conn = mem_db();
+        let candles = identity_candles();
+        let dataset = identity_dataset(&candles);
+        let first_id = import_dataset_with_candles(&mut conn, &dataset, &candles).unwrap();
+        let second_id = import_dataset_with_candles(&mut conn, &dataset, &candles).unwrap();
+        assert_eq!(first_id, second_id);
+
+        let stored = get_candles(&conn, first_id, 1, 2).unwrap();
+        assert_eq!(stored.len(), 2);
+        assert_eq!(stored[0].timestamp, 1);
+        assert_eq!(stored[1].timestamp, 2);
+        let dataset_count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM datasets", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(dataset_count, 1);
+    }
+
+    #[test]
+    fn atomic_dataset_import_rejects_forgery_and_conflicting_payload() {
+        let mut conn = mem_db();
+        let candles = identity_candles();
+        let mut forged = identity_dataset(&candles);
+        forged.dataset_hash = "dataset-content-v2:forged".into();
+        assert!(import_dataset_with_candles(&mut conn, &forged, &candles).is_err());
+        let mut wrong_bounds = identity_dataset(&candles);
+        wrong_bounds.end_time += 1;
+        assert!(import_dataset_with_candles(&mut conn, &wrong_bounds, &candles).is_err());
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM datasets", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(count, 0, "verification must happen before the first write");
+
+        let dataset = identity_dataset(&candles);
+        import_dataset_with_candles(&mut conn, &dataset, &candles).unwrap();
+        let mut conflicting = dataset;
+        conflicting.source = "contradictory-source".into();
+        assert!(import_dataset_with_candles(&mut conn, &conflicting, &candles).is_err());
+    }
+
+    #[test]
+    fn atomic_dataset_import_rolls_back_dataset_when_a_candle_write_fails() {
+        let mut conn = mem_db();
+        conn.execute_batch(
+            "CREATE TRIGGER reject_second_identity_candle
+             BEFORE INSERT ON candles WHEN NEW.timestamp = 2
+             BEGIN SELECT RAISE(ABORT, 'injected candle failure'); END;",
+        )
+        .unwrap();
+        let candles = identity_candles();
+        let dataset = identity_dataset(&candles);
+        assert!(import_dataset_with_candles(&mut conn, &dataset, &candles).is_err());
+        let dataset_count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM datasets", [], |row| row.get(0))
+            .unwrap();
+        let candle_count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM candles", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!((dataset_count, candle_count), (0, 0));
     }
 
     #[test]
