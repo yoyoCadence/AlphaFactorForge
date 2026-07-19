@@ -179,3 +179,48 @@ State transitions are fixed: `idle -> running`; `running -> paused|completed|fai
 9. **RUNNER-UI-001** — typed frontend wrappers and throttled progress/results UI.
 
 The first implementation slice after this handoff merges is IDENTITY-001. Do not start a monolithic RUNNER-001.
+
+### RS-CORE-001 implementation record (append-only update)
+
+Date: 2026-07-19. Implementer: Codex. Branch:
+`agent/rs-core-001-indicator-parity`. Implementation commit: `8b8b8c6`.
+
+- Added the explicit TypeScript reference command
+  `npm run fixtures:indicators` and committed
+  `fixtures/rs-core/indicators-v1.json`. The envelope records source SHA-256
+  hashes, contract versions, exact warm-up positions, and the resolved default
+  float policy (`abs <= 1e-12 OR rel <= 1e-10`).
+- Added the pure Rust `discovery_core` candle/types and indicator modules. Rust
+  consumes the same fixture and covers SMA, EMA, WMA, RSI, MACD, true range,
+  ATR, Bollinger Bands, population standard deviation, rolling high/low, and
+  ROC. The module imports no Tauri, rusqlite, runner threads, events, or UI.
+- Preserved the D1 constraint: TypeScript sample candles are committed fixture
+  input only; there is no Rust runtime sample generator and no discovery
+  evaluation path in this slice.
+- Verification: the fixture SHA-256 was unchanged across consecutive explicit
+  regenerations; 310 Vitest tests, TypeScript typecheck, production build,
+  rustfmt check, cargo check, 32 Rust tests, and 25 Playwright tests pass.
+
+RS-CORE-001 is Done. The only newly unblocked implementation slice is
+RS-CORE-002 (backtest engine, trades/equity, and METRIC-001 parity); runner
+orchestration remains blocked.
+
+### RS-CORE-001 CI portability correction (append-only update)
+
+Date: 2026-07-19. Fix commit: `0ba1631`.
+
+The first PR #68 Linux test run exposed a metadata-only portability defect:
+`sampleData.ts` was hashed from CRLF bytes by the Windows generator but from LF
+bytes by the Linux Vitest checkout. Indicator inputs and expected numeric series
+were unchanged; only `generator.sourceHashes.sampleData` differed. The other CI
+jobs (typecheck, build, cargo-check, and E2E) passed.
+
+Source hashing is now explicitly versioned as `utf8-lf-v1`. The generator and
+freshness test share one CRLF/CR-to-LF canonicalization function before SHA-256,
+the fixture records that encoding, and a direct regression test locks the
+conversion. The regenerated fixture SHA-256 is
+`35eef00a1494c130a12236664dba54d7704b3a568274971c928c984484cd267e`.
+
+Local re-verification: deterministic regeneration, 311 Vitest tests,
+typecheck, production build, and 32 Rust tests pass. No indicator semantics,
+tolerance, runner boundary, DB, event, thread, or UI behavior changed.

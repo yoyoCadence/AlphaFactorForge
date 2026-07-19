@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "fixtures:indicators": "vite-node scripts/generate-indicator-fixtures.ts",
     "e2e": "playwright test",
     "tauri": "tauri"
   },
@@ -27,6 +28,7 @@
     "@vitejs/plugin-react": "^4.3.1",
     "typescript": "^5.5.4",
     "vite": "6.4.3",
+    "vite-node": "3.2.4",
     "vitest": "3.2.6"
   }
 }
