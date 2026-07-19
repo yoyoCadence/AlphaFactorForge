@@ -402,19 +402,56 @@ export function assertValidBundle(bundle: ValidationBundle): void {
     if (envScore == null || envScore.score !== record.score) {
       fail('record_json score must equal the record row score');
     }
-    if (
-      JSON.stringify(env.score) !==
-      JSON.stringify(JSON.parse(validationSummary.score_breakdown_json!))
-    ) {
+    if (!jsonStructuralEqual(env.score, JSON.parse(validationSummary.score_breakdown_json!))) {
       fail('validation summary breakdown must equal the record snapshot');
     }
   } else if (envScore !== null) {
     fail('a failing gate requires a null record_json score');
   }
-  if (
-    JSON.stringify(env.benchmark) !==
-    JSON.stringify(JSON.parse(validationSummary.benchmark_result_json!))
-  ) {
+  // PR #65 second review: the benchmark must be a REAL bench-record-v1 object
+  // — JSON null / non-objects / wrong versions can never impersonate the
+  // required benchmark evidence, on either side.
+  const summaryBenchmark: unknown = JSON.parse(validationSummary.benchmark_result_json!);
+  if (!isBenchRecordShape(summaryBenchmark)) {
+    fail('validation summary benchmark must be a bench-record-v1 object');
+  }
+  if (!jsonStructuralEqual(env.benchmark, summaryBenchmark)) {
     fail('validation summary benchmark must equal the record snapshot');
   }
+}
+
+/** Minimal bench-record-v1 shape lock: a non-null object with the exact
+ *  version, a benchmarks array, and a randomEntry object ({} never passes). */
+function isBenchRecordShape(value: unknown): boolean {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
+  const o = value as Record<string, unknown>;
+  return (
+    o.version === BENCHMARK_RECORD_VERSION &&
+    Array.isArray(o.benchmarks) &&
+    o.randomEntry !== null &&
+    typeof o.randomEntry === 'object' &&
+    !Array.isArray(o.randomEntry)
+  );
+}
+
+/** JSON structural deep equality, matching Rust's serde_json::Value
+ *  semantics: object key ORDER is irrelevant, array order matters
+ *  (PR #65 second review — stringify comparison was key-order-sensitive). */
+function jsonStructuralEqual(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (a === null || b === null || typeof a !== 'object' || typeof b !== 'object') return false;
+  const aArray = Array.isArray(a);
+  if (aArray !== Array.isArray(b)) return false;
+  if (aArray) {
+    const x = a as unknown[];
+    const y = b as unknown[];
+    return x.length === y.length && x.every((item, i) => jsonStructuralEqual(item, y[i]));
+  }
+  const left = a as Record<string, unknown>;
+  const right = b as Record<string, unknown>;
+  const keys = Object.keys(left);
+  if (keys.length !== Object.keys(right).length) return false;
+  return keys.every(
+    (k) => Object.prototype.hasOwnProperty.call(right, k) && jsonStructuralEqual(left[k], right[k]),
+  );
 }

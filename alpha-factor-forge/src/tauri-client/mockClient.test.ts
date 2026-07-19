@@ -139,4 +139,49 @@ describe('mockClient validation records', () => {
     expect(await db.listValidationRecords()).toHaveLength(0);
     expect(await db.getBacktestResults()).toHaveLength(0);
   });
+
+  it('accepts key-order-only JSON differences exactly like the Rust validator', async () => {
+    const { db } = makeMockClient();
+    const b = makeBundle();
+    const reorder = (json: string): string => {
+      const o = JSON.parse(json) as Record<string, unknown>;
+      return JSON.stringify(
+        Object.fromEntries(Object.keys(o).reverse().map((k) => [k, o[k]])),
+      );
+    };
+    const id = await save(db, {
+      ...b,
+      validationSummary: {
+        ...b.validationSummary,
+        score_breakdown_json: reorder(b.validationSummary.score_breakdown_json!),
+        benchmark_result_json: reorder(b.validationSummary.benchmark_result_json!),
+      },
+    });
+    expect(id).toBeGreaterThan(0);
+  });
+
+  it('rejects a benchmark impersonated by null, a non-object, or a wrong version', async () => {
+    const { db } = makeMockClient();
+    const b = makeBundle();
+    // keep summary and envelope CONSISTENT — the shape lock itself must reject
+    const withBenchmark = (benchJson: string) => {
+      const env = JSON.parse(b.record.record_json) as Record<string, unknown>;
+      env.benchmark = JSON.parse(benchJson);
+      return {
+        ...b,
+        validationSummary: { ...b.validationSummary, benchmark_result_json: benchJson },
+        record: { ...b.record, record_json: JSON.stringify(env) },
+      };
+    };
+    for (const bogus of [
+      'null',
+      '[]',
+      '{}',
+      JSON.stringify({ version: 'bench-record-v999', benchmarks: [], randomEntry: {} }),
+      JSON.stringify({ version: 'bench-record-v1', benchmarks: [] }),
+    ]) {
+      await expect(save(db, withBenchmark(bogus))).rejects.toThrow(/bench-record-v1 object/);
+    }
+    expect(await db.listValidationRecords()).toHaveLength(0);
+  });
 });

@@ -560,12 +560,26 @@ pub fn validate_validation_bundle(
     } else if env_score.map(|v| !v.is_null()).unwrap_or(true) {
         return fail("a failing gate requires a null record_json score");
     }
+    // PR #65 second review: the benchmark must be a REAL bench-record-v1
+    // object — JSON null / non-objects / wrong versions must never
+    // impersonate the required benchmark evidence.
     let benchmark: serde_json::Value = serde_json::from_str(
         validation_summary
             .benchmark_result_json
             .as_deref()
             .expect("checked above"),
     )?;
+    let bench_shape_ok = benchmark
+        .as_object()
+        .map(|o| {
+            o.get("version").and_then(|v| v.as_str()) == Some("bench-record-v1")
+                && o.get("benchmarks").map(|b| b.is_array()).unwrap_or(false)
+                && o.get("randomEntry").map(|r| r.is_object()).unwrap_or(false)
+        })
+        .unwrap_or(false);
+    if !bench_shape_ok {
+        return fail("validation summary benchmark must be a bench-record-v1 object");
+    }
     if envelope.get("benchmark") != Some(&benchmark) {
         return fail("validation summary benchmark must equal the record snapshot");
     }
@@ -947,7 +961,8 @@ mod tests {
     }
 
     const TEST_BREAKDOWN: &str = r#"{"formulaVersion":"score-v1","score":2.65}"#;
-    const TEST_BENCHMARK: &str = r#"{"version":"bench-record-v1","benchmarks":[]}"#;
+    const TEST_BENCHMARK: &str =
+        r#"{"version":"bench-record-v1","benchmarks":[],"randomEntry":{"runs":20}}"#;
 
     fn record_json_for(strategy_id: i64, dataset_id: i64, gate_passed: bool) -> String {
         let score = if gate_passed { TEST_BREAKDOWN.to_string() } else { "null".to_string() };
@@ -1130,15 +1145,40 @@ mod tests {
         v.score_breakdown_json = Some(r#"{"formulaVersion":"score-v1","score":2.65,"x":1}"#.into());
         assert!(validate_validation_bundle(&t, &v, &r).is_err());
 
-        // summary benchmark snapshot differs from the envelope's
+        // summary benchmark snapshot differs from the envelope's (valid shape)
         let (t, mut v, r) = passing_bundle(1, 2);
-        v.benchmark_result_json = Some(r#"{"version":"bench-record-v1","benchmarks":[1]}"#.into());
+        v.benchmark_result_json =
+            Some(r#"{"version":"bench-record-v1","benchmarks":[1],"randomEntry":{"runs":20}}"#.into());
         assert!(validate_validation_bundle(&t, &v, &r).is_err());
 
         // key-order differences alone are NOT a mismatch (structural compare)
         let (t, mut v, r) = passing_bundle(1, 2);
         v.score_breakdown_json = Some(r#"{"score":2.65,"formulaVersion":"score-v1"}"#.into());
         assert!(validate_validation_bundle(&t, &v, &r).is_ok());
+    }
+
+    #[test]
+    fn validate_validation_bundle_requires_a_real_benchmark_object() {
+        // PR #65 second review: even a CONSISTENT null/non-object/wrong-version
+        // pair (summary + envelope agreeing) must be rejected — no audit
+        // record may exist without real benchmark evidence.
+        let cases = [
+            "null",
+            "[]",
+            "{}",
+            r#"{"version":"bench-record-v999","benchmarks":[],"randomEntry":{}}"#,
+            r#"{"version":"bench-record-v1","benchmarks":{},"randomEntry":{}}"#,
+            r#"{"version":"bench-record-v1","benchmarks":[]}"#,
+        ];
+        for bogus in cases {
+            let (t, mut v, mut r) = passing_bundle(1, 2);
+            v.benchmark_result_json = Some(bogus.into());
+            r.record_json = r.record_json.replace(TEST_BENCHMARK, bogus);
+            assert!(
+                validate_validation_bundle(&t, &v, &r).is_err(),
+                "benchmark impersonation must be rejected: {bogus}"
+            );
+        }
     }
 
     #[test]
