@@ -67,8 +67,17 @@ const path = (closes: number[], intervalMs = HOUR): FixtureCandle[] =>
     };
   });
 
-const rising = (count: number): FixtureCandle[] =>
-  path(Array.from({ length: count }, (_, i) => 100 * Math.pow(1.01, i)));
+const rising = (count: number): FixtureCandle[] => {
+  // Keep exact fixture inputs reproducible across JS runtimes. Math.pow is a
+  // platform-provided approximation and can differ by one ULP in its tail.
+  const closes: number[] = [];
+  let close = 100;
+  for (let i = 0; i < count; i++) {
+    closes.push(close);
+    close *= 1.01;
+  }
+  return path(closes);
+};
 
 const flat = (count: number): FixtureCandle[] => path(new Array<number>(count).fill(100));
 

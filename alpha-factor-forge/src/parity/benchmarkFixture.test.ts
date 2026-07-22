@@ -77,6 +77,16 @@ describe('RS-CORE benchmark parity fixture', () => {
       'random-entry-min-seed-min-runs',
       'random-entry-max-seed-max-runs',
     ]);
+    const risingCase = fixture.randomEntryCases.find(
+      (c) => c.id === 'random-entry-fake-candidate',
+    )!;
+    const recurrenceCloses: number[] = [];
+    let close = 100;
+    for (let i = 0; i < risingCase.input.candles.length; i++) {
+      recurrenceCloses.push(close);
+      close *= 1.01;
+    }
+    expect(risingCase.input.candles.map((candle) => candle.close)).toEqual(recurrenceCloses);
     expect(fixture.benchmarkErrorCases.map((c) => c.id)).toEqual(['benchmarks-empty-candles']);
     expect(fixture.randomEntryErrorCases.map((c) => c.id)).toEqual([
       'random-entry-zero-runs',
