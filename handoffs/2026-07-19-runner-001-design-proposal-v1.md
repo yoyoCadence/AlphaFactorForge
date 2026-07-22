@@ -359,3 +359,35 @@ fixture); the exact-`MAX_SAFE` composite remains accepted. Current fixture
 ledger for one-glance reading: 7 signal + 9 split + 8 embargo success cases
 and 11 error cases (1 signal + 4 split + 6 embargo); expected OUTPUT leaves
 are exact booleans/integers while inputs still carry floats.
+
+### RS-CORE-004 implementation record (append-only update)
+
+Date: 2026-07-22. Implementer: Codex. Branch:
+`feat/rs-core-004-benchmark-parity`.
+
+- Added `src/parity/benchmarkFixture.ts`, `npm run fixtures:benchmarks`, and
+  the committed `benchmark-parity-v1` envelope: 5 raw-u32 mulberry32 cases,
+  4 deterministic-suite cases, 2 Random Entry planner cases, 6 seeded
+  Random Entry integration cases, and 8 error cases HELD by the TypeScript
+  reference. The case inventory positively exercises SMA 50/200, exact
+  benchmark strategy structure, trades/equity/metrics, clipping/drop
+  behavior, the unknown/prototype-key interval fallback, the zero-bar holding
+  clamp, subranges, default runs, strict ties, accepted seed/run endpoints,
+  and both negative and above-safe seeds.
+- Added pure Rust `discovery_core/benchmarks.rs` (`benchmark-suite-v1`),
+  `prng.rs` (`mulberry32-v1`), and `random_entry.rs` (`random-entry-v1`). Raw
+  PRNG words and planner indexes compare exactly; strategy JSON objects,
+  benchmark results, and distributions compare structurally with the D3
+  numeric-leaf tolerance and exact METRIC-001 statuses. Shared TypeScript and
+  Rust parity helpers remove the prior duplicate metrics codecs/comparators.
+- Scope remains pure/test-only: no runner, SQLite, threads, events, UI, or
+  hidden Test-segment execution. Fixture source provenance includes every
+  direct computation dependency and the shared non-finite encoder.
+- Verification: backtest and benchmark fixtures regenerate blob-identically;
+  324 Vitest tests, typecheck, production build, cargo check, 42 Rust tests,
+  targeted rustfmt check, and `git diff --check` pass. Playwright is untouched
+  because this slice adds no UI or mock surface.
+
+RS-CORE-004 is Done locally. The only newly unblocked implementation slice is
+RS-CORE-005 (Gate + Score structural parity); runner orchestration remains
+blocked by the mandated slice order.

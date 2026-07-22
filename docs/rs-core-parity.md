@@ -1,6 +1,6 @@
 # RS-CORE cross-language parity
 
-Status: RS-CORE-001 indicator foundation implemented. TypeScript remains the
+Status: RS-CORE-001 through RS-CORE-004 implemented. TypeScript remains the
 reference implementation; Rust remains a pure computation library.
 
 ## Contract and ownership
@@ -125,6 +125,36 @@ ported.
 (`validation-split-v1`), and `embargo.rs` (`embargo-derivation-v1`) are the
 pure Rust ports, all Tauri/SQLite/thread/event/UI-free.
 
-RS-CORE-004 extends this harness with the deterministic benchmarks plus
-mulberry32/Random Entry parity. Runner orchestration remains excluded, and the
-hidden Test segment is never executed.
+## RS-CORE-004: benchmarks, mulberry32, and Random Entry
+
+`src/parity/benchmarkFixture.ts` + `npm run fixtures:benchmarks` own the
+committed `benchmark-parity-v1` envelope
+(`fixtures/rs-core/benchmark-v1.json`). Its source provenance covers the
+benchmark and Random Entry services, the backtest/signal/indicator stack, the
+sample input generator, and the shared non-finite metrics encoder. The fixture
+records all affected contract versions and the same numeric tolerance policy
+as the backtest fixture.
+
+- 5 PRNG cases compare every raw mulberry32 `u32` exactly, including seed
+  truncation above `2^32`.
+- 4 deterministic-suite cases compare the fixed benchmark order, exact params
+  strategy objects, trades, full equity curves, and every metric leaf. A
+  designed 260-bar path positively exercises the SMA 50/200 crossover rather
+  than accepting an all-zero-trade implementation, and a prototype-key
+  interval locks the documented unknown-interval daily fallback.
+- 2 planner cases lock exact Random Entry indexes, clipping, and dropped
+  trades. 6 integration cases compare seeded net-return distributions and
+  percentiles, including real candidate holding periods, the `bars: 0 -> 1`
+  clamp, an inclusive subrange, default 200 runs, strict tie handling, and
+  both accepted seed/run endpoints.
+- 8 fail-closed cases are held by the TypeScript reference before Rust checks
+  the same message fragments: one empty deterministic suite plus invalid run
+  counts, negative/above-safe seeds, empty candles/segments, and an empty
+  candidate holding pool.
+
+`discovery_core/benchmarks.rs` (`benchmark-suite-v1`), `prng.rs`
+(`mulberry32-v1`), and `random_entry.rs` (`random-entry-v1`) are the pure Rust
+ports. Shared parity helpers keep trade/equity/metric comparison and
+METRIC-001 status handling identical between the backtest and benchmark test
+suites. Runner orchestration, SQLite, threads, events, UI, and hidden Test
+execution remain excluded.

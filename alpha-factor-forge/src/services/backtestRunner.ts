@@ -26,7 +26,9 @@ export const BARS_PER_YEAR: Record<string, number> = {
 
 /** Bars per year for an interval; unknown intervals fall back to daily. */
 export function barsPerYear(interval: string): number {
-  return BARS_PER_YEAR[interval] ?? 365;
+  return Object.prototype.hasOwnProperty.call(BARS_PER_YEAR, interval)
+    ? BARS_PER_YEAR[interval]
+    : 365;
 }
 
 export interface ExecCostFractions {

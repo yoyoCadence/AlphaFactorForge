@@ -11,7 +11,9 @@
     "referenceRuntime": "typescript",
     "sourceHashEncoding": "utf8-lf-v1",
     "sourceHashes": {
-      "generator": "sha256:6658d4fad7fdbf564a79b323526f7c22da0d9abde4423f2bbcf3c2f2d7bd6ad6",
+      "generator": "sha256:b8633a081c2b15ba08c4b4b52a908200c3361f9bb59773513095e615472f4c5e",
+      "parityEncode": "sha256:52bd558a9f608c766c1683737c0c0de3254e83301d5173dccbcb6ecf089204a8",
+      "nonFinite": "sha256:01b67e4ac992dc4eea5235fe9b787a254de69bbbb514f9bccfe97185be0dbc07",
       "backtest": "sha256:0c562ee057140c1502c45fa146c88d3f16a21facfe8f0f7118ec69be82270a9a",
       "metrics": "sha256:a291515dfeb056b997e5473f35c453be61213c3aca2589fbeb0c94e138ed6f32",
       "sampleData": "sha256:7f4d2bc3a8a1a3d542bb1d522e3da29edcf318eec863d0bb5def798e1c205100"
