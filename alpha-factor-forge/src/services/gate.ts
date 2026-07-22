@@ -16,6 +16,9 @@ import type { BacktestResult } from '../core/backtest';
 import { DETERMINISTIC_BENCHMARK_IDS, type BenchmarkRun } from './benchmarks';
 import type { RandomEntryBenchmark } from './randomEntry';
 
+/** Version recorded with persisted Gate verdicts; see docs/gate-contract.md. */
+export const GATE_CONTRACT_VERSION = 'gate-v1';
+
 export interface GateConfig {
   /** Minimum closed trades in the segment (>= threshold passes). */
   minTrades: number;
@@ -117,11 +120,13 @@ function validateConfig(cfg: GateConfig): void {
 }
 
 /** Fraction of rolling `windowBars`-bar equity windows with a positive
- *  return (step 1). Null when the curve is too short to form one window. */
+ *  return (step 1). Null when the curve is too short to form one window or
+ *  contains a non-finite equity value. */
 export function rollingPositiveRatio(
   equity: BacktestResult['equity'],
   windowBars: number,
 ): number | null {
+  if (equity.some((point) => !Number.isFinite(point.equity))) return null;
   const windows = equity.length - windowBars;
   if (windows < 1) return null;
   let positive = 0;
@@ -131,29 +136,74 @@ export function rollingPositiveRatio(
   return positive / windows;
 }
 
-const utcMonth = (epochMs: number): string => {
+const utcMonth = (epochMs: number): string | null => {
   const d = new Date(epochMs);
+  if (!Number.isFinite(epochMs) || Number.isNaN(d.getTime())) return null;
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
 };
 
+interface ContributionEvidence {
+  value: number | null;
+  detail?: string;
+}
+
 /** Largest single positive contribution as a fraction of total profit.
- *  Null when total profit is not positive — concentration is then
- *  unverifiable and the criterion fails closed. */
-function maxContribution(pnls: number[]): number | null {
-  const total = pnls.reduce((sum, p) => sum + p, 0);
-  if (total <= 0) return null;
-  const largest = Math.max(...pnls, 0);
-  return largest / total;
+ *  Null when an input/total is non-finite or total profit is not positive —
+ *  concentration is then unverifiable and the criterion fails closed. */
+function maxContribution(pnls: number[]): ContributionEvidence {
+  let total = 0;
+  for (const pnl of pnls) {
+    if (!Number.isFinite(pnl)) {
+      return { value: null, detail: 'non-finite profit evidence' };
+    }
+    total += pnl;
+    if (!Number.isFinite(total)) {
+      return { value: null, detail: 'non-finite profit evidence' };
+    }
+  }
+  if (total <= 0) {
+    return { value: null, detail: 'no positive total profit to attribute' };
+  }
+  const largest = pnls.reduce((current, pnl) => Math.max(current, pnl), 0);
+  const value = largest / total;
+  return Number.isFinite(value)
+    ? { value }
+    : { value: null, detail: 'non-finite profit evidence' };
+}
+
+function monthlyContribution(trades: BacktestResult['trades']): ContributionEvidence {
+  const months = trades.map((trade) => utcMonth(trade.exitTime));
+  if (months.some((month) => month === null)) {
+    return { value: null, detail: 'invalid trade exit-time evidence' };
+  }
+
+  const byMonth = new Map<string, number>();
+  for (let index = 0; index < trades.length; index++) {
+    const month = months[index]!;
+    byMonth.set(month, (byMonth.get(month) ?? 0) + trades[index].pnl);
+  }
+  return maxContribution([...byMonth.values()]);
 }
 
 /**
- * Judge the §5.1 hard gate. Throws on invalid config or when any of the four
- * deterministic benchmarks is missing; every other evidence problem fails the
- * affected criterion instead of throwing.
+ * Judge the §5.1 hard gate. Throws on invalid config or when the deterministic
+ * benchmark set has missing/duplicate ids; every other evidence problem fails
+ * the affected criterion instead of throwing.
  */
 export function evaluateGate(args: EvaluateGateArgs): GateVerdict {
   const config: GateConfig = { ...DEFAULT_GATE_CONFIG, ...args.config };
   validateConfig(config);
+
+  const benchmarkCounts = new Map<BenchmarkRun['id'], number>();
+  for (const benchmark of args.benchmarks) {
+    benchmarkCounts.set(benchmark.id, (benchmarkCounts.get(benchmark.id) ?? 0) + 1);
+  }
+  const duplicates = DETERMINISTIC_BENCHMARK_IDS.filter(
+    (id) => (benchmarkCounts.get(id) ?? 0) > 1,
+  );
+  if (duplicates.length > 0) {
+    throw new RangeError(`duplicate deterministic benchmark(s): ${duplicates.join(', ')}`);
+  }
 
   const byId = new Map(args.benchmarks.map((b) => [b.id, b]));
   const missing = DETERMINISTIC_BENCHMARK_IDS.filter((id) => !byId.has(id));
@@ -166,18 +216,24 @@ export function evaluateGate(args: EvaluateGateArgs): GateVerdict {
 
   criteria.push({
     id: 'minTrades',
-    pass: metrics.tradeCount >= config.minTrades,
+    pass:
+      Number.isSafeInteger(metrics.tradeCount) &&
+      metrics.tradeCount >= 0 &&
+      metrics.tradeCount >= config.minTrades,
     value: metrics.tradeCount,
     threshold: config.minTrades,
   });
 
   criteria.push({
     id: 'avgTradeReturn',
-    pass: metrics.avgTradeReturn > config.minAvgTradeReturn,
+    pass:
+      Number.isFinite(metrics.avgTradeReturn) &&
+      metrics.avgTradeReturn > config.minAvgTradeReturn,
     value: metrics.avgTradeReturn,
     threshold: config.minAvgTradeReturn,
   });
 
+  const hasNonFiniteEquity = equity.some((point) => !Number.isFinite(point.equity));
   const rolling = rollingPositiveRatio(equity, config.rollingWindowBars);
   criteria.push({
     id: 'rollingConsistency',
@@ -185,43 +241,47 @@ export function evaluateGate(args: EvaluateGateArgs): GateVerdict {
     value: rolling,
     threshold: config.minRollingPositiveRatio,
     ...(rolling == null
-      ? { detail: `equity curve shorter than one ${config.rollingWindowBars}-bar window` }
+      ? {
+          detail: hasNonFiniteEquity
+            ? 'non-finite equity evidence'
+            : `equity curve shorter than one ${config.rollingWindowBars}-bar window`,
+        }
       : {}),
   });
 
   criteria.push({
     id: 'maxDrawdown',
-    pass: metrics.maxDrawdown <= config.maxDrawdown,
+    pass: Number.isFinite(metrics.maxDrawdown) && metrics.maxDrawdown <= config.maxDrawdown,
     value: metrics.maxDrawdown,
     threshold: config.maxDrawdown,
   });
 
-  const monthlyPnls = [...trades.reduce((acc, t) => {
-    const key = utcMonth(t.exitTime);
-    acc.set(key, (acc.get(key) ?? 0) + t.pnl);
-    return acc;
-  }, new Map<string, number>()).values()];
-  const monthly = maxContribution(monthlyPnls);
+  const monthly = monthlyContribution(trades);
   criteria.push({
     id: 'monthlyConcentration',
-    pass: monthly != null && monthly <= config.maxMonthlyContribution,
-    value: monthly,
+    pass: monthly.value != null && monthly.value <= config.maxMonthlyContribution,
+    value: monthly.value,
     threshold: config.maxMonthlyContribution,
-    ...(monthly == null ? { detail: 'no positive total profit to attribute' } : {}),
+    ...(monthly.detail ? { detail: monthly.detail } : {}),
   });
 
   const perTrade = maxContribution(trades.map((t) => t.pnl));
   criteria.push({
     id: 'tradeConcentration',
-    pass: perTrade != null && perTrade <= config.maxSingleTradeContribution,
-    value: perTrade,
+    pass: perTrade.value != null && perTrade.value <= config.maxSingleTradeContribution,
+    value: perTrade.value,
     threshold: config.maxSingleTradeContribution,
-    ...(perTrade == null ? { detail: 'no positive total profit to attribute' } : {}),
+    ...(perTrade.detail ? { detail: perTrade.detail } : {}),
   });
 
-  const lost = DETERMINISTIC_BENCHMARK_IDS.filter(
-    (id) => !(metrics.netReturn > byId.get(id)!.result.metrics.netReturn),
-  );
+  const lost = DETERMINISTIC_BENCHMARK_IDS.filter((id) => {
+    const benchmarkReturn = byId.get(id)!.result.metrics.netReturn;
+    return !(
+      Number.isFinite(metrics.netReturn) &&
+      Number.isFinite(benchmarkReturn) &&
+      metrics.netReturn > benchmarkReturn
+    );
+  });
   criteria.push({
     id: 'benchmarkWins',
     pass: lost.length === 0,
@@ -232,7 +292,9 @@ export function evaluateGate(args: EvaluateGateArgs): GateVerdict {
 
   criteria.push({
     id: 'randomEntryPercentile',
-    pass: args.randomEntry.candidatePercentile >= config.minRandomEntryPercentile,
+    pass:
+      Number.isFinite(args.randomEntry.candidatePercentile) &&
+      args.randomEntry.candidatePercentile >= config.minRandomEntryPercentile,
     value: args.randomEntry.candidatePercentile,
     threshold: config.minRandomEntryPercentile,
   });

@@ -1,6 +1,6 @@
 # RS-CORE cross-language parity
 
-Status: RS-CORE-001 through RS-CORE-004 implemented. TypeScript remains the
+Status: RS-CORE-001 through RS-CORE-005 implemented. TypeScript remains the
 reference implementation; Rust remains a pure computation library.
 
 ## Contract and ownership
@@ -50,7 +50,8 @@ later runner slice.
 
 1. Change the TypeScript reference and its direct tests intentionally.
 2. Bump the affected contract version when semantics change.
-3. Run `npm run fixtures:indicators` and review the entire generated diff.
+3. Run the affected `npm run fixtures:*` generator and review the entire
+   generated diff.
 4. Update the pure Rust implementation.
 5. Run `npm test`, `npm run typecheck`, `npm run build`, `cargo check --locked`,
    and `cargo test --locked`.
@@ -158,3 +159,39 @@ ports. Shared parity helpers keep trade/equity/metric comparison and
 METRIC-001 status handling identical between the backtest and benchmark test
 suites. Runner orchestration, SQLite, threads, events, UI, and hidden Test
 execution remain excluded.
+
+## RS-CORE-005: Gate and Score
+
+`src/parity/gateScoreFixture.ts` + `npm run fixtures:gate-score` own the
+committed `gate-score-parity-v1` envelope
+(`fixtures/rs-core/gate-score-v1.json`). Gate and Score remain independent
+computations: Score does not execute or enforce Gate, and the future runner
+owns the required Gate-before-Score ordering.
+
+- 6 params-only complexity cases cover all 12 currently supported signal ids.
+  Blocks/code complexity and the expression interpreter remain
+  TypeScript-only per the Resolution's discovery-v1 boundary.
+- 22 Gate cases compare complete JSON-safe encoded verdicts in the fixed
+  criterion order, including default/full/partial configuration, every
+  isolated failure, UTC and invalid-Date concentration, insufficient and
+  non-finite evidence with precise audit details, JavaScript safe-integer and
+  fractional limits, and extreme finite contribution arithmetic. 16
+  structural/config errors are held by the TypeScript reference.
+- 4 Score cases compare complete `score-v1` breakdowns in the fixed component
+  and penalty order, including partial configuration, all non-finite statuses,
+  negative-zero normalization, MAX_SAFE tested-combination evidence, and
+  scale-normalized population sigma over extreme finite inputs. 11 errors are
+  held by the TypeScript reference, including finite weights whose aggregate
+  contributions overflow.
+- Inputs use explicit `positive_infinity`, `negative_infinity`, `nan`, and
+  `negative_zero` tags. Expected outputs are finite-or-null and canonicalize
+  tolerant finite non-integer leaves to 15 significant decimal digits for
+  cross-Node/OS fixture stability. Object structure, arrays, strings,
+  booleans, nulls, statuses, and integer leaves (including MAX_SAFE) compare
+  exactly; only finite non-integer leaves use the reviewed numeric tolerance.
+
+`discovery_core/gate.rs` (`gate-v1`) and `score.rs` (`score-v1`) are the pure
+Rust ports. The Gate port exposes raw and JSON-safe encoded verdicts; the Score
+port accepts a params-only projection by construction. Their shared fixture
+consumer executes all success and TypeScript-held error cases without Tauri,
+SQLite, runner, thread, event, UI, or hidden Test-segment dependencies.

@@ -128,6 +128,10 @@ export interface ScoreCandidateArgs {
 
 // ---------- validation ----------
 
+/** JSON has no distinct negative-zero representation. Canonicalize it at the
+ * score boundary so a breakdown survives stringify/parse without changing. */
+const canonicalZero = (value: number): number => (Object.is(value, -0) ? 0 : value);
+
 function validateConfig(config: ScoreConfig): void {
   for (const [name, value] of Object.entries(config.caps)) {
     if (!Number.isFinite(value) || value <= 0) {
@@ -167,8 +171,16 @@ function ratioEntry<Id extends string>(
   if (raw === Infinity) {
     return { id, raw: null, rawStatus: 'positive_infinity', normalized: 1, weight, contribution: weight };
   }
-  const normalized = clamp01(normalize(raw));
-  return { id, raw, rawStatus: 'finite', normalized, weight, contribution: weight * normalized };
+  const finiteRaw = canonicalZero(raw);
+  const normalized = clamp01(normalize(finiteRaw));
+  return {
+    id,
+    raw: finiteRaw,
+    rawStatus: 'finite',
+    normalized,
+    weight,
+    contribution: weight * normalized,
+  };
 }
 
 // ---------- consistency (Resolution D3, revised) ----------
@@ -190,10 +202,27 @@ function consistencyEntry(
       evidence: { monthCount: months.length, monthlyStdDev: null },
     };
   }
-  const mean = months.reduce((a, b) => a + b, 0) / months.length;
-  const sigma = Math.sqrt(
-    months.reduce((a, b) => a + (b - mean) ** 2, 0) / months.length, // population
-  );
+
+  // Scale before calculating the population variance. Summing or squaring
+  // large-but-finite monthly returns directly can overflow even when the
+  // mathematically correct sigma is finite.
+  const scale = months.reduce((largest, value) => Math.max(largest, Math.abs(value)), 0);
+  const scaled = scale === 0 ? months : months.map((value) => value / scale);
+  const mean = scaled.reduce((sum, value) => sum + value, 0) / scaled.length;
+  const variance = scaled.reduce((sum, value) => sum + (value - mean) ** 2, 0) / scaled.length;
+  const scaledSigma = Math.sqrt(variance);
+  const sigma = canonicalZero(scaledSigma * (scale === 0 ? 1 : scale));
+  if (![mean, variance, scaledSigma, sigma].every(Number.isFinite)) {
+    return {
+      id: 'consistency',
+      raw: null,
+      rawStatus: 'invalid',
+      normalized: 0,
+      weight,
+      contribution: 0,
+      evidence: { monthCount: months.length, monthlyStdDev: null },
+    };
+  }
   const normalized = 1 / (1 + sigmaScale * sigma);
   return {
     id: 'consistency',
@@ -333,6 +362,9 @@ export function scoreCandidate(args: ScoreCandidateArgs): ScoreBreakdown {
     caps: { ...DEFAULT_SCORE_CONFIG.caps, ...args.config?.caps },
     weights: { ...DEFAULT_SCORE_CONFIG.weights, ...args.config?.weights },
   };
+  for (const key of Object.keys(config.weights) as (keyof ScoreWeights)[]) {
+    config.weights[key] = canonicalZero(config.weights[key]);
+  }
   validateConfig(config);
 
   const n = args.testedCombinations;
@@ -399,11 +431,15 @@ export function scoreCandidate(args: ScoreCandidateArgs): ScoreBreakdown {
 
   const positive = components.reduce((sum, c) => sum + c.contribution, 0);
   const penalty = penalties.reduce((sum, p) => sum + p.contribution, 0);
+  const score = positive - penalty;
+  if (![positive, penalty, score].every(Number.isFinite)) {
+    throw new RangeError('resolved score weights produce a non-finite score');
+  }
 
   return {
     formulaVersion: SCORE_FORMULA_VERSION,
     segment: 'validation',
-    score: positive - penalty,
+    score: canonicalZero(score),
     components,
     penalties,
     config,
