@@ -7,10 +7,8 @@
 // (e.g. a stop-loss gap), generation fails instead of silently degrading.
 
 import { runBacktest, type BacktestConfig, type Candle as CoreCandle } from '../core/backtest';
-import type { Metrics } from '../core/metrics';
 import { makeSampleCandles } from '../services/sampleData';
-import type { NonFiniteStatus } from '../services/nonFinite';
-import { nonFiniteStatus } from '../services/nonFinite';
+import { encodeMetricsForParity } from './parityEncode';
 
 import { FIXTURE_SOURCE_HASH_ENCODING } from './indicatorFixture';
 
@@ -30,8 +28,7 @@ export interface FixtureCandle {
   volume: number;
 }
 
-/** Finite number, or the METRIC-001 status of a legitimate non-finite value. */
-export type MetricLeaf = number | NonFiniteStatus;
+export type { MetricLeaf } from './parityEncode';
 
 const toCore = (candles: FixtureCandle[]): CoreCandle[] =>
   candles.map((candle) => ({
@@ -425,23 +422,6 @@ function buildErrorCases(): ErrorCaseDefinition[] {
   return cases;
 }
 
-const encodeLeaf = (value: number): MetricLeaf => nonFiniteStatus(value) ?? value;
-
-function encodeMetricsForParity(metrics: Metrics): Record<string, MetricLeaf | Record<string, number>> {
-  const encoded: Record<string, MetricLeaf | Record<string, number>> = {};
-  for (const [key, value] of Object.entries(metrics)) {
-    if (typeof value === 'number') {
-      encoded[key] = encodeLeaf(value);
-    } else {
-      for (const monthly of Object.values(value as Record<string, number>)) {
-        if (!Number.isFinite(monthly)) throw new Error('monthly returns must stay finite');
-      }
-      encoded[key] = { ...(value as Record<string, number>) };
-    }
-  }
-  return encoded;
-}
-
 function assertFiniteResult(id: string, result: ReturnType<typeof runBacktest>): void {
   for (const trade of result.trades) {
     for (const value of [trade.entryPrice, trade.exitPrice, trade.pnl, trade.pnlPct]) {
@@ -455,6 +435,8 @@ function assertFiniteResult(id: string, result: ReturnType<typeof runBacktest>):
 
 export interface FixtureSourceHashes {
   generator: string;
+  parityEncode: string;
+  nonFinite: string;
   backtest: string;
   metrics: string;
   sampleData: string;

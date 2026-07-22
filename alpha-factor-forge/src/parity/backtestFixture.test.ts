@@ -5,7 +5,9 @@ import { runBacktest, type BacktestConfig, type Candle } from '../core/backtest'
 import backtestSource from '../core/backtest/index.ts?raw';
 import metricsSource from '../core/metrics/index.ts?raw';
 import sampleDataSource from '../services/sampleData.ts?raw';
+import nonFiniteSource from '../services/nonFinite.ts?raw';
 import generatorSource from './backtestFixture.ts?raw';
+import parityEncodeSource from './parityEncode.ts?raw';
 import { canonicalizeFixtureSource, FIXTURE_SOURCE_HASH_ENCODING } from './indicatorFixture';
 import { buildBacktestParityFixture } from './backtestFixture';
 
@@ -17,6 +19,8 @@ describe('RS-CORE backtest parity fixture', () => {
   it('is exactly reproducible from the current TypeScript reference sources', async () => {
     const regenerated = buildBacktestParityFixture({
       generator: await hashSource(generatorSource),
+      parityEncode: await hashSource(parityEncodeSource),
+      nonFinite: await hashSource(nonFiniteSource),
       backtest: await hashSource(backtestSource),
       metrics: await hashSource(metricsSource),
       sampleData: await hashSource(sampleDataSource),

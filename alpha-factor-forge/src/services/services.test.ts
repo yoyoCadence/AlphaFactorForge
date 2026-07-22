@@ -68,6 +68,7 @@ describe('barsPerYear', () => {
     expect(barsPerYear('1h')).toBe(8760);
     expect(barsPerYear('1d')).toBe(365);
     expect(barsPerYear('nonsense')).toBe(365);
+    expect(barsPerYear('toString')).toBe(365);
   });
 });
 
