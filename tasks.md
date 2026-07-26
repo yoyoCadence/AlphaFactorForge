@@ -19,10 +19,13 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Next
 
-- [ ] **RUNNER-STORE-001** — next migration, run/job repositories, atomic candidate commit, recovery/idempotency tests; no worker pool or events. Blocked until RUNNER-CONFIG-001 merges.
-  - Continue strictly after merge: RUNNER-EXEC-001 → RUNNER-UI-001. Rust backend computation is final; hidden WebView and Node sidecar are rejected. Cross-run result reuse remains Backlog until a versioned immutable execution cache exists.
+- [ ] **RUNNER-EXEC-001** — fixed CPU worker pool, commands, pause/resume/cancel, single writer, and versioned events; no frontend UI. Blocked until RUNNER-STORE-001 merges.
+  - Continue strictly after merge: RUNNER-UI-001. Rust backend computation is final; hidden WebView and Node sidecar are rejected. Cross-run result reuse remains Backlog until a versioned immutable execution cache exists.
+  - On wiring the commands, REMOVE the module-level `#![allow(dead_code)]` in `src-tauri/src/db/discovery.rs` so genuinely dead code fails again.
 
 ## In Progress
+
+- [ ] **RUNNER-STORE-001** — migration 0003, run/job repositories, atomic candidate commit, recovery/idempotency tests; no worker pool or events.
 
 - [ ] Port the legacy AlphaFactorForge PWA UI into the React/Tauri structure (incremental)
   - Reality check: `AlphaFactorForge.dc.html` is a custom "dc"-framework export (`{{ }}` bindings, `<sc-for>`/`<sc-if>`, runtime `support.js`), ~1500 lines; app logic + initial state live in the `<script type="text/x-dc">` block (line ~685+). This is a REWRITE in React, not a copy-paste port.

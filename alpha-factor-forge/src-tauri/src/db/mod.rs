@@ -2,6 +2,9 @@
 // FULL parts: connection open, migration application, schema_version tracking.
 // Verify: cargo check; runtime verified locally via `cargo tauri dev`.
 
+pub mod discovery;
+#[cfg(test)]
+mod discovery_tests;
 pub mod repositories;
 
 use rusqlite::Connection;
@@ -16,6 +19,10 @@ const MIGRATIONS: &[(&str, &str)] = &[
     (
         "0002_validation_records",
         include_str!("../../migrations/0002_validation_records.sql"),
+    ),
+    (
+        "0003_discovery_runner",
+        include_str!("../../migrations/0003_discovery_runner.sql"),
     ),
 ];
 

@@ -276,8 +276,14 @@ fn insert_dataset(conn: &Connection, d: &Dataset) -> AppResult<i64> {
             end_time     = excluded.end_time,
             updated_at   = datetime('now')",
         params![
-            d.exchange, d.symbol, d.interval, d.start_time, d.end_time,
-            d.candle_count, d.source, d.dataset_hash
+            d.exchange,
+            d.symbol,
+            d.interval,
+            d.start_time,
+            d.end_time,
+            d.candle_count,
+            d.source,
+            d.dataset_hash
         ],
     )?;
     let id: i64 = conn.query_row(
@@ -313,7 +319,12 @@ pub fn list_datasets(conn: &Connection) -> AppResult<Vec<Dataset>> {
 
 // ---------- candles ----------
 
-pub fn get_candles(conn: &Connection, dataset_id: i64, from: i64, to: i64) -> AppResult<Vec<Candle>> {
+pub fn get_candles(
+    conn: &Connection,
+    dataset_id: i64,
+    from: i64,
+    to: i64,
+) -> AppResult<Vec<Candle>> {
     let mut stmt = conn.prepare(
         "SELECT timestamp, open, high, low, close, volume
          FROM candles
@@ -358,8 +369,16 @@ fn insert_strategy(conn: &Connection, s: &StrategyDef) -> AppResult<i64> {
              source     = excluded.source,
              updated_at = datetime('now')",
         params![
-            s.name, s.kind, s.dsl_json, s.original_definition_json, s.param_schema_json,
-            s.source, s.ai_prompt_hash, s.strategy_hash, s.lifecycle, s.parent_strategy_id
+            s.name,
+            s.kind,
+            s.dsl_json,
+            s.original_definition_json,
+            s.param_schema_json,
+            s.source,
+            s.ai_prompt_hash,
+            s.strategy_hash,
+            s.lifecycle,
+            s.parent_strategy_id
         ],
     )?;
     let id: i64 = conn.query_row(
@@ -454,7 +473,7 @@ pub fn insert_backtest_summary(conn: &Connection, s: &BacktestSummary) -> AppRes
 /// Callers own the transaction boundary: `save_backtest_result` wraps this in
 /// its own transaction, and `save_validation_bundle` runs it (twice) inside
 /// the whole-bundle transaction.
-fn write_backtest_result(
+pub(crate) fn write_backtest_result(
     conn: &Connection,
     summary: &BacktestSummary,
     trades: &[TradeRow],
@@ -653,7 +672,9 @@ pub fn validate_validation_bundle(
     }
     let env_score = envelope.get("score");
     if record.gate_passed {
-        let env_score_value = env_score.and_then(|s| s.get("score")).and_then(|v| v.as_f64());
+        let env_score_value = env_score
+            .and_then(|s| s.get("score"))
+            .and_then(|v| v.as_f64());
         if env_score_value != record.score {
             return fail("record_json score must equal the record row score");
         }
@@ -697,17 +718,34 @@ pub fn validate_validation_bundle(
 
 /// Append one immutable record (plain INSERT — never an upsert).
 fn insert_validation_record(conn: &Connection, r: &ValidationRecordRow) -> AppResult<i64> {
+    insert_validation_record_for_run(conn, r, None)
+}
+
+/// Same append, optionally linked to the discovery run that produced it.
+/// Manual UI saves pass `None` and stay outside the per-run uniqueness rule
+/// (migration 0003); runner assessments pass their run id so at most one
+/// assessment can exist per (run, strategy, dataset).
+///
+/// Takes `&Connection` so a caller-owned `Transaction` can pass itself in and
+/// keep the whole candidate commit atomic (Resolution D5).
+pub(crate) fn insert_validation_record_for_run(
+    conn: &Connection,
+    r: &ValidationRecordRow,
+    discovery_run_id: Option<i64>,
+) -> AppResult<i64> {
     conn.execute(
         "INSERT INTO validation_records
-            (strategy_id, dataset_id, record_version, gate_passed, score, record_json)
-         VALUES (?1,?2,?3,?4,?5,?6)",
+            (strategy_id, dataset_id, record_version, gate_passed, score, record_json,
+             discovery_run_id)
+         VALUES (?1,?2,?3,?4,?5,?6,?7)",
         params![
             r.strategy_id,
             r.dataset_id,
             r.record_version,
             r.gate_passed,
             r.score,
-            r.record_json
+            r.record_json,
+            discovery_run_id
         ],
     )?;
     Ok(conn.last_insert_rowid())
@@ -1097,8 +1135,7 @@ mod tests {
 
         let replacement = summary(strategy_id, dataset_id, 0.2);
         let replacement_id =
-            save_backtest_result(&mut conn, &replacement, &[trade(5, 6, Some("signal"))])
-                .unwrap();
+            save_backtest_result(&mut conn, &replacement, &[trade(5, 6, Some("signal"))]).unwrap();
 
         assert_eq!(replacement_id, summary_id);
         let (count, entry_time, reason): (i64, i64, Option<String>) = conn
@@ -1128,8 +1165,7 @@ mod tests {
         let mut conn = mem_db();
         let (strategy_id, dataset_id) = saved_parent_rows(&conn);
         let original = summary(strategy_id, dataset_id, 0.1);
-        let summary_id =
-            save_backtest_result(&mut conn, &original, &[trade(1, 2, None)]).unwrap();
+        let summary_id = save_backtest_result(&mut conn, &original, &[trade(1, 2, None)]).unwrap();
 
         conn.execute_batch(
             "CREATE TRIGGER reject_marked_trade
@@ -1173,11 +1209,16 @@ mod tests {
         )
         .unwrap();
 
-        conn.execute("DELETE FROM strategy_def WHERE id = ?1", params![strategy_id])
-            .unwrap();
+        conn.execute(
+            "DELETE FROM strategy_def WHERE id = ?1",
+            params![strategy_id],
+        )
+        .unwrap();
 
         let summaries: i64 = conn
-            .query_row("SELECT COUNT(*) FROM backtest_summary", [], |row| row.get(0))
+            .query_row("SELECT COUNT(*) FROM backtest_summary", [], |row| {
+                row.get(0)
+            })
             .unwrap();
         let trades: i64 = conn
             .query_row("SELECT COUNT(*) FROM trades", [], |row| row.get(0))
@@ -1199,7 +1240,11 @@ mod tests {
         r#"{"version":"bench-record-v1","benchmarks":[],"randomEntry":{"runs":20}}"#;
 
     fn record_json_for(strategy_id: i64, dataset_id: i64, gate_passed: bool) -> String {
-        let score = if gate_passed { TEST_BREAKDOWN.to_string() } else { "null".to_string() };
+        let score = if gate_passed {
+            TEST_BREAKDOWN.to_string()
+        } else {
+            "null".to_string()
+        };
         format!(
             r#"{{"version":"validation-record-v1","strategyId":{strategy_id},"datasetId":{dataset_id},"gatePassed":{gate_passed},"score":{score},"benchmark":{TEST_BENCHMARK}}}"#
         )
@@ -1248,11 +1293,21 @@ mod tests {
     }
 
     #[test]
-    fn migrations_apply_0002_and_rerun_idempotently() {
+    fn migrations_apply_through_0003_and_rerun_idempotently() {
         let conn = mem_db();
         assert_eq!(count(&conn, "validation_records"), 0, "table must exist");
+        // 0003 columns must exist on a freshly migrated database.
+        assert_eq!(count(&conn, "discovery_runs"), 0);
+        conn.query_row(
+            "SELECT candidate_index FROM discovery_jobs LIMIT 1",
+            [],
+            |r| r.get::<_, i64>(0),
+        )
+        .ok();
+        conn.prepare("SELECT discovery_run_id FROM validation_records")
+            .expect("0003 adds the run linkage column");
         crate::db::apply_migrations(&conn).expect("re-run must be a no-op");
-        assert_eq!(count(&conn, "schema_migrations"), 2);
+        assert_eq!(count(&conn, "schema_migrations"), 3);
     }
 
     #[test]
@@ -1281,7 +1336,12 @@ mod tests {
         assert_eq!(count(&conn, "strategy_def"), 1, "existing data survives");
         assert_eq!(count(&conn, "datasets"), 1);
         assert_eq!(count(&conn, "validation_records"), 0, "new table exists");
-        assert_eq!(count(&conn, "schema_migrations"), 2);
+        assert_eq!(count(&conn, "schema_migrations"), 3);
+        // The 0001 -> 0003 path must also land 0003's structure, not just 0002.
+        conn.prepare("SELECT discovery_run_id FROM validation_records")
+            .expect("0003 run linkage column");
+        conn.prepare("SELECT candidate_index FROM discovery_jobs")
+            .expect("0003 candidate index column");
     }
 
     #[test]
@@ -1296,12 +1356,24 @@ mod tests {
                 params![sid, dataset_id, gate, score],
             )
         };
-        assert!(insert(strategy_id, 2, None).is_err(), "gate_passed must be 0/1");
-        assert!(insert(strategy_id, 0, Some(1.0)).is_err(), "fail + score violates the D3 CHECK");
-        assert!(insert(strategy_id, 1, None).is_err(), "pass without score violates the D3 CHECK");
+        assert!(
+            insert(strategy_id, 2, None).is_err(),
+            "gate_passed must be 0/1"
+        );
+        assert!(
+            insert(strategy_id, 0, Some(1.0)).is_err(),
+            "fail + score violates the D3 CHECK"
+        );
+        assert!(
+            insert(strategy_id, 1, None).is_err(),
+            "pass without score violates the D3 CHECK"
+        );
         assert!(insert(strategy_id, 0, None).is_ok());
         assert!(insert(strategy_id, 1, Some(2.5)).is_ok());
-        assert!(insert(9999, 0, None).is_err(), "unknown strategy_id must violate the FK");
+        assert!(
+            insert(9999, 0, None).is_err(),
+            "unknown strategy_id must violate the FK"
+        );
     }
 
     #[test]
@@ -1336,9 +1408,15 @@ mod tests {
         r.gate_passed = false;
         v.gate_passed = Some(false);
         r.record_json = record_json_for(1, 2, false);
-        assert!(validate_validation_bundle(&t, &v, &r).is_err(), "record.score still set");
+        assert!(
+            validate_validation_bundle(&t, &v, &r).is_err(),
+            "record.score still set"
+        );
         r.score = None;
-        assert!(validate_validation_bundle(&t, &v, &r).is_err(), "summary score still set");
+        assert!(
+            validate_validation_bundle(&t, &v, &r).is_err(),
+            "summary score still set"
+        );
 
         // passing gate requires a FINITE score
         let (t, mut v, mut r) = passing_bundle(1, 2);
@@ -1381,8 +1459,9 @@ mod tests {
 
         // summary benchmark snapshot differs from the envelope's (valid shape)
         let (t, mut v, r) = passing_bundle(1, 2);
-        v.benchmark_result_json =
-            Some(r#"{"version":"bench-record-v1","benchmarks":[1],"randomEntry":{"runs":20}}"#.into());
+        v.benchmark_result_json = Some(
+            r#"{"version":"bench-record-v1","benchmarks":[1],"randomEntry":{"runs":20}}"#.into(),
+        );
         assert!(validate_validation_bundle(&t, &v, &r).is_err());
 
         // key-order differences alone are NOT a mismatch (structural compare)
@@ -1434,18 +1513,35 @@ mod tests {
         assert_eq!(count(&conn, "backtest_summary"), 2);
         assert_eq!(count(&conn, "trades"), 3);
         let read = get_validation_record(&conn, record_id).unwrap();
-        assert_eq!(read.record_json, record.record_json, "exact JSON reads back");
+        assert_eq!(
+            read.record_json, record.record_json,
+            "exact JSON reads back"
+        );
         assert!(read.gate_passed);
         assert_eq!(read.score, Some(2.65));
 
         // Append-only: a re-run appends a SECOND record while the summaries
         // upsert (latest view) and the trades replace.
-        let id2 = save_validation_bundle(&mut conn, &train, &[], &validation, &[], &record).unwrap();
+        let id2 =
+            save_validation_bundle(&mut conn, &train, &[], &validation, &[], &record).unwrap();
         assert_ne!(record_id, id2);
-        assert_eq!(list_validation_records(&conn, Some(strategy_id)).unwrap().len(), 2);
+        assert_eq!(
+            list_validation_records(&conn, Some(strategy_id))
+                .unwrap()
+                .len(),
+            2
+        );
         assert_eq!(list_validation_records(&conn, None).unwrap().len(), 2);
-        assert_eq!(count(&conn, "backtest_summary"), 2, "summaries stay the latest view");
-        assert_eq!(count(&conn, "trades"), 0, "trade rows replaced by the re-run");
+        assert_eq!(
+            count(&conn, "backtest_summary"),
+            2,
+            "summaries stay the latest view"
+        );
+        assert_eq!(
+            count(&conn, "trades"),
+            0,
+            "trade rows replaced by the re-run"
+        );
     }
 
     #[test]
@@ -1467,7 +1563,11 @@ mod tests {
             &record,
         );
         assert!(result.is_err());
-        assert_eq!(count(&conn, "backtest_summary"), 0, "train summary must roll back");
+        assert_eq!(
+            count(&conn, "backtest_summary"),
+            0,
+            "train summary must roll back"
+        );
         assert_eq!(count(&conn, "trades"), 0);
         assert_eq!(count(&conn, "validation_records"), 0);
     }
