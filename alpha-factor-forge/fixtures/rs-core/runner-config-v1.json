@@ -14,10 +14,10 @@
     "command": "npm run fixtures:runner-config",
     "sourceHashEncoding": "utf8-lf-v1",
     "sourceHashes": {
-      "generator": "sha256:2f60bd96d6753e60d50196aff037d84fa45ba7c394bba031a6ae3c22c492785c",
-      "discoveryConfig": "sha256:3261b9e2e41d7446eb2c703c377763a05077f2e3d1dd6d9c20cdae387e534952",
-      "candidateEnumeration": "sha256:67e16ec440a4c11d3541d04806a46bb77de4b7d019049aac381ad905316961c6",
-      "discoverySeed": "sha256:3a2c012c3e0d62e98cfdafb4f67eea9af6098fb474b26ecc090caf203b0ca021",
+      "generator": "sha256:7a728aa3d64c6531d7a15c6eec70ee6ee9a5dbedf20b4bc122102ee6267cfb94",
+      "discoveryConfig": "sha256:a87df85b28844420b916000fe169b63a71a086fc8d6ca509d85a3b9c9b71c792",
+      "candidateEnumeration": "sha256:1febc6ffd656777b0c1eca2420fc8cb6792e26ec1fdd45f208614d0fe7a52a06",
+      "discoverySeed": "sha256:e554aa682d57da5e195734689412cfd6509050d2213a9a4844cbbdb1855f05d6",
       "hashing": "sha256:ed2f1bd67868014afc28a4717d899950db86d134d74e0d249e82561a593d5a6e",
       "strategy": "sha256:d5540e44a8fdee608f6516806c523202361f2811a977c11d56b51e1844b0de78",
       "gate": "sha256:80b278434dc8f519f1260c20c293603a12e481b05cc48351b953ebc4acaae83f",
@@ -179,6 +179,46 @@
         "rootSeed": 1,
         "datasetContentHash": "dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "strategyHash": "ephemeral-fnv1a:0000000000000000",
+        "purpose": "random-entry"
+      },
+      "expectedErrorIncludes": "strategyHash must be a durable strategy-v2 identity"
+    },
+    {
+      "id": "seed-empty-dataset-digest",
+      "input": {
+        "rootSeed": 1,
+        "datasetContentHash": "dataset-content-v2:",
+        "strategyHash": "strategy-v2:1111111111111111111111111111111111111111111111111111111111111111",
+        "purpose": "random-entry"
+      },
+      "expectedErrorIncludes": "datasetContentHash must be a durable dataset-content-v2 identity"
+    },
+    {
+      "id": "seed-truncated-strategy-digest",
+      "input": {
+        "rootSeed": 1,
+        "datasetContentHash": "dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "strategyHash": "strategy-v2:abc123",
+        "purpose": "random-entry"
+      },
+      "expectedErrorIncludes": "strategyHash must be a durable strategy-v2 identity"
+    },
+    {
+      "id": "seed-uppercase-strategy-digest",
+      "input": {
+        "rootSeed": 1,
+        "datasetContentHash": "dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "strategyHash": "strategy-v2:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "purpose": "random-entry"
+      },
+      "expectedErrorIncludes": "strategyHash must be a durable strategy-v2 identity"
+    },
+    {
+      "id": "seed-non-hex-strategy-digest",
+      "input": {
+        "rootSeed": 1,
+        "datasetContentHash": "dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "strategyHash": "strategy-v2:gggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg",
         "purpose": "random-entry"
       },
       "expectedErrorIncludes": "strategyHash must be a durable strategy-v2 identity"
@@ -1195,6 +1235,138 @@
       "expectedErrorIncludes": "discoveryConfig has unknown key \"extra\""
     },
     {
+      "id": "config-unknown-key-utf8-order",
+      "logicalCores": 8,
+      "input": {
+        "envelopeVersion": "discovery-config-v1",
+        "contracts": {
+          "strategyHash": "strategy-v2",
+          "datasetHash": "dataset-content-v2",
+          "split": "validation-split-v1",
+          "embargo": "embargo-derivation-v1",
+          "backtest": "backtest-execution-v1",
+          "metrics": "metrics-v1",
+          "benchmarks": "benchmark-suite-v1",
+          "randomEntry": "random-entry-v1",
+          "gate": "gate-v1",
+          "score": "score-v1",
+          "seed": "seed-v1",
+          "enumeration": "discovery-enumeration-v1"
+        },
+        "dataset": {
+          "id": 7,
+          "contentHash": "dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "bases": [
+          {
+            "id": "ma-cross",
+            "presetVersion": "discovery-preset-v1",
+            "strategy": {
+              "mode": "params",
+              "fastMA": 9,
+              "slowMA": 21,
+              "emaPeriod": 50,
+              "rsiPeriod": 14,
+              "rsiBuy": 30,
+              "rsiSell": 70,
+              "macdFast": 12,
+              "macdSlow": 26,
+              "macdSignal": 9,
+              "bbPeriod": 20,
+              "bbMult": 2,
+              "entrySig": "maCrossUp",
+              "exitSig": "maCrossDown",
+              "entryRules": [
+                {
+                  "l": "maFast",
+                  "op": "crossUp",
+                  "r": "maSlow"
+                }
+              ],
+              "exitRules": [
+                {
+                  "l": "maFast",
+                  "op": "crossDown",
+                  "r": "maSlow"
+                }
+              ],
+              "entryCode": "crossUp(macd, macdSignal)",
+              "exitCode": "crossDown(macd, macdSignal)",
+              "slPct": 0,
+              "tpPct": 0,
+              "feePct": 0.05,
+              "slipPct": 0.02,
+              "sizePct": 100,
+              "fillMode": "close",
+              "direction": "long"
+            },
+            "axes": [
+              {
+                "key": "fastMA",
+                "min": 5,
+                "max": 11,
+                "step": 3
+              }
+            ]
+          }
+        ],
+        "embargo": {
+          "holdingAllowanceBars": 10
+        },
+        "execution": {
+          "startEquity": 10000
+        },
+        "benchmarkCosts": {
+          "feePct": 0.05,
+          "slipPct": 0.02
+        },
+        "randomEntry": {
+          "runs": 200
+        },
+        "gateConfig": {
+          "minTrades": 30,
+          "minAvgTradeReturn": 0,
+          "rollingWindowBars": 30,
+          "minRollingPositiveRatio": 0.55,
+          "maxDrawdown": 0.35,
+          "maxMonthlyContribution": 0.4,
+          "maxSingleTradeContribution": 0.25,
+          "minRandomEntryPercentile": 95
+        },
+        "scoreConfig": {
+          "caps": {
+            "cagr": 1,
+            "sortino": 5,
+            "calmar": 5,
+            "profitFactor": 3,
+            "consistencySigmaScale": 10,
+            "complexityUnits": 40,
+            "turnover": 0.1,
+            "dataMiningLog10": 4
+          },
+          "weights": {
+            "cagr": 1,
+            "sortino": 1,
+            "calmar": 1,
+            "regime": 0,
+            "profitFactor": 1,
+            "consistency": 1,
+            "complexity": 0.5,
+            "turnover": 0.5,
+            "dataMining": 1
+          }
+        },
+        "rootSeed": 20260726,
+        "caps": {
+          "candidates": 256
+        },
+        "maxConcurrency": null,
+        "😀": 1,
+        "＀": 1
+      },
+      "expectedErrorIncludes": "discoveryConfig has unknown key \"＀\""
+    },
+    {
       "id": "config-missing-envelope-key",
       "logicalCores": 8,
       "input": {
@@ -1735,6 +1907,266 @@
         "dataset": {
           "id": 7,
           "contentHash": "legacy-unversioned"
+        },
+        "bases": [
+          {
+            "id": "ma-cross",
+            "presetVersion": "discovery-preset-v1",
+            "strategy": {
+              "mode": "params",
+              "fastMA": 9,
+              "slowMA": 21,
+              "emaPeriod": 50,
+              "rsiPeriod": 14,
+              "rsiBuy": 30,
+              "rsiSell": 70,
+              "macdFast": 12,
+              "macdSlow": 26,
+              "macdSignal": 9,
+              "bbPeriod": 20,
+              "bbMult": 2,
+              "entrySig": "maCrossUp",
+              "exitSig": "maCrossDown",
+              "entryRules": [
+                {
+                  "l": "maFast",
+                  "op": "crossUp",
+                  "r": "maSlow"
+                }
+              ],
+              "exitRules": [
+                {
+                  "l": "maFast",
+                  "op": "crossDown",
+                  "r": "maSlow"
+                }
+              ],
+              "entryCode": "crossUp(macd, macdSignal)",
+              "exitCode": "crossDown(macd, macdSignal)",
+              "slPct": 0,
+              "tpPct": 0,
+              "feePct": 0.05,
+              "slipPct": 0.02,
+              "sizePct": 100,
+              "fillMode": "close",
+              "direction": "long"
+            },
+            "axes": [
+              {
+                "key": "fastMA",
+                "min": 5,
+                "max": 11,
+                "step": 3
+              }
+            ]
+          }
+        ],
+        "embargo": {
+          "holdingAllowanceBars": 10
+        },
+        "execution": {
+          "startEquity": 10000
+        },
+        "benchmarkCosts": {
+          "feePct": 0.05,
+          "slipPct": 0.02
+        },
+        "randomEntry": {
+          "runs": 200
+        },
+        "gateConfig": {
+          "minTrades": 30,
+          "minAvgTradeReturn": 0,
+          "rollingWindowBars": 30,
+          "minRollingPositiveRatio": 0.55,
+          "maxDrawdown": 0.35,
+          "maxMonthlyContribution": 0.4,
+          "maxSingleTradeContribution": 0.25,
+          "minRandomEntryPercentile": 95
+        },
+        "scoreConfig": {
+          "caps": {
+            "cagr": 1,
+            "sortino": 5,
+            "calmar": 5,
+            "profitFactor": 3,
+            "consistencySigmaScale": 10,
+            "complexityUnits": 40,
+            "turnover": 0.1,
+            "dataMiningLog10": 4
+          },
+          "weights": {
+            "cagr": 1,
+            "sortino": 1,
+            "calmar": 1,
+            "regime": 0,
+            "profitFactor": 1,
+            "consistency": 1,
+            "complexity": 0.5,
+            "turnover": 0.5,
+            "dataMining": 1
+          }
+        },
+        "rootSeed": 20260726,
+        "caps": {
+          "candidates": 256
+        },
+        "maxConcurrency": null
+      },
+      "expectedErrorIncludes": "contentHash must be a durable dataset-content-v2 identity"
+    },
+    {
+      "id": "config-dataset-empty-digest",
+      "logicalCores": 8,
+      "input": {
+        "envelopeVersion": "discovery-config-v1",
+        "contracts": {
+          "strategyHash": "strategy-v2",
+          "datasetHash": "dataset-content-v2",
+          "split": "validation-split-v1",
+          "embargo": "embargo-derivation-v1",
+          "backtest": "backtest-execution-v1",
+          "metrics": "metrics-v1",
+          "benchmarks": "benchmark-suite-v1",
+          "randomEntry": "random-entry-v1",
+          "gate": "gate-v1",
+          "score": "score-v1",
+          "seed": "seed-v1",
+          "enumeration": "discovery-enumeration-v1"
+        },
+        "dataset": {
+          "id": 7,
+          "contentHash": "dataset-content-v2:"
+        },
+        "bases": [
+          {
+            "id": "ma-cross",
+            "presetVersion": "discovery-preset-v1",
+            "strategy": {
+              "mode": "params",
+              "fastMA": 9,
+              "slowMA": 21,
+              "emaPeriod": 50,
+              "rsiPeriod": 14,
+              "rsiBuy": 30,
+              "rsiSell": 70,
+              "macdFast": 12,
+              "macdSlow": 26,
+              "macdSignal": 9,
+              "bbPeriod": 20,
+              "bbMult": 2,
+              "entrySig": "maCrossUp",
+              "exitSig": "maCrossDown",
+              "entryRules": [
+                {
+                  "l": "maFast",
+                  "op": "crossUp",
+                  "r": "maSlow"
+                }
+              ],
+              "exitRules": [
+                {
+                  "l": "maFast",
+                  "op": "crossDown",
+                  "r": "maSlow"
+                }
+              ],
+              "entryCode": "crossUp(macd, macdSignal)",
+              "exitCode": "crossDown(macd, macdSignal)",
+              "slPct": 0,
+              "tpPct": 0,
+              "feePct": 0.05,
+              "slipPct": 0.02,
+              "sizePct": 100,
+              "fillMode": "close",
+              "direction": "long"
+            },
+            "axes": [
+              {
+                "key": "fastMA",
+                "min": 5,
+                "max": 11,
+                "step": 3
+              }
+            ]
+          }
+        ],
+        "embargo": {
+          "holdingAllowanceBars": 10
+        },
+        "execution": {
+          "startEquity": 10000
+        },
+        "benchmarkCosts": {
+          "feePct": 0.05,
+          "slipPct": 0.02
+        },
+        "randomEntry": {
+          "runs": 200
+        },
+        "gateConfig": {
+          "minTrades": 30,
+          "minAvgTradeReturn": 0,
+          "rollingWindowBars": 30,
+          "minRollingPositiveRatio": 0.55,
+          "maxDrawdown": 0.35,
+          "maxMonthlyContribution": 0.4,
+          "maxSingleTradeContribution": 0.25,
+          "minRandomEntryPercentile": 95
+        },
+        "scoreConfig": {
+          "caps": {
+            "cagr": 1,
+            "sortino": 5,
+            "calmar": 5,
+            "profitFactor": 3,
+            "consistencySigmaScale": 10,
+            "complexityUnits": 40,
+            "turnover": 0.1,
+            "dataMiningLog10": 4
+          },
+          "weights": {
+            "cagr": 1,
+            "sortino": 1,
+            "calmar": 1,
+            "regime": 0,
+            "profitFactor": 1,
+            "consistency": 1,
+            "complexity": 0.5,
+            "turnover": 0.5,
+            "dataMining": 1
+          }
+        },
+        "rootSeed": 20260726,
+        "caps": {
+          "candidates": 256
+        },
+        "maxConcurrency": null
+      },
+      "expectedErrorIncludes": "contentHash must be a durable dataset-content-v2 identity"
+    },
+    {
+      "id": "config-dataset-uppercase-digest",
+      "logicalCores": 8,
+      "input": {
+        "envelopeVersion": "discovery-config-v1",
+        "contracts": {
+          "strategyHash": "strategy-v2",
+          "datasetHash": "dataset-content-v2",
+          "split": "validation-split-v1",
+          "embargo": "embargo-derivation-v1",
+          "backtest": "backtest-execution-v1",
+          "metrics": "metrics-v1",
+          "benchmarks": "benchmark-suite-v1",
+          "randomEntry": "random-entry-v1",
+          "gate": "gate-v1",
+          "score": "score-v1",
+          "seed": "seed-v1",
+          "enumeration": "discovery-enumeration-v1"
+        },
+        "dataset": {
+          "id": 7,
+          "contentHash": "dataset-content-v2:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
         },
         "bases": [
           {
@@ -3272,6 +3704,656 @@
         "maxConcurrency": null
       },
       "expectedErrorIncludes": "sizePct must be in (0, 100]"
+    },
+    {
+      "id": "config-fee-percent-above-range",
+      "logicalCores": 8,
+      "input": {
+        "envelopeVersion": "discovery-config-v1",
+        "contracts": {
+          "strategyHash": "strategy-v2",
+          "datasetHash": "dataset-content-v2",
+          "split": "validation-split-v1",
+          "embargo": "embargo-derivation-v1",
+          "backtest": "backtest-execution-v1",
+          "metrics": "metrics-v1",
+          "benchmarks": "benchmark-suite-v1",
+          "randomEntry": "random-entry-v1",
+          "gate": "gate-v1",
+          "score": "score-v1",
+          "seed": "seed-v1",
+          "enumeration": "discovery-enumeration-v1"
+        },
+        "dataset": {
+          "id": 7,
+          "contentHash": "dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "bases": [
+          {
+            "id": "ma-cross",
+            "presetVersion": "discovery-preset-v1",
+            "strategy": {
+              "mode": "params",
+              "fastMA": 9,
+              "slowMA": 21,
+              "emaPeriod": 50,
+              "rsiPeriod": 14,
+              "rsiBuy": 30,
+              "rsiSell": 70,
+              "macdFast": 12,
+              "macdSlow": 26,
+              "macdSignal": 9,
+              "bbPeriod": 20,
+              "bbMult": 2,
+              "entrySig": "maCrossUp",
+              "exitSig": "maCrossDown",
+              "entryRules": [
+                {
+                  "l": "maFast",
+                  "op": "crossUp",
+                  "r": "maSlow"
+                }
+              ],
+              "exitRules": [
+                {
+                  "l": "maFast",
+                  "op": "crossDown",
+                  "r": "maSlow"
+                }
+              ],
+              "entryCode": "crossUp(macd, macdSignal)",
+              "exitCode": "crossDown(macd, macdSignal)",
+              "slPct": 0,
+              "tpPct": 0,
+              "feePct": 101,
+              "slipPct": 0.02,
+              "sizePct": 100,
+              "fillMode": "close",
+              "direction": "long"
+            },
+            "axes": [
+              {
+                "key": "fastMA",
+                "min": 5,
+                "max": 11,
+                "step": 3
+              }
+            ]
+          }
+        ],
+        "embargo": {
+          "holdingAllowanceBars": 10
+        },
+        "execution": {
+          "startEquity": 10000
+        },
+        "benchmarkCosts": {
+          "feePct": 0.05,
+          "slipPct": 0.02
+        },
+        "randomEntry": {
+          "runs": 200
+        },
+        "gateConfig": {
+          "minTrades": 30,
+          "minAvgTradeReturn": 0,
+          "rollingWindowBars": 30,
+          "minRollingPositiveRatio": 0.55,
+          "maxDrawdown": 0.35,
+          "maxMonthlyContribution": 0.4,
+          "maxSingleTradeContribution": 0.25,
+          "minRandomEntryPercentile": 95
+        },
+        "scoreConfig": {
+          "caps": {
+            "cagr": 1,
+            "sortino": 5,
+            "calmar": 5,
+            "profitFactor": 3,
+            "consistencySigmaScale": 10,
+            "complexityUnits": 40,
+            "turnover": 0.1,
+            "dataMiningLog10": 4
+          },
+          "weights": {
+            "cagr": 1,
+            "sortino": 1,
+            "calmar": 1,
+            "regime": 0,
+            "profitFactor": 1,
+            "consistency": 1,
+            "complexity": 0.5,
+            "turnover": 0.5,
+            "dataMining": 1
+          }
+        },
+        "rootSeed": 20260726,
+        "caps": {
+          "candidates": 256
+        },
+        "maxConcurrency": null
+      },
+      "expectedErrorIncludes": "feePct must be in [0, 100]"
+    },
+    {
+      "id": "config-slippage-percent-above-range",
+      "logicalCores": 8,
+      "input": {
+        "envelopeVersion": "discovery-config-v1",
+        "contracts": {
+          "strategyHash": "strategy-v2",
+          "datasetHash": "dataset-content-v2",
+          "split": "validation-split-v1",
+          "embargo": "embargo-derivation-v1",
+          "backtest": "backtest-execution-v1",
+          "metrics": "metrics-v1",
+          "benchmarks": "benchmark-suite-v1",
+          "randomEntry": "random-entry-v1",
+          "gate": "gate-v1",
+          "score": "score-v1",
+          "seed": "seed-v1",
+          "enumeration": "discovery-enumeration-v1"
+        },
+        "dataset": {
+          "id": 7,
+          "contentHash": "dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "bases": [
+          {
+            "id": "ma-cross",
+            "presetVersion": "discovery-preset-v1",
+            "strategy": {
+              "mode": "params",
+              "fastMA": 9,
+              "slowMA": 21,
+              "emaPeriod": 50,
+              "rsiPeriod": 14,
+              "rsiBuy": 30,
+              "rsiSell": 70,
+              "macdFast": 12,
+              "macdSlow": 26,
+              "macdSignal": 9,
+              "bbPeriod": 20,
+              "bbMult": 2,
+              "entrySig": "maCrossUp",
+              "exitSig": "maCrossDown",
+              "entryRules": [
+                {
+                  "l": "maFast",
+                  "op": "crossUp",
+                  "r": "maSlow"
+                }
+              ],
+              "exitRules": [
+                {
+                  "l": "maFast",
+                  "op": "crossDown",
+                  "r": "maSlow"
+                }
+              ],
+              "entryCode": "crossUp(macd, macdSignal)",
+              "exitCode": "crossDown(macd, macdSignal)",
+              "slPct": 0,
+              "tpPct": 0,
+              "feePct": 0.05,
+              "slipPct": 100.5,
+              "sizePct": 100,
+              "fillMode": "close",
+              "direction": "long"
+            },
+            "axes": [
+              {
+                "key": "fastMA",
+                "min": 5,
+                "max": 11,
+                "step": 3
+              }
+            ]
+          }
+        ],
+        "embargo": {
+          "holdingAllowanceBars": 10
+        },
+        "execution": {
+          "startEquity": 10000
+        },
+        "benchmarkCosts": {
+          "feePct": 0.05,
+          "slipPct": 0.02
+        },
+        "randomEntry": {
+          "runs": 200
+        },
+        "gateConfig": {
+          "minTrades": 30,
+          "minAvgTradeReturn": 0,
+          "rollingWindowBars": 30,
+          "minRollingPositiveRatio": 0.55,
+          "maxDrawdown": 0.35,
+          "maxMonthlyContribution": 0.4,
+          "maxSingleTradeContribution": 0.25,
+          "minRandomEntryPercentile": 95
+        },
+        "scoreConfig": {
+          "caps": {
+            "cagr": 1,
+            "sortino": 5,
+            "calmar": 5,
+            "profitFactor": 3,
+            "consistencySigmaScale": 10,
+            "complexityUnits": 40,
+            "turnover": 0.1,
+            "dataMiningLog10": 4
+          },
+          "weights": {
+            "cagr": 1,
+            "sortino": 1,
+            "calmar": 1,
+            "regime": 0,
+            "profitFactor": 1,
+            "consistency": 1,
+            "complexity": 0.5,
+            "turnover": 0.5,
+            "dataMining": 1
+          }
+        },
+        "rootSeed": 20260726,
+        "caps": {
+          "candidates": 256
+        },
+        "maxConcurrency": null
+      },
+      "expectedErrorIncludes": "slipPct must be in [0, 100]"
+    },
+    {
+      "id": "config-stop-loss-percent-above-range",
+      "logicalCores": 8,
+      "input": {
+        "envelopeVersion": "discovery-config-v1",
+        "contracts": {
+          "strategyHash": "strategy-v2",
+          "datasetHash": "dataset-content-v2",
+          "split": "validation-split-v1",
+          "embargo": "embargo-derivation-v1",
+          "backtest": "backtest-execution-v1",
+          "metrics": "metrics-v1",
+          "benchmarks": "benchmark-suite-v1",
+          "randomEntry": "random-entry-v1",
+          "gate": "gate-v1",
+          "score": "score-v1",
+          "seed": "seed-v1",
+          "enumeration": "discovery-enumeration-v1"
+        },
+        "dataset": {
+          "id": 7,
+          "contentHash": "dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "bases": [
+          {
+            "id": "ma-cross",
+            "presetVersion": "discovery-preset-v1",
+            "strategy": {
+              "mode": "params",
+              "fastMA": 9,
+              "slowMA": 21,
+              "emaPeriod": 50,
+              "rsiPeriod": 14,
+              "rsiBuy": 30,
+              "rsiSell": 70,
+              "macdFast": 12,
+              "macdSlow": 26,
+              "macdSignal": 9,
+              "bbPeriod": 20,
+              "bbMult": 2,
+              "entrySig": "maCrossUp",
+              "exitSig": "maCrossDown",
+              "entryRules": [
+                {
+                  "l": "maFast",
+                  "op": "crossUp",
+                  "r": "maSlow"
+                }
+              ],
+              "exitRules": [
+                {
+                  "l": "maFast",
+                  "op": "crossDown",
+                  "r": "maSlow"
+                }
+              ],
+              "entryCode": "crossUp(macd, macdSignal)",
+              "exitCode": "crossDown(macd, macdSignal)",
+              "slPct": 101,
+              "tpPct": 0,
+              "feePct": 0.05,
+              "slipPct": 0.02,
+              "sizePct": 100,
+              "fillMode": "close",
+              "direction": "long"
+            },
+            "axes": [
+              {
+                "key": "fastMA",
+                "min": 5,
+                "max": 11,
+                "step": 3
+              }
+            ]
+          }
+        ],
+        "embargo": {
+          "holdingAllowanceBars": 10
+        },
+        "execution": {
+          "startEquity": 10000
+        },
+        "benchmarkCosts": {
+          "feePct": 0.05,
+          "slipPct": 0.02
+        },
+        "randomEntry": {
+          "runs": 200
+        },
+        "gateConfig": {
+          "minTrades": 30,
+          "minAvgTradeReturn": 0,
+          "rollingWindowBars": 30,
+          "minRollingPositiveRatio": 0.55,
+          "maxDrawdown": 0.35,
+          "maxMonthlyContribution": 0.4,
+          "maxSingleTradeContribution": 0.25,
+          "minRandomEntryPercentile": 95
+        },
+        "scoreConfig": {
+          "caps": {
+            "cagr": 1,
+            "sortino": 5,
+            "calmar": 5,
+            "profitFactor": 3,
+            "consistencySigmaScale": 10,
+            "complexityUnits": 40,
+            "turnover": 0.1,
+            "dataMiningLog10": 4
+          },
+          "weights": {
+            "cagr": 1,
+            "sortino": 1,
+            "calmar": 1,
+            "regime": 0,
+            "profitFactor": 1,
+            "consistency": 1,
+            "complexity": 0.5,
+            "turnover": 0.5,
+            "dataMining": 1
+          }
+        },
+        "rootSeed": 20260726,
+        "caps": {
+          "candidates": 256
+        },
+        "maxConcurrency": null
+      },
+      "expectedErrorIncludes": "slPct must be in [0, 100]"
+    },
+    {
+      "id": "config-take-profit-percent-negative",
+      "logicalCores": 8,
+      "input": {
+        "envelopeVersion": "discovery-config-v1",
+        "contracts": {
+          "strategyHash": "strategy-v2",
+          "datasetHash": "dataset-content-v2",
+          "split": "validation-split-v1",
+          "embargo": "embargo-derivation-v1",
+          "backtest": "backtest-execution-v1",
+          "metrics": "metrics-v1",
+          "benchmarks": "benchmark-suite-v1",
+          "randomEntry": "random-entry-v1",
+          "gate": "gate-v1",
+          "score": "score-v1",
+          "seed": "seed-v1",
+          "enumeration": "discovery-enumeration-v1"
+        },
+        "dataset": {
+          "id": 7,
+          "contentHash": "dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "bases": [
+          {
+            "id": "ma-cross",
+            "presetVersion": "discovery-preset-v1",
+            "strategy": {
+              "mode": "params",
+              "fastMA": 9,
+              "slowMA": 21,
+              "emaPeriod": 50,
+              "rsiPeriod": 14,
+              "rsiBuy": 30,
+              "rsiSell": 70,
+              "macdFast": 12,
+              "macdSlow": 26,
+              "macdSignal": 9,
+              "bbPeriod": 20,
+              "bbMult": 2,
+              "entrySig": "maCrossUp",
+              "exitSig": "maCrossDown",
+              "entryRules": [
+                {
+                  "l": "maFast",
+                  "op": "crossUp",
+                  "r": "maSlow"
+                }
+              ],
+              "exitRules": [
+                {
+                  "l": "maFast",
+                  "op": "crossDown",
+                  "r": "maSlow"
+                }
+              ],
+              "entryCode": "crossUp(macd, macdSignal)",
+              "exitCode": "crossDown(macd, macdSignal)",
+              "slPct": 0,
+              "tpPct": -1,
+              "feePct": 0.05,
+              "slipPct": 0.02,
+              "sizePct": 100,
+              "fillMode": "close",
+              "direction": "long"
+            },
+            "axes": [
+              {
+                "key": "fastMA",
+                "min": 5,
+                "max": 11,
+                "step": 3
+              }
+            ]
+          }
+        ],
+        "embargo": {
+          "holdingAllowanceBars": 10
+        },
+        "execution": {
+          "startEquity": 10000
+        },
+        "benchmarkCosts": {
+          "feePct": 0.05,
+          "slipPct": 0.02
+        },
+        "randomEntry": {
+          "runs": 200
+        },
+        "gateConfig": {
+          "minTrades": 30,
+          "minAvgTradeReturn": 0,
+          "rollingWindowBars": 30,
+          "minRollingPositiveRatio": 0.55,
+          "maxDrawdown": 0.35,
+          "maxMonthlyContribution": 0.4,
+          "maxSingleTradeContribution": 0.25,
+          "minRandomEntryPercentile": 95
+        },
+        "scoreConfig": {
+          "caps": {
+            "cagr": 1,
+            "sortino": 5,
+            "calmar": 5,
+            "profitFactor": 3,
+            "consistencySigmaScale": 10,
+            "complexityUnits": 40,
+            "turnover": 0.1,
+            "dataMiningLog10": 4
+          },
+          "weights": {
+            "cagr": 1,
+            "sortino": 1,
+            "calmar": 1,
+            "regime": 0,
+            "profitFactor": 1,
+            "consistency": 1,
+            "complexity": 0.5,
+            "turnover": 0.5,
+            "dataMining": 1
+          }
+        },
+        "rootSeed": 20260726,
+        "caps": {
+          "candidates": 256
+        },
+        "maxConcurrency": null
+      },
+      "expectedErrorIncludes": "tpPct must be in [0, 100]"
+    },
+    {
+      "id": "config-axis-generates-percent-above-range",
+      "logicalCores": 8,
+      "input": {
+        "envelopeVersion": "discovery-config-v1",
+        "contracts": {
+          "strategyHash": "strategy-v2",
+          "datasetHash": "dataset-content-v2",
+          "split": "validation-split-v1",
+          "embargo": "embargo-derivation-v1",
+          "backtest": "backtest-execution-v1",
+          "metrics": "metrics-v1",
+          "benchmarks": "benchmark-suite-v1",
+          "randomEntry": "random-entry-v1",
+          "gate": "gate-v1",
+          "score": "score-v1",
+          "seed": "seed-v1",
+          "enumeration": "discovery-enumeration-v1"
+        },
+        "dataset": {
+          "id": 7,
+          "contentHash": "dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "bases": [
+          {
+            "id": "ma-cross",
+            "presetVersion": "discovery-preset-v1",
+            "strategy": {
+              "mode": "params",
+              "fastMA": 9,
+              "slowMA": 21,
+              "emaPeriod": 50,
+              "rsiPeriod": 14,
+              "rsiBuy": 30,
+              "rsiSell": 70,
+              "macdFast": 12,
+              "macdSlow": 26,
+              "macdSignal": 9,
+              "bbPeriod": 20,
+              "bbMult": 2,
+              "entrySig": "maCrossUp",
+              "exitSig": "maCrossDown",
+              "entryRules": [
+                {
+                  "l": "maFast",
+                  "op": "crossUp",
+                  "r": "maSlow"
+                }
+              ],
+              "exitRules": [
+                {
+                  "l": "maFast",
+                  "op": "crossDown",
+                  "r": "maSlow"
+                }
+              ],
+              "entryCode": "crossUp(macd, macdSignal)",
+              "exitCode": "crossDown(macd, macdSignal)",
+              "slPct": 0,
+              "tpPct": 0,
+              "feePct": 0.05,
+              "slipPct": 0.02,
+              "sizePct": 100,
+              "fillMode": "close",
+              "direction": "long"
+            },
+            "axes": [
+              {
+                "key": "tpPct",
+                "min": 90,
+                "max": 110,
+                "step": 10
+              }
+            ]
+          }
+        ],
+        "embargo": {
+          "holdingAllowanceBars": 10
+        },
+        "execution": {
+          "startEquity": 10000
+        },
+        "benchmarkCosts": {
+          "feePct": 0.05,
+          "slipPct": 0.02
+        },
+        "randomEntry": {
+          "runs": 200
+        },
+        "gateConfig": {
+          "minTrades": 30,
+          "minAvgTradeReturn": 0,
+          "rollingWindowBars": 30,
+          "minRollingPositiveRatio": 0.55,
+          "maxDrawdown": 0.35,
+          "maxMonthlyContribution": 0.4,
+          "maxSingleTradeContribution": 0.25,
+          "minRandomEntryPercentile": 95
+        },
+        "scoreConfig": {
+          "caps": {
+            "cagr": 1,
+            "sortino": 5,
+            "calmar": 5,
+            "profitFactor": 3,
+            "consistencySigmaScale": 10,
+            "complexityUnits": 40,
+            "turnover": 0.1,
+            "dataMiningLog10": 4
+          },
+          "weights": {
+            "cagr": 1,
+            "sortino": 1,
+            "calmar": 1,
+            "regime": 0,
+            "profitFactor": 1,
+            "consistency": 1,
+            "complexity": 0.5,
+            "turnover": 0.5,
+            "dataMining": 1
+          }
+        },
+        "rootSeed": 20260726,
+        "caps": {
+          "candidates": 256
+        },
+        "maxConcurrency": null
+      },
+      "expectedErrorIncludes": "generates an invalid value: tpPct must be in [0, 100]"
     },
     {
       "id": "config-level-out-of-range",

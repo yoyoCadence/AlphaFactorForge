@@ -168,6 +168,35 @@ describe('discovery-enumeration-v1', () => {
     )).rejects.toThrow(/enumeration produced no valid candidates/);
   });
 
+  it('gives every candidate its own strategy, sharing no mutable array', async () => {
+    // A shallow spread would leave all candidates aliasing one entryRules
+    // array: mutating a single candidate would then change the CONTENT of
+    // every other candidate while their computed hashes and seeds stayed put,
+    // and the runner would persist that inconsistency as an audit record.
+    const plan = await enumerateCandidates(
+      configWith([{ id: 'ma-cross', axes: [{ key: 'fastMA', min: 5, max: 11, step: 3 }] }]),
+    );
+    expect(plan.candidates.length).toBeGreaterThan(1);
+
+    const [first, ...rest] = plan.candidates;
+    expect(first.strategy.entryRules).toHaveLength(1);
+    first.strategy.entryRules.push({ l: 'rsi', op: '>', r: '70' });
+    first.strategy.entryRules[0].r = 'mutated';
+
+    for (const candidate of rest) {
+      expect(candidate.strategy.entryRules).toHaveLength(1);
+      expect(candidate.strategy.entryRules[0].r).toBe('maSlow');
+      expect(candidate.strategy.entryRules).not.toBe(first.strategy.entryRules);
+      // The recorded hash must still describe the candidate's own content.
+      expect(candidate.strategyHash).toBe(
+        await strategyHash(candidate.strategy, {
+          feePct: candidate.strategy.feePct,
+          slippagePct: candidate.strategy.slipPct,
+        }),
+      );
+    }
+  });
+
   it('derives per-candidate seeds from durable identity only', async () => {
     const base: BaseSpec = { id: 'ma-cross', axes: [{ key: 'fastMA', min: 5, max: 11, step: 3 }] };
     const plan = await enumerateCandidates(configWith([base]));

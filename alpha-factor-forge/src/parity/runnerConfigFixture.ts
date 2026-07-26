@@ -294,6 +294,12 @@ export async function buildRunnerConfigParityFixture(
       ['seed-fractional-root', { rootSeed: 1.5, datasetContentHash: DATASET_A, strategyHash: STRATEGY_A, purpose: 'random-entry' }, 'rootSeed must be an integer in [0, 4294967295]'],
       ['seed-legacy-dataset-hash', { rootSeed: 1, datasetContentHash: 'legacy-unversioned', strategyHash: STRATEGY_A, purpose: 'random-entry' }, 'datasetContentHash must be a durable dataset-content-v2 identity'],
       ['seed-ephemeral-strategy-hash', { rootSeed: 1, datasetContentHash: DATASET_A, strategyHash: 'ephemeral-fnv1a:0000000000000000', purpose: 'random-entry' }, 'strategyHash must be a durable strategy-v2 identity'],
+      // A correct prefix is NOT an identity: the digest must be present, the
+      // right length, and lowercase, or a malformed value seeds a real stream.
+      ['seed-empty-dataset-digest', { rootSeed: 1, datasetContentHash: 'dataset-content-v2:', strategyHash: STRATEGY_A, purpose: 'random-entry' }, 'datasetContentHash must be a durable dataset-content-v2 identity'],
+      ['seed-truncated-strategy-digest', { rootSeed: 1, datasetContentHash: DATASET_A, strategyHash: 'strategy-v2:abc123', purpose: 'random-entry' }, 'strategyHash must be a durable strategy-v2 identity'],
+      ['seed-uppercase-strategy-digest', { rootSeed: 1, datasetContentHash: DATASET_A, strategyHash: `strategy-v2:${'A'.repeat(64)}`, purpose: 'random-entry' }, 'strategyHash must be a durable strategy-v2 identity'],
+      ['seed-non-hex-strategy-digest', { rootSeed: 1, datasetContentHash: DATASET_A, strategyHash: `strategy-v2:${'g'.repeat(64)}`, purpose: 'random-entry' }, 'strategyHash must be a durable strategy-v2 identity'],
       ['seed-unknown-purpose', { rootSeed: 1, datasetContentHash: DATASET_A, strategyHash: STRATEGY_A, purpose: 'gate' }, 'unsupported seed purpose "gate"'],
     ] as [string, DeriveSeedArgs, string][]
   ).map(([id, input, fragment]) => ({
@@ -367,11 +373,17 @@ export async function buildRunnerConfigParityFixture(
 
   const configErrorSpecs: [string, JsonObject, string][] = [
     ['config-unknown-envelope-key', broken((config) => { config.extra = 1; }), 'discoveryConfig has unknown key "extra"'],
+    // Two unknown non-ASCII keys whose UTF-16 and UTF-8 orders DISAGREE:
+    // "\u{1F600}" sorts first in UTF-16 (JavaScript's default) and last in
+    // UTF-8 (Rust's `String: Ord`). Both languages must name "＀" first.
+    ['config-unknown-key-utf8-order', broken((config) => { config['\u{1F600}'] = 1; config['＀'] = 1; }), 'discoveryConfig has unknown key "＀"'],
     ['config-missing-envelope-key', broken((config) => { delete config.rootSeed; }), 'discoveryConfig is missing key "rootSeed"'],
     ['config-envelope-version-mismatch', broken((config) => { config.envelopeVersion = 'discovery-config-v2'; }), 'envelopeVersion must be "discovery-config-v1"'],
     ['config-contract-version-mismatch', broken((config) => { (config.contracts as JsonObject).gate = 'gate-v2'; }), 'contracts.gate must be "gate-v1"'],
     ['config-preset-version-mismatch', broken((config) => { firstBase(config).presetVersion = 'preset-v9'; }), 'presetVersion must be "discovery-preset-v1"'],
     ['config-dataset-legacy-hash', broken((config) => { (config.dataset as JsonObject).contentHash = 'legacy-unversioned'; }), 'contentHash must be a durable dataset-content-v2 identity'],
+    ['config-dataset-empty-digest', broken((config) => { (config.dataset as JsonObject).contentHash = 'dataset-content-v2:'; }), 'contentHash must be a durable dataset-content-v2 identity'],
+    ['config-dataset-uppercase-digest', broken((config) => { (config.dataset as JsonObject).contentHash = `dataset-content-v2:${'A'.repeat(64)}`; }), 'contentHash must be a durable dataset-content-v2 identity'],
     ['config-dataset-id-zero', broken((config) => { (config.dataset as JsonObject).id = 0; }), 'discoveryConfig.dataset.id must be an integer in [1,'],
     ['config-blocks-mode-rejected', broken((config) => { firstStrategy(config).mode = 'blocks'; }), 'mode must be "params"'],
     ['config-code-mode-rejected', broken((config) => { firstStrategy(config).mode = 'code'; }), 'mode must be "params"'],
@@ -383,6 +395,14 @@ export async function buildRunnerConfigParityFixture(
     ['config-period-fractional', broken((config) => { firstStrategy(config).slowMA = 21.5; }), 'slowMA must be an integer >= 1'],
     ['config-multiplier-not-positive', broken((config) => { firstStrategy(config).bbMult = 0; }), 'bbMult must be > 0'],
     ['config-size-out-of-range', broken((config) => { firstStrategy(config).sizePct = 0; }), 'sizePct must be in (0, 100]'],
+    // Percent units are bounded at 100 because the engine's normalized
+    // fraction check rejects anything above 1 — admitting these would queue a
+    // run guaranteed to throw once a job executes.
+    ['config-fee-percent-above-range', broken((config) => { firstStrategy(config).feePct = 101; }), 'feePct must be in [0, 100]'],
+    ['config-slippage-percent-above-range', broken((config) => { firstStrategy(config).slipPct = 100.5; }), 'slipPct must be in [0, 100]'],
+    ['config-stop-loss-percent-above-range', broken((config) => { firstStrategy(config).slPct = 101; }), 'slPct must be in [0, 100]'],
+    ['config-take-profit-percent-negative', broken((config) => { firstStrategy(config).tpPct = -1; }), 'tpPct must be in [0, 100]'],
+    ['config-axis-generates-percent-above-range', broken((config) => { firstBase(config).axes = [{ key: 'tpPct', min: 90, max: 110, step: 10 }]; }), 'generates an invalid value: tpPct must be in [0, 100]'],
     ['config-level-out-of-range', broken((config) => { firstStrategy(config).rsiBuy = 101; }), 'rsiBuy must be in [0, 100]'],
     ['config-axis-key-not-whitelisted', broken((config) => { firstBase(config).axes = [{ key: 'feePct', min: 0, max: 0.1, step: 0.05 }]; }), 'key must be one of'],
     ['config-axis-step-not-positive', broken((config) => { firstBase(config).axes = [{ key: 'fastMA', min: 5, max: 11, step: 0 }]; }), 'step must be > 0'],

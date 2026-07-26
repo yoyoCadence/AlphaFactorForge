@@ -184,6 +184,10 @@ fn seed_preimages_and_derived_values_match_exactly() {
             "seed-fractional-root",
             "seed-legacy-dataset-hash",
             "seed-ephemeral-strategy-hash",
+            "seed-empty-dataset-digest",
+            "seed-truncated-strategy-digest",
+            "seed-uppercase-strategy-digest",
+            "seed-non-hex-strategy-digest",
             "seed-unknown-purpose",
         ]
     );
@@ -282,12 +286,65 @@ fn resolved_configs_match_the_reference_structure() {
 #[test]
 fn every_typescript_held_config_rejection_is_reproduced() {
     let fixture = fixture();
-    let error_cases = cases(&fixture, "configErrorCases");
+    // The EXACT ordered inventory, not just its size: a deleted case must fail
+    // here rather than be masked by a new case that keeps the count.
     assert_eq!(
-        error_cases.len(),
-        43,
-        "the fixture's admission-rejection inventory changed"
+        ids(&fixture, "configErrorCases"),
+        vec![
+            "config-unknown-envelope-key",
+            "config-unknown-key-utf8-order",
+            "config-missing-envelope-key",
+            "config-envelope-version-mismatch",
+            "config-contract-version-mismatch",
+            "config-preset-version-mismatch",
+            "config-dataset-legacy-hash",
+            "config-dataset-empty-digest",
+            "config-dataset-uppercase-digest",
+            "config-dataset-id-zero",
+            "config-blocks-mode-rejected",
+            "config-code-mode-rejected",
+            "config-unsupported-signal",
+            "config-unknown-fill-mode",
+            "config-strategy-unknown-key",
+            "config-strategy-missing-key",
+            "config-period-below-one",
+            "config-period-fractional",
+            "config-multiplier-not-positive",
+            "config-size-out-of-range",
+            "config-fee-percent-above-range",
+            "config-slippage-percent-above-range",
+            "config-stop-loss-percent-above-range",
+            "config-take-profit-percent-negative",
+            "config-axis-generates-percent-above-range",
+            "config-level-out-of-range",
+            "config-axis-key-not-whitelisted",
+            "config-axis-step-not-positive",
+            "config-axis-inverted-range",
+            "config-axis-fractional-integer-bound",
+            "config-axis-repeated-key",
+            "config-axis-above-value-cap",
+            "config-axis-generates-invalid-value",
+            "config-empty-bases",
+            "config-duplicate-base-id",
+            "config-invalid-base-id",
+            "config-benchmark-costs-mismatch",
+            "config-random-entry-runs-above-cap",
+            "config-negative-holding-allowance",
+            "config-start-equity-zero",
+            "config-candidate-cap-above-hard-cap",
+            "config-root-seed-above-u32",
+            "config-max-concurrency-string",
+            "config-max-concurrency-above-cores",
+            "config-gate-min-trades-invalid",
+            "config-gate-fraction-invalid",
+            "config-gate-percentile-invalid",
+            "config-score-cap-invalid",
+            "config-score-profit-factor-cap-invalid",
+            "config-score-negative-weight",
+            "config-score-regime-weight-deferred",
+        ]
     );
+    let error_cases = cases(&fixture, "configErrorCases");
 
     let mut mode_rejections = 0;
     for case in error_cases {
@@ -308,6 +365,19 @@ fn every_typescript_held_config_rejection_is_reproduced() {
     // Blocks and code candidates are rejected at admission, not deeper in the
     // engine: the Rust pipeline has no non-params path at all.
     assert_eq!(mode_rejections, 2);
+
+    // The full held-rejection total the docs quote.
+    let held: usize = [
+        "seedErrorCases",
+        "axisErrorCases",
+        "concurrencyErrorCases",
+        "configErrorCases",
+        "enumerationErrorCases",
+    ]
+    .iter()
+    .map(|group| cases(&fixture, group).len())
+    .sum();
+    assert_eq!(held, 68, "held-error inventory total changed");
 }
 
 #[test]

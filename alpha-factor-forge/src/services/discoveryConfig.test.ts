@@ -103,6 +103,68 @@ describe('discovery-config-v1 parsing', () => {
     }
   });
 
+  it('bounds percent units at 100 so the engine cannot reject an admitted run', () => {
+    // backtestRunner divides these by 100 and core/backtest rejects any
+    // normalized fraction above 1, so >100 here would queue a run that is
+    // guaranteed to throw after its jobs already exist.
+    for (const key of ['feePct', 'slipPct', 'slPct', 'tpPct'] as const) {
+      expect(() => parse((config) => {
+        ((config.bases as Record<string, unknown>[])[0].strategy as Record<string, unknown>)[key] =
+          101;
+        if (key === 'feePct' || key === 'slipPct') {
+          (config.benchmarkCosts as Record<string, number>)[key] = 101;
+        }
+      })).toThrow(new RegExp(`${key} must be in \\[0, 100]`));
+      expect(() => parse((config) => {
+        ((config.bases as Record<string, unknown>[])[0].strategy as Record<string, unknown>)[key] =
+          -1;
+      })).toThrow(new RegExp(`${key} must be in \\[0, 100]`));
+    }
+    // The inclusive endpoint stays legal: 100 -> 1.0 is exactly the engine cap.
+    expect(() => parse((config) => {
+      ((config.bases as Record<string, unknown>[])[0].strategy as Record<string, unknown>).slPct =
+        100;
+    })).not.toThrow();
+    expect(() => parse((config) => {
+      (config.bases as Record<string, unknown>[])[0].axes = [
+        { key: 'tpPct', min: 90, max: 110, step: 10 },
+      ];
+    })).toThrow(/generates an invalid value: tpPct must be in \[0, 100]/);
+  });
+
+  it('requires a full lowercase hex digest on the dataset identity', () => {
+    for (const bad of [
+      'dataset-content-v2:',
+      'dataset-content-v2:abc',
+      `dataset-content-v2:${'A'.repeat(64)}`,
+      `dataset-content-v2:${'g'.repeat(64)}`,
+      `dataset-content-v2:${'a'.repeat(63)}`,
+    ]) {
+      expect(() => parse((config) => {
+        (config.dataset as Record<string, unknown>).contentHash = bad;
+      })).toThrow(/must be a durable dataset-content-v2 identity/);
+    }
+  });
+
+  it('names unknown keys in UTF-8 byte order so Rust reports the same one', () => {
+    // "\u{1F600}" sorts FIRST under JavaScript's default UTF-16 sort and LAST
+    // under UTF-8 bytes, which is what Rust's String: Ord uses.
+    expect(() => parse((config) => {
+      config['\u{1F600}'] = 1;
+      config['＀'] = 1;
+    })).toThrow('discoveryConfig has unknown key "＀"');
+  });
+
+  it('decouples the resolved config from the caller input object', () => {
+    const input = validConfig();
+    const rules = [{ l: 'maFast', op: 'crossUp', r: 'maSlow' }];
+    ((input.bases as Record<string, unknown>[])[0].strategy as Record<string, unknown>).entryRules =
+      rules;
+    const resolved = parseDiscoveryConfig(input, { logicalCores: 4 });
+    rules.push({ l: 'rsi', op: '>', r: '70' });
+    expect(resolved.bases[0].strategy.entryRules).toHaveLength(1);
+  });
+
   it('rejects unsupported signal ids and out-of-domain preset numbers', () => {
     expect(() => parse((config) => {
       ((config.bases as Record<string, unknown>[])[0].strategy as Record<string, unknown>).entrySig =

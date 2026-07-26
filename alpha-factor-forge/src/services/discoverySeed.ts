@@ -39,8 +39,17 @@ function assertU32(value: number, name: string): void {
   }
 }
 
+/** `<version>:<64 lowercase hex>`. A bare prefix, a truncated digest, or
+ *  uppercase hex is not a usable identity: accepting one would let a malformed
+ *  value silently seed a real random stream. */
+const DURABLE_DIGEST_PATTERN = /^[0-9a-f]{64}$/;
+
 function assertIdentity(value: string, name: string, prefix: string): void {
-  if (typeof value !== 'string' || !value.startsWith(`${prefix}:`)) {
+  const marker = `${prefix}:`;
+  const digest = typeof value === 'string' && value.startsWith(marker)
+    ? value.slice(marker.length)
+    : null;
+  if (digest === null || !DURABLE_DIGEST_PATTERN.test(digest)) {
     throw new RangeError(`${name} must be a durable ${prefix} identity`);
   }
 }

@@ -432,6 +432,27 @@ RS-CORE-005 is Done locally. The only newly unblocked slice is
 RUNNER-CONFIG-001 (pure config parsing/enumeration/deduplication/hashes/seeds/
 caps); DB/thread/event/UI runner work remains blocked by the mandated order.
 
+### RS-CORE-005 review correction (append-only update)
+
+Date: 2026-07-22. The original implementation record above is retained as
+historical context; this correction supersedes its fixture counts, hash, and
+Vitest total after final independent review.
+
+- The final fixture inventory is 6 params-only complexity cases, 22 encoded
+  Gate verdict cases, 4 complete Score cases, 16 Gate errors, and 11 Score
+  errors. Added locks cover invalid JavaScript TimeClip dates, precise
+  fail-closed audit details, fractional/negative/non-finite/unsafe trade
+  counts, finite concentration-ratio overflow, and negative-zero Score
+  weights/contributions/final score.
+- The final committed fixture SHA-256 is
+  `5151b9409f79424eec2974489d43328b2cca18ac0dcbf40ce7fa94074a3ffa2e`;
+  consecutive regenerations remain blob-identical.
+- Final verification totals are 339 Vitest tests, 47 Rust tests, and 25
+  Playwright tests, alongside typecheck, production build, cargo check,
+  targeted rustfmt checks, and `git diff --check`. Clippy remains
+  intentionally unrun.
+
+
 ### RUNNER-CONFIG-001 implementation record (append-only update)
 
 Date: 2026-07-26. Implementer: Claude. Branch:
@@ -504,22 +525,75 @@ RUNNER-STORE-001 (next migration, run/job repositories, atomic candidate
 commit, recovery/idempotency); worker pool, events, and UI remain blocked by
 the mandated order.
 
-### RS-CORE-005 review correction (append-only update)
+### RUNNER-CONFIG-001 review correction (append-only update)
 
-Date: 2026-07-22. The original implementation record above is retained as
-historical context; this correction supersedes its fixture counts, hash, and
-Vitest total after final independent review.
+Date: 2026-07-26. Fix for the PR #73 review findings. The implementation
+record above is retained as written; this correction supersedes its fixture
+inventory, error total, and verification counts.
 
-- The final fixture inventory is 6 params-only complexity cases, 22 encoded
-  Gate verdict cases, 4 complete Score cases, 16 Gate errors, and 11 Score
-  errors. Added locks cover invalid JavaScript TimeClip dates, precise
-  fail-closed audit details, fractional/negative/non-finite/unsafe trade
-  counts, finite concentration-ratio overflow, and negative-zero Score
-  weights/contributions/final score.
-- The final committed fixture SHA-256 is
-  `5151b9409f79424eec2974489d43328b2cca18ac0dcbf40ce7fa94074a3ffa2e`;
-  consecutive regenerations remain blob-identical.
-- Final verification totals are 339 Vitest tests, 47 Rust tests, and 25
-  Playwright tests, alongside typecheck, production build, cargo check,
-  targeted rustfmt checks, and `git diff --check`. Clippy remains
-  intentionally unrun.
+Placement correction first: the original record was appended after the
+RS-CORE-005 *implementation* record but BEFORE the RS-CORE-005 *review
+correction*, breaking this file's append-only chronology. The record has been
+relocated to the end of the file; its text is unchanged.
+
+- [Blocker] `slPct`, `tpPct`, `feePct`, and `slipPct` were admitted on a
+  `>= 0` domain only. `backtestRunner` divides these legacy percent units by
+  100 and `core/backtest`'s `assertNormalizedFraction` rejects anything above
+  1, so a config carrying `feePct: 101` passed admission and was GUARANTEED to
+  throw once a job executed — strictly worse than an unchecked field, because
+  the failure lands after jobs exist. All four now use a `percent` domain
+  bounded to `[0, 100]` (the inclusive endpoint stays legal: 100 maps to
+  exactly the engine's 1.0 cap). `level` keeps the same numeric range for an
+  unrelated reason (RSI is defined on 0..100) and stays a separate domain.
+- [Blocker] Candidates shared one mutable `entryRules`/`exitRules` array with
+  each other AND with the caller's input object, because the combination
+  builder used a shallow spread. Mutating one candidate therefore changed the
+  CONTENT of every other candidate while their already-computed hashes and
+  seeds stayed put — an inconsistency the runner would persist as an immutable
+  audit record. `parseDiscoveryConfig` now deep-clones the dormant rule arrays
+  at admission and the enumerator deep-clones per combination, matching the
+  decoupling standard PERSIST-001's review established. Rust was already
+  correct (`serde_json::Value::clone` is deep).
+- Durable identity validation checked only the version PREFIX, so
+  `strategy-v2:` with an empty, truncated, uppercase, or non-hex digest was
+  accepted and would have seeded a real random stream. Both languages now
+  require `<version>:<64 lowercase hex>`, shared by the seed derivation and
+  the config's dataset check.
+- TypeScript sorted unknown keys with the default `Array.prototype.sort`
+  (UTF-16 code units) while Rust used `String: Ord` (UTF-8 bytes). These
+  disagree for non-ASCII keys — `"\u{1F600}"` sorts first in UTF-16 and last
+  in UTF-8 — so the two languages could name a DIFFERENT unknown key first,
+  violating this slice's own recorded rejection-order contract. TypeScript now
+  sorts by UTF-8 bytes, matching Rust and the canonical encoder in
+  `core/hashing`. A fixture case carrying both keys locks which one is named.
+- The held-error total was misreported as 54 in `tasks.md`, this handoff, and
+  the PR body: the 2 enumeration errors were omitted from the sum, though the
+  itemized breakdown was correct. The real total was 56, and is now **68**
+  after this correction's additions. Both languages now assert the total, so
+  the number is derived from the artifact instead of being hand-carried.
+- The 43 config error cases were locked by COUNT only, unlike the exact
+  ordered ID inventories RS-CORE-003's review established. Both languages now
+  assert the full ordered list (now 51 cases), so a deleted case cannot be
+  masked by a new one that preserves the count.
+- Fixture additions: 4 seed identity-digest errors, 2 dataset identity-digest
+  errors, 4 percent-bound errors (including one generated by an axis), and the
+  UTF-8 key-order case. New TypeScript regressions cover the percent
+  endpoints, the digest shapes, the key ordering, caller-input decoupling, and
+  candidate-to-candidate array isolation.
+- Re-verification: fixture regenerated blob-identical across consecutive runs
+  (SHA-256 `9557ae1fef5122a72192f11c734f9a8d272d20b7b01ee0ddb183d39e83802dd7`,
+  superseding the record above); `npm run typecheck`; `npm test` (381);
+  `npm run build`; `cargo check --locked`; `cargo test --locked` (64);
+  targeted `rustfmt --check` clean; `npm run e2e` (25); `git diff --check`
+  clean.
+- Clippy WAS run this round (`cargo clippy --locked --all-targets`) and every
+  new file is clean. Four warnings on my files were addressed: one
+  `manual_range_contains` in `seed.rs` was adopted, and the four
+  `neg_cmp_op_on_partial_ord` sites carry an explicit `#[allow]` plus a reason
+  — `!(a < b)` and `!(value <= max)` are DELIBERATE, mirroring the TypeScript
+  reference so a NaN prunes the candidate / terminates the axis loop. The
+  clippy-suggested `a >= b` is false for NaN and would admit an invalid
+  hypothesis or spin forever. Four pre-existing warnings remain in
+  `backtest.rs` (2 `map_or`) and `score.rs` (`manual_range_contains`,
+  `clamp`-like) from RS-CORE-002/005; per AGENTS.md §2 they are proposed
+  rather than fixed inside this slice.

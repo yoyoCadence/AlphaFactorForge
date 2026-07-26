@@ -37,7 +37,7 @@ pub struct DeriveSeedArgs<'a> {
 }
 
 fn assert_u32(value: f64, name: &str) -> Result<u32, SeedError> {
-    if !value.is_finite() || value.fract() != 0.0 || value < 0.0 || value > MAX_U32 {
+    if !value.is_finite() || value.fract() != 0.0 || !(0.0..=MAX_U32).contains(&value) {
         return Err(SeedError(format!(
             "{name} must be an integer in [0, 4294967295]"
         )));
@@ -45,8 +45,24 @@ fn assert_u32(value: f64, name: &str) -> Result<u32, SeedError> {
     Ok(value as u32)
 }
 
+/// `<version>:<64 lowercase hex>`. A bare prefix, a truncated digest, or
+/// uppercase hex is not a usable identity: accepting one would let a malformed
+/// value silently seed a real random stream.
+pub fn is_durable_identity(value: &str, prefix: &str) -> bool {
+    let marker = format!("{prefix}:");
+    match value.strip_prefix(&marker) {
+        Some(digest) => {
+            digest.len() == 64
+                && digest
+                    .bytes()
+                    .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+        }
+        None => false,
+    }
+}
+
 fn assert_identity(value: &str, name: &str, prefix: &str) -> Result<(), SeedError> {
-    if !value.starts_with(&format!("{prefix}:")) {
+    if !is_durable_identity(value, prefix) {
         return Err(SeedError(format!(
             "{name} must be a durable {prefix} identity"
         )));
@@ -95,11 +111,16 @@ pub fn derive_discovery_seed(args: &DeriveSeedArgs<'_>) -> Result<u32, SeedError
 mod tests {
     use super::*;
 
+    const DATASET: &str =
+        "dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    const STRATEGY: &str =
+        "strategy-v2:1111111111111111111111111111111111111111111111111111111111111111";
+
     fn args<'a>(root_seed: f64) -> DeriveSeedArgs<'a> {
         DeriveSeedArgs {
             root_seed,
-            dataset_content_hash: "dataset-content-v2:aa",
-            strategy_hash: "strategy-v2:bb",
+            dataset_content_hash: DATASET,
+            strategy_hash: STRATEGY,
             purpose: "random-entry",
         }
     }
@@ -109,7 +130,7 @@ mod tests {
         let preimage = discovery_seed_preimage(&args(1.0)).unwrap();
         assert_eq!(&preimage[..8], b"seed-v1\0");
         assert_eq!(&preimage[8..12], &[0, 0, 0, 1]);
-        assert_eq!(preimage.len(), 8 + 4 + (4 + 21) + (4 + 14) + (4 + 12));
+        assert_eq!(preimage.len(), 8 + 4 + (4 + 83) + (4 + 76) + (4 + 12));
     }
 
     #[test]
@@ -122,5 +143,30 @@ mod tests {
             ..args(1.0)
         })
         .is_err());
+    }
+
+    #[test]
+    fn durable_identity_requires_a_full_lowercase_hex_digest() {
+        assert!(is_durable_identity(DATASET, DATASET_HASH_VERSION));
+        assert!(is_durable_identity(STRATEGY, STRATEGY_HASH_VERSION));
+        // A bare prefix, a truncated digest, uppercase hex, and non-hex all
+        // fail: each would otherwise seed a real stream from a malformed id.
+        assert!(!is_durable_identity("strategy-v2:", STRATEGY_HASH_VERSION));
+        assert!(!is_durable_identity(
+            "strategy-v2:abc",
+            STRATEGY_HASH_VERSION
+        ));
+        assert!(!is_durable_identity(
+            &format!("strategy-v2:{}", "A".repeat(64)),
+            STRATEGY_HASH_VERSION
+        ));
+        assert!(!is_durable_identity(
+            &format!("strategy-v2:{}", "g".repeat(64)),
+            STRATEGY_HASH_VERSION
+        ));
+        assert!(!is_durable_identity(
+            "legacy-unversioned",
+            STRATEGY_HASH_VERSION
+        ));
     }
 }

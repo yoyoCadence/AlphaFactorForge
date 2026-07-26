@@ -92,6 +92,11 @@ fn number_field(strategy: &Value, key: &str) -> f64 {
 }
 
 /// First violated rule id in fixed order, or `None` for a valid hypothesis.
+///
+/// The negated comparisons are deliberate and mirror the TypeScript reference:
+/// a non-finite field must be treated as INVALID (pruned). `a >= b` is false
+/// for NaN and would admit such a combination as a valid hypothesis.
+#[allow(clippy::neg_cmp_op_on_partial_ord)]
 pub fn candidate_validity(strategy: &Value) -> Option<&'static str> {
     if !(number_field(strategy, "fastMA") < number_field(strategy, "slowMA")) {
         return Some(DISCOVERY_VALIDITY_RULE_IDS[0]);

@@ -59,7 +59,11 @@ enum NumericDomain {
     Period,
     Level,
     Positive,
-    NonNegative,
+    /// Bounded at 100, not merely at 0: these legacy percent units are divided
+    /// by 100 before the engine's normalized-fraction check, which rejects
+    /// anything above 1. Admitting 101 would queue a run guaranteed to throw
+    /// once a job executes.
+    Percent,
     SizePercent,
 }
 
@@ -76,10 +80,10 @@ const NUMERIC_PARAM_DOMAINS: [(&str, NumericDomain); 16] = [
     ("macdSignal", NumericDomain::Period),
     ("bbPeriod", NumericDomain::Period),
     ("bbMult", NumericDomain::Positive),
-    ("slPct", NumericDomain::NonNegative),
-    ("tpPct", NumericDomain::NonNegative),
-    ("feePct", NumericDomain::NonNegative),
-    ("slipPct", NumericDomain::NonNegative),
+    ("slPct", NumericDomain::Percent),
+    ("tpPct", NumericDomain::Percent),
+    ("feePct", NumericDomain::Percent),
+    ("slipPct", NumericDomain::Percent),
     ("sizePct", NumericDomain::SizePercent),
 ];
 
@@ -480,11 +484,11 @@ pub fn check_numeric_param(key: &str, value: f64) -> Option<String> {
                 Some(format!("{key} must be > 0"))
             }
         }
-        Some(NumericDomain::NonNegative) => {
-            if value >= 0.0 {
+        Some(NumericDomain::Percent) => {
+            if (0.0..=100.0).contains(&value) {
                 None
             } else {
-                Some(format!("{key} must be >= 0"))
+                Some(format!("{key} must be in [0, 100]"))
             }
         }
         Some(NumericDomain::SizePercent) => {
@@ -578,6 +582,10 @@ pub fn axis_values(axis: &DiscoveryAxis) -> Result<Vec<f64>, ConfigError> {
     let mut i = 0u32;
     loop {
         let value = axis.min + f64::from(i) * axis.step;
+        // Negated comparison is deliberate and mirrors the TypeScript
+        // reference: a NaN `value` must TERMINATE the loop. `value > axis.max`
+        // is false for NaN and would spin forever.
+        #[allow(clippy::neg_cmp_op_on_partial_ord)]
         if !(value <= axis.max) {
             break;
         }
@@ -816,7 +824,7 @@ pub fn parse_discovery_config(
         JS_MAX_SAFE_INTEGER as i64,
     )?;
     let content_hash = require_string(dataset_object, &dataset_path, "contentHash")?;
-    if !content_hash.starts_with(&format!("{DATASET_HASH_VERSION}:")) {
+    if !super::seed::is_durable_identity(content_hash, DATASET_HASH_VERSION) {
         return fail(format!(
             "{dataset_path}.contentHash must be a durable {DATASET_HASH_VERSION} identity"
         ));

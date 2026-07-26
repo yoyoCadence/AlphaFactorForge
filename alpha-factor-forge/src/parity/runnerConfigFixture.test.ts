@@ -117,6 +117,10 @@ describe('RUNNER-CONFIG parity fixture', () => {
       'seed-fractional-root',
       'seed-legacy-dataset-hash',
       'seed-ephemeral-strategy-hash',
+      'seed-empty-dataset-digest',
+      'seed-truncated-strategy-digest',
+      'seed-uppercase-strategy-digest',
+      'seed-non-hex-strategy-digest',
       'seed-unknown-purpose',
     ]);
     expect(fixture.axisCases.map((parityCase) => parityCase.id)).toEqual([
@@ -158,10 +162,62 @@ describe('RUNNER-CONFIG parity fixture', () => {
       'enumerate-above-candidate-cap',
       'enumerate-all-pruned',
     ]);
-    // 43 admission rejections: envelope/version, dataset identity, candidate
-    // mode, signal/domain, axis, base, cost, bound, concurrency, gate, score.
-    expect(fixture.configErrorCases).toHaveLength(43);
-    expect(new Set(fixture.configErrorCases.map((parityCase) => parityCase.id)).size).toBe(43);
+    // The EXACT ordered admission-rejection inventory, not just its size: a
+    // deleted case must fail here rather than be silently replaced by a new
+    // one that happens to keep the count.
+    expect(fixture.configErrorCases.map((parityCase) => parityCase.id)).toEqual([
+      'config-unknown-envelope-key',
+      'config-unknown-key-utf8-order',
+      'config-missing-envelope-key',
+      'config-envelope-version-mismatch',
+      'config-contract-version-mismatch',
+      'config-preset-version-mismatch',
+      'config-dataset-legacy-hash',
+      'config-dataset-empty-digest',
+      'config-dataset-uppercase-digest',
+      'config-dataset-id-zero',
+      'config-blocks-mode-rejected',
+      'config-code-mode-rejected',
+      'config-unsupported-signal',
+      'config-unknown-fill-mode',
+      'config-strategy-unknown-key',
+      'config-strategy-missing-key',
+      'config-period-below-one',
+      'config-period-fractional',
+      'config-multiplier-not-positive',
+      'config-size-out-of-range',
+      'config-fee-percent-above-range',
+      'config-slippage-percent-above-range',
+      'config-stop-loss-percent-above-range',
+      'config-take-profit-percent-negative',
+      'config-axis-generates-percent-above-range',
+      'config-level-out-of-range',
+      'config-axis-key-not-whitelisted',
+      'config-axis-step-not-positive',
+      'config-axis-inverted-range',
+      'config-axis-fractional-integer-bound',
+      'config-axis-repeated-key',
+      'config-axis-above-value-cap',
+      'config-axis-generates-invalid-value',
+      'config-empty-bases',
+      'config-duplicate-base-id',
+      'config-invalid-base-id',
+      'config-benchmark-costs-mismatch',
+      'config-random-entry-runs-above-cap',
+      'config-negative-holding-allowance',
+      'config-start-equity-zero',
+      'config-candidate-cap-above-hard-cap',
+      'config-root-seed-above-u32',
+      'config-max-concurrency-string',
+      'config-max-concurrency-above-cores',
+      'config-gate-min-trades-invalid',
+      'config-gate-fraction-invalid',
+      'config-gate-percentile-invalid',
+      'config-score-cap-invalid',
+      'config-score-profit-factor-cap-invalid',
+      'config-score-negative-weight',
+      'config-score-regime-weight-deferred',
+    ]);
     for (const parityCase of fixture.configErrorCases) {
       expect(parityCase.expectedErrorIncludes.length).toBeGreaterThan(0);
     }
@@ -169,6 +225,16 @@ describe('RUNNER-CONFIG parity fixture', () => {
       const parityCase = findById(fixture.configErrorCases, `config-${mode}-mode-rejected`);
       expect(parityCase.expectedErrorIncludes).toBe('mode must be "params"');
     }
+
+    // 68 held rejections across the five groups; the docs quote this total.
+    const heldErrors = [
+      fixture.seedErrorCases,
+      fixture.axisErrorCases,
+      fixture.concurrencyErrorCases,
+      fixture.configErrorCases,
+      fixture.enumerationErrorCases,
+    ].reduce((sum, group) => sum + group.length, 0);
+    expect(heldErrors).toBe(68);
   });
 
   it('locks the seed preimage bytes and derived u32 values', () => {
@@ -250,6 +316,52 @@ describe('RUNNER-CONFIG parity fixture', () => {
     ).expected;
     expect(reversed.candidates).toEqual(forward.candidates);
     expect(reversed.counts).toEqual(forward.counts);
+  });
+
+  it('bounds percent units at the engine fraction limit, not merely at zero', () => {
+    // 101 / 100 = 1.01, which the engine's assertNormalizedFraction rejects.
+    // Admission must catch it, or a queued run throws after jobs exist.
+    for (const id of [
+      'config-fee-percent-above-range',
+      'config-slippage-percent-above-range',
+      'config-stop-loss-percent-above-range',
+      'config-take-profit-percent-negative',
+      'config-axis-generates-percent-above-range',
+    ]) {
+      expect(findById(fixture.configErrorCases, id).expectedErrorIncludes)
+        .toContain('must be in [0, 100]');
+    }
+  });
+
+  it('requires a full lowercase hex digest, not just a version prefix', () => {
+    for (const id of [
+      'seed-empty-dataset-digest',
+      'seed-truncated-strategy-digest',
+      'seed-uppercase-strategy-digest',
+      'seed-non-hex-strategy-digest',
+    ]) {
+      expect(findById(fixture.seedErrorCases, id).expectedErrorIncludes)
+        .toContain('must be a durable');
+    }
+    for (const id of ['config-dataset-empty-digest', 'config-dataset-uppercase-digest']) {
+      expect(findById(fixture.configErrorCases, id).expectedErrorIncludes)
+        .toContain('must be a durable dataset-content-v2 identity');
+    }
+    for (const parityCase of fixture.seedCases) {
+      expect(parityCase.input.datasetContentHash).toMatch(/^dataset-content-v2:[0-9a-f]{64}$/);
+      expect(parityCase.input.strategyHash).toMatch(/^strategy-v2:[0-9a-f]{64}$/);
+    }
+  });
+
+  it('names unknown keys in UTF-8 byte order, where UTF-16 would disagree', () => {
+    const parityCase = findById(fixture.configErrorCases, 'config-unknown-key-utf8-order');
+    const keys = ['\u{1F600}', '＀'];
+    // JavaScript's default sort puts the emoji first; UTF-8 bytes put it last.
+    expect([...keys].sort()).toEqual(['\u{1F600}', '＀']);
+    expect(parityCase.expectedErrorIncludes).toBe('discoveryConfig has unknown key "＀"');
+    for (const key of keys) {
+      expect(Object.prototype.hasOwnProperty.call(parityCase.input, key)).toBe(true);
+    }
   });
 
   it('admits no blocks/code candidate and never plans a segment', () => {

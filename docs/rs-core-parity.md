@@ -214,22 +214,31 @@ policy.
   different hypothesis set.
 - 5 seed cases lock the exact `seed-v1` preimage BYTES (as hex) plus the
   derived `u32`, including both `rootSeed` endpoints and one-field-changed
-  variants. 6 seed errors are TypeScript-held.
+  variants. 10 seed errors are TypeScript-held, including the four malformed
+  digests (empty, truncated, uppercase, non-hex) that a prefix-only check would
+  have accepted.
 - 6 axis cases and 1 axis error lock inclusive value generation, the integer
   axis restriction, exact float drift, and the 64-value cap boundary. 5
   concurrency cases and 4 errors lock the `max(1, cores - 1)` default and the
   `1..=logicalCores` override bound.
-- 2 config cases compare the COMPLETE resolved envelope structurally; 43
-  TypeScript-held rejections cover envelope/version pinning, dataset identity,
-  non-params candidate modes, unsupported signals, every parameter domain,
-  axis validity, base identity, benchmark-cost agreement, every numeric bound,
-  concurrency, and the gate/score validators' own messages.
+- 2 config cases compare the COMPLETE resolved envelope structurally; 51
+  TypeScript-held rejections cover envelope/version pinning, dataset identity
+  including digest shape, non-params candidate modes, unsupported signals,
+  every parameter domain (with the percent bound that keeps admission aligned
+  with the engine's normalized-fraction limit), axis validity, base identity,
+  benchmark-cost agreement, every numeric bound, concurrency, and the
+  gate/score validators' own messages. One case carries two unknown non-ASCII
+  keys whose UTF-16 and UTF-8 orders disagree, locking which key each language
+  names first.
 - 6 enumeration cases compare complete `discovery-enumeration-v1` plans —
   counters, hash order, stable indexes, applied axes, full candidate
   strategies, and derived seeds — including cross-field pruning, cross-base
   deduplication, and a base-order-reversed twin proving declaration order
   changes nothing. 2 enumeration errors lock the raw-product cap and the
   all-pruned case.
+- 68 held rejections in total. Both languages assert the admission group's
+  exact ordered ID inventory plus the 68 total, so a deleted case fails a test
+  rather than being masked by a replacement that keeps the count.
 
 `discovery_core/config.rs` (`discovery-config-v1`), `enumerate.rs`
 (`discovery-enumeration-v1`), `seed.rs` (`seed-v1`), and `identity.rs`

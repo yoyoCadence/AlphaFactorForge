@@ -49,9 +49,19 @@ export const DISCOVERY_MAX_AXIS_VALUES = 64;
 
 // ---------- parameter domains ----------
 
-type NumericDomain = 'period' | 'level' | 'positive' | 'nonNegative' | 'sizePercent';
+type NumericDomain = 'period' | 'level' | 'positive' | 'percent' | 'sizePercent';
 
-/** Domain of every numeric `ParamsStrategy` field, in declaration order. */
+/**
+ * Domain of every numeric `ParamsStrategy` field, in declaration order.
+ *
+ * `percent` is bounded at 100, not merely at 0: `backtestRunner` divides these
+ * legacy percent units by 100 and the engine's `assertNormalizedFraction`
+ * rejects anything above 1. Admitting `feePct: 101` would queue a run that is
+ * GUARANTEED to throw once a job executes — worse than not checking, because
+ * the failure would land after jobs exist. `level` shares the same numeric
+ * range for an unrelated reason (RSI is defined on 0..100), so the two stay
+ * separate domains.
+ */
 const NUMERIC_PARAM_DOMAINS = {
   fastMA: 'period',
   slowMA: 'period',
@@ -64,10 +74,10 @@ const NUMERIC_PARAM_DOMAINS = {
   macdSignal: 'period',
   bbPeriod: 'period',
   bbMult: 'positive',
-  slPct: 'nonNegative',
-  tpPct: 'nonNegative',
-  feePct: 'nonNegative',
-  slipPct: 'nonNegative',
+  slPct: 'percent',
+  tpPct: 'percent',
+  feePct: 'percent',
+  slipPct: 'percent',
   sizePct: 'sizePercent',
 } as const satisfies Record<string, NumericDomain>;
 
@@ -233,6 +243,54 @@ function fail(message: string): never {
   throw new RangeError(message);
 }
 
+const textEncoder = new TextEncoder();
+
+/**
+ * Order two keys by their UTF-8 bytes.
+ *
+ * JavaScript's default string sort compares UTF-16 code units, while Rust's
+ * `String: Ord` (and serde_json's key map) compares UTF-8 bytes. Those differ
+ * for non-ASCII keys — `"\u{1F600}"` sorts BEFORE `"＀"` in UTF-16 and
+ * AFTER it in UTF-8 — so an object carrying two unknown non-ASCII keys would
+ * make the two languages name a different key first. Rejection order is part
+ * of this contract, so both sides sort by UTF-8 bytes; this also matches the
+ * canonical identity encoder in `core/hashing`.
+ */
+function compareUtf8(left: string, right: string): number {
+  const a = textEncoder.encode(left);
+  const b = textEncoder.encode(right);
+  const length = Math.min(a.length, b.length);
+  for (let i = 0; i < length; i++) {
+    if (a[i] !== b[i]) return a[i] - b[i];
+  }
+  return a.length - b.length;
+}
+
+/** Durable identities are `<version>:<64 lowercase hex>`; a bare prefix, a
+ *  truncated digest, or uppercase hex is not a usable identity. */
+const DURABLE_DIGEST_PATTERN = /^[0-9a-f]{64}$/;
+
+export function isDurableIdentity(value: string, prefix: string): boolean {
+  const marker = `${prefix}:`;
+  return value.startsWith(marker) && DURABLE_DIGEST_PATTERN.test(value.slice(marker.length));
+}
+
+/** Structural clone of an already-validated JSON value, so a resolved config
+ *  and every candidate built from it are decoupled from the caller's input. */
+export function deepCloneJson<T>(value: T): T {
+  if (Array.isArray(value)) {
+    return value.map((item) => deepCloneJson(item)) as unknown as T;
+  }
+  if (value !== null && typeof value === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+      out[key] = deepCloneJson(child);
+    }
+    return out as unknown as T;
+  }
+  return value;
+}
+
 function requireObject(value: unknown, path: string): Record<string, unknown> {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
     fail(`${path} must be an object`);
@@ -251,7 +309,7 @@ function requireExactKeys(
       fail(`${path} is missing key "${key}"`);
     }
   }
-  for (const key of Object.keys(object).sort()) {
+  for (const key of Object.keys(object).sort(compareUtf8)) {
     if (!allowed.has(key)) fail(`${path} has unknown key "${key}"`);
   }
 }
@@ -314,8 +372,8 @@ export function checkNumericParam(key: NumericParamKey, value: number): string |
       return value >= 0 && value <= 100 ? null : `${key} must be in [0, 100]`;
     case 'positive':
       return value > 0 ? null : `${key} must be > 0`;
-    case 'nonNegative':
-      return value >= 0 ? null : `${key} must be >= 0`;
+    case 'percent':
+      return value >= 0 && value <= 100 ? null : `${key} must be in [0, 100]`;
     case 'sizePercent':
       return value > 0 && value <= 100 ? null : `${key} must be in (0, 100]`;
   }
@@ -349,9 +407,12 @@ function parseStrategy(value: unknown, path: string): ParamsStrategy {
   const direction = requireLiteral(object, path, 'direction', DIRECTIONS);
 
   // Dormant in params mode but part of `strategy-v2` identity, so they must be
-  // present and well-typed. Their CONTENTS are never interpreted here.
-  const entryRules = requireArray(object, path, 'entryRules');
-  const exitRules = requireArray(object, path, 'exitRules');
+  // present and well-typed. Their CONTENTS are never interpreted here, but the
+  // arrays are deep-cloned: a resolved config must not alias the caller's
+  // input, or a later mutation would silently desync every candidate hash and
+  // seed derived from it.
+  const entryRules = deepCloneJson(requireArray(object, path, 'entryRules'));
+  const exitRules = deepCloneJson(requireArray(object, path, 'exitRules'));
   const entryCode = requireString(object, path, 'entryCode');
   const exitCode = requireString(object, path, 'exitCode');
 
@@ -607,7 +668,7 @@ export function parseDiscoveryConfig(
     Number.MAX_SAFE_INTEGER,
   );
   const contentHash = requireString(datasetObject, `${path}.dataset`, 'contentHash');
-  if (!contentHash.startsWith(`${DATASET_HASH_VERSION}:`)) {
+  if (!isDurableIdentity(contentHash, DATASET_HASH_VERSION)) {
     fail(`${path}.dataset.contentHash must be a durable ${DATASET_HASH_VERSION} identity`);
   }
 

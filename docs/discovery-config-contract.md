@@ -66,8 +66,13 @@ validated is ever returned.
 Rules that hold at every level:
 
 - **Exact key sets.** A missing key and an unknown key are both errors. Missing
-  keys are reported in declaration order first, then unknown keys in sorted
-  order, so both languages report the same problem first.
+  keys are reported in declaration order first, then unknown keys in **UTF-8
+  byte order**, so both languages report the same problem first. UTF-8 is
+  specified explicitly because JavaScript's default string sort compares UTF-16
+  code units while Rust's `String: Ord` compares UTF-8 bytes, and the two
+  disagree for non-ASCII keys (`"\u{1F600}"` sorts before `"＀"` in UTF-16 and
+  after it in UTF-8). Both sides sort by UTF-8, matching the canonical identity
+  encoder in `core/hashing`.
 - **Version pinning.** `envelopeVersion`, `presetVersion`, and every entry in
   `contracts` must equal the build's own constants. A recorded run from a
   different contract generation is rejected, never reinterpreted. The Rust port
@@ -76,9 +81,16 @@ Rules that hold at every level:
   bumped contract cannot be forgotten here.
 - **Finite numbers only.** Every numeric field must be a finite number; integer
   fields must additionally be JavaScript-safe integers.
-- **Durable identity only.** `dataset.contentHash` must carry the
-  `dataset-content-v2:` prefix. A legacy unversioned hash is ineligible, per
-  the Resolution's D0.
+- **Durable identity only.** `dataset.contentHash` must be a complete
+  `dataset-content-v2:<64 lowercase hex>` value. The version prefix alone is
+  not enough: an empty, truncated, uppercase, or non-hex digest is rejected,
+  because such a value would otherwise flow into `seed-v1` and seed a real
+  random stream. A legacy unversioned hash is ineligible, per the
+  Resolution's D0.
+- **Decoupled from the caller.** The resolved config deep-clones the dormant
+  `entryRules`/`exitRules` arrays instead of aliasing the caller's input
+  object, so a later mutation upstream cannot silently change what a recorded
+  candidate hash describes.
 
 ### Field notes
 
@@ -131,8 +143,17 @@ core STOCH indicator and is rejected at admission.
 | period | `fastMA`, `slowMA`, `emaPeriod`, `rsiPeriod`, `macdFast`, `macdSlow`, `macdSignal`, `bbPeriod` | integer `>= 1` |
 | level | `rsiBuy`, `rsiSell` | finite in `[0, 100]` |
 | positive | `bbMult` | finite `> 0` |
-| non-negative | `slPct`, `tpPct`, `feePct`, `slipPct` | finite `>= 0` |
+| percent | `slPct`, `tpPct`, `feePct`, `slipPct` | finite in `[0, 100]` |
 | size percent | `sizePct` | finite in `(0, 100]` |
+
+`percent` is bounded at 100, not merely at 0. `backtestRunner` divides these
+legacy percent units by 100 and the engine's `assertNormalizedFraction` rejects
+any normalized fraction above 1, so admitting `feePct: 101` would queue a run
+that is **guaranteed** to throw once a job executes — strictly worse than an
+unchecked field, because the failure would land after jobs already exist. The
+inclusive endpoint stays legal: 100 maps to exactly the engine's 1.0 cap.
+`level` shares the same numeric range for an unrelated reason (RSI is defined
+on 0..100), so the two remain separate domains and can diverge independently.
 
 ### Axis whitelist
 
@@ -186,7 +207,10 @@ order, or a row id.
    base selects, so the pruned count stays a property of the grid alone.
 4. **Deduplicate** by canonical `strategy-v2` hash across ALL bases. The first
    occurrence (config order) keeps provenance in `baseId`; later repeats count
-   as `duplicates`.
+   as `duplicates`. Every candidate holds its own deep copy of the strategy —
+   sharing one `entryRules` array would let a mutation on a single candidate
+   change the content of every other candidate while their already-computed
+   hashes and seeds stayed put.
 5. **Sort** survivors by strategy hash (byte order) and assign
    `index = 0..n-1` **afterwards**, so input order can never change a
    candidate's identity or index.
@@ -222,6 +246,10 @@ The seed is `SHA-256(preimage)[0..4]` read big-endian, directly usable as a
 `mulberry32` seed. Length-prefixed strings keep the concatenation unambiguous,
 so no two different inputs can share a preimage.
 
+Both identity arguments must be a complete `<version>:<64 lowercase hex>`
+value. A bare prefix, a truncated digest, uppercase hex, or non-hex characters
+fail closed rather than producing a seed from a malformed identity.
+
 `purpose` is whitelisted; v1 defines only `random-entry`. An unknown purpose
 fails closed so a typo cannot silently create a second unreviewed stream.
 
@@ -241,6 +269,12 @@ freshness test both execute the real functions and require a `RangeError`
 carrying the recorded fragment, so the fixture can never claim a rejection the
 reference does not actually perform. Rust must reject the same input with a
 message containing the same fragment.
+
+68 rejections are held in total (10 seed + 1 axis + 4 concurrency + 51
+admission + 2 enumeration). Both languages assert the **exact ordered ID
+inventory** of the admission group and the 68 total, so a deleted case fails a
+test instead of being masked by a replacement that preserves the count, and the
+totals quoted in prose are derived from the artifact rather than hand-carried.
 
 ## 6. Deliberately out of scope
 

@@ -14,6 +14,7 @@ import { strategyHash } from '../core/hashing';
 import {
   DISCOVERY_ENUMERATION_VERSION,
   axisValues,
+  deepCloneJson,
   type DiscoveryAxisKey,
   type DiscoveryBase,
   type ResolvedDiscoveryConfig,
@@ -93,8 +94,13 @@ interface Combination {
  *  fixed so generated fixtures stay reproducible. */
 function combinationsForBase(base: DiscoveryBase): Combination[] {
   const grids = base.axes.map((axis) => ({ key: axis.key, values: axisValues(axis) }));
+  // Every combination gets its OWN deep copy. A shallow spread would leave all
+  // candidates aliasing one `entryRules`/`exitRules` array, so mutating a
+  // single candidate would change the content of every other candidate while
+  // their already-computed hashes and seeds stayed put — an inconsistency the
+  // runner would then persist as an immutable audit record.
   let combinations: Combination[] = [
-    { baseId: base.id, appliedAxes: {}, strategy: { ...base.strategy } },
+    { baseId: base.id, appliedAxes: {}, strategy: deepCloneJson(base.strategy) },
   ];
   for (const grid of grids) {
     const next: Combination[] = [];
@@ -103,7 +109,7 @@ function combinationsForBase(base: DiscoveryBase): Combination[] {
         next.push({
           baseId: combination.baseId,
           appliedAxes: { ...combination.appliedAxes, [grid.key]: value },
-          strategy: { ...combination.strategy, [grid.key]: value },
+          strategy: { ...deepCloneJson(combination.strategy), [grid.key]: value },
         });
       }
     }
