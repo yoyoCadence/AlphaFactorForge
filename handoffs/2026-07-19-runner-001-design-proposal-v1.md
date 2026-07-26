@@ -391,3 +391,63 @@ Date: 2026-07-22. Implementer: Codex. Branch:
 RS-CORE-004 is Done locally. The only newly unblocked implementation slice is
 RS-CORE-005 (Gate + Score structural parity); runner orchestration remains
 blocked by the mandated slice order.
+
+### RS-CORE-005 implementation record (append-only update)
+
+Date: 2026-07-22. Implementer: Codex. Branch:
+`feat/rs-core-005-gate-score-parity`.
+
+- Added `src/parity/gateScoreFixture.ts`, `npm run fixtures:gate-score`, and
+  the committed `gate-score-parity-v1` envelope: 6 params-only complexity
+  cases covering all 12 supported signal ids, 17 JSON-safe encoded Gate
+  verdict cases, 4 complete `score-v1` breakdown cases, 7 Gate errors, and 11
+  Score errors HELD by the TypeScript reference. Exact inventories and output
+  structure lock criterion/component/penalty order, statuses, evidence,
+  details, integer boundaries, and error fragments; only finite non-integer
+  leaves use the declared tolerance. The fixture's SHA-256 is
+  `0e064d14a7385f0137449b141eb2c79cdaf363f25da3acd6e52d1d1db865bf7f`
+  before and after regeneration.
+- Added pure Rust `discovery_core/gate.rs` (`gate-v1`) and `score.rs`
+  (`score-v1`) plus a five-test fixture consumer. Gate exposes raw and
+  JSON-safe encoded verdicts; Score accepts a params-only projection by
+  construction. Coverage includes default/full/partial configuration,
+  duplicate/missing benchmarks, strict Gate boundaries, UTC concentration,
+  non-finite evidence, JavaScript MAX_SAFE limits, all params signal families,
+  negative-zero normalization, extreme finite population sigma, and
+  finite-weight aggregate overflow.
+- Hardened the TypeScript reference before freezing parity: Gate scalar,
+  rolling, concentration, benchmark, and percentile evidence now fails closed
+  when malformed/non-finite, deterministic benchmark ids must be unique, Score
+  uses scale-normalized population sigma, canonicalizes negative zero, and
+  throws instead of emitting a non-finite aggregate score. The Gate contract
+  version now has one owner in `gate.ts` and is re-exported by persistence.
+- Scope remains pure/test-only: no runner, SQLite, threads, events, UI,
+  blocks/code discovery candidates, or hidden Test-segment execution.
+  Verification: fixture regeneration blob-identical; 337 Vitest tests,
+  TypeScript typecheck, production build, cargo check, 47 Rust tests, targeted
+  rustfmt checks, 25 Playwright tests, and `git diff --check` pass. Clippy was
+  intentionally not run.
+
+RS-CORE-005 is Done locally. The only newly unblocked slice is
+RUNNER-CONFIG-001 (pure config parsing/enumeration/deduplication/hashes/seeds/
+caps); DB/thread/event/UI runner work remains blocked by the mandated order.
+
+### RS-CORE-005 review correction (append-only update)
+
+Date: 2026-07-22. The original implementation record above is retained as
+historical context; this correction supersedes its fixture counts, hash, and
+Vitest total after final independent review.
+
+- The final fixture inventory is 6 params-only complexity cases, 22 encoded
+  Gate verdict cases, 4 complete Score cases, 16 Gate errors, and 11 Score
+  errors. Added locks cover invalid JavaScript TimeClip dates, precise
+  fail-closed audit details, fractional/negative/non-finite/unsafe trade
+  counts, finite concentration-ratio overflow, and negative-zero Score
+  weights/contributions/final score.
+- The final committed fixture SHA-256 is
+  `5151b9409f79424eec2974489d43328b2cca18ac0dcbf40ce7fa94074a3ffa2e`;
+  consecutive regenerations remain blob-identical.
+- Final verification totals are 339 Vitest tests, 47 Rust tests, and 25
+  Playwright tests, alongside typecheck, production build, cargo check,
+  targeted rustfmt checks, and `git diff --check`. Clippy remains
+  intentionally unrun.

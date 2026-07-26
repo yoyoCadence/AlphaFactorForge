@@ -1,6 +1,6 @@
 # Hard Gate Contract (GATE-001)
 
-Status: adopted Phase B foundation, 2026-07-19.
+Status: adopted Phase B foundation; TypeScript/Rust structural parity added 2026-07-22.
 
 ## Purpose
 
@@ -15,11 +15,13 @@ The intended input is the **Validation** segment result. The hidden Test segment
 - Concentration criteria attribute the candidate's closed-trade `pnl` (already cost-inclusive): monthly by UTC `YYYY-MM` of `exitTime`, per-trade individually, each as a fraction of total profit.
 - Benchmark wins require the candidate's `netReturn` to be STRICTLY greater than each of the four deterministic §6 benchmarks; ties lose. The Random Entry criterion consumes the BENCH-002 percentile (fraction of runs strictly beaten).
 - The verdict lists every criterion in the fixed §5.1 order with observed value, threshold, and pass flag, plus the exact config judged with — record the whole verdict for reproducibility.
-- Missing evidence never passes (fails closed with `value: null`): an equity curve shorter than one rolling window, or a non-positive total profit (concentration is then unverifiable).
-- Structural problems throw (`RangeError`): a missing deterministic benchmark or an invalid threshold configuration.
+- Missing evidence never passes (fails closed with `value: null`): an equity curve shorter than one rolling window, a non-finite rolling/concentration input, an `exitTime` outside the ECMAScript Date/TimeClip range, or a non-positive total profit (concentration is then unverifiable). Scalar evidence (`tradeCount`, average trade return, drawdown, candidate/benchmark return, and Random Entry percentile) must also be finite; `tradeCount` must be a non-negative safe integer.
+- Structural problems throw (`RangeError`): a missing or duplicate deterministic benchmark id, or an invalid threshold configuration. Duplicate and missing ids are reported in the fixed benchmark-suite order.
+- Persisted/parity verdicts use the JSON-safe `gate-v1` encoder: a non-finite observed scalar becomes `value: null` plus an explicit `valueStatus`; genuinely insufficient evidence keeps both fields null.
+- Audit details distinguish a genuinely short curve/non-positive profit from `non-finite equity evidence`, `invalid trade exit-time evidence`, and `non-finite profit evidence`; invalid evidence is never mislabeled as ordinary insufficiency.
 
 ## Non-goals
 
 - Score, weights, penalties, ranking order (§5.2) — later slices.
 - Segment-length-adjusted `minTrades` (the doc's 「依區段長度調整」) — deferred; callers may override the threshold explicitly.
-- Persistence, UI, lifecycle transitions, Rust integration.
+- Runner orchestration, persistence, UI, and lifecycle transitions.

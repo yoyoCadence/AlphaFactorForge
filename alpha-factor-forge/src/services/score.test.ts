@@ -142,6 +142,63 @@ describe('scoreCandidate — non-finite and insufficient evidence', () => {
     expect(at({ a: 0.02, b: 0.02 }).rawStatus).toBe('insufficient');
     expect(at(threeCalmMonths).evidence?.monthCount).toBe(3);
   });
+
+  it('canonicalizes negative zero so the complete breakdown round-trips through JSON', () => {
+    const zeroWeights = {
+      cagr: -0,
+      sortino: 0,
+      calmar: 0,
+      regime: -0,
+      profitFactor: 0,
+      consistency: 0,
+      complexity: 0,
+      turnover: 0,
+      dataMining: 0,
+    };
+    const b = scoreCandidate({
+      ...baseArgs({ cagr: -0 }),
+      testedCombinations: 1,
+      config: { weights: zeroWeights },
+    });
+
+    expect(Object.is(entry(b, 'cagr').raw, 0)).toBe(true);
+    expect(Object.is(b.config.weights.cagr, 0)).toBe(true);
+    expect(Object.is(b.config.weights.regime, 0)).toBe(true);
+    expect(Object.is(b.score, 0)).toBe(true);
+    expect(JSON.parse(JSON.stringify(b))).toEqual(b);
+  });
+
+  it('keeps population sigma finite for extreme finite monthly returns', () => {
+    const b = scoreCandidate(baseArgs({
+      monthlyReturns: {
+        '2024-01': Number.MAX_VALUE,
+        '2024-02': -Number.MAX_VALUE,
+        '2024-03': 0,
+      },
+    }));
+    const consistency = entry(b, 'consistency');
+
+    expect(consistency.rawStatus).toBe('finite');
+    expect(consistency.raw).not.toBeNull();
+    expect(Number.isFinite(consistency.raw!)).toBe(true);
+    expect(consistency.raw!).toBeGreaterThan(Number.MAX_VALUE / 2);
+    expect(consistency.evidence?.monthlyStdDev).toBe(consistency.raw!);
+    expect(JSON.parse(JSON.stringify(b))).toEqual(b);
+  });
+});
+
+describe('scoreCandidate — finite score guarantee', () => {
+  it('rejects finite weights whose aggregate contributions overflow', () => {
+    expect(() => scoreCandidate({
+      ...baseArgs(),
+      config: {
+        weights: {
+          calmar: Number.MAX_VALUE,
+          consistency: Number.MAX_VALUE,
+        },
+      },
+    })).toThrow('resolved score weights produce a non-finite score');
+  });
 });
 
 describe('complexityUnits — canonical cross-mode parity (Resolution D4)', () => {

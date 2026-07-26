@@ -1,6 +1,6 @@
 # Ranking Score Contract (SCORE-001)
 
-Status: adopted Phase B foundation, 2026-07-19. Implements the PR #61 handoff Resolution (`handoffs/2026-07-19-score-001-design-proposal-v1.md`), which overrides the original proposal wherever they differ.
+Status: adopted Phase B foundation, 2026-07-19; params-only TypeScript/Rust structural parity added 2026-07-22. Implements the PR #61 handoff Resolution (`handoffs/2026-07-19-score-001-design-proposal-v1.md`), which overrides the original proposal wherever they differ.
 
 ## Purpose
 
@@ -47,6 +47,8 @@ Every entry is JSON-safe (`raw` is a finite number or null) with `rawStatus ∈ 
 - NaN / negative Infinity → `invalid`, `normalized = 0`.
 - fewer than 3 finite months → `insufficient`, `normalized = 0`.
 - the regime placeholder → `deferred`.
+- Finite monthly returns use a scale-normalized population-σ calculation so extreme finite inputs do not overflow intermediate sums or squares.
+- Negative zero is canonicalized to positive zero at the JSON boundary (raw values, resolved weights, and the final score).
 
 The final score is always finite; the whole breakdown survives `JSON.stringify`/`parse` without information loss.
 
@@ -54,6 +56,7 @@ The final score is always finite; the whole breakdown survives `JSON.stringify`/
 
 - Caps must be finite and > 0 (`profitFactor` cap > 1); weights finite and ≥ 0; `weights.regime` must be 0 → otherwise `RangeError`.
 - Invalid `testedCombinations` → `RangeError`.
+- If otherwise finite resolved weights overflow a component/penalty aggregate, scoring throws `RangeError` instead of emitting a non-finite score.
 - Unsupported `stoch*` signals or an uncompilable code expression propagate their errors (a strategy that cannot run cannot be scored).
 
 ## Non-goals
@@ -61,3 +64,4 @@ The final score is always finite; the whole breakdown survives `JSON.stringify`/
 - Gate→Score orchestration, min-score / top-K promotion policy (later runner slice).
 - REGIME-001 regime classifier; UI weight editing (Results Explorer); persistence of breakdowns.
 - Hidden-Test one-time scoring (「Test 分數只在晉級裁決時計算一次」) — future reveal flow.
+- Rust discovery candidates in v1 remain params-only; blocks/code complexity and the expression interpreter stay TypeScript-only.

@@ -26,7 +26,12 @@ import {
   type DeterministicBenchmarkId,
 } from './benchmarks';
 import type { RandomEntryBenchmark } from './randomEntry';
-import type { GateVerdict, GateCriterionId, GateConfig } from './gate';
+import {
+  GATE_CONTRACT_VERSION,
+  type GateVerdict,
+  type GateCriterionId,
+  type GateConfig,
+} from './gate';
 import type { ScoreBreakdown } from './score';
 import { SCORE_FORMULA_VERSION } from './score';
 import {
@@ -45,8 +50,8 @@ export const VALIDATION_RECORD_VERSION = 'validation-record-v1';
 export const BENCHMARK_RECORD_VERSION = 'bench-record-v1';
 // Contract versions recorded for reproducibility. They name the adopted docs:
 export const BENCHMARK_CONTRACT_VERSION = 'benchmark-suite-v1'; // docs/benchmark-suite-contract.md
-export const GATE_CONTRACT_VERSION = 'gate-v1'; // docs/gate-contract.md
 export const EXECUTION_CONTRACT_VERSION = 'backtest-execution-v1'; // docs/backtest-execution-contract.md
+export { GATE_CONTRACT_VERSION };
 
 // ---------- benchmark record (Resolution D2) ----------
 

@@ -5,10 +5,12 @@ import { DETERMINISTIC_BENCHMARK_IDS, type BenchmarkRun } from './benchmarks';
 import type { RandomEntryBenchmark } from './randomEntry';
 import {
   DEFAULT_GATE_CONFIG,
+  GATE_CONTRACT_VERSION,
   evaluateGate,
   rollingPositiveRatio,
   type GateCriterionId,
 } from './gate';
+import { GATE_CONTRACT_VERSION as VALIDATION_RECORD_GATE_CONTRACT_VERSION } from './validationRecord';
 
 const zeroMetrics = (): Metrics => ({
   netReturn: 0,
@@ -101,6 +103,12 @@ describe('rollingPositiveRatio', () => {
     expect(rollingPositiveRatio(eq([1, 2, 1, 2, 1]), 2)).toBe(0); // ties are not positive
     expect(rollingPositiveRatio(eq([1, 2, 3]), 3)).toBeNull();
   });
+
+  it('fails closed when any equity value is non-finite', () => {
+    const eq = (xs: number[]): EquityPoint[] => xs.map((equity, time) => ({ time, equity }));
+    expect(rollingPositiveRatio(eq([1, 2, Number.NaN, 4, 5]), 2)).toBeNull();
+    expect(rollingPositiveRatio(eq([1, 2, 3, Number.POSITIVE_INFINITY]), 3)).toBeNull();
+  });
 });
 
 describe('evaluateGate', () => {
@@ -115,6 +123,11 @@ describe('evaluateGate', () => {
     expect(verdict.pass).toBe(true);
     expect(verdict.criteria.map((c) => c.id)).toEqual(ORDER);
     expect(verdict.config).toEqual(DEFAULT_GATE_CONFIG);
+  });
+
+  it('owns and re-exports one gate-v1 contract constant', () => {
+    expect(GATE_CONTRACT_VERSION).toBe('gate-v1');
+    expect(VALIDATION_RECORD_GATE_CONTRACT_VERSION).toBe(GATE_CONTRACT_VERSION);
   });
 
   it('fails each §5.1 criterion independently', () => {
@@ -159,6 +172,149 @@ describe('evaluateGate', () => {
     expect(benchOne.detail).toBe('not beaten: smaCross');
   });
 
+  it('rejects duplicate deterministic benchmark ids in fixed suite order', () => {
+    const args = passArgs();
+    args.benchmarks = [
+      ...args.benchmarks,
+      args.benchmarks[3],
+      args.benchmarks[1],
+    ];
+    let thrown: unknown;
+    try {
+      evaluateGate(args);
+    } catch (error) {
+      thrown = error;
+    }
+    expect(thrown).toBeInstanceOf(RangeError);
+    expect((thrown as Error).message).toBe(
+      'duplicate deterministic benchmark(s): smaCross, bollingerReversion',
+    );
+  });
+
+  it('fails closed for every non-finite scalar criterion input', () => {
+    const onlyFailure = (
+      id: GateCriterionId,
+      mutate: (args: ReturnType<typeof passArgs>) => void,
+    ): void => {
+      const args = passArgs();
+      mutate(args);
+      const verdict = evaluateGate(args);
+      expect(verdict.pass, id).toBe(false);
+      expect(failed(verdict), id).toEqual([id]);
+    };
+
+    for (const tradeCount of [
+      Number.NaN,
+      Number.POSITIVE_INFINITY,
+      -1,
+      36.5,
+      Number.MAX_SAFE_INTEGER + 1,
+    ]) {
+      onlyFailure('minTrades', (args) => {
+        args.candidateResult.metrics.tradeCount = tradeCount;
+      });
+    }
+    for (const avgTradeReturn of [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
+      onlyFailure('avgTradeReturn', (args) => {
+        args.candidateResult.metrics.avgTradeReturn = avgTradeReturn;
+      });
+    }
+    for (const maxDrawdown of [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
+      onlyFailure('maxDrawdown', (args) => { args.candidateResult.metrics.maxDrawdown = maxDrawdown; });
+    }
+    onlyFailure('rollingConsistency', (args) => {
+      args.candidateResult.equity[50].equity = Number.NaN;
+    });
+    for (const netReturn of [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
+      onlyFailure('benchmarkWins', (args) => { args.candidateResult.metrics.netReturn = netReturn; });
+      onlyFailure('benchmarkWins', (args) => {
+        args.benchmarks[0].result.metrics.netReturn = netReturn;
+      });
+    }
+    for (const percentile of [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
+      onlyFailure('randomEntryPercentile', (args) => {
+        args.randomEntry.candidatePercentile = percentile;
+      });
+    }
+  });
+
+  it('returns null concentration values with precise details for non-finite profit evidence', () => {
+    for (const pnl of [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
+      const args = passArgs();
+      args.candidateResult.trades[0].pnl = pnl;
+      const verdict = evaluateGate(args);
+      expect(failed(verdict)).toEqual(['monthlyConcentration', 'tradeConcentration']);
+      for (const id of ['monthlyConcentration', 'tradeConcentration'] as const) {
+        expect(verdict.criteria.find((criterion) => criterion.id === id)).toMatchObject({
+          value: null,
+          detail: 'non-finite profit evidence',
+        });
+      }
+    }
+
+    const overflow = passArgs();
+    overflow.candidateResult.trades = [
+      trade(Number.MAX_VALUE, Date.UTC(2024, 0, 1)),
+      trade(Number.MAX_VALUE, Date.UTC(2024, 1, 1)),
+    ];
+    const overflowVerdict = evaluateGate(overflow);
+    expect(failed(overflowVerdict)).toEqual(['monthlyConcentration', 'tradeConcentration']);
+    for (const id of ['monthlyConcentration', 'tradeConcentration'] as const) {
+      expect(overflowVerdict.criteria.find((criterion) => criterion.id === id)).toMatchObject({
+        value: null,
+        detail: 'non-finite profit evidence',
+      });
+    }
+
+    const ratioOverflow = passArgs();
+    ratioOverflow.candidateResult.trades = [
+      trade(Number.MAX_VALUE, Date.UTC(2024, 0, 1)),
+      trade(-Number.MAX_VALUE, Date.UTC(2024, 1, 1)),
+      trade(Number.MIN_VALUE, Date.UTC(2024, 2, 1)),
+    ];
+    const ratioOverflowVerdict = evaluateGate(ratioOverflow);
+    expect(failed(ratioOverflowVerdict)).toEqual([
+      'monthlyConcentration',
+      'tradeConcentration',
+    ]);
+    for (const id of ['monthlyConcentration', 'tradeConcentration'] as const) {
+      expect(ratioOverflowVerdict.criteria.find((criterion) => criterion.id === id))
+        .toMatchObject({
+          value: null,
+          detail: 'non-finite profit evidence',
+        });
+    }
+  });
+
+  it('fails monthly concentration for non-finite or TimeClip-invalid exit times', () => {
+    for (const exitTime of [Number.POSITIVE_INFINITY, Number.MAX_SAFE_INTEGER]) {
+      const args = passArgs();
+      args.candidateResult.trades[0].exitTime = exitTime;
+      const verdict = evaluateGate(args);
+      expect(failed(verdict)).toEqual(['monthlyConcentration']);
+      expect(verdict.criteria.find((criterion) => criterion.id === 'monthlyConcentration'))
+        .toMatchObject({
+          value: null,
+          detail: 'invalid trade exit-time evidence',
+        });
+    }
+  });
+
+  it('records the exact rolling failure reason', () => {
+    const nonFinite = passArgs();
+    nonFinite.candidateResult.equity[50].equity = Number.NaN;
+    expect(evaluateGate(nonFinite).criteria.find((criterion) => criterion.id === 'rollingConsistency'))
+      .toMatchObject({ value: null, detail: 'non-finite equity evidence' });
+
+    const short = passArgs();
+    short.candidateResult.equity = risingEquity(10);
+    expect(evaluateGate(short).criteria.find((criterion) => criterion.id === 'rollingConsistency'))
+      .toMatchObject({
+        value: null,
+        detail: 'equity curve shorter than one 30-bar window',
+      });
+  });
+
   it('fails closed when the evidence is insufficient', () => {
     // Equity too short for one rolling window.
     const short = passArgs();
@@ -166,6 +322,7 @@ describe('evaluateGate', () => {
     const rolled = evaluateGate(short).criteria.find((c) => c.id === 'rollingConsistency')!;
     expect(rolled.pass).toBe(false);
     expect(rolled.value).toBeNull();
+    expect(rolled.detail).toBe('equity curve shorter than one 30-bar window');
 
     // No positive total profit: both concentration criteria unverifiable.
     const losing = passArgs();
@@ -175,6 +332,7 @@ describe('evaluateGate', () => {
       const c = verdict.criteria.find((x) => x.id === id)!;
       expect(c.pass).toBe(false);
       expect(c.value).toBeNull();
+      expect(c.detail).toBe('no positive total profit to attribute');
     }
   });
 
