@@ -818,3 +818,46 @@ Re-verification: `npm run typecheck`; `npm test` (382, unchanged);
 `npm run build`; `cargo check --locked`; `cargo test --locked` (94, +8);
 `cargo clippy --locked --all-targets` clean on the changed files; targeted
 `rustfmt --check` clean; `npm run e2e` (25); `git diff --check` clean.
+
+### RUNNER-STORE-001 self-review correction (append-only update)
+
+Date: 2026-07-26. Findings from an adversarial self-review of PR #74 after the
+review corrections above. Supersedes the Rust test count (94 -> 96).
+
+Two real defects, both found by probing rather than by re-running the suite:
+
+- `select_best_strategy` documented "highest FINITE-score gate passer" but
+  filtered only on `score IS NOT NULL`. SQLite stores NaN as NULL yet keeps
+  +/-Infinity, so an infinite score outranked every genuine candidate — a probe
+  confirmed a `9e999` row beating a legitimate 5.0. The commit path's validator
+  rejects non-finite scores, but this selector is public and documented as
+  finite-only, so it now filters with `score * 0 = 0` (true only for finite x).
+- A run whose every job FAILED could be marked `completed` with no winner,
+  which is indistinguishable from a clean run where nothing passed. D5 requires
+  an engine/system failure to fail the run WITH evidence, so
+  `complete_discovery_run` now refuses while any job is `failed` and directs
+  the caller to `failed` instead.
+
+One hardening: `transition_run` was a check-then-act (read status, then write)
+while `start_discovery_run` and `complete_discovery_run` were already
+transactional. It now shares one transaction, so the state machine does not
+depend on caller discipline.
+
+One probe that did NOT become a fix, recorded so it is not "found" again:
+`skip_remaining_jobs` and `fail_candidate_jobs` appear to operate on terminal
+runs, but completion requires zero `queued`/`running` jobs and both functions
+only touch those states, so on a completed run they are provably no-ops; and
+skipping after a cancel is D5's documented flow, not a bug. Manufacturing a
+guard there would have added a rule the contract does not ask for.
+
+Open item for RUNNER-EXEC-001: `discovery_runs` has no run-level failure
+evidence column, so `transition_run(.., Failed)` records the state but not the
+reason. Per-job `error_message` carries the detail today. If EXEC needs a
+run-level reason it should add the column in its own migration rather than
+having this slice add speculative schema.
+
+Re-verification: `npm run typecheck`; `npm test` (382, unchanged);
+`npm run build`; `cargo check --locked`; `cargo test --locked` (96, +2);
+`cargo clippy --locked --all-targets` clean on the store files; targeted
+`rustfmt --check` clean; `npm run e2e` (25); `git diff --check` clean. Both
+new tests were mutation-verified: reverting either fix fails its test.

@@ -428,10 +428,17 @@ pub fn start_discovery_run(
     Ok(())
 }
 
-/// Apply a D5 state transition. Terminal states are refused, and completion
-/// stamps `completed_at`.
+/// Apply a D5 state transition. `completed` is unreachable here (see
+/// `transition_allowed`); terminal states stamp `completed_at`.
+///
+/// The read and the write share one transaction. Without it this would be a
+/// check-then-act: two callers could both observe `running` and both write,
+/// and the state machine would only be as strong as the caller's discipline.
+/// Its siblings `start_discovery_run` and `complete_discovery_run` are already
+/// transactional, so leaving this one bare was the odd case out.
 pub fn transition_run(conn: &Connection, run_id: i64, to: RunStatus) -> AppResult<()> {
-    let from = current_status(conn, run_id)?;
+    let tx = conn.unchecked_transaction()?;
+    let from = current_status(&tx, run_id)?;
     if !transition_allowed(from, to) {
         return Err(AppError::Other(format!(
             "illegal run transition {} -> {}",
@@ -449,7 +456,8 @@ pub fn transition_run(conn: &Connection, run_id: i64, to: RunStatus) -> AppResul
          SET status = ?2, updated_at = datetime('now'), completed_at = {completed}
          WHERE id = ?1"
     );
-    conn.execute(&sql, params![run_id, to.as_str()])?;
+    tx.execute(&sql, params![run_id, to.as_str()])?;
+    tx.commit()?;
     Ok(())
 }
 
@@ -470,6 +478,11 @@ pub fn select_best_strategy(conn: &Connection, run_id: i64) -> AppResult<Option<
              WHERE r.discovery_run_id = ?1
                AND r.gate_passed = 1
                AND r.score IS NOT NULL
+               -- FINITE, not merely non-null. SQLite stores NaN as NULL but
+               -- keeps +/-Infinity, and an infinite score would outrank every
+               -- real candidate. `x * 0 = 0` holds only for finite x
+               -- (inf * 0 is NaN, which compares false).
+               AND r.score * 0 = 0
              ORDER BY r.score DESC, j.candidate_index ASC, s.strategy_hash ASC
              LIMIT 1",
             [run_id],
@@ -503,6 +516,22 @@ pub fn complete_discovery_run(conn: &mut Connection, run_id: i64) -> AppResult<O
     if unfinished > 0 {
         return Err(AppError::Other(format!(
             "cannot complete run {run_id}: {unfinished} job(s) are still queued or running"
+        )));
+    }
+    // D5: "engine/system failure fails the run with evidence; it is not
+    // silently retried." Completing a run that contains failed jobs would
+    // erase the difference between "finished, nothing passed" and "the engine
+    // broke on some candidates" — both would land as `completed` with no
+    // winner. Such a run must go to `failed` instead.
+    let failed: i64 = tx.query_row(
+        "SELECT COUNT(*) FROM discovery_jobs
+         WHERE discovery_run_id = ?1 AND status = 'failed'",
+        [run_id],
+        |row| row.get(0),
+    )?;
+    if failed > 0 {
+        return Err(AppError::Other(format!(
+            "cannot complete run {run_id}: {failed} job(s) failed; fail the run instead"
         )));
     }
     let best = select_best_strategy(&tx, run_id)?;

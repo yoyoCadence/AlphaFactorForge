@@ -727,6 +727,84 @@ fn completion_breaks_score_ties_by_candidate_index() {
     );
 }
 
+/// D6 says the winner is the highest FINITE-score passer. `score IS NOT NULL`
+/// is not that test: SQLite stores NaN as NULL but keeps +/-Infinity, and an
+/// infinite score would outrank every real candidate. The commit path's
+/// validator rejects non-finite scores, so this row is inserted directly —
+/// which is exactly the case a public, documented-as-finite selector must
+/// still survive.
+#[test]
+fn an_infinite_score_never_wins() {
+    let mut conn = mem_db();
+    let (dataset_id, strategies) = parents(&conn, 2);
+    let run_id = started_run(&mut conn, dataset_id, &strategies);
+    commit(
+        &mut conn,
+        run_id,
+        0,
+        &bundle(strategies[0], dataset_id, true, 5.0),
+        None,
+    )
+    .unwrap();
+    conn.execute(
+        "INSERT INTO validation_records
+            (strategy_id, dataset_id, record_version, gate_passed, score, record_json,
+             discovery_run_id)
+         VALUES (?1, ?2, 'validation-record-v1', 1, 9e999, '{}', ?3)",
+        params![strategies[1], dataset_id, run_id],
+    )
+    .unwrap();
+
+    let stored: f64 = conn
+        .query_row(
+            "SELECT score FROM validation_records WHERE strategy_id = ?1",
+            [strategies[1]],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert!(!stored.is_finite(), "the fixture really is infinite");
+    assert_eq!(
+        select_best_strategy(&conn, run_id).unwrap(),
+        Some(strategies[0]),
+        "the finite 5.0 wins; an infinite score is not a ranking"
+    );
+}
+
+/// D5: "engine/system failure fails the run with evidence; it is not silently
+/// retried." A `failed` job is finished, so a queue-drained check alone would
+/// let a run whose engine broke be recorded as `completed` with no winner —
+/// indistinguishable from a clean run where nothing passed.
+#[test]
+fn a_run_containing_failed_jobs_cannot_be_completed() {
+    let mut conn = mem_db();
+    let (dataset_id, strategies) = parents(&conn, 2);
+    let run_id = started_run(&mut conn, dataset_id, &strategies);
+    commit(
+        &mut conn,
+        run_id,
+        0,
+        &bundle(strategies[0], dataset_id, true, 1.5),
+        None,
+    )
+    .unwrap();
+    fail_candidate_jobs(&conn, run_id, 1, "engine crash").unwrap();
+
+    assert!(
+        complete_discovery_run(&mut conn, run_id).is_err(),
+        "a run carrying failure evidence must not be marked completed"
+    );
+    assert_eq!(
+        get_discovery_run(&conn, run_id).unwrap().status,
+        RunStatus::Running
+    );
+    // The honest terminal state for it is `failed`.
+    transition_run(&conn, run_id, RunStatus::Failed).unwrap();
+    assert_eq!(
+        get_discovery_run(&conn, run_id).unwrap().status,
+        RunStatus::Failed
+    );
+}
+
 #[test]
 fn completion_records_no_winner_when_nothing_passes() {
     let mut conn = mem_db();
