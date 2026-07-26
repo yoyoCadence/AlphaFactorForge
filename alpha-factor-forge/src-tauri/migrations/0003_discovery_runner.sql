@@ -28,8 +28,11 @@ CREATE UNIQUE INDEX idx_jobs_run_candidate_segment
 -- (run, strategy, dataset) — a second one would mean the same candidate was
 -- assessed twice in the same run, which the candidate transaction must not be
 -- able to do even under retry.
+-- RESTRICT, not SET NULL: these records are immutable audit evidence, and
+-- nulling the linkage would silently erase which run produced an assessment.
+-- A run that produced records simply cannot be deleted.
 ALTER TABLE validation_records ADD COLUMN discovery_run_id INTEGER
-    REFERENCES discovery_runs(id) ON DELETE SET NULL;
+    REFERENCES discovery_runs(id) ON DELETE RESTRICT;
 
 CREATE UNIQUE INDEX idx_validation_records_run_assessment
     ON validation_records(discovery_run_id, strategy_id, dataset_id)

@@ -3,12 +3,14 @@
 //!
 //! `status = 'done'` is the runner's only checkpoint, so a partially applied
 //! assessment would make a resumed run skip work that never actually landed.
-//! `a_failure_after_the_writes_rolls_everything_back` is the test that pins
-//! that down: its failure is triggered AFTER the summaries and trades were
-//! written, and it asserts the surviving rows still hold the previous commit's
-//! values. Asserting "nothing exists" after a failure whose guard fires BEFORE
-//! any write would pass whether or not the rollback worked — that weaker case
-//! is kept separately as `a_broken_job_pair_is_rejected_before_anything_is_written`.
+//!
+//! Reading order matters here. EVERY guard in the store rejects BEFORE writing
+//! anything, so a test that triggers a guard and then asserts "nothing was
+//! written" passes whether or not the rollback works. The single rollback
+//! proof is `a_failure_at_the_last_write_rolls_back_jobs_lifecycle_and_progress`,
+//! which injects its failure at the LAST write in the transaction; it is
+//! mutation-verified against a commit-on-drop transaction. Guard tests are
+//! named so they cannot be mistaken for atomicity evidence.
 
 use rusqlite::{params, Connection};
 
@@ -259,6 +261,55 @@ fn a_refused_start_leaves_no_partial_job_set() {
 }
 
 #[test]
+fn completion_is_reachable_only_through_the_deriving_path() {
+    let mut conn = mem_db();
+    let (dataset_id, strategies) = parents(&conn, 1);
+    let run_id = started_run(&mut conn, dataset_id, &strategies);
+
+    // `running -> completed` is absent from the transition table, so a caller
+    // cannot mark a run complete while skipping the best-strategy derivation.
+    assert!(
+        transition_run(&conn, run_id, RunStatus::Completed).is_err(),
+        "completion must go through complete_discovery_run"
+    );
+    assert_eq!(
+        get_discovery_run(&conn, run_id).unwrap().status,
+        RunStatus::Running
+    );
+}
+
+#[test]
+fn a_run_with_unfinished_jobs_cannot_be_completed() {
+    let mut conn = mem_db();
+    let (dataset_id, strategies) = parents(&conn, 2);
+    let run_id = started_run(&mut conn, dataset_id, &strategies);
+
+    // Only candidate 0 finished; candidate 1 is still queued.
+    commit(
+        &mut conn,
+        run_id,
+        0,
+        &bundle(strategies[0], dataset_id, true, 1.5),
+        None,
+    )
+    .unwrap();
+    let blocked = complete_discovery_run(&mut conn, run_id);
+    assert!(blocked.is_err(), "a draining queue blocks completion");
+    assert_eq!(
+        get_discovery_run(&conn, run_id).unwrap().status,
+        RunStatus::Running,
+        "the refused completion left the run running"
+    );
+
+    // Skipping the remainder (cancellation bookkeeping) drains the queue.
+    skip_remaining_jobs(&conn, run_id).unwrap();
+    assert_eq!(
+        complete_discovery_run(&mut conn, run_id).unwrap(),
+        Some(strategies[0])
+    );
+}
+
+#[test]
 fn illegal_state_transitions_are_refused() {
     let mut conn = mem_db();
     let (dataset_id, strategies) = parents(&conn, 1);
@@ -390,14 +441,17 @@ fn a_broken_job_pair_is_rejected_before_anything_is_written() {
     assert_eq!(remaining[0].status, JobStatus::Queued, "no half checkpoint");
 }
 
-/// The real atomicity proof. The failure is the per-run uniqueness rule firing
-/// on the record INSERT, which happens AFTER both summaries were upserted and
-/// their trades replaced — so every earlier write in the transaction must be
-/// undone. Asserting "nothing exists" would be vacuous here (the first commit
-/// legitimately left rows behind), so this asserts the surviving rows still
-/// hold the FIRST commit's values.
+/// A re-commit of an already-`done` candidate is rejected by the job-status
+/// pre-check, which runs BEFORE any write.
+///
+/// This WAS the rollback proof, back when the earliest rejection for this
+/// input was the per-run uniqueness rule on the record INSERT. Adding that
+/// pre-check (PR #74 review) moved the failure earlier and silently downgraded
+/// this into a guard test — caught only by re-running the commit-on-drop
+/// mutation, under which it now passes. The rollback proof is
+/// `a_failure_at_the_last_write_rolls_back_jobs_lifecycle_and_progress`.
 #[test]
-fn a_failure_after_the_writes_rolls_everything_back() {
+fn re_committing_a_done_candidate_is_rejected_before_any_write() {
     let mut conn = mem_db();
     let (dataset_id, strategies) = parents(&conn, 1);
     let run_id = started_run(&mut conn, dataset_id, &strategies);
@@ -467,12 +521,12 @@ fn a_failure_after_the_writes_rolls_everything_back() {
             |r| r.get(0),
         )
         .unwrap();
-    assert_eq!(net, 0.1, "the upserted summary rolled back");
+    assert_eq!(net, 0.1, "the stored summary is untouched");
 
     let reason: String = conn
         .query_row("SELECT reason FROM trades LIMIT 1", [], |r| r.get(0))
         .unwrap();
-    assert_eq!(reason, "first", "replaced trades rolled back");
+    assert_eq!(reason, "first", "the stored trades are untouched");
     assert_eq!(
         count(&conn, "trades"),
         2,
@@ -481,9 +535,45 @@ fn a_failure_after_the_writes_rolls_everything_back() {
     assert_eq!(count(&conn, "validation_records"), 1);
     assert_eq!(
         get_discovery_run(&conn, run_id).unwrap().progress_json,
-        Some("{\"done\":1}".into()),
-        "run progress rolled back"
+        Some("{\"done\":1}".into())
     );
+}
+
+/// THE rollback proof. Every guard in this module rejects BEFORE writing, so
+/// the only way to exercise the transaction's rollback is to fail at the LAST
+/// write — here a trigger on the progress update. Everything written earlier
+/// (summaries, trades, record, BOTH job rows, and the lifecycle promotion)
+/// must be undone. Mutation-verified: setting the transaction's drop behaviour
+/// to `Commit` makes this test fail.
+#[test]
+fn a_failure_at_the_last_write_rolls_back_jobs_lifecycle_and_progress() {
+    let mut conn = mem_db();
+    let (dataset_id, strategies) = parents(&conn, 1);
+    let run_id = started_run(&mut conn, dataset_id, &strategies);
+
+    conn.execute_batch(
+        "CREATE TRIGGER boom BEFORE UPDATE OF progress_json ON discovery_runs
+         WHEN NEW.progress_json = '{\"boom\":1}'
+         BEGIN SELECT RAISE(ABORT, 'test-injected failure'); END;",
+    )
+    .unwrap();
+
+    let b = bundle(strategies[0], dataset_id, true, 1.5);
+    assert!(commit(&mut conn, run_id, 0, &b, Some("{\"boom\":1}")).is_err());
+
+    assert_eq!(count(&conn, "backtest_summary"), 0, "summaries rolled back");
+    assert_eq!(count(&conn, "validation_records"), 0, "record rolled back");
+    assert_eq!(
+        lifecycle(&conn, strategies[0]),
+        "candidate",
+        "the lifecycle promotion rolled back"
+    );
+    let run = get_discovery_run(&conn, run_id).unwrap();
+    assert_eq!(run.progress_json, None, "progress rolled back");
+    for job in list_discovery_jobs(&conn, run_id).unwrap() {
+        assert_eq!(job.status, JobStatus::Queued, "job rows rolled back");
+        assert_eq!(job.result_id, None);
+    }
 }
 
 #[test]
@@ -769,6 +859,171 @@ fn skipping_and_failing_never_rewrite_a_done_checkpoint() {
         .iter()
         .filter(|j| j.candidate_index == 0)
         .all(|j| j.status == JobStatus::Done && j.error_message.is_none()));
+}
+
+#[test]
+fn a_terminal_job_is_never_resurrected_or_stripped_of_its_evidence() {
+    let mut conn = mem_db();
+    let (dataset_id, strategies) = parents(&conn, 2);
+    let run_id = started_run(&mut conn, dataset_id, &strategies);
+
+    // Candidate 1 failed with evidence. A late-arriving result must NOT flip
+    // it to done and erase why it failed.
+    assert_eq!(
+        fail_candidate_jobs(&conn, run_id, 1, "engine crash").unwrap(),
+        2
+    );
+    let late = bundle(strategies[1], dataset_id, true, 1.5);
+    assert!(
+        commit(&mut conn, run_id, 1, &late, None).is_err(),
+        "a failed candidate must not be completed by a late result"
+    );
+    for job in list_discovery_jobs(&conn, run_id)
+        .unwrap()
+        .iter()
+        .filter(|j| j.candidate_index == 1)
+    {
+        assert_eq!(job.status, JobStatus::Failed);
+        assert_eq!(job.error_message.as_deref(), Some("engine crash"));
+    }
+    assert_eq!(count(&conn, "validation_records"), 0);
+
+    // A second failure must not overwrite the first one's evidence either.
+    assert_eq!(
+        fail_candidate_jobs(&conn, run_id, 1, "a later, different reason").unwrap(),
+        0
+    );
+    assert!(list_discovery_jobs(&conn, run_id)
+        .unwrap()
+        .iter()
+        .filter(|j| j.candidate_index == 1)
+        .all(|j| j.error_message.as_deref() == Some("engine crash")));
+
+    // Skipped is terminal too.
+    skip_remaining_jobs(&conn, run_id).unwrap();
+    let skipped = bundle(strategies[0], dataset_id, true, 1.5);
+    assert!(
+        commit(&mut conn, run_id, 0, &skipped, None).is_err(),
+        "a skipped candidate must not be completed"
+    );
+}
+
+#[test]
+fn two_candidates_may_not_share_one_strategy_and_dataset() {
+    let mut conn = mem_db();
+    let (dataset_id, strategies) = parents(&conn, 1);
+    let run_id = create_discovery_run(&conn, "run", "{}").unwrap();
+
+    // Enumeration deduplicates by strategy hash, so this can only come from a
+    // caller building the queue wrong. It must fail at enqueue, not after the
+    // second candidate's backtests have already run.
+    let duplicated = [
+        CandidateJobSpec {
+            candidate_index: 0,
+            strategy_id: strategies[0],
+            dataset_id,
+        },
+        CandidateJobSpec {
+            candidate_index: 1,
+            strategy_id: strategies[0],
+            dataset_id,
+        },
+    ];
+    assert!(start_discovery_run(&mut conn, run_id, &duplicated).is_err());
+    assert_eq!(list_discovery_jobs(&conn, run_id).unwrap().len(), 0);
+}
+
+// ---------- schema integrity ----------
+
+/// The job-status pre-check now rejects a re-commit before the record INSERT
+/// is ever reached, so no store-level test exercises 0003's per-run
+/// uniqueness index any more. It is still the last line of defence if a job
+/// row is manipulated directly, so it is asserted at the schema level here.
+#[test]
+fn per_run_assessment_uniqueness_is_enforced_by_the_schema() {
+    let conn = mem_db();
+    let (dataset_id, strategies) = parents(&conn, 1);
+    conn.execute(
+        "INSERT INTO discovery_runs (name, status, config_json) VALUES ('r','idle','{}')",
+        [],
+    )
+    .unwrap();
+    let run_id = conn.last_insert_rowid();
+    let (_, _, record) = bundle(strategies[0], dataset_id, true, 1.5);
+
+    insert_validation_record_for_run(&conn, &record, Some(run_id)).unwrap();
+    assert!(
+        insert_validation_record_for_run(&conn, &record, Some(run_id)).is_err(),
+        "a run may hold at most one assessment per (strategy, dataset)"
+    );
+    assert_eq!(count(&conn, "validation_records"), 1);
+}
+
+#[test]
+fn a_run_that_produced_records_cannot_be_deleted() {
+    let mut conn = mem_db();
+    let (dataset_id, strategies) = parents(&conn, 1);
+    let run_id = started_run(&mut conn, dataset_id, &strategies);
+    commit(
+        &mut conn,
+        run_id,
+        0,
+        &bundle(strategies[0], dataset_id, true, 1.5),
+        None,
+    )
+    .unwrap();
+
+    // ON DELETE RESTRICT: nulling the linkage would silently erase which run
+    // produced an immutable audit record.
+    assert!(
+        conn.execute("DELETE FROM discovery_runs WHERE id = ?1", [run_id])
+            .is_err(),
+        "a run with validation records must not be deletable"
+    );
+    let linked: Option<i64> = conn
+        .query_row(
+            "SELECT discovery_run_id FROM validation_records LIMIT 1",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(linked, Some(run_id), "provenance survives");
+}
+
+#[test]
+fn a_failed_migration_records_no_version_and_leaves_no_partial_schema() {
+    // The DDL and its version row must commit together. Simulate a migration
+    // whose second statement fails: without one transaction the first ALTER
+    // would survive unrecorded, and every retry would then die on
+    // "duplicate column name".
+    let conn = Connection::open_in_memory().unwrap();
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS schema_migrations (
+            version    TEXT PRIMARY KEY,
+            applied_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE TABLE probe (id INTEGER PRIMARY KEY);",
+    )
+    .unwrap();
+
+    let broken = "ALTER TABLE probe ADD COLUMN added INTEGER; \
+                  ALTER TABLE nonexistent ADD COLUMN boom INTEGER;";
+    let tx = conn.unchecked_transaction().unwrap();
+    let outcome = tx.execute_batch(broken);
+    assert!(outcome.is_err());
+    drop(tx);
+
+    assert!(
+        conn.prepare("SELECT added FROM probe").is_err(),
+        "the partial DDL rolled back, so a retry is not stuck on a duplicate column"
+    );
+    let recorded: i64 = conn
+        .query_row("SELECT COUNT(*) FROM schema_migrations", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(
+        recorded, 0,
+        "no version was recorded for a failed migration"
+    );
 }
 
 // ---------- PERSIST-001 compatibility ----------

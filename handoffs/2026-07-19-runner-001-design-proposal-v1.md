@@ -755,3 +755,66 @@ Date: 2026-07-26. Implementer: Claude. Branch:
 RUNNER-STORE-001 is Done pending merge. The only newly unblocked slice is
 RUNNER-EXEC-001 (worker pool, commands, pause/resume/cancel, single writer,
 versioned events); the frontend UI remains blocked behind it.
+
+### RUNNER-STORE-001 review correction (append-only update)
+
+Date: 2026-07-26. Fix for the PR #74 review findings. Supersedes the
+verification counts recorded above (86 -> 94 Rust tests).
+
+Three blockers:
+
+- `transition_run` accepted `running -> completed`, giving callers a second
+  path to a terminal "completed" that skipped D6's `best_strategy_id`
+  derivation entirely. That transition is now ABSENT from the table, so
+  completion exists only as `complete_discovery_run`. That function also now
+  refuses while any job is still `queued`/`running`: "completed" never
+  resumes, so allowing it mid-queue would freeze unfinished work behind a
+  terminal state and derive the winner from a partial set of assessments.
+- The candidate commit did not check job status, so a late-arriving result
+  could flip an already `failed` or `skipped` row to `done` and wipe its
+  `error_message` — destroying exactly the evidence D5 requires a failure to
+  carry — or rewrite a `done` checkpoint. The pre-check now requires both rows
+  to be `queued`/`running`, and the UPDATE carries the same restriction.
+- Each migration and its `schema_migrations` row now commit in ONE
+  transaction. SQLite DDL is transactional, so without it a migration failing
+  partway (0003 has several statements) left half a schema behind AND no
+  version row, and every retry then died on "duplicate column name" —
+  permanently unupgradeable. This was latent in 0001/0002 and only became
+  reachable with 0003's multi-statement body.
+
+Same round:
+
+- `fail_candidate_jobs` used `status != 'done'`, so it overwrote `skipped` and
+  replaced an earlier `failed` row's evidence with a later reason. It is now
+  restricted to unfinished rows.
+- `start_discovery_run` accepted two candidate indexes sharing one
+  (strategy, dataset). Enumeration deduplicates by strategy hash, so that can
+  only come from a caller building the queue wrong; it now fails at enqueue
+  instead of after the second candidate's backtests have run, when the commit
+  would hit 0003's per-run assessment uniqueness rule.
+- `validation_records.discovery_run_id` was `ON DELETE SET NULL`, which would
+  silently erase the run provenance of an immutable audit record. It is now
+  `ON DELETE RESTRICT`: a run that produced records cannot be deleted.
+
+Test-integrity finding (the one worth carrying forward):
+
+- The rollback test only covered summaries/trades, because its failure point
+  (the record INSERT) precedes the job rows, lifecycle, and progress writes.
+  A new test injects the failure at the LAST write via a trigger on the
+  progress update, so every earlier write must be undone; it is
+  mutation-verified against a commit-on-drop transaction.
+- Re-running that mutation ALSO revealed that the blocker-2 pre-check had
+  silently downgraded the previous rollback test into a guard test: with the
+  earliest rejection moved ahead of any write, it passed under the mutation.
+  It has been renamed `re_committing_a_done_candidate_is_rejected_before_any_write`
+  and documents why. **A guard added upstream of a failure point can quietly
+  invalidate a test that depended on reaching it** — re-run the mutation after
+  adding guards, not just after writing the test.
+- That pre-check also shields 0003's per-run uniqueness index from the store
+  API, so it is now asserted directly at the schema level; it remains the last
+  line of defence if a job row is manipulated.
+
+Re-verification: `npm run typecheck`; `npm test` (382, unchanged);
+`npm run build`; `cargo check --locked`; `cargo test --locked` (94, +8);
+`cargo clippy --locked --all-targets` clean on the changed files; targeted
+`rustfmt --check` clean; `npm run e2e` (25); `git diff --check` clean.

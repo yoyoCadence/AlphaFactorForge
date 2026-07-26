@@ -31,7 +31,10 @@ gives either table data-carrying structure.
   `UNIQUE(discovery_run_id, strategy_id, dataset_id) WHERE discovery_run_id IS
   NOT NULL`. Manual UI assessments keep a null run and stay unconstrained, so
   PERSIST-001's append-only behaviour is unchanged for them; runner
-  assessments can exist at most once per (run, strategy, dataset).
+  assessments can exist at most once per (run, strategy, dataset). The
+  reference is `ON DELETE RESTRICT`, not `SET NULL`: these rows are immutable
+  audit evidence, and nulling the linkage would silently erase which run
+  produced an assessment, so a run that produced records cannot be deleted.
 - **At most one non-terminal run**, enforced by a partial unique index on an
   expression that is identical for every `running`/`paused` row. Written with
   `OR` rather than `IN` because SQLite restricts index expressions.
@@ -39,6 +42,12 @@ gives either table data-carrying structure.
 Enforcing the single-run rule in the database rather than with a
 check-then-act in Rust means a concurrent second start fails on the constraint
 instead of racing.
+
+Each migration and its `schema_migrations` row commit in ONE transaction.
+SQLite DDL is transactional, so without that a migration failing partway (0003
+has several statements) would leave half a schema behind AND no version row —
+and every retry would then die on "duplicate column name", leaving the
+database permanently unupgradeable.
 
 ## 2. State machine
 
@@ -69,9 +78,14 @@ unrepresentable — not rejected at runtime, but impossible to construct.
 6. `strategy_def.lifecycle`
 
 Before writing it re-runs PERSIST-001's `validate_validation_bundle`, requires
-the run to actually be `running`, and requires the queued pair to exist and to
+the run to actually be `running`, and requires the queued pair to exist, to
 agree with the committed summaries' identity — a result whose strategy/dataset
-does not match the candidate's job rows belongs to a different candidate.
+does not match the candidate's job rows belongs to a different candidate — and
+to still be `queued` or `running`. That last check matters: without it a
+late-arriving result could flip an already `failed` or `skipped` row to `done`
+and wipe its `error_message`, destroying the evidence D5 requires a failure to
+carry. `fail_candidate_jobs` and `skip_remaining_jobs` are likewise restricted
+to unfinished rows, so no terminal state is ever overwritten.
 
 This atomicity is not cosmetic. `status = 'done'` is the runner's ONLY
 checkpoint, so a partially applied assessment would make a resumed run skip
@@ -86,10 +100,18 @@ record instead.
 
 ## 4. Completion and promotion
 
-`complete_discovery_run` derives `best_strategy_id` instead of accepting it:
-the highest FINITE-score gate passer of that run, ties resolved by candidate
-index then strategy hash, null when nothing passed. A caller cannot record a
-winner the stored assessments do not support.
+`running -> completed` is deliberately ABSENT from the transition table, so
+`transition_run` cannot reach it. Completion exists only as
+`complete_discovery_run`, which derives `best_strategy_id` instead of
+accepting it: the highest FINITE-score gate passer of that run, ties resolved
+by candidate index then strategy hash, null when nothing passed. Leaving the
+transition in place would have given callers a second path to "completed" that
+silently skipped the derivation.
+
+Completion also refuses while any job is still `queued` or `running`.
+"Completed" is terminal and never resumes, so allowing it mid-queue would
+freeze unfinished work behind it and derive the winner from a partial set of
+assessments. Cancellation drains the queue via `skip_remaining_jobs` first.
 
 ## 5. Crash recovery
 
@@ -101,19 +123,29 @@ is idempotent: a second pass reports zero changes.
 
 ## 6. Test discipline
 
-The rollback claim is pinned by
-`a_failure_after_the_writes_rolls_everything_back`, whose failure is triggered
-AFTER the summaries and trades were written (the per-run uniqueness rule firing
-on the record insert) and which asserts the surviving rows still hold the
-PREVIOUS commit's values.
+Every guard in this module rejects BEFORE writing anything, so a test that
+trips a guard and then asserts "nothing was written" passes whether or not the
+rollback works. Such tests prove the guard, not atomicity, and are named to say
+so (`a_broken_job_pair_is_rejected_before_anything_is_written`,
+`re_committing_a_done_candidate_is_rejected_before_any_write`).
 
-This distinction matters. The weaker shape — delete a job row, then assert
-"nothing was written" — passes whether or not the rollback works, because that
-guard fires before any write. It is kept separately and named
-`a_broken_job_pair_is_rejected_before_anything_is_written` so it cannot be
-mistaken for atomicity evidence. The rollback test was verified by mutation:
-flipping the transaction's drop behaviour to `Commit` makes it fail, and made
-the weaker test pass.
+The single rollback proof is
+`a_failure_at_the_last_write_rolls_back_jobs_lifecycle_and_progress`: it
+injects its failure at the LAST write in the transaction (a trigger on the
+progress update), so summaries, trades, the record, BOTH job rows, and the
+lifecycle promotion must all be undone. It is mutation-verified — setting the
+transaction's drop behaviour to `Commit` makes it fail.
+
+That verification is not ceremony. The PR #74 review's job-status pre-check
+moved the earliest rejection for a re-commit *earlier* than the record INSERT,
+which silently downgraded the then-current rollback test into a guard test.
+Only re-running the mutation caught it. A guard added upstream of a failure
+point can quietly invalidate a test that depended on reaching it.
+
+Because that pre-check now shields it, 0003's per-run assessment uniqueness
+index is no longer reachable through the store API; it is asserted directly at
+the schema level by `per_run_assessment_uniqueness_is_enforced_by_the_schema`,
+since it remains the last line of defence if a job row is manipulated.
 
 ## 7. Deliberately out of scope
 

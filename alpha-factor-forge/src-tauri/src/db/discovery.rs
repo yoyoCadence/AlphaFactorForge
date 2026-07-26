@@ -81,13 +81,18 @@ impl RunStatus {
 }
 
 /// The fixed D5 transition table. Anything absent here is rejected.
+///
+/// `running -> completed` is deliberately ABSENT. Completion must derive
+/// `best_strategy_id` from the stored assessments (D6), so it is reachable
+/// only through `complete_discovery_run`; allowing it here would give callers
+/// a second path to "completed" that silently skips the derivation and leaves
+/// the run claiming no winner.
 fn transition_allowed(from: RunStatus, to: RunStatus) -> bool {
     use RunStatus::*;
     matches!(
         (from, to),
         (Idle, Running)
             | (Running, Paused)
-            | (Running, Completed)
             | (Running, Failed)
             | (Running, Cancelled)
             | (Paused, Running)
@@ -348,20 +353,41 @@ pub fn start_discovery_run(
             "a discovery run must start with at least one candidate".into(),
         ));
     }
-    let mut seen: Vec<i64> = Vec::with_capacity(candidates.len());
+    let mut seen_indexes: Vec<i64> = Vec::with_capacity(candidates.len());
+    let mut seen_identities: Vec<(i64, i64)> = Vec::with_capacity(candidates.len());
     for candidate in candidates {
         if candidate.candidate_index < 0 {
             return Err(AppError::Other(
                 "candidate_index must be a non-negative enumeration index".into(),
             ));
         }
-        if seen.contains(&candidate.candidate_index) {
+        if seen_indexes.contains(&candidate.candidate_index) {
             return Err(AppError::Other(format!(
                 "duplicate candidate_index {}",
                 candidate.candidate_index
             )));
         }
-        seen.push(candidate.candidate_index);
+        seen_indexes.push(candidate.candidate_index);
+
+        // Enumeration already deduplicates by `strategy-v2` hash, so two
+        // candidates sharing a (strategy, dataset) means the caller built the
+        // queue wrong. Rejecting it here fails at enqueue instead of much
+        // later, when the second candidate's commit would hit 0003's per-run
+        // assessment uniqueness rule after its backtests had already run.
+        let identity = (candidate.strategy_id, candidate.dataset_id);
+        if seen_identities.contains(&identity) {
+            return Err(AppError::Other(format!(
+                "candidates {} and {} share strategy {} on dataset {}",
+                seen_indexes[seen_identities
+                    .iter()
+                    .position(|seen| *seen == identity)
+                    .expect("identity was recorded")],
+                candidate.candidate_index,
+                candidate.strategy_id,
+                candidate.dataset_id
+            )));
+        }
+        seen_identities.push(identity);
     }
 
     let tx = conn.transaction()?;
@@ -459,10 +485,24 @@ pub fn select_best_strategy(conn: &Connection, run_id: i64) -> AppResult<Option<
 pub fn complete_discovery_run(conn: &mut Connection, run_id: i64) -> AppResult<Option<i64>> {
     let tx = conn.transaction()?;
     let from = current_status(&tx, run_id)?;
-    if !transition_allowed(from, RunStatus::Completed) {
+    if from != RunStatus::Running {
         return Err(AppError::Other(format!(
             "illegal run transition {} -> completed",
             from.as_str()
+        )));
+    }
+    // "Completed" must mean the queue actually drained. Unfinished work would
+    // otherwise be frozen behind a terminal state that never resumes, and the
+    // derived winner would be computed from a partial set of assessments.
+    let unfinished: i64 = tx.query_row(
+        "SELECT COUNT(*) FROM discovery_jobs
+         WHERE discovery_run_id = ?1 AND status IN ('queued','running')",
+        [run_id],
+        |row| row.get(0),
+    )?;
+    if unfinished > 0 {
+        return Err(AppError::Other(format!(
+            "cannot complete run {run_id}: {unfinished} job(s) are still queued or running"
         )));
     }
     let best = select_best_strategy(&tx, run_id)?;
@@ -542,19 +582,19 @@ pub fn commit_candidate_assessment(
         (Segment::Train, assessment.train_summary),
         (Segment::Validation, assessment.validation_summary),
     ] {
-        let found: Option<(i64, i64)> = tx
+        let found: Option<(i64, i64, String)> = tx
             .query_row(
-                "SELECT strategy_id, dataset_id FROM discovery_jobs
+                "SELECT strategy_id, dataset_id, status FROM discovery_jobs
                  WHERE discovery_run_id = ?1 AND candidate_index = ?2 AND segment = ?3",
                 params![
                     assessment.run_id,
                     assessment.candidate_index,
                     segment.as_str()
                 ],
-                |row| Ok((row.get(0)?, row.get(1)?)),
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
             )
             .optional()?;
-        let (strategy_id, dataset_id) = found.ok_or_else(|| {
+        let (strategy_id, dataset_id, status) = found.ok_or_else(|| {
             AppError::Other(format!(
                 "no {} job for candidate {} in run {}",
                 segment.as_str(),
@@ -566,6 +606,17 @@ pub fn commit_candidate_assessment(
             return Err(AppError::Other(format!(
                 "{} job identity does not match the committed summary",
                 segment.as_str()
+            )));
+        }
+        // Only unfinished work may be completed. Without this a result could
+        // flip an already `failed` or `skipped` row to `done` and wipe its
+        // error_message, destroying the evidence D5 requires a failure to
+        // carry — and re-completing a `done` row would rewrite a checkpoint.
+        if status != "queued" && status != "running" {
+            return Err(AppError::Other(format!(
+                "{} job for candidate {} is already {status}",
+                segment.as_str(),
+                assessment.candidate_index
             )));
         }
     }
@@ -587,7 +638,8 @@ pub fn commit_candidate_assessment(
             "UPDATE discovery_jobs
              SET status = 'done', result_id = ?4, error_message = NULL,
                  updated_at = datetime('now')
-             WHERE discovery_run_id = ?1 AND candidate_index = ?2 AND segment = ?3",
+             WHERE discovery_run_id = ?1 AND candidate_index = ?2 AND segment = ?3
+               AND status IN ('queued','running')",
             params![
                 assessment.run_id,
                 assessment.candidate_index,
@@ -656,10 +708,14 @@ pub fn fail_candidate_jobs(
             "a failed job must record why it failed".into(),
         ));
     }
+    // Only unfinished work can fail. `done`, `skipped`, and an earlier
+    // `failed` are all terminal: overwriting them would rewrite a checkpoint
+    // or replace the original failure evidence with a later one.
     Ok(conn.execute(
         "UPDATE discovery_jobs
          SET status = 'failed', error_message = ?3, updated_at = datetime('now')
-         WHERE discovery_run_id = ?1 AND candidate_index = ?2 AND status != 'done'",
+         WHERE discovery_run_id = ?1 AND candidate_index = ?2
+           AND status IN ('queued','running')",
         params![run_id, candidate_index, error_message],
     )?)
 }
