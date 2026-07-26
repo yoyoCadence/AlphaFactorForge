@@ -693,3 +693,65 @@ sites carrying an explicit `#[allow]`.
   `cargo check --locked`; `cargo test --locked` (66);
   `cargo clippy --locked --all-targets` clean on every new file; targeted
   `rustfmt --check` clean; `npm run e2e` (25); `git diff --check` clean.
+
+### RUNNER-STORE-001 implementation record (append-only update)
+
+Date: 2026-07-26. Implementer: Claude. Branch:
+`feat/runner-store-001-run-job-store`.
+
+- Added `src-tauri/migrations/0003_discovery_runner.sql` and
+  `src-tauri/src/db/discovery.rs` + `discovery_tests.rs`. `discovery_runs` and
+  `discovery_jobs` had been schema-only since 0001 with no writer anywhere, so
+  0003 is the first migration to give either table data-carrying structure.
+- Schema (D5): `discovery_jobs.candidate_index` plus
+  `UNIQUE(discovery_run_id, candidate_index, segment)`; a nullable
+  `validation_records.discovery_run_id` plus a PARTIAL unique index on
+  `(run, strategy, dataset)` so runner assessments are unique per run while
+  manual saves keep PERSIST-001's unconstrained append-only behaviour; and a
+  partial unique index on an expression identical for every `running`/`paused`
+  row, which enforces the one-non-terminal-run rule in the DATABASE instead of
+  a check-then-act that could race.
+- Store (D5/D6): the fixed transition table (`idle -> running`;
+  `running -> paused|completed|failed|cancelled`; `paused -> running|cancelled`;
+  terminal never resumes), with `idle` deliberately holding no global slot.
+  `commit_candidate_assessment` writes both segment summaries and trades, the
+  append-only record with its run linkage, BOTH job rows, run progress, and
+  the strategy lifecycle in ONE transaction. `write_backtest_result` and a new
+  `insert_validation_record_for_run` take `&Connection`, so a caller-owned
+  transaction passes itself in — the Resolution's "never append a record and
+  patch job state later".
+- Fail-closed by construction rather than by validation where possible:
+  `Segment` is a two-variant enum so a Test job row cannot be built; the
+  lifecycle update is derived from `record.gate_passed` and
+  `best_strategy_id` from the stored assessments, so a caller cannot record a
+  verdict or a winner the evidence does not support; a commit is refused
+  unless the run is `running` and the queued pair exists and matches the
+  committed summaries' identity.
+- Crash recovery pauses orphaned `running` runs, requeues only in-flight jobs,
+  never touches `done` rows, never auto-resumes CPU work, and is idempotent.
+- Test discipline note, carried forward from the PR #73 review rounds: the
+  obvious atomicity test (delete a job row, assert nothing was written) is a
+  FALSE NEGATIVE, because that guard fires before any write. It was verified
+  as such by mutation — flipping the transaction's drop behaviour to `Commit`
+  left it passing. The real proof is
+  `a_failure_after_the_writes_rolls_everything_back`: its failure is the
+  per-run uniqueness rule firing on the record INSERT, after both summaries
+  were upserted and their trades replaced, and it asserts the surviving rows
+  still hold the PREVIOUS commit's values. That test DOES fail under the same
+  mutation. The weaker case is retained under the name
+  `a_broken_job_pair_is_rejected_before_anything_is_written` so it cannot be
+  mistaken for atomicity evidence.
+- `db/discovery.rs` carries a module-level `#![allow(dead_code)]` because no
+  non-test build calls the store yet. RUNNER-EXEC-001 MUST remove it when it
+  wires the commands, or genuinely dead code will stop failing.
+- Documented in `docs/discovery-runner-store-contract.md`.
+- Verification: `npm run typecheck`; `npm test` (382, unchanged — this slice
+  adds no frontend surface); `npm run build`; `cargo check --locked`;
+  `cargo test --locked` (86, +20); `cargo clippy --locked --all-targets` clean
+  on the new files; targeted `rustfmt --check` clean; `npm run e2e` (25);
+  `git diff --check` clean. The 4 pre-existing `backtest.rs`/`score.rs` clippy
+  warnings from RS-CORE-002/005 remain proposed, not fixed here.
+
+RUNNER-STORE-001 is Done pending merge. The only newly unblocked slice is
+RUNNER-EXEC-001 (worker pool, commands, pause/resume/cancel, single writer,
+versioned events); the frontend UI remains blocked behind it.
