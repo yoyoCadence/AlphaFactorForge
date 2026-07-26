@@ -451,3 +451,245 @@ Vitest total after final independent review.
   Playwright tests, alongside typecheck, production build, cargo check,
   targeted rustfmt checks, and `git diff --check`. Clippy remains
   intentionally unrun.
+
+
+### RUNNER-CONFIG-001 implementation record (append-only update)
+
+Date: 2026-07-26. Implementer: Claude. Branch:
+`feat/runner-config-001-enumeration`.
+
+- Added the pure TypeScript reference `src/services/discoveryConfig.ts`
+  (`discovery-config-v1`), `src/services/candidateEnumeration.ts`
+  (`discovery-enumeration-v1`), and `src/services/discoverySeed.ts`
+  (`seed-v1`), plus the pure Rust ports `discovery_core/config.rs`,
+  `enumerate.rs`, `seed.rs`, and `identity.rs`. No SQLite, thread, Tauri
+  event, UI, or hidden Test-segment path was added on either side.
+- D4 admission: exact key sets at every level (missing keys reported in
+  declaration order, then unknown keys sorted, so both languages report the
+  same problem first); contract-version pinning whose expected values the Rust
+  port reads from the owning modules; durable `dataset-content-v2` identity
+  required; resolved numeric `benchmarkCosts` that must equal every base
+  preset's costs (a contradiction would make the benchmark fairness
+  convention unauditable); full resolved Gate/Score configs validated with the
+  owning modules' own messages (Rust delegates to `gate::resolve_gate_config`);
+  explicit `rootSeed` u32; `caps.candidates` in `1..=4096` with 256 as the
+  default budget; `maxConcurrency` null → `max(1, logicalCores - 1)` or an
+  override bounded by `1..=logicalCores`, with `logicalCores` passed in so the
+  module stays pure.
+- D2 candidate space: params mode only. This module is where blocks/code
+  candidates are rejected, which is the recorded contract that lets
+  `embargo.rs` and `signals.rs` assume an already-validated params projection.
+  The axis whitelist is the indicator and risk parameters; `feePct`,
+  `slipPct`, and `sizePct` are execution model and are deliberately NOT
+  axis-eligible. Axis values are inclusive `min + i*step` computed by
+  multiplication (never `+= step`), capped at 64 per axis, and every generated
+  value must satisfy its key's domain.
+- Enumeration: the raw Cartesian product is preflighted against the cap BEFORE
+  any candidate is built, so an over-budget run can never create jobs; the
+  fixed-order cross-field rules `fastMA<slowMA`, `macdFast<macdSlow`,
+  `rsiBuy<rsiSell` PRUNE (they are the expected outcome of a legal grid, not a
+  malformed config); canonical `strategy-v2` hashing deduplicates across all
+  bases with first-occurrence provenance; survivors sort by hash and only then
+  receive `index = 0..n-1`; and `raw = prunedInvalid + duplicates +
+  finalUnique` is asserted rather than trusted. `testedCombinations` is
+  `{ n: finalUnique, basis: 'lineage-final-unique' }`, derived here and never
+  accepted from config.
+- Parity: `src/parity/runnerConfigFixture.ts` + `npm run fixtures:runner-config`
+  own the committed `runner-config-parity-v1` envelope. Its declared
+  `expectedNumericPolicy` is `exact-v1` — this slice admits NO tolerance,
+  because every expected leaf is an identifier, counter, index, or an axis
+  value both languages derive with identical IEEE-754 operations. One axis case
+  deliberately locks accumulated drift (`0.30000000000000004`, not `0.3`).
+  Inventory: 5 seed cases (exact preimage bytes + derived u32), 6 axis cases,
+  5 concurrency cases, 2 complete resolved configs, 6 complete candidate plans
+  (including a base-order-reversed twin proving declaration order changes
+  neither identity, index, nor seed), and 54 TypeScript-held error cases
+  (6 seed + 1 axis + 4 concurrency + 43 admission).
+- Recorded follow-up, NOT taken in this slice: `discovery_core/identity.rs` and
+  the binary crate's `identity` module now hold two copies of the canonical
+  `strategy-v2` encoder. The split is forced by the crate boundary (discovery
+  core must not reach `AppError`/rusqlite row types, and `lib.rs` exports only
+  `discovery_core`). Both are locked to the SAME committed
+  `src/core/hashing/identity-v2.fixture.json` in their own test binaries.
+  Consolidating them touches the product write boundary and should be its own
+  reviewed change.
+- Verification: fixture regeneration blob-identical across consecutive runs
+  (SHA-256 `c484523638c35e7bb7ef052c9cf83fbf04e5c4e35de0be3caba1304c9d76e2a2`);
+  `npm run typecheck`; `npm test` (373); `npm run build`;
+  `cargo check --locked`; `cargo test --locked` (63, all new parity tests
+  passing on their first run); targeted `rustfmt --check` clean on every new
+  Rust file; `npm run e2e` (25). Clippy remains intentionally unrun.
+
+RUNNER-CONFIG-001 is Done pending merge. The only newly unblocked slice is
+RUNNER-STORE-001 (next migration, run/job repositories, atomic candidate
+commit, recovery/idempotency); worker pool, events, and UI remain blocked by
+the mandated order.
+
+### RUNNER-CONFIG-001 review correction (append-only update)
+
+Date: 2026-07-26. Fix for the PR #73 review findings. The implementation
+record above is retained as written; this correction supersedes its fixture
+inventory, error total, and verification counts.
+
+Placement correction first: the original record was appended after the
+RS-CORE-005 *implementation* record but BEFORE the RS-CORE-005 *review
+correction*, breaking this file's append-only chronology. The record has been
+relocated to the end of the file; its text is unchanged.
+
+- [Blocker] `slPct`, `tpPct`, `feePct`, and `slipPct` were admitted on a
+  `>= 0` domain only. `backtestRunner` divides these legacy percent units by
+  100 and `core/backtest`'s `assertNormalizedFraction` rejects anything above
+  1, so a config carrying `feePct: 101` passed admission and was GUARANTEED to
+  throw once a job executed — strictly worse than an unchecked field, because
+  the failure lands after jobs exist. All four now use a `percent` domain
+  bounded to `[0, 100]` (the inclusive endpoint stays legal: 100 maps to
+  exactly the engine's 1.0 cap). `level` keeps the same numeric range for an
+  unrelated reason (RSI is defined on 0..100) and stays a separate domain.
+- [Blocker] Candidates shared one mutable `entryRules`/`exitRules` array with
+  each other AND with the caller's input object, because the combination
+  builder used a shallow spread. Mutating one candidate therefore changed the
+  CONTENT of every other candidate while their already-computed hashes and
+  seeds stayed put — an inconsistency the runner would persist as an immutable
+  audit record. `parseDiscoveryConfig` now deep-clones the dormant rule arrays
+  at admission and the enumerator deep-clones per combination, matching the
+  decoupling standard PERSIST-001's review established. Rust was already
+  correct (`serde_json::Value::clone` is deep).
+- Durable identity validation checked only the version PREFIX, so
+  `strategy-v2:` with an empty, truncated, uppercase, or non-hex digest was
+  accepted and would have seeded a real random stream. Both languages now
+  require `<version>:<64 lowercase hex>`, shared by the seed derivation and
+  the config's dataset check.
+- TypeScript sorted unknown keys with the default `Array.prototype.sort`
+  (UTF-16 code units) while Rust used `String: Ord` (UTF-8 bytes). These
+  disagree for non-ASCII keys — `"\u{1F600}"` sorts first in UTF-16 and last
+  in UTF-8 — so the two languages could name a DIFFERENT unknown key first,
+  violating this slice's own recorded rejection-order contract. TypeScript now
+  sorts by UTF-8 bytes, matching Rust and the canonical encoder in
+  `core/hashing`. A fixture case carrying both keys locks which one is named.
+- The held-error total was misreported as 54 in `tasks.md`, this handoff, and
+  the PR body: the 2 enumeration errors were omitted from the sum, though the
+  itemized breakdown was correct. The real total was 56, and is now **68**
+  after this correction's additions. Both languages now assert the total, so
+  the number is derived from the artifact instead of being hand-carried.
+- The 43 config error cases were locked by COUNT only, unlike the exact
+  ordered ID inventories RS-CORE-003's review established. Both languages now
+  assert the full ordered list (now 51 cases), so a deleted case cannot be
+  masked by a new one that preserves the count.
+- Fixture additions: 4 seed identity-digest errors, 2 dataset identity-digest
+  errors, 4 percent-bound errors (including one generated by an axis), and the
+  UTF-8 key-order case. New TypeScript regressions cover the percent
+  endpoints, the digest shapes, the key ordering, caller-input decoupling, and
+  candidate-to-candidate array isolation.
+- Re-verification: fixture regenerated blob-identical across consecutive runs
+  (SHA-256 `9557ae1fef5122a72192f11c734f9a8d272d20b7b01ee0ddb183d39e83802dd7`,
+  superseding the record above); `npm run typecheck`; `npm test` (381);
+  `npm run build`; `cargo check --locked`; `cargo test --locked` (64);
+  targeted `rustfmt --check` clean; `npm run e2e` (25); `git diff --check`
+  clean.
+- Clippy WAS run this round (`cargo clippy --locked --all-targets`) and every
+  new file is clean. Four warnings on my files were addressed: one
+  `manual_range_contains` in `seed.rs` was adopted, and the four
+  `neg_cmp_op_on_partial_ord` sites carry an explicit `#[allow]` plus a reason
+  — `!(a < b)` and `!(value <= max)` are DELIBERATE, mirroring the TypeScript
+  reference so a NaN prunes the candidate / terminates the axis loop. The
+  clippy-suggested `a >= b` is false for NaN and would admit an invalid
+  hypothesis or spin forever. Four pre-existing warnings remain in
+  `backtest.rs` (2 `map_or`) and `score.rs` (`manual_range_contains`,
+  `clamp`-like) from RS-CORE-002/005; per AGENTS.md §2 they are proposed
+  rather than fixed inside this slice.
+
+### RUNNER-CONFIG-001 second review correction (append-only update)
+
+Date: 2026-07-26. Fix for the PR #73 second-round findings. Supersedes the
+error totals recorded above: the held-rejection total is now **70** (10 seed +
+1 axis + 4 concurrency + 53 admission + 2 enumeration).
+
+- Rust exposed two public axis representations on `DiscoveryBase`: `axes`
+  (serialized into the run's audit record and compared by the parity test) and
+  `parsed_axes` (`#[serde(skip)]`, actually walked by the enumerator). They
+  were built from one loop so they could not diverge today, but two public
+  sources of truth mean a recorded config could describe a DIFFERENT grid from
+  the one that produced the candidates — precisely the class of inconsistency
+  the immutable audit record exists to prevent. `DiscoveryAxis` now stores a
+  `&'static str` key borrowed from `DISCOVERY_AXIS_KEYS` (so an axis cannot
+  name a non-whitelisted key by construction), `SerializedAxis` is gone, and
+  `DiscoveryBase.axes` is the single field both serialization and enumeration
+  read.
+- The benchmark-cost percent regression could never reach its branch: bases
+  parse BEFORE `benchmarkCosts`, so setting the base strategy's `feePct` to
+  101 threw first and the mutation of `benchmarkCosts` in the same case was
+  dead. The resolved costs carry their own domain check, so the base preset
+  now stays valid and two fixture cases plus a unit case exercise
+  `benchmarkCosts.feePct` / `.slipPct` directly.
+- `exact-v1` did not state its sign-of-zero semantics. IEEE-754 defines
+  `-0.0 == 0.0`, so the Rust comparator would have accepted a sign flip while
+  the policy name implies it would not. Both languages now assert that no leaf
+  is negative zero (and Rust additionally requires finiteness), making the
+  declared policy match what is actually enforced.
+- Documentation drift closed: `tasks.md` still quoted 54 held errors in the
+  parity bullet while the fix bullet said 68, and the PR description still
+  carried the pre-review figures (54 errors, the superseded fixture hash,
+  373/63 test counts, prefix-only identity checking). Both are corrected, and
+  the totals are asserted on both sides so prose cannot drift from the
+  artifact again.
+- The clippy note above said "Four warnings" while listing 1 + 4; the correct
+  count is five.
+- Re-verification: fixture regenerated blob-identical across consecutive runs.
+  The FINAL committed fixture SHA-256 is
+  `00ccf7c8d0bea4442653205ec74158213e0dc1ed468fc34b20f64496f71cc57f`; the
+  hashes quoted in the two sections above (`c4845236…`, `9557ae1f…`) are
+  superseded historical values retained per this file's append-only rule.
+  `npm run typecheck`; `npm test` (381); `npm run build`;
+  `cargo check --locked`; `cargo test --locked` (64);
+  `cargo clippy --locked --all-targets` clean on every new file; targeted
+  `rustfmt --check` clean; `npm run e2e` (25); `git diff --check` clean.
+
+### RUNNER-CONFIG-001 third review correction (append-only update)
+
+Date: 2026-07-26. Fix for the PR #73 third-round findings.
+
+Append-only correction first: the previous correction changed the word "Four"
+to "FIVE" IN PLACE inside the first correction's clippy bullet, then described
+that same text as still saying "Four". Editing an earlier record is exactly
+what this file forbids, and it left the two sections contradicting each other.
+The original wording has been restored; the correct count is recorded here
+instead. Five clippy warnings on the new files were addressed: one adopted
+`manual_range_contains` in `seed.rs` plus four `neg_cmp_op_on_partial_ord`
+sites carrying an explicit `#[allow]`.
+
+- The `-0` guard was a FALSE NEGATIVE. `expectExactJson` ran against the
+  imported fixture and against `JSON.parse(JSON.stringify(regenerated))`, but
+  `JSON.stringify(-0)` is `"0"` — a negative zero is erased the moment the
+  fixture is written, so the assertion could never observe one. It now runs on
+  the LIVE builder output before any round trip, with explicit negative
+  controls (`-0`, `NaN`, `±Infinity`, nested and array positions) proving the
+  guard is not vacuous. Verified by mutation: injecting `min: -0` into an axis
+  case and REGENERATING the fixture (so the artifact matches byte for byte)
+  still fails on `Object.is(value, -0)`, where the previous arrangement passed
+  silently.
+- The Rust axis comparison bypassed the `exact-v1` rules with a bare
+  `actual == expected`, so `-0.0 == 0.0` would have been accepted there too.
+  All numeric comparisons now route through one `assert_exact_leaf` helper,
+  and a test asserts that the helper actually PANICS on `-0` (either side),
+  `NaN`, `±Infinity`, and a genuine drift mismatch.
+- `pub key: &'static str` did not mean "whitelisted": `'static` only promises
+  the text outlives the program, and every string literal satisfies it, so a
+  caller could construct an axis naming any key at all. The doc comment
+  claiming otherwise was wrong. `DiscoveryAxis.key` is now a closed `AxisKey`
+  enum whose only constructor from text is `AxisKey::parse`, making a
+  non-whitelisted axis unrepresentable rather than merely rejected;
+  `discovery_axis_keys()` is derived from `AxisKey::ALL` so the string
+  whitelist cannot drift from the enum. A test locks that non-whitelisted
+  keys — including the deliberately excluded `feePct`/`slipPct`/`sizePct` —
+  fail to parse.
+- Deep-clone regressions extended to `exitRules` and to in-place mutation of
+  NESTED rule objects (a shallow array copy survives an append but not an
+  element mutation), on both the caller-input and candidate-to-candidate
+  paths.
+- Re-verification: fixture regenerated blob-identical
+  (`00ccf7c8d0bea4442653205ec74158213e0dc1ed468fc34b20f64496f71cc57f`,
+  unchanged — this round altered guards and types, not fixture content);
+  `npm run typecheck`; `npm test` (382); `npm run build`;
+  `cargo check --locked`; `cargo test --locked` (66);
+  `cargo clippy --locked --all-targets` clean on every new file; targeted
+  `rustfmt --check` clean; `npm run e2e` (25); `git diff --check` clean.
