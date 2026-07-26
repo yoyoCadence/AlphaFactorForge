@@ -432,6 +432,78 @@ RS-CORE-005 is Done locally. The only newly unblocked slice is
 RUNNER-CONFIG-001 (pure config parsing/enumeration/deduplication/hashes/seeds/
 caps); DB/thread/event/UI runner work remains blocked by the mandated order.
 
+### RUNNER-CONFIG-001 implementation record (append-only update)
+
+Date: 2026-07-26. Implementer: Claude. Branch:
+`feat/runner-config-001-enumeration`.
+
+- Added the pure TypeScript reference `src/services/discoveryConfig.ts`
+  (`discovery-config-v1`), `src/services/candidateEnumeration.ts`
+  (`discovery-enumeration-v1`), and `src/services/discoverySeed.ts`
+  (`seed-v1`), plus the pure Rust ports `discovery_core/config.rs`,
+  `enumerate.rs`, `seed.rs`, and `identity.rs`. No SQLite, thread, Tauri
+  event, UI, or hidden Test-segment path was added on either side.
+- D4 admission: exact key sets at every level (missing keys reported in
+  declaration order, then unknown keys sorted, so both languages report the
+  same problem first); contract-version pinning whose expected values the Rust
+  port reads from the owning modules; durable `dataset-content-v2` identity
+  required; resolved numeric `benchmarkCosts` that must equal every base
+  preset's costs (a contradiction would make the benchmark fairness
+  convention unauditable); full resolved Gate/Score configs validated with the
+  owning modules' own messages (Rust delegates to `gate::resolve_gate_config`);
+  explicit `rootSeed` u32; `caps.candidates` in `1..=4096` with 256 as the
+  default budget; `maxConcurrency` null → `max(1, logicalCores - 1)` or an
+  override bounded by `1..=logicalCores`, with `logicalCores` passed in so the
+  module stays pure.
+- D2 candidate space: params mode only. This module is where blocks/code
+  candidates are rejected, which is the recorded contract that lets
+  `embargo.rs` and `signals.rs` assume an already-validated params projection.
+  The axis whitelist is the indicator and risk parameters; `feePct`,
+  `slipPct`, and `sizePct` are execution model and are deliberately NOT
+  axis-eligible. Axis values are inclusive `min + i*step` computed by
+  multiplication (never `+= step`), capped at 64 per axis, and every generated
+  value must satisfy its key's domain.
+- Enumeration: the raw Cartesian product is preflighted against the cap BEFORE
+  any candidate is built, so an over-budget run can never create jobs; the
+  fixed-order cross-field rules `fastMA<slowMA`, `macdFast<macdSlow`,
+  `rsiBuy<rsiSell` PRUNE (they are the expected outcome of a legal grid, not a
+  malformed config); canonical `strategy-v2` hashing deduplicates across all
+  bases with first-occurrence provenance; survivors sort by hash and only then
+  receive `index = 0..n-1`; and `raw = prunedInvalid + duplicates +
+  finalUnique` is asserted rather than trusted. `testedCombinations` is
+  `{ n: finalUnique, basis: 'lineage-final-unique' }`, derived here and never
+  accepted from config.
+- Parity: `src/parity/runnerConfigFixture.ts` + `npm run fixtures:runner-config`
+  own the committed `runner-config-parity-v1` envelope. Its declared
+  `expectedNumericPolicy` is `exact-v1` — this slice admits NO tolerance,
+  because every expected leaf is an identifier, counter, index, or an axis
+  value both languages derive with identical IEEE-754 operations. One axis case
+  deliberately locks accumulated drift (`0.30000000000000004`, not `0.3`).
+  Inventory: 5 seed cases (exact preimage bytes + derived u32), 6 axis cases,
+  5 concurrency cases, 2 complete resolved configs, 6 complete candidate plans
+  (including a base-order-reversed twin proving declaration order changes
+  neither identity, index, nor seed), and 54 TypeScript-held error cases
+  (6 seed + 1 axis + 4 concurrency + 43 admission).
+- Recorded follow-up, NOT taken in this slice: `discovery_core/identity.rs` and
+  the binary crate's `identity` module now hold two copies of the canonical
+  `strategy-v2` encoder. The split is forced by the crate boundary (discovery
+  core must not reach `AppError`/rusqlite row types, and `lib.rs` exports only
+  `discovery_core`). Both are locked to the SAME committed
+  `src/core/hashing/identity-v2.fixture.json` in their own test binaries.
+  Consolidating them touches the product write boundary and should be its own
+  reviewed change.
+- Verification: fixture regeneration blob-identical across consecutive runs
+  (SHA-256 `c484523638c35e7bb7ef052c9cf83fbf04e5c4e35de0be3caba1304c9d76e2a2`);
+  `npm run typecheck`; `npm test` (373); `npm run build`;
+  `cargo check --locked`; `cargo test --locked` (63, all new parity tests
+  passing on their first run); targeted `rustfmt --check` clean on every new
+  Rust file; `npm run e2e` (25). Clippy remains intentionally unrun.
+
+RUNNER-CONFIG-001 is Done pending merge. The only newly unblocked slice is
+RUNNER-STORE-001 (next migration, run/job repositories, atomic candidate
+commit, recovery/idempotency); worker pool, events, and UI remain blocked by
+the mandated order.
+
 ### RS-CORE-005 review correction (append-only update)
 
 Date: 2026-07-22. The original implementation record above is retained as

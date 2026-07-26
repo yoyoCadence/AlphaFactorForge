@@ -1,0 +1,402 @@
+//! RUNNER-CONFIG-001 parity: the pure Rust config/enumeration/seed port is
+//! checked against the same committed TypeScript-reference fixture the vitest
+//! freshness test rebuilds.
+//!
+//! Every expected leaf compares EXACTLY (`expectedNumericPolicy: exact-v1`):
+//! this slice produces identifiers, counters, indexes, and axis values that
+//! both languages derive with identical IEEE-754 operations, so no tolerance
+//! is admissible here. Error cases are held by the TypeScript reference; Rust
+//! must reject the same input with a message containing the recorded fragment.
+
+use serde_json::Value;
+
+use super::config::{
+    axis_values, parse_discovery_config, resolve_concurrency, DiscoveryAxis, DISCOVERY_AXIS_KEYS,
+    DISCOVERY_HARD_CANDIDATE_CAP, DISCOVERY_MAX_AXIS_VALUES, DISCOVERY_SUPPORTED_SIGNAL_IDS,
+};
+use super::enumerate::{enumerate_candidates, DISCOVERY_VALIDITY_RULE_IDS};
+use super::seed::{derive_discovery_seed, discovery_seed_preimage, DeriveSeedArgs};
+
+fn fixture() -> Value {
+    serde_json::from_str(include_str!(
+        "../../../fixtures/rs-core/runner-config-v1.json"
+    ))
+    .expect("runner-config fixture parses")
+}
+
+fn cases<'a>(fixture: &'a Value, group: &str) -> &'a Vec<Value> {
+    fixture[group]
+        .as_array()
+        .unwrap_or_else(|| panic!("fixture group {group} must be an array"))
+}
+
+fn ids(fixture: &Value, group: &str) -> Vec<String> {
+    cases(fixture, group)
+        .iter()
+        .map(|case| case["id"].as_str().expect("case id").to_string())
+        .collect()
+}
+
+/// Structural JSON equality with numeric leaves compared by exact f64 value,
+/// so `5` and `5.0` agree while `0.3` and `0.30000000000000004` do not.
+fn json_exact_eq(actual: &Value, expected: &Value, path: &str) {
+    match (actual, expected) {
+        (Value::Number(left), Value::Number(right)) => {
+            let left = left.as_f64().expect("actual number is representable");
+            let right = right.as_f64().expect("expected number is representable");
+            assert!(
+                left == right,
+                "{path} differs: actual={left}, expected={right}"
+            );
+        }
+        (Value::Array(left), Value::Array(right)) => {
+            assert_eq!(left.len(), right.len(), "{path} length differs");
+            for (index, (left, right)) in left.iter().zip(right.iter()).enumerate() {
+                json_exact_eq(left, right, &format!("{path}[{index}]"));
+            }
+        }
+        (Value::Object(left), Value::Object(right)) => {
+            let mut left_keys: Vec<&String> = left.keys().collect();
+            let mut right_keys: Vec<&String> = right.keys().collect();
+            left_keys.sort();
+            right_keys.sort();
+            assert_eq!(left_keys, right_keys, "{path} key set differs");
+            for key in left_keys {
+                json_exact_eq(&left[key], &right[key], &format!("{path}.{key}"));
+            }
+        }
+        _ => assert_eq!(actual, expected, "{path} differs"),
+    }
+}
+
+fn axis_from(value: &Value) -> DiscoveryAxis {
+    let key = value["key"].as_str().expect("axis key");
+    DiscoveryAxis {
+        key_index: DISCOVERY_AXIS_KEYS
+            .iter()
+            .position(|candidate| *candidate == key)
+            .expect("fixture axis key is whitelisted"),
+        min: value["min"].as_f64().expect("axis min"),
+        max: value["max"].as_f64().expect("axis max"),
+        step: value["step"].as_f64().expect("axis step"),
+    }
+}
+
+fn seed_args<'a>(input: &'a Value) -> DeriveSeedArgs<'a> {
+    DeriveSeedArgs {
+        root_seed: input["rootSeed"].as_f64().expect("rootSeed"),
+        dataset_content_hash: input["datasetContentHash"].as_str().expect("dataset hash"),
+        strategy_hash: input["strategyHash"].as_str().expect("strategy hash"),
+        purpose: input["purpose"].as_str().expect("purpose"),
+    }
+}
+
+#[test]
+fn envelope_caps_and_whitelists_match_the_reference() {
+    let fixture = fixture();
+    assert_eq!(fixture["schemaVersion"], "rs-core-parity-fixture-v1");
+    assert_eq!(fixture["fixtureVersion"], "runner-config-parity-v1");
+    assert_eq!(fixture["expectedNumericPolicy"], "exact-v1");
+    assert_eq!(fixture["contracts"]["config"], "discovery-config-v1");
+    assert_eq!(fixture["contracts"]["preset"], "discovery-preset-v1");
+    assert_eq!(
+        fixture["contracts"]["enumeration"],
+        "discovery-enumeration-v1"
+    );
+    assert_eq!(fixture["contracts"]["seed"], "seed-v1");
+
+    assert_eq!(
+        fixture["caps"]["hardCandidateCap"].as_i64().unwrap(),
+        DISCOVERY_HARD_CANDIDATE_CAP
+    );
+    assert_eq!(
+        fixture["caps"]["maxAxisValues"].as_u64().unwrap() as usize,
+        DISCOVERY_MAX_AXIS_VALUES
+    );
+
+    let axis_keys: Vec<&str> = fixture["axisKeys"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|value| value.as_str().unwrap())
+        .collect();
+    assert_eq!(axis_keys, DISCOVERY_AXIS_KEYS.to_vec());
+    for excluded in ["feePct", "slipPct", "sizePct"] {
+        assert!(
+            !axis_keys.contains(&excluded),
+            "{excluded} must not be an axis"
+        );
+    }
+
+    let signal_ids: Vec<&str> = fixture["supportedSignalIds"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|value| value.as_str().unwrap())
+        .collect();
+    assert_eq!(signal_ids, DISCOVERY_SUPPORTED_SIGNAL_IDS.to_vec());
+
+    let rule_ids: Vec<&str> = fixture["validityRuleIds"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|value| value.as_str().unwrap())
+        .collect();
+    assert_eq!(rule_ids, DISCOVERY_VALIDITY_RULE_IDS.to_vec());
+}
+
+#[test]
+fn seed_preimages_and_derived_values_match_exactly() {
+    let fixture = fixture();
+    assert_eq!(
+        ids(&fixture, "seedCases"),
+        vec![
+            "seed-root-zero",
+            "seed-root-max-u32",
+            "seed-root-mid",
+            "seed-other-strategy",
+            "seed-other-dataset",
+        ]
+    );
+
+    for case in cases(&fixture, "seedCases") {
+        let id = case["id"].as_str().unwrap();
+        let args = seed_args(&case["input"]);
+        let preimage = discovery_seed_preimage(&args)
+            .unwrap_or_else(|error| panic!("{id} preimage failed: {error}"));
+        assert_eq!(
+            hex::encode(&preimage),
+            case["expected"]["preimageHex"].as_str().unwrap(),
+            "{id} preimage bytes differ"
+        );
+        assert_eq!(
+            derive_discovery_seed(&args).unwrap(),
+            case["expected"]["seed"].as_u64().unwrap() as u32,
+            "{id} derived seed differs"
+        );
+    }
+
+    assert_eq!(
+        ids(&fixture, "seedErrorCases"),
+        vec![
+            "seed-negative-root",
+            "seed-root-above-u32",
+            "seed-fractional-root",
+            "seed-legacy-dataset-hash",
+            "seed-ephemeral-strategy-hash",
+            "seed-unknown-purpose",
+        ]
+    );
+    for case in cases(&fixture, "seedErrorCases") {
+        let id = case["id"].as_str().unwrap();
+        let fragment = case["expectedErrorIncludes"].as_str().unwrap();
+        let error = discovery_seed_preimage(&seed_args(&case["input"]))
+            .expect_err(&format!("{id} must fail closed"));
+        assert!(
+            error.0.contains(fragment),
+            "{id} error \"{}\" does not contain \"{fragment}\"",
+            error.0
+        );
+    }
+}
+
+#[test]
+fn axis_values_and_concurrency_match_exactly() {
+    let fixture = fixture();
+    for case in cases(&fixture, "axisCases") {
+        let id = case["id"].as_str().unwrap();
+        let values = axis_values(&axis_from(&case["input"]))
+            .unwrap_or_else(|error| panic!("{id} failed: {error}"));
+        let expected: Vec<f64> = case["expected"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|value| value.as_f64().unwrap())
+            .collect();
+        assert_eq!(values.len(), expected.len(), "{id} value count differs");
+        for (index, (actual, expected)) in values.iter().zip(expected.iter()).enumerate() {
+            assert!(
+                actual == expected,
+                "{id}[{index}] differs: actual={actual}, expected={expected}"
+            );
+        }
+    }
+
+    for case in cases(&fixture, "axisErrorCases") {
+        let id = case["id"].as_str().unwrap();
+        let fragment = case["expectedErrorIncludes"].as_str().unwrap();
+        let error =
+            axis_values(&axis_from(&case["input"])).expect_err(&format!("{id} must fail closed"));
+        assert!(
+            error.0.contains(fragment),
+            "{id} error \"{}\" does not contain \"{fragment}\"",
+            error.0
+        );
+    }
+
+    for case in cases(&fixture, "concurrencyCases") {
+        let id = case["id"].as_str().unwrap();
+        let requested = case["input"]["requested"].as_f64();
+        let logical_cores = case["input"]["logicalCores"].as_f64().unwrap();
+        assert_eq!(
+            resolve_concurrency(requested, logical_cores).unwrap(),
+            case["expected"].as_i64().unwrap(),
+            "{id} resolved concurrency differs"
+        );
+    }
+
+    for case in cases(&fixture, "concurrencyErrorCases") {
+        let id = case["id"].as_str().unwrap();
+        let fragment = case["expectedErrorIncludes"].as_str().unwrap();
+        let error = resolve_concurrency(
+            case["input"]["requested"].as_f64(),
+            case["input"]["logicalCores"].as_f64().unwrap(),
+        )
+        .expect_err(&format!("{id} must fail closed"));
+        assert!(
+            error.0.contains(fragment),
+            "{id} error \"{}\" does not contain \"{fragment}\"",
+            error.0
+        );
+    }
+}
+
+#[test]
+fn resolved_configs_match_the_reference_structure() {
+    let fixture = fixture();
+    assert_eq!(
+        ids(&fixture, "configCases"),
+        vec!["config-default-single-base", "config-multi-base-overrides"]
+    );
+
+    for case in cases(&fixture, "configCases") {
+        let id = case["id"].as_str().unwrap();
+        let logical_cores = case["logicalCores"].as_f64().unwrap();
+        let resolved = parse_discovery_config(&case["input"], logical_cores)
+            .unwrap_or_else(|error| panic!("{id} failed: {error}"));
+        let actual = serde_json::to_value(&resolved).expect("resolved config serializes");
+        json_exact_eq(&actual, &case["expected"], id);
+    }
+}
+
+#[test]
+fn every_typescript_held_config_rejection_is_reproduced() {
+    let fixture = fixture();
+    let error_cases = cases(&fixture, "configErrorCases");
+    assert_eq!(
+        error_cases.len(),
+        43,
+        "the fixture's admission-rejection inventory changed"
+    );
+
+    let mut mode_rejections = 0;
+    for case in error_cases {
+        let id = case["id"].as_str().unwrap();
+        let fragment = case["expectedErrorIncludes"].as_str().unwrap();
+        let logical_cores = case["logicalCores"].as_f64().unwrap();
+        let error = parse_discovery_config(&case["input"], logical_cores)
+            .expect_err(&format!("{id} must fail closed"));
+        assert!(
+            error.0.contains(fragment),
+            "{id} error \"{}\" does not contain \"{fragment}\"",
+            error.0
+        );
+        if fragment.contains("mode must be \"params\"") {
+            mode_rejections += 1;
+        }
+    }
+    // Blocks and code candidates are rejected at admission, not deeper in the
+    // engine: the Rust pipeline has no non-params path at all.
+    assert_eq!(mode_rejections, 2);
+}
+
+#[test]
+fn candidate_plans_match_counts_order_indexes_and_seeds() {
+    let fixture = fixture();
+    assert_eq!(
+        ids(&fixture, "enumerationCases"),
+        vec![
+            "enumerate-single-axis",
+            "enumerate-multi-base-product",
+            "enumerate-cross-field-prune",
+            "enumerate-cross-base-duplicates",
+            "enumerate-disjoint-bases",
+            "enumerate-disjoint-bases-reversed",
+        ]
+    );
+
+    for case in cases(&fixture, "enumerationCases") {
+        let id = case["id"].as_str().unwrap();
+        let logical_cores = case["logicalCores"].as_f64().unwrap();
+        let config = parse_discovery_config(&case["input"], logical_cores)
+            .unwrap_or_else(|error| panic!("{id} config failed: {error}"));
+        let plan = enumerate_candidates(&config)
+            .unwrap_or_else(|error| panic!("{id} enumeration failed: {error}"));
+        let actual = serde_json::to_value(&plan).expect("plan serializes");
+        json_exact_eq(&actual, &case["expected"], id);
+
+        // Independent invariants, so a fixture regenerated from a broken
+        // reference cannot quietly ship an inconsistent plan.
+        let counts = &plan.counts;
+        assert_eq!(
+            counts.pruned_invalid + counts.duplicates + counts.final_unique,
+            counts.raw,
+            "{id} counters do not reconcile"
+        );
+        assert_eq!(plan.candidates.len() as i64, counts.final_unique);
+        assert_eq!(plan.tested_combinations.n, counts.final_unique);
+        assert_eq!(plan.tested_combinations.basis, "lineage-final-unique");
+        let mut previous: Option<&str> = None;
+        for (index, candidate) in plan.candidates.iter().enumerate() {
+            assert_eq!(candidate.index, index as i64, "{id} index is not stable");
+            assert!(candidate.strategy_hash.starts_with("strategy-v2:"));
+            if let Some(previous) = previous {
+                assert!(
+                    previous < candidate.strategy_hash.as_str(),
+                    "{id} candidates are not strictly hash-ordered"
+                );
+            }
+            previous = Some(candidate.strategy_hash.as_str());
+            assert_eq!(candidate.strategy["mode"], "params");
+        }
+    }
+
+    for case in cases(&fixture, "enumerationErrorCases") {
+        let id = case["id"].as_str().unwrap();
+        let fragment = case["expectedErrorIncludes"].as_str().unwrap();
+        let logical_cores = case["logicalCores"].as_f64().unwrap();
+        let config = parse_discovery_config(&case["input"], logical_cores)
+            .unwrap_or_else(|error| panic!("{id} config failed: {error}"));
+        let error = enumerate_candidates(&config).expect_err(&format!("{id} must fail closed"));
+        assert!(
+            error.0.contains(fragment),
+            "{id} error \"{}\" does not contain \"{fragment}\"",
+            error.0
+        );
+    }
+}
+
+#[test]
+fn base_declaration_order_never_changes_candidate_identity() {
+    let fixture = fixture();
+    let find = |id: &str| -> Value {
+        cases(&fixture, "enumerationCases")
+            .iter()
+            .find(|case| case["id"] == id)
+            .unwrap_or_else(|| panic!("missing case {id}"))
+            .clone()
+    };
+
+    let forward = find("enumerate-disjoint-bases");
+    let reversed = find("enumerate-disjoint-bases-reversed");
+    let plan_for = |case: &Value| {
+        let config = parse_discovery_config(&case["input"], case["logicalCores"].as_f64().unwrap())
+            .expect("config parses");
+        enumerate_candidates(&config).expect("enumeration succeeds")
+    };
+
+    let forward_plan = plan_for(&forward);
+    let reversed_plan = plan_for(&reversed);
+    assert_eq!(forward_plan.counts, reversed_plan.counts);
+    assert_eq!(forward_plan.candidates, reversed_plan.candidates);
+}

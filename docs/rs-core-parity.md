@@ -1,7 +1,8 @@
 # RS-CORE cross-language parity
 
-Status: RS-CORE-001 through RS-CORE-005 implemented. TypeScript remains the
-reference implementation; Rust remains a pure computation library.
+Status: RS-CORE-001 through RS-CORE-005 plus RUNNER-CONFIG-001 implemented.
+TypeScript remains the reference implementation; Rust remains a pure
+computation library.
 
 ## Contract and ownership
 
@@ -195,3 +196,46 @@ Rust ports. The Gate port exposes raw and JSON-safe encoded verdicts; the Score
 port accepts a params-only projection by construction. Their shared fixture
 consumer executes all success and TypeScript-held error cases without Tauri,
 SQLite, runner, thread, event, UI, or hidden Test-segment dependencies.
+
+## RUNNER-CONFIG-001: config admission, enumeration, and seeds
+
+`src/parity/runnerConfigFixture.ts` + `npm run fixtures:runner-config` own the
+committed `runner-config-parity-v1` envelope
+(`fixtures/rs-core/runner-config-v1.json`). The full conventions live in
+`docs/discovery-config-contract.md`; this section records only the parity
+policy.
+
+- `expectedNumericPolicy` is **`exact-v1`** — unlike the engine fixtures, this
+  slice declares NO tolerance. It produces identifiers, counters, indexes, and
+  axis values that both languages derive with identical IEEE-754 operations, so
+  every expected leaf compares exactly. One axis case deliberately locks
+  accumulated `min + i*step` drift (`0.30000000000000004`, not `0.3`) so a Rust
+  port that "tidies" the arithmetic fails instead of silently enumerating a
+  different hypothesis set.
+- 5 seed cases lock the exact `seed-v1` preimage BYTES (as hex) plus the
+  derived `u32`, including both `rootSeed` endpoints and one-field-changed
+  variants. 6 seed errors are TypeScript-held.
+- 6 axis cases and 1 axis error lock inclusive value generation, the integer
+  axis restriction, exact float drift, and the 64-value cap boundary. 5
+  concurrency cases and 4 errors lock the `max(1, cores - 1)` default and the
+  `1..=logicalCores` override bound.
+- 2 config cases compare the COMPLETE resolved envelope structurally; 43
+  TypeScript-held rejections cover envelope/version pinning, dataset identity,
+  non-params candidate modes, unsupported signals, every parameter domain,
+  axis validity, base identity, benchmark-cost agreement, every numeric bound,
+  concurrency, and the gate/score validators' own messages.
+- 6 enumeration cases compare complete `discovery-enumeration-v1` plans —
+  counters, hash order, stable indexes, applied axes, full candidate
+  strategies, and derived seeds — including cross-field pruning, cross-base
+  deduplication, and a base-order-reversed twin proving declaration order
+  changes nothing. 2 enumeration errors lock the raw-product cap and the
+  all-pruned case.
+
+`discovery_core/config.rs` (`discovery-config-v1`), `enumerate.rs`
+(`discovery-enumeration-v1`), `seed.rs` (`seed-v1`), and `identity.rs`
+(`strategy-v2`) are the pure Rust ports. `config.rs` walks raw JSON by hand
+rather than deriving `Deserialize`, because the reference's path-qualified
+messages and rejection ORDER are part of the contract; it reads its expected
+contract versions from the owning modules and delegates Gate threshold
+validation to `gate::resolve_gate_config`. No runner, SQLite, thread, event,
+UI, or hidden Test-segment dependency was added.

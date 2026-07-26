@@ -16,6 +16,7 @@
     "fixtures:signals-split": "vite-node scripts/generate-signals-split-fixtures.ts",
     "fixtures:benchmarks": "vite-node scripts/generate-benchmark-fixtures.ts",
     "fixtures:gate-score": "vite-node scripts/generate-gate-score-fixtures.ts",
+    "fixtures:runner-config": "vite-node scripts/generate-runner-config-fixtures.ts",
     "e2e": "playwright test",
     "tauri": "tauri"
   },
