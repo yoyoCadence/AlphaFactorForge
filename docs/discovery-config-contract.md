@@ -185,8 +185,14 @@ An axis has ONE representation in each language. The Rust port deliberately
 does not keep a separate "serialized" and "parsed" axis list: the field written
 into the run's audit record and the field the enumerator walks are the same
 one, so a recorded config can never describe a different grid from the one that
-actually produced the candidates. `DiscoveryAxis.key` borrows from the
-whitelist, so an axis cannot even name a non-whitelisted key.
+actually produced the candidates.
+
+`DiscoveryAxis.key` is a closed `AxisKey` enum whose only constructor from text
+is `AxisKey::parse`, so an axis naming a non-whitelisted key is
+unrepresentable. (A `&'static str` would NOT give this guarantee — `'static`
+only promises the text outlives the program, and every string literal
+qualifies.) The string whitelist is derived from `AxisKey::ALL`, so the two
+cannot drift.
 
 Multiple bases are allowed: different signal families are different bases, each
 with its own grid. Signal ids themselves are never an axis.
@@ -274,7 +280,14 @@ IEEE-754 operations, so no tolerance is admissible.
 `exact-v1` also fixes the sign of zero: no leaf may be negative zero. IEEE-754
 defines `-0.0 == 0.0`, so a comparison alone would silently accept a sign flip
 and "exact" would be weaker than it reads. Both languages assert the invariant
-directly instead of relying on the comparison.
+directly instead of relying on the comparison, and both carry negative-control
+tests proving the guard actually fails on `-0`, `NaN`, and `±Infinity`.
+
+The TypeScript guard must run on the LIVE builder output, never on the parsed
+artifact: `JSON.stringify(-0)` is `"0"`, so a negative zero is erased the
+moment the fixture is written and an assertion on the file could never observe
+one. On the Rust side every numeric comparison — including axis values —
+routes through one shared helper, so no call site can fall back to a bare `==`.
 
 Error cases are HELD by the TypeScript reference: generation and the vitest
 freshness test both execute the real functions and require a `RangeError`

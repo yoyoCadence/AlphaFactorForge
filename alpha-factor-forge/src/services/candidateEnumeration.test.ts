@@ -180,13 +180,30 @@ describe('discovery-enumeration-v1', () => {
 
     const [first, ...rest] = plan.candidates;
     expect(first.strategy.entryRules).toHaveLength(1);
+    expect(first.strategy.exitRules).toHaveLength(1);
+
+    // Mutate BOTH rule arrays, and mutate a nested rule OBJECT in place: a
+    // shallow array copy would still share the element objects.
     first.strategy.entryRules.push({ l: 'rsi', op: '>', r: '70' });
-    first.strategy.entryRules[0].r = 'mutated';
+    first.strategy.entryRules[0].r = 'mutated-entry';
+    first.strategy.entryRules[0].l = 'rsi';
+    first.strategy.exitRules.push({ l: 'rsi', op: '<', r: '30' });
+    first.strategy.exitRules[0].r = 'mutated-exit';
 
     for (const candidate of rest) {
-      expect(candidate.strategy.entryRules).toHaveLength(1);
-      expect(candidate.strategy.entryRules[0].r).toBe('maSlow');
+      for (const [list, expectedRight] of [
+        [candidate.strategy.entryRules, 'maSlow'],
+        [candidate.strategy.exitRules, 'maSlow'],
+      ] as const) {
+        expect(list).toHaveLength(1);
+        expect(list[0].r).toBe(expectedRight);
+        expect(list[0].l).toBe('maFast');
+      }
       expect(candidate.strategy.entryRules).not.toBe(first.strategy.entryRules);
+      expect(candidate.strategy.exitRules).not.toBe(first.strategy.exitRules);
+      // The nested rule objects must be distinct instances too.
+      expect(candidate.strategy.entryRules[0]).not.toBe(first.strategy.entryRules[0]);
+      expect(candidate.strategy.exitRules[0]).not.toBe(first.strategy.exitRules[0]);
       // The recorded hash must still describe the candidate's own content.
       expect(candidate.strategyHash).toBe(
         await strategyHash(candidate.strategy, {

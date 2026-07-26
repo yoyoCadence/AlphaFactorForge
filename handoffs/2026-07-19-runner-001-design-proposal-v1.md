@@ -587,7 +587,7 @@ relocated to the end of the file; its text is unchanged.
   targeted `rustfmt --check` clean; `npm run e2e` (25); `git diff --check`
   clean.
 - Clippy WAS run this round (`cargo clippy --locked --all-targets`) and every
-  new file is clean. FIVE warnings on my files were addressed: one
+  new file is clean. Four warnings on my files were addressed: one
   `manual_range_contains` in `seed.rs` was adopted, and the four
   `neg_cmp_op_on_partial_ord` sites carry an explicit `#[allow]` plus a reason
   — `!(a < b)` and `!(value <= max)` are DELIBERATE, mirroring the TypeScript
@@ -641,5 +641,55 @@ error totals recorded above: the held-rejection total is now **70** (10 seed +
   superseded historical values retained per this file's append-only rule.
   `npm run typecheck`; `npm test` (381); `npm run build`;
   `cargo check --locked`; `cargo test --locked` (64);
+  `cargo clippy --locked --all-targets` clean on every new file; targeted
+  `rustfmt --check` clean; `npm run e2e` (25); `git diff --check` clean.
+
+### RUNNER-CONFIG-001 third review correction (append-only update)
+
+Date: 2026-07-26. Fix for the PR #73 third-round findings.
+
+Append-only correction first: the previous correction changed the word "Four"
+to "FIVE" IN PLACE inside the first correction's clippy bullet, then described
+that same text as still saying "Four". Editing an earlier record is exactly
+what this file forbids, and it left the two sections contradicting each other.
+The original wording has been restored; the correct count is recorded here
+instead. Five clippy warnings on the new files were addressed: one adopted
+`manual_range_contains` in `seed.rs` plus four `neg_cmp_op_on_partial_ord`
+sites carrying an explicit `#[allow]`.
+
+- The `-0` guard was a FALSE NEGATIVE. `expectExactJson` ran against the
+  imported fixture and against `JSON.parse(JSON.stringify(regenerated))`, but
+  `JSON.stringify(-0)` is `"0"` — a negative zero is erased the moment the
+  fixture is written, so the assertion could never observe one. It now runs on
+  the LIVE builder output before any round trip, with explicit negative
+  controls (`-0`, `NaN`, `±Infinity`, nested and array positions) proving the
+  guard is not vacuous. Verified by mutation: injecting `min: -0` into an axis
+  case and REGENERATING the fixture (so the artifact matches byte for byte)
+  still fails on `Object.is(value, -0)`, where the previous arrangement passed
+  silently.
+- The Rust axis comparison bypassed the `exact-v1` rules with a bare
+  `actual == expected`, so `-0.0 == 0.0` would have been accepted there too.
+  All numeric comparisons now route through one `assert_exact_leaf` helper,
+  and a test asserts that the helper actually PANICS on `-0` (either side),
+  `NaN`, `±Infinity`, and a genuine drift mismatch.
+- `pub key: &'static str` did not mean "whitelisted": `'static` only promises
+  the text outlives the program, and every string literal satisfies it, so a
+  caller could construct an axis naming any key at all. The doc comment
+  claiming otherwise was wrong. `DiscoveryAxis.key` is now a closed `AxisKey`
+  enum whose only constructor from text is `AxisKey::parse`, making a
+  non-whitelisted axis unrepresentable rather than merely rejected;
+  `discovery_axis_keys()` is derived from `AxisKey::ALL` so the string
+  whitelist cannot drift from the enum. A test locks that non-whitelisted
+  keys — including the deliberately excluded `feePct`/`slipPct`/`sizePct` —
+  fail to parse.
+- Deep-clone regressions extended to `exitRules` and to in-place mutation of
+  NESTED rule objects (a shallow array copy survives an append but not an
+  element mutation), on both the caller-input and candidate-to-candidate
+  paths.
+- Re-verification: fixture regenerated blob-identical
+  (`00ccf7c8d0bea4442653205ec74158213e0dc1ed468fc34b20f64496f71cc57f`,
+  unchanged — this round altered guards and types, not fixture content);
+  `npm run typecheck`; `npm test` (382); `npm run build`;
+  `cargo check --locked`; `cargo test --locked` (66);
   `cargo clippy --locked --all-targets` clean on every new file; targeted
   `rustfmt --check` clean; `npm run e2e` (25); `git diff --check` clean.

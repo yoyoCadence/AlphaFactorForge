@@ -160,12 +160,28 @@ describe('discovery-config-v1 parsing', () => {
 
   it('decouples the resolved config from the caller input object', () => {
     const input = validConfig();
-    const rules = [{ l: 'maFast', op: 'crossUp', r: 'maSlow' }];
-    ((input.bases as Record<string, unknown>[])[0].strategy as Record<string, unknown>).entryRules =
-      rules;
+    const entryRules = [{ l: 'maFast', op: 'crossUp', r: 'maSlow' }];
+    const exitRules = [{ l: 'maFast', op: 'crossDown', r: 'maSlow' }];
+    const strategy = (input.bases as Record<string, unknown>[])[0].strategy as
+      Record<string, unknown>;
+    strategy.entryRules = entryRules;
+    strategy.exitRules = exitRules;
+
     const resolved = parseDiscoveryConfig(input, { logicalCores: 4 });
-    rules.push({ l: 'rsi', op: '>', r: '70' });
+
+    // Append to the arrays AND mutate a nested rule object in place: a shallow
+    // copy would survive the first check but not the second.
+    entryRules.push({ l: 'rsi', op: '>', r: '70' });
+    entryRules[0].r = 'mutated';
+    exitRules.push({ l: 'rsi', op: '<', r: '30' });
+    exitRules[0].r = 'mutated';
+
     expect(resolved.bases[0].strategy.entryRules).toHaveLength(1);
+    expect(resolved.bases[0].strategy.exitRules).toHaveLength(1);
+    expect(resolved.bases[0].strategy.entryRules[0].r).toBe('maSlow');
+    expect(resolved.bases[0].strategy.exitRules[0].r).toBe('maSlow');
+    expect(resolved.bases[0].strategy.entryRules[0]).not.toBe(entryRules[0]);
+    expect(resolved.bases[0].strategy.exitRules[0]).not.toBe(exitRules[0]);
   });
 
   it('rejects unsupported signal ids and out-of-domain preset numbers', () => {

@@ -89,21 +89,93 @@ const NUMERIC_PARAM_DOMAINS: [(&str, NumericDomain); 16] = [
 
 /// Hypothesis axes only: `feePct`, `slipPct`, and `sizePct` are execution
 /// model and are deliberately absent.
-pub const DISCOVERY_AXIS_KEYS: [&str; 13] = [
-    "fastMA",
-    "slowMA",
-    "emaPeriod",
-    "rsiPeriod",
-    "rsiBuy",
-    "rsiSell",
-    "macdFast",
-    "macdSlow",
-    "macdSignal",
-    "bbPeriod",
-    "bbMult",
-    "slPct",
-    "tpPct",
-];
+///
+/// A closed enum, not a string: `&'static str` would only promise that the
+/// text outlives the program — ANY literal satisfies it, so a caller could
+/// still build an axis naming a non-whitelisted key. Illegal axis keys are
+/// unrepresentable here, and `parse` is the only way in.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+pub enum AxisKey {
+    #[serde(rename = "fastMA")]
+    FastMa,
+    #[serde(rename = "slowMA")]
+    SlowMa,
+    #[serde(rename = "emaPeriod")]
+    EmaPeriod,
+    #[serde(rename = "rsiPeriod")]
+    RsiPeriod,
+    #[serde(rename = "rsiBuy")]
+    RsiBuy,
+    #[serde(rename = "rsiSell")]
+    RsiSell,
+    #[serde(rename = "macdFast")]
+    MacdFast,
+    #[serde(rename = "macdSlow")]
+    MacdSlow,
+    #[serde(rename = "macdSignal")]
+    MacdSignal,
+    #[serde(rename = "bbPeriod")]
+    BbPeriod,
+    #[serde(rename = "bbMult")]
+    BbMult,
+    #[serde(rename = "slPct")]
+    SlPct,
+    #[serde(rename = "tpPct")]
+    TpPct,
+}
+
+impl AxisKey {
+    /// The whitelist itself, in the reference's declared order.
+    pub const ALL: [AxisKey; 13] = [
+        AxisKey::FastMa,
+        AxisKey::SlowMa,
+        AxisKey::EmaPeriod,
+        AxisKey::RsiPeriod,
+        AxisKey::RsiBuy,
+        AxisKey::RsiSell,
+        AxisKey::MacdFast,
+        AxisKey::MacdSlow,
+        AxisKey::MacdSignal,
+        AxisKey::BbPeriod,
+        AxisKey::BbMult,
+        AxisKey::SlPct,
+        AxisKey::TpPct,
+    ];
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            AxisKey::FastMa => "fastMA",
+            AxisKey::SlowMa => "slowMA",
+            AxisKey::EmaPeriod => "emaPeriod",
+            AxisKey::RsiPeriod => "rsiPeriod",
+            AxisKey::RsiBuy => "rsiBuy",
+            AxisKey::RsiSell => "rsiSell",
+            AxisKey::MacdFast => "macdFast",
+            AxisKey::MacdSlow => "macdSlow",
+            AxisKey::MacdSignal => "macdSignal",
+            AxisKey::BbPeriod => "bbPeriod",
+            AxisKey::BbMult => "bbMult",
+            AxisKey::SlPct => "slPct",
+            AxisKey::TpPct => "tpPct",
+        }
+    }
+
+    /// The ONLY constructor from untrusted text.
+    pub fn parse(value: &str) -> Option<AxisKey> {
+        AxisKey::ALL.into_iter().find(|key| key.as_str() == value)
+    }
+}
+
+/// Whitelist as strings, derived from `AxisKey::ALL` so the two cannot drift.
+pub fn discovery_axis_keys() -> [&'static str; 13] {
+    let mut out = [""; 13];
+    let mut index = 0;
+    while index < AxisKey::ALL.len() {
+        out[index] = AxisKey::ALL[index].as_str();
+        index += 1;
+    }
+    out
+}
 
 pub const DISCOVERY_SUPPORTED_SIGNAL_IDS: [&str; 12] = [
     "maCrossUp",
@@ -262,12 +334,12 @@ fn contract_entries(versions: &DiscoveryContractVersions) -> Vec<(&'static str, 
 /// same field, so a recorded config can never describe a different grid from
 /// the one that actually produced the candidates.
 ///
-/// `key` borrows from `DISCOVERY_AXIS_KEYS`, so an axis cannot even name a
-/// key that is not whitelisted.
+/// `key` is a closed `AxisKey` enum, so an axis naming a non-whitelisted key
+/// cannot be constructed at all — not even by a caller inside this crate.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DiscoveryAxis {
-    pub key: &'static str,
+    pub key: AxisKey,
     pub min: f64,
     pub max: f64,
     pub step: f64,
@@ -532,12 +604,8 @@ fn parse_strategy(value: &Value, path: &str) -> Result<Value, ConfigError> {
 fn parse_axis(value: &Value, path: &str) -> Result<DiscoveryAxis, ConfigError> {
     let object = require_object(value, path)?;
     require_exact_keys(object, path, &["key", "min", "max", "step"])?;
-    let key = require_literal(object, path, "key", &DISCOVERY_AXIS_KEYS)?;
-    // Re-borrow from the whitelist so the stored key is 'static by construction.
-    let key = DISCOVERY_AXIS_KEYS
-        .into_iter()
-        .find(|candidate| *candidate == key)
-        .expect("axis key was whitelisted above");
+    let key = require_literal(object, path, "key", &discovery_axis_keys())?;
+    let key = AxisKey::parse(key).expect("axis key was whitelisted above");
     let min = require_number(object, path, "min")?;
     let max = require_number(object, path, "max")?;
     let step = require_number(object, path, "step")?;
@@ -547,9 +615,10 @@ fn parse_axis(value: &Value, path: &str) -> Result<DiscoveryAxis, ConfigError> {
     if max < min {
         return fail(format!("{path}.max must be >= min"));
     }
-    if numeric_domain(key) == Some(NumericDomain::Period) {
+    if numeric_domain(key.as_str()) == Some(NumericDomain::Period) {
         for (name, bound) in [("min", min), ("max", max), ("step", step)] {
             if !is_safe_integer(bound) {
+                let key = key.as_str();
                 return fail(format!(
                     "{path}.{name} must be an integer for the integer axis \"{key}\""
                 ));
@@ -581,14 +650,14 @@ pub fn axis_values(axis: &DiscoveryAxis) -> Result<Vec<f64>, ConfigError> {
         if values.len() >= DISCOVERY_MAX_AXIS_VALUES {
             return fail(format!(
                 "axis \"{}\" produces more than {DISCOVERY_MAX_AXIS_VALUES} values",
-                axis.key
+                axis.key.as_str()
             ));
         }
         values.push(value);
         i += 1;
     }
     if values.is_empty() {
-        return fail(format!("axis \"{}\" produces no values", axis.key));
+        return fail(format!("axis \"{}\" produces no values", axis.key.as_str()));
     }
     Ok(values)
 }
@@ -628,10 +697,13 @@ fn parse_base(value: &Value, path: &str) -> Result<DiscoveryBase, ConfigError> {
         let axis_path = format!("{path}.axes[{index}]");
         let axis = parse_axis(raw_axis, &axis_path)?;
         if axes.iter().any(|seen| seen.key == axis.key) {
-            return fail(format!("{axis_path} repeats axis key \"{}\"", axis.key));
+            return fail(format!(
+                "{axis_path} repeats axis key \"{}\"",
+                axis.key.as_str()
+            ));
         }
         for generated in axis_values(&axis)? {
-            if let Some(problem) = check_numeric_param(axis.key, generated) {
+            if let Some(problem) = check_numeric_param(axis.key.as_str(), generated) {
                 return fail(format!("{axis_path} generates an invalid value: {problem}"));
             }
         }

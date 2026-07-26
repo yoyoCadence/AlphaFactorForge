@@ -11,8 +11,9 @@
 use serde_json::Value;
 
 use super::config::{
-    axis_values, parse_discovery_config, resolve_concurrency, DiscoveryAxis, DISCOVERY_AXIS_KEYS,
-    DISCOVERY_HARD_CANDIDATE_CAP, DISCOVERY_MAX_AXIS_VALUES, DISCOVERY_SUPPORTED_SIGNAL_IDS,
+    axis_values, discovery_axis_keys, parse_discovery_config, resolve_concurrency, AxisKey,
+    DiscoveryAxis, DISCOVERY_HARD_CANDIDATE_CAP, DISCOVERY_MAX_AXIS_VALUES,
+    DISCOVERY_SUPPORTED_SIGNAL_IDS,
 };
 use super::enumerate::{enumerate_candidates, DISCOVERY_VALIDITY_RULE_IDS};
 use super::seed::{derive_discovery_seed, discovery_seed_preimage, DeriveSeedArgs};
@@ -37,29 +38,33 @@ fn ids(fixture: &Value, group: &str) -> Vec<String> {
         .collect()
 }
 
-/// Structural JSON equality with numeric leaves compared by exact f64 value,
-/// so `5` and `5.0` agree while `0.3` and `0.30000000000000004` do not.
+/// Numeric leaves compare by exact f64 value, so `5` and `5.0` agree while
+/// `0.3` and `0.30000000000000004` do not.
 ///
-/// `exact-v1` also fixes the sign-of-zero semantics: no leaf on EITHER side may
-/// be negative zero. IEEE-754 says `-0.0 == 0.0`, so a plain comparison would
-/// silently accept a sign flip; the fixture's TypeScript side asserts the same
-/// invariant, making "exact" unambiguous rather than merely equal.
+/// The ONE numeric-leaf rule for `exact-v1`. Every comparison in this file
+/// routes through it, so no call site can silently fall back to a bare `==`
+/// that would accept a sign flip (IEEE-754 defines `-0.0 == 0.0`).
+fn assert_exact_leaf(path: &str, actual: f64, expected: f64) {
+    for (label, value) in [("actual", actual), ("expected", expected)] {
+        assert!(value.is_finite(), "{path} {label} leaf must be finite");
+        assert!(
+            !(value == 0.0 && value.is_sign_negative()),
+            "{path} {label} leaf is negative zero, which exact-v1 forbids"
+        );
+    }
+    assert!(
+        actual == expected,
+        "{path} differs: actual={actual}, expected={expected}"
+    );
+}
+
+/// Structural JSON equality whose numeric leaves obey `assert_exact_leaf`.
 fn json_exact_eq(actual: &Value, expected: &Value, path: &str) {
     match (actual, expected) {
         (Value::Number(left), Value::Number(right)) => {
             let left = left.as_f64().expect("actual number is representable");
             let right = right.as_f64().expect("expected number is representable");
-            for (label, value) in [("actual", left), ("expected", right)] {
-                assert!(
-                    !(value == 0.0 && value.is_sign_negative()),
-                    "{path} {label} leaf is negative zero, which exact-v1 forbids"
-                );
-                assert!(value.is_finite(), "{path} {label} leaf must be finite");
-            }
-            assert!(
-                left == right,
-                "{path} differs: actual={left}, expected={right}"
-            );
+            assert_exact_leaf(path, left, right);
         }
         (Value::Array(left), Value::Array(right)) => {
             assert_eq!(left.len(), right.len(), "{path} length differs");
@@ -84,10 +89,7 @@ fn json_exact_eq(actual: &Value, expected: &Value, path: &str) {
 fn axis_from(value: &Value) -> DiscoveryAxis {
     let key = value["key"].as_str().expect("axis key");
     DiscoveryAxis {
-        key: DISCOVERY_AXIS_KEYS
-            .into_iter()
-            .find(|candidate| *candidate == key)
-            .expect("fixture axis key is whitelisted"),
+        key: AxisKey::parse(key).expect("fixture axis key is whitelisted"),
         min: value["min"].as_f64().expect("axis min"),
         max: value["max"].as_f64().expect("axis max"),
         step: value["step"].as_f64().expect("axis step"),
@@ -132,7 +134,12 @@ fn envelope_caps_and_whitelists_match_the_reference() {
         .iter()
         .map(|value| value.as_str().unwrap())
         .collect();
-    assert_eq!(axis_keys, DISCOVERY_AXIS_KEYS.to_vec());
+    assert_eq!(axis_keys, discovery_axis_keys().to_vec());
+    // The string whitelist is derived from the enum, so they cannot drift.
+    assert_eq!(
+        AxisKey::ALL.map(AxisKey::as_str).to_vec(),
+        discovery_axis_keys().to_vec()
+    );
     for excluded in ["feePct", "slipPct", "sizePct"] {
         assert!(
             !axis_keys.contains(&excluded),
@@ -231,10 +238,9 @@ fn axis_values_and_concurrency_match_exactly() {
             .collect();
         assert_eq!(values.len(), expected.len(), "{id} value count differs");
         for (index, (actual, expected)) in values.iter().zip(expected.iter()).enumerate() {
-            assert!(
-                actual == expected,
-                "{id}[{index}] differs: actual={actual}, expected={expected}"
-            );
+            // Use the shared helper, not a bare `==`: axis values are exactly
+            // where a -0 could appear (e.g. a `min: -0` boundary).
+            assert_exact_leaf(&format!("{id}[{index}]"), *actual, *expected);
         }
     }
 
@@ -483,4 +489,56 @@ fn base_declaration_order_never_changes_candidate_identity() {
     let reversed_plan = plan_for(&reversed);
     assert_eq!(forward_plan.counts, reversed_plan.counts);
     assert_eq!(forward_plan.candidates, reversed_plan.candidates);
+}
+
+/// The `exact-v1` guard must actually FAIL on the values it claims to forbid.
+/// Without these, an assertion that only ever sees clean data proves nothing.
+#[test]
+fn exact_leaf_helper_rejects_negative_zero_and_non_finite_values() {
+    // Sanity: the helper accepts ordinary equal leaves, including +0.
+    assert_exact_leaf("ok", 0.0, 0.0);
+    assert_exact_leaf("ok", 0.30000000000000004, 0.30000000000000004);
+
+    let rejected = [
+        ("actual -0", -0.0_f64, 0.0_f64),
+        ("expected -0", 0.0, -0.0),
+        ("both -0", -0.0, -0.0),
+        ("actual NaN", f64::NAN, 0.0),
+        ("expected inf", 1.0, f64::INFINITY),
+        ("actual -inf", f64::NEG_INFINITY, 1.0),
+        // A genuine mismatch must still fail.
+        ("drifted value", 0.3, 0.30000000000000004),
+    ];
+    // These panics are expected; keep the test output readable.
+    let previous = std::panic::take_hook();
+    std::panic::set_hook(Box::new(|_| {}));
+    let outcomes: Vec<bool> = rejected
+        .iter()
+        .map(|(_, actual, expected)| {
+            std::panic::catch_unwind(|| assert_exact_leaf("case", *actual, *expected)).is_err()
+        })
+        .collect();
+    std::panic::set_hook(previous);
+
+    for ((label, _, _), rejected) in rejected.iter().zip(outcomes) {
+        assert!(rejected, "{label} must be rejected by exact-v1");
+    }
+}
+
+#[test]
+fn axis_keys_outside_the_whitelist_cannot_be_constructed() {
+    // `AxisKey::parse` is the only way to build a key, so an axis naming a
+    // non-whitelisted field is unrepresentable rather than merely rejected.
+    for rejected in [
+        "feePct", "slipPct", "sizePct", "mode", "", "FASTMA", "bogus",
+    ] {
+        assert!(
+            AxisKey::parse(rejected).is_none(),
+            "{rejected} must not parse as an axis key"
+        );
+    }
+    for key in AxisKey::ALL {
+        assert_eq!(AxisKey::parse(key.as_str()), Some(key));
+    }
+    assert_eq!(AxisKey::ALL.len(), discovery_axis_keys().len());
 }

@@ -26,8 +26,15 @@ function findById<T extends { id: string }>(cases: T[], id: string): T {
   return found;
 }
 
-/** Every expected leaf in this fixture is exact, so no float may be rounded,
- *  non-finite, or negative zero. */
+/**
+ * Every expected leaf in this fixture is exact, so no float may be rounded,
+ * non-finite, or negative zero.
+ *
+ * MUST be run against the IN-MEMORY builder output, never against the parsed
+ * artifact: `JSON.stringify(-0)` is `"0"`, so a negative zero is erased the
+ * moment the fixture is written and an assertion on the file could never
+ * observe one.
+ */
 function expectExactJson(value: unknown): void {
   if (typeof value === 'number') {
     expect(Number.isFinite(value)).toBe(true);
@@ -56,7 +63,25 @@ describe('RUNNER-CONFIG parity fixture', () => {
       score: await hashSource(scoreSource),
       randomEntry: await hashSource(randomEntrySource),
     });
+    // exact-v1 is checked on the LIVE object first. Doing it after the round
+    // trip below would be vacuous: stringify turns -0 into 0.
+    expectExactJson(regenerated);
     expect(JSON.parse(JSON.stringify(regenerated))).toEqual(fixture);
+  });
+
+  it('rejects -0, NaN, and Infinity anywhere in an expected value', () => {
+    // Negative controls for the guard above. Without them the guard could be
+    // silently vacuous and every "exact" claim in this file would be untested.
+    expect(() => expectExactJson({ ok: 0, nested: [1, { deep: 2.5 }] })).not.toThrow();
+    for (const bad of [-0, NaN, Infinity, -Infinity]) {
+      expect(() => expectExactJson(bad)).toThrow();
+      expect(() => expectExactJson({ leaf: bad })).toThrow();
+      expect(() => expectExactJson([1, [bad]])).toThrow();
+      expect(() => expectExactJson({ nested: { deep: [{ leaf: bad }] } })).toThrow();
+    }
+    // Proof that the round trip is what hides a -0, i.e. why order matters.
+    expect(JSON.stringify(-0)).toBe('0');
+    expect(() => expectExactJson(JSON.parse(JSON.stringify({ leaf: -0 })))).not.toThrow();
   });
 
   it('locks the envelope, caps, whitelists, and the exact-only numeric policy', () => {

@@ -141,11 +141,11 @@ fn combinations_for_base(base: &DiscoveryBase) -> Result<Vec<Combination>, Enume
         for combination in &combinations {
             for value in &values {
                 let mut applied_axes = combination.applied_axes.clone();
-                applied_axes.insert(axis.key.to_string(), *value);
+                applied_axes.insert(axis.key.as_str().to_string(), *value);
                 next.push(Combination {
                     base_id: combination.base_id.clone(),
                     applied_axes,
-                    strategy: patch(&combination.strategy, axis.key, *value)?,
+                    strategy: patch(&combination.strategy, axis.key.as_str(), *value)?,
                 });
             }
         }
