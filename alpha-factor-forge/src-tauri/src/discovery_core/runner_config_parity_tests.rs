@@ -39,11 +39,23 @@ fn ids(fixture: &Value, group: &str) -> Vec<String> {
 
 /// Structural JSON equality with numeric leaves compared by exact f64 value,
 /// so `5` and `5.0` agree while `0.3` and `0.30000000000000004` do not.
+///
+/// `exact-v1` also fixes the sign-of-zero semantics: no leaf on EITHER side may
+/// be negative zero. IEEE-754 says `-0.0 == 0.0`, so a plain comparison would
+/// silently accept a sign flip; the fixture's TypeScript side asserts the same
+/// invariant, making "exact" unambiguous rather than merely equal.
 fn json_exact_eq(actual: &Value, expected: &Value, path: &str) {
     match (actual, expected) {
         (Value::Number(left), Value::Number(right)) => {
             let left = left.as_f64().expect("actual number is representable");
             let right = right.as_f64().expect("expected number is representable");
+            for (label, value) in [("actual", left), ("expected", right)] {
+                assert!(
+                    !(value == 0.0 && value.is_sign_negative()),
+                    "{path} {label} leaf is negative zero, which exact-v1 forbids"
+                );
+                assert!(value.is_finite(), "{path} {label} leaf must be finite");
+            }
             assert!(
                 left == right,
                 "{path} differs: actual={left}, expected={right}"
@@ -72,9 +84,9 @@ fn json_exact_eq(actual: &Value, expected: &Value, path: &str) {
 fn axis_from(value: &Value) -> DiscoveryAxis {
     let key = value["key"].as_str().expect("axis key");
     DiscoveryAxis {
-        key_index: DISCOVERY_AXIS_KEYS
-            .iter()
-            .position(|candidate| *candidate == key)
+        key: DISCOVERY_AXIS_KEYS
+            .into_iter()
+            .find(|candidate| *candidate == key)
             .expect("fixture axis key is whitelisted"),
         min: value["min"].as_f64().expect("axis min"),
         max: value["max"].as_f64().expect("axis max"),
@@ -328,6 +340,8 @@ fn every_typescript_held_config_rejection_is_reproduced() {
             "config-duplicate-base-id",
             "config-invalid-base-id",
             "config-benchmark-costs-mismatch",
+            "config-benchmark-costs-percent-above-range",
+            "config-benchmark-slippage-percent-negative",
             "config-random-entry-runs-above-cap",
             "config-negative-holding-allowance",
             "config-start-equity-zero",
@@ -377,7 +391,7 @@ fn every_typescript_held_config_rejection_is_reproduced() {
     .iter()
     .map(|group| cases(&fixture, group).len())
     .sum();
-    assert_eq!(held, 68, "held-error inventory total changed");
+    assert_eq!(held, 70, "held-error inventory total changed");
 }
 
 #[test]

@@ -108,17 +108,20 @@ describe('discovery-config-v1 parsing', () => {
     // normalized fraction above 1, so >100 here would queue a run that is
     // guaranteed to throw after its jobs already exist.
     for (const key of ['feePct', 'slipPct', 'slPct', 'tpPct'] as const) {
+      for (const bad of [101, -1]) {
+        expect(() => parse((config) => {
+          ((config.bases as Record<string, unknown>[])[0].strategy as Record<string, unknown>)[key] =
+            bad;
+        })).toThrow(new RegExp(`bases\\[0]\\.strategy\\.${key} must be in \\[0, 100]`));
+      }
+    }
+    // The resolved benchmark costs carry their OWN domain check. Bases are
+    // parsed FIRST, so a case that also breaks the base strategy would never
+    // reach this branch — the base preset stays valid here on purpose.
+    for (const [key, bad] of [['feePct', 101], ['slipPct', -1]] as const) {
       expect(() => parse((config) => {
-        ((config.bases as Record<string, unknown>[])[0].strategy as Record<string, unknown>)[key] =
-          101;
-        if (key === 'feePct' || key === 'slipPct') {
-          (config.benchmarkCosts as Record<string, number>)[key] = 101;
-        }
-      })).toThrow(new RegExp(`${key} must be in \\[0, 100]`));
-      expect(() => parse((config) => {
-        ((config.bases as Record<string, unknown>[])[0].strategy as Record<string, unknown>)[key] =
-          -1;
-      })).toThrow(new RegExp(`${key} must be in \\[0, 100]`));
+        (config.benchmarkCosts as Record<string, number>)[key] = bad;
+      })).toThrow(new RegExp(`benchmarkCosts\\.${key} must be in \\[0, 100]`));
     }
     // The inclusive endpoint stays legal: 100 -> 1.0 is exactly the engine cap.
     expect(() => parse((config) => {

@@ -203,6 +203,8 @@ describe('RUNNER-CONFIG parity fixture', () => {
       'config-duplicate-base-id',
       'config-invalid-base-id',
       'config-benchmark-costs-mismatch',
+      'config-benchmark-costs-percent-above-range',
+      'config-benchmark-slippage-percent-negative',
       'config-random-entry-runs-above-cap',
       'config-negative-holding-allowance',
       'config-start-equity-zero',
@@ -226,7 +228,7 @@ describe('RUNNER-CONFIG parity fixture', () => {
       expect(parityCase.expectedErrorIncludes).toBe('mode must be "params"');
     }
 
-    // 68 held rejections across the five groups; the docs quote this total.
+    // 70 held rejections across the five groups; the docs quote this total.
     const heldErrors = [
       fixture.seedErrorCases,
       fixture.axisErrorCases,
@@ -234,7 +236,7 @@ describe('RUNNER-CONFIG parity fixture', () => {
       fixture.configErrorCases,
       fixture.enumerationErrorCases,
     ].reduce((sum, group) => sum + group.length, 0);
-    expect(heldErrors).toBe(68);
+    expect(heldErrors).toBe(70);
   });
 
   it('locks the seed preimage bytes and derived u32 values', () => {

@@ -14,7 +14,7 @@
     "command": "npm run fixtures:runner-config",
     "sourceHashEncoding": "utf8-lf-v1",
     "sourceHashes": {
-      "generator": "sha256:7a728aa3d64c6531d7a15c6eec70ee6ee9a5dbedf20b4bc122102ee6267cfb94",
+      "generator": "sha256:60aa302bb14d927e5df840e54744ed22b073dc750423a19f4e2f494636a7be7f",
       "discoveryConfig": "sha256:a87df85b28844420b916000fe169b63a71a086fc8d6ca509d85a3b9c9b71c792",
       "candidateEnumeration": "sha256:1febc6ffd656777b0c1eca2420fc8cb6792e26ec1fdd45f208614d0fe7a52a06",
       "discoverySeed": "sha256:e554aa682d57da5e195734689412cfd6509050d2213a9a4844cbbdb1855f05d6",
@@ -5919,6 +5919,266 @@
         "maxConcurrency": null
       },
       "expectedErrorIncludes": "benchmarkCosts must match bases[0] costs"
+    },
+    {
+      "id": "config-benchmark-costs-percent-above-range",
+      "logicalCores": 8,
+      "input": {
+        "envelopeVersion": "discovery-config-v1",
+        "contracts": {
+          "strategyHash": "strategy-v2",
+          "datasetHash": "dataset-content-v2",
+          "split": "validation-split-v1",
+          "embargo": "embargo-derivation-v1",
+          "backtest": "backtest-execution-v1",
+          "metrics": "metrics-v1",
+          "benchmarks": "benchmark-suite-v1",
+          "randomEntry": "random-entry-v1",
+          "gate": "gate-v1",
+          "score": "score-v1",
+          "seed": "seed-v1",
+          "enumeration": "discovery-enumeration-v1"
+        },
+        "dataset": {
+          "id": 7,
+          "contentHash": "dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "bases": [
+          {
+            "id": "ma-cross",
+            "presetVersion": "discovery-preset-v1",
+            "strategy": {
+              "mode": "params",
+              "fastMA": 9,
+              "slowMA": 21,
+              "emaPeriod": 50,
+              "rsiPeriod": 14,
+              "rsiBuy": 30,
+              "rsiSell": 70,
+              "macdFast": 12,
+              "macdSlow": 26,
+              "macdSignal": 9,
+              "bbPeriod": 20,
+              "bbMult": 2,
+              "entrySig": "maCrossUp",
+              "exitSig": "maCrossDown",
+              "entryRules": [
+                {
+                  "l": "maFast",
+                  "op": "crossUp",
+                  "r": "maSlow"
+                }
+              ],
+              "exitRules": [
+                {
+                  "l": "maFast",
+                  "op": "crossDown",
+                  "r": "maSlow"
+                }
+              ],
+              "entryCode": "crossUp(macd, macdSignal)",
+              "exitCode": "crossDown(macd, macdSignal)",
+              "slPct": 0,
+              "tpPct": 0,
+              "feePct": 0.05,
+              "slipPct": 0.02,
+              "sizePct": 100,
+              "fillMode": "close",
+              "direction": "long"
+            },
+            "axes": [
+              {
+                "key": "fastMA",
+                "min": 5,
+                "max": 11,
+                "step": 3
+              }
+            ]
+          }
+        ],
+        "embargo": {
+          "holdingAllowanceBars": 10
+        },
+        "execution": {
+          "startEquity": 10000
+        },
+        "benchmarkCosts": {
+          "feePct": 101,
+          "slipPct": 0.02
+        },
+        "randomEntry": {
+          "runs": 200
+        },
+        "gateConfig": {
+          "minTrades": 30,
+          "minAvgTradeReturn": 0,
+          "rollingWindowBars": 30,
+          "minRollingPositiveRatio": 0.55,
+          "maxDrawdown": 0.35,
+          "maxMonthlyContribution": 0.4,
+          "maxSingleTradeContribution": 0.25,
+          "minRandomEntryPercentile": 95
+        },
+        "scoreConfig": {
+          "caps": {
+            "cagr": 1,
+            "sortino": 5,
+            "calmar": 5,
+            "profitFactor": 3,
+            "consistencySigmaScale": 10,
+            "complexityUnits": 40,
+            "turnover": 0.1,
+            "dataMiningLog10": 4
+          },
+          "weights": {
+            "cagr": 1,
+            "sortino": 1,
+            "calmar": 1,
+            "regime": 0,
+            "profitFactor": 1,
+            "consistency": 1,
+            "complexity": 0.5,
+            "turnover": 0.5,
+            "dataMining": 1
+          }
+        },
+        "rootSeed": 20260726,
+        "caps": {
+          "candidates": 256
+        },
+        "maxConcurrency": null
+      },
+      "expectedErrorIncludes": "benchmarkCosts.feePct must be in [0, 100]"
+    },
+    {
+      "id": "config-benchmark-slippage-percent-negative",
+      "logicalCores": 8,
+      "input": {
+        "envelopeVersion": "discovery-config-v1",
+        "contracts": {
+          "strategyHash": "strategy-v2",
+          "datasetHash": "dataset-content-v2",
+          "split": "validation-split-v1",
+          "embargo": "embargo-derivation-v1",
+          "backtest": "backtest-execution-v1",
+          "metrics": "metrics-v1",
+          "benchmarks": "benchmark-suite-v1",
+          "randomEntry": "random-entry-v1",
+          "gate": "gate-v1",
+          "score": "score-v1",
+          "seed": "seed-v1",
+          "enumeration": "discovery-enumeration-v1"
+        },
+        "dataset": {
+          "id": 7,
+          "contentHash": "dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "bases": [
+          {
+            "id": "ma-cross",
+            "presetVersion": "discovery-preset-v1",
+            "strategy": {
+              "mode": "params",
+              "fastMA": 9,
+              "slowMA": 21,
+              "emaPeriod": 50,
+              "rsiPeriod": 14,
+              "rsiBuy": 30,
+              "rsiSell": 70,
+              "macdFast": 12,
+              "macdSlow": 26,
+              "macdSignal": 9,
+              "bbPeriod": 20,
+              "bbMult": 2,
+              "entrySig": "maCrossUp",
+              "exitSig": "maCrossDown",
+              "entryRules": [
+                {
+                  "l": "maFast",
+                  "op": "crossUp",
+                  "r": "maSlow"
+                }
+              ],
+              "exitRules": [
+                {
+                  "l": "maFast",
+                  "op": "crossDown",
+                  "r": "maSlow"
+                }
+              ],
+              "entryCode": "crossUp(macd, macdSignal)",
+              "exitCode": "crossDown(macd, macdSignal)",
+              "slPct": 0,
+              "tpPct": 0,
+              "feePct": 0.05,
+              "slipPct": 0.02,
+              "sizePct": 100,
+              "fillMode": "close",
+              "direction": "long"
+            },
+            "axes": [
+              {
+                "key": "fastMA",
+                "min": 5,
+                "max": 11,
+                "step": 3
+              }
+            ]
+          }
+        ],
+        "embargo": {
+          "holdingAllowanceBars": 10
+        },
+        "execution": {
+          "startEquity": 10000
+        },
+        "benchmarkCosts": {
+          "feePct": 0.05,
+          "slipPct": -1
+        },
+        "randomEntry": {
+          "runs": 200
+        },
+        "gateConfig": {
+          "minTrades": 30,
+          "minAvgTradeReturn": 0,
+          "rollingWindowBars": 30,
+          "minRollingPositiveRatio": 0.55,
+          "maxDrawdown": 0.35,
+          "maxMonthlyContribution": 0.4,
+          "maxSingleTradeContribution": 0.25,
+          "minRandomEntryPercentile": 95
+        },
+        "scoreConfig": {
+          "caps": {
+            "cagr": 1,
+            "sortino": 5,
+            "calmar": 5,
+            "profitFactor": 3,
+            "consistencySigmaScale": 10,
+            "complexityUnits": 40,
+            "turnover": 0.1,
+            "dataMiningLog10": 4
+          },
+          "weights": {
+            "cagr": 1,
+            "sortino": 1,
+            "calmar": 1,
+            "regime": 0,
+            "profitFactor": 1,
+            "consistency": 1,
+            "complexity": 0.5,
+            "turnover": 0.5,
+            "dataMining": 1
+          }
+        },
+        "rootSeed": 20260726,
+        "caps": {
+          "candidates": 256
+        },
+        "maxConcurrency": null
+      },
+      "expectedErrorIncludes": "benchmarkCosts.slipPct must be in [0, 100]"
     },
     {
       "id": "config-random-entry-runs-above-cap",

@@ -135,17 +135,17 @@ fn combinations_for_base(base: &DiscoveryBase) -> Result<Vec<Combination>, Enume
         applied_axes: BTreeMap::new(),
         strategy: base.strategy.clone(),
     }];
-    for axis in &base.parsed_axes {
+    for axis in &base.axes {
         let values = axis_values(axis)?;
         let mut next = Vec::with_capacity(combinations.len() * values.len());
         for combination in &combinations {
             for value in &values {
                 let mut applied_axes = combination.applied_axes.clone();
-                applied_axes.insert(axis.key().to_string(), *value);
+                applied_axes.insert(axis.key.to_string(), *value);
                 next.push(Combination {
                     base_id: combination.base_id.clone(),
                     applied_axes,
-                    strategy: patch(&combination.strategy, axis.key(), *value)?,
+                    strategy: patch(&combination.strategy, axis.key, *value)?,
                 });
             }
         }
@@ -161,7 +161,7 @@ pub fn raw_combination_count(bases: &[DiscoveryBase]) -> Result<i64, EnumerateEr
     const JS_MAX_SAFE_INTEGER: f64 = 9_007_199_254_740_991.0;
     for base in bases {
         let mut product: f64 = 1.0;
-        for axis in &base.parsed_axes {
+        for axis in &base.axes {
             product *= axis_values(axis)?.len() as f64;
             if product > JS_MAX_SAFE_INTEGER {
                 return Err(EnumerateError(format!(

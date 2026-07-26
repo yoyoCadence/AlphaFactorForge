@@ -49,7 +49,14 @@ import { FIXTURE_SOURCE_HASH_ENCODING } from './indicatorFixture';
 
 export const PARITY_FIXTURE_SCHEMA_VERSION = 'rs-core-parity-fixture-v1';
 export const RUNNER_CONFIG_PARITY_FIXTURE_VERSION = 'runner-config-parity-v1';
-/** Every expected leaf compares exactly; no tolerance applies to this slice. */
+/**
+ * Every expected leaf compares exactly; no tolerance applies to this slice.
+ *
+ * `exact-v1` also fixes the sign of zero: no expected leaf may be negative
+ * zero. IEEE-754 says `-0.0 === 0.0`, so without this rule a sign flip would
+ * compare equal on both sides and "exact" would be weaker than it reads. Both
+ * languages assert the invariant rather than relying on the comparison.
+ */
 export const EXPECTED_NUMERIC_POLICY = 'exact-v1';
 
 export type RunnerConfigSourceKey =
@@ -415,6 +422,11 @@ export async function buildRunnerConfigParityFixture(
     ['config-duplicate-base-id', broken((config) => { config.bases = [firstBase(config), clone(firstBase(config))]; }), 'repeats base id "ma-cross"'],
     ['config-invalid-base-id', broken((config) => { firstBase(config).id = 'MA Cross'; }), 'id must match'],
     ['config-benchmark-costs-mismatch', broken((config) => { config.benchmarkCosts = { feePct: 0.01, slipPct: 0.02 }; }), 'benchmarkCosts must match bases[0] costs'],
+    // The resolved costs carry their OWN domain check, reached before the
+    // base-agreement loop. The base preset stays valid so this case cannot be
+    // satisfied by the strategy-side percent bound instead.
+    ['config-benchmark-costs-percent-above-range', broken((config) => { config.benchmarkCosts = { feePct: 101, slipPct: 0.02 }; }), 'benchmarkCosts.feePct must be in [0, 100]'],
+    ['config-benchmark-slippage-percent-negative', broken((config) => { config.benchmarkCosts = { feePct: 0.05, slipPct: -1 }; }), 'benchmarkCosts.slipPct must be in [0, 100]'],
     ['config-random-entry-runs-above-cap', broken((config) => { (config.randomEntry as JsonObject).runs = 1001; }), 'runs must be an integer in [1, 1000]'],
     ['config-negative-holding-allowance', broken((config) => { (config.embargo as JsonObject).holdingAllowanceBars = -1; }), 'holdingAllowanceBars must be an integer in [0,'],
     ['config-start-equity-zero', broken((config) => { (config.execution as JsonObject).startEquity = 0; }), 'startEquity must be > 0'],

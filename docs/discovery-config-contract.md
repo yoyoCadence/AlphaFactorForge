@@ -181,6 +181,13 @@ An axis is `{ key, min, max, step }`:
 - An axis key may appear at most once per base. Base ids match
   `^[a-z0-9][a-z0-9-]*$` and are unique within a run.
 
+An axis has ONE representation in each language. The Rust port deliberately
+does not keep a separate "serialized" and "parsed" axis list: the field written
+into the run's audit record and the field the enumerator walks are the same
+one, so a recorded config can never describe a different grid from the one that
+actually produced the candidates. `DiscoveryAxis.key` borrows from the
+whitelist, so an axis cannot even name a non-whitelisted key.
+
 Multiple bases are allowed: different signal families are different bases, each
 with its own grid. Signal ids themselves are never an axis.
 
@@ -264,15 +271,20 @@ expected leaf compares exactly. This slice produces identifiers, integers,
 counters, indexes, and axis values that both languages derive with identical
 IEEE-754 operations, so no tolerance is admissible.
 
+`exact-v1` also fixes the sign of zero: no leaf may be negative zero. IEEE-754
+defines `-0.0 == 0.0`, so a comparison alone would silently accept a sign flip
+and "exact" would be weaker than it reads. Both languages assert the invariant
+directly instead of relying on the comparison.
+
 Error cases are HELD by the TypeScript reference: generation and the vitest
 freshness test both execute the real functions and require a `RangeError`
 carrying the recorded fragment, so the fixture can never claim a rejection the
 reference does not actually perform. Rust must reject the same input with a
 message containing the same fragment.
 
-68 rejections are held in total (10 seed + 1 axis + 4 concurrency + 51
+70 rejections are held in total (10 seed + 1 axis + 4 concurrency + 53
 admission + 2 enumeration). Both languages assert the **exact ordered ID
-inventory** of the admission group and the 68 total, so a deleted case fails a
+inventory** of the admission group and the 70 total, so a deleted case fails a
 test instead of being masked by a replacement that preserves the count, and the
 totals quoted in prose are derived from the artifact rather than hand-carried.
 

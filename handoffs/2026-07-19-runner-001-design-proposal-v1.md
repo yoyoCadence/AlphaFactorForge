@@ -587,7 +587,7 @@ relocated to the end of the file; its text is unchanged.
   targeted `rustfmt --check` clean; `npm run e2e` (25); `git diff --check`
   clean.
 - Clippy WAS run this round (`cargo clippy --locked --all-targets`) and every
-  new file is clean. Four warnings on my files were addressed: one
+  new file is clean. FIVE warnings on my files were addressed: one
   `manual_range_contains` in `seed.rs` was adopted, and the four
   `neg_cmp_op_on_partial_ord` sites carry an explicit `#[allow]` plus a reason
   — `!(a < b)` and `!(value <= max)` are DELIBERATE, mirroring the TypeScript
@@ -597,3 +597,49 @@ relocated to the end of the file; its text is unchanged.
   `backtest.rs` (2 `map_or`) and `score.rs` (`manual_range_contains`,
   `clamp`-like) from RS-CORE-002/005; per AGENTS.md §2 they are proposed
   rather than fixed inside this slice.
+
+### RUNNER-CONFIG-001 second review correction (append-only update)
+
+Date: 2026-07-26. Fix for the PR #73 second-round findings. Supersedes the
+error totals recorded above: the held-rejection total is now **70** (10 seed +
+1 axis + 4 concurrency + 53 admission + 2 enumeration).
+
+- Rust exposed two public axis representations on `DiscoveryBase`: `axes`
+  (serialized into the run's audit record and compared by the parity test) and
+  `parsed_axes` (`#[serde(skip)]`, actually walked by the enumerator). They
+  were built from one loop so they could not diverge today, but two public
+  sources of truth mean a recorded config could describe a DIFFERENT grid from
+  the one that produced the candidates — precisely the class of inconsistency
+  the immutable audit record exists to prevent. `DiscoveryAxis` now stores a
+  `&'static str` key borrowed from `DISCOVERY_AXIS_KEYS` (so an axis cannot
+  name a non-whitelisted key by construction), `SerializedAxis` is gone, and
+  `DiscoveryBase.axes` is the single field both serialization and enumeration
+  read.
+- The benchmark-cost percent regression could never reach its branch: bases
+  parse BEFORE `benchmarkCosts`, so setting the base strategy's `feePct` to
+  101 threw first and the mutation of `benchmarkCosts` in the same case was
+  dead. The resolved costs carry their own domain check, so the base preset
+  now stays valid and two fixture cases plus a unit case exercise
+  `benchmarkCosts.feePct` / `.slipPct` directly.
+- `exact-v1` did not state its sign-of-zero semantics. IEEE-754 defines
+  `-0.0 == 0.0`, so the Rust comparator would have accepted a sign flip while
+  the policy name implies it would not. Both languages now assert that no leaf
+  is negative zero (and Rust additionally requires finiteness), making the
+  declared policy match what is actually enforced.
+- Documentation drift closed: `tasks.md` still quoted 54 held errors in the
+  parity bullet while the fix bullet said 68, and the PR description still
+  carried the pre-review figures (54 errors, the superseded fixture hash,
+  373/63 test counts, prefix-only identity checking). Both are corrected, and
+  the totals are asserted on both sides so prose cannot drift from the
+  artifact again.
+- The clippy note above said "Four warnings" while listing 1 + 4; the correct
+  count is five.
+- Re-verification: fixture regenerated blob-identical across consecutive runs.
+  The FINAL committed fixture SHA-256 is
+  `00ccf7c8d0bea4442653205ec74158213e0dc1ed468fc34b20f64496f71cc57f`; the
+  hashes quoted in the two sections above (`c4845236…`, `9557ae1f…`) are
+  superseded historical values retained per this file's append-only rule.
+  `npm run typecheck`; `npm test` (381); `npm run build`;
+  `cargo check --locked`; `cargo test --locked` (64);
+  `cargo clippy --locked --all-targets` clean on every new file; targeted
+  `rustfmt --check` clean; `npm run e2e` (25); `git diff --check` clean.

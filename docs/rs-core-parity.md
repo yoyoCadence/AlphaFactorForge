@@ -221,7 +221,7 @@ policy.
   axis restriction, exact float drift, and the 64-value cap boundary. 5
   concurrency cases and 4 errors lock the `max(1, cores - 1)` default and the
   `1..=logicalCores` override bound.
-- 2 config cases compare the COMPLETE resolved envelope structurally; 51
+- 2 config cases compare the COMPLETE resolved envelope structurally; 53
   TypeScript-held rejections cover envelope/version pinning, dataset identity
   including digest shape, non-params candidate modes, unsupported signals,
   every parameter domain (with the percent bound that keeps admission aligned
@@ -236,8 +236,8 @@ policy.
   deduplication, and a base-order-reversed twin proving declaration order
   changes nothing. 2 enumeration errors lock the raw-product cap and the
   all-pruned case.
-- 68 held rejections in total. Both languages assert the admission group's
-  exact ordered ID inventory plus the 68 total, so a deleted case fails a test
+- 70 held rejections in total. Both languages assert the admission group's
+  exact ordered ID inventory plus the 70 total, so a deleted case fails a test
   rather than being masked by a replacement that keeps the count.
 
 `discovery_core/config.rs` (`discovery-config-v1`), `enumerate.rs`

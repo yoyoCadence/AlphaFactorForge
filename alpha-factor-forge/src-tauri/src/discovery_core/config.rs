@@ -257,27 +257,17 @@ fn contract_entries(versions: &DiscoveryContractVersions) -> Vec<(&'static str, 
     entries
 }
 
+/// One grid axis. This is the SINGLE representation: the audit view that gets
+/// serialized into the run record and the value the enumerator walks are the
+/// same field, so a recorded config can never describe a different grid from
+/// the one that actually produced the candidates.
+///
+/// `key` borrows from `DISCOVERY_AXIS_KEYS`, so an axis cannot even name a
+/// key that is not whitelisted.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DiscoveryAxis {
-    #[serde(skip)]
-    pub key_index: usize,
-    pub min: f64,
-    pub max: f64,
-    pub step: f64,
-}
-
-impl DiscoveryAxis {
-    pub fn key(&self) -> &'static str {
-        DISCOVERY_AXIS_KEYS[self.key_index]
-    }
-}
-
-/// Serializes as `{ key, min, max, step }` like the TypeScript axis.
-#[derive(Clone, Debug, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SerializedAxis {
-    pub key: String,
+    pub key: &'static str,
     pub min: f64,
     pub max: f64,
     pub step: f64,
@@ -291,9 +281,7 @@ pub struct DiscoveryBase {
     /// The validated strategy object, kept as JSON so it hashes byte-for-byte
     /// like the TypeScript reference's own object.
     pub strategy: Value,
-    pub axes: Vec<SerializedAxis>,
-    #[serde(skip)]
-    pub parsed_axes: Vec<DiscoveryAxis>,
+    pub axes: Vec<DiscoveryAxis>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
@@ -545,9 +533,10 @@ fn parse_axis(value: &Value, path: &str) -> Result<DiscoveryAxis, ConfigError> {
     let object = require_object(value, path)?;
     require_exact_keys(object, path, &["key", "min", "max", "step"])?;
     let key = require_literal(object, path, "key", &DISCOVERY_AXIS_KEYS)?;
-    let key_index = DISCOVERY_AXIS_KEYS
-        .iter()
-        .position(|candidate| *candidate == key)
+    // Re-borrow from the whitelist so the stored key is 'static by construction.
+    let key = DISCOVERY_AXIS_KEYS
+        .into_iter()
+        .find(|candidate| *candidate == key)
         .expect("axis key was whitelisted above");
     let min = require_number(object, path, "min")?;
     let max = require_number(object, path, "max")?;
@@ -568,7 +557,7 @@ fn parse_axis(value: &Value, path: &str) -> Result<DiscoveryAxis, ConfigError> {
         }
     }
     Ok(DiscoveryAxis {
-        key_index,
+        key,
         min,
         max,
         step,
@@ -592,14 +581,14 @@ pub fn axis_values(axis: &DiscoveryAxis) -> Result<Vec<f64>, ConfigError> {
         if values.len() >= DISCOVERY_MAX_AXIS_VALUES {
             return fail(format!(
                 "axis \"{}\" produces more than {DISCOVERY_MAX_AXIS_VALUES} values",
-                axis.key()
+                axis.key
             ));
         }
         values.push(value);
         i += 1;
     }
     if values.is_empty() {
-        return fail(format!("axis \"{}\" produces no values", axis.key()));
+        return fail(format!("axis \"{}\" produces no values", axis.key));
     }
     Ok(values)
 }
@@ -634,37 +623,26 @@ fn parse_base(value: &Value, path: &str) -> Result<DiscoveryBase, ConfigError> {
     )?;
 
     let raw_axes = require_array(object, path, "axes")?;
-    let mut parsed_axes: Vec<DiscoveryAxis> = Vec::new();
-    let mut serialized_axes: Vec<SerializedAxis> = Vec::new();
+    let mut axes: Vec<DiscoveryAxis> = Vec::new();
     for (index, raw_axis) in raw_axes.iter().enumerate() {
         let axis_path = format!("{path}.axes[{index}]");
         let axis = parse_axis(raw_axis, &axis_path)?;
-        if parsed_axes
-            .iter()
-            .any(|seen| seen.key_index == axis.key_index)
-        {
-            return fail(format!("{axis_path} repeats axis key \"{}\"", axis.key()));
+        if axes.iter().any(|seen| seen.key == axis.key) {
+            return fail(format!("{axis_path} repeats axis key \"{}\"", axis.key));
         }
         for generated in axis_values(&axis)? {
-            if let Some(problem) = check_numeric_param(axis.key(), generated) {
+            if let Some(problem) = check_numeric_param(axis.key, generated) {
                 return fail(format!("{axis_path} generates an invalid value: {problem}"));
             }
         }
-        serialized_axes.push(SerializedAxis {
-            key: axis.key().to_string(),
-            min: axis.min,
-            max: axis.max,
-            step: axis.step,
-        });
-        parsed_axes.push(axis);
+        axes.push(axis);
     }
 
     Ok(DiscoveryBase {
         id: id.to_string(),
         preset_version: DISCOVERY_PRESET_VERSION.to_string(),
         strategy,
-        axes: serialized_axes,
-        parsed_axes,
+        axes,
     })
 }
 
