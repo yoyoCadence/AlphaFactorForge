@@ -141,9 +141,12 @@ Adopted the handoff's recommendation, minimally:
   removed from one section and re-added to the other with no wording changes.
 - A scope note was added stating that this closes the slice list only, NOT
   full legacy parity, and pointing at where the gaps now live.
-- The named gaps became explicit Backlog-adjacent tasks under a new
-  `### Legacy-parity gaps` heading in `Next`, so closing the umbrella cannot
-  bury them:
+- The named gaps became explicit tasks under a new `### Legacy-parity gaps`
+  heading in **`Backlog`**, so closing the umbrella cannot bury them. Naming a
+  deferred gap must not schedule it: `Next` means startable work (AGENTS.md
+  §8), so putting STOCH, backend fetch, and strategy delete there would have
+  silently promoted three deferred items. Promoting any of them is a product
+  decision.
   - **PARITY-001** — core STOCH indicator, then the deferred `stoch*` params
     signals and blocks operands.
   - **PARITY-002** — backend candle fetch command (the webview CSP is
@@ -169,13 +172,16 @@ All seven conditions from §3 of this handoff are now written into the
 `RUNNER-EXEC-001` entry itself, so they travel with the task rather than
 living only here.
 
-One correction to the handoff's framing of the `metrics.rs` condition: the
-code comment there assumes "RUNNER-CONFIG must guarantee chrono-representable
-timestamps", and that assumption does **not** hold. RUNNER-CONFIG validates
-the run envelope; these timestamps come from dataset candles, which it never
-inspects. EXEC therefore cannot treat this as already satisfied upstream — it
-must validate at the execution boundary or make the core return a propagated
-error. The task entry says so explicitly.
+This CONFIRMS the handoff on the `metrics.rs` condition, and corrects the
+stale assumption in the CODE. §3 above already assigns the work to EXEC
+("EXEC 必須在執行邊界做 propagated fail-closed validation，或讓 core 回傳可
+傳播的錯誤"), and that is right. What is wrong is the older comment at
+`discovery_core/metrics.rs:301`, which claims "RUNNER-CONFIG must guarantee
+chrono-representable timestamps" — it does not: RUNNER-CONFIG validates the
+run envelope, while these timestamps come from dataset candles it never
+inspects. EXEC must therefore not treat this as satisfied upstream, and should
+delete or rewrite that comment when it lands the validation. The task entry
+records this.
 
 ### 4. PR #74 audit trail
 
@@ -197,5 +203,11 @@ this change and RUNNER-EXEC-001, per §Independent Follow-ups.
 
 Task-board and documentation only; no source, migration, or test changed.
 `git diff` confirms the umbrella block moved without content edits, and
-`tasks.md` now has exactly one `## Done` heading with all 43 slice entries
-intact.
+`tasks.md` now has exactly one `## Done` heading with all **29** `- [x] Slice`
+entries intact.
+
+Count correction: an earlier draft of this Resolution said 43. That number
+came from `grep -c 'Slice [0-9]'`, which counts every LINE MENTIONING a slice
+— including prose cross-references — not the checkbox entries it claimed to
+measure. Running a command is not the same as measuring the right thing; the
+checkbox count is `grep -cE '^\s+- \[x\] Slice '` = 29.

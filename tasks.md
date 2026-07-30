@@ -21,14 +21,6 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 - [ ] **RUNNER-UI-001** — typed frontend wrappers plus a throttled progress/results UI. Blocked until RUNNER-EXEC-001 merges.
 
-### Legacy-parity gaps (split out of the UI port umbrella, 2026-07-30)
-
-These were named inside the UI port entry and must not be buried by closing it. None blocks the runner slices.
-
-- [ ] **PARITY-001** — core STOCH indicator, then the `stoch*` params signals and blocks operands that have been deferred since Slice 1/4a.
-- [ ] **PARITY-002** — backend candle fetch command. The webview CSP is `default-src 'self'`, so live exchange `fetch` cannot come from the frontend; today data arrives only via file/JSON import or the seeded sample seam.
-- [ ] **PARITY-003** — strategy delete in the library (left optional/deferred by Slice 7-3).
-
 ## In Progress
 
 - [ ] **RUNNER-EXEC-001** — fixed CPU worker pool, Tauri commands, pause/resume/cancel, single writer, and versioned events; no frontend UI.
@@ -42,6 +34,14 @@ These were named inside the UI port entry and must not be buried by closing it. 
     - SQLite writes keep single-writer ownership; worker threads never share a racy write connection.
 
 ## Backlog
+
+### Legacy-parity gaps (split out of the UI port umbrella, 2026-07-30)
+
+These were named inside the UI port entry and must not be buried by closing it. They stay in Backlog — naming a deferred gap does not schedule it, and none of them blocks the runner slices. Promoting any of them to Next is a product decision.
+
+- [ ] **PARITY-001** — core STOCH indicator, then the `stoch*` params signals and blocks operands that have been deferred since Slice 1/4a.
+- [ ] **PARITY-002** — backend candle fetch command. The webview CSP is `default-src 'self'`, so live exchange `fetch` cannot come from the frontend; today data arrives only via file/JSON import or the seeded sample seam.
+- [ ] **PARITY-003** — strategy delete in the library (left optional/deferred by Slice 7-3).
 
 ### Phase B: Discovery And Validation
 
