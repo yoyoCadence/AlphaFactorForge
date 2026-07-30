@@ -52,3 +52,11 @@ CREATE UNIQUE INDEX idx_discovery_runs_single_active
 
 -- Dequeue path: the runner scans its own run's queued jobs in candidate order.
 CREATE INDEX idx_jobs_run_status ON discovery_jobs(discovery_run_id, status, candidate_index);
+
+-- ---------- 4. Run-level failure evidence ----------
+-- D5: "engine/system failure fails the run WITH evidence." Per-job
+-- `error_message` alone cannot carry that promise — a run whose jobs are all
+-- already `done` has no unfinished row to stamp, so the reason would have
+-- nowhere to live and would be silently dropped. The run keeps its own copy,
+-- so failing a run always persists why.
+ALTER TABLE discovery_runs ADD COLUMN error_message TEXT;

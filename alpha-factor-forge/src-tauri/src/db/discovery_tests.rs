@@ -1428,3 +1428,139 @@ fn upgrading_to_0003_preserves_an_existing_manual_validation_record() {
     .unwrap();
     assert_eq!(count(&conn, "validation_records"), 2);
 }
+
+/// Starting a run IS enqueueing its candidates. The generic transition must
+/// not offer a second route, or a run could be marked running with no jobs —
+/// skipping every candidate check — and then "completed", because a run with
+/// zero jobs trivially has none outstanding.
+#[test]
+fn a_run_cannot_be_started_through_the_generic_transition() {
+    let mut conn = mem_db();
+    let run_id = create_discovery_run(&conn, "run", "{}").unwrap();
+
+    assert!(
+        transition_run(&conn, run_id, RunStatus::Running).is_err(),
+        "idle -> running belongs to start_discovery_run"
+    );
+    assert_eq!(
+        get_discovery_run(&conn, run_id).unwrap().status,
+        RunStatus::Idle,
+        "the refused transition left the run idle"
+    );
+    assert_eq!(list_discovery_jobs(&conn, run_id).unwrap().len(), 0);
+    // And the bypass's payoff is gone: it can no longer reach completion.
+    assert!(complete_discovery_run(&mut conn, run_id).is_err());
+}
+
+/// A run whose jobs are ALL done has no unfinished row to stamp, so job-level
+/// evidence alone would silently drop the reason. The run keeps its own copy.
+#[test]
+fn failing_a_run_persists_its_reason_even_with_no_unfinished_jobs() {
+    let mut conn = mem_db();
+    let (dataset_id, strategies) = parents(&conn, 1);
+    let run_id = started_run(&mut conn, dataset_id, &strategies);
+    commit(
+        &mut conn,
+        run_id,
+        0,
+        &bundle(strategies[0], dataset_id, true, 1.5),
+        None,
+    )
+    .unwrap();
+
+    // Zero jobs updated — the old job-only evidence would have vanished here.
+    assert_eq!(fail_discovery_run(&conn, run_id, "disk full").unwrap(), 0);
+    let run = get_discovery_run(&conn, run_id).unwrap();
+    assert_eq!(run.status, RunStatus::Failed);
+    assert_eq!(
+        run.error_message.as_deref(),
+        Some("disk full"),
+        "the run itself records why it failed"
+    );
+}
+
+/// D5's table has no `paused -> failed` edge: a paused run resumes or cancels.
+#[test]
+fn a_paused_run_cannot_be_failed() {
+    let mut conn = mem_db();
+    let (dataset_id, strategies) = parents(&conn, 1);
+    let run_id = started_run(&mut conn, dataset_id, &strategies);
+    transition_run(&conn, run_id, RunStatus::Paused).unwrap();
+
+    assert!(fail_discovery_run(&conn, run_id, "engine crash").is_err());
+    let run = get_discovery_run(&conn, run_id).unwrap();
+    assert_eq!(run.status, RunStatus::Paused, "the run is untouched");
+    assert_eq!(run.error_message, None);
+    assert!(list_discovery_jobs(&conn, run_id)
+        .unwrap()
+        .iter()
+        .all(|j| j.status == JobStatus::Queued && j.error_message.is_none()));
+    // Cancelling a paused run remains legal.
+    cancel_discovery_run(&conn, run_id).unwrap();
+}
+
+/// Cancel writes the jobs first and the run status last, so aborting ON the
+/// status write proves the job updates roll back with it. Splitting the
+/// function back into two commits makes this fail.
+#[test]
+fn cancel_rolls_back_its_job_updates_when_the_status_write_fails() {
+    let mut conn = mem_db();
+    let (dataset_id, strategies) = parents(&conn, 2);
+    let run_id = started_run(&mut conn, dataset_id, &strategies);
+    conn.execute_batch(
+        "CREATE TRIGGER boom_cancel BEFORE UPDATE OF status ON discovery_runs
+         WHEN NEW.status = 'cancelled'
+         BEGIN SELECT RAISE(ABORT, 'test-injected failure'); END;",
+    )
+    .unwrap();
+
+    assert!(cancel_discovery_run(&conn, run_id).is_err());
+    assert_eq!(
+        get_discovery_run(&conn, run_id).unwrap().status,
+        RunStatus::Running
+    );
+    assert!(
+        list_discovery_jobs(&conn, run_id)
+            .unwrap()
+            .iter()
+            .all(|j| j.status == JobStatus::Queued),
+        "the skip updates rolled back with the status write"
+    );
+
+    // Proof the input WOULD have skipped them, so the assertion is not vacuous.
+    conn.execute_batch("DROP TRIGGER boom_cancel;").unwrap();
+    assert_eq!(cancel_discovery_run(&conn, run_id).unwrap(), 4);
+}
+
+/// The same proof for failure, whose evidence write must be atomic too.
+#[test]
+fn failing_rolls_back_its_job_evidence_when_the_status_write_fails() {
+    let mut conn = mem_db();
+    let (dataset_id, strategies) = parents(&conn, 2);
+    let run_id = started_run(&mut conn, dataset_id, &strategies);
+    conn.execute_batch(
+        "CREATE TRIGGER boom_fail BEFORE UPDATE OF status ON discovery_runs
+         WHEN NEW.status = 'failed'
+         BEGIN SELECT RAISE(ABORT, 'test-injected failure'); END;",
+    )
+    .unwrap();
+
+    assert!(fail_discovery_run(&conn, run_id, "engine crash").is_err());
+    assert_eq!(
+        get_discovery_run(&conn, run_id).unwrap().status,
+        RunStatus::Running
+    );
+    assert!(
+        list_discovery_jobs(&conn, run_id)
+            .unwrap()
+            .iter()
+            .all(|j| j.status == JobStatus::Queued && j.error_message.is_none()),
+        "the evidence writes rolled back with the status write"
+    );
+
+    conn.execute_batch("DROP TRIGGER boom_fail;").unwrap();
+    assert_eq!(
+        fail_discovery_run(&conn, run_id, "engine crash").unwrap(),
+        4
+    );
+}

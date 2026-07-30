@@ -84,8 +84,36 @@ does not match the candidate's job rows belongs to a different candidate — and
 to still be `queued` or `running`. That last check matters: without it a
 late-arriving result could flip an already `failed` or `skipped` row to `done`
 and wipe its `error_message`, destroying the evidence D5 requires a failure to
-carry. `fail_candidate_jobs` and `skip_remaining_jobs` are likewise restricted
+carry. The internal skip and candidate-failure helpers are likewise restricted
 to unfinished rows, so no terminal state is ever overwritten.
+
+### Terminal states are transactional, not status writes
+
+No terminal state — and no start — is reachable through the generic
+`transition_run`, which performs only `running <-> paused`. Each of the others
+must move the run AND its jobs together, so each has its own function that
+commits both in ONE transaction:
+
+| Target | Function | Committed with the status |
+| --- | --- | --- |
+| `running` (from `idle`) | `start_discovery_run` | both job rows per candidate |
+| `completed` | `complete_discovery_run` | derived `best_strategy_id` |
+| `cancelled` | `cancel_discovery_run` | unfinished jobs → `skipped` |
+| `failed` | `fail_discovery_run` | reason on the run AND its unfinished jobs |
+
+A generic status write would let the job half land as a second commit, or not
+at all. Two cases show why that is not theoretical: a run marked `running`
+with NO jobs skipped every candidate check and could then be "completed",
+because a run with zero jobs trivially has none outstanding; and a crash
+between a `cancelled` status write and its skip updates would strand queued
+jobs under a terminal run that crash recovery deliberately never revisits.
+
+`fail_discovery_run` writes the reason to `discovery_runs.error_message` as
+well as to the unfinished job rows. Job-level evidence alone is not enough: a
+run whose jobs are all already `done` has no row left to stamp, so the reason
+would be silently dropped — violating D5's "fail with evidence" precisely when
+the failure is late. Only a `running` run may fail; a paused run resumes or
+cancels, matching D5's table.
 
 This atomicity is not cosmetic. `status = 'done'` is the runner's ONLY
 checkpoint, so a partially applied assessment would make a resumed run skip
@@ -108,10 +136,13 @@ by candidate index then strategy hash, null when nothing passed. Leaving the
 transition in place would have given callers a second path to "completed" that
 silently skipped the derivation.
 
-Completion also refuses while any job is still `queued` or `running`.
-"Completed" is terminal and never resumes, so allowing it mid-queue would
-freeze unfinished work behind it and derive the winner from a partial set of
-assessments. Cancellation drains the queue via `skip_remaining_jobs` first.
+Completion requires EVERY job to be `done`. "Completed" is terminal and never
+resumes, so allowing it mid-queue would freeze unfinished work behind it, and
+each non-`done` state is excluded for its own reason: `queued`/`running` is
+live work; `failed` means the engine broke, which D5 requires to fail the run
+with evidence instead; and `skipped` belongs to the cancellation flow, so
+accepting it would let a run that assessed only some of its candidates
+masquerade as a full one and derive its winner from a partial field.
 
 ## 5. Crash recovery
 

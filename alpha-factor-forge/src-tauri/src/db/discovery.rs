@@ -80,27 +80,24 @@ impl RunStatus {
     }
 }
 
-/// The fixed D5 transition table. Anything absent here is rejected.
+/// Transitions the GENERIC `transition_run` may perform: pause and resume.
 ///
-/// EVERY terminal state is deliberately absent, because reaching one is never
-/// just a status write:
+/// Every other edge of the D5 table is deliberately absent, because reaching
+/// it is never just a status write:
 ///
+/// - `idle -> running` must enqueue the candidates — `start_discovery_run`.
 /// - `completed` must derive `best_strategy_id` (D6) — `complete_discovery_run`.
 /// - `cancelled` must skip the unfinished jobs — `cancel_discovery_run`.
-/// - `failed` must record failure evidence on them — `fail_discovery_run`.
+/// - `failed` must persist failure evidence — `fail_discovery_run`.
 ///
-/// Leaving them here would let a caller flip the run's status and then update
-/// the jobs as a SECOND commit. A crash between the two would strand a
-/// cancelled run holding queued jobs, or a failed run carrying no evidence,
-/// and crash recovery deliberately does not touch terminal runs. Routing each
-/// terminal state through its own transactional function makes that split
-/// unrepresentable rather than merely discouraged.
+/// Leaving any of them here lets a caller flip the status and then touch the
+/// jobs as a SECOND commit — or not at all. `idle -> running` was the sharpest
+/// case: a run could be marked running with NO jobs, skipping every candidate
+/// check, and then be "completed", because a run with zero jobs trivially has
+/// none outstanding.
 fn transition_allowed(from: RunStatus, to: RunStatus) -> bool {
     use RunStatus::*;
-    matches!(
-        (from, to),
-        (Idle, Running) | (Running, Paused) | (Paused, Running)
-    )
+    matches!((from, to), (Running, Paused) | (Paused, Running))
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -156,6 +153,8 @@ pub struct DiscoveryRunRow {
     pub created_at: String,
     pub started_at: Option<String>,
     pub completed_at: Option<String>,
+    /// D5 failure evidence, set only by `fail_discovery_run`.
+    pub error_message: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -203,7 +202,7 @@ pub struct RecoveryReport {
 // ---------- reads ----------
 
 const RUN_COLS: &str = "id, name, status, config_json, progress_json, best_strategy_id,
-     created_at, started_at, completed_at";
+     created_at, started_at, completed_at, error_message";
 
 fn map_run(row: &rusqlite::Row) -> rusqlite::Result<DiscoveryRunRow> {
     let raw: String = row.get(2)?;
@@ -225,6 +224,7 @@ fn map_run(row: &rusqlite::Row) -> rusqlite::Result<DiscoveryRunRow> {
         created_at: row.get(6)?,
         started_at: row.get(7)?,
         completed_at: row.get(8)?,
+        error_message: row.get(9)?,
     })
 }
 
@@ -395,7 +395,9 @@ pub fn start_discovery_run(
 
     let tx = conn.transaction()?;
     let from = current_status(&tx, run_id)?;
-    if !transition_allowed(from, RunStatus::Running) {
+    // `idle -> running` lives here, not in the generic table: starting a run
+    // is enqueueing its candidates, and the two must not be separable.
+    if from != RunStatus::Idle {
         return Err(AppError::Other(format!(
             "illegal run transition {} -> running",
             from.as_str()
@@ -775,34 +777,44 @@ pub fn fail_discovery_run(conn: &Connection, run_id: i64, error_message: &str) -
     }
     let tx = conn.unchecked_transaction()?;
     let from = current_status(&tx, run_id)?;
-    if !from.is_active() {
+    // Only a RUNNING run may fail, matching D5's table. `paused -> failed` is
+    // not an edge there: a paused run resumes or cancels.
+    if from != RunStatus::Running {
         return Err(AppError::Other(format!(
             "illegal run transition {} -> failed",
             from.as_str()
         )));
     }
-    // Unfinished work inherits the run-level reason, so the evidence lives on
-    // the rows even though `discovery_runs` has no reason column of its own.
+    // Unfinished work inherits the reason as per-job detail...
     let failed = tx.execute(
         "UPDATE discovery_jobs
          SET status = 'failed', error_message = ?2, updated_at = datetime('now')
          WHERE discovery_run_id = ?1 AND status IN ('queued','running')",
         params![run_id, error_message],
     )?;
+    // ...but the RUN keeps its own copy regardless. Relying on the job rows
+    // alone silently dropped the reason whenever every job was already `done`,
+    // leaving a terminal run that records no evidence at all.
     tx.execute(
         "UPDATE discovery_runs
-         SET status = 'failed', updated_at = datetime('now'),
+         SET status = 'failed', error_message = ?2, updated_at = datetime('now'),
              completed_at = datetime('now')
          WHERE id = ?1",
-        [run_id],
+        params![run_id, error_message],
     )?;
     tx.commit()?;
     Ok(failed)
 }
 
-/// Record an engine/system failure against a candidate's pair. D5 requires
-/// failures to carry evidence rather than be silently retried.
-pub fn fail_candidate_jobs(
+/// Record an engine/system failure against ONE candidate's pair.
+///
+/// Visible only inside `db`: on its own it produces a `running` run holding
+/// `failed` jobs — exactly the split state the transactional run APIs exist to
+/// prevent. D5 treats an engine failure as a RUN failure, so callers outside
+/// this module (the RUNNER-EXEC commands) reach it only through
+/// `fail_discovery_run`, which stamps the reason on the run AND its unfinished
+/// jobs in one commit.
+pub(super) fn fail_candidate_jobs(
     conn: &Connection,
     run_id: i64,
     candidate_index: i64,

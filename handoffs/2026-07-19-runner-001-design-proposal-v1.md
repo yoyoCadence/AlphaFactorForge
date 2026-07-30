@@ -914,3 +914,45 @@ Re-verification: `npm run typecheck`; `npm test` (382, unchanged);
 `npm run build`; `cargo check --locked`; `cargo test --locked` (102, +6);
 `cargo clippy --locked --all-targets` clean on the touched files; targeted
 `rustfmt --check` clean; `npm run e2e` (25); `git diff --check` clean.
+
+### RUNNER-STORE-001 third review correction (append-only update)
+
+Date: 2026-07-30. Fix for the PR #74 third-round findings. Supersedes the Rust
+test count above (102 -> 107).
+
+- [P1] `transition_allowed` still held `(Idle, Running)`, so the public
+  `transition_run` could mark a run `running` with NO jobs — bypassing
+  `start_discovery_run`'s non-empty, paired-rows, and candidate-identity
+  checks — and that run could then be COMPLETED, because a run with zero jobs
+  trivially has no outstanding ones. `idle -> running` now lives only in
+  `start_discovery_run`, which checks the source state itself; the generic
+  table is reduced to `running <-> paused`.
+- [P1] A failed run could persist no evidence. `fail_discovery_run` wrote the
+  reason only to `queued`/`running` job rows, so a run whose jobs were all
+  already `done` updated zero rows and lost the reason entirely — D5's "fail
+  with evidence" broken exactly when the failure arrives late. Migration 0003
+  now adds `discovery_runs.error_message`, and the run keeps its own copy
+  alongside the per-job detail. `fail_discovery_run` also accepted `paused`
+  via `is_active()`, an edge D5's table does not contain; it now requires
+  `running`. `fail_candidate_jobs` became `pub(super)`, so the commands in
+  RUNNER-EXEC cannot write a job failure on its own and leave a `running` run
+  holding `failed` jobs.
+- [P2] The cancel/fail tests asserted only the successful end state, so
+  splitting either function back into two commits would not have failed them.
+  Both now inject an abort ON the run-status write (which happens after the
+  job writes) and assert the job updates rolled back with it, then drop the
+  trigger and succeed — so the assertion cannot be vacuous.
+- [P2] `docs/discovery-runner-store-contract.md` still named the removed
+  `skip_remaining_jobs` and documented none of the transactional paths; it now
+  carries a table of which write accompanies each terminal state, and the
+  completion rule is corrected to "every job `done`". `tasks.md` had a stale
+  rollback-test name and 86 Rust tests.
+
+All four are mutation-verified individually: restoring `(Idle, Running)`,
+dropping the run-level reason write, re-accepting `paused` for failure, and
+splitting cancel into two commits each fail their own test.
+
+Re-verification: `npm run typecheck`; `npm test` (382, unchanged);
+`npm run build`; `cargo check --locked`; `cargo test --locked` (107, +5);
+`cargo clippy --locked --all-targets` clean on the touched files; targeted
+`rustfmt --check` clean; `npm run e2e` (25); `git diff --check` clean.
