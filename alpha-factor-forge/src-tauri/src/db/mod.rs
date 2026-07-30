@@ -43,6 +43,28 @@ pub fn initialize(app: &AppHandle) -> AppResult<Connection> {
     Ok(conn)
 }
 
+/// Apply ONE migration and record its version in the SAME transaction.
+///
+/// SQLite DDL is transactional, but the version record used to be a separate
+/// statement. Without this a migration that failed partway (say the second of
+/// several `ALTER`s) would leave half a schema behind AND no version row — and
+/// every retry would then die on "duplicate column name", leaving the database
+/// permanently unupgradeable.
+///
+/// Extracted so the regression test can drive the REAL code path with a
+/// deliberately broken migration, instead of re-implementing the transaction
+/// and testing its own copy.
+pub(crate) fn apply_one_migration(conn: &Connection, version: &str, sql: &str) -> AppResult<()> {
+    let tx = conn.unchecked_transaction()?;
+    tx.execute_batch(sql)?;
+    tx.execute(
+        "INSERT INTO schema_migrations (version) VALUES (?1)",
+        [version],
+    )?;
+    tx.commit()?;
+    Ok(())
+}
+
 /// Create the bookkeeping table, then apply any migration not yet recorded.
 pub fn apply_migrations(conn: &Connection) -> AppResult<()> {
     conn.execute_batch(
@@ -63,18 +85,7 @@ pub fn apply_migrations(conn: &Connection) -> AppResult<()> {
         if already {
             continue;
         }
-        // The DDL and its version record must land together. SQLite DDL is
-        // transactional, so without this a migration that fails partway (say
-        // the second of two ALTERs) would leave half a schema behind AND no
-        // version row — and the retry would then die on "duplicate column
-        // name", leaving the database permanently unupgradeable.
-        let tx = conn.unchecked_transaction()?;
-        tx.execute_batch(sql)?;
-        tx.execute(
-            "INSERT INTO schema_migrations (version) VALUES (?1)",
-            [version],
-        )?;
-        tx.commit()?;
+        apply_one_migration(conn, version, sql)?;
     }
     Ok(())
 }

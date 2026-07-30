@@ -82,21 +82,24 @@ impl RunStatus {
 
 /// The fixed D5 transition table. Anything absent here is rejected.
 ///
-/// `running -> completed` is deliberately ABSENT. Completion must derive
-/// `best_strategy_id` from the stored assessments (D6), so it is reachable
-/// only through `complete_discovery_run`; allowing it here would give callers
-/// a second path to "completed" that silently skips the derivation and leaves
-/// the run claiming no winner.
+/// EVERY terminal state is deliberately absent, because reaching one is never
+/// just a status write:
+///
+/// - `completed` must derive `best_strategy_id` (D6) — `complete_discovery_run`.
+/// - `cancelled` must skip the unfinished jobs — `cancel_discovery_run`.
+/// - `failed` must record failure evidence on them — `fail_discovery_run`.
+///
+/// Leaving them here would let a caller flip the run's status and then update
+/// the jobs as a SECOND commit. A crash between the two would strand a
+/// cancelled run holding queued jobs, or a failed run carrying no evidence,
+/// and crash recovery deliberately does not touch terminal runs. Routing each
+/// terminal state through its own transactional function makes that split
+/// unrepresentable rather than merely discouraged.
 fn transition_allowed(from: RunStatus, to: RunStatus) -> bool {
     use RunStatus::*;
     matches!(
         (from, to),
-        (Idle, Running)
-            | (Running, Paused)
-            | (Running, Failed)
-            | (Running, Cancelled)
-            | (Paused, Running)
-            | (Paused, Cancelled)
+        (Idle, Running) | (Running, Paused) | (Paused, Running)
     )
 }
 
@@ -507,31 +510,33 @@ pub fn complete_discovery_run(conn: &mut Connection, run_id: i64) -> AppResult<O
     // "Completed" must mean the queue actually drained. Unfinished work would
     // otherwise be frozen behind a terminal state that never resumes, and the
     // derived winner would be computed from a partial set of assessments.
-    let unfinished: i64 = tx.query_row(
-        "SELECT COUNT(*) FROM discovery_jobs
-         WHERE discovery_run_id = ?1 AND status IN ('queued','running')",
-        [run_id],
-        |row| row.get(0),
-    )?;
-    if unfinished > 0 {
-        return Err(AppError::Other(format!(
-            "cannot complete run {run_id}: {unfinished} job(s) are still queued or running"
-        )));
-    }
-    // D5: "engine/system failure fails the run with evidence; it is not
-    // silently retried." Completing a run that contains failed jobs would
+    // `completed` means every candidate was actually assessed — so EVERY job
+    // must be `done`, not merely "not queued".
+    //
+    // Each non-done state is excluded for its own reason. `queued`/`running`
+    // would freeze live work behind a state that never resumes. `failed` would
     // erase the difference between "finished, nothing passed" and "the engine
-    // broke on some candidates" — both would land as `completed` with no
-    // winner. Such a run must go to `failed` instead.
-    let failed: i64 = tx.query_row(
-        "SELECT COUNT(*) FROM discovery_jobs
-         WHERE discovery_run_id = ?1 AND status = 'failed'",
-        [run_id],
-        |row| row.get(0),
+    // broke" (D5 requires such a run to fail WITH evidence). `skipped` belongs
+    // to the cancellation flow, so accepting it would let a run that assessed
+    // only some of its candidates masquerade as a full run — and its derived
+    // winner would be the best of a partial field.
+    let mut statement = tx.prepare(
+        "SELECT status, COUNT(*) FROM discovery_jobs
+         WHERE discovery_run_id = ?1 AND status <> 'done'
+         GROUP BY status ORDER BY status",
     )?;
-    if failed > 0 {
+    let outstanding: Vec<(String, i64)> = statement
+        .query_map([run_id], |row| Ok((row.get(0)?, row.get(1)?)))?
+        .collect::<rusqlite::Result<_>>()?;
+    drop(statement);
+    if !outstanding.is_empty() {
+        let detail = outstanding
+            .iter()
+            .map(|(status, count)| format!("{count} {status}"))
+            .collect::<Vec<_>>()
+            .join(", ");
         return Err(AppError::Other(format!(
-            "cannot complete run {run_id}: {failed} job(s) failed; fail the run instead"
+            "cannot complete run {run_id}: every job must be done, but found {detail}"
         )));
     }
     let best = select_best_strategy(&tx, run_id)?;
@@ -713,15 +718,86 @@ pub fn commit_candidate_assessment(
     Ok(record_id)
 }
 
-/// Mark a candidate's pair as skipped (cancellation at a candidate boundary).
-/// Only untouched rows move: a `done` checkpoint is never rewritten.
-pub fn skip_remaining_jobs(conn: &Connection, run_id: i64) -> AppResult<usize> {
+/// Mark every unfinished job as skipped. Only untouched rows move: a `done`
+/// checkpoint is never rewritten.
+///
+/// Not public: skipping is meaningful only as part of cancelling a run, and
+/// exposing it separately is what allowed a status write and a job write to
+/// land as two commits. Use `cancel_discovery_run`.
+fn skip_unfinished_jobs(conn: &Connection, run_id: i64) -> AppResult<usize> {
     Ok(conn.execute(
         "UPDATE discovery_jobs
          SET status = 'skipped', updated_at = datetime('now')
          WHERE discovery_run_id = ?1 AND status IN ('queued','running')",
         [run_id],
     )?)
+}
+
+/// Cancel a run: status and the fate of its unfinished jobs commit TOGETHER.
+///
+/// D5 makes cancel cooperative at candidate boundaries, so an in-flight
+/// candidate that already committed keeps its `done` checkpoint; everything
+/// still queued or running becomes `skipped`. Because crash recovery
+/// deliberately ignores terminal runs, a cancelled run left holding queued
+/// jobs would never be repaired — hence one transaction.
+pub fn cancel_discovery_run(conn: &Connection, run_id: i64) -> AppResult<usize> {
+    let tx = conn.unchecked_transaction()?;
+    let from = current_status(&tx, run_id)?;
+    if !from.is_active() {
+        return Err(AppError::Other(format!(
+            "illegal run transition {} -> cancelled",
+            from.as_str()
+        )));
+    }
+    let skipped = skip_unfinished_jobs(&tx, run_id)?;
+    tx.execute(
+        "UPDATE discovery_runs
+         SET status = 'cancelled', updated_at = datetime('now'),
+             completed_at = datetime('now')
+         WHERE id = ?1",
+        [run_id],
+    )?;
+    tx.commit()?;
+    Ok(skipped)
+}
+
+/// Fail a run: status and the failure evidence on its unfinished jobs commit
+/// TOGETHER.
+///
+/// D5 requires an engine/system failure to fail the run WITH evidence. A
+/// separate status write could crash before the evidence landed, leaving a
+/// terminal run that records no reason and that recovery will never revisit.
+pub fn fail_discovery_run(conn: &Connection, run_id: i64, error_message: &str) -> AppResult<usize> {
+    if error_message.trim().is_empty() {
+        return Err(AppError::Other(
+            "a failed run must record why it failed".into(),
+        ));
+    }
+    let tx = conn.unchecked_transaction()?;
+    let from = current_status(&tx, run_id)?;
+    if !from.is_active() {
+        return Err(AppError::Other(format!(
+            "illegal run transition {} -> failed",
+            from.as_str()
+        )));
+    }
+    // Unfinished work inherits the run-level reason, so the evidence lives on
+    // the rows even though `discovery_runs` has no reason column of its own.
+    let failed = tx.execute(
+        "UPDATE discovery_jobs
+         SET status = 'failed', error_message = ?2, updated_at = datetime('now')
+         WHERE discovery_run_id = ?1 AND status IN ('queued','running')",
+        params![run_id, error_message],
+    )?;
+    tx.execute(
+        "UPDATE discovery_runs
+         SET status = 'failed', updated_at = datetime('now'),
+             completed_at = datetime('now')
+         WHERE id = ?1",
+        [run_id],
+    )?;
+    tx.commit()?;
+    Ok(failed)
 }
 
 /// Record an engine/system failure against a candidate's pair. D5 requires

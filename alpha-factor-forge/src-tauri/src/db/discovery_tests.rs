@@ -156,6 +156,46 @@ fn started_run(conn: &mut Connection, dataset_id: i64, strategies: &[i64]) -> i6
 
 const NO_TRADES: &[TradeRow] = &[];
 
+/// One closed round-trip, so trade rows are actually present where a test
+/// needs to prove they roll back.
+fn trade(entry_time: i64, exit_time: i64) -> TradeRow {
+    TradeRow {
+        entry_time,
+        exit_time,
+        side: "LONG".into(),
+        entry_price: 100.0,
+        exit_price: 110.0,
+        pnl: 10.0,
+        pnl_pct: 0.1,
+        reason: Some("signal".into()),
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn commit_with_trades(
+    conn: &mut Connection,
+    run_id: i64,
+    candidate_index: i64,
+    bundle: &(BacktestSummary, BacktestSummary, ValidationRecordRow),
+    train_trades: &[TradeRow],
+    validation_trades: &[TradeRow],
+    progress_json: Option<&str>,
+) -> crate::error::AppResult<i64> {
+    commit_candidate_assessment(
+        conn,
+        &CandidateAssessment {
+            run_id,
+            candidate_index,
+            train_summary: &bundle.0,
+            train_trades,
+            validation_summary: &bundle.1,
+            validation_trades,
+            record: &bundle.2,
+            progress_json,
+        },
+    )
+}
+
 fn commit(
     conn: &mut Connection,
     run_id: i64,
@@ -227,8 +267,8 @@ fn only_one_non_terminal_run_may_exist_globally() {
     transition_run(&conn, first, RunStatus::Paused).unwrap();
     assert!(start_discovery_run(&mut conn, second, &specs).is_err());
 
-    // Only a terminal first run frees the slot.
-    transition_run(&conn, first, RunStatus::Cancelled).unwrap();
+    // Only a terminal first run frees the slot. A paused run cancels too.
+    cancel_discovery_run(&conn, first).unwrap();
     start_discovery_run(&mut conn, second, &specs).unwrap();
     assert_eq!(
         active_discovery_run(&conn).unwrap().map(|r| r.id),
@@ -301,8 +341,76 @@ fn a_run_with_unfinished_jobs_cannot_be_completed() {
         "the refused completion left the run running"
     );
 
-    // Skipping the remainder (cancellation bookkeeping) drains the queue.
-    skip_remaining_jobs(&conn, run_id).unwrap();
+    // Cancelling is terminal, so completion is refused — but note this is the
+    // STATUS guard talking, not the job-state one. The skipped-job rule is
+    // proved separately below, where the run is still running.
+    cancel_discovery_run(&conn, run_id).unwrap();
+    assert!(complete_discovery_run(&mut conn, run_id).is_err());
+    assert_eq!(
+        get_discovery_run(&conn, run_id).unwrap().status,
+        RunStatus::Cancelled,
+        "cancel is terminal; completion never overwrites it"
+    );
+}
+
+/// `skipped` is NOT `done`: a run that assessed only some of its candidates
+/// must not masquerade as completed, or its derived winner would be the best
+/// of a partial field.
+///
+/// The job is skipped by direct SQL while the run is still RUNNING. Going
+/// through `cancel_discovery_run` would make the run terminal, and completion
+/// would then be refused by the status guard — passing without ever reaching
+/// the rule under test. Today `skipped` only arises from cancellation, so this
+/// guard is defence in depth against a tampered row or a future code path.
+#[test]
+fn a_skipped_candidate_does_not_count_as_assessed() {
+    let mut conn = mem_db();
+    let (dataset_id, strategies) = parents(&conn, 2);
+    let run_id = started_run(&mut conn, dataset_id, &strategies);
+    commit(
+        &mut conn,
+        run_id,
+        0,
+        &bundle(strategies[0], dataset_id, true, 1.5),
+        None,
+    )
+    .unwrap();
+    conn.execute(
+        "UPDATE discovery_jobs SET status = 'skipped'
+         WHERE discovery_run_id = ?1 AND candidate_index = 1",
+        [run_id],
+    )
+    .unwrap();
+
+    assert_eq!(
+        get_discovery_run(&conn, run_id).unwrap().status,
+        RunStatus::Running,
+        "the status guard must not be what refuses this"
+    );
+    let error = complete_discovery_run(&mut conn, run_id)
+        .expect_err("a skipped candidate is not an assessed one");
+    assert!(
+        error.to_string().contains("skipped"),
+        "the refusal names the skipped jobs: {error}"
+    );
+}
+
+/// Completion means every candidate was assessed, so all jobs must be `done`.
+#[test]
+fn completion_requires_every_job_done() {
+    let mut conn = mem_db();
+    let (dataset_id, strategies) = parents(&conn, 2);
+    let run_id = started_run(&mut conn, dataset_id, &strategies);
+    for (index, strategy_id) in strategies.iter().enumerate() {
+        commit(
+            &mut conn,
+            run_id,
+            index as i64,
+            &bundle(*strategy_id, dataset_id, index == 0, 1.5),
+            None,
+        )
+        .unwrap();
+    }
     assert_eq!(
         complete_discovery_run(&mut conn, run_id).unwrap(),
         Some(strategies[0])
@@ -321,7 +429,7 @@ fn illegal_state_transitions_are_refused() {
     assert!(transition_run(&conn, run_id, RunStatus::Completed).is_err());
     assert!(transition_run(&conn, run_id, RunStatus::Failed).is_err());
     transition_run(&conn, run_id, RunStatus::Running).unwrap();
-    transition_run(&conn, run_id, RunStatus::Cancelled).unwrap();
+    cancel_discovery_run(&conn, run_id).unwrap();
     for target in [RunStatus::Running, RunStatus::Paused, RunStatus::Completed] {
         assert!(
             transition_run(&conn, run_id, target).is_err(),
@@ -346,7 +454,7 @@ fn duplicate_candidate_segment_jobs_are_impossible() {
     assert!(duplicate.is_err(), "(run, candidate, segment) is unique");
 
     // The same candidate index in a DIFFERENT run stays legal.
-    transition_run(&conn, run_id, RunStatus::Cancelled).unwrap();
+    cancel_discovery_run(&conn, run_id).unwrap();
     let other = create_discovery_run(&conn, "other", "{}").unwrap();
     start_discovery_run(
         &mut conn,
@@ -551,17 +659,34 @@ fn a_failure_at_the_last_write_rolls_back_jobs_lifecycle_and_progress() {
     let (dataset_id, strategies) = parents(&conn, 1);
     let run_id = started_run(&mut conn, dataset_id, &strategies);
 
+    // AFTER, not BEFORE: a BEFORE trigger fires while the progress row is
+    // still unwritten, so it could not prove that a WRITTEN progress value
+    // rolls back. Firing after the update means every write in the
+    // transaction has landed before the abort.
     conn.execute_batch(
-        "CREATE TRIGGER boom BEFORE UPDATE OF progress_json ON discovery_runs
+        "CREATE TRIGGER boom AFTER UPDATE OF progress_json ON discovery_runs
          WHEN NEW.progress_json = '{\"boom\":1}'
          BEGIN SELECT RAISE(ABORT, 'test-injected failure'); END;",
     )
     .unwrap();
 
+    // Non-empty trades on BOTH segments, so the trade rows are genuinely
+    // covered rather than trivially absent.
     let b = bundle(strategies[0], dataset_id, true, 1.5);
-    assert!(commit(&mut conn, run_id, 0, &b, Some("{\"boom\":1}")).is_err());
+    let trades = [trade(1, 2)];
+    assert!(commit_with_trades(
+        &mut conn,
+        run_id,
+        0,
+        &b,
+        &trades,
+        &trades,
+        Some("{\"boom\":1}")
+    )
+    .is_err());
 
     assert_eq!(count(&conn, "backtest_summary"), 0, "summaries rolled back");
+    assert_eq!(count(&conn, "trades"), 0, "trade rows rolled back");
     assert_eq!(count(&conn, "validation_records"), 0, "record rolled back");
     assert_eq!(
         lifecycle(&conn, strategies[0]),
@@ -569,11 +694,33 @@ fn a_failure_at_the_last_write_rolls_back_jobs_lifecycle_and_progress() {
         "the lifecycle promotion rolled back"
     );
     let run = get_discovery_run(&conn, run_id).unwrap();
-    assert_eq!(run.progress_json, None, "progress rolled back");
+    assert_eq!(run.progress_json, None, "the written progress rolled back");
     for job in list_discovery_jobs(&conn, run_id).unwrap() {
         assert_eq!(job.status, JobStatus::Queued, "job rows rolled back");
         assert_eq!(job.result_id, None);
     }
+
+    // The assertions above are only meaningful if this input WOULD have
+    // written those rows. Drop the trigger and commit the same bundle: the
+    // trades and progress must now appear, proving neither assertion was
+    // trivially satisfied by an empty input.
+    conn.execute_batch("DROP TRIGGER boom;").unwrap();
+    commit_with_trades(
+        &mut conn,
+        run_id,
+        0,
+        &b,
+        &trades,
+        &trades,
+        Some("{\"done\":1}"),
+    )
+    .unwrap();
+    assert_eq!(count(&conn, "trades"), 2, "the trade rows really do write");
+    assert_eq!(
+        get_discovery_run(&conn, run_id).unwrap().progress_json,
+        Some("{\"done\":1}".into()),
+        "the progress value really does write"
+    );
 }
 
 #[test]
@@ -630,7 +777,7 @@ fn lifecycle_follows_the_gate_and_never_demotes_a_validated_strategy() {
     assert_eq!(lifecycle(&conn, strategies[0]), "validated");
 
     // A later FAILING assessment in another run must not demote it (D6).
-    transition_run(&conn, run_id, RunStatus::Cancelled).unwrap();
+    cancel_discovery_run(&conn, run_id).unwrap();
     let second = create_discovery_run(&conn, "second", "{}").unwrap();
     start_discovery_run(
         &mut conn,
@@ -666,7 +813,7 @@ fn a_rejected_strategy_is_promoted_when_it_later_passes() {
     .unwrap();
     assert_eq!(lifecycle(&conn, strategies[0]), "rejected");
 
-    transition_run(&conn, first, RunStatus::Cancelled).unwrap();
+    cancel_discovery_run(&conn, first).unwrap();
     let second = create_discovery_run(&conn, "second", "{}").unwrap();
     start_discovery_run(
         &mut conn,
@@ -797,8 +944,9 @@ fn a_run_containing_failed_jobs_cannot_be_completed() {
         get_discovery_run(&conn, run_id).unwrap().status,
         RunStatus::Running
     );
-    // The honest terminal state for it is `failed`.
-    transition_run(&conn, run_id, RunStatus::Failed).unwrap();
+    // The honest terminal state for it is `failed`, and failing the run
+    // stamps its reason onto the still-unfinished jobs in one transaction.
+    fail_discovery_run(&conn, run_id, "engine crash").unwrap();
     assert_eq!(
         get_discovery_run(&conn, run_id).unwrap().status,
         RunStatus::Failed
@@ -912,7 +1060,7 @@ fn skipping_and_failing_never_rewrite_a_done_checkpoint() {
     )
     .unwrap();
 
-    assert_eq!(skip_remaining_jobs(&conn, run_id).unwrap(), 2);
+    assert_eq!(cancel_discovery_run(&conn, run_id).unwrap(), 2);
     let jobs = list_discovery_jobs(&conn, run_id).unwrap();
     assert!(jobs
         .iter()
@@ -978,7 +1126,7 @@ fn a_terminal_job_is_never_resurrected_or_stripped_of_its_evidence() {
         .all(|j| j.error_message.as_deref() == Some("engine crash")));
 
     // Skipped is terminal too.
-    skip_remaining_jobs(&conn, run_id).unwrap();
+    cancel_discovery_run(&conn, run_id).unwrap();
     let skipped = bundle(strategies[0], dataset_id, true, 1.5);
     assert!(
         commit(&mut conn, run_id, 0, &skipped, None).is_err(),
@@ -1084,12 +1232,12 @@ fn a_failed_migration_records_no_version_and_leaves_no_partial_schema() {
     )
     .unwrap();
 
+    // Drive the REAL helper the migration runner uses. Hand-rolling a
+    // transaction here would only test this test's own copy: the production
+    // path could lose its transaction entirely and this would still pass.
     let broken = "ALTER TABLE probe ADD COLUMN added INTEGER; \
                   ALTER TABLE nonexistent ADD COLUMN boom INTEGER;";
-    let tx = conn.unchecked_transaction().unwrap();
-    let outcome = tx.execute_batch(broken);
-    assert!(outcome.is_err());
-    drop(tx);
+    assert!(crate::db::apply_one_migration(&conn, "9999_broken", broken).is_err());
 
     assert!(
         conn.prepare("SELECT added FROM probe").is_err(),
@@ -1102,6 +1250,20 @@ fn a_failed_migration_records_no_version_and_leaves_no_partial_schema() {
         recorded, 0,
         "no version was recorded for a failed migration"
     );
+
+    // The point of rolling back: the retry is not stuck. A fixed migration
+    // now applies and records its version.
+    crate::db::apply_one_migration(
+        &conn,
+        "9999_broken",
+        "ALTER TABLE probe ADD COLUMN added INTEGER;",
+    )
+    .unwrap();
+    assert!(conn.prepare("SELECT added FROM probe").is_ok());
+    let recorded: i64 = conn
+        .query_row("SELECT COUNT(*) FROM schema_migrations", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(recorded, 1, "the successful retry recorded its version");
 }
 
 // ---------- PERSIST-001 compatibility ----------
@@ -1116,5 +1278,153 @@ fn manual_records_stay_outside_the_per_run_uniqueness_rule() {
     for _ in 0..2 {
         insert_validation_record_for_run(&conn, &record, None).unwrap();
     }
+    assert_eq!(count(&conn, "validation_records"), 2);
+}
+
+/// Cancel must move the run AND the fate of its jobs in one commit. A split
+/// would let a crash strand a cancelled run holding queued jobs, and recovery
+/// deliberately ignores terminal runs, so nothing would ever repair it.
+#[test]
+fn cancelling_moves_the_run_and_its_jobs_together() {
+    let mut conn = mem_db();
+    let (dataset_id, strategies) = parents(&conn, 2);
+    let run_id = started_run(&mut conn, dataset_id, &strategies);
+    commit(
+        &mut conn,
+        run_id,
+        0,
+        &bundle(strategies[0], dataset_id, true, 1.5),
+        None,
+    )
+    .unwrap();
+
+    assert_eq!(cancel_discovery_run(&conn, run_id).unwrap(), 2);
+    assert_eq!(
+        get_discovery_run(&conn, run_id).unwrap().status,
+        RunStatus::Cancelled
+    );
+    let jobs = list_discovery_jobs(&conn, run_id).unwrap();
+    // The committed candidate keeps its checkpoint; only unfinished work skips.
+    assert!(jobs
+        .iter()
+        .filter(|j| j.candidate_index == 0)
+        .all(|j| j.status == JobStatus::Done));
+    assert!(jobs
+        .iter()
+        .filter(|j| j.candidate_index == 1)
+        .all(|j| j.status == JobStatus::Skipped));
+    assert!(
+        !jobs.iter().any(|j| j.status == JobStatus::Queued),
+        "a cancelled run must never be left holding queued jobs"
+    );
+}
+
+/// Failing a run must land its evidence in the same commit. `discovery_runs`
+/// has no reason column, so the unfinished jobs carry it.
+#[test]
+fn failing_a_run_records_evidence_in_the_same_commit() {
+    let mut conn = mem_db();
+    let (dataset_id, strategies) = parents(&conn, 2);
+    let run_id = started_run(&mut conn, dataset_id, &strategies);
+
+    assert!(
+        fail_discovery_run(&conn, run_id, "   ").is_err(),
+        "a failed run must record why it failed"
+    );
+    assert_eq!(
+        get_discovery_run(&conn, run_id).unwrap().status,
+        RunStatus::Running,
+        "the refused failure left the run untouched"
+    );
+
+    assert_eq!(
+        fail_discovery_run(&conn, run_id, "engine crash").unwrap(),
+        4
+    );
+    assert_eq!(
+        get_discovery_run(&conn, run_id).unwrap().status,
+        RunStatus::Failed
+    );
+    for job in list_discovery_jobs(&conn, run_id).unwrap() {
+        assert_eq!(job.status, JobStatus::Failed);
+        assert_eq!(job.error_message.as_deref(), Some("engine crash"));
+    }
+}
+
+/// Terminal states are reachable only through their own transactional
+/// functions, so no caller can write the status and the jobs separately.
+#[test]
+fn terminal_states_are_unreachable_through_transition_run() {
+    let mut conn = mem_db();
+    let (dataset_id, strategies) = parents(&conn, 1);
+    let run_id = started_run(&mut conn, dataset_id, &strategies);
+
+    for target in [
+        RunStatus::Completed,
+        RunStatus::Cancelled,
+        RunStatus::Failed,
+    ] {
+        assert!(
+            transition_run(&conn, run_id, target).is_err(),
+            "{} must go through its own transactional function",
+            target.as_str()
+        );
+    }
+    // The run is untouched, and its jobs are still queued.
+    assert_eq!(
+        get_discovery_run(&conn, run_id).unwrap().status,
+        RunStatus::Running
+    );
+    assert!(list_discovery_jobs(&conn, run_id)
+        .unwrap()
+        .iter()
+        .all(|j| j.status == JobStatus::Queued));
+}
+
+/// The 0002 -> 0003 upgrade must preserve an EXISTING validation record, whose
+/// new run linkage is null because no run produced it.
+#[test]
+fn upgrading_to_0003_preserves_an_existing_manual_validation_record() {
+    let conn = Connection::open_in_memory().unwrap();
+    conn.pragma_update(None, "foreign_keys", "ON").unwrap();
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS schema_migrations (
+            version    TEXT PRIMARY KEY,
+            applied_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );",
+    )
+    .unwrap();
+    // Apply only 0001 and 0002, the pre-slice state of a real database.
+    for (version, sql) in crate::db::MIGRATIONS.iter().take(2) {
+        crate::db::apply_one_migration(&conn, version, sql).unwrap();
+    }
+    let (dataset_id, strategies) = parents(&conn, 1);
+    conn.execute(
+        "INSERT INTO validation_records
+            (strategy_id, dataset_id, record_version, gate_passed, score, record_json)
+         VALUES (?1, ?2, 'validation-record-v1', 1, 2.5, '{\"manual\":true}')",
+        params![strategies[0], dataset_id],
+    )
+    .unwrap();
+
+    crate::db::apply_migrations(&conn).unwrap();
+
+    let (json, linked): (String, Option<i64>) = conn
+        .query_row(
+            "SELECT record_json, discovery_run_id FROM validation_records",
+            [],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .unwrap();
+    assert_eq!(json, "{\"manual\":true}", "the record survived the upgrade");
+    assert_eq!(linked, None, "a manual record has no run provenance");
+    // And it stays outside the per-run uniqueness rule, so a second one is fine.
+    conn.execute(
+        "INSERT INTO validation_records
+            (strategy_id, dataset_id, record_version, gate_passed, score, record_json)
+         VALUES (?1, ?2, 'validation-record-v1', 0, NULL, '{}')",
+        params![strategies[0], dataset_id],
+    )
+    .unwrap();
     assert_eq!(count(&conn, "validation_records"), 2);
 }

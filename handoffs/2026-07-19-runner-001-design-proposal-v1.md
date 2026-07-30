@@ -861,3 +861,56 @@ Re-verification: `npm run typecheck`; `npm test` (382, unchanged);
 `cargo clippy --locked --all-targets` clean on the store files; targeted
 `rustfmt --check` clean; `npm run e2e` (25); `git diff --check` clean. Both
 new tests were mutation-verified: reverting either fix fails its test.
+
+### RUNNER-STORE-001 second review correction (append-only update)
+
+Date: 2026-07-26. Fix for the PR #74 second-round findings. Supersedes the
+Rust test count above (96 -> 102).
+
+- [P1] Cancel and fail were NOT atomic. `transition_run` wrote the run status
+  and `skip_remaining_jobs`/`fail_candidate_jobs` wrote the job rows as two
+  separate commits, so a crash between them could strand a `cancelled` run
+  still holding `queued` jobs, or a `failed` run carrying no evidence — and
+  crash recovery deliberately ignores terminal runs, so nothing would ever
+  repair either. Worse, a fully skipped `running` run could then still be
+  marked completed. Every terminal state is now removed from
+  `transition_allowed` and reachable only through its own transactional
+  function: `complete_discovery_run`, `cancel_discovery_run`, and
+  `fail_discovery_run` (which stamps its reason onto the unfinished jobs, so
+  the evidence lands in the same commit). `skip_unfinished_jobs` is private.
+- [P1] `skipped` jobs could complete a run. The guard rejected
+  `queued`/`running`/`failed` but not `skipped`, so a cancelled-then-completed
+  run could masquerade as fully assessed and derive its winner from a partial
+  field. Completion now requires EVERY job to be `done`, and names the
+  offending states in the error.
+- [P2] The migration regression test built its own transaction instead of
+  calling the runner, so the production path could have lost its transaction
+  entirely and the test would still have passed. `apply_one_migration` is now
+  extracted and the test drives it with a deliberately broken migration, then
+  proves the retry succeeds. Added the missing 0002 -> 0003 upgrade case
+  carrying a pre-existing manual validation record.
+- [P2] The rollback proof over-claimed. Its trigger was `BEFORE UPDATE OF
+  progress_json`, so progress was never written and could not be shown to roll
+  back, and it passed `NO_TRADES`, so the trade assertion was vacuous. The
+  trigger is now `AFTER UPDATE`, both segments carry real trades, and the test
+  ends by dropping the trigger and committing the same bundle successfully —
+  proving the trade rows and progress value genuinely write, so neither
+  assertion is trivially satisfied.
+
+Method note, because it caught a real false positive: the first version of the
+skipped-job test cancelled the run and then asserted completion was refused.
+It passed — but via the STATUS guard, never reaching the rule under test, so
+the mutation (letting `skipped` count as done) did not fail it. The test now
+sets the job to `skipped` by direct SQL while the run is still `running`.
+Today `skipped` arises only from cancellation, so that guard is defence in
+depth; the test says so.
+
+All four fixes are mutation-verified individually: re-allowing terminal states
+in `transition_run`, letting `skipped` count as done, dropping the migration
+transaction, and setting the commit transaction to commit-on-drop each fail
+their own test.
+
+Re-verification: `npm run typecheck`; `npm test` (382, unchanged);
+`npm run build`; `cargo check --locked`; `cargo test --locked` (102, +6);
+`cargo clippy --locked --all-targets` clean on the touched files; targeted
+`rustfmt --check` clean; `npm run e2e` (25); `git diff --check` clean.
