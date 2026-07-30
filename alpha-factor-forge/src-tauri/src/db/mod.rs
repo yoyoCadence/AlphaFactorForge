@@ -2,6 +2,9 @@
 // FULL parts: connection open, migration application, schema_version tracking.
 // Verify: cargo check; runtime verified locally via `cargo tauri dev`.
 
+pub mod discovery;
+#[cfg(test)]
+mod discovery_tests;
 pub mod repositories;
 
 use rusqlite::Connection;
@@ -16,6 +19,10 @@ const MIGRATIONS: &[(&str, &str)] = &[
     (
         "0002_validation_records",
         include_str!("../../migrations/0002_validation_records.sql"),
+    ),
+    (
+        "0003_discovery_runner",
+        include_str!("../../migrations/0003_discovery_runner.sql"),
     ),
 ];
 
@@ -34,6 +41,28 @@ pub fn initialize(app: &AppHandle) -> AppResult<Connection> {
 
     apply_migrations(&conn)?;
     Ok(conn)
+}
+
+/// Apply ONE migration and record its version in the SAME transaction.
+///
+/// SQLite DDL is transactional, but the version record used to be a separate
+/// statement. Without this a migration that failed partway (say the second of
+/// several `ALTER`s) would leave half a schema behind AND no version row — and
+/// every retry would then die on "duplicate column name", leaving the database
+/// permanently unupgradeable.
+///
+/// Extracted so the regression test can drive the REAL code path with a
+/// deliberately broken migration, instead of re-implementing the transaction
+/// and testing its own copy.
+pub(crate) fn apply_one_migration(conn: &Connection, version: &str, sql: &str) -> AppResult<()> {
+    let tx = conn.unchecked_transaction()?;
+    tx.execute_batch(sql)?;
+    tx.execute(
+        "INSERT INTO schema_migrations (version) VALUES (?1)",
+        [version],
+    )?;
+    tx.commit()?;
+    Ok(())
 }
 
 /// Create the bookkeeping table, then apply any migration not yet recorded.
@@ -56,11 +85,7 @@ pub fn apply_migrations(conn: &Connection) -> AppResult<()> {
         if already {
             continue;
         }
-        conn.execute_batch(sql)?;
-        conn.execute(
-            "INSERT INTO schema_migrations (version) VALUES (?1)",
-            [version],
-        )?;
+        apply_one_migration(conn, version, sql)?;
     }
     Ok(())
 }

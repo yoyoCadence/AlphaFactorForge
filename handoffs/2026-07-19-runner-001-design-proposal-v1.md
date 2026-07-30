@@ -693,3 +693,266 @@ sites carrying an explicit `#[allow]`.
   `cargo check --locked`; `cargo test --locked` (66);
   `cargo clippy --locked --all-targets` clean on every new file; targeted
   `rustfmt --check` clean; `npm run e2e` (25); `git diff --check` clean.
+
+### RUNNER-STORE-001 implementation record (append-only update)
+
+Date: 2026-07-26. Implementer: Claude. Branch:
+`feat/runner-store-001-run-job-store`.
+
+- Added `src-tauri/migrations/0003_discovery_runner.sql` and
+  `src-tauri/src/db/discovery.rs` + `discovery_tests.rs`. `discovery_runs` and
+  `discovery_jobs` had been schema-only since 0001 with no writer anywhere, so
+  0003 is the first migration to give either table data-carrying structure.
+- Schema (D5): `discovery_jobs.candidate_index` plus
+  `UNIQUE(discovery_run_id, candidate_index, segment)`; a nullable
+  `validation_records.discovery_run_id` plus a PARTIAL unique index on
+  `(run, strategy, dataset)` so runner assessments are unique per run while
+  manual saves keep PERSIST-001's unconstrained append-only behaviour; and a
+  partial unique index on an expression identical for every `running`/`paused`
+  row, which enforces the one-non-terminal-run rule in the DATABASE instead of
+  a check-then-act that could race.
+- Store (D5/D6): the fixed transition table (`idle -> running`;
+  `running -> paused|completed|failed|cancelled`; `paused -> running|cancelled`;
+  terminal never resumes), with `idle` deliberately holding no global slot.
+  `commit_candidate_assessment` writes both segment summaries and trades, the
+  append-only record with its run linkage, BOTH job rows, run progress, and
+  the strategy lifecycle in ONE transaction. `write_backtest_result` and a new
+  `insert_validation_record_for_run` take `&Connection`, so a caller-owned
+  transaction passes itself in — the Resolution's "never append a record and
+  patch job state later".
+- Fail-closed by construction rather than by validation where possible:
+  `Segment` is a two-variant enum so a Test job row cannot be built; the
+  lifecycle update is derived from `record.gate_passed` and
+  `best_strategy_id` from the stored assessments, so a caller cannot record a
+  verdict or a winner the evidence does not support; a commit is refused
+  unless the run is `running` and the queued pair exists and matches the
+  committed summaries' identity.
+- Crash recovery pauses orphaned `running` runs, requeues only in-flight jobs,
+  never touches `done` rows, never auto-resumes CPU work, and is idempotent.
+- Test discipline note, carried forward from the PR #73 review rounds: the
+  obvious atomicity test (delete a job row, assert nothing was written) is a
+  FALSE NEGATIVE, because that guard fires before any write. It was verified
+  as such by mutation — flipping the transaction's drop behaviour to `Commit`
+  left it passing. The real proof is
+  `a_failure_after_the_writes_rolls_everything_back`: its failure is the
+  per-run uniqueness rule firing on the record INSERT, after both summaries
+  were upserted and their trades replaced, and it asserts the surviving rows
+  still hold the PREVIOUS commit's values. That test DOES fail under the same
+  mutation. The weaker case is retained under the name
+  `a_broken_job_pair_is_rejected_before_anything_is_written` so it cannot be
+  mistaken for atomicity evidence.
+- `db/discovery.rs` carries a module-level `#![allow(dead_code)]` because no
+  non-test build calls the store yet. RUNNER-EXEC-001 MUST remove it when it
+  wires the commands, or genuinely dead code will stop failing.
+- Documented in `docs/discovery-runner-store-contract.md`.
+- Verification: `npm run typecheck`; `npm test` (382, unchanged — this slice
+  adds no frontend surface); `npm run build`; `cargo check --locked`;
+  `cargo test --locked` (86, +20); `cargo clippy --locked --all-targets` clean
+  on the new files; targeted `rustfmt --check` clean; `npm run e2e` (25);
+  `git diff --check` clean. The 4 pre-existing `backtest.rs`/`score.rs` clippy
+  warnings from RS-CORE-002/005 remain proposed, not fixed here.
+
+RUNNER-STORE-001 is Done pending merge. The only newly unblocked slice is
+RUNNER-EXEC-001 (worker pool, commands, pause/resume/cancel, single writer,
+versioned events); the frontend UI remains blocked behind it.
+
+### RUNNER-STORE-001 review correction (append-only update)
+
+Date: 2026-07-26. Fix for the PR #74 review findings. Supersedes the
+verification counts recorded above (86 -> 94 Rust tests).
+
+Three blockers:
+
+- `transition_run` accepted `running -> completed`, giving callers a second
+  path to a terminal "completed" that skipped D6's `best_strategy_id`
+  derivation entirely. That transition is now ABSENT from the table, so
+  completion exists only as `complete_discovery_run`. That function also now
+  refuses while any job is still `queued`/`running`: "completed" never
+  resumes, so allowing it mid-queue would freeze unfinished work behind a
+  terminal state and derive the winner from a partial set of assessments.
+- The candidate commit did not check job status, so a late-arriving result
+  could flip an already `failed` or `skipped` row to `done` and wipe its
+  `error_message` — destroying exactly the evidence D5 requires a failure to
+  carry — or rewrite a `done` checkpoint. The pre-check now requires both rows
+  to be `queued`/`running`, and the UPDATE carries the same restriction.
+- Each migration and its `schema_migrations` row now commit in ONE
+  transaction. SQLite DDL is transactional, so without it a migration failing
+  partway (0003 has several statements) left half a schema behind AND no
+  version row, and every retry then died on "duplicate column name" —
+  permanently unupgradeable. This was latent in 0001/0002 and only became
+  reachable with 0003's multi-statement body.
+
+Same round:
+
+- `fail_candidate_jobs` used `status != 'done'`, so it overwrote `skipped` and
+  replaced an earlier `failed` row's evidence with a later reason. It is now
+  restricted to unfinished rows.
+- `start_discovery_run` accepted two candidate indexes sharing one
+  (strategy, dataset). Enumeration deduplicates by strategy hash, so that can
+  only come from a caller building the queue wrong; it now fails at enqueue
+  instead of after the second candidate's backtests have run, when the commit
+  would hit 0003's per-run assessment uniqueness rule.
+- `validation_records.discovery_run_id` was `ON DELETE SET NULL`, which would
+  silently erase the run provenance of an immutable audit record. It is now
+  `ON DELETE RESTRICT`: a run that produced records cannot be deleted.
+
+Test-integrity finding (the one worth carrying forward):
+
+- The rollback test only covered summaries/trades, because its failure point
+  (the record INSERT) precedes the job rows, lifecycle, and progress writes.
+  A new test injects the failure at the LAST write via a trigger on the
+  progress update, so every earlier write must be undone; it is
+  mutation-verified against a commit-on-drop transaction.
+- Re-running that mutation ALSO revealed that the blocker-2 pre-check had
+  silently downgraded the previous rollback test into a guard test: with the
+  earliest rejection moved ahead of any write, it passed under the mutation.
+  It has been renamed `re_committing_a_done_candidate_is_rejected_before_any_write`
+  and documents why. **A guard added upstream of a failure point can quietly
+  invalidate a test that depended on reaching it** — re-run the mutation after
+  adding guards, not just after writing the test.
+- That pre-check also shields 0003's per-run uniqueness index from the store
+  API, so it is now asserted directly at the schema level; it remains the last
+  line of defence if a job row is manipulated.
+
+Re-verification: `npm run typecheck`; `npm test` (382, unchanged);
+`npm run build`; `cargo check --locked`; `cargo test --locked` (94, +8);
+`cargo clippy --locked --all-targets` clean on the changed files; targeted
+`rustfmt --check` clean; `npm run e2e` (25); `git diff --check` clean.
+
+### RUNNER-STORE-001 self-review correction (append-only update)
+
+Date: 2026-07-26. Findings from an adversarial self-review of PR #74 after the
+review corrections above. Supersedes the Rust test count (94 -> 96).
+
+Two real defects, both found by probing rather than by re-running the suite:
+
+- `select_best_strategy` documented "highest FINITE-score gate passer" but
+  filtered only on `score IS NOT NULL`. SQLite stores NaN as NULL yet keeps
+  +/-Infinity, so an infinite score outranked every genuine candidate — a probe
+  confirmed a `9e999` row beating a legitimate 5.0. The commit path's validator
+  rejects non-finite scores, but this selector is public and documented as
+  finite-only, so it now filters with `score * 0 = 0` (true only for finite x).
+- A run whose every job FAILED could be marked `completed` with no winner,
+  which is indistinguishable from a clean run where nothing passed. D5 requires
+  an engine/system failure to fail the run WITH evidence, so
+  `complete_discovery_run` now refuses while any job is `failed` and directs
+  the caller to `failed` instead.
+
+One hardening: `transition_run` was a check-then-act (read status, then write)
+while `start_discovery_run` and `complete_discovery_run` were already
+transactional. It now shares one transaction, so the state machine does not
+depend on caller discipline.
+
+One probe that did NOT become a fix, recorded so it is not "found" again:
+`skip_remaining_jobs` and `fail_candidate_jobs` appear to operate on terminal
+runs, but completion requires zero `queued`/`running` jobs and both functions
+only touch those states, so on a completed run they are provably no-ops; and
+skipping after a cancel is D5's documented flow, not a bug. Manufacturing a
+guard there would have added a rule the contract does not ask for.
+
+Open item for RUNNER-EXEC-001: `discovery_runs` has no run-level failure
+evidence column, so `transition_run(.., Failed)` records the state but not the
+reason. Per-job `error_message` carries the detail today. If EXEC needs a
+run-level reason it should add the column in its own migration rather than
+having this slice add speculative schema.
+
+Re-verification: `npm run typecheck`; `npm test` (382, unchanged);
+`npm run build`; `cargo check --locked`; `cargo test --locked` (96, +2);
+`cargo clippy --locked --all-targets` clean on the store files; targeted
+`rustfmt --check` clean; `npm run e2e` (25); `git diff --check` clean. Both
+new tests were mutation-verified: reverting either fix fails its test.
+
+### RUNNER-STORE-001 second review correction (append-only update)
+
+Date: 2026-07-26. Fix for the PR #74 second-round findings. Supersedes the
+Rust test count above (96 -> 102).
+
+- [P1] Cancel and fail were NOT atomic. `transition_run` wrote the run status
+  and `skip_remaining_jobs`/`fail_candidate_jobs` wrote the job rows as two
+  separate commits, so a crash between them could strand a `cancelled` run
+  still holding `queued` jobs, or a `failed` run carrying no evidence — and
+  crash recovery deliberately ignores terminal runs, so nothing would ever
+  repair either. Worse, a fully skipped `running` run could then still be
+  marked completed. Every terminal state is now removed from
+  `transition_allowed` and reachable only through its own transactional
+  function: `complete_discovery_run`, `cancel_discovery_run`, and
+  `fail_discovery_run` (which stamps its reason onto the unfinished jobs, so
+  the evidence lands in the same commit). `skip_unfinished_jobs` is private.
+- [P1] `skipped` jobs could complete a run. The guard rejected
+  `queued`/`running`/`failed` but not `skipped`, so a cancelled-then-completed
+  run could masquerade as fully assessed and derive its winner from a partial
+  field. Completion now requires EVERY job to be `done`, and names the
+  offending states in the error.
+- [P2] The migration regression test built its own transaction instead of
+  calling the runner, so the production path could have lost its transaction
+  entirely and the test would still have passed. `apply_one_migration` is now
+  extracted and the test drives it with a deliberately broken migration, then
+  proves the retry succeeds. Added the missing 0002 -> 0003 upgrade case
+  carrying a pre-existing manual validation record.
+- [P2] The rollback proof over-claimed. Its trigger was `BEFORE UPDATE OF
+  progress_json`, so progress was never written and could not be shown to roll
+  back, and it passed `NO_TRADES`, so the trade assertion was vacuous. The
+  trigger is now `AFTER UPDATE`, both segments carry real trades, and the test
+  ends by dropping the trigger and committing the same bundle successfully —
+  proving the trade rows and progress value genuinely write, so neither
+  assertion is trivially satisfied.
+
+Method note, because it caught a real false positive: the first version of the
+skipped-job test cancelled the run and then asserted completion was refused.
+It passed — but via the STATUS guard, never reaching the rule under test, so
+the mutation (letting `skipped` count as done) did not fail it. The test now
+sets the job to `skipped` by direct SQL while the run is still `running`.
+Today `skipped` arises only from cancellation, so that guard is defence in
+depth; the test says so.
+
+All four fixes are mutation-verified individually: re-allowing terminal states
+in `transition_run`, letting `skipped` count as done, dropping the migration
+transaction, and setting the commit transaction to commit-on-drop each fail
+their own test.
+
+Re-verification: `npm run typecheck`; `npm test` (382, unchanged);
+`npm run build`; `cargo check --locked`; `cargo test --locked` (102, +6);
+`cargo clippy --locked --all-targets` clean on the touched files; targeted
+`rustfmt --check` clean; `npm run e2e` (25); `git diff --check` clean.
+
+### RUNNER-STORE-001 third review correction (append-only update)
+
+Date: 2026-07-30. Fix for the PR #74 third-round findings. Supersedes the Rust
+test count above (102 -> 107).
+
+- [P1] `transition_allowed` still held `(Idle, Running)`, so the public
+  `transition_run` could mark a run `running` with NO jobs — bypassing
+  `start_discovery_run`'s non-empty, paired-rows, and candidate-identity
+  checks — and that run could then be COMPLETED, because a run with zero jobs
+  trivially has no outstanding ones. `idle -> running` now lives only in
+  `start_discovery_run`, which checks the source state itself; the generic
+  table is reduced to `running <-> paused`.
+- [P1] A failed run could persist no evidence. `fail_discovery_run` wrote the
+  reason only to `queued`/`running` job rows, so a run whose jobs were all
+  already `done` updated zero rows and lost the reason entirely — D5's "fail
+  with evidence" broken exactly when the failure arrives late. Migration 0003
+  now adds `discovery_runs.error_message`, and the run keeps its own copy
+  alongside the per-job detail. `fail_discovery_run` also accepted `paused`
+  via `is_active()`, an edge D5's table does not contain; it now requires
+  `running`. `fail_candidate_jobs` became `pub(super)`, so the commands in
+  RUNNER-EXEC cannot write a job failure on its own and leave a `running` run
+  holding `failed` jobs.
+- [P2] The cancel/fail tests asserted only the successful end state, so
+  splitting either function back into two commits would not have failed them.
+  Both now inject an abort ON the run-status write (which happens after the
+  job writes) and assert the job updates rolled back with it, then drop the
+  trigger and succeed — so the assertion cannot be vacuous.
+- [P2] `docs/discovery-runner-store-contract.md` still named the removed
+  `skip_remaining_jobs` and documented none of the transactional paths; it now
+  carries a table of which write accompanies each terminal state, and the
+  completion rule is corrected to "every job `done`". `tasks.md` had a stale
+  rollback-test name and 86 Rust tests.
+
+All four are mutation-verified individually: restoring `(Idle, Running)`,
+dropping the run-level reason write, re-accepting `paused` for failure, and
+splitting cancel into two commits each fail their own test.
+
+Re-verification: `npm run typecheck`; `npm test` (382, unchanged);
+`npm run build`; `cargo check --locked`; `cargo test --locked` (107, +5);
+`cargo clippy --locked --all-targets` clean on the touched files; targeted
+`rustfmt --check` clean; `npm run e2e` (25); `git diff --check` clean.
