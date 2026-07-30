@@ -246,6 +246,154 @@ fn starting_a_run_queues_both_segment_rows_per_candidate() {
 }
 
 #[test]
+fn claiming_a_candidate_moves_its_paired_jobs_together_and_returns_their_ids() {
+    let mut conn = mem_db();
+    let (dataset_id, strategies) = parents(&conn, 2);
+    let run_id = started_run(&mut conn, dataset_id, &strategies);
+
+    let claimed = claim_candidate_jobs(&conn, run_id, 0).unwrap();
+    assert_eq!(claimed.run_id, run_id);
+    assert_eq!(claimed.candidate_index, 0);
+    assert_eq!(claimed.strategy_id, strategies[0]);
+    assert_eq!(claimed.dataset_id, dataset_id);
+    assert_ne!(claimed.train_job_id, claimed.validation_job_id);
+
+    let jobs = list_discovery_jobs(&conn, run_id).unwrap();
+    let candidate_zero: Vec<_> = jobs.iter().filter(|job| job.candidate_index == 0).collect();
+    assert_eq!(candidate_zero.len(), 2);
+    assert!(candidate_zero
+        .iter()
+        .all(|job| job.status == JobStatus::Running));
+    assert!(candidate_zero
+        .iter()
+        .any(|job| { job.segment == Segment::Train && job.id == claimed.train_job_id }));
+    assert!(candidate_zero
+        .iter()
+        .any(|job| { job.segment == Segment::Validation && job.id == claimed.validation_job_id }));
+    assert!(jobs
+        .iter()
+        .filter(|job| job.candidate_index == 1)
+        .all(|job| job.status == JobStatus::Queued));
+}
+
+#[test]
+fn a_claim_failure_rolls_back_both_job_updates() {
+    let mut conn = mem_db();
+    let (dataset_id, strategies) = parents(&conn, 1);
+    let run_id = started_run(&mut conn, dataset_id, &strategies);
+    conn.execute_batch(
+        "CREATE TRIGGER reject_validation_claim
+         AFTER UPDATE OF status ON discovery_jobs
+         WHEN OLD.segment = 'validation' AND NEW.status = 'running'
+         BEGIN SELECT RAISE(ABORT, 'injected validation claim failure'); END;",
+    )
+    .unwrap();
+
+    assert!(claim_candidate_jobs(&conn, run_id, 0).is_err());
+    assert!(
+        list_discovery_jobs(&conn, run_id)
+            .unwrap()
+            .iter()
+            .all(|job| job.status == JobStatus::Queued),
+        "the Train row cannot remain claimed when Validation aborts"
+    );
+
+    conn.execute_batch("DROP TRIGGER reject_validation_claim;")
+        .unwrap();
+    claim_candidate_jobs(&conn, run_id, 0).unwrap();
+    assert!(list_discovery_jobs(&conn, run_id)
+        .unwrap()
+        .iter()
+        .all(|job| job.status == JobStatus::Running));
+}
+
+#[test]
+fn a_claim_rejects_broken_nonqueued_and_nonrunning_pairs() {
+    let mut conn = mem_db();
+    let (dataset_id, strategies) = parents(&conn, 2);
+    let run_id = started_run(&mut conn, dataset_id, &strategies);
+
+    conn.execute(
+        "DELETE FROM discovery_jobs
+         WHERE discovery_run_id = ?1 AND candidate_index = 0 AND segment = 'validation'",
+        [run_id],
+    )
+    .unwrap();
+    assert!(claim_candidate_jobs(&conn, run_id, 0).is_err());
+    let survivor = list_discovery_jobs(&conn, run_id)
+        .unwrap()
+        .into_iter()
+        .find(|job| job.candidate_index == 0)
+        .unwrap();
+    assert_eq!(survivor.status, JobStatus::Queued);
+
+    transition_run(&conn, run_id, RunStatus::Paused).unwrap();
+    assert!(
+        claim_candidate_jobs(&conn, run_id, 1).is_err(),
+        "a paused run cannot accept a late claim"
+    );
+    transition_run(&conn, run_id, RunStatus::Running).unwrap();
+    claim_candidate_jobs(&conn, run_id, 1).unwrap();
+    assert!(
+        claim_candidate_jobs(&conn, run_id, 1).is_err(),
+        "an already-running pair cannot be claimed twice"
+    );
+
+    cancel_discovery_run(&conn, run_id).unwrap();
+    assert!(
+        claim_candidate_jobs(&conn, run_id, 1).is_err(),
+        "a terminal run cannot accept a late claim"
+    );
+}
+
+#[test]
+fn progress_updates_require_the_version_and_expected_active_status() {
+    let mut conn = mem_db();
+    let (dataset_id, strategies) = parents(&conn, 1);
+    let run_id = started_run(&mut conn, dataset_id, &strategies);
+    let running = r#"{"version":"discovery-progress-v1","completedCandidates":0}"#;
+    update_discovery_progress(&conn, run_id, RunStatus::Running, running).unwrap();
+    assert_eq!(
+        get_discovery_run(&conn, run_id)
+            .unwrap()
+            .progress_json
+            .as_deref(),
+        Some(running)
+    );
+
+    assert!(
+        update_discovery_progress(&conn, run_id, RunStatus::Running, r#"{"version":"wrong"}"#)
+            .is_err()
+    );
+    transition_run(&conn, run_id, RunStatus::Paused).unwrap();
+    let stale = r#"{"version":"discovery-progress-v1","completedCandidates":1}"#;
+    assert!(
+        update_discovery_progress(&conn, run_id, RunStatus::Running, stale).is_err(),
+        "a stale running writer cannot overwrite paused progress"
+    );
+    assert_eq!(
+        get_discovery_run(&conn, run_id)
+            .unwrap()
+            .progress_json
+            .as_deref(),
+        Some(running)
+    );
+
+    update_discovery_progress(&conn, run_id, RunStatus::Paused, stale).unwrap();
+    assert_eq!(
+        get_discovery_run(&conn, run_id)
+            .unwrap()
+            .progress_json
+            .as_deref(),
+        Some(stale)
+    );
+    assert!(
+        update_discovery_progress(&conn, run_id, RunStatus::Completed, stale).is_err(),
+        "terminal statuses are not valid progress-writer expectations"
+    );
+}
+
+#[test]
 fn only_one_non_terminal_run_may_exist_globally() {
     let mut conn = mem_db();
     let (dataset_id, strategies) = parents(&conn, 1);

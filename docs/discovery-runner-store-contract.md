@@ -181,13 +181,13 @@ since it remains the last line of defence if a job row is manipulated.
 ## 7. Deliberately out of scope
 
 - Worker pool, dequeue loop, pause/resume/cancel commands, single-writer
-  serialization, versioned events — RUNNER-EXEC-001.
+  serialization, and versioned events stay outside this persistence module;
+  RUNNER-EXEC-001 owns them.
 - Typed frontend wrappers and progress UI — RUNNER-UI-001.
 - Cross-run result reuse: current summaries are mutable UPSERT views whose key
   omits the split/engine contract, and trades are not an immutable execution
   cache (Resolution D5).
 
-`db/discovery.rs` carries a module-level `#![allow(dead_code)]` because nothing
-in a non-test build calls the store yet. It must be REMOVED when
-RUNNER-EXEC-001 wires the commands, so genuinely dead code starts failing
-again.
+RUNNER-EXEC-001 removed the former module-level `#![allow(dead_code)]` when it
+wired the store. Genuinely unused production helpers now fail normal dead-code
+checks instead of being hidden at module scope.

@@ -1,35 +1,86 @@
-// STUB — Phase B discovery job runner commands. NOT active in Phase A.
-// The runner executes on a backend thread pool (NOT the UI thread), persists
-// checkpoints to SQLite, and emits progress via Tauri events:
-//   "discovery://progress" | "discovery://result" | "discovery://done"
-// v1 runs TRAIN/VALIDATION segments only — never TEST.
+//! Thin Tauri command boundary for RUNNER-EXEC-001.
+//!
+//! The command names and camel-case invoke arguments are the existing public
+//! contract. Blocking admission/control work runs off the WebView thread; the
+//! coordinator and its fixed compute pool continue independently afterward.
 
+use std::sync::Arc;
+
+use serde_json::Value;
+use tauri::{AppHandle, State};
+
+use crate::discovery_runner::{DiscoveryProgressSnapshot, TauriDiscoveryEventSink};
 use crate::error::{AppError, AppResult};
+use crate::AppState;
 
-#[tauri::command]
-pub fn start_discovery(_config: serde_json::Value) -> AppResult<i64> {
-    Err(AppError::NotImplemented(
-        "start_discovery: Phase B. Create discovery_run, enqueue jobs (train/val), \
-         spawn thread pool, emit events (TODO.md).",
-    ))
+fn join_error(error: impl std::fmt::Display) -> AppError {
+    AppError::Other(format!("discovery command task failed: {error}"))
 }
 
 #[tauri::command]
-pub fn pause_discovery(_run_id: i64) -> AppResult<()> {
-    Err(AppError::NotImplemented("pause_discovery: Phase B (TODO.md)."))
+pub async fn start_discovery(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    config: Value,
+) -> AppResult<i64> {
+    let db = state.db.clone();
+    let runner = state.discovery.clone();
+    let sink = Arc::new(TauriDiscoveryEventSink::new(app));
+    tauri::async_runtime::spawn_blocking(move || runner.start(db, sink, config))
+        .await
+        .map_err(join_error)?
 }
 
 #[tauri::command]
-pub fn resume_discovery(_run_id: i64) -> AppResult<()> {
-    Err(AppError::NotImplemented("resume_discovery: Phase B, resume from checkpoint (TODO.md)."))
+pub async fn pause_discovery(state: State<'_, AppState>, run_id: i64) -> AppResult<()> {
+    let db = state.db.clone();
+    let runner = state.discovery.clone();
+    tauri::async_runtime::spawn_blocking(move || runner.pause(&db, run_id))
+        .await
+        .map_err(join_error)?
 }
 
 #[tauri::command]
-pub fn cancel_discovery(_run_id: i64) -> AppResult<()> {
-    Err(AppError::NotImplemented("cancel_discovery: Phase B (TODO.md)."))
+pub async fn resume_discovery(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    run_id: i64,
+) -> AppResult<()> {
+    let db = state.db.clone();
+    let runner = state.discovery.clone();
+    let sink = Arc::new(TauriDiscoveryEventSink::new(app));
+    tauri::async_runtime::spawn_blocking(move || runner.resume(db, sink, run_id))
+        .await
+        .map_err(join_error)?
 }
 
 #[tauri::command]
-pub fn get_discovery_progress(_run_id: i64) -> AppResult<serde_json::Value> {
-    Err(AppError::NotImplemented("get_discovery_progress: Phase B (TODO.md)."))
+pub async fn cancel_discovery(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    run_id: i64,
+) -> AppResult<()> {
+    let db = state.db.clone();
+    let runner = state.discovery.clone();
+    let sink = Arc::new(TauriDiscoveryEventSink::new(app));
+    tauri::async_runtime::spawn_blocking(move || runner.cancel(&db, sink, run_id))
+        .await
+        .map_err(join_error)?
+}
+
+#[tauri::command]
+pub fn get_discovery_progress(
+    state: State<'_, AppState>,
+    run_id: i64,
+) -> AppResult<DiscoveryProgressSnapshot> {
+    state.discovery.progress(&state.db, run_id)
+}
+
+/// Recovery discoverability: after startup turns an orphan into `paused`, the
+/// frontend can find its run id without relying on stale browser memory.
+#[tauri::command]
+pub fn get_active_discovery_run(
+    state: State<'_, AppState>,
+) -> AppResult<Option<DiscoveryProgressSnapshot>> {
+    state.discovery.active_progress(&state.db)
 }

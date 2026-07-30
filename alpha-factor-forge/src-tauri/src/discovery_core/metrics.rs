@@ -298,9 +298,11 @@ pub fn compute_metrics(input: &MetricsInput<'_>) -> Metrics {
 pub fn monthly_returns(equity: &[EquityPoint]) -> BTreeMap<String, f64> {
     let mut by_month: BTreeMap<String, (f64, f64)> = BTreeMap::new();
     for point in equity {
-        // Input boundary note (PR #69 review): before RUNNER-EXEC wires this
-        // into execution paths, RUNNER-CONFIG must guarantee chrono-representable
-        // timestamps or this becomes a propagated fail-closed validation.
+        // RUNNER-EXEC validates every Train/Validation candle timestamp against
+        // this exact chrono conversion before any evaluated path reaches
+        // metrics. Equity timestamps originate only from that checked slice, so
+        // a bad runner input fails closed with persisted run evidence. Direct
+        // pure-core callers retain the documented precondition.
         let stamp = Utc
             .timestamp_millis_opt(point.time)
             .single()

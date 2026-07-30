@@ -1,30 +1,37 @@
-﻿// SKELETON — Tauri app entry. Wires AppState (SQLite) + invoke handlers.
+// SKELETON — Tauri app entry. Wires AppState (SQLite) + invoke handlers.
 // Verify: cd src-tauri && cargo check  (needs local Rust toolchain)
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod commands;
 mod db;
+mod discovery_runner;
 mod error;
 mod identity;
 
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use tauri::Manager;
 
-/// Shared application state. The SQLite connection lives here behind a Mutex.
-/// (rusqlite Connection is not Sync; a Mutex keeps command handlers simple.
-///  For Phase B's job runner, switch to a connection pool — see TODO.md.)
+/// Shared application state. Discovery compute workers never receive this
+/// connection; one coordinator serializes runner writes through the mutex.
 pub struct AppState {
-    pub db: Mutex<rusqlite::Connection>,
+    pub db: Arc<Mutex<rusqlite::Connection>>,
+    pub discovery: discovery_runner::DiscoveryRunner,
 }
 
 fn main() {
     tauri::Builder::default()
         .setup(|app| {
             // Resolve app data dir and open/initialize the database there.
-            let conn = db::initialize(app.handle())
-                .expect("failed to initialize SQLite database");
-            app.manage(AppState { db: Mutex::new(conn) });
+            let conn = db::initialize(app.handle()).expect("failed to initialize SQLite database");
+            let db = Arc::new(Mutex::new(conn));
+            let discovery = discovery_runner::DiscoveryRunner::default();
+            // Startup repair is persistence-only: orphaned running work is
+            // paused/requeued, but no CPU work resumes without a user command.
+            discovery
+                .recover_orphans(&db)
+                .expect("failed to recover orphaned discovery runs");
+            app.manage(AppState { db, discovery });
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -55,12 +62,13 @@ fn main() {
             commands::secret_commands::get_ai_api_key_status,
             commands::secret_commands::delete_ai_api_key,
             commands::secret_commands::test_ai_connection,
-            // --- Discovery (Phase B stub) ---
+            // --- Discovery runner (Phase B) ---
             commands::discovery_commands::start_discovery,
             commands::discovery_commands::pause_discovery,
             commands::discovery_commands::resume_discovery,
             commands::discovery_commands::cancel_discovery,
             commands::discovery_commands::get_discovery_progress,
+            commands::discovery_commands::get_active_discovery_run,
         ])
         .run(tauri::generate_context!())
         .expect("error while running AlphaFactorForge");
