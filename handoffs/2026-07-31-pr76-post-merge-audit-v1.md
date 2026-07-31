@@ -269,7 +269,8 @@ above; do not rewrite prior evidence.
 ### BUG-RESULT-CONTEXT-001 — Claude Code, 2026-07-31
 
 - Branch: `fix/backtest-result-context`，自 `origin/main` `0ebe6a8`（PR #77 合併後）
-  開出。`tasks.md` 由 Next -> In Progress -> Done。
+  開出。Commit `8a8015f`。PR: #78（draft，base `main`，等待另一個 session 的
+  reviewer）。`tasks.md` 由 Next -> In Progress -> Done。
 - Files changed: 新增 `alpha-factor-forge/src/services/runArtifact.ts` 與其
   `runArtifact.test.ts`；改 `src/components/BacktestPanel.tsx`、
   `src/components/ResultsSection.tsx`、`src/tauri-client/mockClient.ts`；
