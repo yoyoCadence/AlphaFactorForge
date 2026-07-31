@@ -38,4 +38,11 @@ test('exports the latest backtest as JSON and trades CSV', async ({ page }) => {
   expect(csv.split('\n')[0]).toBe('entry_time,entry_time_iso,exit_time,exit_time_iso,side,entry_price,exit_price,pnl,pnl_pct,bars');
   await expect(page.getByTestId('export-status')).toContainText('CSV');
   await expect(page.getByTestId('export-status')).toContainText('下載完成');
+
+  // BUG-RESULT-CONTEXT-001: the report is built from the completed run's own
+  // snapshots, so once the strategy no longer matches it, there is nothing left
+  // to export — the old metrics/trades can never be relabelled as the new one.
+  await page.getByLabel('手續費 %').fill('0.2');
+  await expect(page.getByTestId('export-json')).toHaveCount(0);
+  await expect(page.getByTestId('export-csv')).toHaveCount(0);
 });

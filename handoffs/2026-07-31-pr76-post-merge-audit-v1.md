@@ -265,3 +265,70 @@ For each completed task, append: task id, actor/date, branch, commit, PR, files
 changed, exact validation results, contract/migration decisions, residual risk,
 and the corresponding `tasks.md` status transition. Preserve every section
 above; do not rewrite prior evidence.
+
+### BUG-RESULT-CONTEXT-001 — Claude Code, 2026-07-31
+
+- Branch: `fix/backtest-result-context`，自 `origin/main` `0ebe6a8`（PR #77 合併後）
+  開出。`tasks.md` 由 Next -> In Progress -> Done。
+- Files changed: 新增 `alpha-factor-forge/src/services/runArtifact.ts` 與其
+  `runArtifact.test.ts`；改 `src/components/BacktestPanel.tsx`、
+  `src/components/ResultsSection.tsx`、`src/tauri-client/mockClient.ts`；
+  新增 `e2e/result-context.spec.ts`，`e2e/export.spec.ts` 追加一段失效斷言；
+  更新 `tasks.md`、`CHANGELOG.md` 與本 handoff。
+
+#### 實作裁決
+
+1. **不可變 artifact + 單一比較點。** 完成的回測存成凍結的 `CompletedRun`
+   （deep strategy snapshot、durable `strategy-v2` identity、dataset
+   id/hash/symbol/interval/時間範圍/bar 數、實際交易範圍與 Holdout split）。
+   是否仍有效一律由 `runContextKey`/`sameRunContext` 判斷，React handler 不做
+   逐欄比較，因此沒有任何呼叫點能漏掉欄位；`ParamsStrategy` 日後新增欄位會
+   自動納入失效判斷。範圍由 runner 同一支 `holdoutSplitIndex` 導出。
+2. **同步失效由 derived gate 保證。** render 階段就算出「completed 且 context
+   仍相符」才會有 artifact，所以任何 result-affecting 編輯在接受該值的同一個
+   render 內就讓 Save/Export/pop-out 消失，不依賴 handler 記得清狀態。
+   `changeStrategy` 是唯一策略變更入口（mode/signals/rules/code/週期/執行與
+   風險欄位/圖表快捷列/library 載入/Sweep 套用），`invalidateRun` 負責 Holdout。
+3. **candle readiness 綁 dataset identity。** candles 以
+   `{ datasetKey, rows }` 儲存，非空陣列不再等於可用；切換資料集在同一個同步
+   更新裡清掉 readiness 與 completed run，載入失敗則保持 readiness 為 null，
+   Run/Save/Export 因此維持停用。`run()` 移除「沒有 candles 就抓來直接用」的
+   fallback，`ensureCandles` 也不再抓取，順帶關掉 Sweep 吃到舊 candles 的同一
+   個破口（§3 證據 `275-281`）。
+4. **generation + context 雙重守衛。** 單一遞增 token 服務 dataset load 與
+   backtest run，另有 per-kind owner ref。每個非同步寫入都要同時滿足「仍是同類
+   最新工作」與「當初的 context 仍是 live」。candles 不依賴策略，所以策略編輯
+   只讓 in-flight run 失效，不會讓 in-flight load 變成孤兒（早期設計曾有此瑕疵）。
+5. **策略名稱刻意維持 live。** Save/Export 的 strategy、dataset、interval、
+   range、metrics、trades 全部只讀 artifact；唯一的 live 欄位是名稱，因為它既
+   不影響結果也不進 `strategy-v2` identity，且 `e2e/strategy-library.spec.ts`
+   既有流程就是「跑完再命名才存」。Save 在任何寫入前先驗
+   `buildStrategyDef(snapshot).strategy_hash === artifact.strategyHash`。
+
+#### Scope 例外（已取得授權）
+
+`src/tauri-client/mockClient.ts` 不在規格的 Files likely affected 內。規格第 6
+步要求 late-load/late-run 迴歸必須透過既有 `?mock=1` seam 且不得弱化測試，但
+mock 的 `getCandles` 立即回傳，race 無法決定性重現。依 coding-agent prompt 先
+停下回報，maintainer 於 2026-07-31 授權加入 `?mock=1&candleDelay=<ms>` 延遲
+旋鈕。它位於既有 `import.meta.env.DEV` 守衛之後，production build 不存在，不
+構成 product-only 行為。
+
+#### Validation
+
+- `npm run typecheck`、`npm test`（409，+27）、`npm run build`、
+  `npm run e2e`（28，+3）全綠。本 task 未動 Rust/schema，因此未重跑 cargo。
+- 手動：載入樣本 -> 執行回測 -> 改手續費 -> 指標表與 Save/Export 消失並顯示
+  「已失效」提示 -> 重新執行 -> 全部恢復且 metadata 相符。
+
+#### 殘餘風險與後續
+
+- 目前「失效」的呈現是隱藏結果區並顯示 zh-TW 提示，而非停用按鈕；既有 e2e
+  `holdout.spec.ts` 的 `col-全期 / col-樣本外` count-0 斷言仍成立，但其註解描述
+  的「回到單欄」已改成「整區失效」。若日後偏好保留表格並改為 disabled 按鈕，
+  屬 UI 決策而非正確性缺口。
+- 切換資料集時 SweepSection 會因 candles 清空而卸載，其 heatmap 與軸設定隨之
+  重置。這比舊行為安全，但完整的 sweep provenance 仍屬 `BUG-SWEEP-CONTEXT-001`。
+- artifact 只覆蓋互動式回測；Runner 產生的 validation record 走另一條既有路徑。
+- 下一個裁決順序是 `METRIC-002`，但 `docs/improvement-backlog.md` 尚未把它展開
+  成 execution-ready 規格，因此本次未把它移進 Next。

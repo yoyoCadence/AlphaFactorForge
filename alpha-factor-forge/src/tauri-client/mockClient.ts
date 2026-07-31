@@ -19,7 +19,24 @@ import { prepareDatasetImport, type ImportCandlesInput } from './dbClient';
 import { assertValidBundle } from '../services/validationRecord';
 import { strategyHashFromDefinitionJson } from '../core/hashing';
 
+/**
+ * E2E-only candle-load latency, read from `?mock=1&candleDelay=<ms>`.
+ *
+ * BUG-RESULT-CONTEXT-001 needs a deterministic in-flight dataset load to prove
+ * that result actions are disabled while loading and that a late response is
+ * discarded. Real SQLite reads are fast enough that the race is otherwise
+ * untestable. This lives inside the mock (already `import.meta.env.DEV`-gated
+ * and absent from production builds), so no product path can observe it.
+ */
+function mockCandleDelayMs(): number {
+  const search = (typeof globalThis !== 'undefined' && globalThis.location?.search) || '';
+  const raw = new URLSearchParams(search).get('candleDelay');
+  const ms = raw == null ? 0 : Number(raw);
+  return Number.isFinite(ms) && ms > 0 ? Math.min(ms, 10_000) : 0;
+}
+
 export function makeMockClient() {
+  const candleDelayMs = mockCandleDelayMs();
   const datasets: Dataset[] = [];
   const candlesByDs = new Map<number, Candle[]>();
   const strategies: StrategyDef[] = [];
@@ -34,8 +51,10 @@ export function makeMockClient() {
     init: async () => 'mock database ready',
     runMigrations: async () => 'mock: migrations up to date',
     getDatasets: async () => datasets.slice(),
-    getCandles: async (datasetId: number, from: number, to: number) =>
-      (candlesByDs.get(datasetId) ?? []).filter((c) => c.timestamp >= from && c.timestamp <= to),
+    getCandles: async (datasetId: number, from: number, to: number) => {
+      if (candleDelayMs > 0) await new Promise((resolve) => globalThis.setTimeout(resolve, candleDelayMs));
+      return (candlesByDs.get(datasetId) ?? []).filter((c) => c.timestamp >= from && c.timestamp <= to);
+    },
     importCandles: async (dataset: Dataset, rows: Candle[]) => {
       const prepared = await prepareDatasetImport({
         exchange: dataset.exchange,
