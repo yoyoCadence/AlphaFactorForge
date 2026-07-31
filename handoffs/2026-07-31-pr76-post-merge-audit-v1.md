@@ -333,3 +333,24 @@ mock 的 `getCandles` 立即回傳，race 無法決定性重現。依 coding-age
 - artifact 只覆蓋互動式回測；Runner 產生的 validation record 走另一條既有路徑。
 - 下一個裁決順序是 `METRIC-002`，但 `docs/improvement-backlog.md` 尚未把它展開
   成 execution-ready 規格，因此本次未把它移進 Next。
+
+#### Resolution — PR #78 acceptance follow-up, 2026-07-31
+
+- Independent acceptance found one remaining evidence gap: the implementation
+  handled a rejected `getCandles`, but the E2E suite only proved a delayed
+  successful load and did not execute the fetch-failure branch required by the
+  original `tasks.md` Next entry and the acceptance criterion.
+- Maintainer authorized the focused correction. Commit `d222191` extends the
+  existing DEV-only mock seam with `candleFailId=<dataset-id>` and adds an E2E
+  that completes a run on dataset A, selects dataset B, deterministically
+  rejects B's candle load, and proves Run, Sweep, Save, Export, metrics pop-out,
+  and the old completed result remain unavailable after the failure settles.
+- The rejection control is behind the same `import.meta.env.DEV` guard as
+  `candleDelay`; a post-build string scan confirms neither control nor its mock
+  error appears in the production bundle. No product behavior, Rust, schema,
+  dependency, report schema, or metric contract changed, so `CHANGELOG.md`
+  remains unchanged by this follow-up.
+- Final validation after syncing with `origin/main`: `npm run typecheck`;
+  `npm test` (409); `npm run build`; `npm run e2e` (29, +4 from baseline);
+  `git diff --check`; production-bundle seam scan. All pass. `tasks.md` records
+  the corrected E2E count and both authorized mock controls.
