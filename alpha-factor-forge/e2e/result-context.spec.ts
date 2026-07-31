@@ -127,3 +127,41 @@ test('a dataset switch drops the old candles/result and a late load cannot repop
   await expect(page.getByTestId('save-result')).toHaveCount(0);
   await expect(page.getByTestId('result-stale')).toHaveCount(0);
 });
+
+test('a failed dataset load cannot reuse the previous candles/result', async ({ page }) => {
+  test.setTimeout(60_000);
+  // Each mock page starts with dataset ids at 1. The sample is #1 and the
+  // imported dataset is #2, whose candle read deterministically rejects after
+  // a short delay so both the loading and failed states are observable.
+  await page.goto('/?mock=1&candleDelay=250&candleFailId=2', { waitUntil: 'domcontentloaded' });
+
+  const run = page.getByTestId('run-backtest');
+  await page.getByTestId('load-sample').click();
+  await expect(run).toBeDisabled();
+  await expect(run).toBeEnabled({ timeout: 20_000 });
+
+  await run.click();
+  await expect(page.getByTestId('save-result')).toBeEnabled();
+  await expect(page.getByTestId('export-json')).toBeVisible();
+
+  // Structural locators avoid coupling this regression to the legacy UI's
+  // currently mojibaked Traditional-Chinese import copy.
+  await page.locator('textarea').first().fill(IMPORTED_DATASET);
+  await page.locator('textarea + button').click();
+
+  // The selection clears A's readiness/artifact before B finishes loading.
+  await expect(run).toBeDisabled();
+  await expect(page.getByTestId('save-result')).toHaveCount(0);
+  await expect(page.getByTestId('export-json')).toHaveCount(0);
+  await expect(page.getByTestId('export-csv')).toHaveCount(0);
+  await expect(page.getByTestId('popout-metrics')).toHaveCount(0);
+  await expect(page.getByTestId('sweep-toggle')).toHaveCount(0);
+
+  // Rejection must fail closed: B never adopts A's candles and the completed A
+  // run is neither usable nor resurrected after loading settles.
+  await expect(page.getByText('Error: mock candle load failed for dataset #2')).toBeVisible();
+  await expect(run).toBeDisabled();
+  await expect(page.getByTestId('save-result')).toHaveCount(0);
+  await expect(page.getByTestId('export-json')).toHaveCount(0);
+  await expect(page.getByTestId('result-stale')).toHaveCount(0);
+});

@@ -20,13 +20,16 @@ import { assertValidBundle } from '../services/validationRecord';
 import { strategyHashFromDefinitionJson } from '../core/hashing';
 
 /**
- * E2E-only candle-load latency, read from `?mock=1&candleDelay=<ms>`.
+ * E2E-only candle-load controls, read from `?mock=1&candleDelay=<ms>` and
+ * `candleFailId=<dataset-id>`.
  *
  * BUG-RESULT-CONTEXT-001 needs a deterministic in-flight dataset load to prove
  * that result actions are disabled while loading and that a late response is
- * discarded. Real SQLite reads are fast enough that the race is otherwise
- * untestable. This lives inside the mock (already `import.meta.env.DEV`-gated
- * and absent from production builds), so no product path can observe it.
+ * discarded, plus a deterministic rejection to prove a failed load cannot
+ * reuse the prior dataset's candles/result. Real SQLite reads are fast and
+ * reliable enough that these paths are otherwise untestable. The controls live
+ * inside the mock (already `import.meta.env.DEV`-gated and absent from
+ * production builds), so no product path can observe them.
  */
 function mockCandleDelayMs(): number {
   const search = (typeof globalThis !== 'undefined' && globalThis.location?.search) || '';
@@ -35,8 +38,16 @@ function mockCandleDelayMs(): number {
   return Number.isFinite(ms) && ms > 0 ? Math.min(ms, 10_000) : 0;
 }
 
+function mockCandleFailureDatasetId(): number | null {
+  const search = (typeof globalThis !== 'undefined' && globalThis.location?.search) || '';
+  const raw = new URLSearchParams(search).get('candleFailId');
+  const id = raw == null ? NaN : Number(raw);
+  return Number.isSafeInteger(id) && id > 0 ? id : null;
+}
+
 export function makeMockClient() {
   const candleDelayMs = mockCandleDelayMs();
+  const candleFailureDatasetId = mockCandleFailureDatasetId();
   const datasets: Dataset[] = [];
   const candlesByDs = new Map<number, Candle[]>();
   const strategies: StrategyDef[] = [];
@@ -53,6 +64,9 @@ export function makeMockClient() {
     getDatasets: async () => datasets.slice(),
     getCandles: async (datasetId: number, from: number, to: number) => {
       if (candleDelayMs > 0) await new Promise((resolve) => globalThis.setTimeout(resolve, candleDelayMs));
+      if (datasetId === candleFailureDatasetId) {
+        throw new Error(`mock candle load failed for dataset #${datasetId}`);
+      }
       return (candlesByDs.get(datasetId) ?? []).filter((c) => c.timestamp >= from && c.timestamp <= to);
     },
     importCandles: async (dataset: Dataset, rows: Candle[]) => {
