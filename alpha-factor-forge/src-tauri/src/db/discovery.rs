@@ -1,9 +1,9 @@
 //! RUNNER-STORE-001: the discovery run/job store (PR #66 Resolution D5/D6).
 //!
-//! This module owns run and job STATE and the atomic candidate commit. It
-//! deliberately contains no worker pool, no Tauri commands, and no events —
-//! those arrive in RUNNER-EXEC-001. Nothing here executes a backtest, and the
-//! hidden Test segment has no representation at all.
+//! This module owns run and job state and the atomic candidate commit. The
+//! RUNNER-EXEC coordinator consumes these operations, while worker-pool,
+//! Tauri-command, event, and backtest execution concerns remain outside this
+//! persistence module. The hidden Test segment has no representation at all.
 //!
 //! The central invariant is D5's: one candidate assessment commits as ONE
 //! SQLite transaction covering the Train/Validation summaries and trades, the
@@ -11,12 +11,6 @@
 //! strategy lifecycle. A crash between any two of those must leave nothing
 //! behind, because `status = 'done'` is the runner's checkpoint and it must
 //! mean "the whole assessment exists".
-
-// This module is the store API the next slice consumes. RUNNER-EXEC-001 adds
-// the Tauri commands and worker pool that call it, so in a non-test build
-// nothing references it yet. REMOVE this allow when EXEC wires the commands —
-// at that point genuinely dead code should start failing again.
-#![allow(dead_code)]
 
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
@@ -28,6 +22,8 @@ use crate::db::repositories::{
 use crate::error::{AppError, AppResult};
 
 // ---------- state vocabulary ----------
+
+pub const DISCOVERY_PROGRESS_VERSION: &str = "discovery-progress-v1";
 
 /// Run states, matching the 0001 CHECK constraint.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -110,18 +106,6 @@ pub enum JobStatus {
     Skipped,
 }
 
-impl JobStatus {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            JobStatus::Queued => "queued",
-            JobStatus::Running => "running",
-            JobStatus::Done => "done",
-            JobStatus::Failed => "failed",
-            JobStatus::Skipped => "skipped",
-        }
-    }
-}
-
 /// Discovery evaluates Train and Validation only. Test is not a variant, so a
 /// Test job row cannot be constructed — not merely rejected at runtime.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -177,6 +161,21 @@ pub struct CandidateJobSpec {
     pub candidate_index: i64,
     pub strategy_id: i64,
     pub dataset_id: i64,
+}
+
+/// The paired Train/Validation rows claimed as one scheduling unit.
+///
+/// There is deliberately no generic segment list here: discovery cannot
+/// represent or accidentally schedule a hidden Test job.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClaimedCandidateJobs {
+    pub run_id: i64,
+    pub candidate_index: i64,
+    pub strategy_id: i64,
+    pub dataset_id: i64,
+    pub train_job_id: i64,
+    pub validation_job_id: i64,
 }
 
 /// Everything one finished candidate contributes to the database.
@@ -236,15 +235,6 @@ pub fn get_discovery_run(conn: &Connection, run_id: i64) -> AppResult<DiscoveryR
 }
 
 /// Newest first.
-pub fn list_discovery_runs(conn: &Connection) -> AppResult<Vec<DiscoveryRunRow>> {
-    let sql = format!("SELECT {RUN_COLS} FROM discovery_runs ORDER BY id DESC");
-    let mut statement = conn.prepare(&sql)?;
-    let rows = statement
-        .query_map([], map_run)?
-        .collect::<Result<Vec<_>, _>>()?;
-    Ok(rows)
-}
-
 /// The single non-terminal run, if one exists (D5 allows at most one).
 pub fn active_discovery_run(conn: &Connection) -> AppResult<Option<DiscoveryRunRow>> {
     let sql = format!(
@@ -311,6 +301,95 @@ pub fn list_discovery_jobs(conn: &Connection, run_id: i64) -> AppResult<Vec<Disc
 }
 
 // ---------- writes ----------
+
+/// Atomically claim one candidate's queued Train/Validation pair.
+///
+/// The run-status check, pair validation, and both status updates share one
+/// transaction. A broken/mismatched/non-queued pair is rejected without
+/// moving either row, and a late claim cannot enter a paused or terminal run.
+pub fn claim_candidate_jobs(
+    conn: &Connection,
+    run_id: i64,
+    candidate_index: i64,
+) -> AppResult<ClaimedCandidateJobs> {
+    let tx = conn.unchecked_transaction()?;
+    let run_status = current_status(&tx, run_id)?;
+    if run_status != RunStatus::Running {
+        return Err(AppError::Other(format!(
+            "cannot claim a candidate from a {} run",
+            run_status.as_str()
+        )));
+    }
+
+    let sql = format!(
+        "SELECT {JOB_COLS} FROM discovery_jobs
+         WHERE discovery_run_id = ?1 AND candidate_index = ?2
+         ORDER BY segment ASC"
+    );
+    let mut statement = tx.prepare(&sql)?;
+    let jobs = statement
+        .query_map(params![run_id, candidate_index], map_job)?
+        .collect::<Result<Vec<_>, _>>()?;
+    drop(statement);
+    if jobs.len() != 2 {
+        return Err(AppError::Other(format!(
+            "candidate {candidate_index} in run {run_id} must have exactly one Train/Validation pair"
+        )));
+    }
+
+    let mut train = None;
+    let mut validation = None;
+    for job in jobs {
+        match job.segment {
+            Segment::Train => train = Some(job),
+            Segment::Validation => validation = Some(job),
+        }
+    }
+    let train = train.ok_or_else(|| {
+        AppError::Other(format!(
+            "candidate {candidate_index} in run {run_id} has no Train job"
+        ))
+    })?;
+    let validation = validation.ok_or_else(|| {
+        AppError::Other(format!(
+            "candidate {candidate_index} in run {run_id} has no Validation job"
+        ))
+    })?;
+    if train.strategy_id != validation.strategy_id || train.dataset_id != validation.dataset_id {
+        return Err(AppError::Other(format!(
+            "candidate {candidate_index} in run {run_id} has a mismatched job pair"
+        )));
+    }
+    if train.status != JobStatus::Queued || validation.status != JobStatus::Queued {
+        return Err(AppError::Other(format!(
+            "candidate {candidate_index} in run {run_id} is not a queued job pair"
+        )));
+    }
+
+    let updated = tx.execute(
+        "UPDATE discovery_jobs
+         SET status = 'running', error_message = NULL, updated_at = datetime('now')
+         WHERE discovery_run_id = ?1 AND candidate_index = ?2
+           AND id IN (?3, ?4) AND status = 'queued'",
+        params![run_id, candidate_index, train.id, validation.id],
+    )?;
+    if updated != 2 {
+        return Err(AppError::Other(format!(
+            "expected exactly two queued jobs for candidate {candidate_index}, updated {updated}"
+        )));
+    }
+
+    let claimed = ClaimedCandidateJobs {
+        run_id,
+        candidate_index,
+        strategy_id: train.strategy_id,
+        dataset_id: train.dataset_id,
+        train_job_id: train.id,
+        validation_job_id: validation.id,
+    };
+    tx.commit()?;
+    Ok(claimed)
+}
 
 /// Create an `idle` run. Idle holds no global slot, so drafting a run never
 /// blocks another one.
@@ -429,6 +508,52 @@ pub fn start_discovery_run(
          WHERE id = ?1",
         [run_id],
     )?;
+    tx.commit()?;
+    Ok(())
+}
+
+/// Replace a run's versioned progress checkpoint only while it remains in the
+/// caller's expected active state.
+///
+/// The compare-and-update happens in one transaction so a late writer cannot
+/// overwrite progress after pause/resume/cancel/fail changed the run state.
+pub fn update_discovery_progress(
+    conn: &Connection,
+    run_id: i64,
+    expected_status: RunStatus,
+    progress_json: &str,
+) -> AppResult<()> {
+    if !expected_status.is_active() {
+        return Err(AppError::Other(
+            "progress updates require an expected running or paused status".into(),
+        ));
+    }
+    let progress: serde_json::Value = serde_json::from_str(progress_json)?;
+    let version = progress
+        .as_object()
+        .and_then(|object| object.get("version"))
+        .and_then(serde_json::Value::as_str);
+    if version != Some(DISCOVERY_PROGRESS_VERSION) {
+        return Err(AppError::Other(format!(
+            "progress.version must be \"{DISCOVERY_PROGRESS_VERSION}\""
+        )));
+    }
+
+    let tx = conn.unchecked_transaction()?;
+    let updated = tx.execute(
+        "UPDATE discovery_runs
+         SET progress_json = ?3, updated_at = datetime('now')
+         WHERE id = ?1 AND status = ?2",
+        params![run_id, expected_status.as_str(), progress_json],
+    )?;
+    if updated != 1 {
+        let actual = current_status(&tx, run_id)?;
+        return Err(AppError::Other(format!(
+            "cannot update progress for a {} run while expecting {}",
+            actual.as_str(),
+            expected_status.as_str()
+        )));
+    }
     tx.commit()?;
     Ok(())
 }
@@ -814,6 +939,7 @@ pub fn fail_discovery_run(conn: &Connection, run_id: i64, error_message: &str) -
 /// this module (the RUNNER-EXEC commands) reach it only through
 /// `fail_discovery_run`, which stamps the reason on the run AND its unfinished
 /// jobs in one commit.
+#[cfg(test)]
 pub(super) fn fail_candidate_jobs(
     conn: &Connection,
     run_id: i64,

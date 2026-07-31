@@ -317,6 +317,33 @@ pub fn list_datasets(conn: &Connection) -> AppResult<Vec<Dataset>> {
     Ok(rows)
 }
 
+/// Load one dataset by its stable row id.
+///
+/// Discovery admission carries both the row id and its durable content hash,
+/// so the runner needs the exact row rather than a list-and-find read.
+pub fn get_dataset_by_id(conn: &Connection, dataset_id: i64) -> AppResult<Dataset> {
+    conn.query_row(
+        "SELECT id, exchange, symbol, interval, start_time, end_time, candle_count, source, dataset_hash
+         FROM datasets WHERE id = ?1",
+        [dataset_id],
+        |r| {
+            Ok(Dataset {
+                id: Some(r.get(0)?),
+                exchange: r.get(1)?,
+                symbol: r.get(2)?,
+                interval: r.get(3)?,
+                start_time: r.get(4)?,
+                end_time: r.get(5)?,
+                candle_count: r.get(6)?,
+                source: r.get(7)?,
+                dataset_hash: r.get(8)?,
+            })
+        },
+    )
+    .optional()?
+    .ok_or_else(|| AppError::Other(format!("dataset {dataset_id} not found")))
+}
+
 // ---------- candles ----------
 
 pub fn get_candles(
@@ -352,6 +379,45 @@ pub fn get_candles(
 pub fn insert_verified_strategy(conn: &Connection, strategy: &StrategyDef) -> AppResult<i64> {
     crate::identity::verify_strategy_identity(strategy)?;
     insert_strategy(conn, strategy)
+}
+
+/// Runner write boundary: verify the durable strategy identity, insert a new
+/// candidate when absent, and otherwise return the existing row unchanged.
+///
+/// The manual save path deliberately refreshes mutable presentation fields on
+/// a hash conflict. Discovery admission must not do that: enumerating a
+/// canonical strategy already present in the user's library cannot overwrite
+/// its chosen name/source or validation-owned lifecycle.
+pub fn get_or_insert_verified_runner_strategy(
+    conn: &Connection,
+    strategy: &StrategyDef,
+) -> AppResult<i64> {
+    crate::identity::verify_strategy_identity(strategy)?;
+    conn.execute(
+        "INSERT INTO strategy_def
+            (name, type, dsl_json, original_definition_json, param_schema_json,
+             source, ai_prompt_hash, strategy_hash, lifecycle, parent_strategy_id)
+         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)
+         ON CONFLICT(strategy_hash) DO NOTHING",
+        params![
+            strategy.name,
+            strategy.kind,
+            strategy.dsl_json,
+            strategy.original_definition_json,
+            strategy.param_schema_json,
+            strategy.source,
+            strategy.ai_prompt_hash,
+            strategy.strategy_hash,
+            strategy.lifecycle,
+            strategy.parent_strategy_id
+        ],
+    )?;
+    let id = conn.query_row(
+        "SELECT id FROM strategy_def WHERE strategy_hash = ?1",
+        [&strategy.strategy_hash],
+        |row| row.get(0),
+    )?;
+    Ok(id)
 }
 
 fn insert_strategy(conn: &Connection, s: &StrategyDef) -> AppResult<i64> {
@@ -1023,6 +1089,29 @@ mod tests {
     }
 
     #[test]
+    fn dataset_lookup_returns_the_exact_row_and_rejects_an_unknown_id() {
+        let mut conn = mem_db();
+        let candles = identity_candles();
+        let dataset = identity_dataset(&candles);
+        let dataset_id = import_dataset_with_candles(&mut conn, &dataset, &candles).unwrap();
+
+        let found = get_dataset_by_id(&conn, dataset_id).unwrap();
+        assert_eq!(found.id, Some(dataset_id));
+        assert_eq!(found.exchange, dataset.exchange);
+        assert_eq!(found.symbol, dataset.symbol);
+        assert_eq!(found.interval, dataset.interval);
+        assert_eq!(found.start_time, dataset.start_time);
+        assert_eq!(found.end_time, dataset.end_time);
+        assert_eq!(found.candle_count, dataset.candle_count);
+        assert_eq!(found.source, dataset.source);
+        assert_eq!(found.dataset_hash, dataset.dataset_hash);
+
+        let error = get_dataset_by_id(&conn, dataset_id + 1).unwrap_err();
+        assert!(error.to_string().contains("dataset"));
+        assert!(error.to_string().contains("not found"));
+    }
+
+    #[test]
     fn atomic_dataset_import_rejects_forgery_and_conflicting_payload() {
         let mut conn = mem_db();
         let candles = identity_candles();
@@ -1103,6 +1192,57 @@ mod tests {
         assert_eq!(name, "renamed blocks strategy");
         assert_eq!(source, "sweep");
         assert_eq!(lifecycle, "validated");
+    }
+
+    #[test]
+    fn runner_strategy_conflict_preserves_user_fields_and_lifecycle() {
+        let conn = mem_db();
+        let mut user_strategy = verified_blocks_strategy();
+        user_strategy.name = "user chosen name".into();
+        user_strategy.source = "manual".into();
+        user_strategy.lifecycle = "validated".into();
+        let existing_id = insert_verified_strategy(&conn, &user_strategy).unwrap();
+
+        let mut runner_candidate = verified_blocks_strategy();
+        runner_candidate.name = "generated candidate name".into();
+        runner_candidate.source = "traditional".into();
+        runner_candidate.lifecycle = "candidate".into();
+        let returned_id = get_or_insert_verified_runner_strategy(&conn, &runner_candidate).unwrap();
+
+        assert_eq!(returned_id, existing_id);
+        let count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM strategy_def WHERE strategy_hash = ?1",
+                [&runner_candidate.strategy_hash],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(count, 1);
+        let (name, source, lifecycle): (String, String, String) = conn
+            .query_row(
+                "SELECT name, source, lifecycle FROM strategy_def WHERE id = ?1",
+                [existing_id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .unwrap();
+        assert_eq!(name, "user chosen name");
+        assert_eq!(source, "manual");
+        assert_eq!(lifecycle, "validated");
+    }
+
+    #[test]
+    fn runner_strategy_insert_still_verifies_the_durable_identity() {
+        let conn = mem_db();
+        let mut forged = verified_blocks_strategy();
+        forged.strategy_hash = "strategy-v2:forged".into();
+
+        assert!(get_or_insert_verified_runner_strategy(&conn, &forged).is_err());
+        assert_eq!(
+            conn.query_row("SELECT COUNT(*) FROM strategy_def", [], |row| row
+                .get::<_, i64>(0))
+                .unwrap(),
+            0
+        );
     }
 
     #[test]
