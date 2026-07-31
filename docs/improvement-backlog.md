@@ -20,6 +20,9 @@
 >
 > ### 2026-07-12 收尾更新（「Must do now」層完成）
 > **DOC-001（#33）、BUG-001（#34）、REF-001（#37）、REF-002（#39）、REF-003（#40）+ REF-003b（#41）全部已合併。** `BacktestPanel.tsx` 由 **1382 → 385 行**，拆成 Sweep / Chart / Dataset / Results / Strategy 五個 section，成為純編排層——審計重構階段（含 ultrareview 追加的 `< 400` 收尾）正式關閉。**目前佇列前緣＝「Should do later」層：TEST-002 → FEAT-002 → REF-004 → PERF-001 → TEST-001 → SEC-001**（Optional：UX-002 / DOC-002；blocked：TEST-003 等 Open Question Q3）。Open Questions Q1–Q6（masterplan §8）仍待 maintainer 裁決。
+>
+> ### 2026-07-31 PR #76 合併後更新（目前優先讀這段）
+> 舊總覽保留為 2026-07-07/12 歷史，不再代表目前執行順序。最新唯讀稽核已把 `BUG-RESULT-CONTEXT-001` 排為唯一 Next；證據與完整順序見 `../handoffs/2026-07-31-pr76-post-merge-audit-v1.md`，狀態只看 `tasks.md`。本檔尾端的 2026-07-31 addendum 已將該 Next task 展開成 execution-ready 規格；其他新 ID 在升為 Next 前仍須由 Planner 展開。
 
 ## 執行順序總覽
 
@@ -721,3 +724,148 @@ Review PR <link> vs task DOC-002: gitignore additions match the listed clutter o
 | 引入狀態管理套件（zustand/jotai…） | REF-001~003 用 props 已足夠；新依賴需核准 | 策略庫+多分頁上線後如 props 鏈過深 |
 | Service Worker / PWA 離線 | 目標形態是 Tauri desktop，PWA 線已凍結 | 僅當 PWA 線復活 |
 | 全庫 reformat / 大規模 rename | 污染 blame、撞所有進行中分支 | TEST-003 落地且無 open PR 時 |
+
+---
+
+## 2026-07-31 Post-PR #76 Audit Addendum
+
+This addendum is additive. It does not rewrite the 2026-07-07 audit or reuse
+completed task IDs. `tasks.md` remains the only status board; the evidence and
+cross-session decisions are preserved in
+`../handoffs/2026-07-31-pr76-post-merge-audit-v1.md`.
+
+Only `BUG-RESULT-CONTEXT-001`, the single item currently in `Next`, is expanded
+below as an execution-ready coding-agent specification. The remaining audit
+IDs are recorded in `tasks.md` and the handoff, but a Planner must expand the
+chosen task to this same format before promoting it to `Next`. Existing
+`PERF-001` keeps its original specification above and must not be duplicated.
+
+## BUG-RESULT-CONTEXT-001 — 回測結果綁定不可變執行快照
+
+- **Category**: Correctness / Persistence provenance
+- **Objective**: A completed backtest may be rendered, saved, or exported only
+  with the exact strategy, dataset, interval, candles, and run range that
+  produced it. Changing any result-affecting input or beginning a dataset load
+  must synchronously invalidate incompatible result actions; late asynchronous
+  work must never repopulate a stale context.
+- **Why this is first**: The current UI can silently persist old metrics/trades
+  under a newly edited strategy or newly selected dataset. A wrong durable row
+  is more damaging than a visible failure and already affects the shipped
+  interactive surface.
+- **Files likely affected**:
+  - `alpha-factor-forge/src/components/BacktestPanel.tsx`
+  - `alpha-factor-forge/src/components/ResultsSection.tsx`
+  - new `alpha-factor-forge/src/services/runArtifact.ts`
+  - new `alpha-factor-forge/src/services/runArtifact.test.ts`
+  - `alpha-factor-forge/e2e/save-message.spec.ts`
+  - `alpha-factor-forge/e2e/export.spec.ts`
+  - at most one new focused E2E spec for result-context invalidation if keeping
+    the existing two specs focused is clearer
+
+### Exact implementation plan
+
+1. Add a pure, DOM/React/IO-free `runArtifact.ts` model. Define an immutable
+   completed-run artifact containing the result, a deep strategy snapshot and
+   durable strategy identity, dataset id/hash plus the interval, and the exact
+   run/holdout range. Provide one canonical context-key/equality helper; do not
+   duplicate comparison logic in React event handlers.
+2. Replace `BacktestPanel`'s bare result state with that artifact. Route every
+   result-affecting strategy change (including mode, signals, execution/risk
+   fields, numeric shortcuts, library load, and Sweep Apply Best) through one
+   invalidation path before accepting the new value.
+3. On dataset selection, synchronously clear the selected dataset's candle
+   readiness, completed artifact, and holdout result before starting
+   `getCandles`. Store candle readiness with its dataset id/hash rather than
+   accepting any non-empty candle array. A rejected load must leave actions
+   disabled and must not retain the prior dataset's candles/result.
+4. Add one monotonically increasing generation token for dataset loads and
+   backtest runs. Capture the generation plus canonical context when work
+   starts; before every asynchronous state write, require both still to match.
+   Starting a newer load/run or changing inputs invalidates the prior token.
+5. Render metrics and build save/export payloads only from the completed
+   artifact's snapshots. Never combine a live editor strategy or live dataset
+   selection with an older result. Disable Run/Sweep while the selected
+   dataset is loading; disable Save/Export whenever no compatible artifact
+   exists.
+6. Unit-test the pure context/artifact helper for strategy, dataset, interval,
+   and range differences plus snapshot immutability. Extend E2E coverage for:
+   Run -> edit strategy -> Save/Export unavailable; rerun restores actions;
+   Run -> Apply Best -> old actions unavailable. Add a deterministic delayed
+   load/run regression only through the existing `?mock=1` development seam;
+   if that seam cannot express the race without adding product-only behavior,
+   stop and report the spec conflict rather than weakening the test.
+
+### Non-goals
+
+- Do not change metric formulas or contract versions; those belong to
+  `METRIC-002`.
+- Do not redesign Sweep-result provenance; that belongs to
+  `BUG-SWEEP-CONTEXT-001`. This task only invalidates an old completed backtest
+  when Apply Best changes the live strategy.
+- Do not change SQLite schema, Rust commands/repositories, report schema,
+  styling, chart behavior, discovery events, or RUNNER-UI-001.
+- Do not add a state-management or hashing dependency.
+
+- **Risk level**: High — silent cross-context persistence is being corrected,
+  and careless invalidation can regress current Run/Save/Export flows.
+- **Validation plan**:
+  - `cd alpha-factor-forge && npm run typecheck`
+  - `cd alpha-factor-forge && npm test`
+  - `cd alpha-factor-forge && npm run build`
+  - `cd alpha-factor-forge && npm run e2e`
+  - Manual: run sample -> edit fee/period/mode -> verify metrics and Save/Export
+    cannot represent the old result; rerun -> verify all return with matching
+    strategy/dataset metadata.
+- **Acceptance criteria**:
+  - [ ] Save/export read strategy, dataset, interval, range, metrics, and trades
+        from one immutable artifact.
+  - [ ] Every result-affecting edit invalidates old result actions immediately.
+  - [ ] Dataset switch/failure cannot reuse prior candles or result.
+  - [ ] Late load/run completion is ignored after any context/generation change.
+  - [ ] Unit and E2E regressions cover the shortest reproductions without
+        weakening existing assertions or removing any `data-testid`.
+
+### Suggested prompt for coding agent
+
+```text
+ROLE: You are the coding agent for exactly one AlphaFactorForge task. Stop after opening its PR.
+
+READ FIRST:
+1. AGENTS.md in full.
+2. docs/agent-execution-protocol.md sections 2 and 4.
+3. docs/improvement-backlog.md task BUG-RESULT-CONTEXT-001 only.
+4. handoffs/2026-07-31-pr76-post-merge-audit-v1.md sections for BUG-RESULT-CONTEXT-001 and scope control.
+
+TASK: BUG-RESULT-CONTEXT-001 — bind completed backtests to immutable execution snapshots.
+
+GIT: verify a clean worktree, fetch origin, branch from latest origin/main as
+fix/backtest-result-context, and move only this task Next -> In Progress in tasks.md.
+
+SCOPE: touch only the Files likely affected in the task. If a deterministic
+dataset-load race test needs another file, stop and report the exact reason
+before editing it. No Rust/schema/dependency/style/metric/Sweep provenance work.
+
+IMPLEMENT: follow all six Exact implementation plan steps. Use one pure context
+helper and one generation guard; save/export must consume the completed artifact,
+never live editor inputs mixed with an old result.
+
+VALIDATE: npm run typecheck, npm test, npm run build, npm run e2e, plus the manual
+sample -> run -> edit -> invalidate -> rerun check. Paste real counts/output.
+
+DELIVER: English conventional commit `fix(backtest): bind results to execution context`;
+zh-TW draft PR body with 摘要 / 改了什麼 / 驗證清單 / 手動檢查 / 殘餘風險 /
+git diff --stat. Update tasks.md to Done and CHANGELOG.md because user-visible
+save/export behavior changes. Append the handoff Resolution with commit, PR,
+verification, and residual risks. Then STOP; do not merge or start METRIC-002.
+```
+
+### Suggested reviewer prompt
+
+```text
+Review one PR against BUG-RESULT-CONTEXT-001 and docs/agent-execution-protocol.md section 5.
+Prove with file:line evidence that (1) save/export use one immutable artifact,
+(2) all strategy/dataset changes invalidate it synchronously, (3) stale async
+loads/runs cannot write, (4) tests reproduce run-then-edit and Apply Best, and
+(5) there are no metric, Sweep provenance, Rust/schema, dependency, or styling
+changes. Return approve / request-changes / escalate in zh-TW; do not edit code.
+```

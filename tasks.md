@@ -12,20 +12,61 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 - Native Tauri verified: Rust 1.96 / Cargo / MSVC build tools / Tauri CLI v2 installed; `cargo check` and `cargo tauri dev` both pass; multi-size icons generated.
 - Progress (through RUNNER-EXEC-001 + RUNNER-STORE-001 + RUNNER-CONFIG-001 + RS-CORE-005 + IDENTITY-001 + PERSIST-001 + FEAT-002 + code-mode UX polish + REF-004 + BUG-004 + UI-port Slice 8b-2): Phase A backtest pipeline and transactional SQLite persistence (datasets, candles, strategies, summaries, and closed trades); versioned SHA-256-only strategy/dataset content identity with TS/Rust exact fixtures, backend verification, and atomic immutable dataset import; Phase B's pure deterministic Train/Validation/Test + embargo split contract, its Train/Validation segmented backtest runner (Test never executed), usage-aware embargo derivation (max used-signal lookback + explicit holding allowance), the full §6 benchmark suite (Buy & Hold / SMA 50/200 / RSI 14 30-70 / Bollinger 20-2 + seeded Random Entry Monte Carlo with matched holding periods), the §5.1 hard elimination gate (explicit thresholds, fail-closed evidence), corrected Sortino/Calmar + explicit non-finite persistence (METRIC-001), the §5.2 score-v1 ranking breakdown (SCORE-001, per the PR #61 handoff Resolution), immutable validation-record persistence (PERSIST-001, per the PR #64 handoff Resolution: migration 0002, atomic bundle save, shared metrics codec), and committed TypeScript-reference/Rust parity through indicators, backtest/metrics, params signals/split/embargo, deterministic benchmarks, mulberry32/Random Entry, Gate, and params-only Score, plus the discovery run's admission contract (RUNNER-CONFIG-001: strict `discovery-config-v1` parsing, params-only candidate enumeration/pruning/`strategy-v2` deduplication, hash-sorted stable indexes, `seed-v1` sub-seeds, and the 256/4096 candidate caps), its run/job store (RUNNER-STORE-001: migration 0003, the D5 state machine with one non-terminal run enforced in the database, the one-transaction candidate commit spanning summaries/trades/record/both job rows/progress/lifecycle, derived promotion, and idempotent crash recovery), and its executable backend runner (RUNNER-EXEC-001: fixed CPU pool, single SQLite coordinator/writer, lifecycle controls, checkpointed progress, and post-commit versioned events); chart (canvas + overlays + trade markers + wheel-zoom + drag-pan + hover + bar replay); params/blocks/code strategy modes with invalid-expression Run guard; holdout; parameter sweep + interactive heatmap; report export (Slice 7-2); SQLite strategy library (Slice 7-3); native chart + metrics OS windows (Slice 8b); mutable-field strategy UPSERT semantics (REF-004); plus the 2026-07-07 project audit (`docs/` blueprint) and its backlog work: DOC-001, BUG-001, REF-001→004, TEST-001→002 (browser E2E flows, golden lock, and legacy parity), and Backtest Correctness Phases 1–3 (fee-inclusive accounting, settled metrics, execution-bar/risk fills, legacy `both` reversal, and normalized-fraction validation). Current tests: 382 vitest + 123 Rust + 25 Playwright e2e.
 - Security snapshot (2026-07-16): SEC-002 exact-pins Vite 6.4.3 + Vitest 3.2.6; full and production-only audits both report zero. See `docs/security-audit-npm.md`.
-- Next discovery slice: RUNNER-UI-001 is Next and implementation-unblocked by the completed RUNNER-EXEC-001 backend; begin it after this branch lands on `main`. Legacy-parity gaps remain split out as PARITY-001/002/003.
+- Post-PR #76 audit (2026-07-31): the executable runner is merged on `main` at `748ff91`, but the read-only project audit found correctness and audit-integrity gates that must land before RUNNER-UI-001. `BUG-RESULT-CONTEXT-001` is the single highest-priority Next task; the ordered follow-ups and evidence are in `handoffs/2026-07-31-pr76-post-merge-audit-v1.md`. Legacy-parity gaps remain split out as PARITY-001/002/003.
 - PR CI runs typecheck / test / build / cargo-check (now incl. `cargo test`) — green per PR; `main` requires branches up to date before merge.
 - Source-of-truth architecture: `STRATEGY_DISCOVERY.md` v3 and `README.md`.
 - Historical context: `HISTORY.md` and `CONVERSATION_HISTORY.md`.
 
 ## Next
 
-- [ ] **RUNNER-UI-001** — typed frontend wrappers plus a throttled progress/results UI. Its backend dependency is complete; start after the RUNNER-EXEC-001 branch lands on `main`.
+- [ ] **BUG-RESULT-CONTEXT-001 (P1)** — bind every completed interactive backtest to an immutable strategy/dataset/interval snapshot so edits, dataset switches, failed loads, and late async completions cannot save or export stale results under current inputs. Clear incompatible state synchronously, disable result actions while loading/running, guard async writes with a generation/context token, and add unit/E2E regressions for run-then-edit, dataset switch/fetch failure, and stale completion. Follow the execution-ready spec in `docs/improvement-backlog.md` and the evidence in `handoffs/2026-07-31-pr76-post-merge-audit-v1.md`; implement this task only in its own branch/PR.
 
 ## In Progress
 
 - None.
 
 ## Backlog
+
+### Post-PR #76 project audit follow-ups (2026-07-31)
+
+The detailed evidence, shortest reproductions, contract cautions, and per-task acceptance plan live in `handoffs/2026-07-31-pr76-post-merge-audit-v1.md`. The order below is deliberate. Promote and complete one small task at a time; do not bundle these findings into RUNNER-UI-001 or rewrite the merged PR #76 scope.
+
+#### Correctness and audit-integrity gates before RUNNER-UI-001
+
+- [ ] **METRIC-002 (P1)** — calculate each UTC month's return from the prior month-end equity (and the first month from `startEquity`) instead of dropping cross-month moves. Bump `metrics-v1` to a new contract version, update TS/Rust implementations and every dependent fixture/config snapshot together, add hand-calculated month-boundary tests, and define fail-closed handling for paused records/runs carrying the old version.
+- [ ] **PERSIST-AUDIT-001 (P1)** — replace the Rust validation-record JSON shape check with strict version-dispatched DTO validation for the complete `validation-record-v1` and `bench-record-v1` evidence, including contract constants, hashes, split/embargo, metric snapshots, four deterministic benchmark identities, full Random Entry distribution, Gate, Score, and cross-row consistency. Reject unknown versions and mutation-test every required field before opening the transaction.
+- [ ] **RUNNER-OWNERSHIP-001 (P1)** — prevent a second live desktop process from recovering the first process's active discovery run. Register Tauri's single-instance plugin before setup/recovery, focus the existing main window on a second launch, verify dependency/toolchain impact, and test or manually exercise the two-launch scenario. Record a separate owner-generation/lease task only if multi-process defense in depth remains required.
+- [ ] **RUNNER-UI-001** — typed frontend wrappers plus throttled progress/results UI, now blocked until BUG-RESULT-CONTEXT-001, METRIC-002, PERSIST-AUDIT-001, RUNNER-OWNERSHIP-001, DATA-QUALITY-001, BUG-SWEEP-CONTEXT-001, and STRATEGY-VALIDATION-001 land. When promoted, replace the stale frontend event DTOs with the backend `discovery-event-v1` contract, add the active-run wrapper, and make the throttle cancelable and stale-timer-safe.
+
+#### High-priority input and anti-overfitting guards
+
+- [ ] **DATA-QUALITY-001 (P1)** — add matching TS/Rust market-data admission validation for plausible epoch-millisecond timestamps, representable dates, positive prices, non-negative volume, and `low <= open/close <= high`; preserve the durable dataset hash definition, fail closed on already-stored invalid data, and cover every invariant with atomic-import mutation tests. Do not change the intentionally accepted unknown-interval fallback in this task.
+- [ ] **BUG-SWEEP-CONTEXT-001 (P1)** — attach dataset/hash, interval, holdout range, sweep configuration, and a base-strategy snapshot to each sweep artifact; invalidate or disable heatmap/apply actions on context mismatch and discard late results. Test holdout toggle/percentage, dataset switch, non-axis strategy edits, delayed completion, and the intentional case where applying a swept-axis cell remains valid.
+- [ ] **STRATEGY-VALIDATION-001 (P1)** — introduce one runtime validator shared by manual strategy execution and persistence so indicator periods are safe positive integers and cross-field constraints fail visibly. Add UI min/step hints only as secondary protection and regression-test zero, negative, fractional, NaN, and incompatible periods.
+
+#### Persistence, I/O, CI, and test fidelity
+
+- [ ] **PERSIST-INVARIANT-001 (P2)** — validate summary/trade bundles before every manual and validation write: summary bounds, `LONG|SHORT`, entry/exit ordering and range, finite positive prices, finite PnL values, and `trade_count == trades.len()`. Mutation-test each invariant and prove an invalid replacement leaves the previous transaction intact.
+- [ ] **IO-ROBUSTNESS-001 (P2)** — replace report filename `exists -> write` with atomic `create_new` retry semantics so concurrent writers cannot truncate one another; add a coordinated two-writer regression.
+- [ ] **DB-ASYNC-001 (P2)** — move large dataset import, result persistence, and filesystem writes behind async Tauri commands plus `spawn_blocking`; retain the single SQLite coordinator boundary and add a controlled slow-operation responsiveness test before considering pagination/batching.
+- [ ] **CI-TAURI-SMOKE-001 (P2)** — add a native Windows Tauri build/smoke lane beyond `cargo check/test` and Vite mock E2E; after RUNNER-UI-001, exercise at least one real invoke/event lifecycle through the native bridge.
+- [ ] **TEST-MOCK-PARITY-001 (P2)** — make mock `saveStrategy` reproduce SQLite same-hash UPSERT identity/name/source semantics and add a regression proving repeated saves keep one stable row/id.
+
+#### Performance, documentation, and tooling debt
+
+- [ ] **PERF-001 (P2)** — execute the existing `docs/improvement-backlog.md` plan to move the maximum-256-combination parameter sweep into the Web Worker with job id, cancellation, stale-result protection, and sync/worker determinism coverage; do not create a duplicate performance specification.
+- [ ] **PERF-CHART-COMPUTE-001 (P2)** — memoize full-series indicators and the trade map independently of hover/replay repaint, then throttle pointer rendering with `requestAnimationFrame`; benchmark a large dataset before and after.
+- [ ] **PERF-CHART-BRIDGE-001 (P2)** — split native chart-window dataset transfer from lightweight view-state updates so strategy/overlay/trade changes do not repeatedly serialize all candles; retain the ready-handshake and targeted-event permissions.
+- [ ] **DOC-STATE-002 (P2)** — reconcile root/local READMEs, `alpha-factor-forge/TODO.md`, and `PHASE_A_VERIFY.md` with migrations 0001–0003 and the completed backend runner while keeping `tasks.md` as the sole status source. Documentation-only PR; do not edit contracts to claim unimplemented audit fixes.
+- [ ] **TOOLCHAIN-001 (P3)** — pin the supported Rust toolchain in repository/CI and either prove the declared MSRV in a lane or update the claim; keep the native Tauri dependency floor explicit.
+- [ ] **CI-RUSTFMT-001 (P3)** — format the existing `db_commands.rs` drift and add repo-wide `cargo fmt --all -- --check` to CI without mixing unrelated Rust cleanup.
+- [ ] **DB-MIGRATION-DIAGNOSTIC-001 (P3)** — replace migration existence-query `unwrap_or(false)` with `OptionalExtension`-style not-found handling while propagating real SQLite errors; add the diagnostic regression without changing append-only migration semantics.
+- [ ] **SEC-RUST-001 (P3)** — add a pinned Rust advisory scan to CI or document the chosen equivalent; the 2026-07-31 audit could not run `cargo audit` because it was not installed.
+
+#### Accepted contracts requiring an explicit decision before code changes
+
+- [ ] **INTERVAL-CONTRACT-001** — decide whether unknown/alias intervals remain the intentionally tested daily fallback or become a strict canonical interval set. If changed, version the contract, update TS/Rust parity fixtures and annualization tests, and record the behavior change in `CHANGELOG.md`; do not fold this decision silently into DATA-QUALITY-001.
+- [ ] **DECISION-ZERO-TRADE-001** — decide whether a zero-trade candidate should continue to fail Random Entry/run execution under `random-entry-v1`, or become a persisted Gate rejection with explicit insufficient-evidence status. Any implementation requires coordinated Random Entry/Gate/record contract versioning and mixed/all-zero runner tests.
 
 ### Legacy-parity gaps (split out of the UI port umbrella, 2026-07-30)
 
@@ -57,7 +98,7 @@ These were named inside the UI port entry and must not be buried by closing it. 
   - Use `strategy_hash`, `dataset_hash`, and segment.
   - Never retest the same strategy/data/segment combination unnecessarily.
 
-- [ ] Implement the Tauri backend discovery job runner
+- [x] Implement the Tauri backend discovery job runner (completed by RUNNER-CONFIG-001, RUNNER-STORE-001, and RUNNER-EXEC-001; detailed entries are under Done)
   - Support start, pause, resume, cancel, checkpoint, and progress events.
   - Keep heavy discovery off the UI thread and out of the Web Worker.
   - Persist run/job progress in SQLite.
