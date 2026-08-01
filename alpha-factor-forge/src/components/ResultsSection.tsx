@@ -2,16 +2,19 @@
 //
 // Owns the shared metrics table (full / in-sample / out-of-sample columns), the
 // report export (JSON/CSV), the Slice 8a in-app pop-out, and the Slice 8b native
-// metrics-window snapshot sync. The backtest result, holdout split, strategy,
-// and save action stay in BacktestPanel and arrive as props.
+// metrics-window snapshot sync. The completed run and the save action stay in
+// BacktestPanel and arrive as props.
+//
+// BUG-RESULT-CONTEXT-001: this section reads ONE immutable `CompletedRun`. The
+// strategy, dataset, interval, range, metrics, and trades it renders, saves, and
+// exports all come from that artifact's snapshots — never from the live editor
+// or the live dataset selection, which may already describe a different run.
 
 import React, { useEffect, useRef, useState } from 'react';
-import type { BacktestResult } from '../core/backtest';
-import type { ParamsStrategy } from '../services/strategy';
-import type { Dataset } from '../tauri-client/commands';
 import { files } from '../tauri-client/dataClient';
 import { popoutWindows, type MetricsWindowSnapshot } from '../tauri-client/windowBridge';
 import { reportToJson, suggestedFilename, tradesToCsv } from '../services/reportExport';
+import type { CompletedRun } from '../services/runArtifact';
 import { HelpTip } from './HelpTip';
 import { FloatingPanel } from './FloatingPanel';
 import { MetricsTable } from './MetricsTable';
@@ -19,13 +22,15 @@ import { PoppedOutNote } from './PoppedOutNote';
 import { S } from './panelStyles';
 
 export interface ResultsSectionProps {
-  result: BacktestResult | null;
-  holdout: boolean;
-  holdoutResult: { inSample: BacktestResult; outSample: BacktestResult } | null;
-  selected: Dataset | null;
-  strat: ParamsStrategy;
-  /** Current strategy name (used to label the exported JSON report). The name
-   *  input itself lives in the strategy card, not here. */
+  /** The completed run, or null when no finished backtest matches the live
+   *  inputs. Null is the only "no result actions" signal this section needs. */
+  artifact: CompletedRun | null;
+  /** True when a run HAS completed but its inputs have since changed — the
+   *  metrics disappeared on purpose and the user needs to be told why. */
+  stale: boolean;
+  /** Current strategy name (used to label the exported JSON report). A display
+   *  label only: it changes neither the result nor the durable strategy
+   *  identity, so renaming after a run must not force a re-run. */
   stratName: string;
   saving: boolean;
   onSave: () => void;
@@ -36,11 +41,8 @@ export interface ResultsSectionProps {
 }
 
 export function ResultsSection({
-  result,
-  holdout,
-  holdoutResult,
-  selected,
-  strat,
+  artifact,
+  stale,
   stratName,
   saving,
   onSave,
@@ -54,12 +56,14 @@ export function ResultsSection({
   const [nativeMetricsOpened, setNativeMetricsOpened] = useState(false);
   const [openingNativeMetrics, setOpeningNativeMetrics] = useState(false);
 
-  const metricsWindowSnapshot: MetricsWindowSnapshot | null = result
+  const metricsWindowSnapshot: MetricsWindowSnapshot | null = artifact
     ? {
-        title: selected ? `${selected.symbol} · ${selected.interval}` : '回測績效',
-        full: result.metrics,
-        ...(holdout && holdoutResult
-          ? { inSample: holdoutResult.inSample.metrics, outSample: holdoutResult.outSample.metrics }
+        // Dataset labelling comes from the artifact, so the title can never
+        // advertise a dataset the metrics were not computed on.
+        title: `${artifact.context.dataset.symbol} · ${artifact.context.dataset.interval}`,
+        full: artifact.result.metrics,
+        ...(artifact.holdoutResult
+          ? { inSample: artifact.holdoutResult.inSample.metrics, outSample: artifact.holdoutResult.outSample.metrics }
           : {}),
       }
     : null;
@@ -90,7 +94,7 @@ export function ResultsSection({
   useEffect(() => {
     if (!nativeMetricsOpened) return;
     void popoutWindows.publishMetrics(metricsWindowSnapshotRef.current).catch((e) => onError(String(e)));
-  }, [nativeMetricsOpened, result, holdout, holdoutResult, selected]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [nativeMetricsOpened, artifact]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function openNativeMetricsWindow() {
     if (!metricsWindowSnapshotRef.current) return;
@@ -111,22 +115,23 @@ export function ResultsSection({
   }
 
   async function exportResult(ext: 'json' | 'csv') {
-    if (!selected || !result) return;
+    if (!artifact) return;
     setExporting(ext);
     onError(null);
     onMessage(null);
     setExportNotice({ kind: 'busy', text: `正在準備 ${ext.toUpperCase()} 下載...` });
     try {
       const at = Date.now();
+      const snapshot = artifact.context.dataset;
       const dataset = {
-        symbol: selected.symbol,
-        interval: selected.interval,
-        startTime: selected.start_time,
-        endTime: selected.end_time,
+        symbol: snapshot.symbol,
+        interval: snapshot.interval,
+        startTime: snapshot.startTime,
+        endTime: snapshot.endTime,
       };
       const contents = ext === 'json'
-        ? reportToJson({ strategyName: stratName, strategy: strat, dataset, result, exportedAt: at })
-        : tradesToCsv(result.trades);
+        ? reportToJson({ strategyName: stratName, strategy: artifact.context.strategy, dataset, result: artifact.result, exportedAt: at })
+        : tradesToCsv(artifact.result.trades);
       const path = await files.saveReport(suggestedFilename(dataset, ext, at), contents);
       onMessage(`已匯出 ${ext.toUpperCase()}：${path}`);
       setExportNotice({ kind: 'done', text: `${ext.toUpperCase()} 下載完成：${path}` });
@@ -144,19 +149,27 @@ export function ResultsSection({
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, margin: '0 0 8px' }}>
           <h2 style={{ ...S.h2, margin: 0 }}>回測績效</h2>
           <HelpTip id="metrics" label="回測績效" text={help.metrics} />
-          {result && popoutWindows.isAvailable() && (
+          {artifact && popoutWindows.isAvailable() && (
             <button data-testid="native-popout-metrics" title="另開可移到其他螢幕的原生視窗" style={{ ...S.btnGhost, padding: '3px 10px', marginLeft: 'auto' }} onClick={openNativeMetricsWindow} disabled={openingNativeMetrics} aria-busy={openingNativeMetrics}>
               {openingNativeMetrics ? '開啟中…' : '↗ 新視窗'}
             </button>
           )}
-          {result && (
+          {artifact && (
             <button data-testid="popout-metrics" title="放大到獨立面板" style={{ ...S.btnGhost, padding: '3px 10px', marginLeft: popoutWindows.isAvailable() ? 0 : 'auto' }} onClick={() => setPoppedMetrics((v) => !v)}>
               {poppedMetrics ? '⤡ 收合' : '⤢ 放大'}
             </button>
           )}
         </div>
-        {!result && <p style={{ color: '#aaa599', fontSize: 12 }}>尚未回測 — 選資料集、設策略後按「執行回測」。</p>}
-        {result && (
+        {!artifact && (
+          stale
+            ? (
+              <p data-testid="result-stale" style={{ color: '#8a7a3a', fontSize: 12 }}>
+                策略、資料集或 Holdout 設定已變更 — 先前的回測結果已失效（不會被存檔或匯出）。請重新執行回測。
+              </p>
+            )
+            : <p style={{ color: '#aaa599', fontSize: 12 }}>尚未回測 — 選資料集、設策略後按「執行回測」。</p>
+        )}
+        {artifact && (
           <>
             {poppedMetrics ? <PoppedOutNote label="回測績效" onClose={() => setPoppedMetrics(false)} /> : metricsWindowSnapshot && <MetricsTable data={metricsWindowSnapshot} fontSize={12} />}
 
@@ -197,7 +210,7 @@ export function ResultsSection({
 
       {/* Slice 8a metrics pop-out: non-modal floating panel rendering the metrics
           enlarged; the rest of the app stays usable while it is open. */}
-      {poppedMetrics && result && (
+      {poppedMetrics && artifact && (
         <FloatingPanel title="回測績效" testId="metrics-popout" initial={{ x: 220, y: 130, w: 460, h: 520 }} onClose={() => setPoppedMetrics(false)}>
           {() => metricsWindowSnapshot && <MetricsTable data={metricsWindowSnapshot} fontSize={15} />}
         </FloatingPanel>
