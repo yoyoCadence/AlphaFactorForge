@@ -922,24 +922,51 @@ merged as PR #78 (`38df26a`). Audit evidence: the `METRIC-002` section of
   `alpha-factor-forge/src/parity/gateScoreFixture.test.ts:87` (literal version
   assertions)
 - `alpha-factor-forge/src/services/score.test.ts` (consistency regression)
-- `alpha-factor-forge/src-tauri/src/discovery_core/config.rs` (stored-config
-  rejection regression)
+- `alpha-factor-forge/src-tauri/src/discovery_runner/tests.rs` (paused-run
+  resume rejection regression — the DB read-back path, see step 6)
+- `alpha-factor-forge/src-tauri/src/discovery_core/config.rs` (optional
+  additional pure parser test; it may not replace the runner regression)
+- `docs/discovery-config-contract.md:37` and `docs/rs-core-parity.md:80`
+  (current contract documents that still name the old version)
 - Regenerated, never hand-edited: `alpha-factor-forge/fixtures/rs-core/`
   `backtest-v1.json`, `benchmark-v1.json`, `gate-score-v1.json`,
   `runner-config-v1.json`
 - `CHANGELOG.md`, `tasks.md`
 
-Inventory to reconcile before finishing: `metrics-v1` appears **68 times** in
-`fixtures/rs-core/` (backtest 1, benchmark 1, gate-score 1, runner-config 65)
-and at **5** source sites: three `METRICS_CONTRACT_VERSION` declarations
-(`backtestFixture.ts:20`, `benchmarkFixture.ts:31`, `gateScoreFixture.ts:38`),
-the config pin `discoveryConfig.ts:33`, and the Rust constant `metrics.rs:13`.
-After the bump, a repo-wide search for the old literal must return zero hits
-outside `CHANGELOG.md` and this file.
+### `metrics-v1` inventory (measured on `38df26a`)
+
+Every **active** occurrence that must become `metrics-v2`:
+
+| Kind | Count | Locations |
+| --- | --- | --- |
+| Fixture occurrences | 68 | `fixtures/rs-core/`: backtest 1, benchmark 1, gate-score 1, runner-config 65 — all regenerated, never hand-edited |
+| Contract declarations / pins | 5 | `parity/backtestFixture.ts:20`, `parity/benchmarkFixture.ts:31`, `parity/gateScoreFixture.ts:38` (three parallel `METRICS_CONTRACT_VERSION` declarations), `services/discoveryConfig.ts:33` (config pin), `discovery_core/metrics.rs:13` (Rust constant) |
+| Literal test assertions | 2 | `parity/benchmarkFixture.test.ts:49`, `parity/gateScoreFixture.test.ts:87` |
+| Rust module doc | 1 | `discovery_core/metrics.rs:1` |
+| Current contract docs | 2 | `docs/discovery-config-contract.md:37`, `docs/rs-core-parity.md:80` |
+
+Occurrences that **must legitimately keep** the old literal — a repo-wide
+zero-hit search is therefore not a valid acceptance check:
+
+- the step 6 rejection regression, whose whole purpose is to feed a stored
+  `metrics-v1` config back in;
+- `CHANGELOG.md`, `tasks.md`, this specification, and every file under
+  `handoffs/`, which record history and must not be rewritten.
 
 ### Exact implementation plan
 
-1. Change the TypeScript formula. Give `monthlyReturns` an explicit starting
+The order is executable as written: the expectations are committed before any
+code or fixture can be shaped to fit them.
+
+1. **Write the hand-calculated tests first, against the unchanged formula.** Add
+   month-boundary tests on both sides, using the audit case above verbatim plus:
+   a single-month series, a series with a gap month, a first month whose
+   `startEquity` differs from `equity[0].equity`, and a non-positive base. Add a
+   `score.test.ts` regression asserting that the audit case's `consistency`
+   entry moves from normalized 1 to about 0.1334 — state the expected value, do
+   not merely assert "changed". Run them now and paste the failures in the PR: a
+   hand-calculated test that cannot fail before the fix does not prove the fix.
+2. Change the TypeScript formula. Give `monthlyReturns` an explicit starting
    base parameter and walk the equity series **in its existing chronological
    order** — do not sort month keys — carrying each month's last equity forward
    as the next present month's base. Pass `computeMetrics`'s already-resolved
@@ -949,33 +976,40 @@ outside `CHANGELOG.md` and this file.
    value. A month with no equity points is skipped, and the next present month
    chains from the last present month's close — no synthetic zero-return month
    is inserted.
-2. Port the identical change to `metrics.rs::monthly_returns`, keeping the
+3. Port the identical change to `metrics.rs::monthly_returns`, keeping the
    `BTreeMap` output type and the existing timestamp-conversion precondition
    comment. The two implementations must be reasoned about as one algorithm;
-   any divergence is a parity failure, not a style choice.
-3. Bump the contract from `metrics-v1` to `metrics-v2` at all five source sites
-   in one commit. Do not attempt to de-duplicate the three parallel
+   any divergence is a parity failure, not a style choice. The step 1 tests must
+   now pass on both sides, unchanged from how they were first committed.
+4. Bump the contract from `metrics-v1` to `metrics-v2` at every active site in
+   the inventory table above, in one commit: the 5 declarations/pins, the 2
+   literal test assertions, the 1 Rust module doc, and the 2 current contract
+   documents. Do not attempt to de-duplicate the three parallel
    `METRICS_CONTRACT_VERSION` declarations in this task — record that
    duplication as a follow-up bullet in the PR instead.
-4. Regenerate every affected fixture with its own script
+5. Only now regenerate every affected fixture with its own script
    (`npm run fixtures:backtest`, `fixtures:benchmarks`, `fixtures:gate-score`,
    `fixtures:runner-config`) and commit the regenerated output. Hand-editing a
    fixture, or regenerating one the change does not touch, is a review failure.
    The backtest fixture's sanity checks at `src/parity/backtestFixture.ts:307`
-   and `:347` must still hold.
-5. Add hand-calculated month-boundary tests on both sides, using the audit case
-   above verbatim plus: a single-month series, a series with a gap month, a
-   first month whose `startEquity` differs from `equity[0].equity`, and a
-   non-positive base. Then add a `score.test.ts` regression asserting that the
-   audit case's `consistency` entry moves from normalized 1 to about 0.1334 —
-   the test must state the expected value, not merely assert "changed".
-6. Prove the stored-config path fails closed. A `discovery_runs` row persisted
-   with `"metrics": "metrics-v1"` must be rejected when it is read back, with
-   the existing contract-mismatch error rather than a panic or a silent
-   reinterpretation — `config.rs:848-854` already compares stored contracts
-   against `discovery_contract_versions()`. Add the regression that pins this
-   for a paused/idle run; if the read-back path turns out not to re-validate,
-   STOP and report rather than widening this task into runner work.
+   and `:347` must still hold. Regenerate a second time and record the SHA-256
+   of each of the four files from both passes in the PR; "I re-ran it" without
+   the two matching digests is not evidence of determinism.
+6. Prove the stored-config path fails closed **through the real resume
+   read-back**, not through a parser unit test. The path is already confirmed:
+   `discovery_runner/mod.rs:472-477` requires the run to be `Paused`, and only
+   then does `:479-482` deserialize the persisted `config_json` and call
+   `parse_discovery_config`, which compares stored contracts against
+   `discovery_contract_versions()` (`config.rs:848-854`). An `idle` run fails
+   earlier with an illegal-transition error and therefore cannot exercise the
+   metrics mismatch at all — the regression must use `Paused`. In
+   `discovery_runner/tests.rs`, create or leave a paused run with no live
+   control, set its persisted `config_json.contracts.metrics` to `metrics-v1`,
+   call `DiscoveryRunner::resume`, and assert all of: the existing
+   contract-mismatch error is returned; the run is still `paused`; and no
+   coordinator/control, event, job, or progress write occurred. A pure
+   `config.rs` parser test may be added as well, but it does not satisfy this
+   step on its own.
 
 ### Persisted-record compatibility (maintainer decision, 2026-08-01)
 
@@ -1011,8 +1045,11 @@ The PR body must say so explicitly.
   behaviour in `src/services/metricsCodec.ts`.
 - Do not add the metrics version to `validation-record-v1`, and do not bump the
   record contract here — that is `PERSIST-AUDIT-001` (see above).
-- Do not de-duplicate the four TypeScript `METRICS_CONTRACT_VERSION`
-  declarations, and do not refactor the parity fixture harness.
+- Do not de-duplicate the three parallel `METRICS_CONTRACT_VERSION` fixture
+  declarations or fold in the separate `discoveryConfig.ts` pin, and do not
+  refactor the parity fixture harness.
+- Do not rewrite the old literal out of `handoffs/`, `tasks.md` history entries,
+  or `CHANGELOG.md`; those are records, not active contract sites.
 - Do not touch SQLite schema or migrations, the `backtest_summary` row shape,
   Gate or Score formulas/weights, discovery events, the runner's threading, or
   the interactive backtest UI.
@@ -1023,8 +1060,9 @@ The PR body must say so explicitly.
 - **Risk level**: High — this rewrites a persisted calculation contract that
   ranking depends on, and it moves 68 committed fixture values. The failure mode
   to guard against is a green build produced by regenerating fixtures around a
-  still-wrong formula, which is why step 5's hand-calculated expectations come
-  before regeneration in review order.
+  still-wrong formula, which is why step 1 requires the hand-calculated
+  expectations to be written and shown failing before step 5 regenerates
+  anything.
 - **Validation plan**:
   - `cd alpha-factor-forge && npm run typecheck`
   - `cd alpha-factor-forge && npm test`
@@ -1032,10 +1070,16 @@ The PR body must say so explicitly.
   - `cd alpha-factor-forge && npm run e2e`
   - `cd alpha-factor-forge/src-tauri && cargo check --locked`
   - `cd alpha-factor-forge/src-tauri && cargo test --locked`
-  - Fixture determinism: regenerate twice and confirm the second run leaves the
-    files byte-identical.
-  - Paste the repo-wide `metrics-v1` search showing zero remaining hits outside
-    `CHANGELOG.md` and this file.
+  - Fixture determinism: regenerate twice and paste the SHA-256 of all four
+    fixtures from both passes, showing the digests match.
+  - Paste the failing output of the new hand-calculated tests against the old
+    formula (step 1) alongside their passing output after the fix.
+  - Targeted stale-literal search, not a repo-wide zero-hit claim. Show that
+    `metrics-v1` is absent from: the 5 declarations/pins, the 2 literal test
+    assertions, the Rust module doc, `fixtures/rs-core/`, and the 2 current
+    contract documents. The allowlist that may still contain it is exactly: the
+    step 6 rejection regression, `CHANGELOG.md`, `tasks.md`, `handoffs/`, and
+    this specification.
 - **Acceptance criteria**:
   - [ ] The first month is based on `startEquity`; every later month is based on
         the previous present month's closing equity.
@@ -1043,11 +1087,16 @@ The PR body must say so explicitly.
         parity fixtures plus hand-calculated tests on both sides.
   - [ ] The audit's four-month case yields `[0, +1, -0.5, +1]`, and a
         `score.test.ts` regression pins the resulting `consistency` value.
-  - [ ] `metrics-v2` is set in all five source constants and all 68 fixture
-        occurrences, with no stale `metrics-v1` literal left in code or
-        fixtures.
-  - [ ] A stored run config carrying `metrics-v1` is rejected on read-back with
-        the existing contract-mismatch error.
+  - [ ] The hand-calculated tests were written first and shown failing against
+        the old formula before any fixture was regenerated.
+  - [ ] `metrics-v2` is set at every active site in the inventory table — 5
+        declarations/pins, 2 literal assertions, 1 Rust module doc, 2 contract
+        documents, and all 68 fixture occurrences — with no stale **active**
+        literal left. Occurrences inside the step 6 regression, `CHANGELOG.md`,
+        `tasks.md`, `handoffs/`, and this specification are expected and correct.
+  - [ ] Resuming a **paused** run whose persisted config carries `metrics-v1`
+        returns the existing contract-mismatch error, leaves the run paused, and
+        writes no coordinator/control, event, job, or progress state.
   - [ ] `CHANGELOG.md` records the behaviour change, and the PR states that
         `PERSIST-AUDIT-001` remains a required follow-up before persisted
         records can be trusted.
@@ -1072,15 +1121,21 @@ SCOPE: touch only the Files likely affected. This is a persisted calculation
 contract change: TS and Rust must move together, and every fixture must be
 REGENERATED by its npm script, never hand-edited. Do not add the metrics version
 to validation-record-v1 and do not bump the record contract — that is
-PERSIST-AUDIT-001. No schema, dependency, Gate/Score formula, or UI work.
+PERSIST-AUDIT-001. Do not rewrite the old literal out of handoffs/, tasks.md
+history, or CHANGELOG.md. No schema, dependency, Gate/Score formula, or UI work.
 
-IMPLEMENT: follow all six Exact implementation plan steps in order. Write the
-hand-calculated tests BEFORE regenerating fixtures, so a wrong formula cannot be
-laundered into green fixtures.
+IMPLEMENT: follow all six Exact implementation plan steps in the order written.
+Step 1 (hand-calculated tests, shown FAILING against the unchanged formula) comes
+before BOTH the implementation and step 5's fixture regeneration, so neither the
+formula nor the fixtures can be shaped to fit an expectation written after the
+fact. Step 6 must exercise the real paused-run resume read-back in
+discovery_runner/tests.rs, not a config.rs parser test.
 
 VALIDATE: npm run typecheck, npm test, npm run build, npm run e2e, cargo check
---locked, cargo test --locked, a double fixture regeneration proving byte
-identity, and a repo-wide metrics-v1 search. Paste real counts/output.
+--locked, cargo test --locked, the step 1 before/after test output, a double
+fixture regeneration with matching SHA-256 digests for all four files, and the
+TARGETED stale-literal search from the Validation plan (not a repo-wide
+zero-hit claim — several files legitimately keep metrics-v1). Paste real output.
 
 DELIVER: English conventional commit `fix(metrics): base monthly returns on prior month close`;
 zh-TW PR body with 摘要 / 改了什麼 / 驗證清單 / 殘餘風險 / git diff --stat. Update
@@ -1097,10 +1152,15 @@ Prove with file:line evidence that (1) the first month uses startEquity and late
 months chain from the prior present month's close in BOTH languages, (2) the
 hand-calculated cases (including the audit's [0, +1, -0.5, +1] case, a gap month,
 and a non-positive base) are asserted with explicit expected values rather than
-regenerated-fixture agreement, (3) all five constants and all 68 fixture
-occurrences moved to metrics-v2 with no stale literal, (4) every fixture was
-regenerated by its script and no parity assertion was weakened, (5) a stored
-metrics-v1 run config is rejected on read-back, and (6) validation-record-v1 was
-NOT quietly upgraded. Confirm the PR states PERSIST-AUDIT-001 is still required.
+regenerated-fixture agreement, and that the PR shows them failing against the old
+formula, (3) every active site in the inventory table moved to metrics-v2 — 5
+declarations/pins, 2 literal assertions, 1 Rust module doc, 2 contract documents,
+68 fixture occurrences — while the allowlisted historical occurrences were left
+alone, (4) every fixture was regenerated by its script with matching double-run
+digests and no parity assertion was weakened, (5) the rejection regression
+resumes a PAUSED run through the DB read-back path and asserts the run stays
+paused with no coordinator/event/job/progress write — a config.rs parser test
+alone is insufficient, and (6) validation-record-v1 was NOT quietly upgraded.
+Confirm the PR states PERSIST-AUDIT-001 is still required.
 Return approve / request-changes / escalate in zh-TW; do not edit code.
 ```
