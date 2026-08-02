@@ -1,9 +1,25 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 
 // Slice 10-1 — cursor-anchored wheel zoom + reset. Canvas pixels are not
 // asserted; anchor/window arithmetic is unit-tested in scale.test.ts. These
 // flows verify that real wheel input changes the visible count and that replay
 // keeps its no-future-data boundary while preserving the zoom level.
+
+/** How far the page is scrolled, across both scrollers (the app shell scrolls
+ *  <main>, not the document).
+ *
+ *  Wheeling over the chart must zoom it and scroll NOTHING. This used to be
+ *  checked by asserting the canvas had not moved, but that proxy also trips on
+ *  any unrelated reflow: the skin layer loads its web fonts from a CDN, and on
+ *  a cold runner they swap in after first paint and resize the rows above the
+ *  chart by a few px (down on CI's Ubuntu fallback, up on Windows). Reading the
+ *  scroll offsets measures the actual claim and is immune to that. */
+function scrollOffsets(page: Page) {
+  return page.evaluate(() => ({
+    main: document.querySelector('main')?.scrollTop ?? 0,
+    doc: document.documentElement.scrollTop,
+  }));
+}
 
 test('mouse wheel zooms the chart and reset returns to fit', async ({ page }) => {
   await page.goto('/?mock=1');
@@ -17,19 +33,18 @@ test('mouse wheel zooms the chart and reset returns to fit', async ({ page }) =>
 
   const box = await canvas.boundingBox();
   if (!box) throw new Error('chart canvas has no bounding box');
+  const restingScroll = await scrollOffsets(page);
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.wheel(0, 100); // already at max fit: remains a true reset state
   await expect(status).toContainText('顯示 500 根');
   await expect(reset).toBeDisabled();
-  await page.waitForTimeout(100); // allow any accidental document scroll to settle
-  const afterZoomOutBox = await canvas.boundingBox();
-  expect(afterZoomOutBox?.y).toBeCloseTo(box.y, 1);
+  await page.waitForTimeout(100); // allow any accidental scroll to settle
+  expect(await scrollOffsets(page)).toEqual(restingScroll);
   await page.mouse.wheel(0, -100);
 
   await expect(status).toContainText('顯示 400 根');
   await expect(reset).toBeEnabled();
-  const afterZoomInBox = await canvas.boundingBox();
-  expect(afterZoomInBox?.y).toBeCloseTo(box.y, 1);
+  expect(await scrollOffsets(page)).toEqual(restingScroll);
   await reset.click();
   await expect(status).toContainText('顯示 500 根');
   await expect(reset).toBeDisabled();
