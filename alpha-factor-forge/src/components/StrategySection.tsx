@@ -21,7 +21,8 @@ import { compileExpression } from '../services/exprInterpreter';
 import type { StrategyDef } from '../tauri-client/commands';
 import { HelpTip } from './HelpTip';
 import { NumberInput } from './NumberInput';
-import { S } from './panelStyles';
+import { makeStyles } from './panelStyles';
+import { useTheme } from '../theme/ThemeProvider';
 import type { NumKey } from './panelTypes';
 
 const IND_FIELDS: { key: NumKey; label: string }[] = [
@@ -91,6 +92,8 @@ function validateCodeExpressions(entryCode: string, exitCode: string): CodeExpre
 
 /** Editable AND-list of blocks-mode rules (left operand · op · right). */
 function RuleRows({ title, rules, onChange }: { title: string; rules: Rule[]; onChange: (rules: Rule[]) => void }): React.ReactElement {
+  const t = useTheme();
+  const S = makeStyles(t);
   const update = (i: number, patch: Partial<Rule>) => onChange(rules.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
   const add = () => onChange([...rules, { l: 'price', op: '>', r: 'maSlow' }]);
   const remove = (i: number) => onChange(rules.filter((_, idx) => idx !== i));
@@ -100,7 +103,7 @@ function RuleRows({ title, rules, onChange }: { title: string; rules: Rule[]; on
         <span style={S.label}>{title}（全部成立才觸發）</span>
         <button style={{ ...S.btnGhost, padding: '2px 8px' }} onClick={add}>＋ 規則</button>
       </div>
-      {rules.length === 0 && <div style={{ fontSize: 11, color: '#aaa599' }}>（無規則 → 不觸發）</div>}
+      {rules.length === 0 && <div style={{ fontSize: 11, color: t.color.faint }}>（無規則 → 不觸發）</div>}
       {rules.map((r, i) => (
         <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 58px 1fr 22px', gap: 4, marginBottom: 4 }}>
           <select value={r.l} onChange={(e) => update(i, { l: e.target.value as OperandId })} style={{ ...S.input, fontSize: 11 }}>
@@ -119,6 +122,8 @@ function RuleRows({ title, rules, onChange }: { title: string; rules: Rule[]; on
 
 /** A code-mode expression field with live (per-keystroke) interpreter validation. */
 function CodeField({ id, label, value, error, onChange }: { id: string; label: string; value: string; error: string | null; onChange: (v: string) => void }): React.ReactElement {
+  const t = useTheme();
+  const S = makeStyles(t);
   const errorId = `${id}-error`;
   return (
     <label style={{ display: 'flex', flexDirection: 'column', gap: 3, marginBottom: 8 }}>
@@ -131,9 +136,9 @@ function CodeField({ id, label, value, error, onChange }: { id: string; label: s
         spellCheck={false}
         aria-invalid={error != null}
         aria-describedby={error ? errorId : undefined}
-        style={{ ...S.input, fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, resize: 'vertical', borderColor: error ? '#d23b2f' : '#d6d2c8' }}
+        style={{ ...S.input, fontFamily: t.font.mono, fontSize: 12, resize: 'vertical', borderColor: error ? t.color.danger : t.color.line }}
       />
-      {error && <span id={errorId} style={{ fontSize: 10, color: '#b23b2e' }}>{error}</span>}
+      {error && <span id={errorId} style={{ fontSize: 10, color: t.color.danger }}>{error}</span>}
     </label>
   );
 }
@@ -183,12 +188,15 @@ export function StrategySection({
   onRun,
   help,
 }: StrategySectionProps): React.ReactElement {
-  // Highlight styling for a param that the last sweep-apply set (blue accent).
+  const t = useTheme();
+  const S = makeStyles(t);
+  // Highlight styling for a param that the last sweep-apply set (accent).
+  // #eef4ff（套用底色）規格書 §4 未對照到 token，暫時沿用現值。
   const isAppliedKey = (key: NumKey) => appliedKeys.includes(key);
   const appliedInputStyle = (key: NumKey, base: React.CSSProperties): React.CSSProperties =>
-    isAppliedKey(key) ? { ...base, borderColor: '#2f6df0', background: '#eef4ff' } : base;
+    isAppliedKey(key) ? { ...base, borderColor: t.color.accent, background: '#eef4ff' } : base;
   const appliedLabelStyle = (key: NumKey): React.CSSProperties =>
-    isAppliedKey(key) ? { ...S.label, color: '#2f6df0', fontWeight: 700 } : S.label;
+    isAppliedKey(key) ? { ...S.label, color: t.color.accent, fontWeight: 700 } : S.label;
   const codeValidation = validateCodeExpressions(strat.entryCode, strat.exitCode);
   const codeModeAllowsRun = strat.mode !== 'code' || codeValidation.valid;
 
@@ -207,9 +215,9 @@ export function StrategySection({
               style={{
                 ...S.btnGhost,
                 padding: '3px 10px',
-                background: strat.mode === mode ? '#16150f' : '#efece5',
-                color: strat.mode === mode ? '#fff' : '#16150f',
-                borderColor: strat.mode === mode ? '#16150f' : '#d6d2c8',
+                background: strat.mode === mode ? t.button.primaryBg : t.button.ghostBg,
+                color: strat.mode === mode ? t.button.primaryInk : t.button.ghostInk,
+                borderColor: strat.mode === mode ? t.button.primaryBg : t.button.ghostLine,
               }}
             >
               {MODE_LABEL[mode]}
@@ -218,7 +226,7 @@ export function StrategySection({
         </div>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, marginBottom: 10, paddingBottom: 10, borderBottom: '1px solid #efece5', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, marginBottom: 10, paddingBottom: 10, borderBottom: `1px solid ${t.shape.rowLine}`, flexWrap: 'wrap' }}>
         <label style={{ display: 'flex', flex: 1, minWidth: 160, flexDirection: 'column', gap: 3 }}>
           <span style={S.label}>目前策略名稱</span>
           <input
@@ -294,12 +302,12 @@ export function StrategySection({
         <div style={{ marginBottom: 8 }}>
           <CodeField id="strategy-entry-code" label="進場條件 (entry)" value={strat.entryCode} error={codeValidation.entryError} onChange={(v) => onStratChange((s) => ({ ...s, entryCode: v }))} />
           <CodeField id="strategy-exit-code" label="出場條件 (exit)" value={strat.exitCode} error={codeValidation.exitError} onChange={(v) => onStratChange((s) => ({ ...s, exitCode: v }))} />
-          <div style={{ fontSize: 10, color: '#8a8678', lineHeight: 1.5 }}>
+          <div style={{ fontSize: 10, color: t.color.muted, lineHeight: 1.5 }}>
             變數：{OPERAND_IDS.join(' ')}
             <br />
             函式：prev(x) · crossUp(a,b) · crossDown(a,b)　運算子：+ - * / &gt; &lt; &gt;= &lt;= == != &amp;&amp; || !
           </div>
-          <div style={{ fontSize: 10, color: '#aaa599', marginTop: 4 }}>
+          <div style={{ fontSize: 10, color: t.color.faint, marginTop: 4 }}>
             code 模式為手動專用，AI 不會使用；以安全直譯器求值（無 eval）。
           </div>
         </div>
@@ -343,7 +351,7 @@ export function StrategySection({
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 12, flexWrap: 'wrap' }}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#8a8678', flexWrap: 'wrap' }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: t.color.muted, flexWrap: 'wrap' }}>
           <input
             type="checkbox"
             data-testid="holdout-toggle"
@@ -353,6 +361,7 @@ export function StrategySection({
           Holdout 樣本外驗證
           {holdout && (
             <>
+              {/* #cfccc4（分隔點）規格書 §4 未對照到 token，暫時沿用現值。 */}
               <span style={{ color: '#cfccc4' }}>·</span>末
               <NumberInput
                 value={holdoutPct}

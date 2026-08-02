@@ -1,5 +1,7 @@
 import React from 'react';
 import type { Metrics } from '../core/metrics';
+import { makeStyles } from './panelStyles';
+import { useTheme } from '../theme/ThemeProvider';
 
 export interface MetricsTableData {
   full: Metrics;
@@ -47,15 +49,18 @@ export function metricColumns(data: MetricsTableData): MetricColumn[] {
 }
 
 export function MetricsTable({ data, fontSize }: { data: MetricsTableData; fontSize: number }): React.ReactElement {
+  const t = useTheme();
+  const S = makeStyles(t);
   const columns = metricColumns(data);
   return (
-    <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: "'IBM Plex Mono', monospace", fontSize }}>
+    <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: t.font.mono, fontSize }}>
       {columns.length > 1 && (
         <thead>
-          <tr style={{ borderBottom: '1px solid #d6d2c8' }}>
+          <tr style={{ borderBottom: `1px solid ${t.color.line}` }}>
             <th />
             {columns.map((column) => (
-              <th key={column.label} data-testid={`col-${column.label}`} style={{ padding: '4px', textAlign: 'right', fontSize: fontSize - 2, fontWeight: 600, color: '#8a8678' }}>
+              // fontSize 仍由 prop 推導（彈出視窗用 15），不改為 token 的 labelSize。
+              <th key={column.label} data-testid={`col-${column.label}`} style={{ ...S.tableHead, fontSize: fontSize - 2 }}>
                 {column.label}
               </th>
             ))}
@@ -64,8 +69,8 @@ export function MetricsTable({ data, fontSize }: { data: MetricsTableData; fontS
       )}
       <tbody>
         {METRIC_ROWS.map((row) => (
-          <tr key={row.label} style={{ borderBottom: '1px solid #efece5' }}>
-            <td style={{ padding: '5px 4px', color: '#8a8678' }}>{row.label}</td>
+          <tr key={row.label} style={S.tableRow}>
+            <td style={{ padding: '5px 4px', color: t.color.muted }}>{row.label}</td>
             {columns.map((column) => (
               <td key={column.label} style={{ padding: '5px 4px', textAlign: 'right', fontWeight: 600 }}>
                 {row.fmt(column.metrics)}

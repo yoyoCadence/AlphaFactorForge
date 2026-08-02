@@ -31,7 +31,8 @@ import { ChartSection } from './ChartSection';
 import { DatasetSection } from './DatasetSection';
 import { ResultsSection } from './ResultsSection';
 import { StrategySection } from './StrategySection';
-import { S } from './panelStyles';
+import { makeStyles } from './panelStyles';
+import { useTheme } from '../theme/ThemeProvider';
 import type { NumKey } from './panelTypes';
 import type { Candle as CoreCandle } from '../core/backtest';
 
@@ -77,6 +78,7 @@ function normalizeCandle(x: unknown): Candle {
 }
 
 export function BacktestPanel(): React.ReactElement {
+  const S = makeStyles(useTheme());
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [selId, setSelId] = useState<number | null>(null);
   const [strat, setStrat] = useState<ParamsStrategy>(defaultStrategy);
@@ -392,8 +394,8 @@ export function BacktestPanel(): React.ReactElement {
 
   return (
     <div>
-      {err && <div style={{ ...S.card, borderColor: '#d23b2f', color: '#b23b2e', marginBottom: 12 }}>{err}</div>}
-      {msg && <div style={{ ...S.card, borderColor: '#2d9f73', color: '#1f7a57', marginBottom: 12 }}>{msg}</div>}
+      {err && <div style={S.banner('error')}>{err}</div>}
+      {msg && <div style={S.banner('ok')}>{msg}</div>}
 
       <ChartSection
         candles={candles}

@@ -26,7 +26,8 @@ import type { ParamsStrategy } from '../services/strategy';
 import type { Candle as CoreCandle } from '../core/backtest';
 import { HelpTip } from './HelpTip';
 import { NumberInput } from './NumberInput';
-import { S } from './panelStyles';
+import { makeStyles } from './panelStyles';
+import { useTheme } from '../theme/ThemeProvider';
 
 const SWEEP_PARAM_LABEL: Record<SweepParamKey, string> = {
   fastMA: '快線MA', slowMA: '慢線MA', emaPeriod: 'EMA週期', rsiPeriod: 'RSI週期',
@@ -66,6 +67,7 @@ function heatColor(t: number): string {
 /** One sweep axis on a single wrap-safe row: param picker + min / max / step.
  *  Inline (not a column) so the optional 2-D Y row can't overlap neighbours. */
 function AxisEditor({ title, axis, onChange }: { title: string; axis: SweepAxisConfig; onChange: (a: SweepAxisConfig) => void }): React.ReactElement {
+  const S = makeStyles(useTheme());
   return (
     <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap', marginTop: 8 }}>
       <label style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 150 }}>
@@ -96,24 +98,25 @@ function SweepHeatmap({
   applied: { x: number; y: number | null } | null;
   onPick: (x: number, y: number | null) => void;
 }): React.ReactElement {
+  const t = useTheme();
   const { xs, ys, grid, best, lo, hi, metric, xKey, yKey } = result;
   const is2d = yKey != null;
   const span = hi - lo;
   const cell: React.CSSProperties = {
-    padding: '4px 6px', textAlign: 'center', fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, minWidth: 48,
+    padding: '4px 6px', textAlign: 'center', fontFamily: t.font.mono, fontSize: 11, minWidth: 48,
   };
-  const head: React.CSSProperties = { ...cell, background: '#efece5', color: '#16150f', border: '1px solid #fff' };
+  const head: React.CSSProperties = { ...cell, background: t.button.ghostBg, color: t.color.ink, border: `1px solid ${t.color.cardBg}` };
   return (
     <div style={{ marginTop: 12, overflowX: 'auto' }}>
-      <div style={{ fontSize: 11, color: '#8a8678', marginBottom: 6 }}>
+      <div style={{ fontSize: 11, color: t.color.muted, marginBottom: 6 }}>
         熱力圖 · 顏色越綠越佳（{SWEEP_METRIC_LABEL[metric]}）；橫軸 {SWEEP_PARAM_LABEL[xKey]}
         {is2d ? `、縱軸 ${SWEEP_PARAM_LABEL[yKey]}` : ''}。每格為指標值，括號為交易次數。
-        <b>點任一格</b>即套用該組合 · <span style={{ color: '#16150f' }}>★ 最佳</span> · <span style={{ color: '#2f6df0' }}>✓ 已套用（藍框）</span>。
+        <b>點任一格</b>即套用該組合 · <span style={{ color: t.color.ink }}>★ 最佳</span> · <span style={{ color: t.color.accent }}>✓ 已套用（藍框）</span>。
       </div>
       <table style={{ borderCollapse: 'collapse' }}>
         <thead>
           <tr>
-            <th style={{ ...head, color: '#8a8678' }}>{is2d ? `${SWEEP_PARAM_LABEL[yKey]} \\ ${SWEEP_PARAM_LABEL[xKey]}` : SWEEP_PARAM_LABEL[xKey]}</th>
+            <th style={{ ...head, color: t.color.muted }}>{is2d ? `${SWEEP_PARAM_LABEL[yKey]} \\ ${SWEEP_PARAM_LABEL[xKey]}` : SWEEP_PARAM_LABEL[xKey]}</th>
             {xs.map((x) => <th key={x} style={head}>{x}</th>)}
           </tr>
         </thead>
@@ -124,8 +127,10 @@ function SweepHeatmap({
               {row.map((c, ci) => {
                 const isBest = best != null && c.x === best.x && c.y === best.y && c.metric === best.metric && c.trades > 0;
                 const isApplied = applied != null && applied.x === c.x && applied.y === c.y;
-                const t = c.metric == null ? 0 : span > 0 ? (c.metric - lo) / span : 1;
-                const bg = c.metric == null ? '#e8e6df' : heatColor(t);
+                // 原名 `t`，因本元件已取用 useTheme() 的 `t` 而更名，語意不變。
+                const ratio = c.metric == null ? 0 : span > 0 ? (c.metric - lo) / span : 1;
+                // 熱力圖色階（heatColor 與空值格 #e8e6df）屬 PR-C 的 chartPaint 範圍，此 PR 不動。
+                const bg = c.metric == null ? '#e8e6df' : heatColor(ratio);
                 return (
                   <td
                     key={ci}
@@ -135,20 +140,21 @@ function SweepHeatmap({
                     style={{
                       ...cell,
                       background: bg,
-                      color: '#16150f',
+                      color: t.color.ink,
                       cursor: 'pointer',
-                      border: isBest ? '2px solid #16150f' : '1px solid #fff',
-                      outline: isApplied ? '3px solid #2f6df0' : 'none',
+                      border: isBest ? `2px solid ${t.color.ink}` : `1px solid ${t.color.cardBg}`,
+                      outline: isApplied ? `3px solid ${t.color.accent}` : 'none',
                       outlineOffset: '-3px',
                       fontWeight: isBest || isApplied ? 700 : 500,
                     }}
                   >
                     <div>{fmtSweepMetric(metric, c.metric)}</div>
+                    {/* #3c3a30 在 §4 只對照到 line2（邊框用），拿來當內文會過淺；暫時沿用現值。 */}
                     <div style={{ fontSize: 9, color: '#3c3a30' }}>({c.trades})</div>
                     {(isApplied || isBest) && (
                       <div style={{ fontSize: 9, fontWeight: 700, lineHeight: 1.2 }}>
-                        {isApplied && <span data-testid="sweep-applied-marker" style={{ color: '#2f6df0' }}>✓已套用</span>}
-                        {isBest && <span data-testid="sweep-best-marker" style={{ color: '#16150f', marginLeft: isApplied ? 3 : 0 }}>★</span>}
+                        {isApplied && <span data-testid="sweep-applied-marker" style={{ color: t.color.accent }}>✓已套用</span>}
+                        {isBest && <span data-testid="sweep-best-marker" style={{ color: t.color.ink, marginLeft: isApplied ? 3 : 0 }}>★</span>}
                       </div>
                     )}
                   </td>
@@ -194,6 +200,8 @@ export function SweepSection({
   resetSignal,
   help,
 }: SweepSectionProps): React.ReactElement {
+  const t = useTheme();
+  const S = makeStyles(t);
   const [sweepOpen, setSweepOpen] = useState(false);
   const [sweepX, setSweepX] = useState<SweepAxisConfig>({ key: 'fastMA', min: 5, max: 20, step: 1 });
   const [sweepY, setSweepY] = useState<SweepAxisConfig>({ key: 'slowMA', min: 20, max: 40, step: 2 });
@@ -281,7 +289,7 @@ export function SweepSection({
         <button data-testid="sweep-toggle" style={{ ...S.btnGhost, padding: '3px 10px' }} onClick={() => setSweepOpen((o) => !o)}>
           {sweepOpen ? '收合' : '展開'}
         </button>
-        <span style={{ fontSize: 10, color: '#aaa599' }}>選 1–2 個參數掃範圍，找最佳值（上限 {SWEEP_MAX_COMBOS} 組）。</span>
+        <span style={{ fontSize: 10, color: t.color.faint }}>選 1–2 個參數掃範圍，找最佳值（上限 {SWEEP_MAX_COMBOS} 組）。</span>
       </div>
 
       {sweepOpen && (
@@ -290,7 +298,7 @@ export function SweepSection({
               segment only — say so up front so the heatmap isn't misread as
               full-period. */}
           {holdout && (
-            <div data-testid="sweep-scope" style={{ fontSize: 11, color: '#2f6df0', marginBottom: 10 }}>
+            <div data-testid="sweep-scope" style={{ fontSize: 11, color: t.color.accent, marginBottom: 10 }}>
               掃描範圍：僅樣本內（前 {100 - holdoutPct}%）；末 {holdoutPct}% 樣本外保留驗證，不參與最佳化。
             </div>
           )}
@@ -303,11 +311,11 @@ export function SweepSection({
                 {SWEEP_METRIC_IDS.map((m) => <option key={m} value={m}>{SWEEP_METRIC_LABEL[m]}</option>)}
               </select>
             </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#8a8678' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: t.color.muted }}>
               <input type="checkbox" data-testid="sweep-2d" checked={sweepUse2d} onChange={(e) => { clearSweep(); setSweepUse2d(e.target.checked); }} />
               第二維 Y（二維熱力圖）
             </label>
-            <span data-testid="sweep-combos" style={{ fontSize: 11, color: sweepTooMany || sweepDupKey ? '#b23b2e' : '#aaa599' }}>
+            <span data-testid="sweep-combos" style={{ fontSize: 11, color: sweepTooMany || sweepDupKey ? t.color.danger : t.color.faint }}>
               {sweepDupKey ? 'X / Y 參數需不同' : `組合數 ${sweepCombos}${sweepTooMany ? `（超過上限 ${SWEEP_MAX_COMBOS}）` : ''}`}
             </span>
           </div>
@@ -326,10 +334,10 @@ export function SweepSection({
                 <HelpTip id="apply-best" label="套用最佳" text={help.applyBest} />
               </>
             )}
-            <span style={{ fontSize: 10, color: '#8a7a3a' }}>注意：歷史最佳常為過度擬合，務必再用樣本外驗證。</span>
+            <span style={{ fontSize: 10, color: t.color.warn }}>注意：歷史最佳常為過度擬合，務必再用樣本外驗證。</span>
           </div>
 
-          {sweepErr && <div style={{ fontSize: 12, color: '#b23b2e', marginTop: 8 }}>{sweepErr}</div>}
+          {sweepErr && <div style={{ fontSize: 12, color: t.color.danger, marginTop: 8 }}>{sweepErr}</div>}
           {sweepResult && (
             <SweepHeatmap
               result={sweepResult}

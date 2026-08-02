@@ -9,6 +9,7 @@
 // Holdout row) can't also toggle that label's control.
 
 import React, { useEffect, useId, useRef, useState } from 'react';
+import { useTheme } from '../theme/ThemeProvider';
 
 export function HelpTip({
   id,
@@ -26,6 +27,7 @@ export function HelpTip({
    *  container's right edge). Defaults to opening rightward. */
   align?: 'left' | 'right';
 }): React.ReactElement {
+  const t = useTheme();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLSpanElement>(null);
   const popId = useId();
@@ -66,10 +68,10 @@ export function HelpTip({
           width: 15,
           height: 15,
           borderRadius: '50%',
-          border: '1px solid #b8b3a6',
-          background: open ? '#16150f' : '#efece5',
-          color: open ? '#fff' : '#8a8678',
-          fontFamily: "'IBM Plex Mono', monospace",
+          border: `1px solid ${t.color.line2}`,
+          background: open ? t.button.primaryBg : t.button.ghostBg,
+          color: open ? t.button.primaryInk : t.color.muted,
+          fontFamily: t.font.mono,
           fontSize: 10,
           fontWeight: 700,
           lineHeight: '13px',
@@ -92,9 +94,11 @@ export function HelpTip({
             [align]: 0,
             zIndex: 20,
             width: 240,
-            background: '#16150f',
-            color: '#f4f1e9',
-            fontFamily: "'IBM Plex Mono', monospace",
+            // 皮膚整合 PR-B：popover 原本寫死深色底＋淺字，暗色皮膚會整片看不見。
+            // 改讀 surface2 當底、ink 當字，讓明暗皮膚都成立（規格書 §4 註記）。
+            background: t.color.surface2,
+            color: t.color.ink,
+            fontFamily: t.font.mono,
             fontSize: 11,
             fontWeight: 400,
             lineHeight: 1.5,
@@ -102,7 +106,7 @@ export function HelpTip({
             textAlign: 'left',
             whiteSpace: 'normal',
             padding: '8px 10px',
-            border: '1px solid #3c3a30',
+            border: `1px solid ${t.color.line2}`,
             boxShadow: '0 4px 14px rgba(0,0,0,0.25)',
           }}
         >

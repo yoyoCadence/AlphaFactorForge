@@ -10,10 +10,11 @@ import { db, isTauri } from './tauri-client/dataClient';
 import { BacktestPanel } from './components/BacktestPanel';
 import { ChartPopoutWindow } from './components/ChartPopoutWindow';
 import { MetricsPopoutWindow } from './components/MetricsPopoutWindow';
-import { ThemeProvider } from './theme/ThemeProvider';
+import { ThemeProvider, useTheme } from './theme/ThemeProvider';
 import './styles.css';
 
 function App(): React.ReactElement {
+  const t = useTheme();
   const [status, setStatus] = useState<string>('booting…');
 
   useEffect(() => {
@@ -27,15 +28,15 @@ function App(): React.ReactElement {
   }, []);
 
   return (
-    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: '#eceae4', color: '#16150f', fontFamily: "'IBM Plex Sans', system-ui, sans-serif", fontSize: 13 }}>
-      <header style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 14px', height: 50, background: '#fff', borderBottom: '1px solid #d6d2c8', flexShrink: 0 }}>
-        <div style={{ width: 16, height: 16, background: '#16150f', transform: 'rotate(45deg)' }} />
-        <div style={{ fontWeight: 700, fontSize: 15, letterSpacing: '0.01em' }}>
+    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: t.color.bg, color: t.color.ink, fontFamily: t.font.sans, fontSize: 13 }}>
+      <header style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 14px', height: 50, background: t.header.bg, borderBottom: `1px solid ${t.header.border}`, flexShrink: 0 }}>
+        <div style={{ width: 16, height: 16, background: t.header.markBg, transform: `rotate(${t.header.markRotate})`, borderRadius: t.header.markRadius }} />
+        <div style={{ fontWeight: 700, fontSize: 15, letterSpacing: '0.01em', color: t.header.ink }}>
           ALPHAFACTORFORGE
-          <span style={{ color: '#aaa599', fontWeight: 500, fontSize: 13 }}> /backtest</span>
+          <span style={{ color: t.color.faint, fontWeight: 500, fontSize: 13 }}> /backtest</span>
         </div>
         <div style={{ flex: 1 }} />
-        <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: '#8a8678' }}>{status}</div>
+        <div style={{ fontFamily: t.font.mono, fontSize: 11, color: t.header.muted }}>{status}</div>
       </header>
 
       <main style={{ flex: 1, overflow: 'auto', padding: 16 }}>
