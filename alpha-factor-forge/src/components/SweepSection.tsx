@@ -28,6 +28,7 @@ import { HelpTip } from './HelpTip';
 import { NumberInput } from './NumberInput';
 import { makeStyles } from './panelStyles';
 import { useTheme } from '../theme/ThemeProvider';
+import { heatColor, heatTextColor } from '../charts/chartPaint';
 
 const SWEEP_PARAM_LABEL: Record<SweepParamKey, string> = {
   fastMA: '快線MA', slowMA: '慢線MA', emaPeriod: 'EMA週期', rsiPeriod: 'RSI週期',
@@ -52,17 +53,6 @@ function sweepBestLabel(r: SweepResult): string {
   return `${x}${y} → ${fmtSweepMetric(r.metric, r.best.metric)}（${r.best.trades} 筆）`;
 }
 
-/** Heatmap color for t in [0,1]: 0 = red, 0.5 = yellow, 1 = green. */
-function heatColor(t: number): string {
-  const u = Math.max(0, Math.min(1, t));
-  const lerp = (a: number, b: number, k: number) => Math.round(a + (b - a) * k);
-  if (u < 0.5) {
-    const k = u / 0.5;
-    return `rgb(${lerp(192, 241, k)},${lerp(57, 196, k)},${lerp(43, 15, k)})`;
-  }
-  const k = (u - 0.5) / 0.5;
-  return `rgb(${lerp(241, 31, k)},${lerp(196, 138, k)},${lerp(15, 91, k)})`;
-}
 
 /** One sweep axis on a single wrap-safe row: param picker + min / max / step.
  *  Inline (not a column) so the optional 2-D Y row can't overlap neighbours. */
@@ -109,9 +99,12 @@ function SweepHeatmap({
   return (
     <div style={{ marginTop: 12, overflowX: 'auto' }}>
       <div style={{ fontSize: 11, color: t.color.muted, marginBottom: 6 }}>
-        熱力圖 · 顏色越綠越佳（{SWEEP_METRIC_LABEL[metric]}）；橫軸 {SWEEP_PARAM_LABEL[xKey]}
+        {/* 色階已由紅→黃→綠改為 token 單色階（冷 surface2 → 熱 accent），
+            「越綠越佳」在多數皮膚會是錯的敘述，故改為描述強度。 */}
+        熱力圖 · 顏色越強烈越佳（{SWEEP_METRIC_LABEL[metric]}）；橫軸 {SWEEP_PARAM_LABEL[xKey]}
         {is2d ? `、縱軸 ${SWEEP_PARAM_LABEL[yKey]}` : ''}。每格為指標值，括號為交易次數。
-        <b>點任一格</b>即套用該組合 · <span style={{ color: t.color.ink }}>★ 最佳</span> · <span style={{ color: t.color.accent }}>✓ 已套用（藍框）</span>。
+        {/* 「藍框」原本描述寫死的 #2f6df0；accent 現在隨皮膚變色，故移除顏色字眼。 */}
+        <b>點任一格</b>即套用該組合 · <span style={{ color: t.color.ink }}>★ 最佳</span> · <span style={{ color: t.color.accent }}>✓ 已套用</span>。
       </div>
       <table style={{ borderCollapse: 'collapse' }}>
         <thead>
@@ -129,8 +122,13 @@ function SweepHeatmap({
                 const isApplied = applied != null && applied.x === c.x && applied.y === c.y;
                 // 原名 `t`，因本元件已取用 useTheme() 的 `t` 而更名，語意不變。
                 const ratio = c.metric == null ? 0 : span > 0 ? (c.metric - lo) / span : 1;
-                // 熱力圖色階（heatColor 與空值格 #e8e6df）屬 PR-C 的 chartPaint 範圍，此 PR 不動。
-                const bg = c.metric == null ? '#e8e6df' : heatColor(ratio);
+                // 色階改由 chartPaint 的 token 版本產生：冷格 chart.surface2、熱格 chart.accent，
+                // 明暗皮膚共用同一組。空值格直接用冷端（= surface2），不再是寫死的灰。
+                const bg = c.metric == null ? t.chart.surface2 : heatColor(t.chart, ratio);
+                // The hot end of the ramp IS chart.accent, which in several skins
+                // is as dark as `ink` — the cell text has to flip with the fill or
+                // the best combos become unreadable.
+                const fg = c.metric == null ? t.chart.label : heatTextColor(t.chart, ratio);
                 return (
                   <td
                     key={ci}
@@ -140,21 +138,24 @@ function SweepHeatmap({
                     style={{
                       ...cell,
                       background: bg,
-                      color: t.color.ink,
+                      color: fg,
                       cursor: 'pointer',
-                      border: isBest ? `2px solid ${t.color.ink}` : `1px solid ${t.color.cardBg}`,
-                      outline: isApplied ? `3px solid ${t.color.accent}` : 'none',
+                      // Both markers key off `fg`, which already flips with the
+                      // fill: the hot end of the ramp IS the accent, so an
+                      // ink/accent border would vanish on exactly the cells the
+                      // user is looking for. ★ / ✓已套用 keep the two apart.
+                      border: isBest ? `2px solid ${fg}` : `1px solid ${t.color.cardBg}`,
+                      outline: isApplied ? `3px solid ${fg}` : 'none',
                       outlineOffset: '-3px',
                       fontWeight: isBest || isApplied ? 700 : 500,
                     }}
                   >
                     <div>{fmtSweepMetric(metric, c.metric)}</div>
-                    {/* #3c3a30 在 §4 只對照到 line2（邊框用），拿來當內文會過淺；暫時沿用現值。 */}
-                    <div style={{ fontSize: 9, color: '#3c3a30' }}>({c.trades})</div>
+                    <div style={{ fontSize: 9, color: fg, opacity: 0.8 }}>({c.trades})</div>
                     {(isApplied || isBest) && (
                       <div style={{ fontSize: 9, fontWeight: 700, lineHeight: 1.2 }}>
-                        {isApplied && <span data-testid="sweep-applied-marker" style={{ color: t.color.accent }}>✓已套用</span>}
-                        {isBest && <span data-testid="sweep-best-marker" style={{ color: t.color.ink, marginLeft: isApplied ? 3 : 0 }}>★</span>}
+                        {isApplied && <span data-testid="sweep-applied-marker" style={{ color: fg }}>✓已套用</span>}
+                        {isBest && <span data-testid="sweep-best-marker" style={{ color: fg, marginLeft: isApplied ? 3 : 0 }}>★</span>}
                       </div>
                     )}
                   </td>
