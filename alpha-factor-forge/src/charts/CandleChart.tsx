@@ -14,6 +14,9 @@ import type { Candle as CoreCandle } from '../core/backtest';
 import type { ClosedTrade } from '../core/metrics';
 import type { ParamsStrategy } from '../services/strategy';
 import { extentOf, padExtent, valueToY, tradeLegs, replayWindow, barAtX, reconcileBarWindow, zoomBarWindow, panBarWindow, type BarWindow } from './scale';
+import { paintGrid, paintBars, paintSeries, paintLine, type Bar, type Geom } from './chartPaint';
+import { useTheme } from '../theme/ThemeProvider';
+import type { ChartTheme } from '../theme/theme';
 
 export interface OverlayToggles {
   ma: boolean;
@@ -40,21 +43,18 @@ export interface CandleChartProps {
   maxBars?: number;
 }
 
-const COL = {
-  up: '#2d9f73',
-  down: '#d23b2f',
-  grid: '#efece5',
-  axis: '#8a8678',
-  maFast: '#2563eb',
-  maSlow: '#f59e0b',
+// Every other chart colour now comes from `theme.chart` (see chartPaint.ts).
+// These two have no token in the skin contract, so per the handoff rule on
+// unmapped colours they keep their current values rather than being invented.
+const UNMAPPED = {
+  /** EMA overlay — the contract only defines ma1 / ma2. */
   ema: '#7c3aed',
+  /** Bollinger band envelope. */
   bb: '#b9b4a8',
-  rsi: '#16150f',
-  playhead: '#2f6df0',
-  crosshair: '#3c3a30',
 };
 
 export function CandleChart({ candles, strat, show, trades, upto, onHoverBar, height = 360, maxBars = 500 }: CandleChartProps): React.ReactElement {
+  const C = useTheme().chart;
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [width, setWidth] = useState(0);
@@ -104,8 +104,8 @@ export function CandleChart({ candles, strat, show, trades, upto, onHoverBar, he
       layoutRef.current = null;
       return;
     }
-    layoutRef.current = draw(canvas, width, height, candles, strat, show, visibleWindow, trades, upto, hoverIndex);
-  }, [candles, strat, show, width, height, trades, upto, hoverIndex, visibleWindow.start, visibleWindow.end]);
+    layoutRef.current = draw(canvas, width, height, candles, strat, show, visibleWindow, trades, upto, hoverIndex, C);
+  }, [candles, strat, show, width, height, trades, upto, hoverIndex, visibleWindow.start, visibleWindow.end, C]);
 
   const updateHover = (clientX: number) => {
     const lay = layoutRef.current;
@@ -207,7 +207,7 @@ export function CandleChart({ candles, strat, show, trades, upto, onHoverBar, he
         onPointerLeave={() => { if (!dragRef.current) handleLeave(); }}
         style={{ width: '100%', height, display: 'block', cursor: dragging ? 'grabbing' : viewWindow != null ? 'grab' : 'crosshair', touchAction: 'none', userSelect: 'none' }}
       />
-      <div style={{ position: 'absolute', top: 8, right: 62, display: 'flex', alignItems: 'center', gap: 5, padding: '2px 4px', background: 'rgba(255,255,255,0.88)', border: '1px solid #efece5', fontFamily: "'IBM Plex Mono', monospace", fontSize: 10 }}>
+      <div style={{ position: 'absolute', top: 8, right: 62, display: 'flex', alignItems: 'center', gap: 5, padding: '2px 4px', background: C.bg, border: `1px solid ${C.grid}`, color: C.label, fontFamily: 'ui-monospace, monospace', fontSize: 10 }}>
         <span data-testid="chart-zoom-status" data-window-start={visibleWindow.start} data-window-end={visibleWindow.end} data-dragging={dragging} aria-live="polite">顯示 {visibleCount} 根</span>
         <button
           type="button"
@@ -215,7 +215,7 @@ export function CandleChart({ candles, strat, show, trades, upto, onHoverBar, he
           title="重置為自動適配"
           disabled={viewWindow == null}
           onClick={() => { setViewWindow(null); setFollowReplay(true); }}
-          style={{ padding: '1px 5px', border: '1px solid #d6d2c8', background: '#f4f2ec', color: '#3c3a30', font: 'inherit', cursor: viewWindow == null ? 'default' : 'pointer' }}
+          style={{ padding: '1px 5px', border: `1px solid ${C.axis}`, background: C.surface2, color: C.label, font: 'inherit', cursor: viewWindow == null ? 'default' : 'pointer' }}
         >
           重置
         </button>
@@ -226,7 +226,7 @@ export function CandleChart({ candles, strat, show, trades, upto, onHoverBar, he
 
 /** Filled triangle marker with a white outline. `apexY` is the point nearest
  *  the candle; 'up' points up (buy, sits below the bar), 'down' points down. */
-function drawMarker(ctx: CanvasRenderingContext2D, x: number, apexY: number, dir: 'up' | 'down', color: string): void {
+function drawMarker(ctx: CanvasRenderingContext2D, x: number, apexY: number, dir: 'up' | 'down', color: string, outline: string): void {
   const s = 4; // half base width
   const hgt = 7;
   ctx.beginPath();
@@ -243,7 +243,7 @@ function drawMarker(ctx: CanvasRenderingContext2D, x: number, apexY: number, dir
   ctx.fillStyle = color;
   ctx.fill();
   ctx.lineWidth = 1;
-  ctx.strokeStyle = '#fff';
+  ctx.strokeStyle = outline;
   ctx.stroke();
 }
 
@@ -267,6 +267,7 @@ function draw(
   trades: ClosedTrade[] | undefined,
   upto: number | undefined,
   hoverIndex: number | null,
+  C: ChartTheme,
 ): Layout {
   const dpr = window.devicePixelRatio || 1;
   canvas.width = Math.round(w * dpr);
@@ -275,7 +276,7 @@ function draw(
   if (!ctx) return { padL: 0, plotW: 0, start: 0, end: -1, n: 0 };
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, w, h);
-  ctx.fillStyle = '#fff';
+  ctx.fillStyle = C.bg;
   ctx.fillRect(0, 0, w, h);
 
   const padL = 6;
@@ -317,76 +318,41 @@ function draw(
   const ext = padExtent(extentOf(vals), 0.05);
   const py = (p: number) => valueToY(p, ext, priceTop, priceH);
 
-  // price grid + right-axis labels
-  ctx.font = "10px 'IBM Plex Mono', monospace";
-  ctx.textBaseline = 'middle';
-  ctx.strokeStyle = COL.grid;
-  ctx.fillStyle = COL.axis;
-  ctx.lineWidth = 1;
-  const ticks = 4;
-  for (let t = 0; t <= ticks; t++) {
-    const v = ext.min + ((ext.max - ext.min) * t) / ticks;
-    const y = py(v);
-    ctx.beginPath();
-    ctx.moveTo(padL, y);
-    ctx.lineTo(padL + plotW, y);
-    ctx.stroke();
-    ctx.fillText(v.toFixed(2), padL + plotW + 4, y);
-  }
-
-  // candles
+  // Bar geometry in the local (visible-window) index space the paint helpers use.
   const bodyW = Math.max(1, bw * 0.7);
-  for (let i = start; i <= end; i++) {
-    const c = candles[i];
-    const x = xc(i);
-    const up = c.c >= c.o;
-    ctx.strokeStyle = up ? COL.up : COL.down;
-    ctx.fillStyle = up ? COL.up : COL.down;
-    // wick
-    ctx.beginPath();
-    ctx.moveTo(x, py(c.h));
-    ctx.lineTo(x, py(c.l));
-    ctx.stroke();
-    // body
-    const yo = py(c.o);
-    const ycl = py(c.c);
-    const top = Math.min(yo, ycl);
-    const bh = Math.max(1, Math.abs(ycl - yo));
-    ctx.fillRect(x - bodyW / 2, top, bodyW, bh);
-  }
+  const geom: Geom = { x: (i) => xc(start + i), y: py, barWidth: bodyW };
+  const visible: Bar[] = [];
+  for (let i = start; i <= end; i++) visible.push({ open: candles[i].o, high: candles[i].h, low: candles[i].l, close: candles[i].c });
+  /** Full-series indicator -> visible slice, with warm-up NaNs as nulls. */
+  const slice = (s: Series | null | undefined): (number | null)[] | null =>
+    s ? Array.from({ length: n }, (_, i) => (Number.isFinite(s[start + i]) ? s[start + i] : null)) : null;
 
-  const polyline = (s: Series | null | undefined, color: string) => {
-    if (!s) return;
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 1.25;
-    ctx.beginPath();
-    let started = false;
-    for (let i = start; i <= end; i++) {
-      const v = s[i];
-      if (!Number.isFinite(v)) {
-        started = false;
-        continue;
-      }
-      const x = xc(i);
-      const y = py(v);
-      if (!started) {
-        ctx.moveTo(x, y);
-        started = true;
-      } else {
-        ctx.lineTo(x, y);
-      }
-    }
-    ctx.stroke();
+  // price grid + right-axis labels. Two decimals, not paintGrid's default whole
+  // numbers: every gridline would read the same for a sub-$10 instrument.
+  ctx.textBaseline = 'middle';
+  paintGrid(ctx, C, { left: padL, right: padL + plotW, top: priceTop, bottom: priceTop + priceH }, ext.max, ext.min, 4, (v) => v.toFixed(2));
+  // paintGrid sets its own 9px monospace inside a save/restore; match it so the
+  // VOL / RSI / 30 / 70 labels below stay in one type with the price axis.
+  ctx.font = '9px monospace';
+
+  // candles — `C.style` decides the mark; 'line' / 'area' skins draw no bars at
+  // all and render the close series across the whole window instead.
+  if (C.style === 'line' || C.style === 'area') paintSeries(ctx, C, visible, geom, priceTop + priceH);
+  else paintBars(ctx, C, visible, geom);
+
+  const overlay = (s: Series | null | undefined, color: string) => {
+    const values = slice(s);
+    if (values) paintLine(ctx, C, values, geom, color);
   };
 
   if (bb) {
-    polyline(bb.upper, COL.bb);
-    polyline(bb.middle, COL.bb);
-    polyline(bb.lower, COL.bb);
+    overlay(bb.upper, UNMAPPED.bb);
+    overlay(bb.middle, UNMAPPED.bb);
+    overlay(bb.lower, UNMAPPED.bb);
   }
-  polyline(maFast, COL.maFast);
-  polyline(maSlow, COL.maSlow);
-  polyline(emaArr, COL.ema);
+  overlay(maFast, C.ma1);
+  overlay(maSlow, C.ma2);
+  overlay(emaArr, UNMAPPED.ema);
 
   // trade markers: buy ▲ below the low (green), sell ▼ above the high (red)
   if (show.trades && trades && trades.length) {
@@ -396,8 +362,8 @@ function draw(
       if (lg.index < start || lg.index > end) continue;
       const c = candles[lg.index];
       const x = xc(lg.index);
-      if (lg.kind === 'buy') drawMarker(ctx, x, py(c.l) + 4, 'up', COL.up);
-      else drawMarker(ctx, x, py(c.h) - 4, 'down', COL.down);
+      if (lg.kind === 'buy') drawMarker(ctx, x, py(c.l) + 4, 'up', C.up, C.bg);
+      else drawMarker(ctx, x, py(c.h) - 4, 'down', C.down, C.bg);
     }
   }
 
@@ -409,50 +375,33 @@ function draw(
       for (let i = start; i <= end; i++) {
         const c = candles[i];
         const bh = (c.v / maxVol) * volH;
-        ctx.fillStyle = c.c >= c.o ? COL.up : COL.down;
-        ctx.globalAlpha = 0.5;
+        ctx.fillStyle = C.vol;
         ctx.fillRect(xc(i) - bodyW / 2, volTop + volH - bh, bodyW, bh);
-        ctx.globalAlpha = 1;
       }
     }
-    ctx.fillStyle = COL.axis;
+    ctx.fillStyle = C.label;
     ctx.fillText('VOL', padL + plotW + 4, volTop + 6);
   }
 
   // RSI subpanel
   if (show.rsi && rsiArr) {
     const ry = (v: number) => rsiTop + (1 - v / 100) * rsiH;
-    ctx.strokeStyle = COL.grid;
+    ctx.save();
+    ctx.strokeStyle = C.grid;
+    ctx.lineWidth = 1;
+    if (C.dash) ctx.setLineDash(C.dash);
     for (const g of [30, 70]) {
       const y = ry(g);
       ctx.beginPath();
       ctx.moveTo(padL, y);
       ctx.lineTo(padL + plotW, y);
       ctx.stroke();
-      ctx.fillStyle = COL.axis;
-      ctx.fillText(String(g), padL + plotW + 4, y);
     }
-    ctx.strokeStyle = COL.rsi;
-    ctx.lineWidth = 1.25;
-    ctx.beginPath();
-    let started = false;
-    for (let i = start; i <= end; i++) {
-      const v = rsiArr[i];
-      if (!Number.isFinite(v)) {
-        started = false;
-        continue;
-      }
-      const x = xc(i);
-      const y = ry(v);
-      if (!started) {
-        ctx.moveTo(x, y);
-        started = true;
-      } else {
-        ctx.lineTo(x, y);
-      }
-    }
-    ctx.stroke();
-    ctx.fillStyle = COL.axis;
+    ctx.restore();
+    ctx.fillStyle = C.label;
+    for (const g of [30, 70]) ctx.fillText(String(g), padL + plotW + 4, ry(g));
+    paintLine(ctx, C, Array.from({ length: n }, (_, i) => (Number.isFinite(rsiArr[start + i]) ? rsiArr[start + i] : null)), { ...geom, y: ry }, C.rsi);
+    ctx.fillStyle = C.label;
     ctx.fillText('RSI', padL + 2, rsiTop + 6);
   }
 
@@ -461,7 +410,7 @@ function draw(
   if (playhead != null && playhead >= start && playhead <= end) {
     const x = xc(playhead);
     ctx.save();
-    ctx.strokeStyle = COL.playhead;
+    ctx.strokeStyle = C.accent;
     ctx.globalAlpha = 0.6;
     ctx.lineWidth = 1;
     ctx.setLineDash([3, 3]);
@@ -476,7 +425,7 @@ function draw(
   if (hoverIndex != null && hoverIndex >= start && hoverIndex <= end) {
     const x = xc(hoverIndex);
     ctx.save();
-    ctx.strokeStyle = COL.crosshair;
+    ctx.strokeStyle = C.label;
     ctx.globalAlpha = 0.85;
     ctx.lineWidth = 1;
     ctx.setLineDash([2, 2]);
