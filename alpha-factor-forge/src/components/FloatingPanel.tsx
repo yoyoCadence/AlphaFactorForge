@@ -13,6 +13,7 @@
 // The real-OS-window variant (drag to another monitor) is the future Slice 8b.
 
 import React, { useEffect, useRef, useState } from 'react';
+import { useTheme } from '../theme/ThemeProvider';
 
 const TITLE_H = 30;
 const PAD = 8;
@@ -33,6 +34,7 @@ export function FloatingPanel({
   initial?: { x?: number; y?: number; w?: number; h?: number };
   children: (size: { w: number; h: number }) => React.ReactNode;
 }): React.ReactElement {
+  const t = useTheme();
   const [pos, setPos] = useState({ x: initial?.x ?? 140, y: initial?.y ?? 90 });
   const [size, setSize] = useState({ w: initial?.w ?? 760, h: initial?.h ?? 500 });
   // Active drag/resize gesture; null when idle. Held in a ref so the window
@@ -98,8 +100,8 @@ export function FloatingPanel({
         width: size.w,
         height: size.h,
         zIndex: 1000,
-        background: '#fff',
-        border: '1px solid #16150f',
+        background: t.color.cardBg,
+        border: `${t.shape.borderWidth}px ${t.shape.borderStyle} ${t.color.ink}`,
         boxShadow: '0 8px 30px rgba(0,0,0,0.28)',
         display: 'flex',
         flexDirection: 'column',
@@ -111,13 +113,13 @@ export function FloatingPanel({
           height: TITLE_H,
           flex: '0 0 auto',
           cursor: 'move',
-          background: '#16150f',
-          color: '#fff',
+          background: t.button.primaryBg,
+          color: t.button.primaryInk,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           padding: '0 8px',
-          fontFamily: "'IBM Plex Mono', monospace",
+          fontFamily: t.font.mono,
           fontSize: 12,
           fontWeight: 700,
           userSelect: 'none',
@@ -130,7 +132,7 @@ export function FloatingPanel({
           aria-label="關閉放大"
           onClick={onClose}
           onMouseDown={(e) => e.stopPropagation()}
-          style={{ border: 'none', background: 'transparent', color: '#fff', cursor: 'pointer', fontSize: 14, lineHeight: 1, padding: 2 }}
+          style={{ border: 'none', background: 'transparent', color: t.button.primaryInk, cursor: 'pointer', fontSize: 14, lineHeight: 1, padding: 2 }}
         >
           ✕
         </button>
@@ -146,7 +148,7 @@ export function FloatingPanel({
           width: 16,
           height: 16,
           cursor: 'nwse-resize',
-          background: 'linear-gradient(135deg, transparent 50%, #b8b3a6 50%)',
+          background: `linear-gradient(135deg, transparent 50%, ${t.color.line2} 50%)`,
         }}
       />
     </div>

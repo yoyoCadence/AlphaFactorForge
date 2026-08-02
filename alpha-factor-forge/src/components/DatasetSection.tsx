@@ -4,7 +4,8 @@
 import React from 'react';
 import type { Dataset } from '../tauri-client/commands';
 import { HelpTip } from './HelpTip';
-import { S } from './panelStyles';
+import { makeStyles } from './panelStyles';
+import { useTheme } from '../theme/ThemeProvider';
 
 export interface DatasetSectionProps {
   datasets: Dataset[];
@@ -33,6 +34,7 @@ export function DatasetSection({
   onImportTextChange,
   onImportJson,
 }: DatasetSectionProps): React.ReactElement {
+  const S = makeStyles(useTheme());
   return (
     <section style={S.card}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, margin: '0 0 8px' }}>

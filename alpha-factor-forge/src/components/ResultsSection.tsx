@@ -19,7 +19,8 @@ import { HelpTip } from './HelpTip';
 import { FloatingPanel } from './FloatingPanel';
 import { MetricsTable } from './MetricsTable';
 import { PoppedOutNote } from './PoppedOutNote';
-import { S } from './panelStyles';
+import { makeStyles } from './panelStyles';
+import { useTheme } from '../theme/ThemeProvider';
 
 export interface ResultsSectionProps {
   /** The completed run, or null when no finished backtest matches the live
@@ -50,6 +51,8 @@ export function ResultsSection({
   onMessage,
   help,
 }: ResultsSectionProps): React.ReactElement {
+  const t = useTheme();
+  const S = makeStyles(t);
   const [exporting, setExporting] = useState<'json' | 'csv' | null>(null);
   const [exportNotice, setExportNotice] = useState<{ kind: 'busy' | 'done'; text: string } | null>(null);
   const [poppedMetrics, setPoppedMetrics] = useState(false);
@@ -163,11 +166,11 @@ export function ResultsSection({
         {!artifact && (
           stale
             ? (
-              <p data-testid="result-stale" style={{ color: '#8a7a3a', fontSize: 12 }}>
+              <p data-testid="result-stale" style={{ color: t.color.warn, fontSize: 12 }}>
                 策略、資料集或 Holdout 設定已變更 — 先前的回測結果已失效（不會被存檔或匯出）。請重新執行回測。
               </p>
             )
-            : <p style={{ color: '#aaa599', fontSize: 12 }}>尚未回測 — 選資料集、設策略後按「執行回測」。</p>
+            : <p style={{ color: t.color.faint, fontSize: 12 }}>尚未回測 — 選資料集、設策略後按「執行回測」。</p>
         )}
         {artifact && (
           <>
@@ -185,8 +188,8 @@ export function ResultsSection({
                   aria-live="polite"
                   data-testid="export-status"
                   style={{
-                    color: exportNotice.kind === 'done' ? '#1f7a57' : '#8a7a3a',
-                    fontFamily: "'IBM Plex Mono', monospace",
+                    color: exportNotice.kind === 'done' ? t.color.ok : t.color.warn,
+                    fontFamily: t.font.mono,
                     fontSize: 11,
                   }}
                 >
@@ -201,7 +204,7 @@ export function ResultsSection({
               </button>
               <HelpTip id="save" label="儲存結果" text={help.save} align="right" />
             </div>
-            <p style={{ color: '#aaa599', fontSize: 11, marginTop: 8 }}>
+            <p style={{ color: t.color.faint, fontSize: 11, marginTop: 8 }}>
               儲存會寫入 strategy_def + backtest_summary + trades（segment=full）。
             </p>
           </>

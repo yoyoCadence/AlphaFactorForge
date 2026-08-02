@@ -25,7 +25,8 @@ import { HelpTip } from './HelpTip';
 import { FloatingPanel } from './FloatingPanel';
 import { PoppedOutNote } from './PoppedOutNote';
 import { NumberInput } from './NumberInput';
-import { S } from './panelStyles';
+import { makeStyles } from './panelStyles';
+import { useTheme } from '../theme/ThemeProvider';
 import type { NumKey } from './panelTypes';
 
 // The overlay-driving periods most often tweaked while reading the chart —
@@ -71,6 +72,8 @@ export function ChartSection({
   onMessage,
   helpReplayText,
 }: ChartSectionProps): React.ReactElement {
+  const t = useTheme();
+  const S = makeStyles(t);
   const [show, setShow] = useState<OverlayToggles>({ ma: true, ema: false, bb: false, rsi: true, vol: true, trades: true });
   // Bar replay (Slice 6-1): step a cursor through the loaded candles; the chart
   // clips to bars [.., cursor]. Cursor resets to the latest bar when candles change.
@@ -191,12 +194,13 @@ export function ChartSection({
     }
   }
 
-  // Highlight styling for a param that the last sweep-apply set (blue accent).
+  // Highlight styling for a param that the last sweep-apply set (accent).
+  // #eef4ff（套用底色）規格書 §4 未對照到 token，暫時沿用現值。
   const isAppliedKey = (key: NumKey) => appliedKeys.includes(key);
   const appliedInputStyle = (key: NumKey, base: React.CSSProperties): React.CSSProperties =>
-    isAppliedKey(key) ? { ...base, borderColor: '#2f6df0', background: '#eef4ff' } : base;
+    isAppliedKey(key) ? { ...base, borderColor: t.color.accent, background: '#eef4ff' } : base;
   const appliedLabelStyle = (key: NumKey): React.CSSProperties =>
-    isAppliedKey(key) ? { ...S.label, color: '#2f6df0', fontWeight: 700 } : S.label;
+    isAppliedKey(key) ? { ...S.label, color: t.color.accent, fontWeight: 700 } : S.label;
 
   // Bar-info readout (Slice 9): the "active" bar is the hovered bar if hovering,
   // else the replay cursor when replay is on, else none. Its OHLC + entry/exit
@@ -213,7 +217,7 @@ export function ChartSection({
   const liveExit = activeBar != null && signalSeries ? !!signalSeries.exit[activeBar] : false;
   const livePosition = activeBar != null && result ? positionAtTime(result.trades, candles[activeBar].t) : null;
   const posText = livePosition ? POS_LABEL[livePosition] : '—（回測後顯示）';
-  const posColor = livePosition === 'LONG' ? '#1f7a57' : livePosition === 'SHORT' ? '#b23b2e' : '#8a8678';
+  const posColor = livePosition === 'LONG' ? t.color.ok : livePosition === 'SHORT' ? t.color.danger : t.color.muted;
 
   // Chart content, factored out so it can render inline OR (Slice 8a) enlarged
   // inside a FloatingPanel. Same state either way -> edits reflow live.
@@ -227,7 +231,7 @@ export function ChartSection({
         <section style={{ ...S.card, marginBottom: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8, flexWrap: 'wrap' }}>
             <h2 style={{ ...S.h2, margin: 0 }}>圖表</h2>
-            <div style={{ display: 'flex', gap: 10, fontSize: 11, color: '#8a8678' }}>
+            <div style={{ display: 'flex', gap: 10, fontSize: 11, color: t.color.muted }}>
               {(['ma', 'ema', 'bb', 'rsi', 'vol', 'trades'] as (keyof OverlayToggles)[]).map((k) => (
                 <label key={k} style={{ display: 'flex', alignItems: 'center', gap: 3, cursor: 'pointer' }}>
                   <input type="checkbox" checked={show[k]} onChange={(e) => setShow((s) => ({ ...s, [k]: e.target.checked }))} />
@@ -235,7 +239,7 @@ export function ChartSection({
                 </label>
               ))}
             </div>
-            <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: '#aaa599' }}>
+            <span style={{ fontFamily: t.font.mono, fontSize: 11, color: t.color.faint }}>
               {loadingCandles ? '載入中…' : `${selected?.symbol ?? ''} · ${candles.length} 根`}
             </span>
             {popoutWindows.isAvailable() && (
@@ -249,8 +253,8 @@ export function ChartSection({
           </div>
           {poppedChart ? <PoppedOutNote label="圖表" onClose={() => setPoppedChart(false)} /> : renderChart(360)}
 
-          <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap', alignItems: 'center', borderTop: '1px solid #efece5', paddingTop: 10 }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#8a8678' }}>
+          <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap', alignItems: 'center', borderTop: `1px solid ${t.shape.rowLine}`, paddingTop: 10 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: t.color.muted }}>
               <input type="checkbox" data-testid="replay-toggle" checked={replayOn} onChange={(e) => { setReplayOn(e.target.checked); if (!e.target.checked) setReplayPlaying(false); }} />
               回放模式
             </label>
@@ -275,7 +279,7 @@ export function ChartSection({
                   <option value={2}>2×</option>
                   <option value={4}>4×</option>
                 </select>
-                <span data-testid="replay-readout" style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: '#16150f', minWidth: 120 }}>
+                <span data-testid="replay-readout" style={{ fontFamily: t.font.mono, fontSize: 11, color: t.color.ink, minWidth: 120 }}>
                   第 {Math.min(replayCursor, candles.length - 1) + 1} / {candles.length} 根
                 </span>
               </>
@@ -283,23 +287,24 @@ export function ChartSection({
           </div>
 
           {activeBar != null && activeCandle && (
-            <div data-testid="bar-info" style={{ display: 'flex', gap: 12, marginTop: 6, flexWrap: 'wrap', alignItems: 'center', fontFamily: "'IBM Plex Mono', monospace", fontSize: 11 }}>
-              <span style={{ color: '#8a8678' }}>第 {activeBar + 1} 根{hoverBar != null ? '（游標）' : ''}</span>
+            <div data-testid="bar-info" style={{ display: 'flex', gap: 12, marginTop: 6, flexWrap: 'wrap', alignItems: 'center', fontFamily: t.font.mono, fontSize: 11 }}>
+              <span style={{ color: t.color.muted }}>第 {activeBar + 1} 根{hoverBar != null ? '（游標）' : ''}</span>
+              {/* #3c3a30 在 §4 只對照到 line2（邊框用），拿來當內文會過淺；暫時沿用現值。 */}
               <span style={{ color: '#3c3a30' }}>開 {activeCandle.o.toFixed(2)} 高 {activeCandle.h.toFixed(2)} 低 {activeCandle.l.toFixed(2)} 收 {activeCandle.c.toFixed(2)} · 量 {activeCandle.v.toFixed(0)}</span>
-              <span style={{ color: liveEntry ? '#1f7a57' : '#aaa599', fontWeight: liveEntry ? 700 : 400 }}>進場 {liveEntry ? '✓ 成立' : '✗'}</span>
-              <span style={{ color: liveExit ? '#b23b2e' : '#aaa599', fontWeight: liveExit ? 700 : 400 }}>出場 {liveExit ? '✓ 成立' : '✗'}</span>
-              <span style={{ color: '#8a8678' }}>持倉 <b data-testid="bar-position" style={{ color: posColor }}>{posText}</b></span>
+              <span style={{ color: liveEntry ? t.color.ok : t.color.faint, fontWeight: liveEntry ? 700 : 400 }}>進場 {liveEntry ? '✓ 成立' : '✗'}</span>
+              <span style={{ color: liveExit ? t.color.danger : t.color.faint, fontWeight: liveExit ? 700 : 400 }}>出場 {liveExit ? '✓ 成立' : '✗'}</span>
+              <span style={{ color: t.color.muted }}>持倉 <b data-testid="bar-position" style={{ color: posColor }}>{posText}</b></span>
             </div>
           )}
 
-          <div style={{ display: 'flex', gap: 12, marginTop: 10, flexWrap: 'wrap', alignItems: 'flex-end', borderTop: '1px solid #efece5', paddingTop: 10 }}>
+          <div style={{ display: 'flex', gap: 12, marginTop: 10, flexWrap: 'wrap', alignItems: 'flex-end', borderTop: `1px solid ${t.shape.rowLine}`, paddingTop: 10 }}>
             {QUICK_FIELDS.map((f) => (
               <label key={f.key} data-testid={isAppliedKey(f.key) ? `quick-applied-${f.key}` : undefined} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <span style={appliedLabelStyle(f.key)}>{isAppliedKey(f.key) ? `✓ ${f.label}` : f.label}</span>
                 <NumberInput value={strat[f.key]} onChange={(n) => onChangeParam(f.key, n)} style={appliedInputStyle(f.key, { ...S.input, width: 88 })} />
               </label>
             ))}
-            <span style={{ fontSize: 10, color: '#aaa599', alignSelf: 'center' }}>調整即時重畫；完整參數見下方策略表單（<span style={{ color: '#2f6df0' }}>✓ 藍框</span>＝由掃描套用）</span>
+            <span style={{ fontSize: 10, color: t.color.faint, alignSelf: 'center' }}>調整即時重畫；完整參數見下方策略表單（<span style={{ color: t.color.accent }}>✓ 藍框</span>＝由掃描套用）</span>
           </div>
         </section>
       )}

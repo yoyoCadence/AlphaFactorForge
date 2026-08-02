@@ -5,8 +5,10 @@ import {
   popoutWindows,
   type ChartWindowSnapshot,
 } from '../tauri-client/windowBridge';
+import { useTheme } from '../theme/ThemeProvider';
 
 export function ChartPopoutWindow(): React.ReactElement {
+  const t = useTheme();
   const [snapshot, setSnapshot] = useState<ChartWindowSnapshot | null>(null);
   const [height, setHeight] = useState(() => Math.max(320, globalThis.innerHeight - 54));
   const [error, setError] = useState<string | null>(null);
@@ -48,16 +50,16 @@ export function ChartPopoutWindow(): React.ReactElement {
   }, []);
 
   return (
-    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#eceae4', color: '#16150f', fontFamily: "'IBM Plex Sans', system-ui, sans-serif" }}>
-      <header style={{ height: 46, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 10, padding: '0 14px', background: '#fff', borderBottom: '1px solid #d6d2c8' }}>
-        <div style={{ width: 12, height: 12, background: '#16150f', transform: 'rotate(45deg)' }} />
+    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: t.color.bg, color: t.color.ink, fontFamily: t.font.sans }}>
+      <header style={{ height: 46, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 10, padding: '0 14px', background: t.header.bg, borderBottom: `1px solid ${t.header.border}` }}>
+        <div style={{ width: 12, height: 12, background: t.header.markBg, transform: `rotate(${t.header.markRotate})`, borderRadius: t.header.markRadius }} />
         <strong>ALPHAFACTORFORGE /chart</strong>
-        <span style={{ marginLeft: 'auto', color: '#8a8678', fontFamily: "'IBM Plex Mono', monospace", fontSize: 11 }}>{snapshot?.title ?? '等待主視窗資料…'}</span>
+        <span style={{ marginLeft: 'auto', color: t.header.muted, fontFamily: t.font.mono, fontSize: 11 }}>{snapshot?.title ?? '等待主視窗資料…'}</span>
       </header>
       <main style={{ flex: 1, minHeight: 0, padding: 8 }}>
-        {error && <div style={{ padding: 12, color: '#b23b2e' }}>{error}</div>}
-        {!error && !snapshot && <div data-testid="chart-window-loading" style={{ padding: 12, color: '#8a8678' }}>正在同步圖表資料…</div>}
-        {!error && snapshot && snapshot.candles.length === 0 && <div style={{ padding: 12, color: '#8a8678' }}>主視窗尚未載入資料集。</div>}
+        {error && <div style={{ padding: 12, color: t.color.danger }}>{error}</div>}
+        {!error && !snapshot && <div data-testid="chart-window-loading" style={{ padding: 12, color: t.color.muted }}>正在同步圖表資料…</div>}
+        {!error && snapshot && snapshot.candles.length === 0 && <div style={{ padding: 12, color: t.color.muted }}>主視窗尚未載入資料集。</div>}
         {!error && snapshot && snapshot.candles.length > 0 && (
           <CandleChart
             candles={snapshot.candles}
