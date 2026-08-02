@@ -1,26 +1,62 @@
+/* Themed replacement for alpha-factor-forge/src/styles.css.
+ *
+ * Every literal from the current file is now a token read from the CSS custom
+ * properties that ThemeProvider writes onto the app root + <html>. Fallbacks
+ * are the current (forge-paper) values, so this file still renders correctly if
+ * the provider has not mounted yet. */
+
+:root {
+  color-scheme: light dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--afs-bg, #eceae4);
+  color: var(--afs-ink, #16150f);
+  font-family: var(--afs-sans, 'IBM Plex Sans', 'Noto Sans TC', system-ui, sans-serif);
+  font-size: var(--afs-fs, 13px);
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
 button {
   transition:
     transform 80ms ease,
     box-shadow 80ms ease,
     filter 120ms ease,
     opacity 120ms ease;
-  box-shadow: 0 1px 0 rgba(22, 21, 15, 0.18);
+  box-shadow: var(--afs-btn-shadow, 0 1px 0 rgba(22, 21, 15, 0.18));
+  border-radius: var(--afs-btn-r, 0px);
   user-select: none;
 }
 
 button:hover:not(:disabled) {
-  filter: brightness(1.04);
+  filter: brightness(1.06);
   transform: translateY(-1px);
 }
 
 button:active:not(:disabled) {
-  box-shadow: inset 0 1px 2px rgba(22, 21, 15, 0.32);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.32);
   filter: brightness(0.96);
   transform: translateY(1px);
 }
 
-button:focus-visible {
-  outline: 2px solid #2f6df0;
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--afs-accent, #2f6df0);
   outline-offset: 2px;
 }
 
@@ -33,4 +69,26 @@ button:disabled {
 button[aria-busy='true'] {
   cursor: wait !important;
   opacity: 0.78;
+}
+
+a {
+  color: var(--afs-accent, #16150f);
+  text-decoration: none;
+  border-bottom: 1px solid currentColor;
+}
+
+a:hover {
+  color: var(--afs-ok, #1f7a57);
+}
+
+::selection {
+  background: var(--afs-accent, #16150f);
+  color: var(--afs-accent-ink, #ffffff);
+}
+
+/* Dark skins: keep native form controls from rendering as light widgets. */
+[data-mode='dark'] input,
+[data-mode='dark'] select,
+[data-mode='dark'] textarea {
+  color-scheme: dark;
 }

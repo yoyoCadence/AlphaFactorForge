@@ -10,6 +10,7 @@ import { db, isTauri } from './tauri-client/dataClient';
 import { BacktestPanel } from './components/BacktestPanel';
 import { ChartPopoutWindow } from './components/ChartPopoutWindow';
 import { MetricsPopoutWindow } from './components/MetricsPopoutWindow';
+import { ThemeProvider } from './theme/ThemeProvider';
 import './styles.css';
 
 function App(): React.ReactElement {
@@ -51,4 +52,6 @@ const root = childWindow === 'chart'
   : childWindow === 'metrics'
     ? <MetricsPopoutWindow />
     : <App />;
-if (el) createRoot(el).render(root);
+// Skin PR-A: every tree (main window + both pop-outs) mounts under the same
+// provider so the theme tokens / font loading are identical across windows.
+if (el) createRoot(el).render(<ThemeProvider>{root}</ThemeProvider>);
