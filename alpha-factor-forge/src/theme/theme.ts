@@ -48,6 +48,12 @@ export interface ChartTheme {
   style: 'filled' | 'hollow' | 'bar' | 'outline' | 'soft' | 'stick' | 'block' | 'line' | 'area';
   ma1: string;
   ma2: string;
+  /** EMA overlay. A third line colour, so MA fast / MA slow / EMA stay tellable
+   *  apart when all three are on; must also avoid `up` / `down`. */
+  ema: string;
+  /** Bollinger envelope (upper / middle / lower share it). Context rather than
+   *  signal: quieter than the MA lines, but stronger than `grid`. */
+  bb: string;
   vol: string;
   rsi: string;
   /** Last-price tag + heatmap ramp target. */
@@ -218,7 +224,7 @@ export const forgePaper: Theme = {
   sectionIndex: 'none',
   chart: {
     bg: '#ffffff', grid: '#efece5', dash: null, axis: '#d6d2c8', label: '#8a8678',
-    up: '#2d9f73', down: '#d23b2f', style: 'filled', ma1: '#3a6ea5', ma2: '#d08a2c',
+    up: '#2d9f73', down: '#d23b2f', style: 'filled', ma1: '#3a6ea5', ma2: '#d08a2c', ema: '#7a5ea8', bb: '#b9b4a8',
     vol: '#d6d2c8', rsi: '#8a8678', accent: '#16150f', accentInk: '#ffffff', surface2: '#f4f1ea', lw: 1.4,
   },
 };
@@ -264,7 +270,7 @@ export const midnightTape: Theme = {
   sectionIndex: 'inline',
   chart: {
     bg: '#06080a', grid: '#131a1f', dash: [2, 4], axis: '#1a242a', label: '#6f8a7e',
-    up: '#35e08a', down: '#ff5b52', style: 'hollow', ma1: '#4bd6ff', ma2: '#e8c34a',
+    up: '#35e08a', down: '#ff5b52', style: 'hollow', ma1: '#4bd6ff', ma2: '#e8c34a', ema: '#c792ea', bb: '#3f5a52',
     vol: '#1d3a2c', rsi: '#35e08a', accent: '#35e08a', accentInk: '#04140c', surface2: '#131a1f', lw: 1.2,
   },
 };
@@ -309,7 +315,7 @@ export const swissForge: Theme = {
   sectionIndex: 'inline',
   chart: {
     bg: '#ffffff', grid: '#e2e1dc', dash: null, axis: '#0a0a0a', label: '#0a0a0a',
-    up: '#0a0a0a', down: '#e63329', style: 'bar', ma1: '#0a0a0a', ma2: '#e63329',
+    up: '#0a0a0a', down: '#e63329', style: 'bar', ma1: '#0a0a0a', ma2: '#e63329', ema: '#2b4c9b', bb: '#c9c8c3',
     vol: '#dcdbd6', rsi: '#0a0a0a', accent: '#e63329', accentInk: '#ffffff', surface2: '#f1f0ec', lw: 1.6,
   },
 };
@@ -355,7 +361,7 @@ export const atelierWarm: Theme = {
   sectionIndex: 'none',
   chart: {
     bg: '#fffdfa', grid: '#f0ebe2', dash: null, axis: '#e7e0d4', label: '#877f72',
-    up: '#5f7a63', down: '#b4573c', style: 'soft', ma1: '#7a8fa6', ma2: '#c08a52',
+    up: '#5f7a63', down: '#b4573c', style: 'soft', ma1: '#7a8fa6', ma2: '#c08a52', ema: '#6b4a8f', bb: '#d8cfc0',
     vol: '#ece5da', rsi: '#877f72', accent: '#5f7a63', accentInk: '#ffffff', surface2: '#efe9e0', lw: 1.8,
   },
 };
@@ -400,7 +406,7 @@ export const blueprint: Theme = {
   sectionIndex: 'inline',
   chart: {
     bg: '#0b2233', grid: '#1b4763', dash: [3, 3], axis: '#245c7d', label: '#7fabc8',
-    up: '#63d8ff', down: '#ff8f6b', style: 'outline', ma1: '#d9ecf8', ma2: '#ffd479',
+    up: '#63d8ff', down: '#ff8f6b', style: 'outline', ma1: '#d9ecf8', ma2: '#ffd479', ema: '#8fd6a8', bb: '#3d7ba0',
     vol: '#164059', rsi: '#63d8ff', accent: '#63d8ff', accentInk: '#062130', surface2: '#143349', lw: 1.1,
   },
 };
@@ -446,7 +452,7 @@ export const signalOrange: Theme = {
   sectionIndex: 'none',
   chart: {
     bg: '#14181d', grid: '#21262d', dash: null, axis: '#2a3037', label: '#969ca4',
-    up: '#4ec9a5', down: '#ff5252', style: 'filled', ma1: '#ff6a1f', ma2: '#7aa2ff',
+    up: '#4ec9a5', down: '#ff5252', style: 'filled', ma1: '#ff6a1f', ma2: '#7aa2ff', ema: '#c084fc', bb: '#4a525b',
     vol: '#2a3037', rsi: '#969ca4', accent: '#ff6a1f', accentInk: '#140800', surface2: '#21262d', lw: 1.5,
   },
 };
@@ -491,7 +497,7 @@ export const broadsheet: Theme = {
   sectionIndex: 'inline',
   chart: {
     bg: '#f8f6ef', grid: '#e0dbcd', dash: null, axis: '#c9c4b6', label: '#6b675c',
-    up: '#1a1a17', down: '#a3231d', style: 'stick', ma1: '#1a1a17', ma2: '#a3231d',
+    up: '#1a1a17', down: '#a3231d', style: 'stick', ma1: '#1a1a17', ma2: '#a3231d', ema: '#4a6b8a', bb: '#c2bcaa',
     vol: '#d8d3c3', rsi: '#1a1a17', accent: '#a3231d', accentInk: '#f8f6ef', surface2: '#e5e1d4', lw: 1.2,
   },
 };
@@ -537,7 +543,7 @@ export const brutalYellow: Theme = {
   sectionIndex: 'inline',
   chart: {
     bg: '#ffffff', grid: '#e2e0d6', dash: null, axis: '#000000', label: '#000000',
-    up: '#2b32ff', down: '#ff2d2d', style: 'block', ma1: '#000000', ma2: '#ff8a00',
+    up: '#2b32ff', down: '#ff2d2d', style: 'block', ma1: '#000000', ma2: '#ff8a00', ema: '#8b00ff', bb: '#9a9a92',
     vol: '#000000', rsi: '#000000', accent: '#2b32ff', accentInk: '#ffffff', surface2: '#f2f0e6', lw: 3,
   },
 };
@@ -582,7 +588,7 @@ export const frostGrey: Theme = {
   sectionIndex: 'none',
   chart: {
     bg: '#ffffff', grid: '#eef1f3', dash: null, axis: '#e3e8eb', label: '#7b8794',
-    up: '#4a7c8c', down: '#b4574f', style: 'line', ma1: '#9db4bf', ma2: '#c8a97a',
+    up: '#4a7c8c', down: '#b4574f', style: 'line', ma1: '#9db4bf', ma2: '#c8a97a', ema: '#8a4f8f', bb: '#cbd4d9',
     vol: '#eef1f3', rsi: '#7b8794', accent: '#4a7c8c', accentInk: '#ffffff', surface2: '#eef1f3', lw: 1.6,
   },
 };
@@ -638,7 +644,7 @@ export const auroraGlass: Theme = {
     // Canvas needs an opaque colour; it sits inside the translucent card.
     bg: '#141230', grid: 'rgba(255,255,255,0.07)', dash: null,
     axis: 'rgba(255,255,255,0.14)', label: '#a09cc9',
-    up: '#5eead4', down: '#fb7185', style: 'area', ma1: '#a78bfa', ma2: '#7dd3fc',
+    up: '#5eead4', down: '#fb7185', style: 'area', ma1: '#a78bfa', ma2: '#7dd3fc', ema: '#fbbf24', bb: 'rgba(255,255,255,0.24)',
     vol: 'rgba(255,255,255,0.09)', rsi: '#a78bfa',
     accent: '#a78bfa', accentInk: '#160f2e', surface2: '#2a2550', lw: 1.8,
   },
