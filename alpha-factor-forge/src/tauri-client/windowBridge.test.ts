@@ -34,7 +34,7 @@ function snapshot(datasetKey: string, close: number): ChartWindowSnapshot {
     title: datasetKey,
     candles: [{ t: 1, o: close, h: close, l: close, c: close, v: 1 }],
     strat: defaultStrategy(),
-    show: { ma: true, ema: false, bb: false, rsi: true, vol: true, trades: true },
+    show: { ma: true, ema: false, bb: false, rsi: true, vol: true, trades: true, volUpDown: false },
     trades: [],
   };
 }

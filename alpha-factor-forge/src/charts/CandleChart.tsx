@@ -25,6 +25,11 @@ export interface OverlayToggles {
   rsi: boolean;
   vol: boolean;
   trades: boolean;
+  /** Volume-strip colouring. Off = one neutral `chart.vol` (the skin's own
+   *  choice); on = the classic up/down tint, which keeps direction visible at
+   *  the cost of fighting the palette. Lives here rather than in a separate
+   *  prop so it rides the existing pop-out snapshot with no bridge change. */
+  volUpDown: boolean;
 }
 
 export interface CandleChartProps {
@@ -42,16 +47,6 @@ export interface CandleChartProps {
   height?: number;
   maxBars?: number;
 }
-
-// Every other chart colour now comes from `theme.chart` (see chartPaint.ts).
-// These two have no token in the skin contract, so per the handoff rule on
-// unmapped colours they keep their current values rather than being invented.
-const UNMAPPED = {
-  /** EMA overlay — the contract only defines ma1 / ma2. */
-  ema: '#7c3aed',
-  /** Bollinger band envelope. */
-  bb: '#b9b4a8',
-};
 
 export function CandleChart({ candles, strat, show, trades, upto, onHoverBar, height = 360, maxBars = 500 }: CandleChartProps): React.ReactElement {
   const C = useTheme().chart;
@@ -346,13 +341,13 @@ function draw(
   };
 
   if (bb) {
-    overlay(bb.upper, UNMAPPED.bb);
-    overlay(bb.middle, UNMAPPED.bb);
-    overlay(bb.lower, UNMAPPED.bb);
+    overlay(bb.upper, C.bb);
+    overlay(bb.middle, C.bb);
+    overlay(bb.lower, C.bb);
   }
   overlay(maFast, C.ma1);
   overlay(maSlow, C.ma2);
-  overlay(emaArr, UNMAPPED.ema);
+  overlay(emaArr, C.ema);
 
   // trade markers: buy ▲ below the low (green), sell ▼ above the high (red)
   if (show.trades && trades && trades.length) {
@@ -372,12 +367,14 @@ function draw(
     let maxVol = 0;
     for (let i = start; i <= end; i++) maxVol = Math.max(maxVol, candles[i].v);
     if (maxVol > 0) {
+      ctx.globalAlpha = show.volUpDown ? 0.5 : 1;
       for (let i = start; i <= end; i++) {
         const c = candles[i];
         const bh = (c.v / maxVol) * volH;
-        ctx.fillStyle = C.vol;
+        ctx.fillStyle = show.volUpDown ? (c.c >= c.o ? C.up : C.down) : C.vol;
         ctx.fillRect(xc(i) - bodyW / 2, volTop + volH - bh, bodyW, bh);
       }
+      ctx.globalAlpha = 1;
     }
     ctx.fillStyle = C.label;
     ctx.fillText('VOL', padL + plotW + 4, volTop + 6);

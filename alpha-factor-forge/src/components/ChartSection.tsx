@@ -38,7 +38,9 @@ const QUICK_FIELDS: { key: NumKey; label: string }[] = [
   { key: 'rsiPeriod', label: 'RSI 週期' },
 ];
 
-const OVERLAY_LABEL: Record<keyof OverlayToggles, string> = { ma: 'MA', ema: 'EMA', bb: 'BB', rsi: 'RSI', vol: '量', trades: '買賣' };
+// volUpDown is a rendering mode, not an overlay — it has its own button below
+// and is deliberately absent from the checkbox row.
+const OVERLAY_LABEL: Record<keyof OverlayToggles, string> = { ma: 'MA', ema: 'EMA', bb: 'BB', rsi: 'RSI', vol: '量', trades: '買賣', volUpDown: '量色' };
 
 const POS_LABEL: Record<'LONG' | 'SHORT' | 'FLAT', string> = { LONG: '多', SHORT: '空', FLAT: '空手' };
 
@@ -74,7 +76,7 @@ export function ChartSection({
 }: ChartSectionProps): React.ReactElement {
   const t = useTheme();
   const S = makeStyles(t);
-  const [show, setShow] = useState<OverlayToggles>({ ma: true, ema: false, bb: false, rsi: true, vol: true, trades: true });
+  const [show, setShow] = useState<OverlayToggles>({ ma: true, ema: false, bb: false, rsi: true, vol: true, trades: true, volUpDown: false });
   // Bar replay (Slice 6-1): step a cursor through the loaded candles; the chart
   // clips to bars [.., cursor]. Cursor resets to the latest bar when candles change.
   const [replayOn, setReplayOn] = useState(false);
@@ -239,6 +241,18 @@ export function ChartSection({
                 </label>
               ))}
             </div>
+            {/* Volume colouring: the skin's neutral `chart.vol` by default, or
+                the classic up/down tint on demand. Disabled with the strip. */}
+            <button
+              data-testid="vol-color-toggle"
+              aria-pressed={show.volUpDown}
+              title={show.volUpDown ? '成交量目前依漲跌著色，點擊改為皮膚單色' : '成交量目前為皮膚單色，點擊改為依漲跌著色'}
+              disabled={!show.vol}
+              style={{ ...S.btnGhost, padding: '3px 10px' }}
+              onClick={() => setShow((s) => ({ ...s, volUpDown: !s.volUpDown }))}
+            >
+              量色：{show.volUpDown ? '漲跌' : '單色'}
+            </button>
             <span style={{ fontFamily: t.font.mono, fontSize: 11, color: t.color.faint }}>
               {loadingCandles ? '載入中…' : `${selected?.symbol ?? ''} · ${candles.length} 根`}
             </span>
