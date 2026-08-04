@@ -9,8 +9,7 @@ export function PoppedOutNote({ label, onClose }: { label: string; onClose: () =
   const t = useTheme();
   const S = makeStyles(t);
   return (
-    // #f4f2ec (背景) 與 #cfccc4 (虛線框) 規格書 §4 未對照到 token，暫時沿用現值。
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '18px 12px', background: '#f4f2ec', border: '1px dashed #cfccc4', color: t.color.muted, fontSize: 12 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '18px 12px', background: t.color.surface2, border: `1px dashed ${t.color.line}`, color: t.color.muted, fontSize: 12 }}>
       {label}已彈出放大檢視。
       <button style={{ ...S.btnGhost, padding: '2px 8px' }} onClick={onClose}>收合</button>
     </div>

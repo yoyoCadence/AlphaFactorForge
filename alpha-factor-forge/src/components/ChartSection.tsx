@@ -197,10 +197,9 @@ export function ChartSection({
   }
 
   // Highlight styling for a param that the last sweep-apply set (accent).
-  // #eef4ff（套用底色）規格書 §4 未對照到 token，暫時沿用現值。
   const isAppliedKey = (key: NumKey) => appliedKeys.includes(key);
   const appliedInputStyle = (key: NumKey, base: React.CSSProperties): React.CSSProperties =>
-    isAppliedKey(key) ? { ...base, borderColor: t.color.accent, background: '#eef4ff' } : base;
+    isAppliedKey(key) ? { ...base, borderColor: t.color.accent, background: t.color.accentWash } : base;
   const appliedLabelStyle = (key: NumKey): React.CSSProperties =>
     isAppliedKey(key) ? { ...S.label, color: t.color.accent, fontWeight: 700 } : S.label;
 
@@ -303,8 +302,9 @@ export function ChartSection({
           {activeBar != null && activeCandle && (
             <div data-testid="bar-info" style={{ display: 'flex', gap: 12, marginTop: 6, flexWrap: 'wrap', alignItems: 'center', fontFamily: t.font.mono, fontSize: 11 }}>
               <span style={{ color: t.color.muted }}>第 {activeBar + 1} 根{hoverBar != null ? '（游標）' : ''}</span>
-              {/* #3c3a30 在 §4 只對照到 line2（邊框用），拿來當內文會過淺；暫時沿用現值。 */}
-              <span style={{ color: '#3c3a30' }}>開 {activeCandle.o.toFixed(2)} 高 {activeCandle.h.toFixed(2)} 低 {activeCandle.l.toFixed(2)} 收 {activeCandle.c.toFixed(2)} · 量 {activeCandle.v.toFixed(0)}</span>
+              {/* The OHLC figures are the data this row exists for, so they take
+                  `ink` while the labels around them stay muted. */}
+              <span style={{ color: t.color.ink }}>開 {activeCandle.o.toFixed(2)} 高 {activeCandle.h.toFixed(2)} 低 {activeCandle.l.toFixed(2)} 收 {activeCandle.c.toFixed(2)} · 量 {activeCandle.v.toFixed(0)}</span>
               <span style={{ color: liveEntry ? t.color.ok : t.color.faint, fontWeight: liveEntry ? 700 : 400 }}>進場 {liveEntry ? '✓ 成立' : '✗'}</span>
               <span style={{ color: liveExit ? t.color.danger : t.color.faint, fontWeight: liveExit ? 700 : 400 }}>出場 {liveExit ? '✓ 成立' : '✗'}</span>
               <span style={{ color: t.color.muted }}>持倉 <b data-testid="bar-position" style={{ color: posColor }}>{posText}</b></span>
