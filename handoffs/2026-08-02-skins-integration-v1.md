@@ -113,10 +113,67 @@ satisfy this suite.**
   `ChartPopoutWindow` derives its canvas height from `innerHeight - 54`, which
   assumes that constant — logic, not style, so out of this task's scope.
 - `AlphaFactorForge Skins.dc.html`, the browsable design mock the two handoff
-  documents reference, was **not** in the delivered zip. All rendering decisions
-  were therefore made against `theme.ts`'s token values and `chartPaint.ts`'s
-  implementation, not against the mock. Anyone comparing the shipped skins to
-  the designer's intent should get that file first.
+  documents reference, was missing from the first zip; the designer supplied it
+  (with `support.js`) on 2026-08-04 and the implementation was verified against
+  it — see "Verification against the design mock" below.
+
+## Verification against the design mock (2026-08-04)
+
+The mock arrived after PR-D was opened. Two checks were run against it.
+
+**Token values: exact match.** The mock's `SKINS` array was extracted and
+diffed against `theme.ts` + `themeToCssVars()` — 10 skins × (CSS vars + chart +
+tab/chip state pairs) produced **zero value mismatches**. The only key-level
+differences are representational (the mock also carries `ma1`/`ma2` in its flat
+CSS-var bag; the app keeps them in `theme.chart`, same values) plus the
+`ema`/`bb` chart tokens the app added, which the mock genuinely does not define
+— its chart draws `ma1`/`ma2` only, so the app needed colours for overlays the
+mock never had.
+
+**Canvas painting: five gaps, all closed in PR-D.** Reading the mock's own
+draw code turned up differences no token diff could catch:
+
+1. The last-price tag (dashed accent rule at the newest close plus a filled tag
+   in the right gutter) was missing entirely — even though `chart.accent`'s own
+   doc comment names it. Added, reading the newest *visible* close so the replay
+   cursor still bounds it and no future bar leaks.
+2. Volume opacity 0.85 (was 1.0) for the neutral fill.
+3. `ma2` dashed `[5,3]` in the OHLC-`bar` skin.
+4. RSI 30/70 guides always dashed `[2,3]`, unlike the price grid, which follows
+   the skin's own `dash`.
+5. Axis type unified on `9px 'IBM Plex Mono', monospace` (the handoff's
+   `paintGrid` had a no-op ternary that always yielded plain `monospace`).
+
+**The two handoff artifacts disagreed on heat-cell ink, and the mock was
+right.** `chartPaint.heatTextColor` thresholded the *ramp position*
+(`t > 0.55`); the mock measures the luminance of the fill actually produced.
+Position is a poor proxy because `accent` is near-black in some skins and a
+bright green or cyan in others. Now measured — and measured better than the
+mock: rather than one luminance cut-off, both candidate inks are scored by
+contrast ratio and the stronger wins, because a single cut-off picks the wrong
+side for mid-tone fills.
+
+**Residual, needs an owner call.** The mock fixes the two inks at `#111111` /
+`#f2f2f2`. For a mid-tone fill sitting between them the best either can achieve
+is ~4.09:1 — a property of that pair, not a tuning miss. Measured worst case
+across all ten skins at 1% ramp steps is **4.112 (broadsheet, t=0.77)**, just
+under WCAG AA. Swapping the pair for pure `#000000` / `#ffffff` raises the
+floor to **4.587** and clears AA, at an imperceptible cost on a coloured fill.
+Left at the design's values; `src/charts/chartPaint.test.ts` asserts ≥4.0 and
+documents both numbers.
+
+**Design decisions deliberately NOT adopted** (outside this task, which the
+施工單 scoped to the style layer with "behaviour diff 應為零"):
+
+- The mock's screen layout differs — chart and strategy editor side by side on
+  top, then dataset / metrics / sweep in a row. The app keeps its current
+  arrangement.
+- The mock renders the overlay toggles (MA / EMA / BB / RSI / VOL) as chips,
+  which is what `panelStyles`' still-unused `chip()` helper is for; the app uses
+  checkboxes.
+- The mock shows screens and controls the app does not have (symbol + interval
+  bar with live price, 策略庫 / 探索執行 tabs, exchange-fallback select,
+  engine-parity footer). Those belong with the PR-E screens.
 
 ## Not in scope (per the施工單)
 

@@ -39,7 +39,7 @@ export function paintGrid(
   g.strokeStyle = C.grid;
   g.lineWidth = 1;
   if (C.dash) g.setLineDash(C.dash);
-  g.font = `9px ${C.label ? 'monospace' : 'monospace'}`;
+  g.font = "9px 'IBM Plex Mono', monospace";
   g.textBaseline = 'middle';
   for (let i = 0; i <= lines; i++) {
     const y = Math.round(box.top + (box.bottom - box.top) * (i / lines)) + 0.5;
@@ -217,8 +217,40 @@ export function heatColor(C: ChartTheme, t: number): string {
   return `rgb(${A.map((v, i) => Math.round(v + (B[i] - v) * clamp * 0.92)).join(',')})`;
 }
 
+/** Ink for a heat cell, chosen from the luminance of the fill that cell actually
+ *  gets — not from the ramp position. Position is a poor proxy: `accent` is
+ *  bright in some skins and near-black in others, so the same `t` needs opposite
+ *  ink depending on the skin. These two values are deliberately not tokens; they
+ *  have to contrast with the computed fill, not with the palette. */
 export function heatTextColor(C: ChartTheme, t: number): string {
-  return t > 0.55 ? C.accentInk : C.label;
+  const fill = heatColor(C, t).slice(4, -1).split(',').map(Number);
+  // Measure both candidates rather than thresholding the luminance. A single
+  // cut-off picks the wrong side for mid-tone fills — several skins land there
+  // in the middle of the ramp, where the "obvious" light ink is the worse of
+  // the two by more than a point of contrast ratio.
+  return contrastRatio(fill, HEAT_INK_DARK) >= contrastRatio(fill, HEAT_INK_LIGHT)
+    ? HEAT_INK_DARK.hex
+    : HEAT_INK_LIGHT.hex;
+}
+
+/** The two inks a heat cell may use. Deliberately not tokens: they have to
+ *  contrast with the computed fill, not with the skin's palette. */
+const HEAT_INK_DARK = { hex: '#111111', rgb: [17, 17, 17] as number[] };
+const HEAT_INK_LIGHT = { hex: '#f2f2f2', rgb: [242, 242, 242] as number[] };
+
+/** WCAG relative luminance. */
+function relativeLuminance(rgb: number[]): number {
+  const [r, g, b] = rgb.map((v) => {
+    const c = v / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+function contrastRatio(a: number[], ink: { rgb: number[] }): number {
+  const la = relativeLuminance(a);
+  const lb = relativeLuminance(ink.rgb);
+  return la > lb ? (la + 0.05) / (lb + 0.05) : (lb + 0.05) / (la + 0.05);
 }
 
 function hexToRgb(hex: string): number[] {
