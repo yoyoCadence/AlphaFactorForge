@@ -83,6 +83,10 @@ export interface Theme {
     line2: string;
     accent: string;
     accentInk: string;
+    /** Field background marking a value the parameter sweep set. A low-intensity
+     *  accent tint over `shape.fieldBg`, so `ink` stays readable on top of it —
+     *  a pale blue wash would be wrong on the dark skins. */
+    accentWash: string;
     ok: string;
     warn: string;
     danger: string;
@@ -190,8 +194,8 @@ export const forgePaper: Theme = {
   mode: 'light',
   color: {
     bg: '#eceae4', surface: '#ffffff', surface2: '#f4f1ea', cardBg: '#ffffff',
-    ink: '#16150f', muted: '#8a8678', faint: '#aaa599', line: '#d6d2c8', line2: '#b8b3a6',
-    accent: '#16150f', accentInk: '#ffffff', ok: '#1f7a57', warn: '#8a7a3a', danger: '#b23b2e',
+    ink: '#16150f', muted: '#6d6a5f', faint: '#979388', line: '#d6d2c8', line2: '#b8b3a6',
+    accent: '#16150f', accentInk: '#ffffff', accentWash: '#e3e3e2', ok: '#1f7a57', warn: '#8a7a3a', danger: '#b23b2e',
   },
   font: {
     sans: `'IBM Plex Sans',${CJK.sans},system-ui,sans-serif`,
@@ -207,7 +211,7 @@ export const forgePaper: Theme = {
   },
   button: { primaryBg: '#16150f', primaryInk: '#ffffff', ghostBg: '#efece5', ghostInk: '#16150f', ghostLine: '#d6d2c8' },
   header: {
-    bg: '#ffffff', ink: '#16150f', muted: '#8a8678', height: 50, border: '#d6d2c8',
+    bg: '#ffffff', ink: '#16150f', muted: '#6d6a5f', height: 50, border: '#d6d2c8',
     markBg: '#16150f', markRadius: '0px', markRotate: '45deg',
   },
   track: { bg: 'transparent', pad: 0, radius: 0, gap: 0, underline: '1px solid #d6d2c8' },
@@ -223,7 +227,7 @@ export const forgePaper: Theme = {
   },
   sectionIndex: 'none',
   chart: {
-    bg: '#ffffff', grid: '#efece5', dash: null, axis: '#d6d2c8', label: '#8a8678',
+    bg: '#ffffff', grid: '#efece5', dash: null, axis: '#d6d2c8', label: '#6d6a5f',
     up: '#2d9f73', down: '#d23b2f', style: 'filled', ma1: '#3a6ea5', ma2: '#d08a2c', ema: '#7a5ea8', bb: '#b9b4a8',
     vol: '#d6d2c8', rsi: '#8a8678', accent: '#16150f', accentInk: '#ffffff', surface2: '#f4f1ea', lw: 1.4,
   },
@@ -235,8 +239,8 @@ export const midnightTape: Theme = {
   mode: 'dark',
   color: {
     bg: '#06080a', surface: '#0d1114', surface2: '#131a1f', cardBg: '#0d1114',
-    ink: '#cfe3d8', muted: '#6f8a7e', faint: '#4a6157', line: '#1a242a', line2: '#27353d',
-    accent: '#35e08a', accentInk: '#04140c', ok: '#35e08a', warn: '#e8c34a', danger: '#ff5b52',
+    ink: '#cfe3d8', muted: '#6f8a7e', faint: '#51675e', line: '#1a242a', line2: '#27353d',
+    accent: '#35e08a', accentInk: '#04140c', accentWash: '#0c2219', ok: '#35e08a', warn: '#e8c34a', danger: '#ff5b52',
   },
   font: {
     sans: `'JetBrains Mono',${CJK.hei},monospace`,
@@ -281,8 +285,8 @@ export const swissForge: Theme = {
   mode: 'light',
   color: {
     bg: '#ffffff', surface: '#ffffff', surface2: '#f1f0ec', cardBg: '#ffffff',
-    ink: '#0a0a0a', muted: '#6f6f6b', faint: '#a5a5a0', line: '#0a0a0a', line2: '#0a0a0a',
-    accent: '#e63329', accentInk: '#ffffff', ok: '#147a4e', warn: '#a8720a', danger: '#e63329',
+    ink: '#0a0a0a', muted: '#6f6f6b', faint: '#93938e', line: '#0a0a0a', line2: '#0a0a0a',
+    accent: '#e63329', accentInk: '#ffffff', accentWash: '#fce7e5', ok: '#147a4e', warn: '#a8720a', danger: '#e63329',
   },
   font: {
     sans: `'Space Grotesk',${CJK.sung},sans-serif`,
@@ -326,8 +330,8 @@ export const atelierWarm: Theme = {
   mode: 'light',
   color: {
     bg: '#f4f1ec', surface: '#fffdfa', surface2: '#efe9e0', cardBg: '#fffdfa',
-    ink: '#2b2925', muted: '#877f72', faint: '#b0a899', line: '#e7e0d4', line2: '#d5ccbc',
-    accent: '#5f7a63', accentInk: '#ffffff', ok: '#4d7a5b', warn: '#a8792c', danger: '#b4573c',
+    ink: '#2b2925', muted: '#746d62', faint: '#979084', line: '#e7e0d4', line2: '#d5ccbc',
+    accent: '#5f7a63', accentInk: '#ffffff', accentWash: '#e4e4dc', ok: '#4d7a5b', warn: '#a8792c', danger: '#b4573c',
   },
   font: {
     sans: `'Manrope',${CJK.kai},sans-serif`,
@@ -344,7 +348,7 @@ export const atelierWarm: Theme = {
   },
   button: { primaryBg: '#5f7a63', primaryInk: '#ffffff', ghostBg: '#efe9e0', ghostInk: '#2b2925', ghostLine: '#e2dad0' },
   header: {
-    bg: '#fffdfa', ink: '#2b2925', muted: '#877f72', height: 62, border: '#e7e0d4',
+    bg: '#fffdfa', ink: '#2b2925', muted: '#746d62', height: 62, border: '#e7e0d4',
     markBg: '#5f7a63', markRadius: '999px', markRotate: '0deg',
   },
   track: { bg: '#efe9e0', pad: 4, radius: 999, gap: 4, underline: '0px solid transparent' },
@@ -360,7 +364,7 @@ export const atelierWarm: Theme = {
   },
   sectionIndex: 'none',
   chart: {
-    bg: '#fffdfa', grid: '#f0ebe2', dash: null, axis: '#e7e0d4', label: '#877f72',
+    bg: '#fffdfa', grid: '#f0ebe2', dash: null, axis: '#e7e0d4', label: '#746d62',
     up: '#5f7a63', down: '#b4573c', style: 'soft', ma1: '#7a8fa6', ma2: '#c08a52', ema: '#6b4a8f', bb: '#d8cfc0',
     vol: '#ece5da', rsi: '#877f72', accent: '#5f7a63', accentInk: '#ffffff', surface2: '#efe9e0', lw: 1.8,
   },
@@ -373,7 +377,7 @@ export const blueprint: Theme = {
   color: {
     bg: '#0b2233', surface: '#0f2b40', surface2: '#143349', cardBg: '#0f2b40',
     ink: '#d9ecf8', muted: '#7fabc8', faint: '#55809e', line: '#245c7d', line2: '#2f7297',
-    accent: '#63d8ff', accentInk: '#062130', ok: '#7ef0c0', warn: '#ffd479', danger: '#ff8f6b',
+    accent: '#63d8ff', accentInk: '#062130', accentWash: '#16384b', ok: '#7ef0c0', warn: '#ffd479', danger: '#ff8f6b',
   },
   font: {
     sans: `'IBM Plex Mono',${CJK.serif},monospace`,
@@ -418,7 +422,7 @@ export const signalOrange: Theme = {
   color: {
     bg: '#101317', surface: '#191d23', surface2: '#21262d', cardBg: '#191d23',
     ink: '#e9e7e4', muted: '#969ca4', faint: '#6b7178', line: '#2a3037', line2: '#3a424b',
-    accent: '#ff6a1f', accentInk: '#140800', ok: '#4ec9a5', warn: '#ffb020', danger: '#ff5252',
+    accent: '#ff6a1f', accentInk: '#140800', accentWash: '#30221d', ok: '#4ec9a5', warn: '#ffb020', danger: '#ff5252',
   },
   font: {
     sans: `'Barlow Semi Condensed',${CJK.round},sans-serif`,
@@ -463,8 +467,8 @@ export const broadsheet: Theme = {
   mode: 'light',
   color: {
     bg: '#efece2', surface: '#f8f6ef', surface2: '#e5e1d4', cardBg: '#f8f6ef',
-    ink: '#1a1a17', muted: '#6b675c', faint: '#9a958a', line: '#c9c4b6', line2: '#1a1a17',
-    accent: '#a3231d', accentInk: '#f8f6ef', ok: '#2a6b46', warn: '#8a6a1e', danger: '#a3231d',
+    ink: '#1a1a17', muted: '#6b675c', faint: '#918c82', line: '#c9c4b6', line2: '#1a1a17',
+    accent: '#a3231d', accentInk: '#f8f6ef', accentWash: '#f4e4df', ok: '#2a6b46', warn: '#8a6a1e', danger: '#a3231d',
   },
   font: {
     sans: `'Spectral',${CJK.songHK},serif`,
@@ -508,8 +512,8 @@ export const brutalYellow: Theme = {
   mode: 'light',
   color: {
     bg: '#f2f0e6', surface: '#ffffff', surface2: '#ffe600', cardBg: '#ffffff',
-    ink: '#000000', muted: '#4a4a45', faint: '#87877e', line: '#000000', line2: '#000000',
-    accent: '#2b32ff', accentInk: '#ffffff', ok: '#009e5c', warn: '#ff8a00', danger: '#ff2d2d',
+    ink: '#000000', muted: '#4a4a45', faint: '#828279', line: '#000000', line2: '#000000',
+    accent: '#2b32ff', accentInk: '#ffffff', accentWash: '#e6e6ff', ok: '#009e5c', warn: '#ff8a00', danger: '#ff2d2d',
   },
   font: {
     sans: `'Archivo',${CJK.heavy},sans-serif`,
@@ -554,8 +558,8 @@ export const frostGrey: Theme = {
   mode: 'light',
   color: {
     bg: '#f5f7f8', surface: '#ffffff', surface2: '#eef1f3', cardBg: '#ffffff',
-    ink: '#1f2933', muted: '#7b8794', faint: '#aebac4', line: '#e3e8eb', line2: '#cfd7dd',
-    accent: '#4a7c8c', accentInk: '#ffffff', ok: '#3f8f6f', warn: '#a8843c', danger: '#b4574f',
+    ink: '#1f2933', muted: '#61707e', faint: '#8b959d', line: '#e3e8eb', line2: '#cfd7dd',
+    accent: '#4a7c8c', accentInk: '#ffffff', accentWash: '#e9eff1', ok: '#3f8f6f', warn: '#a8843c', danger: '#b4574f',
   },
   font: {
     sans: `'Jost',${CJK.sans},sans-serif`,
@@ -571,7 +575,7 @@ export const frostGrey: Theme = {
   },
   button: { primaryBg: '#1f2933', primaryInk: '#ffffff', ghostBg: '#ffffff', ghostInk: '#1f2933', ghostLine: '#e3e8eb' },
   header: {
-    bg: '#ffffff', ink: '#1f2933', muted: '#7b8794', height: 64, border: '#e3e8eb',
+    bg: '#ffffff', ink: '#1f2933', muted: '#61707e', height: 64, border: '#e3e8eb',
     markBg: '#4a7c8c', markRadius: '999px', markRotate: '0deg',
   },
   track: { bg: 'transparent', pad: 0, radius: 0, gap: 0, underline: '1px solid #e3e8eb' },
@@ -587,7 +591,7 @@ export const frostGrey: Theme = {
   },
   sectionIndex: 'none',
   chart: {
-    bg: '#ffffff', grid: '#eef1f3', dash: null, axis: '#e3e8eb', label: '#7b8794',
+    bg: '#ffffff', grid: '#eef1f3', dash: null, axis: '#e3e8eb', label: '#61707e',
     up: '#4a7c8c', down: '#b4574f', style: 'line', ma1: '#9db4bf', ma2: '#c8a97a', ema: '#8a4f8f', bb: '#cbd4d9',
     vol: '#eef1f3', rsi: '#7b8794', accent: '#4a7c8c', accentInk: '#ffffff', surface2: '#eef1f3', lw: 1.6,
   },
@@ -603,7 +607,7 @@ export const auroraGlass: Theme = {
     surface: 'rgba(255,255,255,0.06)', surface2: 'rgba(255,255,255,0.10)', cardBg: 'rgba(255,255,255,0.055)',
     ink: '#eceafd', muted: '#a09cc9', faint: '#726ea0',
     line: 'rgba(255,255,255,0.14)', line2: 'rgba(255,255,255,0.26)',
-    accent: '#a78bfa', accentInk: '#160f2e', ok: '#5eead4', warn: '#fbbf24', danger: '#fb7185',
+    accent: '#a78bfa', accentInk: '#160f2e', accentWash: 'rgba(167,139,250,0.18)', ok: '#5eead4', warn: '#fbbf24', danger: '#fb7185',
   },
   font: {
     sans: `'Sora',${CJK.soft},sans-serif`,

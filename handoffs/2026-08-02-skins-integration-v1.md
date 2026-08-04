@@ -92,11 +92,88 @@ satisfy this suite.**
 
 ## Known open items (carried verbatim from the施工單 §6)
 
-- `forge-paper` 的 `muted` #8a8678 與 `frost-grey` 的 #7b8794 對比為 3.65:1 /
+- ~~`forge-paper` 的 `muted` #8a8678 與 `frost-grey` 的 #7b8794 對比為 3.65:1 /
   3.66:1，未達 AA；前者沿用既有 `panelStyles.ts` 的值。要補到 AA 就改成
-  #6f6b5e / #61707e（只影響 10px 欄位標籤），是否更動由 owner 決定。
+  #6f6b5e / #61707e（只影響 10px 欄位標籤），是否更動由 owner 決定。~~
+  **Done 2026-08-04 — and the spec understated it; see "Contrast pass" below.**
 - 字型走 Google Fonts CDN；桌面版離線需求出現時改為打包 woff2 + `@font-face`，
   token 不用動。
+
+## Contrast pass (2026-08-04)
+
+Owner asked for the `muted` AA item and for the unmapped colours to get tokens,
+"if there is no downside". Auditing every skin first changed the shape of both.
+
+**The `muted` gap was wider than the spec said.** The spec named two skins and
+asserted the rest were ≥4.5. Measured, **three** fail — `forge-paper` 3.64,
+`atelier-warm` 3.90 (unlisted), `frost-grey` 3.66 — and the identical value also
+sits in `header.muted` and `chart.label`, so fixing `color.muted` alone would
+have left the header status line and the canvas axis labels below AA. All three
+tokens were raised in all three skins:
+
+| skin | was | now | on cardBg | on bg |
+|---|---|---|---|---|
+| forge-paper | `#8a8678` | `#6d6a5f` | 5.43 | 4.51 |
+| atelier-warm | `#877f72` | `#746d62` | 5.04 | — |
+| frost-grey | `#7b8794` | `#61707e` | 5.09 | — |
+
+`forge-paper` uses `#6d6a5f` rather than the spec's `#6f6b5e`: the spec's value
+clears AA on the card (5.33) but not on the page background (4.43), and muted
+text appears on both. Two units darker, imperceptible, correct on both surfaces.
+
+`chart.rsi` carries the same old value in those skins and was deliberately left
+alone — it is a data line, not text, so the text contrast rule does not govern
+it.
+
+**`faint` was fixed by moving the misuse, not by raising the token.** It failed
+AA in all nine measurable skins (1.98–3.62), but classifying its eleven call
+sites showed the token was not the problem: eight carried text the user has to
+read — the empty-state instruction that tells a first-time user what to do, the
+「（無規則 → 不觸發）」 warning that the strategy will never fire, the dataset bar
+count, the sweep combo count — while only three were genuine de-emphasis (the
+entry/exit ✗ paired against a bold coloured ✓, and the `/backtest` suffix).
+
+The eight moved to `muted`, which is AA everywhere after the pass above.
+`faint` kept its role and was raised only to 3:1 — the UI-component bar, which
+is the right target for one half of a paired state. Raising it to 4.5 instead
+would have put it level with `muted` and collapsed ink → muted → faint into two
+steps.
+
+| skin | was | now | worst of cardBg / header.bg |
+|---|---|---|---|
+| forge-paper | `#aaa599` (2.46) | `#979388` | 3.07 |
+| midnight-tape | `#4a6157` (2.83) | `#51675e` | 3.13 |
+| swiss-forge | `#a5a5a0` (2.47) | `#93938e` | 3.09 |
+| atelier-warm | `#b0a899` (2.32) | `#979084` | 3.10 |
+| broadsheet | `#9a958a` (2.76) | `#918c82` | 3.09 |
+| brutal-yellow | `#87877e` (2.86) | `#828279` | 3.07 |
+| frost-grey | `#aebac4` (1.98) | `#8b959d` | 3.06 |
+
+`midnight-tape` is the one that gets *lighter*: it is a dark skin, so contrast
+comes from moving away from the background, not from darkening. `blueprint`
+(3.45) and `signal-orange` (3.43) already cleared the bar; `aurora-glass` is
+translucent with nothing fixed to measure against.
+
+The test asserts the three steps stay distinct (ink/muted ≥ 1.5×, muted/faint
+≥ 1.2×), so a later contrast fix cannot quietly flatten the palette into two
+tones pretending to be three.
+
+**swiss-forge's accent pair cannot reach AA.** White on its signal red
+`#e63329` is 4.31:1, and that red is the skin's identity. `contrast.test.ts`
+names the exception explicitly and still asserts ≥4.3 so a regression is caught.
+
+**The four unmapped colours are gone.** `#f4f2ec` → `color.surface2`,
+`#cfccc4` → `color.line`, `#3c3a30` → `color.ink` (the OHLC readout is the data
+the row exists for, so it takes ink while its labels stay muted), and `#eef4ff`
+became a new `color.accentWash` token — a low-intensity accent tint over
+`fieldBg`, derived per skin, because a pale blue wash is wrong on the six dark
+and non-blue skins. `ink` on `accentWash` measures ≥10:1 everywhere.
+
+With that, `grep -nE "#[0-9a-fA-F]{6}" src/components/` finally returns comments
+only — the施工單's PR-B acceptance line, met in full.
+
+`src/theme/contrast.test.ts` locks all of it: eight foreground/background pairs
+per skin, plus a check that raising `muted` did not flatten the ink/muted step.
 
 ## Additional open items found during the port
 

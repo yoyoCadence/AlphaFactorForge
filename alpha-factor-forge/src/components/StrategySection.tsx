@@ -103,7 +103,7 @@ function RuleRows({ title, rules, onChange }: { title: string; rules: Rule[]; on
         <span style={S.label}>{title}（全部成立才觸發）</span>
         <button style={{ ...S.btnGhost, padding: '2px 8px' }} onClick={add}>＋ 規則</button>
       </div>
-      {rules.length === 0 && <div style={{ fontSize: 11, color: t.color.faint }}>（無規則 → 不觸發）</div>}
+      {rules.length === 0 && <div style={{ fontSize: 11, color: t.color.muted }}>（無規則 → 不觸發）</div>}
       {rules.map((r, i) => (
         <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 58px 1fr 22px', gap: 4, marginBottom: 4 }}>
           <select value={r.l} onChange={(e) => update(i, { l: e.target.value as OperandId })} style={{ ...S.input, fontSize: 11 }}>
@@ -191,10 +191,9 @@ export function StrategySection({
   const t = useTheme();
   const S = makeStyles(t);
   // Highlight styling for a param that the last sweep-apply set (accent).
-  // #eef4ff（套用底色）規格書 §4 未對照到 token，暫時沿用現值。
   const isAppliedKey = (key: NumKey) => appliedKeys.includes(key);
   const appliedInputStyle = (key: NumKey, base: React.CSSProperties): React.CSSProperties =>
-    isAppliedKey(key) ? { ...base, borderColor: t.color.accent, background: '#eef4ff' } : base;
+    isAppliedKey(key) ? { ...base, borderColor: t.color.accent, background: t.color.accentWash } : base;
   const appliedLabelStyle = (key: NumKey): React.CSSProperties =>
     isAppliedKey(key) ? { ...S.label, color: t.color.accent, fontWeight: 700 } : S.label;
   const codeValidation = validateCodeExpressions(strat.entryCode, strat.exitCode);
@@ -307,7 +306,7 @@ export function StrategySection({
             <br />
             函式：prev(x) · crossUp(a,b) · crossDown(a,b)　運算子：+ - * / &gt; &lt; &gt;= &lt;= == != &amp;&amp; || !
           </div>
-          <div style={{ fontSize: 10, color: t.color.faint, marginTop: 4 }}>
+          <div style={{ fontSize: 10, color: t.color.muted, marginTop: 4 }}>
             code 模式為手動專用，AI 不會使用；以安全直譯器求值（無 eval）。
           </div>
         </div>
@@ -361,8 +360,7 @@ export function StrategySection({
           Holdout 樣本外驗證
           {holdout && (
             <>
-              {/* #cfccc4（分隔點）規格書 §4 未對照到 token，暫時沿用現值。 */}
-              <span style={{ color: '#cfccc4' }}>·</span>末
+              <span style={{ color: t.color.line }}>·</span>末
               <NumberInput
                 value={holdoutPct}
                 min={5}
