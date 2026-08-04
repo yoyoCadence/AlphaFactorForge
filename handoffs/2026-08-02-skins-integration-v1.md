@@ -153,14 +153,16 @@ mock: rather than one luminance cut-off, both candidate inks are scored by
 contrast ratio and the stronger wins, because a single cut-off picks the wrong
 side for mid-tone fills.
 
-**Residual, needs an owner call.** The mock fixes the two inks at `#111111` /
-`#f2f2f2`. For a mid-tone fill sitting between them the best either can achieve
-is ~4.09:1 — a property of that pair, not a tuning miss. Measured worst case
-across all ten skins at 1% ramp steps is **4.112 (broadsheet, t=0.77)**, just
-under WCAG AA. Swapping the pair for pure `#000000` / `#ffffff` raises the
-floor to **4.587** and clears AA, at an imperceptible cost on a coloured fill.
-Left at the design's values; `src/charts/chartPaint.test.ts` asserts ≥4.0 and
-documents both numbers.
+**One deliberate deviation from the mock's values, owner-approved 2026-08-04.**
+The mock fixes the two inks at `#111111` / `#f2f2f2`. For a mid-tone fill
+sitting between them the best either can achieve is ~4.09:1 — a property of
+that pair, not a tuning miss — and the ramp does land there: measured worst
+case across all ten skins at 1% steps was **4.112 (broadsheet, t=0.77)**, under
+WCAG AA. The pair is now pure `#000000` / `#ffffff`, which raises the measured
+floor to **4.587 (midnight-tape, t=0.59)** and clears AA, at a difference
+imperceptible on a saturated fill. `src/charts/chartPaint.test.ts` asserts ≥4.5
+across every skin, so an eleventh skin whose `accent` lands mid-tone fails
+loudly instead of shipping unreadable cells.
 
 **Design decisions deliberately NOT adopted** (outside this task, which the
 施工單 scoped to the style layer with "behaviour diff 應為零"):

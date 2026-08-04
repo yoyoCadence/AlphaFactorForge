@@ -234,9 +234,16 @@ export function heatTextColor(C: ChartTheme, t: number): string {
 }
 
 /** The two inks a heat cell may use. Deliberately not tokens: they have to
- *  contrast with the computed fill, not with the skin's palette. */
-const HEAT_INK_DARK = { hex: '#111111', rgb: [17, 17, 17] as number[] };
-const HEAT_INK_LIGHT = { hex: '#f2f2f2', rgb: [242, 242, 242] as number[] };
+ *  contrast with the computed fill, not with the skin's palette.
+ *
+ *  Pure black/white rather than the design mock's #111111 / #f2f2f2. That pair
+ *  cannot clear WCAG AA on a mid-tone fill whichever way you pick — its ceiling
+ *  is ~4.09:1, and the ramp really does land there (worst measured case was
+ *  4.112 at broadsheet t=0.77). These raise the floor to 4.587, and on a
+ *  saturated fill the difference from the mock's values is imperceptible.
+ *  Owner-approved deviation, 2026-08-04. */
+const HEAT_INK_DARK = { hex: '#000000', rgb: [0, 0, 0] as number[] };
+const HEAT_INK_LIGHT = { hex: '#ffffff', rgb: [255, 255, 255] as number[] };
 
 /** WCAG relative luminance. */
 function relativeLuminance(rgb: number[]): number {

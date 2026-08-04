@@ -34,13 +34,12 @@ function contrast(a: string, b: string): number {
 
 const RAMP_POSITIONS = [0, 0.25, 0.5, 0.54, 0.56, 0.75, 0.77, 1];
 
-// Not 4.5 (AA). The design fixes the two inks at #111111 / #f2f2f2, and for a
-// mid-tone fill sitting between them the best either can do is ~4.09:1 — a
-// mathematical property of that pair, not a tuning miss. Measured worst case
-// over all ten skins at 1% ramp steps is 4.112 (broadsheet, t=0.77). Swapping
-// the pair for pure #000000 / #ffffff would raise the floor to 4.587 and clear
-// AA; that is an owner call on the design values, not a code fix.
-const MIN_CONTRAST = 4.0;
+// WCAG AA for normal text. Reachable only because the ink pair is pure
+// black/white: the design mock's #111111 / #f2f2f2 tops out at ~4.09:1 on a
+// mid-tone fill, and the ramp does land there (4.112 at broadsheet t=0.77).
+// Measured floor with the current pair is 4.587, so this has ~0.09 of headroom
+// — a new skin whose accent lands mid-tone is exactly what this catches.
+const MIN_CONTRAST = 4.5;
 
 describe.each(SKIN_ORDER)('skin %s heatmap', (id) => {
   const C = THEMES[id].chart;
