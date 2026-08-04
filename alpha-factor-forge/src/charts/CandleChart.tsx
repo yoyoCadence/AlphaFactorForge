@@ -48,6 +48,10 @@ export interface CandleChartProps {
   maxBars?: number;
 }
 
+/** Canvas axis type. Kept in one place so the price axis, the panel labels and
+ *  the last-price tag cannot drift apart. Matches the design mock. */
+const AXIS_FONT = "9px 'IBM Plex Mono', monospace";
+
 export function CandleChart({ candles, strat, show, trades, upto, onHoverBar, height = 360, maxBars = 500 }: CandleChartProps): React.ReactElement {
   const C = useTheme().chart;
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -326,18 +330,18 @@ function draw(
   // numbers: every gridline would read the same for a sub-$10 instrument.
   ctx.textBaseline = 'middle';
   paintGrid(ctx, C, { left: padL, right: padL + plotW, top: priceTop, bottom: priceTop + priceH }, ext.max, ext.min, 4, (v) => v.toFixed(2));
-  // paintGrid sets its own 9px monospace inside a save/restore; match it so the
+  // paintGrid sets this same face inside a save/restore; repeat it so the
   // VOL / RSI / 30 / 70 labels below stay in one type with the price axis.
-  ctx.font = '9px monospace';
+  ctx.font = AXIS_FONT;
 
   // candles — `C.style` decides the mark; 'line' / 'area' skins draw no bars at
   // all and render the close series across the whole window instead.
   if (C.style === 'line' || C.style === 'area') paintSeries(ctx, C, visible, geom, priceTop + priceH);
   else paintBars(ctx, C, visible, geom);
 
-  const overlay = (s: Series | null | undefined, color: string) => {
+  const overlay = (s: Series | null | undefined, color: string, dash?: number[]) => {
     const values = slice(s);
-    if (values) paintLine(ctx, C, values, geom, color);
+    if (values) paintLine(ctx, C, values, geom, color, dash);
   };
 
   if (bb) {
@@ -346,7 +350,9 @@ function draw(
     overlay(bb.lower, C.bb);
   }
   overlay(maFast, C.ma1);
-  overlay(maSlow, C.ma2);
+  // The OHLC-bar skin draws both MAs in its two-colour palette, so the design
+  // dashes the slow one to keep them apart at a glance.
+  overlay(maSlow, C.ma2, C.style === 'bar' ? [5, 3] : undefined);
   overlay(emaArr, C.ema);
 
   // trade markers: buy ▲ below the low (green), sell ▼ above the high (red)
@@ -367,7 +373,9 @@ function draw(
     let maxVol = 0;
     for (let i = start; i <= end; i++) maxVol = Math.max(maxVol, candles[i].v);
     if (maxVol > 0) {
-      ctx.globalAlpha = show.volUpDown ? 0.5 : 1;
+      // 0.85 for the skin's neutral fill (the design's value); the up/down tint
+      // keeps its original 0.5 so it stays a backdrop to the price pane.
+      ctx.globalAlpha = show.volUpDown ? 0.5 : 0.85;
       for (let i = start; i <= end; i++) {
         const c = candles[i];
         const bh = (c.v / maxVol) * volH;
@@ -386,7 +394,10 @@ function draw(
     ctx.save();
     ctx.strokeStyle = C.grid;
     ctx.lineWidth = 1;
-    if (C.dash) ctx.setLineDash(C.dash);
+    // Always dashed, unlike the price grid, which follows the skin's own `dash`:
+    // 30/70 are reference levels rather than scale lines, and the design keeps
+    // that distinction in every skin.
+    ctx.setLineDash([2, 3]);
     for (const g of [30, 70]) {
       const y = ry(g);
       ctx.beginPath();
@@ -400,6 +411,34 @@ function draw(
     paintLine(ctx, C, Array.from({ length: n }, (_, i) => (Number.isFinite(rsiArr[start + i]) ? rsiArr[start + i] : null)), { ...geom, y: ry }, C.rsi);
     ctx.fillStyle = C.label;
     ctx.fillText('RSI', padL + 2, rsiTop + 6);
+  }
+
+  // Last-price tag: a dashed accent rule at the newest VISIBLE close plus a
+  // filled tag in the right gutter. `end` is already clipped to the replay
+  // cursor, so this reads the price at the cursor and never a future bar —
+  // which is also why it is derived from the window rather than candles[last].
+  {
+    const lastClose = candles[end].c;
+    const ly = py(lastClose);
+    ctx.save();
+    ctx.strokeStyle = C.accent;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath();
+    ctx.moveTo(padL, ly);
+    ctx.lineTo(padL + plotW, ly);
+    ctx.stroke();
+    ctx.restore();
+    const tagX = padL + plotW + 2;
+    const tagW = padR - 4;
+    ctx.fillStyle = C.accent;
+    ctx.fillRect(tagX, ly - 8, tagW, 16);
+    ctx.fillStyle = C.accentInk;
+    ctx.font = AXIS_FONT;
+    ctx.textAlign = 'center';
+    // Same two decimals as the axis labels it sits among.
+    ctx.fillText(lastClose.toFixed(2), tagX + tagW / 2, ly);
+    ctx.textAlign = 'left';
   }
 
   // replay playhead: draw only when the actual cursor is inside a panned window.

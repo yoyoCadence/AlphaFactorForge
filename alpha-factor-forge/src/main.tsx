@@ -10,6 +10,7 @@ import { db, isTauri } from './tauri-client/dataClient';
 import { BacktestPanel } from './components/BacktestPanel';
 import { ChartPopoutWindow } from './components/ChartPopoutWindow';
 import { MetricsPopoutWindow } from './components/MetricsPopoutWindow';
+import { SkinPicker } from './components/SkinPicker';
 import { ThemeProvider, useTheme } from './theme/ThemeProvider';
 import './styles.css';
 
@@ -29,7 +30,10 @@ function App(): React.ReactElement {
 
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: t.color.bg, color: t.color.ink, fontFamily: t.font.sans, fontSize: 13 }}>
-      <header style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 14px', height: 50, background: t.header.bg, borderBottom: `1px solid ${t.header.border}`, flexShrink: 0 }}>
+      {/* Header height is a skin token (46–68px): the broadsheet skin's masthead
+          and the terminal skin's tight bar are part of their design, not spare
+          padding. Safe to vary because <main> below is flex:1. */}
+      <header style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 14px', height: t.header.height, background: t.header.bg, borderBottom: `1px solid ${t.header.border}`, flexShrink: 0 }}>
         <div style={{ width: 16, height: 16, background: t.header.markBg, transform: `rotate(${t.header.markRotate})`, borderRadius: t.header.markRadius }} />
         <div style={{ fontWeight: 700, fontSize: 15, letterSpacing: '0.01em', color: t.header.ink }}>
           ALPHAFACTORFORGE
@@ -37,6 +41,7 @@ function App(): React.ReactElement {
         </div>
         <div style={{ flex: 1 }} />
         <div style={{ fontFamily: t.font.mono, fontSize: 11, color: t.header.muted }}>{status}</div>
+        <SkinPicker />
       </header>
 
       <main style={{ flex: 1, overflow: 'auto', padding: 16 }}>
