@@ -194,7 +194,7 @@ export const forgePaper: Theme = {
   mode: 'light',
   color: {
     bg: '#eceae4', surface: '#ffffff', surface2: '#f4f1ea', cardBg: '#ffffff',
-    ink: '#16150f', muted: '#6d6a5f', faint: '#aaa599', line: '#d6d2c8', line2: '#b8b3a6',
+    ink: '#16150f', muted: '#6d6a5f', faint: '#979388', line: '#d6d2c8', line2: '#b8b3a6',
     accent: '#16150f', accentInk: '#ffffff', accentWash: '#e3e3e2', ok: '#1f7a57', warn: '#8a7a3a', danger: '#b23b2e',
   },
   font: {
@@ -239,7 +239,7 @@ export const midnightTape: Theme = {
   mode: 'dark',
   color: {
     bg: '#06080a', surface: '#0d1114', surface2: '#131a1f', cardBg: '#0d1114',
-    ink: '#cfe3d8', muted: '#6f8a7e', faint: '#4a6157', line: '#1a242a', line2: '#27353d',
+    ink: '#cfe3d8', muted: '#6f8a7e', faint: '#51675e', line: '#1a242a', line2: '#27353d',
     accent: '#35e08a', accentInk: '#04140c', accentWash: '#0c2219', ok: '#35e08a', warn: '#e8c34a', danger: '#ff5b52',
   },
   font: {
@@ -285,7 +285,7 @@ export const swissForge: Theme = {
   mode: 'light',
   color: {
     bg: '#ffffff', surface: '#ffffff', surface2: '#f1f0ec', cardBg: '#ffffff',
-    ink: '#0a0a0a', muted: '#6f6f6b', faint: '#a5a5a0', line: '#0a0a0a', line2: '#0a0a0a',
+    ink: '#0a0a0a', muted: '#6f6f6b', faint: '#93938e', line: '#0a0a0a', line2: '#0a0a0a',
     accent: '#e63329', accentInk: '#ffffff', accentWash: '#fce7e5', ok: '#147a4e', warn: '#a8720a', danger: '#e63329',
   },
   font: {
@@ -330,7 +330,7 @@ export const atelierWarm: Theme = {
   mode: 'light',
   color: {
     bg: '#f4f1ec', surface: '#fffdfa', surface2: '#efe9e0', cardBg: '#fffdfa',
-    ink: '#2b2925', muted: '#746d62', faint: '#b0a899', line: '#e7e0d4', line2: '#d5ccbc',
+    ink: '#2b2925', muted: '#746d62', faint: '#979084', line: '#e7e0d4', line2: '#d5ccbc',
     accent: '#5f7a63', accentInk: '#ffffff', accentWash: '#e4e4dc', ok: '#4d7a5b', warn: '#a8792c', danger: '#b4573c',
   },
   font: {
@@ -467,7 +467,7 @@ export const broadsheet: Theme = {
   mode: 'light',
   color: {
     bg: '#efece2', surface: '#f8f6ef', surface2: '#e5e1d4', cardBg: '#f8f6ef',
-    ink: '#1a1a17', muted: '#6b675c', faint: '#9a958a', line: '#c9c4b6', line2: '#1a1a17',
+    ink: '#1a1a17', muted: '#6b675c', faint: '#918c82', line: '#c9c4b6', line2: '#1a1a17',
     accent: '#a3231d', accentInk: '#f8f6ef', accentWash: '#f4e4df', ok: '#2a6b46', warn: '#8a6a1e', danger: '#a3231d',
   },
   font: {
@@ -512,7 +512,7 @@ export const brutalYellow: Theme = {
   mode: 'light',
   color: {
     bg: '#f2f0e6', surface: '#ffffff', surface2: '#ffe600', cardBg: '#ffffff',
-    ink: '#000000', muted: '#4a4a45', faint: '#87877e', line: '#000000', line2: '#000000',
+    ink: '#000000', muted: '#4a4a45', faint: '#828279', line: '#000000', line2: '#000000',
     accent: '#2b32ff', accentInk: '#ffffff', accentWash: '#e6e6ff', ok: '#009e5c', warn: '#ff8a00', danger: '#ff2d2d',
   },
   font: {
@@ -558,7 +558,7 @@ export const frostGrey: Theme = {
   mode: 'light',
   color: {
     bg: '#f5f7f8', surface: '#ffffff', surface2: '#eef1f3', cardBg: '#ffffff',
-    ink: '#1f2933', muted: '#61707e', faint: '#aebac4', line: '#e3e8eb', line2: '#cfd7dd',
+    ink: '#1f2933', muted: '#61707e', faint: '#8b959d', line: '#e3e8eb', line2: '#cfd7dd',
     accent: '#4a7c8c', accentInk: '#ffffff', accentWash: '#e9eff1', ok: '#3f8f6f', warn: '#a8843c', danger: '#b4574f',
   },
   font: {

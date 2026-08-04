@@ -37,6 +37,14 @@ function contrast(fg: string, bg: string): number | null {
 /** WCAG AA for normal text. Every token below carries text at 10-13px. */
 const AA = 4.5;
 
+/** `faint` is the de-emphasised half of a pair — the entry/exit ✗ against a bold
+ *  coloured ✓, and the `/backtest` suffix after the product name. It is not
+ *  carrying prose any more (that moved to `muted`), so the UI-component bar
+ *  applies rather than the body-text one. Kept apart from `muted` on purpose:
+ *  lifting it to AA would put the two on the same level and flatten the
+ *  ink → muted → faint hierarchy into two steps. */
+const DE_EMPHASIS = 3.0;
+
 /** swiss-forge's identity colour is a signal red (#e63329); white on it is
  *  4.31:1. That is a property of the design's own primary, not of the token
  *  port — raising it means picking a different red, which is a design decision
@@ -72,12 +80,26 @@ describe.each(SKIN_ORDER)('skin %s contrast', (id) => {
     expect(ratio).toBeGreaterThanOrEqual(AA);
   });
 
-  it('keeps a visible step between ink and muted', () => {
+  // faint survives on exactly two surfaces: the chart card (the entry/exit
+  // crosses) and the header (the /backtest suffix).
+  it.each([
+    ['faint on cardBg', t.color.faint, t.color.cardBg],
+    ['faint on header.bg', t.color.faint, t.header.bg],
+  ])('%s stays perceivable', (_what, fg, bg) => {
+    const ratio = contrast(fg, bg);
+    if (ratio == null) return;
+    expect(ratio).toBeGreaterThanOrEqual(DE_EMPHASIS);
+  });
+
+  it('keeps three distinct steps of ink -> muted -> faint', () => {
     const ink = contrast(t.color.ink, t.color.cardBg);
     const muted = contrast(t.color.muted, t.color.cardBg);
-    if (ink == null || muted == null) return;
-    // Raising `muted` to AA must not flatten it into `ink`; the hierarchy is
-    // what makes labels read as secondary.
+    const faint = contrast(t.color.faint, t.color.cardBg);
+    if (ink == null || muted == null || faint == null) return;
+    // Each step has to stay visibly weaker than the one above it. Without this,
+    // a future contrast fix could quietly raise `faint` to `muted`'s level and
+    // leave the palette with two tones pretending to be three.
     expect(ink / muted).toBeGreaterThanOrEqual(1.5);
+    expect(muted / faint).toBeGreaterThanOrEqual(1.2);
   });
 });

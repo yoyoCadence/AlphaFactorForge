@@ -125,12 +125,38 @@ text appears on both. Two units darker, imperceptible, correct on both surfaces.
 alone — it is a data line, not text, so the text contrast rule does not govern
 it.
 
-**`faint` fails AA in all nine measurable skins (1.98–3.62) and was NOT
-changed.** It is the third step of an intentional ink → muted → faint hierarchy;
-raising it to 4.5 would put it level with `muted` and collapse that to two
-levels. It carries real text (empty states, hints, the `/backtest` suffix), so
-this is a genuine open question — but a design one, bigger than the item that
-was asked for. **Left for an owner decision.**
+**`faint` was fixed by moving the misuse, not by raising the token.** It failed
+AA in all nine measurable skins (1.98–3.62), but classifying its eleven call
+sites showed the token was not the problem: eight carried text the user has to
+read — the empty-state instruction that tells a first-time user what to do, the
+「（無規則 → 不觸發）」 warning that the strategy will never fire, the dataset bar
+count, the sweep combo count — while only three were genuine de-emphasis (the
+entry/exit ✗ paired against a bold coloured ✓, and the `/backtest` suffix).
+
+The eight moved to `muted`, which is AA everywhere after the pass above.
+`faint` kept its role and was raised only to 3:1 — the UI-component bar, which
+is the right target for one half of a paired state. Raising it to 4.5 instead
+would have put it level with `muted` and collapsed ink → muted → faint into two
+steps.
+
+| skin | was | now | worst of cardBg / header.bg |
+|---|---|---|---|
+| forge-paper | `#aaa599` (2.46) | `#979388` | 3.07 |
+| midnight-tape | `#4a6157` (2.83) | `#51675e` | 3.13 |
+| swiss-forge | `#a5a5a0` (2.47) | `#93938e` | 3.09 |
+| atelier-warm | `#b0a899` (2.32) | `#979084` | 3.10 |
+| broadsheet | `#9a958a` (2.76) | `#918c82` | 3.09 |
+| brutal-yellow | `#87877e` (2.86) | `#828279` | 3.07 |
+| frost-grey | `#aebac4` (1.98) | `#8b959d` | 3.06 |
+
+`midnight-tape` is the one that gets *lighter*: it is a dark skin, so contrast
+comes from moving away from the background, not from darkening. `blueprint`
+(3.45) and `signal-orange` (3.43) already cleared the bar; `aurora-glass` is
+translucent with nothing fixed to measure against.
+
+The test asserts the three steps stay distinct (ink/muted ≥ 1.5×, muted/faint
+≥ 1.2×), so a later contrast fix cannot quietly flatten the palette into two
+tones pretending to be three.
 
 **swiss-forge's accent pair cannot reach AA.** White on its signal red
 `#e63329` is 4.31:1, and that red is the skin's identity. `contrast.test.ts`

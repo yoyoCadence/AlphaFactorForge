@@ -170,7 +170,7 @@ export function ResultsSection({
                 策略、資料集或 Holdout 設定已變更 — 先前的回測結果已失效（不會被存檔或匯出）。請重新執行回測。
               </p>
             )
-            : <p style={{ color: t.color.faint, fontSize: 12 }}>尚未回測 — 選資料集、設策略後按「執行回測」。</p>
+            : <p style={{ color: t.color.muted, fontSize: 12 }}>尚未回測 — 選資料集、設策略後按「執行回測」。</p>
         )}
         {artifact && (
           <>
@@ -204,7 +204,7 @@ export function ResultsSection({
               </button>
               <HelpTip id="save" label="儲存結果" text={help.save} align="right" />
             </div>
-            <p style={{ color: t.color.faint, fontSize: 11, marginTop: 8 }}>
+            <p style={{ color: t.color.muted, fontSize: 11, marginTop: 8 }}>
               儲存會寫入 strategy_def + backtest_summary + trades（segment=full）。
             </p>
           </>

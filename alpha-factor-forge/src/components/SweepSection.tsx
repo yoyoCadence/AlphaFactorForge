@@ -290,7 +290,7 @@ export function SweepSection({
         <button data-testid="sweep-toggle" style={{ ...S.btnGhost, padding: '3px 10px' }} onClick={() => setSweepOpen((o) => !o)}>
           {sweepOpen ? '收合' : '展開'}
         </button>
-        <span style={{ fontSize: 10, color: t.color.faint }}>選 1–2 個參數掃範圍，找最佳值（上限 {SWEEP_MAX_COMBOS} 組）。</span>
+        <span style={{ fontSize: 10, color: t.color.muted }}>選 1–2 個參數掃範圍，找最佳值（上限 {SWEEP_MAX_COMBOS} 組）。</span>
       </div>
 
       {sweepOpen && (
@@ -316,7 +316,7 @@ export function SweepSection({
               <input type="checkbox" data-testid="sweep-2d" checked={sweepUse2d} onChange={(e) => { clearSweep(); setSweepUse2d(e.target.checked); }} />
               第二維 Y（二維熱力圖）
             </label>
-            <span data-testid="sweep-combos" style={{ fontSize: 11, color: sweepTooMany || sweepDupKey ? t.color.danger : t.color.faint }}>
+            <span data-testid="sweep-combos" style={{ fontSize: 11, color: sweepTooMany || sweepDupKey ? t.color.danger : t.color.muted }}>
               {sweepDupKey ? 'X / Y 參數需不同' : `組合數 ${sweepCombos}${sweepTooMany ? `（超過上限 ${SWEEP_MAX_COMBOS}）` : ''}`}
             </span>
           </div>

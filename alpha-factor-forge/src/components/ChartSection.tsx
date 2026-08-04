@@ -252,7 +252,7 @@ export function ChartSection({
             >
               量色：{show.volUpDown ? '漲跌' : '單色'}
             </button>
-            <span style={{ fontFamily: t.font.mono, fontSize: 11, color: t.color.faint }}>
+            <span style={{ fontFamily: t.font.mono, fontSize: 11, color: t.color.muted }}>
               {loadingCandles ? '載入中…' : `${selected?.symbol ?? ''} · ${candles.length} 根`}
             </span>
             {popoutWindows.isAvailable() && (
@@ -318,7 +318,7 @@ export function ChartSection({
                 <NumberInput value={strat[f.key]} onChange={(n) => onChangeParam(f.key, n)} style={appliedInputStyle(f.key, { ...S.input, width: 88 })} />
               </label>
             ))}
-            <span style={{ fontSize: 10, color: t.color.faint, alignSelf: 'center' }}>調整即時重畫；完整參數見下方策略表單（<span style={{ color: t.color.accent }}>✓ 標示</span>＝由掃描套用）</span>
+            <span style={{ fontSize: 10, color: t.color.muted, alignSelf: 'center' }}>調整即時重畫；完整參數見下方策略表單（<span style={{ color: t.color.accent }}>✓ 標示</span>＝由掃描套用）</span>
           </div>
         </section>
       )}
