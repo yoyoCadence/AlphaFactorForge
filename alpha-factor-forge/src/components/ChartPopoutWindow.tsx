@@ -10,14 +10,15 @@ import { useTheme } from '../theme/ThemeProvider';
 export function ChartPopoutWindow(): React.ReactElement {
   const t = useTheme();
   const [snapshot, setSnapshot] = useState<ChartWindowSnapshot | null>(null);
-  const [height, setHeight] = useState(() => Math.max(320, globalThis.innerHeight - 54));
+  const [height, setHeight] = useState(() => Math.max(320, globalThis.innerHeight - t.header.height - 8));
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const resize = () => setHeight(Math.max(320, globalThis.innerHeight - 54));
+    const resize = () => setHeight(Math.max(320, globalThis.innerHeight - t.header.height - 8));
+    resize();
     globalThis.addEventListener('resize', resize);
     return () => globalThis.removeEventListener('resize', resize);
-  }, []);
+  }, [t.header.height]);
 
   useEffect(() => {
     let disposed = false;
@@ -50,8 +51,8 @@ export function ChartPopoutWindow(): React.ReactElement {
   }, []);
 
   return (
-    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: t.color.bg, color: t.color.ink, fontFamily: t.font.sans }}>
-      <header style={{ height: 46, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 10, padding: '0 14px', background: t.header.bg, borderBottom: `1px solid ${t.header.border}` }}>
+    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'transparent', color: t.color.ink, fontFamily: t.font.sans }}>
+      <header style={{ height: t.header.height, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 10, padding: '0 14px', background: t.header.bg, borderBottom: `1px solid ${t.header.border}` }}>
         <div style={{ width: 12, height: 12, background: t.header.markBg, transform: `rotate(${t.header.markRotate})`, borderRadius: t.header.markRadius }} />
         <strong>ALPHAFACTORFORGE /chart</strong>
         <span style={{ marginLeft: 'auto', color: t.header.muted, fontFamily: t.font.mono, fontSize: 11 }}>{snapshot?.title ?? '等待主視窗資料…'}</span>

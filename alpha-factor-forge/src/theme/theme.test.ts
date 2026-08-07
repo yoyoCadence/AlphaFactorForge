@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SKIN_ORDER, THEMES, type ChartTheme } from './theme';
+import { DEFAULT_SKIN, SKIN_ORDER, THEMES, getTheme, isSkinId, type ChartTheme } from './theme';
 
 // The chart draws MA fast, MA slow and EMA at the same time, over candles that
 // are already `up`/`down` coloured. Adding a skin is meant to be "copy the
@@ -58,5 +58,43 @@ describe.each(SKIN_ORDER)('skin %s chart palette', (id) => {
     const d = distance(C.bb, C.grid);
     if (d == null) return; // aurora-glass paints both as rgba over a gradient
     expect(d).toBeGreaterThanOrEqual(MIN_GRID_SEPARATION);
+  });
+});
+
+const RASTER_BACKGROUND_SKINS = ['forge-paper', 'atelier-warm', 'signal-orange', 'broadsheet', 'aurora-glass'] as const;
+const PATTERN_BACKGROUND_SKINS = ['midnight-tape', 'blueprint'] as const;
+const FLAT_BACKGROUND_SKINS = ['swiss-forge', 'brutal-yellow', 'frost-grey'] as const;
+
+describe('workspace background contract', () => {
+  it.each(RASTER_BACKGROUND_SKINS)('%s uses a local WebP beneath a readability scrim', (id) => {
+    const background = THEMES[id].workspaceBackground;
+    expect(background.image).toMatch(/^url\(".*\.webp"\)$/);
+    expect(background.image).not.toMatch(/https?:|data:/);
+    expect(background.scrim).toContain('gradient');
+    expect(background.size).toContain('cover');
+  });
+
+  it.each(PATTERN_BACKGROUND_SKINS)('%s uses a lightweight CSS pattern', (id) => {
+    const background = THEMES[id].workspaceBackground;
+    expect(background.image).toContain('gradient');
+    expect(background.image).not.toContain('url(');
+  });
+
+  it.each(FLAT_BACKGROUND_SKINS)('%s stays intentionally flat', (id) => {
+    expect(THEMES[id].workspaceBackground.image).toBe('none');
+    expect(THEMES[id].workspaceBackground.scrim).toBe('none');
+  });
+
+  it('keeps the workspace base colour opaque for contrast checks', () => {
+    for (const id of SKIN_ORDER) expect(THEMES[id].color.bg, id).toMatch(/^#[0-9a-f]{6}$/i);
+  });
+});
+
+describe('skin id validation', () => {
+  it('accepts only registered ids and falls back safely', () => {
+    expect(isSkinId('blueprint')).toBe(true);
+    expect(isSkinId('future-skin')).toBe(false);
+    expect(isSkinId(null)).toBe(false);
+    expect(getTheme('future-skin')).toBe(THEMES[DEFAULT_SKIN]);
   });
 });

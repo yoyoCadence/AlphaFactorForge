@@ -10,7 +10,7 @@
 import type { Theme } from './theme';
 
 export function themeToCssVars(t: Theme): Record<string, string> {
-  const c = t.color, f = t.font, s = t.shape, b = t.button, h = t.header, k = t.track;
+  const c = t.color, f = t.font, s = t.shape, b = t.button, h = t.header, k = t.track, w = t.workspaceBackground;
   return {
     '--afs-bg': c.bg,
     '--afs-surface': c.surface,
@@ -23,9 +23,16 @@ export function themeToCssVars(t: Theme): Record<string, string> {
     '--afs-line2': c.line2,
     '--afs-accent': c.accent,
     '--afs-accent-ink': c.accentInk,
+    '--afs-accent-wash': c.accentWash,
     '--afs-ok': c.ok,
     '--afs-warn': c.warn,
     '--afs-danger': c.danger,
+
+    '--afs-workspace-image': w.image,
+    '--afs-workspace-scrim': w.scrim,
+    '--afs-workspace-position': w.position,
+    '--afs-workspace-size': w.size,
+    '--afs-workspace-repeat': w.repeat,
 
     '--afs-sans': f.sans,
     '--afs-mono': f.mono,

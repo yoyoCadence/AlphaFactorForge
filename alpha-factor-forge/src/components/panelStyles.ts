@@ -57,7 +57,14 @@ export function makeStyles(t: Theme): PanelStyles {
   };
 
   const out: PanelStyles = {
-    panel: { display: 'grid', gridTemplateColumns: '380px 1fr', gap: s.gap, alignItems: 'start' },
+    panel: {
+      display: 'grid',
+      gridTemplateColumns: 'minmax(300px, 380px) minmax(0, 1fr)',
+      gap: s.gap,
+      alignItems: 'start',
+      width: '100%',
+      minWidth: 0,
+    },
     card: {
       border,
       borderRadius: s.radius,
@@ -93,7 +100,6 @@ export function makeStyles(t: Theme): PanelStyles {
       fontFamily: f.mono,
       fontSize: f.size,
       color: c.ink,
-      outline: 'none',
     },
     btn: { ...base, border: `${s.borderWidth}px solid ${b.primaryBg}`, background: b.primaryBg, color: b.primaryInk },
     btnGhost: { ...base, border: `${s.borderWidth}px solid ${b.ghostLine}`, background: b.ghostBg, color: b.ghostInk },
