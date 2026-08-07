@@ -1,4 +1,4 @@
-//! `metrics-v1`: pure Rust parity port of `src/core/metrics`.
+//! `metrics-v2`: pure Rust parity port of `src/core/metrics`.
 //!
 //! Semantics mirror the TypeScript reference exactly, including the
 //! METRIC-001 decisions: downside deviation over ALL bar returns, legitimate
@@ -10,7 +10,7 @@ use std::collections::BTreeMap;
 use chrono::{Datelike, TimeZone, Utc};
 use serde::{Deserialize, Serialize};
 
-pub const METRICS_CONTRACT_VERSION: &str = "metrics-v1";
+pub const METRICS_CONTRACT_VERSION: &str = "metrics-v2";
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum TradeSide {
@@ -290,13 +290,13 @@ pub fn compute_metrics(input: &MetricsInput<'_>) -> Metrics {
                 .fold(f64::INFINITY, f64::min)
         },
         consecutive_losses: max_streak,
-        monthly_returns: monthly_returns(equity),
+        monthly_returns: monthly_returns(equity, start),
     }
 }
 
 /// Equity grouped into per-calendar-month returns (`YYYY-MM` -> fraction).
-pub fn monthly_returns(equity: &[EquityPoint]) -> BTreeMap<String, f64> {
-    let mut by_month: BTreeMap<String, (f64, f64)> = BTreeMap::new();
+pub fn monthly_returns(equity: &[EquityPoint], start_equity: f64) -> BTreeMap<String, f64> {
+    let mut by_month: Vec<(String, f64)> = Vec::new();
     for point in equity {
         // RUNNER-EXEC validates every Train/Validation candle timestamp against
         // this exact chrono conversion before any evaluated path reaches
@@ -308,16 +308,107 @@ pub fn monthly_returns(equity: &[EquityPoint]) -> BTreeMap<String, f64> {
             .single()
             .expect("equity timestamps are valid epoch milliseconds");
         let key = format!("{}-{:02}", stamp.year(), stamp.month());
-        by_month
-            .entry(key)
-            .and_modify(|entry| entry.1 = point.equity)
-            .or_insert((point.equity, point.equity));
+        if let Some((current_key, last)) = by_month.last_mut() {
+            if current_key == &key {
+                *last = point.equity;
+                continue;
+            }
+        }
+        by_month.push((key, point.equity));
     }
+    let mut base = start_equity;
     by_month
         .into_iter()
-        .map(|(key, (first, last))| {
-            let value = if first > 0.0 { last / first - 1.0 } else { 0.0 };
+        .map(|(key, last)| {
+            let value = if base > 0.0 { last / base - 1.0 } else { 0.0 };
+            base = last;
             (key, value)
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn point(year: i32, month: u32, day: u32, equity: f64) -> EquityPoint {
+        EquityPoint {
+            time: Utc
+                .with_ymd_and_hms(year, month, day, 0, 0, 0)
+                .single()
+                .unwrap()
+                .timestamp_millis(),
+            equity,
+        }
+    }
+
+    fn monthly_from(start_equity: f64, equity: &[EquityPoint]) -> BTreeMap<String, f64> {
+        compute_metrics(&MetricsInput {
+            trades: &[],
+            equity,
+            start_equity: Some(start_equity),
+            total_bars: equity.len() as i64,
+            bars_per_year: equity.len().max(1) as f64,
+            risk_free_per_bar: None,
+        })
+        .monthly_returns
+    }
+
+    #[test]
+    fn monthly_returns_count_every_cross_month_move_once_in_the_audit_case() {
+        let equity = vec![
+            point(2024, 1, 31, 100.0),
+            point(2024, 2, 1, 200.0),
+            point(2024, 2, 29, 200.0),
+            point(2024, 3, 1, 100.0),
+            point(2024, 3, 31, 100.0),
+            point(2024, 4, 1, 200.0),
+            point(2024, 4, 30, 200.0),
+        ];
+        let returns = monthly_from(100.0, &equity);
+        assert_eq!(
+            returns.values().copied().collect::<Vec<_>>(),
+            vec![0.0, 1.0, -0.5, 1.0]
+        );
+    }
+
+    #[test]
+    fn monthly_returns_use_start_equity_for_a_single_month() {
+        let equity = vec![point(2024, 1, 1, 110.0), point(2024, 1, 31, 121.0)];
+        let returns = monthly_from(100.0, &equity);
+        assert!((returns["2024-01"] - 0.21).abs() < 1e-12);
+    }
+
+    #[test]
+    fn monthly_returns_skip_gap_months_and_chain_from_the_prior_close() {
+        let equity = vec![point(2024, 1, 31, 110.0), point(2024, 3, 31, 121.0)];
+        let returns = monthly_from(100.0, &equity);
+        assert_eq!(
+            returns.keys().map(String::as_str).collect::<Vec<_>>(),
+            vec!["2024-01", "2024-03"]
+        );
+        assert!((returns["2024-01"] - 0.1).abs() < 1e-12);
+        assert!((returns["2024-03"] - 0.1).abs() < 1e-12);
+    }
+
+    #[test]
+    fn monthly_returns_do_not_substitute_the_first_point_for_start_equity() {
+        let equity = vec![point(2024, 1, 1, 100.0), point(2024, 1, 31, 120.0)];
+        assert!((monthly_from(80.0, &equity)["2024-01"] - 0.5).abs() < 1e-12);
+    }
+
+    #[test]
+    fn monthly_returns_zero_a_non_positive_base_then_carry_the_close_forward() {
+        let equity = vec![point(2024, 1, 31, 50.0), point(2024, 2, 29, 100.0)];
+        let returns = monthly_from(0.0, &equity);
+        assert_eq!(
+            returns.values().copied().collect::<Vec<_>>(),
+            vec![0.0, 1.0]
+        );
+    }
+
+    #[test]
+    fn monthly_returns_keep_empty_equity_total() {
+        assert!(monthly_from(100.0, &[]).is_empty());
+    }
 }

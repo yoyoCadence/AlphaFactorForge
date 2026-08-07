@@ -627,3 +627,161 @@ fn result_and_done_events_observe_committed_database_state() {
     assert_eq!(sink.result_count(), 1);
     sink.assert_all_observed_after_commit();
 }
+
+#[test]
+fn resume_rejects_a_paused_run_with_the_stale_metrics_contract_without_writes() {
+    let candles = alternating_candles(240, 1_577_836_800_000);
+    let db = migrated_db();
+    let (dataset_id, dataset_hash) = import_dataset(&db, &candles);
+    let config = runner_config(dataset_id, &dataset_hash, 2);
+    let sink = Arc::new(RecordingSink::new(db.clone()));
+    let (started_tx, started_rx) = mpsc::channel();
+    let gate = Arc::new(PermitGate::new());
+    let runner = runner_with_executor(Arc::new(PermittedProductionExecutor {
+        started: started_tx,
+        gate: gate.clone(),
+    }));
+
+    let run_id = runner
+        .start(db.clone(), sink.clone(), config)
+        .expect("start stale-contract runner");
+    started_rx
+        .recv_timeout(TEST_TIMEOUT)
+        .expect("first candidate reached executor");
+
+    let (pause_tx, pause_rx) = mpsc::channel();
+    let pause_runner = runner.clone();
+    let pause_db = db.clone();
+    thread::spawn(move || {
+        let _ = pause_tx.send(pause_runner.pause(&pause_db, run_id));
+    });
+    wait_for_phase(&runner, run_id, ControlPhase::PauseRequested);
+    gate.release();
+    pause_rx
+        .recv_timeout(TEST_TIMEOUT)
+        .expect("pause acknowledgement")
+        .expect("pause succeeds after drain");
+    wait_for_status(&runner, &db, run_id, RunStatus::Paused);
+    wait_for_coordinator_exit(&runner, run_id);
+
+    {
+        let conn = db.lock().expect("lock paused stale-contract run");
+        let run = discovery::get_discovery_run(&conn, run_id).expect("read paused run");
+        let mut stale_config: Value =
+            serde_json::from_str(&run.config_json).expect("parse stored config");
+        stale_config["contracts"]["metrics"] = json!("metrics-v1");
+        conn.execute(
+            "UPDATE discovery_runs SET config_json = ?1 WHERE id = ?2",
+            params![
+                serde_json::to_string(&stale_config).expect("serialize stale config"),
+                run_id
+            ],
+        )
+        .expect("persist stale metrics contract");
+    }
+
+    let (run_before, jobs_before, total_changes_before) = {
+        let conn = db.lock().expect("lock before rejected resume");
+        let run = discovery::get_discovery_run(&conn, run_id).expect("read run before resume");
+        let jobs = discovery::list_discovery_jobs(&conn, run_id)
+            .expect("read jobs before resume")
+            .into_iter()
+            .map(|job| {
+                (
+                    job.id,
+                    job.candidate_index,
+                    job.segment,
+                    job.status,
+                    job.result_id,
+                    job.error_message,
+                )
+            })
+            .collect::<Vec<_>>();
+        (
+            (
+                run.status,
+                run.config_json,
+                run.progress_json,
+                run.best_strategy_id,
+                run.error_message,
+            ),
+            jobs,
+            conn.query_row("SELECT total_changes()", [], |row| row.get::<_, i64>(0))
+                .expect("read total changes before resume"),
+        )
+    };
+    let event_count_before = sink.snapshot().len();
+    assert!(runner
+        .control(run_id)
+        .expect("read control before resume")
+        .is_none());
+
+    let error = runner
+        .resume(db.clone(), sink.clone(), run_id)
+        .expect_err("stale metrics contract must reject resume");
+    let message = error.to_string();
+    assert!(
+        message.contains("contracts.metrics"),
+        "unexpected stale-contract error: {message}"
+    );
+    assert!(message.contains("metrics-v2"));
+    assert!(message.contains("metrics-v1"));
+
+    let (run_after, jobs_after, total_changes_after) = {
+        let conn = db.lock().expect("lock after rejected resume");
+        let run = discovery::get_discovery_run(&conn, run_id).expect("read run after resume");
+        let jobs = discovery::list_discovery_jobs(&conn, run_id)
+            .expect("read jobs after resume")
+            .into_iter()
+            .map(|job| {
+                (
+                    job.id,
+                    job.candidate_index,
+                    job.segment,
+                    job.status,
+                    job.result_id,
+                    job.error_message,
+                )
+            })
+            .collect::<Vec<_>>();
+        (
+            (
+                run.status,
+                run.config_json,
+                run.progress_json,
+                run.best_strategy_id,
+                run.error_message,
+            ),
+            jobs,
+            conn.query_row("SELECT total_changes()", [], |row| row.get::<_, i64>(0))
+                .expect("read total changes after resume"),
+        )
+    };
+
+    assert_eq!(
+        run_after.0,
+        RunStatus::Paused,
+        "rejected resume did not leave the run paused"
+    );
+    assert_eq!(
+        run_after, run_before,
+        "rejected resume changed run/progress state"
+    );
+    assert_eq!(jobs_after, jobs_before, "rejected resume changed job state");
+    assert_eq!(
+        total_changes_after, total_changes_before,
+        "rejected resume performed a database write"
+    );
+    assert_eq!(
+        sink.snapshot().len(),
+        event_count_before,
+        "rejected resume emitted an event"
+    );
+    assert!(
+        runner
+            .control(run_id)
+            .expect("read control after rejected resume")
+            .is_none(),
+        "rejected resume registered a coordinator control"
+    );
+}

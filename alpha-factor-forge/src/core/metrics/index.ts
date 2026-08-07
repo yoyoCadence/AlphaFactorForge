@@ -159,21 +159,26 @@ export function computeMetrics(input: MetricsInput): Metrics {
     largestWin: wins.length ? Math.max(...wins.map((t) => t.pnlPct)) : 0,
     largestLoss: losses.length ? Math.min(...losses.map((t) => t.pnlPct)) : 0,
     consecutiveLosses: maxStreak,
-    monthlyReturns: monthlyReturns(equity),
+    monthlyReturns: monthlyReturns(equity, start),
   };
 }
 
 /** Equity grouped into per-calendar-month returns (YYYY-MM -> fraction). */
-export function monthlyReturns(equity: EquityPoint[]): Record<string, number> {
+export function monthlyReturns(
+  equity: EquityPoint[],
+  startEquity: number,
+): Record<string, number> {
   const out: Record<string, number> = {};
-  const byMonth = new Map<string, { first: number; last: number }>();
+  const byMonth = new Map<string, number>();
   for (const p of equity) {
     const d = new Date(p.time);
     const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
-    const cur = byMonth.get(key);
-    if (!cur) byMonth.set(key, { first: p.equity, last: p.equity });
-    else cur.last = p.equity;
+    byMonth.set(key, p.equity);
   }
-  for (const [k, v] of byMonth) out[k] = v.first > 0 ? v.last / v.first - 1 : 0;
+  let base = startEquity;
+  for (const [key, last] of byMonth) {
+    out[key] = base > 0 ? last / base - 1 : 0;
+    base = last;
+  }
   return out;
 }

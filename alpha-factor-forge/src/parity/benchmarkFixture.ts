@@ -28,7 +28,7 @@ export const PRNG_CONTRACT_VERSION = 'mulberry32-v1';
 export const BENCHMARK_CONTRACT_VERSION = 'benchmark-suite-v1';
 export const RANDOM_ENTRY_CONTRACT_VERSION = 'random-entry-v1';
 export const EXECUTION_CONTRACT_VERSION = 'backtest-execution-v1';
-export const METRICS_CONTRACT_VERSION = 'metrics-v1';
+export const METRICS_CONTRACT_VERSION = 'metrics-v2';
 export const PARAMS_SIGNALS_CONTRACT_VERSION = 'params-signals-v1';
 
 export interface FixtureCandle {

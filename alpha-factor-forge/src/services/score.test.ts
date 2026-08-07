@@ -2,7 +2,7 @@
 // handoff Resolution.
 
 import { describe, it, expect } from 'vitest';
-import type { Metrics } from '../core/metrics';
+import { monthlyReturns, type Metrics } from '../core/metrics';
 import { defaultStrategy, type ParamsStrategy } from './strategy';
 import type { ValidationRunResult } from './validationRun';
 import {
@@ -141,6 +141,31 @@ describe('scoreCandidate — non-finite and insufficient evidence', () => {
     expect(low).toBeGreaterThan(high);
     expect(at({ a: 0.02, b: 0.02 }).rawStatus).toBe('insufficient');
     expect(at(threeCalmMonths).evidence?.monthCount).toBe(3);
+  });
+
+  it('scores the METRIC-002 audit case at the hand-calculated consistency value', () => {
+    const auditReturns = monthlyReturns([
+      { time: Date.UTC(2024, 0, 31), equity: 100 },
+      { time: Date.UTC(2024, 1, 1), equity: 200 },
+      { time: Date.UTC(2024, 1, 29), equity: 200 },
+      { time: Date.UTC(2024, 2, 1), equity: 100 },
+      { time: Date.UTC(2024, 2, 31), equity: 100 },
+      { time: Date.UTC(2024, 3, 1), equity: 200 },
+      { time: Date.UTC(2024, 3, 30), equity: 200 },
+    ], 100);
+    const consistency = entry(
+      scoreCandidate(baseArgs({ monthlyReturns: auditReturns })),
+      'consistency',
+    );
+
+    expect(auditReturns).toEqual({
+      '2024-01': 0,
+      '2024-02': 1,
+      '2024-03': -0.5,
+      '2024-04': 1,
+    });
+    expect(consistency.raw).toBeCloseTo(Math.sqrt(27 / 64), 12);
+    expect(consistency.normalized).toBeCloseTo(0.13341888991522402, 12);
   });
 
   it('canonicalizes negative zero so the complete breakdown round-trips through JSON', () => {
