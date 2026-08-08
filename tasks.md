@@ -19,9 +19,9 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Next
 
-- [ ] **PERSIST-AUDIT-001 (P1)** — required successor to `METRIC-002`: add a metrics contract field, bump to `validation-record-v2`, and replace the Rust shape check with strict version-dispatched validation. Existing `validation-record-v1` rows remain legacy with an unknown formula version. Full scope remains in the ordered audit follow-ups below.
-
 ## In Progress
+
+- [ ] **PERSIST-AUDIT-001 (P1)** — required successor to `METRIC-002`: add a metrics contract field, bump to `validation-record-v2`, and replace the Rust shape check with strict version-dispatched validation. Existing `validation-record-v1` rows remain legacy with an unknown formula version. Full scope remains in the ordered audit follow-ups below.
 
 - None.
 

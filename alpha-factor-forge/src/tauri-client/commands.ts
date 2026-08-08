@@ -78,7 +78,8 @@ export interface BacktestSummary {
 }
 
 // One validation_records row (PERSIST-001): an append-only immutable decision
-// audit snapshot. `record_json` is the self-contained validation-record-v1
+// audit snapshot. `record_json` is a self-contained versioned envelope;
+// v1 rows remain readable legacy evidence and new writes use v2.
 // envelope; gate fail => score null, gate pass => finite score (DB CHECK).
 export interface ValidationRecordRow {
   id?: number;

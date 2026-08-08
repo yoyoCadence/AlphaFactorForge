@@ -5,7 +5,7 @@
 //! checkpointed progress, and post-commit Tauri events. Compute workers only
 //! receive immutable owned/`Arc` data and never receive a database handle.
 
-mod execution;
+pub(crate) mod execution;
 #[cfg(test)]
 mod tests;
 
