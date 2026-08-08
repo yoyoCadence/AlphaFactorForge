@@ -2,7 +2,7 @@
 // bar returns, Sortino/Calmar infinity semantics, and zero-denominator cases.
 
 import { describe, it, expect } from 'vitest';
-import { computeMetrics, type EquityPoint } from './index';
+import { computeMetrics, monthlyReturns, type EquityPoint } from './index';
 
 const eq = (values: number[]): EquityPoint[] =>
   values.map((equity, time) => ({ time, equity }));
@@ -60,5 +60,87 @@ describe('METRIC-001 — Calmar zero-drawdown semantics', () => {
     expect(m.maxDrawdown).toBeCloseTo((120 - 90) / 120, 10);
     expect(Number.isFinite(m.calmar)).toBe(true);
     expect(m.calmar).toBeCloseTo(m.cagr / m.maxDrawdown, 10);
+  });
+});
+
+const utcPoint = (
+  year: number,
+  month: number,
+  day: number,
+  equity: number,
+): EquityPoint => ({
+  time: Date.UTC(year, month - 1, day),
+  equity,
+});
+
+describe('METRIC-002 — UTC monthly return baselines', () => {
+  it('counts every cross-month move exactly once in the audit case', () => {
+    const equity = [
+      utcPoint(2024, 1, 31, 100),
+      utcPoint(2024, 2, 1, 200),
+      utcPoint(2024, 2, 29, 200),
+      utcPoint(2024, 3, 1, 100),
+      utcPoint(2024, 3, 31, 100),
+      utcPoint(2024, 4, 1, 200),
+      utcPoint(2024, 4, 30, 200),
+    ];
+
+    const result = computeMetrics({
+      trades: [],
+      equity,
+      startEquity: 100,
+      totalBars: equity.length,
+      barsPerYear: 365,
+    }).monthlyReturns;
+
+    expect(result).toEqual({
+      '2024-01': 0,
+      '2024-02': 1,
+      '2024-03': -0.5,
+      '2024-04': 1,
+    });
+  });
+
+  it('uses startEquity as the base for a single month', () => {
+    const result = monthlyReturns([
+      utcPoint(2024, 1, 1, 110),
+      utcPoint(2024, 1, 31, 121),
+    ], 100);
+
+    expect(result['2024-01']).toBeCloseTo(0.21, 12);
+  });
+
+  it('skips gap months and chains the next present month from the prior close', () => {
+    const result = monthlyReturns([
+      utcPoint(2024, 1, 31, 110),
+      utcPoint(2024, 3, 31, 121),
+    ], 100);
+
+    expect(Object.keys(result)).toEqual(['2024-01', '2024-03']);
+    expect(result['2024-01']).toBeCloseTo(0.1, 12);
+    expect(result['2024-03']).toBeCloseTo(0.1, 12);
+  });
+
+  it('does not substitute the first point when startEquity differs', () => {
+    const result = monthlyReturns([
+      utcPoint(2024, 1, 1, 100),
+      utcPoint(2024, 1, 31, 120),
+    ], 80);
+
+    expect(result['2024-01']).toBeCloseTo(0.5, 12);
+  });
+
+  it('returns zero for a non-positive base, then carries the month close forward', () => {
+    expect(monthlyReturns([
+      utcPoint(2024, 1, 31, 50),
+      utcPoint(2024, 2, 29, 100),
+    ], 0)).toEqual({
+      '2024-01': 0,
+      '2024-02': 1,
+    });
+  });
+
+  it('keeps empty equity total', () => {
+    expect(monthlyReturns([], 100)).toEqual({});
   });
 });

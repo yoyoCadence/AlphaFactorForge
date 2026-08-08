@@ -84,7 +84,7 @@ describe('RS-CORE Gate + Score parity fixture', () => {
   it('locks the envelope, numeric policy, and every success/error inventory', () => {
     expect(fixture.schemaVersion).toBe('rs-core-parity-fixture-v1');
     expect(fixture.fixtureVersion).toBe('gate-score-parity-v1');
-    expect(fixture.contracts).toEqual({ metrics: 'metrics-v1', gate: 'gate-v1', score: 'score-v1' });
+    expect(fixture.contracts).toEqual({ metrics: 'metrics-v2', gate: 'gate-v1', score: 'score-v1' });
     expect(fixture.generator.sourceHashEncoding).toBe(FIXTURE_SOURCE_HASH_ENCODING);
     expect(fixture.numericEncoding).toEqual({
       specialInputNumbers: SPECIAL_INPUT_NUMBER_ENCODING,

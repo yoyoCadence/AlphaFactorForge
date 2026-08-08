@@ -77,7 +77,7 @@ vitest freshness test both run them against the TS engine and require a
 20-case inventory by id.
 
 `discovery_core/backtest.rs` (`backtest-execution-v1`) and
-`discovery_core/metrics.rs` (`metrics-v1`) are the pure Rust ports. Their
+`discovery_core/metrics.rs` (`metrics-v2`) are the pure Rust ports. Their
 parity test compares trades (timestamps/side/bars exact; prices and PnL within
 the declared tolerance), full equity curves, every metric leaf including exact
 non-finite statuses and monthly-return keys, and the exact fail-closed error

@@ -2,7 +2,7 @@
   "schemaVersion": "rs-core-parity-fixture-v1",
   "fixtureVersion": "gate-score-parity-v1",
   "contracts": {
-    "metrics": "metrics-v1",
+    "metrics": "metrics-v2",
     "gate": "gate-v1",
     "score": "score-v1"
   },
@@ -11,7 +11,7 @@
     "referenceRuntime": "typescript",
     "sourceHashEncoding": "utf8-lf-v1",
     "sourceHashes": {
-      "generator": "sha256:c138a935662e50b5749bd1aeb82331a24f89d9d5f1cd03275fb363ac2a4aec02",
+      "generator": "sha256:3de78d1e96dc3adf19c273f4d81b87a024c914448d5f7b9503cb56ca2c958c56",
       "gate": "sha256:80b278434dc8f519f1260c20c293603a12e481b05cc48351b953ebc4acaae83f",
       "score": "sha256:e765d41f5fdfcb3fde30d246179cf3b7c76847f2dacabe616f252c571d94b764",
       "strategy": "sha256:d5540e44a8fdee608f6516806c523202361f2811a977c11d56b51e1844b0de78",
