@@ -18,7 +18,9 @@ import { useTheme } from '../theme/ThemeProvider';
 const TITLE_H = 30;
 const PAD = 8;
 const MIN_W = 280;
-const MIN_H = 180;
+// VOL + RSI consume two 42px strips; 180px left the price pane effectively
+// empty after title/padding. Keep a usable minimum without changing defaults.
+const MIN_H = 260;
 
 export function FloatingPanel({
   title,

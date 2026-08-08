@@ -29,22 +29,22 @@ function App(): React.ReactElement {
   }, []);
 
   return (
-    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: t.color.bg, color: t.color.ink, fontFamily: t.font.sans, fontSize: 13 }}>
+    <div className="app-shell" style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: 'transparent', color: t.color.ink, fontFamily: t.font.sans, fontSize: t.font.size }}>
       {/* Header height is a skin token (46–68px): the broadsheet skin's masthead
           and the terminal skin's tight bar are part of their design, not spare
           padding. Safe to vary because <main> below is flex:1. */}
-      <header style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 14px', height: t.header.height, background: t.header.bg, borderBottom: `1px solid ${t.header.border}`, flexShrink: 0 }}>
+      <header className="app-header" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 14px', height: t.header.height, background: t.header.bg, borderBottom: `1px solid ${t.header.border}`, flexShrink: 0 }}>
         <div style={{ width: 16, height: 16, background: t.header.markBg, transform: `rotate(${t.header.markRotate})`, borderRadius: t.header.markRadius }} />
         <div style={{ fontWeight: 700, fontSize: 15, letterSpacing: '0.01em', color: t.header.ink }}>
           ALPHAFACTORFORGE
           <span style={{ color: t.color.faint, fontWeight: 500, fontSize: 13 }}> /backtest</span>
         </div>
         <div style={{ flex: 1 }} />
-        <div style={{ fontFamily: t.font.mono, fontSize: 11, color: t.header.muted }}>{status}</div>
+        <div className="app-header-status" title={status} style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: t.font.mono, fontSize: t.font.labelSize, color: t.header.muted }}>{status}</div>
         <SkinPicker />
       </header>
 
-      <main style={{ flex: 1, overflow: 'auto', padding: 16 }}>
+      <main className="app-workspace" style={{ flex: 1, overflow: 'auto', padding: 16 }}>
         <BacktestPanel />
       </main>
     </div>

@@ -9,15 +9,17 @@
 // this file changes.
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { DEFAULT_SKIN, FONT_HREF, getTheme, type SkinId, type Theme } from './theme';
+import { DEFAULT_SKIN, FONT_HREF, getTheme, isSkinId, type SkinId, type Theme } from './theme';
 import { applyTheme } from './themeCss';
 
 const STORE_KEY = 'afs.ui.skin';
 
 function readSkin(): SkinId {
   try {
-    const v = localStorage.getItem(STORE_KEY);
-    return (v as SkinId) ?? DEFAULT_SKIN;
+    const value = localStorage.getItem(STORE_KEY);
+    if (isSkinId(value)) return value;
+    if (value != null) localStorage.removeItem(STORE_KEY);
+    return DEFAULT_SKIN;
   } catch {
     return DEFAULT_SKIN;
   }
@@ -56,16 +58,25 @@ export function ThemeProvider({ children }: { children: React.ReactNode }): Reac
   const theme = useMemo(() => getTheme(skin), [skin]);
   const rootRef = useRef<HTMLDivElement>(null);
   useFonts();
-
   // Vars go on the app root AND documentElement: the root covers the app tree,
   // documentElement covers the window background behind it (and any portal).
   useEffect(() => {
     if (rootRef.current) applyTheme(rootRef.current, theme);
     applyTheme(document.documentElement, theme);
-    document.body.style.background = theme.color.bg;
     document.body.style.color = theme.color.ink;
     document.body.style.fontFamily = theme.font.sans;
   }, [theme]);
+
+  // Keep separately mounted browser/Tauri windows in sync. The writing window
+  // updates through setSkin; sibling windows receive the standard storage event.
+  useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== STORE_KEY) return;
+      setSkinState(isSkinId(event.newValue) ? event.newValue : DEFAULT_SKIN);
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
 
   const setSkin = useCallback((id: SkinId) => {
     setSkinState(id);
@@ -76,7 +87,15 @@ export function ThemeProvider({ children }: { children: React.ReactNode }): Reac
 
   return (
     <Ctx.Provider value={value}>
-      <div ref={rootRef} data-skin={skin} style={{ minHeight: '100vh', background: theme.color.bg, color: theme.color.ink }}>
+      <div
+        ref={rootRef}
+        className="afs-theme-root"
+        data-skin={skin}
+        style={{
+          minHeight: '100vh',
+          color: theme.color.ink,
+        }}
+      >
         {children}
       </div>
     </Ctx.Provider>

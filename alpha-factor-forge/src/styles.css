@@ -15,11 +15,23 @@
 
 body {
   margin: 0;
-  background: var(--afs-bg, #eceae4);
+  background-color: var(--afs-bg, #eceae4);
+  background-image: var(--afs-workspace-scrim, none), var(--afs-workspace-image, none);
+  background-position: var(--afs-workspace-position, center);
+  background-size: var(--afs-workspace-size, auto);
+  background-repeat: var(--afs-workspace-repeat, no-repeat);
   color: var(--afs-ink, #16150f);
   font-family: var(--afs-sans, 'IBM Plex Sans', 'Noto Sans TC', system-ui, sans-serif);
   font-size: var(--afs-fs, 13px);
   -webkit-font-smoothing: antialiased;
+}
+
+.afs-theme-root {
+  background-color: var(--afs-bg, #eceae4);
+  background-image: var(--afs-workspace-scrim, none), var(--afs-workspace-image, none);
+  background-position: var(--afs-workspace-position, center);
+  background-size: var(--afs-workspace-size, auto);
+  background-repeat: var(--afs-workspace-repeat, no-repeat);
 }
 
 button,
@@ -86,9 +98,38 @@ a:hover {
   color: var(--afs-accent-ink, #ffffff);
 }
 
-/* Dark skins: keep native form controls from rendering as light widgets. */
-[data-mode='dark'] input,
-[data-mode='dark'] select,
-[data-mode='dark'] textarea {
+/* Match native form controls to the selected skin, independent of OS mode. */
+[data-mode='light'] {
+  color-scheme: light;
+}
+
+[data-mode='dark'] {
   color-scheme: dark;
+}
+
+@media (max-width: 860px) {
+  .backtest-layout {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .app-workspace {
+    padding: 10px !important;
+  }
+
+  .app-header-status {
+    display: none;
+  }
+}
+
+@media (max-width: 560px) {
+  .skin-picker-label,
+  .skin-picker-swatches {
+    display: none !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button {
+    transition: none;
+  }
 }
