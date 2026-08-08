@@ -308,6 +308,9 @@ pub fn monthly_returns(equity: &[EquityPoint], start_equity: f64) -> BTreeMap<St
             .single()
             .expect("equity timestamps are valid epoch milliseconds");
         let key = format!("{}-{:02}", stamp.year(), stamp.month());
+        // Preserve the supplied chronological run order exactly, matching the
+        // TypeScript reference. Only adjacent points from one month coalesce;
+        // callers must not reorder the equity curve by month key.
         if let Some((current_key, last)) = by_month.last_mut() {
             if current_key == &key {
                 *last = point.equity;

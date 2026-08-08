@@ -25,7 +25,7 @@
       "strategy": "sha256:d5540e44a8fdee608f6516806c523202361f2811a977c11d56b51e1844b0de78",
       "indicators": "sha256:046dd9b97ee52d091ce69ff8f4809f59fc6ef049cb8fcdf129f7b0b9603583b5",
       "backtest": "sha256:0c562ee057140c1502c45fa146c88d3f16a21facfe8f0f7118ec69be82270a9a",
-      "metrics": "sha256:2f82a29a85ed3e0cceec0d46ff17a6172e502791cfd438205e7882accd088981",
+      "metrics": "sha256:008d09216ec3b90e2f98b847c54bdf10fb08d7c5cf13647a604a3cb87fa82b50",
       "sampleData": "sha256:7f4d2bc3a8a1a3d542bb1d522e3da29edcf318eec863d0bb5def798e1c205100"
     }
   },

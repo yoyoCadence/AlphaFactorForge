@@ -169,11 +169,16 @@ export function monthlyReturns(
   startEquity: number,
 ): Record<string, number> {
   const out: Record<string, number> = {};
-  const byMonth = new Map<string, number>();
+  // Preserve the supplied chronological run order exactly. This mirrors the
+  // Rust implementation and intentionally only coalesces adjacent points from
+  // the same month; callers must not reorder the equity curve by month key.
+  const byMonth: Array<[string, number]> = [];
   for (const p of equity) {
     const d = new Date(p.time);
     const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
-    byMonth.set(key, p.equity);
+    const current = byMonth[byMonth.length - 1];
+    if (current?.[0] === key) current[1] = p.equity;
+    else byMonth.push([key, p.equity]);
   }
   let base = startEquity;
   for (const [key, last] of byMonth) {

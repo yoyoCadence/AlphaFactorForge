@@ -15,7 +15,7 @@
       "parityEncode": "sha256:52bd558a9f608c766c1683737c0c0de3254e83301d5173dccbcb6ecf089204a8",
       "nonFinite": "sha256:01b67e4ac992dc4eea5235fe9b787a254de69bbbb514f9bccfe97185be0dbc07",
       "backtest": "sha256:0c562ee057140c1502c45fa146c88d3f16a21facfe8f0f7118ec69be82270a9a",
-      "metrics": "sha256:2f82a29a85ed3e0cceec0d46ff17a6172e502791cfd438205e7882accd088981",
+      "metrics": "sha256:008d09216ec3b90e2f98b847c54bdf10fb08d7c5cf13647a604a3cb87fa82b50",
       "sampleData": "sha256:7f4d2bc3a8a1a3d542bb1d522e3da29edcf318eec863d0bb5def798e1c205100"
     }
   },
