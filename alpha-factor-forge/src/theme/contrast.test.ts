@@ -90,16 +90,22 @@ it('keeps aurora glass text AA-safe over the generated image worst case', async 
 
   // Exhaustive offline inspection of the pinned 1440x900 asset found this to
   // be its highest-luminance pixel. Composite it through the least-opaque
-  // scrim stop and the glass card: this is the lightest real text surface.
+  // scrim stop and each glass layer used by text-bearing components.
   const brightestAssetPixel: Rgb = [18, 139, 180];
   const theme = THEMES['aurora-glass'];
   const scrim = theme.workspaceBackground.scrim.match(/rgba\([^)]+\)/)?.[0];
   if (!scrim) throw new Error('aurora-glass must declare an rgba scrim');
   const workspace = composite(parseRgba(scrim), brightestAssetPixel);
   const card = composite(parseRgba(theme.color.cardBg), workspace);
+  const surfaceOverCard = composite(parseRgba(theme.color.surface2), card);
+  const surfaceOverWorkspace = composite(parseRgba(theme.color.surface2), workspace);
 
   expect(contrastOnRgb(theme.color.ink, card), 'ink on composited aurora card').toBeGreaterThanOrEqual(AA);
   expect(contrastOnRgb(theme.color.muted, card), 'muted on composited aurora card').toBeGreaterThanOrEqual(AA);
+  expect(contrastOnRgb(theme.color.ink, surfaceOverCard), 'ink on aurora surface2 over card').toBeGreaterThanOrEqual(AA);
+  expect(contrastOnRgb(theme.color.muted, surfaceOverCard), 'muted on aurora surface2 over card').toBeGreaterThanOrEqual(AA);
+  expect(contrastOnRgb(theme.color.ink, surfaceOverWorkspace), 'ink on aurora surface2 over workspace').toBeGreaterThanOrEqual(AA);
+  expect(contrastOnRgb(theme.color.muted, surfaceOverWorkspace), 'muted on aurora surface2 over workspace').toBeGreaterThanOrEqual(AA);
 });
 
 describe.each(SKIN_ORDER)('skin %s contrast', (id) => {

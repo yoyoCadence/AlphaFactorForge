@@ -47,6 +47,9 @@ change remain independently reviewable.
   Aurora cards to dark translucent glass. A unit regression pins the generated
   WebP SHA and composites its measured brightest pixel through the weakest
   scrim stop and card alpha before requiring AA contrast for ink and muted text.
+  The second follow-up added a dedicated 520px accessible-name E2E and changed
+  text-bearing `surface2` to deep violet glass, with AA assertions for both its
+  nested-card and free-standing workspace composites.
 
 ## Image Generation Record
 
@@ -151,17 +154,21 @@ workspace contains only the optimized final assets.
 - `npm run build` — passed; all three WebPs emitted by Vite at 12.53/13.58/40.96
   kB and no new runtime dependency was added.
 - `cargo check` — passed.
-- `E2E_PORT=4184 npm run e2e -- e2e/skins.spec.ts` — 20/20 passed, including
-  all ten skins, local WebP fetches, invalid storage fallback, focus ring,
-  760px single-column/no-overflow layout, sibling-window live sync, and no
-  duplicate-key warning.
+- The preceding review head completed `E2E_PORT=4184 npm run e2e --
+  e2e/skins.spec.ts` at 20/20. The second follow-up's dedicated 520px
+  compact-picker accessible-name guard passed 1/1 on port 4185. A post-change
+  local full-suite attempt continued making progress without an assertion
+  failure but exceeded the 15-minute outer command limit; the PR's complete
+  Playwright job remains the final 50-test gate.
 - Playwright CLI visual QA — aurora-glass and signal-orange inspected with the
   complete 600-candle chart; background placement and chart/control contrast
   remained usable.
 - Post-review in-app Browser QA confirmed the Aurora root still paints the
   generated background while cards resolve to rgba(11,10,24,0.55); the pinned
   worst-case composite measures approximately 11.06:1 for ink and 5.04:1 for
-  muted text.
+  muted text. The second review changes `surface2` to rgba(42,37,80,0.75):
+  muted text measures approximately 5.39:1 over a card and 4.59:1 directly over
+  the brightest workspace composite.
 - The first full `npm test` rerun hit the Windows sandbox's `spawn EPERM`.
   Escalated local retries subsequently completed, including the PR review
   follow-up at 683/683 Vitest tests. GitHub Actions run

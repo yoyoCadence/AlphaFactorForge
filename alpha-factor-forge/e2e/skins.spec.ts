@@ -124,13 +124,19 @@ test('the workspace collapses to one column without horizontal overflow', async 
   await page.setViewportSize({ width: 760, height: 700 });
   await page.goto('/?mock=1');
 
-  await expect(page.getByRole('combobox', { name: '皮膚' })).toBeVisible();
-
   const layout = page.getByTestId('backtest-layout');
   const columns = await layout.evaluate((element) => getComputedStyle(element).gridTemplateColumns.trim().split(/\s+/));
   const width = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, client: document.documentElement.clientWidth }));
   expect(columns).toHaveLength(1);
   expect(width.scroll).toBeLessThanOrEqual(width.client);
+});
+
+test('the skin picker keeps its accessible name below the compact-label breakpoint', async ({ page }) => {
+  await page.setViewportSize({ width: 520, height: 700 });
+  await page.goto('/?mock=1');
+
+  await expect(page.locator('.skin-picker-label')).toBeHidden();
+  await expect(page.getByRole('combobox', { name: '皮膚' })).toBeVisible();
 });
 
 test('switching through all skins emits no duplicate-key warning', async ({ page }) => {
