@@ -41,6 +41,12 @@ change remain independently reviewable.
   containment above it, light/dark native `color-scheme`, reduced-motion button
   handling, theme-sized pop-out headers, and a usable 260px floating-chart
   minimum height.
+- PR review follow-up gave the mobile skin selector an explicit accessible
+  name, made CSS variables the sole workspace-background renderer, required
+  every registered skin to belong to exactly one background class, and changed
+  Aurora cards to dark translucent glass. A unit regression pins the generated
+  WebP SHA and composites its measured brightest pixel through the weakest
+  scrim stop and card alpha before requiring AA contrast for ink and muted text.
 
 ## Image Generation Record
 
@@ -152,10 +158,16 @@ workspace contains only the optimized final assets.
 - Playwright CLI visual QA — aurora-glass and signal-orange inspected with the
   complete 600-candle chart; background placement and chart/control contrast
   remained usable.
-- A final full `npm test` rerun was attempted. The sandbox hit Windows
-  `spawn EPERM`; the required escalated retry was then unavailable because the
-  local tool approval quota had been exhausted. The changed theme suites,
-  typecheck, production build, focused E2E, and Rust check above all passed.
+- Post-review in-app Browser QA confirmed the Aurora root still paints the
+  generated background while cards resolve to rgba(11,10,24,0.55); the pinned
+  worst-case composite measures approximately 11.06:1 for ink and 5.04:1 for
+  muted text.
+- The first full `npm test` rerun hit the Windows sandbox's `spawn EPERM`.
+  Escalated local retries subsequently completed, including the PR review
+  follow-up at 683/683 Vitest tests. GitHub Actions run
+  https://github.com/yoyoCadence/AlphaFactorForge/actions/runs/31252107776 also
+  completed build, e2e, typecheck, cargo-check, and test successfully for the
+  original PR head; the review commit receives the same five required checks.
 
 ## Risks / Next Recommended Step
 

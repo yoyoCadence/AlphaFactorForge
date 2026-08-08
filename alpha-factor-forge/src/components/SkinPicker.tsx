@@ -51,6 +51,7 @@ export function SkinPicker(): React.ReactElement {
       </span>
 
       <select
+        aria-label='皮膚'
         value={skin}
         onChange={(e) => setSkin(e.target.value as SkinId)}
         style={{

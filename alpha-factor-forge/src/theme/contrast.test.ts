@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import auroraAssetDataUrl from '../assets/theme-backgrounds/aurora-glass-v1.webp?inline';
 import { SKIN_ORDER, THEMES, type Theme } from './theme';
 
 // Text contrast is the one skin property that cannot be eyeballed reliably —
@@ -34,6 +35,31 @@ function contrast(fg: string, bg: string): number | null {
   return (hi + 0.05) / (lo + 0.05);
 }
 
+type Rgb = [number, number, number];
+type Rgba = [number, number, number, number];
+
+function parseRgba(value: string): Rgba {
+  const match = value.match(/rgba\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*\)/);
+  if (!match) throw new Error(`expected rgba() token, received ${value}`);
+  return [Number(match[1]), Number(match[2]), Number(match[3]), Number(match[4])];
+}
+
+function composite(over: Rgba, under: Rgb): Rgb {
+  const alpha = over[3];
+  return [
+    Math.round(over[0] * alpha + under[0] * (1 - alpha)),
+    Math.round(over[1] * alpha + under[1] * (1 - alpha)),
+    Math.round(over[2] * alpha + under[2] * (1 - alpha)),
+  ];
+}
+
+function contrastOnRgb(fg: string, bg: Rgb): number {
+  const foreground = channels(fg);
+  if (!foreground) throw new Error(`expected opaque foreground, received ${fg}`);
+  const [hi, lo] = [relativeLuminance(foreground), relativeLuminance(bg)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+}
+
 /** WCAG AA for normal text. Every token below carries text at 10-13px. */
 const AA = 4.5;
 
@@ -52,6 +78,29 @@ const DE_EMPHASIS = 3.0;
  *  instead of being quietly dropped from the suite. */
 const ACCENT_PAIR_BELOW_AA: ReadonlySet<string> = new Set(['swiss-forge']);
 const ACCENT_PAIR_CASES = new Set(['accentInk on accent', 'primaryInk on primaryBg']);
+
+it('keeps aurora glass text AA-safe over the generated image worst case', async () => {
+  const encoded = auroraAssetDataUrl.slice(auroraAssetDataUrl.indexOf(',') + 1);
+  const asset = Uint8Array.from(atob(encoded), (character) => character.charCodeAt(0));
+  const digest = await globalThis.crypto.subtle.digest('SHA-256', asset);
+  const sha256 = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+  expect(sha256).toBe(
+    'd0126cb347712b98d0d87ed0ece471df0da6817ae0518018f0639311e459e6c6',
+  );
+
+  // Exhaustive offline inspection of the pinned 1440x900 asset found this to
+  // be its highest-luminance pixel. Composite it through the least-opaque
+  // scrim stop and the glass card: this is the lightest real text surface.
+  const brightestAssetPixel: Rgb = [18, 139, 180];
+  const theme = THEMES['aurora-glass'];
+  const scrim = theme.workspaceBackground.scrim.match(/rgba\([^)]+\)/)?.[0];
+  if (!scrim) throw new Error('aurora-glass must declare an rgba scrim');
+  const workspace = composite(parseRgba(scrim), brightestAssetPixel);
+  const card = composite(parseRgba(theme.color.cardBg), workspace);
+
+  expect(contrastOnRgb(theme.color.ink, card), 'ink on composited aurora card').toBeGreaterThanOrEqual(AA);
+  expect(contrastOnRgb(theme.color.muted, card), 'muted on composited aurora card').toBeGreaterThanOrEqual(AA);
+});
 
 describe.each(SKIN_ORDER)('skin %s contrast', (id) => {
   const t: Theme = THEMES[id];

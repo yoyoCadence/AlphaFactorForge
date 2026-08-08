@@ -85,7 +85,12 @@ describe('workspace background contract', () => {
     expect(THEMES[id].workspaceBackground.scrim).toBe('none');
   });
 
-  it('keeps the workspace base colour opaque for contrast checks', () => {
+  it('classifies every skin and keeps each workspace base colour opaque', () => {
+    expect([
+      ...RASTER_BACKGROUND_SKINS,
+      ...PATTERN_BACKGROUND_SKINS,
+      ...FLAT_BACKGROUND_SKINS,
+    ].sort()).toEqual([...SKIN_ORDER].sort());
     for (const id of SKIN_ORDER) expect(THEMES[id].color.bg, id).toMatch(/^#[0-9a-f]{6}$/i);
   });
 });

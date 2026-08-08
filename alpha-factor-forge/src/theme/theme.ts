@@ -679,7 +679,7 @@ export const auroraGlass: Theme = {
   ),
   color: {
     bg: '#0b0a18',
-    surface: 'rgba(255,255,255,0.06)', surface2: 'rgba(255,255,255,0.10)', cardBg: 'rgba(255,255,255,0.055)',
+    surface: 'rgba(255,255,255,0.06)', surface2: 'rgba(255,255,255,0.10)', cardBg: 'rgba(11,10,24,0.55)',
     ink: '#eceafd', muted: '#a09cc9', faint: '#726ea0',
     line: 'rgba(255,255,255,0.14)', line2: 'rgba(255,255,255,0.26)',
     accent: '#a78bfa', accentInk: '#160f2e', accentWash: 'rgba(167,139,250,0.18)', ok: '#5eead4', warn: '#fbbf24', danger: '#fb7185',

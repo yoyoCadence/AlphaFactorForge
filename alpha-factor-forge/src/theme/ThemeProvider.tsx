@@ -58,21 +58,14 @@ export function ThemeProvider({ children }: { children: React.ReactNode }): Reac
   const theme = useMemo(() => getTheme(skin), [skin]);
   const rootRef = useRef<HTMLDivElement>(null);
   useFonts();
-  const workspaceImage = `${theme.workspaceBackground.scrim}, ${theme.workspaceBackground.image}`;
-
   // Vars go on the app root AND documentElement: the root covers the app tree,
   // documentElement covers the window background behind it (and any portal).
   useEffect(() => {
     if (rootRef.current) applyTheme(rootRef.current, theme);
     applyTheme(document.documentElement, theme);
-    document.body.style.backgroundColor = theme.color.bg;
-    document.body.style.backgroundImage = workspaceImage;
-    document.body.style.backgroundPosition = theme.workspaceBackground.position;
-    document.body.style.backgroundSize = theme.workspaceBackground.size;
-    document.body.style.backgroundRepeat = theme.workspaceBackground.repeat;
     document.body.style.color = theme.color.ink;
     document.body.style.fontFamily = theme.font.sans;
-  }, [theme, workspaceImage]);
+  }, [theme]);
 
   // Keep separately mounted browser/Tauri windows in sync. The writing window
   // updates through setSkin; sibling windows receive the standard storage event.
@@ -100,11 +93,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }): Reac
         data-skin={skin}
         style={{
           minHeight: '100vh',
-          backgroundColor: theme.color.bg,
-          backgroundImage: workspaceImage,
-          backgroundPosition: theme.workspaceBackground.position,
-          backgroundSize: theme.workspaceBackground.size,
-          backgroundRepeat: theme.workspaceBackground.repeat,
           color: theme.color.ink,
         }}
       >

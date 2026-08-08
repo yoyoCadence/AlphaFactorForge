@@ -124,6 +124,8 @@ test('the workspace collapses to one column without horizontal overflow', async 
   await page.setViewportSize({ width: 760, height: 700 });
   await page.goto('/?mock=1');
 
+  await expect(page.getByRole('combobox', { name: '皮膚' })).toBeVisible();
+
   const layout = page.getByTestId('backtest-layout');
   const columns = await layout.evaluate((element) => getComputedStyle(element).gridTemplateColumns.trim().split(/\s+/));
   const width = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, client: document.documentElement.clientWidth }));
