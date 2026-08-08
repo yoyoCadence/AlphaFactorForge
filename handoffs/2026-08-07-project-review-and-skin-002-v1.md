@@ -48,8 +48,10 @@ change remain independently reviewable.
   WebP SHA and composites its measured brightest pixel through the weakest
   scrim stop and card alpha before requiring AA contrast for ink and muted text.
   The second follow-up added a dedicated 520px accessible-name E2E and changed
-  text-bearing `surface2` to deep violet glass, with AA assertions for both its
-  nested-card and free-standing workspace composites.
+  text-bearing `surface2` to deep violet glass, with assertions for both its
+  nested-card and free-standing workspace composites. The final follow-up
+  raises those assertions to AA + 0.5 and removes the unused `color.surface`
+  token and its equally unused `--afs-surface` CSS variable.
 
 ## Image Generation Record
 
@@ -149,7 +151,7 @@ workspace contains only the optimized final assets.
 ## Verification
 
 - `npm run test -- src/theme/theme.test.ts src/theme/themeCss.test.ts src/theme/contrast.test.ts`
-  — 183/183 passed.
+  — 184/184 passed.
 - `npm run typecheck` — passed.
 - `npm run build` — passed; all three WebPs emitted by Vite at 12.53/13.58/40.96
   kB and no new runtime dependency was added.
@@ -166,15 +168,18 @@ workspace contains only the optimized final assets.
 - Post-review in-app Browser QA confirmed the Aurora root still paints the
   generated background while cards resolve to rgba(11,10,24,0.55); the pinned
   worst-case composite measures approximately 11.06:1 for ink and 5.04:1 for
-  muted text. The second review changes `surface2` to rgba(42,37,80,0.75):
-  muted text measures approximately 5.39:1 over a card and 4.59:1 directly over
-  the brightest workspace composite.
+  muted text. The final review changes `surface2` to rgba(30,26,63,0.78): muted
+  text measures approximately 6.10:1 over a card and 5.38:1 directly over the
+  brightest workspace composite, clearing the enforced 5.0 floor.
 - The first full `npm test` rerun hit the Windows sandbox's `spawn EPERM`.
   Escalated local retries subsequently completed, including the PR review
   follow-up at 683/683 Vitest tests. GitHub Actions run
   https://github.com/yoyoCadence/AlphaFactorForge/actions/runs/31252107776 also
   completed build, e2e, typecheck, cargo-check, and test successfully for the
   original PR head; the review commit receives the same five required checks.
+- After #88 merged and this branch rebased onto `c60cea6`, final local checks
+  completed at 690/690 Vitest tests plus typecheck, production build, and
+  `git diff --check`; the rebased PR CI remains the final Rust/50-E2E gate.
 
 ## Risks / Next Recommended Step
 

@@ -13,7 +13,6 @@ export function themeToCssVars(t: Theme): Record<string, string> {
   const c = t.color, f = t.font, s = t.shape, b = t.button, h = t.header, k = t.track, w = t.workspaceBackground;
   return {
     '--afs-bg': c.bg,
-    '--afs-surface': c.surface,
     '--afs-surface2': c.surface2,
     '--afs-card-bg': c.cardBg,
     '--afs-ink': c.ink,

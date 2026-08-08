@@ -62,6 +62,7 @@ function contrastOnRgb(fg: string, bg: Rgb): number {
 
 /** WCAG AA for normal text. Every token below carries text at 10-13px. */
 const AA = 4.5;
+const AA_WITH_SAFETY_MARGIN = AA + 0.5;
 
 /** `faint` is the de-emphasised half of a pair — the entry/exit ✗ against a bold
  *  coloured ✓, and the `/backtest` suffix after the product name. It is not
@@ -102,10 +103,10 @@ it('keeps aurora glass text AA-safe over the generated image worst case', async 
 
   expect(contrastOnRgb(theme.color.ink, card), 'ink on composited aurora card').toBeGreaterThanOrEqual(AA);
   expect(contrastOnRgb(theme.color.muted, card), 'muted on composited aurora card').toBeGreaterThanOrEqual(AA);
-  expect(contrastOnRgb(theme.color.ink, surfaceOverCard), 'ink on aurora surface2 over card').toBeGreaterThanOrEqual(AA);
-  expect(contrastOnRgb(theme.color.muted, surfaceOverCard), 'muted on aurora surface2 over card').toBeGreaterThanOrEqual(AA);
-  expect(contrastOnRgb(theme.color.ink, surfaceOverWorkspace), 'ink on aurora surface2 over workspace').toBeGreaterThanOrEqual(AA);
-  expect(contrastOnRgb(theme.color.muted, surfaceOverWorkspace), 'muted on aurora surface2 over workspace').toBeGreaterThanOrEqual(AA);
+  expect(contrastOnRgb(theme.color.ink, surfaceOverCard), 'ink on aurora surface2 over card').toBeGreaterThanOrEqual(AA_WITH_SAFETY_MARGIN);
+  expect(contrastOnRgb(theme.color.muted, surfaceOverCard), 'muted on aurora surface2 over card').toBeGreaterThanOrEqual(AA_WITH_SAFETY_MARGIN);
+  expect(contrastOnRgb(theme.color.ink, surfaceOverWorkspace), 'ink on aurora surface2 over workspace').toBeGreaterThanOrEqual(AA_WITH_SAFETY_MARGIN);
+  expect(contrastOnRgb(theme.color.muted, surfaceOverWorkspace), 'muted on aurora surface2 over workspace').toBeGreaterThanOrEqual(AA_WITH_SAFETY_MARGIN);
 });
 
 describe.each(SKIN_ORDER)('skin %s contrast', (id) => {

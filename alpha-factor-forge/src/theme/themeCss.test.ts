@@ -13,6 +13,7 @@ describe('themeToCssVars', () => {
   it('emits a non-trivial set of variables', () => {
     expect(BASELINE.length).toBeGreaterThan(40);
     expect(BASELINE.every((k) => k.startsWith('--afs-'))).toBe(true);
+    expect(BASELINE).not.toContain('--afs-surface');
   });
 
   it.each(SKIN_ORDER)('%s emits exactly the same keys', (id) => {
