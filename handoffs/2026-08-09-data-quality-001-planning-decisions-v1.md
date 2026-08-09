@@ -70,4 +70,24 @@ Documentation-only decision record. No application code or runtime behavior was 
 
 ## Resolution (added when acted on)
 
-Pending backlog specification and user approval.
+The backlog specification was written on 2026-08-09 and is appended to
+`docs/improvement-backlog.md` as `DATA-QUALITY-001`, implementing all three
+decisions above: the adjudicated admission constants, the repurposed
+stored-invalid-data regression, and the planning/implementation split. No
+application code was changed.
+
+Two conditions found while grounding the specification, both recorded in it:
+
+1. The decision text refers to refining an "existing `DATA-QUALITY-001` entry"
+   in `docs/improvement-backlog.md`. No such entry existed — the task lived only
+   in `tasks.md` and the audit handoff — so the specification was added as a new
+   section in the audit addendum, in the adjudicated execution order after
+   `METRIC-002`.
+2. `load_verified_dataset` is called at `discovery_runner/mod.rs:348` **before**
+   any run row is inserted, so the repurposed regression cannot assert a
+   persisted failed run as the current test does. `start` returns `Err` and the
+   correct fail-closed assertion is that no run row, job, progress record, event,
+   or coordinator control was written at all.
+
+Still pending: maintainer approval of the specification, after which a separate
+coding-agent session implements it from the latest `origin/main`.
