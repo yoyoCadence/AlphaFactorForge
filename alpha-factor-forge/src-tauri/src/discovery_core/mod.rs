@@ -8,6 +8,7 @@ pub mod enumerate;
 pub mod gate;
 pub mod identity;
 pub mod indicators;
+pub mod market_data;
 pub mod metrics;
 pub mod prng;
 pub mod random_entry;
@@ -25,6 +26,8 @@ mod benchmark_parity_tests;
 mod gate_score_parity_tests;
 #[cfg(test)]
 mod indicator_parity_tests;
+#[cfg(test)]
+mod market_data_parity_tests;
 #[cfg(test)]
 mod parity_support;
 #[cfg(test)]

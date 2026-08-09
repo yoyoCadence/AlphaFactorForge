@@ -5,6 +5,8 @@
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 
+use alpha_factor_forge::discovery_core::market_data::{self, CandleFields};
+
 use crate::db::validation_record::parse_new_record;
 use crate::error::{AppError, AppResult};
 
@@ -154,6 +156,12 @@ pub fn import_dataset_with_candles(
     candles: &[Candle],
 ) -> AppResult<i64> {
     let normalized = crate::identity::verify_dataset_identity(dataset, candles)?;
+    // DATA-QUALITY-001 mount point 3 — admission runs BEFORE the transaction is
+    // opened. That ordering is what makes atomicity provable rather than
+    // incidental: a rejected payload never reaches a writable transaction, so no
+    // previously imported dataset can be disturbed by it.
+    market_data::ensure_admissible(normalized.iter().map(db_candle_fields))
+        .map_err(|error| AppError::Other(error.0))?;
     let tx = conn.transaction()?;
     let existing: Option<Dataset> = tx
         .query_row(
@@ -255,6 +263,19 @@ pub fn import_dataset_with_candles(
     }
     tx.commit()?;
     Ok(dataset_id)
+}
+
+/// The single mapping point from a persisted candle row to validator fields, so
+/// the import gate and the discovery-runner gate cannot drift apart.
+pub(crate) fn db_candle_fields(candle: &Candle) -> CandleFields {
+    CandleFields {
+        timestamp: candle.timestamp as f64,
+        open: candle.open,
+        high: candle.high,
+        low: candle.low,
+        close: candle.close,
+        volume: candle.volume,
+    }
 }
 
 fn candles_equal(left: &Candle, right: &Candle) -> bool {
@@ -915,10 +936,19 @@ mod tests {
         }
     }
 
+    /// DATA-QUALITY-001: the original timestamps `1`/`2` are no longer
+    /// admissible market data. These are the committed TypeScript identity
+    /// fixture's values. The dataset hash below is computed, never a literal, so
+    /// moving the timestamps changes nothing else in these tests — and
+    /// `identity.rs`'s own `1`/`2` hashing tests are deliberately left alone as
+    /// the mechanical proof that the validator did not enter the identity path.
+    const IDENTITY_CANDLE_T0: i64 = 1_721_001_600_000;
+    const IDENTITY_CANDLE_T1: i64 = 1_721_005_200_000;
+
     fn identity_candles() -> Vec<Candle> {
         vec![
             Candle {
-                timestamp: 2,
+                timestamp: IDENTITY_CANDLE_T1,
                 open: 101.0,
                 high: 103.0,
                 low: 100.0,
@@ -926,7 +956,7 @@ mod tests {
                 volume: 12.0,
             },
             Candle {
-                timestamp: 1,
+                timestamp: IDENTITY_CANDLE_T0,
                 open: 100.0,
                 high: 102.0,
                 low: 99.0,
@@ -1073,10 +1103,10 @@ mod tests {
         let second_id = import_dataset_with_candles(&mut conn, &dataset, &candles).unwrap();
         assert_eq!(first_id, second_id);
 
-        let stored = get_candles(&conn, first_id, 1, 2).unwrap();
+        let stored = get_candles(&conn, first_id, IDENTITY_CANDLE_T0, IDENTITY_CANDLE_T1).unwrap();
         assert_eq!(stored.len(), 2);
-        assert_eq!(stored[0].timestamp, 1);
-        assert_eq!(stored[1].timestamp, 2);
+        assert_eq!(stored[0].timestamp, IDENTITY_CANDLE_T0);
+        assert_eq!(stored[1].timestamp, IDENTITY_CANDLE_T1);
         let dataset_count: i64 = conn
             .query_row("SELECT COUNT(*) FROM datasets", [], |row| row.get(0))
             .unwrap();
@@ -1131,15 +1161,21 @@ mod tests {
     #[test]
     fn atomic_dataset_import_rolls_back_dataset_when_a_candle_write_fails() {
         let mut conn = mem_db();
-        conn.execute_batch(
+        conn.execute_batch(&format!(
             "CREATE TRIGGER reject_second_identity_candle
-             BEFORE INSERT ON candles WHEN NEW.timestamp = 2
+             BEFORE INSERT ON candles WHEN NEW.timestamp = {IDENTITY_CANDLE_T1}
              BEGIN SELECT RAISE(ABORT, 'injected candle failure'); END;",
-        )
+        ))
         .unwrap();
         let candles = identity_candles();
         let dataset = identity_dataset(&candles);
-        assert!(import_dataset_with_candles(&mut conn, &dataset, &candles).is_err());
+        let error = import_dataset_with_candles(&mut conn, &dataset, &candles).unwrap_err();
+        // The rollback must be driven by the injected candle write, not by the
+        // DATA-QUALITY-001 admission gate rejecting the payload first.
+        assert!(
+            error.to_string().contains("injected candle failure"),
+            "rollback came from the wrong failure: {error}"
+        );
         let dataset_count: i64 = conn
             .query_row("SELECT COUNT(*) FROM datasets", [], |row| row.get(0))
             .unwrap();
@@ -1147,6 +1183,220 @@ mod tests {
             .query_row("SELECT COUNT(*) FROM candles", [], |row| row.get(0))
             .unwrap();
         assert_eq!((dataset_count, candle_count), (0, 0));
+    }
+
+    /// DATA-QUALITY-001 step 6 — one case per REACHABLE rule id.
+    ///
+    /// Rule 3 (`timestamp_not_representable`) is unreachable by construction and
+    /// is covered by the direct predicate test in `discovery_core::market_data`
+    /// instead, so it has no row here.
+    ///
+    /// Each case starts from a database that already holds one valid imported
+    /// dataset, then imports a payload mutated to violate exactly one rule, and
+    /// proves all three of: the call fails with the expected rejection, no row
+    /// was written, and the pre-existing dataset is still byte-identical.
+    ///
+    /// Every case but one expects the quality gate to name its rule id. Rule 1
+    /// is the documented exception — see the FINDING note on the table below.
+    #[test]
+    fn market_data_mutations_are_rejected_atomically_without_disturbing_stored_data() {
+        let base = || {
+            vec![
+                Candle {
+                    timestamp: 1_735_689_600_000, // 2025-01-01T00:00:00Z
+                    open: 100.0,
+                    high: 103.0,
+                    low: 99.0,
+                    close: 102.0,
+                    volume: 10.0,
+                },
+                Candle {
+                    timestamp: 1_735_693_200_000,
+                    open: 102.0,
+                    high: 105.0,
+                    low: 101.0,
+                    close: 104.0,
+                    volume: 12.0,
+                },
+            ]
+        };
+
+        // (rule id, mutation applied to the SECOND candle, which gate rejects it)
+        //
+        // FINDING (see docs/market-data-quality-contract.md): rule 1 is
+        // structurally UNREACHABLE at this mount point. `db::Candle.timestamp`
+        // is an `i64`, so a non-integral timestamp cannot exist here, and
+        // `identity::normalize_dataset_candles` already rejects magnitudes above
+        // `Number.MAX_SAFE_INTEGER` before the quality gate is reached. The case
+        // is kept because the atomicity guarantee still has to hold, but it
+        // asserts the rejection actually observed rather than one the code
+        // cannot produce.
+        let cases: Vec<MutationCase> = vec![
+            (
+                "timestamp_not_integer",
+                Box::new(|candle: &mut Candle| candle.timestamp = 9_007_199_254_740_992),
+                RejectedBy::IdentitySafeInteger,
+            ),
+            (
+                "timestamp_out_of_range",
+                // Epoch SECONDS for 2024-01-01, silently read as milliseconds.
+                Box::new(|candle: &mut Candle| candle.timestamp = 1_704_067_200),
+                RejectedBy::QualityGate,
+            ),
+            (
+                "price_not_positive",
+                Box::new(|candle: &mut Candle| candle.low = 0.0),
+                RejectedBy::QualityGate,
+            ),
+            (
+                "volume_negative",
+                Box::new(|candle: &mut Candle| candle.volume = -1.0),
+                RejectedBy::QualityGate,
+            ),
+            (
+                "high_below_low",
+                Box::new(|candle: &mut Candle| {
+                    candle.open = 100.0;
+                    candle.high = 99.0;
+                    candle.low = 100.0;
+                    candle.close = 100.0;
+                }),
+                RejectedBy::QualityGate,
+            ),
+            (
+                "ohlc_out_of_range",
+                Box::new(|candle: &mut Candle| candle.open = 106.0),
+                RejectedBy::QualityGate,
+            ),
+        ];
+
+        // Every reachable rule id must appear exactly once in the table.
+        let mut covered: Vec<&str> = cases.iter().map(|(rule, _, _)| *rule).collect();
+        covered.sort_unstable();
+        covered.dedup();
+        assert_eq!(covered.len(), cases.len(), "duplicate rule id in the table");
+        for rule in market_data::MARKET_DATA_RULE_IDS {
+            if rule == "timestamp_not_representable" {
+                continue;
+            }
+            assert!(
+                cases.iter().any(|(covered, _, _)| *covered == rule),
+                "no atomic-import mutation case for {rule}"
+            );
+        }
+
+        for (rule, mutate, rejected_by) in &cases {
+            let mut conn = mem_db();
+            let good = base();
+            let good_dataset = identity_dataset(&good);
+            let good_id = import_dataset_with_candles(&mut conn, &good_dataset, &good)
+                .unwrap_or_else(|error| panic!("{rule}: valid baseline import failed: {error}"));
+            let stored_before = get_candles(
+                &conn,
+                good_id,
+                good_dataset.start_time,
+                good_dataset.end_time,
+            )
+            .unwrap();
+            let counts_before = row_counts(&conn);
+
+            let mut bad = base();
+            mutate(&mut bad[1]);
+            let mut bad_dataset = Dataset {
+                symbol: "ETHUSDT".into(),
+                start_time: bad.iter().map(|candle| candle.timestamp).min().unwrap(),
+                end_time: bad.iter().map(|candle| candle.timestamp).max().unwrap(),
+                ..identity_dataset(&good)
+            };
+            // Hash the MUTATED payload wherever hashing accepts it, so identity
+            // verification passes and the rejection can only come from the
+            // quality gate. Hashing performs no semantic validation.
+            bad_dataset.dataset_hash =
+                match crate::identity::dataset_content_hash(&bad_dataset, &bad) {
+                    Ok(hash) => hash,
+                    Err(error) => {
+                        // Only the unreachable rule-1 case lands here.
+                        assert_eq!(*rejected_by, RejectedBy::IdentitySafeInteger);
+                        assert!(
+                            error.to_string().contains("JavaScript safe integer"),
+                            "{rule}: unexpected hashing failure: {error}"
+                        );
+                        String::from("dataset-content-v2:unhashable")
+                    }
+                };
+
+            let message = match import_dataset_with_candles(&mut conn, &bad_dataset, &bad) {
+                Ok(_) => panic!("{rule}: mutated import was admitted"),
+                Err(error) => error.to_string(),
+            };
+            match rejected_by {
+                RejectedBy::QualityGate => {
+                    assert!(
+                        message.contains(rule),
+                        "{rule}: error did not name the rule: {message}"
+                    );
+                    assert!(
+                        !message.contains("identity") && !message.contains("hash"),
+                        "{rule}: rejection came from identity, not the quality gate: {message}"
+                    );
+                }
+                RejectedBy::IdentitySafeInteger => {
+                    // Documented deviation: the pre-existing identity rule fires
+                    // first, so the quality rule id can never appear here. The
+                    // atomicity guarantee below is still asserted in full.
+                    assert!(
+                        message.contains("JavaScript safe integer"),
+                        "{rule}: expected the identity safe-integer rejection: {message}"
+                    );
+                }
+            }
+
+            assert_eq!(
+                row_counts(&conn),
+                counts_before,
+                "{rule}: a rejected import wrote rows"
+            );
+            let stored_after = get_candles(
+                &conn,
+                good_id,
+                good_dataset.start_time,
+                good_dataset.end_time,
+            )
+            .unwrap();
+            assert_eq!(
+                stored_after.len(),
+                stored_before.len(),
+                "{rule}: stored candle count changed"
+            );
+            for (before, after) in stored_before.iter().zip(&stored_after) {
+                assert!(
+                    candles_equal(before, after),
+                    "{rule}: a previously imported candle is no longer byte-identical"
+                );
+            }
+        }
+    }
+
+    /// One atomic-import mutation row: the rule it targets, the single-field
+    /// mutation it applies, and which gate actually stops it.
+    type MutationCase = (&'static str, Box<dyn Fn(&mut Candle)>, RejectedBy);
+
+    /// Which gate a mutated import is actually stopped by.
+    #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+    enum RejectedBy {
+        QualityGate,
+        /// Rule 1 only: `identity::normalize_dataset_candles` rejects the
+        /// magnitude before the quality gate can classify it.
+        IdentitySafeInteger,
+    }
+
+    fn row_counts(conn: &Connection) -> (i64, i64) {
+        (
+            conn.query_row("SELECT COUNT(*) FROM datasets", [], |row| row.get(0))
+                .unwrap(),
+            conn.query_row("SELECT COUNT(*) FROM candles", [], |row| row.get(0))
+                .unwrap(),
+        )
     }
 
     #[test]

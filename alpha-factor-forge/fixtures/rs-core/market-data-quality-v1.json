@@ -1,0 +1,707 @@
+{
+  "schemaVersion": "rs-core-parity-fixture-v1",
+  "fixtureVersion": "market-data-quality-parity-v1",
+  "contracts": {
+    "marketDataQuality": "market-data-quality-v1",
+    "candle": "ohlcv-candle-v1"
+  },
+  "generator": {
+    "command": "npm run fixtures:market-data-quality",
+    "referenceRuntime": "typescript",
+    "sourceHashEncoding": "utf8-lf-v1",
+    "sourceHashes": {
+      "generator": "sha256:028ffa900396eb8ba875f8e160d5a0d3a72fdd4fb31e8aca1ab1899ba1de2d57"
+    }
+  },
+  "numericEncoding": {
+    "specialInputNumbers": "explicit-numeric-status-v1",
+    "expectedNumericPolicy": "exact-v1"
+  },
+  "constants": {
+    "minTimestampMs": 946684800000,
+    "maxTimestampMsExclusive": 4102444800000
+  },
+  "ruleIds": [
+    "timestamp_not_integer",
+    "timestamp_out_of_range",
+    "timestamp_not_representable",
+    "price_not_positive",
+    "volume_negative",
+    "high_below_low",
+    "ohlc_out_of_range"
+  ],
+  "reachableRuleIds": [
+    "timestamp_not_integer",
+    "timestamp_out_of_range",
+    "price_not_positive",
+    "volume_negative",
+    "high_below_low",
+    "ohlc_out_of_range"
+  ],
+  "unreachableRuleIds": [
+    "timestamp_not_representable"
+  ],
+  "tolerance": {
+    "policy": "exact-v1",
+    "exact": [
+      "schema, fixture, and contract versions",
+      "case ids and inventory order",
+      "input candle field values, including the non-finite tags",
+      "accepted/rejected verdicts, rule ids, and failing candle indexes"
+    ]
+  },
+  "cases": [
+    {
+      "id": "valid-three-candle-dataset",
+      "candles": [
+        {
+          "timestamp": 1721001600000,
+          "open": 100,
+          "high": 103,
+          "low": 99,
+          "close": 102,
+          "volume": 10
+        },
+        {
+          "timestamp": 1721005200000,
+          "open": 102,
+          "high": 105,
+          "low": 101,
+          "close": 104,
+          "volume": 12
+        },
+        {
+          "timestamp": 1721008800000,
+          "open": 104,
+          "high": 106,
+          "low": 103,
+          "close": 105,
+          "volume": 8
+        }
+      ],
+      "expected": {
+        "accepted": true
+      }
+    },
+    {
+      "id": "valid-single-candle-zero-volume",
+      "candles": [
+        {
+          "timestamp": 1721001600000,
+          "open": 100,
+          "high": 103,
+          "low": 99,
+          "close": 102,
+          "volume": 0
+        }
+      ],
+      "expected": {
+        "accepted": true
+      }
+    },
+    {
+      "id": "valid-flat-bar",
+      "candles": [
+        {
+          "timestamp": 1721001600000,
+          "open": 100,
+          "high": 100,
+          "low": 100,
+          "close": 100,
+          "volume": 1
+        }
+      ],
+      "expected": {
+        "accepted": true
+      }
+    },
+    {
+      "id": "boundary-min-timestamp-accepted",
+      "candles": [
+        {
+          "timestamp": 946684800000,
+          "open": 100,
+          "high": 103,
+          "low": 99,
+          "close": 102,
+          "volume": 10
+        }
+      ],
+      "expected": {
+        "accepted": true
+      }
+    },
+    {
+      "id": "boundary-max-exclusive-minus-one-accepted",
+      "candles": [
+        {
+          "timestamp": 4102444799999,
+          "open": 100,
+          "high": 103,
+          "low": 99,
+          "close": 102,
+          "volume": 10
+        }
+      ],
+      "expected": {
+        "accepted": true
+      }
+    },
+    {
+      "id": "boundary-min-minus-one-rejected",
+      "candles": [
+        {
+          "timestamp": 946684799999,
+          "open": 100,
+          "high": 103,
+          "low": 99,
+          "close": 102,
+          "volume": 10
+        }
+      ],
+      "expected": {
+        "accepted": false,
+        "rule": "timestamp_out_of_range",
+        "index": 0
+      }
+    },
+    {
+      "id": "boundary-max-exclusive-rejected",
+      "candles": [
+        {
+          "timestamp": 4102444800000,
+          "open": 100,
+          "high": 103,
+          "low": 99,
+          "close": 102,
+          "volume": 10
+        }
+      ],
+      "expected": {
+        "accepted": false,
+        "rule": "timestamp_out_of_range",
+        "index": 0
+      }
+    },
+    {
+      "id": "audit-epoch-seconds-timestamp-rejected",
+      "candles": [
+        {
+          "timestamp": 1704067200,
+          "open": 100,
+          "high": 103,
+          "low": 99,
+          "close": 102,
+          "volume": 10
+        },
+        {
+          "timestamp": 1721005200000,
+          "open": 102,
+          "high": 105,
+          "low": 101,
+          "close": 104,
+          "volume": 12
+        },
+        {
+          "timestamp": 1721008800000,
+          "open": 104,
+          "high": 106,
+          "low": 103,
+          "close": 105,
+          "volume": 8
+        }
+      ],
+      "expected": {
+        "accepted": false,
+        "rule": "timestamp_out_of_range",
+        "index": 0
+      }
+    },
+    {
+      "id": "runner-regression-js-safe-timestamp-rejected",
+      "candles": [
+        {
+          "timestamp": 1721001600000,
+          "open": 100,
+          "high": 103,
+          "low": 99,
+          "close": 102,
+          "volume": 10
+        },
+        {
+          "timestamp": 1721005200000,
+          "open": 102,
+          "high": 105,
+          "low": 101,
+          "close": 104,
+          "volume": 12
+        },
+        {
+          "timestamp": 8500000000000000,
+          "open": 104,
+          "high": 106,
+          "low": 103,
+          "close": 105,
+          "volume": 8
+        }
+      ],
+      "expected": {
+        "accepted": false,
+        "rule": "timestamp_out_of_range",
+        "index": 2
+      }
+    },
+    {
+      "id": "timestamp-fractional-rejected",
+      "candles": [
+        {
+          "timestamp": 1721001600000,
+          "open": 100,
+          "high": 103,
+          "low": 99,
+          "close": 102,
+          "volume": 10
+        },
+        {
+          "timestamp": 1721005200000.5,
+          "open": 102,
+          "high": 105,
+          "low": 101,
+          "close": 104,
+          "volume": 12
+        },
+        {
+          "timestamp": 1721008800000,
+          "open": 104,
+          "high": 106,
+          "low": 103,
+          "close": 105,
+          "volume": 8
+        }
+      ],
+      "expected": {
+        "accepted": false,
+        "rule": "timestamp_not_integer",
+        "index": 1
+      }
+    },
+    {
+      "id": "timestamp-unsafe-magnitude-rejected",
+      "candles": [
+        {
+          "timestamp": 1721001600000,
+          "open": 100,
+          "high": 103,
+          "low": 99,
+          "close": 102,
+          "volume": 10
+        },
+        {
+          "timestamp": 9007199254740992,
+          "open": 102,
+          "high": 105,
+          "low": 101,
+          "close": 104,
+          "volume": 12
+        },
+        {
+          "timestamp": 1721008800000,
+          "open": 104,
+          "high": 106,
+          "low": 103,
+          "close": 105,
+          "volume": 8
+        }
+      ],
+      "expected": {
+        "accepted": false,
+        "rule": "timestamp_not_integer",
+        "index": 1
+      }
+    },
+    {
+      "id": "timestamp-nan-rejected",
+      "candles": [
+        {
+          "timestamp": "nan",
+          "open": 100,
+          "high": 103,
+          "low": 99,
+          "close": 102,
+          "volume": 10
+        },
+        {
+          "timestamp": 1721005200000,
+          "open": 102,
+          "high": 105,
+          "low": 101,
+          "close": 104,
+          "volume": 12
+        },
+        {
+          "timestamp": 1721008800000,
+          "open": 104,
+          "high": 106,
+          "low": 103,
+          "close": 105,
+          "volume": 8
+        }
+      ],
+      "expected": {
+        "accepted": false,
+        "rule": "timestamp_not_integer",
+        "index": 0
+      }
+    },
+    {
+      "id": "timestamp-infinite-rejected",
+      "candles": [
+        {
+          "timestamp": 1721001600000,
+          "open": 100,
+          "high": 103,
+          "low": 99,
+          "close": 102,
+          "volume": 10
+        },
+        {
+          "timestamp": "positive_infinity",
+          "open": 102,
+          "high": 105,
+          "low": 101,
+          "close": 104,
+          "volume": 12
+        },
+        {
+          "timestamp": 1721008800000,
+          "open": 104,
+          "high": 106,
+          "low": 103,
+          "close": 105,
+          "volume": 8
+        }
+      ],
+      "expected": {
+        "accepted": false,
+        "rule": "timestamp_not_integer",
+        "index": 1
+      }
+    },
+    {
+      "id": "price-zero-low-rejected",
+      "candles": [
+        {
+          "timestamp": 1721001600000,
+          "open": 100,
+          "high": 103,
+          "low": 99,
+          "close": 102,
+          "volume": 10
+        },
+        {
+          "timestamp": 1721005200000,
+          "open": 102,
+          "high": 105,
+          "low": 0,
+          "close": 104,
+          "volume": 12
+        },
+        {
+          "timestamp": 1721008800000,
+          "open": 104,
+          "high": 106,
+          "low": 103,
+          "close": 105,
+          "volume": 8
+        }
+      ],
+      "expected": {
+        "accepted": false,
+        "rule": "price_not_positive",
+        "index": 1
+      }
+    },
+    {
+      "id": "price-negative-open-rejected",
+      "candles": [
+        {
+          "timestamp": 1721001600000,
+          "open": -100,
+          "high": 103,
+          "low": -101,
+          "close": 102,
+          "volume": 10
+        },
+        {
+          "timestamp": 1721005200000,
+          "open": 102,
+          "high": 105,
+          "low": 101,
+          "close": 104,
+          "volume": 12
+        },
+        {
+          "timestamp": 1721008800000,
+          "open": 104,
+          "high": 106,
+          "low": 103,
+          "close": 105,
+          "volume": 8
+        }
+      ],
+      "expected": {
+        "accepted": false,
+        "rule": "price_not_positive",
+        "index": 0
+      }
+    },
+    {
+      "id": "price-nan-high-rejected",
+      "candles": [
+        {
+          "timestamp": 1721001600000,
+          "open": 100,
+          "high": 103,
+          "low": 99,
+          "close": 102,
+          "volume": 10
+        },
+        {
+          "timestamp": 1721005200000,
+          "open": 102,
+          "high": 105,
+          "low": 101,
+          "close": 104,
+          "volume": 12
+        },
+        {
+          "timestamp": 1721008800000,
+          "open": 104,
+          "high": "nan",
+          "low": 103,
+          "close": 105,
+          "volume": 8
+        }
+      ],
+      "expected": {
+        "accepted": false,
+        "rule": "price_not_positive",
+        "index": 2
+      }
+    },
+    {
+      "id": "volume-negative-rejected",
+      "candles": [
+        {
+          "timestamp": 1721001600000,
+          "open": 100,
+          "high": 103,
+          "low": 99,
+          "close": 102,
+          "volume": 10
+        },
+        {
+          "timestamp": 1721005200000,
+          "open": 102,
+          "high": 105,
+          "low": 101,
+          "close": 104,
+          "volume": 12
+        },
+        {
+          "timestamp": 1721008800000,
+          "open": 104,
+          "high": 106,
+          "low": 103,
+          "close": 105,
+          "volume": -1
+        }
+      ],
+      "expected": {
+        "accepted": false,
+        "rule": "volume_negative",
+        "index": 2
+      }
+    },
+    {
+      "id": "volume-nan-rejected",
+      "candles": [
+        {
+          "timestamp": 1721001600000,
+          "open": 100,
+          "high": 103,
+          "low": 99,
+          "close": 102,
+          "volume": "nan"
+        },
+        {
+          "timestamp": 1721005200000,
+          "open": 102,
+          "high": 105,
+          "low": 101,
+          "close": 104,
+          "volume": 12
+        },
+        {
+          "timestamp": 1721008800000,
+          "open": 104,
+          "high": 106,
+          "low": 103,
+          "close": 105,
+          "volume": 8
+        }
+      ],
+      "expected": {
+        "accepted": false,
+        "rule": "volume_negative",
+        "index": 0
+      }
+    },
+    {
+      "id": "high-below-low-rejected",
+      "candles": [
+        {
+          "timestamp": 1721001600000,
+          "open": 100,
+          "high": 99,
+          "low": 100,
+          "close": 100,
+          "volume": 10
+        },
+        {
+          "timestamp": 1721005200000,
+          "open": 102,
+          "high": 105,
+          "low": 101,
+          "close": 104,
+          "volume": 12
+        },
+        {
+          "timestamp": 1721008800000,
+          "open": 104,
+          "high": 106,
+          "low": 103,
+          "close": 105,
+          "volume": 8
+        }
+      ],
+      "expected": {
+        "accepted": false,
+        "rule": "high_below_low",
+        "index": 0
+      }
+    },
+    {
+      "id": "ohlc-open-above-high-rejected",
+      "candles": [
+        {
+          "timestamp": 1721001600000,
+          "open": 100,
+          "high": 103,
+          "low": 99,
+          "close": 102,
+          "volume": 10
+        },
+        {
+          "timestamp": 1721005200000,
+          "open": 106,
+          "high": 105,
+          "low": 101,
+          "close": 104,
+          "volume": 12
+        },
+        {
+          "timestamp": 1721008800000,
+          "open": 104,
+          "high": 106,
+          "low": 103,
+          "close": 105,
+          "volume": 8
+        }
+      ],
+      "expected": {
+        "accepted": false,
+        "rule": "ohlc_out_of_range",
+        "index": 1
+      }
+    },
+    {
+      "id": "ohlc-close-below-low-rejected",
+      "candles": [
+        {
+          "timestamp": 1721001600000,
+          "open": 100,
+          "high": 103,
+          "low": 99,
+          "close": 102,
+          "volume": 10
+        },
+        {
+          "timestamp": 1721005200000,
+          "open": 102,
+          "high": 105,
+          "low": 101,
+          "close": 104,
+          "volume": 12
+        },
+        {
+          "timestamp": 1721008800000,
+          "open": 104,
+          "high": 106,
+          "low": 103,
+          "close": 102,
+          "volume": 8
+        }
+      ],
+      "expected": {
+        "accepted": false,
+        "rule": "ohlc_out_of_range",
+        "index": 2
+      }
+    },
+    {
+      "id": "audit-inverted-ohlc-negative-volume-reports-volume-first",
+      "candles": [
+        {
+          "timestamp": 1721001600000,
+          "open": 100,
+          "high": 90,
+          "low": 110,
+          "close": 100,
+          "volume": -1
+        }
+      ],
+      "expected": {
+        "accepted": false,
+        "rule": "volume_negative",
+        "index": 0
+      }
+    },
+    {
+      "id": "first-failing-candle-wins-over-later-defect",
+      "candles": [
+        {
+          "timestamp": 1721001600000,
+          "open": 100,
+          "high": 103,
+          "low": 99,
+          "close": 102,
+          "volume": -1
+        },
+        {
+          "timestamp": 1721005200000,
+          "open": 102,
+          "high": 100,
+          "low": 101,
+          "close": 102,
+          "volume": 12
+        }
+      ],
+      "expected": {
+        "accepted": false,
+        "rule": "volume_negative",
+        "index": 0
+      }
+    }
+  ]
+}

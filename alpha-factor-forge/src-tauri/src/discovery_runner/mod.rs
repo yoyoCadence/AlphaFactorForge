@@ -18,6 +18,7 @@ use alpha_factor_forge::discovery_core::config::{parse_discovery_config, Resolve
 use alpha_factor_forge::discovery_core::enumerate::{
     enumerate_candidates, CandidatePlan, EnumeratedCandidate, EnumerationCounts,
 };
+use alpha_factor_forge::discovery_core::market_data;
 use alpha_factor_forge::discovery_core::types::Candle as CoreCandle;
 use serde::Serialize;
 use serde_json::{json, Value};
@@ -1108,6 +1109,13 @@ fn load_verified_dataset(
         dataset.end_time,
     )?;
     let normalized = crate::identity::verify_dataset_identity(&dataset, &candles)?;
+    // DATA-QUALITY-001 mount point 4 — fail closed on data that was stored
+    // BEFORE this contract existed. Deliberately placed AFTER the identity
+    // check so a tampered payload still reports the identity mismatch first and
+    // the two failure classes stay distinguishable. Invalid stored candles are
+    // never repaired, dropped, or re-hashed here; the user re-imports.
+    market_data::ensure_admissible(normalized.iter().map(repositories::db_candle_fields))
+        .map_err(|error| other(error.0))?;
     if normalized.len() as i64 != dataset.candle_count {
         return Err(other(format!(
             "dataset {} candle count changed before discovery start",

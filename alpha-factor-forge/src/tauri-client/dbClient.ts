@@ -3,6 +3,7 @@
 // hashing in the shared core module (single source of truth).
 
 import { normalizeDatasetCandles, normalizedDatasetHash } from '../core/hashing';
+import { assertMarketDataQuality } from '../core/market-data/quality';
 import { db, type Candle, type Dataset } from './commands';
 
 export interface ImportCandlesInput {
@@ -23,6 +24,11 @@ export async function prepareDatasetImport(
   input: ImportCandlesInput,
 ): Promise<PreparedDatasetImport> {
   const candles = normalizeDatasetCandles(input.candles);
+  // DATA-QUALITY-001 mount point 1 — the single TypeScript admission gate,
+  // reached by the real and the ?mock=1 clients alike. It throws here, before
+  // any hashing or boundary call, so a rejected import makes no db.importCandles
+  // request at all. Identity is computed for admissible data only.
+  assertMarketDataQuality(candles);
   const start_time = candles[0].timestamp;
   const end_time = candles[candles.length - 1].timestamp;
   const hash = await normalizedDatasetHash(
