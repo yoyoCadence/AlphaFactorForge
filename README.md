@@ -14,6 +14,24 @@ Languages:
 
 ---
 
+## 畫面 · Screenshots · スクリーンショット
+
+> 實機截圖 / Real screenshots / 実機スクリーンショット
+
+![Backtest workspace](docs/screenshots/workspace.png)
+
+回測工作站：K 線與 MA／成交量／RSI、進出場標記、末價標籤，下方為資料集、策略表單與績效表
+（淨報酬、CAGR、最大回撤、Sharpe／Sortino／Calmar、勝率、Profit Factor…）。
+
+十種可切換皮膚，右上角即時切換——不只換色，K 棒畫法、密度、字體與版面比例都跟著變：
+
+| 午夜行情帶 (midnight-tape) | 早報紙本 (broadsheet) |
+|---|---|
+| ![midnight-tape](docs/screenshots/skin-midnight-tape.png) | ![broadsheet](docs/screenshots/skin-broadsheet.png) |
+
+---
+
+
 ## 中文
 
 ### 專案概述
