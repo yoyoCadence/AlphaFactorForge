@@ -8,6 +8,7 @@ mod db;
 mod discovery_runner;
 mod error;
 mod identity;
+mod single_instance;
 
 use std::sync::{Arc, Mutex};
 use tauri::Manager;
@@ -21,6 +22,10 @@ pub struct AppState {
 
 fn main() {
     tauri::Builder::default()
+        // Must be the first plugin and must run before setup: a secondary
+        // process must exit before startup recovery can touch the live
+        // primary process's discovery run.
+        .plugin(single_instance::plugin())
         .setup(|app| {
             // Resolve app data dir and open/initialize the database there.
             let conn = db::initialize(app.handle()).expect("failed to initialize SQLite database");
