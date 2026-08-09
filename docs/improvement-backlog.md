@@ -734,11 +734,13 @@ completed task IDs. `tasks.md` remains the only status board; the evidence and
 cross-session decisions are preserved in
 `../handoffs/2026-07-31-pr76-post-merge-audit-v1.md`.
 
-Only `BUG-RESULT-CONTEXT-001`, the single item currently in `Next`, is expanded
-below as an execution-ready coding-agent specification. The remaining audit
-IDs are recorded in `tasks.md` and the handoff, but a Planner must expand the
-chosen task to this same format before promoting it to `Next`. Existing
-`PERF-001` keeps its original specification above and must not be duplicated.
+The audit IDs expanded below as execution-ready coding-agent specifications are
+`BUG-RESULT-CONTEXT-001` (2026-07-31), `METRIC-002` (2026-08-01), and
+`DATA-QUALITY-001` (2026-08-09), in the adjudicated execution order. The
+remaining audit IDs are recorded in `tasks.md` and the handoff, but a Planner
+must expand the chosen task to this same format before promoting it to `Next`.
+Existing `PERF-001` keeps its original specification above and must not be
+duplicated.
 
 ## BUG-RESULT-CONTEXT-001 — 回測結果綁定不可變執行快照
 
@@ -1162,5 +1164,397 @@ resumes a PAUSED run through the DB read-back path and asserts the run stays
 paused with no coordinator/event/job/progress write — a config.rs parser test
 alone is insufficient, and (6) validation-record-v1 was NOT quietly upgraded.
 Confirm the PR states PERSIST-AUDIT-001 is still required.
+Return approve / request-changes / escalate in zh-TW; do not edit code.
+```
+
+---
+
+## DATA-QUALITY-001 — 市場資料匯入語意驗證與已存非法資料 fail closed
+
+Expanded to execution-ready format on 2026-08-09, after `RUNNER-OWNERSHIP-001`
+merged as PR #90 (`a451f0d`). Audit evidence: the `DATA-QUALITY-001` section of
+`../handoffs/2026-07-31-pr76-post-merge-audit-v1.md`. The three planning
+decisions this specification implements — the admission range constants, how the
+existing chrono regression is repurposed, and the planning/implementation split —
+are adjudicated in
+`../handoffs/2026-08-09-data-quality-001-planning-decisions-v1.md` and must not
+be re-opened by the coding agent.
+
+- **Category**: Correctness / market-data admission contract
+- **Objective**: Dataset identity currently proves only that bytes were not
+  altered — it never proves the bytes describe a possible market. Admission must
+  gain one semantic validator, implemented identically in TypeScript and Rust,
+  that requires plausible epoch-millisecond timestamps, representable dates,
+  strictly positive OHLC prices, non-negative volume, and
+  `low <= open/close <= high`. Data stored before this contract existed must fail
+  closed where it is consumed instead of silently producing evidence.
+- **Why this is next**: An epoch-seconds timestamp hashes and imports cleanly
+  today, then lands the whole series in 1970, which silently moves every monthly
+  return into the wrong month and therefore corrupts `consistency` in `score-v1`
+  and the monthly Gate criteria. `{open:100, high:90, low:110, volume:-1}` is
+  equally importable, and the backtest engine reads `high`/`low` directly for
+  stop-loss and take-profit fills. Both defects produce confident, persisted,
+  wrong evidence rather than a visible failure, which is exactly what the
+  remaining audit gates exist to prevent.
+
+### Evidence (re-derived 2026-08-09 on `a451f0d`)
+
+- `alpha-factor-forge/src/core/hashing/index.ts:257-277`
+  (`normalizeDatasetCandles`) checks only non-empty, `u32` count, finite values,
+  `Number.isSafeInteger` timestamps, sort order, and duplicate timestamps.
+- `alpha-factor-forge/src-tauri/src/identity.rs:186-219`
+  (`normalize_dataset_candles`) is the exact Rust mirror and has the same gap;
+  `normalized_number` at `177-184` only rejects non-finite values.
+- Neither side checks timestamp magnitude, so `1704067200` (epoch **seconds**
+  for 2024-01-01) is accepted as milliseconds and resolves to 1970-01-20.
+- `alpha-factor-forge/src/core/metrics/index.ts:177` calls `new Date(p.time)`
+  with no guard, so an unrepresentable timestamp yields a `NaN-NaN` month key
+  rather than an error. Rust already guards the same conversion at
+  `alpha-factor-forge/src-tauri/src/discovery_runner/execution.rs:127`, so the
+  two runtimes currently disagree about unrepresentable dates.
+- `alpha-factor-forge/src-tauri/src/db/repositories.rs:151-156`
+  (`import_dataset_with_candles`) calls only `verify_dataset_identity` before
+  opening its transaction, so semantic validity is never asserted at admission.
+- `alpha-factor-forge/src-tauri/src/discovery_runner/mod.rs:1093-1116`
+  (`load_verified_dataset`) re-verifies the same identity and nothing else, so a
+  stored invalid dataset passes straight into a discovery run.
+- `alpha-factor-forge/src/tauri-client/dbClient.ts:22-49`
+  (`prepareDatasetImport`) is the single TypeScript admission point; the mock
+  client reuses it at `mockClient.ts:185-188`, so one change covers the real and
+  `?mock=1` paths.
+- `alpha-factor-forge/src/components/BacktestPanel.tsx:203-213` accepts whatever
+  `db.getCandles` returns for the selected dataset without inspecting it.
+
+### Adjudicated constants (planning decision 1 — do not re-derive)
+
+```text
+MIN_MARKET_TIMESTAMP_MS           = 946_684_800_000   // 2000-01-01T00:00:00Z, inclusive
+MAX_MARKET_TIMESTAMP_MS_EXCLUSIVE = 4_102_444_800_000 // 2100-01-01T00:00:00Z, exclusive
+```
+
+This is a **product plausibility boundary, not a language limit**. The
+implementation must still independently assert integrality and successful date
+representation in both runtimes, because the contract is that both properties
+hold — not that one happens to imply the other today. Use identical constants,
+identical inclusive-lower/exclusive-upper semantics, and identical boundary
+fixture rows on both sides.
+
+### Rule identifiers (stable; shared fixture keys, evaluated in this order)
+
+| Order | Rule id | Condition that rejects |
+| --- | --- | --- |
+| 1 | `timestamp_not_integer` | timestamp is not a safe integer (TS) / not integral (Rust) |
+| 2 | `timestamp_out_of_range` | `timestamp < MIN` or `timestamp >= MAX_EXCLUSIVE` |
+| 3 | `timestamp_not_representable` | `new Date(ts).getTime()` is not finite / `Utc.timestamp_millis_opt(ts).single()` is `None` |
+| 4 | `price_not_positive` | any of open/high/low/close is non-finite or `<= 0` |
+| 5 | `volume_negative` | volume is non-finite or `< 0` |
+| 6 | `high_below_low` | `high < low` |
+| 7 | `ohlc_out_of_range` | `open < low`, `open > high`, `close < low`, or `close > high` |
+
+Evaluation stops at the **first** failing candle and reports that candle's
+index, its timestamp, and the rule id, so both runtimes produce the same
+classification for the same input. A dataset is admitted only if every candle
+passes every rule.
+
+**Rule 3 is deliberately unreachable, and that is not a defect.** Every value
+that survives rule 2 is representable in both runtimes — the product range is
+strictly inside `Date`'s ±8.64e15 ms limit and inside chrono's UTC millisecond
+range — so no input can fail rule 3 alone. Planning decision 1 nevertheless
+requires representability to be asserted *independently* rather than left as an
+implied consequence of the range, so rule 3 stays in the code as defence in
+depth against a future range change. It therefore has **no fixture rejection
+row and no mutation case**; instead each language unit-tests the
+representability predicate directly (call it with `8_500_000_000_000_000`, which
+JavaScript can represent and chrono cannot, and with `MAX_EXCLUSIVE`) and
+asserts the expected boolean. Wherever this specification says "every rule id",
+read it as "every **reachable** rule id" — rules 1, 2, and 4 through 7.
+
+### Files likely affected
+
+- new `alpha-factor-forge/src/core/market-data/quality.ts` (pure; no
+  React/DOM/IO, matching the `src/core/*` purity rule)
+- new `alpha-factor-forge/src/core/market-data/quality.test.ts`
+- new `alpha-factor-forge/src-tauri/src/discovery_core/market_data.rs`
+  (pure contract module, plus an inline `#[cfg(test)] mod tests`)
+- `alpha-factor-forge/src-tauri/src/discovery_core/mod.rs` (`pub mod
+  market_data;` and the parity test module declaration)
+- new `alpha-factor-forge/src/parity/marketDataQualityFixture.ts`
+- new `alpha-factor-forge/src/parity/marketDataQualityFixture.test.ts`
+- new `alpha-factor-forge/scripts/generate-market-data-quality-fixtures.ts`
+- new, regenerated and never hand-edited:
+  `alpha-factor-forge/fixtures/rs-core/market-data-quality-v1.json`
+- new `alpha-factor-forge/src-tauri/src/discovery_core/market_data_parity_tests.rs`
+- `alpha-factor-forge/package.json` (one `fixtures:market-data-quality` script;
+  **no dependency changes**)
+- `alpha-factor-forge/src/tauri-client/dbClient.ts` (TS admission mount point)
+- `alpha-factor-forge/src/tauri-client/dbClient.test.ts` (TS admission rejection
+  plus mock-store-unchanged assertions)
+- `alpha-factor-forge/src/components/BacktestPanel.tsx` (stored-invalid-data
+  fail-closed on dataset selection, and the zh-TW re-import guidance copy)
+- `alpha-factor-forge/src-tauri/src/db/repositories.rs` (pre-transaction
+  admission call; the table-driven atomic mutation tests; and the
+  `identity_candles()` test helper at `919-936`, whose timestamps `1`/`2` are no
+  longer admissible)
+- `alpha-factor-forge/src-tauri/src/discovery_runner/mod.rs`
+  (`load_verified_dataset` fail-closed for `start` and `resume`)
+- `alpha-factor-forge/src-tauri/src/discovery_runner/tests.rs` (repurposed
+  `chrono_invalid_js_safe_timestamp` regression)
+- new `docs/market-data-quality-contract.md`
+- `CHANGELOG.md`, `tasks.md`
+
+**Explicitly NOT in the list, and their absence is an acceptance check:**
+`src/core/hashing/index.ts`, `src-tauri/src/identity.rs`, the identity fixture
+`src/core/hashing/identity-v2.fixture.json`, and every file under
+`src-tauri/migrations/`.
+
+### Mount points (four call sites, one rule set)
+
+| # | Site | Required behaviour |
+| --- | --- | --- |
+| 1 | `dbClient.ts` `prepareDatasetImport` | Validate the normalized candles and throw **before** `db.importCandles` is reached, so no boundary call is made. Covers the real and mock clients through one edit. |
+| 2 | `BacktestPanel.tsx` candle-load effect | Validate the resolved `db.getCandles` payload. On failure do **not** call `setLoadedCandles`; set a zh-TW error that names the failing candle and tells the user to re-import. `candles` therefore stays `NO_CANDLES`, `liveContext` stays `null`, and Run/Save/Export stay disabled by the existing guards — do not add a second disabling mechanism. |
+| 3 | `repositories.rs` `import_dataset_with_candles` | Validate **before** `conn.transaction()`. This ordering is what makes atomicity provable rather than incidental. |
+| 4 | `discovery_runner/mod.rs` `load_verified_dataset` | Validate **after** `verify_dataset_identity`, so a tampered payload still reports the identity mismatch first and the two failure classes stay distinguishable. |
+
+### Exact implementation plan
+
+The order is executable as written: the shared expectations are committed before
+any implementation can be shaped to fit them.
+
+1. **Write the shared accept/reject matrix first.** Build
+   `src/parity/marketDataQualityFixture.ts` plus its generator script and npm
+   script, following the existing `gateScoreFixture.ts` /
+   `scripts/generate-gate-score-fixtures.ts` pattern (`PARITY_FIXTURE_SCHEMA_VERSION
+   = 'rs-core-parity-fixture-v1'`, pure builder, script owns file IO). The matrix
+   must contain, at minimum: one fully valid dataset; one rejection row per
+   **reachable** rule id (1, 2, 4, 5, 6, 7 — see the note under the rule table
+   for why rule 3 is excluded); and explicit boundary rows at
+   `MIN - 1`, `MIN`, `MAX_EXCLUSIVE - 1`, and `MAX_EXCLUSIVE`, with `MIN` and
+   `MAX_EXCLUSIVE - 1` accepted and the other two rejected. Include
+   `1704067200` (the audit's epoch-seconds case, which resolves to
+   1970-01-20T17:21:07.200Z when misread as milliseconds) and
+   `8_500_000_000_000_000` (the value the current runner regression uses) as
+   named rejection rows; both are expected to report `timestamp_out_of_range`,
+   because rule 2 precedes rule 3. Each row records the expected rule id and the
+   expected failing candle index.
+2. **Add the TypeScript validator** in `src/core/market-data/quality.ts`,
+   exporting `MARKET_DATA_QUALITY_VERSION = 'market-data-quality-v1'`, both
+   constants, the rule-id union, a `MarketDataIssue { index, timestamp, rule }`
+   type, a per-candle inspector, a first-issue finder over a slice, and an
+   assert helper that throws with a stable technical message. Keep zh-TW UI copy
+   out of `core/*`; the component owns user-facing wording.
+3. **Add the Rust validator** in
+   `src-tauri/src/discovery_core/market_data.rs`, mirroring the module exactly
+   and following the crate's error convention (`pub struct MarketDataError(pub
+   String);`, as in `config.rs:41` and `backtest.rs:95`). Expose a **field-level**
+   entry point taking `(index, timestamp, open, high, low, close, volume)` plus a
+   slice helper over `discovery_core::types::Candle`, so `db::Candle` callers
+   validate without allocating a converted vector. Declare the module in
+   `discovery_core/mod.rs`. Binary-side callers map `MarketDataError` to
+   `AppError::Other`, matching how `parse_discovery_config` is mapped at
+   `discovery_runner/mod.rs:481`.
+4. **Wire the parity tests** — `marketDataQualityFixture.test.ts` on the TS side
+   and `market_data_parity_tests.rs` on the Rust side, both reading the single
+   generated JSON. Run them before step 5 and show them failing, so the fixture
+   cannot later be reshaped around whichever implementation was written first.
+5. **Mount all four call sites** exactly as the table above specifies.
+6. **Add the table-driven atomic-import mutation tests** in `repositories.rs`.
+   Each case starts from a database that already holds one valid imported
+   dataset, then attempts to import a payload mutated to violate exactly one
+   rule, and asserts all three of: the call returns `Err` naming that rule; the
+   `datasets` and `candles` row counts are unchanged; and the pre-existing
+   dataset's candle rows are still byte-identical (reuse the `to_bits()`
+   comparison style of `candles_equal` at `repositories.rs:259-267`). Add the
+   TypeScript counterpart in `dbClient.test.ts`: a rejected
+   `prepareDatasetImport` leaves `client.db.getDatasets()` unchanged.
+7. **Repurpose the stored-invalid-data regression** (planning decision 2). In
+   `discovery_runner/tests.rs`, rewrite
+   `chrono_invalid_js_safe_timestamp_persists_failed_run_without_success_event`
+   so it inserts the invalid dataset **directly through SQL**, bypassing
+   `import_dataset_with_candles`, to simulate data stored before this contract
+   existed. **Critical:** compute the row's `dataset_hash` with
+   `identity::dataset_content_hash` over the *invalid* candles — hashing performs
+   no semantic validation — so the dataset is internally consistent and
+   `verify_dataset_identity` still passes. Otherwise the test would pass for the
+   wrong reason, reporting an identity mismatch instead of a quality rejection,
+   so it must assert the market-data rule id **and** assert the error is not an
+   identity mismatch. Because `load_verified_dataset` runs at
+   `discovery_runner/mod.rs:348`, **before** any run row is inserted, the
+   assertions change shape: `runner.start(...)` now returns `Err`, and the test
+   must prove nothing was written — no `discovery_runs` row, no jobs, no
+   progress, no emitted event, and no registered coordinator control. Add the
+   matching `resume` case for a paused run, modelling it on the existing
+   `resume_rejects_a_paused_run_with_the_stale_metrics_contract_without_writes`
+   test at `tests.rs:632`, asserting the run stays paused with no writes. The
+   metrics-layer chrono guard keeps its own coverage at
+   `execution.rs:958`; do not delete it.
+8. **Repair the now-inadmissible test fixtures.** `identity_candles()` at
+   `repositories.rs:919-936` uses timestamps `1` and `2`; move them into the
+   admissible range (the committed TS fixture values `1_721_001_600_000` and
+   `1_721_005_200_000` are the natural choice). Its dataset hash is computed, not
+   a literal, so nothing else in that test needs updating. **Leave
+   `identity.rs:323-357` alone**: those hashing tests keep timestamps `1`/`2`,
+   and their continuing to pass unmodified is the mechanical proof that the
+   validator did not enter the identity path.
+9. **Document the contract.** Add `docs/market-data-quality-contract.md` stating
+   the version string, both constants with their UTC meanings and boundary
+   semantics, the ordered rule table, the four mount points, the fail-closed
+   behaviour for stored data, and an explicit statement that the dataset hash
+   preimage is unchanged. Record the behaviour change in `CHANGELOG.md` and move
+   the task through `tasks.md`.
+
+### Non-goals
+
+- Do not change the dataset hash definition, its preimage, its version string,
+  or the observable output of `normalizeDatasetCandles` /
+  `normalize_dataset_candles` for any input they accept today. The validator is
+  a separate module invoked at admission, never a step inside identity encoding.
+- Do not touch SQLite schema or migrations. Admission is a gate, not persisted
+  evidence, so `market-data-quality-v1` is not written to any table.
+- Do not automatically repair, rewrite, drop, quarantine, or re-hash stored
+  candle bytes. Invalid stored data fails closed and the user re-imports.
+- Do not drop individual bad candles and import the remainder. A dataset is
+  admitted whole or rejected whole.
+- **Do not change the unknown-interval fallback, and do not add interval-cadence
+  or gap/continuity validation.** That is `INTERVAL-CONTRACT-001`, which must be
+  adjudicated first; the audit explicitly forbids folding it in here.
+- Do not add the summary/trade bundle invariants — that is
+  `PERSIST-INVARIANT-001`. Do not touch Sweep context, strategy period
+  validation, or the runner UI (`BUG-SWEEP-CONTEXT-001`,
+  `STRATEGY-VALIDATION-001`, `RUNNER-UI-001`).
+- Do not add dependencies, and do not modify `package-lock.json` beyond what an
+  untouched `npm install` produces.
+- Do not modify `e2e/` specs; this task does not grant e2e edits.
+- Do not weaken, delete, or re-point an existing parity or identity assertion to
+  make a new rule pass.
+
+- **Risk level**: Medium-high. The rules themselves are simple, but this task
+  narrows what the application will accept, so the realistic failure modes are
+  (a) the validator leaking into the identity path and silently redefining
+  dataset hashes, (b) a stored-data test that passes for the wrong reason
+  because identity verification rejected the payload before the new validator
+  ran, and (c) TS/Rust drifting on the boundary semantics. Steps 1, 7, and 8 are
+  each written specifically to make one of those failures visible.
+- **Validation plan**:
+  - `cd alpha-factor-forge && npm run typecheck`
+  - `cd alpha-factor-forge && npm test`
+  - `cd alpha-factor-forge && npm run build`
+  - `cd alpha-factor-forge && npm run e2e` (local Windows: default
+    `workers=1`; do not override)
+  - `cd alpha-factor-forge/src-tauri && cargo check --locked`
+  - `cd alpha-factor-forge/src-tauri && cargo test --locked`
+  - `cd alpha-factor-forge/src-tauri && cargo clippy --locked --all-targets` —
+    four pre-existing warnings in `backtest.rs` / `score.rs` are the accepted
+    baseline; paste the output and show no new warning was added.
+  - Fixture determinism: regenerate `market-data-quality-v1.json` twice and paste
+    both SHA-256 digests, showing they match.
+  - Paste the step 4 parity tests failing against the unimplemented validators,
+    alongside their passing output afterwards.
+  - Paste `git diff --stat` and confirm that `src/core/hashing/index.ts`,
+    `src-tauri/src/identity.rs`, `identity-v2.fixture.json`, `src-tauri/migrations/`,
+    and `e2e/` are all absent from it.
+- **Acceptance criteria**:
+  - [ ] One rule set, expressed once per language, is enforced at all four mount
+        points; no mount point re-implements or partially applies the rules.
+  - [ ] TypeScript and Rust classify every row of the shared fixture identically,
+        including the four boundary rows at `MIN - 1`, `MIN`,
+        `MAX_EXCLUSIVE - 1`, and `MAX_EXCLUSIVE`.
+  - [ ] `1704067200` is rejected as `timestamp_out_of_range` on both sides.
+  - [ ] `{open:100, high:90, low:110, close:100, volume:-1}` is rejected on both
+        sides, and the reported rule id is the first one in evaluation order.
+  - [ ] Every reachable rule id (1, 2, 4, 5, 6, 7) has an atomic-import mutation
+        case proving the import is rejected, no row was written, and a previously
+        imported valid dataset is still byte-identical. Rule 3 is covered instead
+        by a direct predicate unit test in each language.
+  - [ ] A dataset stored **before** this contract fails closed when a discovery
+        run starts and when a paused run resumes, with no run row, job, progress,
+        event, or coordinator control written — and the test proves the rejection
+        came from the market-data validator, not from an identity mismatch.
+  - [ ] Selecting such a dataset in the UI leaves Run/Save/Export disabled through
+        the existing `liveContext == null` path and shows zh-TW guidance to
+        re-import; no new disabling mechanism was introduced.
+  - [ ] `identity.rs`'s timestamp `1`/`2` hashing tests still pass **unmodified**,
+        and the committed dataset hash in `identity-v2.fixture.json` is unchanged
+        — the mechanical proof that dataset identity was not redefined.
+  - [ ] No migration, schema, dependency, or `e2e/` change is present in the diff.
+  - [ ] The unknown-interval fallback is untouched, and the PR states that
+        `INTERVAL-CONTRACT-001` remains an open, separate decision.
+  - [ ] `docs/market-data-quality-contract.md` exists, `CHANGELOG.md` records the
+        behaviour change, and `tasks.md` shows the task in `Done`.
+
+### Suggested prompt for coding agent
+
+```text
+ROLE: You are the coding agent for exactly one AlphaFactorForge task. Stop after opening its PR.
+
+READ FIRST:
+1. AGENTS.md in full.
+2. docs/agent-execution-protocol.md sections 2 and 4.
+3. docs/improvement-backlog.md task DATA-QUALITY-001 only.
+4. handoffs/2026-07-31-pr76-post-merge-audit-v1.md section 7, and
+   handoffs/2026-08-09-data-quality-001-planning-decisions-v1.md in full.
+
+TASK: DATA-QUALITY-001 — matching TS/Rust market-data admission validation, and
+fail closed on data stored before the contract existed.
+
+GIT: verify a clean worktree, fetch origin, branch from latest origin/main as
+fix/market-data-admission-validation, and move only this task to In Progress in tasks.md.
+
+SCOPE: touch only the Files likely affected. The admission range constants and the
+chrono-regression treatment are ALREADY ADJUDICATED in the planning handoff — implement
+them, do not re-derive or re-open them. Do NOT touch src/core/hashing/index.ts,
+src-tauri/src/identity.rs, identity-v2.fixture.json, src-tauri/migrations/, or e2e/;
+their absence from the diff is an acceptance check. No new dependencies. Do not add
+interval-cadence or gap validation and do not change the unknown-interval fallback —
+that is INTERVAL-CONTRACT-001.
+
+IMPLEMENT: follow all nine Exact implementation plan steps in the written order.
+Step 1 (the shared accept/reject fixture) and step 4 (parity tests shown FAILING)
+come before step 5's implementation, so neither language's behaviour can be
+back-fitted to the other. Step 7 is the highest-risk step: the stored-invalid
+dataset MUST be hashed over its own invalid candles and inserted via raw SQL, or the
+test will pass for the wrong reason by hitting an identity mismatch instead of the
+new validator — assert the rule id AND assert it is not an identity mismatch.
+Note that load_verified_dataset runs before any run row is inserted, so start()
+returns Err and the correct assertion is that NOTHING was written.
+
+VALIDATE: npm run typecheck, npm test, npm run build, npm run e2e (default workers=1),
+cargo check --locked, cargo test --locked, cargo clippy --locked --all-targets (four
+pre-existing backtest.rs/score.rs warnings are the accepted baseline — show no NEW
+warning), the step 4 before/after parity output, a double fixture regeneration with
+matching SHA-256 digests, and git diff --stat. Paste real output; never weaken a test
+to reach green.
+
+DELIVER: English conventional commit `fix(data): validate market data at dataset admission`;
+zh-TW PR body with 摘要 / 改了什麼 / 驗證清單(勾選 acceptance criteria) / 殘餘風險 /
+git diff --stat. Add docs/market-data-quality-contract.md, update CHANGELOG.md, and set
+tasks.md to Done. State in the PR that INTERVAL-CONTRACT-001 is still an open separate
+decision and that BUG-SWEEP-CONTEXT-001 is the next task. Then STOP; do not merge and
+do not start the next task. List out-of-scope ideas as 建議後續 bullets only.
+```
+
+### Suggested reviewer prompt
+
+```text
+Review one PR against DATA-QUALITY-001 and docs/agent-execution-protocol.md section 5.
+Prove with file:line evidence that (1) the dataset hash definition is untouched —
+src/core/hashing/index.ts, src-tauri/src/identity.rs, identity-v2.fixture.json and
+migrations/ are absent from the diff, and identity.rs's timestamp 1/2 hashing tests
+still pass unmodified; (2) one rule set is enforced at all four mount points, with the
+Rust import check placed BEFORE conn.transaction() and the runner check placed AFTER
+verify_dataset_identity; (3) TS and Rust agree on every fixture row including the four
+boundary rows at MIN-1, MIN, MAX_EXCLUSIVE-1 and MAX_EXCLUSIVE, and the fixture was
+generated by its script with matching double-run digests rather than hand-edited;
+(4) every reachable rule id (1, 2, 4-7; rule 3 is unreachable by construction and is
+covered by a direct predicate test) has an atomic-import mutation case asserting
+rejection AND zero rows
+written AND a previously imported dataset still byte-identical; (5) the stored-invalid
+regression inserts its dataset via raw SQL with a hash computed over the invalid
+candles, and asserts the market-data rule id rather than an identity mismatch, with no
+run row, job, progress, event, or coordinator control written on start and no state
+change on resume; (6) the UI fail-closed path reuses the existing liveContext == null
+guard instead of adding a second mechanism, and its copy is zh-TW; (7) no interval
+cadence, gap, or unknown-interval-fallback change slipped in, and no PERSIST-INVARIANT-001
+or BUG-SWEEP-CONTEXT-001 work was bundled; (8) no dependency, schema, or e2e change.
 Return approve / request-changes / escalate in zh-TW; do not edit code.
 ```
