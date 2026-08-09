@@ -17,6 +17,7 @@
     "fixtures:benchmarks": "vite-node scripts/generate-benchmark-fixtures.ts",
     "fixtures:gate-score": "vite-node scripts/generate-gate-score-fixtures.ts",
     "fixtures:runner-config": "vite-node scripts/generate-runner-config-fixtures.ts",
+    "fixtures:market-data-quality": "vite-node scripts/generate-market-data-quality-fixtures.ts",
     "e2e": "playwright test",
     "tauri": "tauri"
   },

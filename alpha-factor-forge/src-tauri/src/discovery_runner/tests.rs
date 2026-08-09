@@ -384,38 +384,347 @@ fn wait_for_phase(runner: &DiscoveryRunner, run_id: i64, expected: ControlPhase)
     }
 }
 
+type RunStateSnapshot = (
+    RunStatus,
+    String,
+    Option<String>,
+    Option<i64>,
+    Option<String>,
+);
+type JobStateSnapshot = Vec<(
+    i64,
+    i64,
+    Segment,
+    JobStatus,
+    Option<i64>,
+    Option<String>,
+)>;
+
+/// Everything a rejected lifecycle call must leave untouched: run row, job
+/// rows, and the connection's total write count.
+fn run_snapshot(db: &SharedDb, run_id: i64) -> (RunStateSnapshot, JobStateSnapshot, i64) {
+    let conn = db.lock().expect("lock db for run snapshot");
+    let run = discovery::get_discovery_run(&conn, run_id).expect("read run for snapshot");
+    let jobs = discovery::list_discovery_jobs(&conn, run_id)
+        .expect("read jobs for snapshot")
+        .into_iter()
+        .map(|job| {
+            (
+                job.id,
+                job.candidate_index,
+                job.segment,
+                job.status,
+                job.result_id,
+                job.error_message,
+            )
+        })
+        .collect::<Vec<_>>();
+    let total_changes = conn
+        .query_row("SELECT total_changes()", [], |row| row.get::<_, i64>(0))
+        .expect("read total changes for snapshot");
+    (
+        (
+            run.status,
+            run.config_json,
+            run.progress_json,
+            run.best_strategy_id,
+            run.error_message,
+        ),
+        jobs,
+        total_changes,
+    )
+}
+
+/// Insert a dataset and its candles with RAW SQL, deliberately bypassing
+/// `import_dataset_with_candles` and therefore the DATA-QUALITY-001 admission
+/// gate. This is how data stored BEFORE the contract existed is simulated.
+///
+/// The dataset hash is computed over these exact (invalid) candles, because
+/// hashing performs no semantic validation. That is what keeps the row
+/// internally consistent so `verify_dataset_identity` still passes — without it
+/// the fail-closed test would pass for the wrong reason, reporting an identity
+/// mismatch instead of a market-data rejection.
+fn insert_stored_dataset_bypassing_admission(db: &SharedDb, candles: &[Candle]) -> (i64, String) {
+    let mut dataset = Dataset {
+        id: None,
+        exchange: "runner-test".into(),
+        symbol: "BTCUSDT".into(),
+        interval: "1d".into(),
+        start_time: candles.iter().map(|c| c.timestamp).min().expect("min"),
+        end_time: candles.iter().map(|c| c.timestamp).max().expect("max"),
+        candle_count: candles.len() as i64,
+        source: "pre-contract-storage".into(),
+        dataset_hash: String::new(),
+    };
+    dataset.dataset_hash = crate::identity::dataset_content_hash(&dataset, candles)
+        .expect("hash the invalid candles: hashing does not validate semantics");
+    let hash = dataset.dataset_hash.clone();
+
+    let conn = db.lock().expect("lock db for raw dataset insert");
+    conn.execute(
+        "INSERT INTO datasets
+            (exchange, symbol, interval, start_time, end_time, candle_count, source, dataset_hash)
+         VALUES (?1,?2,?3,?4,?5,?6,?7,?8)",
+        params![
+            dataset.exchange,
+            dataset.symbol,
+            dataset.interval,
+            dataset.start_time,
+            dataset.end_time,
+            dataset.candle_count,
+            dataset.source,
+            dataset.dataset_hash
+        ],
+    )
+    .expect("raw dataset insert");
+    let dataset_id = conn.last_insert_rowid();
+    {
+        let mut statement = conn
+            .prepare(
+                "INSERT INTO candles
+                    (dataset_id, timestamp, open, high, low, close, volume)
+                 VALUES (?1,?2,?3,?4,?5,?6,?7)",
+            )
+            .expect("prepare raw candle insert");
+        // Sorted, so the stored order matches the identity normalization.
+        let mut sorted = candles.to_vec();
+        sorted.sort_by_key(|candle| candle.timestamp);
+        for candle in &sorted {
+            statement
+                .execute(params![
+                    dataset_id,
+                    candle.timestamp,
+                    candle.open,
+                    candle.high,
+                    candle.low,
+                    candle.close,
+                    candle.volume
+                ])
+                .expect("raw candle insert");
+        }
+    }
+    drop(conn);
+    (dataset_id, hash)
+}
+
+fn table_count(db: &SharedDb, table: &str) -> i64 {
+    let conn = db.lock().expect("lock db for row count");
+    conn.query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |row| {
+        row.get(0)
+    })
+    .unwrap_or_else(|error| panic!("count {table}: {error}"))
+}
+
+/// DATA-QUALITY-001 (planning decision 2) — a dataset stored BEFORE the
+/// market-data contract existed must fail closed at `load_verified_dataset`,
+/// which runs before any run row is inserted. `start` therefore returns `Err`
+/// and the correct assertion is that NOTHING was written at all.
+///
+/// The timestamp is below JavaScript's max safe integer, so identity accepts it
+/// and the rejection can only come from the new validator. Rule 2 precedes rule
+/// 3, so the reported rule is `timestamp_out_of_range` rather than the chrono
+/// representability message — the metrics-layer chrono guard keeps its own
+/// coverage in `execution.rs`.
 #[test]
-fn chrono_invalid_js_safe_timestamp_persists_failed_run_without_success_event() {
-    // This is below JavaScript's max safe integer but beyond chrono's UTC
-    // millisecond range, so dataset admission succeeds and runner execution
-    // must fail closed rather than reaching metrics' historical expect().
+fn stored_invalid_dataset_fails_closed_on_start_without_writing_anything() {
     let candles = alternating_candles(240, 8_500_000_000_000_000);
     let db = migrated_db();
-    let (dataset_id, dataset_hash) = import_dataset(&db, &candles);
+    let (dataset_id, dataset_hash) = insert_stored_dataset_bypassing_admission(&db, &candles);
     let config = runner_config(dataset_id, &dataset_hash, 1);
     let sink = Arc::new(RecordingSink::new(db.clone()));
     let runner = DiscoveryRunner::default();
 
+    let total_changes_before = {
+        let conn = db.lock().expect("lock before rejected start");
+        conn.query_row("SELECT total_changes()", [], |row| row.get::<_, i64>(0))
+            .expect("read total changes before start")
+    };
+
+    let error = runner
+        .start(db.clone(), sink.clone(), config)
+        .expect_err("stored invalid market data must reject start");
+    let message = error.to_string();
+
+    assert!(
+        message.contains("timestamp_out_of_range"),
+        "rejection did not name the market-data rule: {message}"
+    );
+    // The whole point of hashing over the invalid candles: this must NOT be an
+    // identity failure, or the test would prove nothing about the validator.
+    assert!(
+        !message.contains("identity mismatch"),
+        "rejection came from identity, not the market-data validator: {message}"
+    );
+
+    assert_eq!(table_count(&db, "discovery_runs"), 0, "a run row was written");
+    assert_eq!(table_count(&db, "discovery_jobs"), 0, "a job row was written");
+    assert_eq!(
+        table_count(&db, "validation_records"),
+        0,
+        "a validation record was written"
+    );
+    assert_eq!(
+        table_count(&db, "backtest_summary"),
+        0,
+        "a summary row was written"
+    );
+    let total_changes_after = {
+        let conn = db.lock().expect("lock after rejected start");
+        conn.query_row("SELECT total_changes()", [], |row| row.get::<_, i64>(0))
+            .expect("read total changes after start")
+    };
+    assert_eq!(
+        total_changes_after, total_changes_before,
+        "rejected start performed a database write"
+    );
+    assert!(
+        sink.snapshot().is_empty(),
+        "rejected start emitted an event"
+    );
+    assert!(
+        runner
+            .control(1)
+            .expect("read control after rejected start")
+            .is_none(),
+        "rejected start registered a coordinator control"
+    );
+}
+
+/// The `resume` half of the same contract: a run that was legitimately started
+/// and paused must not resume once its stored candles no longer satisfy the
+/// market-data rules. The dataset hash and the run's config content hash are
+/// both re-pointed at the corrupted payload, so identity still verifies and the
+/// rejection can only come from the validator.
+#[test]
+fn stored_invalid_dataset_fails_closed_on_resume_without_changing_run_state() {
+    let candles = alternating_candles(240, 1_577_836_800_000);
+    let db = migrated_db();
+    let (dataset_id, dataset_hash) = import_dataset(&db, &candles);
+    let config = runner_config(dataset_id, &dataset_hash, 2);
+    let sink = Arc::new(RecordingSink::new(db.clone()));
+    let (started_tx, started_rx) = mpsc::channel();
+    let gate = Arc::new(PermitGate::new());
+    let runner = runner_with_executor(Arc::new(PermittedProductionExecutor {
+        started: started_tx,
+        gate: gate.clone(),
+    }));
+
     let run_id = runner
         .start(db.clone(), sink.clone(), config)
-        .expect("start invalid-timestamp runner");
-    let progress = wait_for_status(&runner, &db, run_id, RunStatus::Failed);
+        .expect("start valid runner");
+    started_rx
+        .recv_timeout(TEST_TIMEOUT)
+        .expect("first candidate reached executor");
+
+    let (pause_tx, pause_rx) = mpsc::channel();
+    let pause_runner = runner.clone();
+    let pause_db = db.clone();
+    thread::spawn(move || {
+        let _ = pause_tx.send(pause_runner.pause(&pause_db, run_id));
+    });
+    wait_for_phase(&runner, run_id, ControlPhase::PauseRequested);
+    gate.release();
+    pause_rx
+        .recv_timeout(TEST_TIMEOUT)
+        .expect("pause acknowledgement")
+        .expect("pause succeeds after drain");
+    wait_for_status(&runner, &db, run_id, RunStatus::Paused);
     wait_for_coordinator_exit(&runner, run_id);
 
-    assert_eq!(progress.counts.failed_candidates, 1);
-    let error = progress
-        .error_message
-        .expect("persisted run failure evidence");
-    assert!(error.contains("outside chrono's UTC millisecond range"));
-    assert_eq!(sink.result_count(), 0, "failed run must emit no result");
-    let done = sink.wait_for(|event| {
-        matches!(
-            event,
-            DiscoveryEvent::Done(payload) if payload.status == RunStatus::Failed
+    // Corrupt the STORED candles the way pre-contract data would already be
+    // corrupt, then re-point identity at the corrupted payload so the run can
+    // only be stopped by the market-data gate.
+    let mut corrupted = candles.clone();
+    corrupted.sort_by_key(|candle| candle.timestamp);
+    corrupted[7].volume = -1.0;
+    {
+        let conn = db.lock().expect("lock paused run for corruption");
+        conn.execute(
+            "UPDATE candles SET volume = ?1 WHERE dataset_id = ?2 AND timestamp = ?3",
+            params![corrupted[7].volume, dataset_id, corrupted[7].timestamp],
         )
-    });
-    assert!(matches!(done, DiscoveryEvent::Done(_)));
-    sink.assert_all_observed_after_commit();
+        .expect("corrupt stored candle");
+
+        let mut dataset = Dataset {
+            id: Some(dataset_id),
+            exchange: "runner-test".into(),
+            symbol: "BTCUSDT".into(),
+            interval: "1d".into(),
+            start_time: corrupted.first().expect("first").timestamp,
+            end_time: corrupted.last().expect("last").timestamp,
+            candle_count: corrupted.len() as i64,
+            source: "runner-acceptance-test".into(),
+            dataset_hash: String::new(),
+        };
+        dataset.dataset_hash = crate::identity::dataset_content_hash(&dataset, &corrupted)
+            .expect("hash the corrupted candles");
+        conn.execute(
+            "UPDATE datasets SET dataset_hash = ?1 WHERE id = ?2",
+            params![dataset.dataset_hash, dataset_id],
+        )
+        .expect("re-point stored dataset hash");
+
+        let run = discovery::get_discovery_run(&conn, run_id).expect("read paused run");
+        let mut stored_config: Value =
+            serde_json::from_str(&run.config_json).expect("parse stored config");
+        stored_config["dataset"]["contentHash"] = json!(dataset.dataset_hash);
+        conn.execute(
+            "UPDATE discovery_runs SET config_json = ?1 WHERE id = ?2",
+            params![
+                serde_json::to_string(&stored_config).expect("serialize config"),
+                run_id
+            ],
+        )
+        .expect("re-point run config content hash");
+    }
+
+    let (run_before, jobs_before, total_changes_before) = run_snapshot(&db, run_id);
+    let event_count_before = sink.snapshot().len();
+    assert!(runner
+        .control(run_id)
+        .expect("read control before resume")
+        .is_none());
+
+    let error = runner
+        .resume(db.clone(), sink.clone(), run_id)
+        .expect_err("stored invalid market data must reject resume");
+    let message = error.to_string();
+    assert!(
+        message.contains("volume_negative"),
+        "rejection did not name the market-data rule: {message}"
+    );
+    assert!(
+        !message.contains("identity mismatch"),
+        "rejection came from identity, not the market-data validator: {message}"
+    );
+
+    let (run_after, jobs_after, total_changes_after) = run_snapshot(&db, run_id);
+    assert_eq!(
+        run_after.0,
+        RunStatus::Paused,
+        "rejected resume did not leave the run paused"
+    );
+    assert_eq!(
+        run_after, run_before,
+        "rejected resume changed run/progress state"
+    );
+    assert_eq!(jobs_after, jobs_before, "rejected resume changed job state");
+    assert_eq!(
+        total_changes_after, total_changes_before,
+        "rejected resume performed a database write"
+    );
+    assert_eq!(
+        sink.snapshot().len(),
+        event_count_before,
+        "rejected resume emitted an event"
+    );
+    assert!(
+        runner
+            .control(run_id)
+            .expect("read control after rejected resume")
+            .is_none(),
+        "rejected resume registered a coordinator control"
+    );
 }
 
 #[test]

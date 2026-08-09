@@ -38,7 +38,7 @@ The detailed evidence, shortest reproductions, contract cautions, and per-task a
 
 #### High-priority input and anti-overfitting guards
 
-- [ ] **DATA-QUALITY-001 (P1)** — add matching TS/Rust market-data admission validation for plausible epoch-millisecond timestamps, representable dates, positive prices, non-negative volume, and `low <= open/close <= high`; preserve the durable dataset hash definition, fail closed on already-stored invalid data, and cover every invariant with atomic-import mutation tests. Do not change the intentionally accepted unknown-interval fallback in this task. Expanded to an execution-ready specification in `docs/improvement-backlog.md` on 2026-08-09; its three planning decisions are adjudicated in `handoffs/2026-08-09-data-quality-001-planning-decisions-v1.md`. Awaiting maintainer approval of that specification before promotion to Next.
+- **DATA-QUALITY-001 (P1)** — completed locally; see the Done section.
 - [ ] **BUG-SWEEP-CONTEXT-001 (P1)** — attach dataset/hash, interval, holdout range, sweep configuration, and a base-strategy snapshot to each sweep artifact; invalidate or disable heatmap/apply actions on context mismatch and discard late results. Test holdout toggle/percentage, dataset switch, non-axis strategy edits, delayed completion, and the intentional case where applying a swept-axis cell remains valid.
 - [ ] **STRATEGY-VALIDATION-001 (P1)** — introduce one runtime validator shared by manual strategy execution and persistence so indicator periods are safe positive integers and cross-field constraints fail visibly. Add UI min/step hints only as secondary protection and regression-test zero, negative, fractional, NaN, and incompatible periods.
 
@@ -142,6 +142,13 @@ These were named inside the UI port entry and must not be buried by closing it. 
 - [ ] Full closed-loop AI automation.
 
 ## Done
+
+- [x] **DATA-QUALITY-001 (P1)** — added the `market-data-quality-v1` admission contract so dataset identity is no longer mistaken for dataset validity (2026-08-09, branch `fix/market-data-admission-validation`).
+  - One ordered rule set (plausible epoch-millisecond timestamps in `[2000-01-01Z, 2100-01-01Z)`, independently asserted representability, positive OHLC prices, non-negative volume, `high >= low`, `low <= open/close <= high`) is implemented once per language and enforced at four mount points: `dbClient.prepareDatasetImport`, the `BacktestPanel` candle load, `repositories.rs` before its transaction opens, and the runner's `load_verified_dataset` after identity verification. Datasets are admitted whole or rejected whole.
+  - Data stored before the contract fails closed: a rejected `start` writes nothing at all (no run row, job, progress, event, or coordinator control), a paused run stays paused on rejected `resume`, and the UI keeps Run/Save/Export disabled through the existing `liveContext == null` guard with zh-TW re-import guidance. The stored-invalid regression inserts its dataset via raw SQL with a hash computed over the invalid candles, and asserts the rule id **and** that the failure is not an identity mismatch.
+  - The dataset hash preimage, its version string, and `identity-v2.fixture.json` are unchanged; `identity.rs`'s timestamp `1`/`2` hashing tests still pass unmodified. No schema, migration, dependency, or `e2e/` change.
+  - Known limitation recorded in `docs/market-data-quality-contract.md` §5: rule 1 is structurally unreachable at the import mount point, because the pre-existing identity safe-integer check fires first and `db::Candle.timestamp` is an `i64`. Its mutation case asserts the observed rejection plus the full atomicity guarantee.
+  - Validation: 703 Vitest + 145 Rust + 50 Playwright E2E, typecheck, production build, `cargo check`/`test` `--locked`, Clippy with only the four pre-existing `backtest.rs`/`score.rs` warnings, and a double fixture regeneration with matching SHA-256 digests. `INTERVAL-CONTRACT-001` remains an open, separate decision; `BUG-SWEEP-CONTEXT-001` is next.
 
 - [x] **RUNNER-OWNERSHIP-001 (P1)** — registered `tauri-plugin-single-instance` 2.4.3 as the first builder plugin, before `setup`, SQLite initialization, and discovery orphan recovery (2026-08-09, PR #90, merge `a451f0d`).
   - A second desktop launch now exits cleanly after the primary process shows, unminimizes, and focuses its `main` window. Three Rust regressions lock the operation/error order and the plugin → setup → recovery source order.
