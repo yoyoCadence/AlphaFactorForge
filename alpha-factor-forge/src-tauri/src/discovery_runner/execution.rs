@@ -26,7 +26,7 @@ use alpha_factor_forge::discovery_core::{
         GateConfig, GateConfigOverrides, GateRandomEntryView, GateVerdict, GATE_CONTRACT_VERSION,
     },
     identity::strategy_hash,
-    metrics::{ClosedTrade, Metrics, TradeSide},
+    metrics::{ClosedTrade, Metrics, TradeSide, METRICS_CONTRACT_VERSION},
     random_entry::{
         run_random_entry_benchmark, RandomEntryArgs, RandomEntryBenchmark, RandomEntryCandidate,
     },
@@ -43,10 +43,10 @@ use chrono::{TimeZone, Utc};
 use serde::Serialize;
 use serde_json::{Map, Number, Value};
 
-use crate::db::repositories::{BacktestSummary, TradeRow, ValidationRecordRow};
-
-pub const VALIDATION_RECORD_VERSION: &str = "validation-record-v1";
-pub const BENCHMARK_RECORD_VERSION: &str = "bench-record-v1";
+use crate::db::{
+    repositories::{BacktestSummary, TradeRow, ValidationRecordRow},
+    validation_record::{BENCHMARK_RECORD_VERSION, VALIDATION_RECORD_VERSION},
+};
 const JS_MAX_SAFE_INTEGER: i64 = 9_007_199_254_740_991;
 
 /// Durable dataset metadata already revalidated by the coordinator at start.
@@ -625,6 +625,10 @@ fn build_validation_record(parts: &RecordParts<'_>) -> Result<Value, CandidateEx
         "benchmark".into(),
         Value::String(BENCHMARK_CONTRACT_VERSION.into()),
     );
+    contracts.insert(
+        "metrics".into(),
+        Value::String(METRICS_CONTRACT_VERSION.into()),
+    );
     contracts.insert("gate".into(), Value::String(GATE_CONTRACT_VERSION.into()));
     contracts.insert(
         "score".into(),
@@ -881,7 +885,7 @@ pub fn execute_candidate(
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use crate::db::repositories::validate_validation_bundle;
     use alpha_factor_forge::discovery_core::{
@@ -898,11 +902,12 @@ mod tests {
         let mut input = fixture["enumerationCases"][0]["input"].clone();
         input["embargo"]["holdingAllowanceBars"] = json!(0);
         input["randomEntry"]["runs"] = json!(5);
+        input["gateConfig"]["maxMonthlyContribution"] = json!(1);
         input["bases"][0]["axes"] = json!([]);
         input["bases"][0]["strategy"]["fastMA"] = json!(1);
         input["bases"][0]["strategy"]["slowMA"] = json!(2);
-        input["bases"][0]["strategy"]["entrySig"] = json!("priceAboveSlow");
-        input["bases"][0]["strategy"]["exitSig"] = json!("priceBelowSlow");
+        input["bases"][0]["strategy"]["entrySig"] = json!("priceBelowSlow");
+        input["bases"][0]["strategy"]["exitSig"] = json!("priceAboveSlow");
 
         let config = parse_discovery_config(&input, 4.0).expect("admit test config");
         let plan = enumerate_candidates(&config).expect("enumerate test candidate");
@@ -929,6 +934,24 @@ mod tests {
                 }
             })
             .collect()
+    }
+
+    pub(crate) fn representative_output() -> CandidateExecutionOutput {
+        let (config, candidate, tested_combinations) = test_config_and_candidate();
+        let candles = alternating_candles(600);
+        execute_candidate(&ExecuteCandidateArgs {
+            config: &config,
+            candidate: &candidate,
+            tested_combinations,
+            strategy_id: 11,
+            dataset: ExecutionDataset {
+                id: config.dataset.id,
+                content_hash: &config.dataset.content_hash,
+                interval: "1d",
+            },
+            candles: &candles,
+        })
+        .expect("execute representative candidate")
     }
 
     #[test]
@@ -1032,6 +1055,102 @@ mod tests {
         assert!(output
             .record
             .record_json
-            .contains("\"version\":\"validation-record-v1\""));
+            .contains("\"version\":\"validation-record-v2\""));
+    }
+
+    fn collect_required_field_paths(value: &Value, path: &str, paths: &mut Vec<String>) {
+        match value {
+            Value::Object(object) => {
+                // Map entries are evidence values, not statically named DTO fields.
+                if path.ends_with("/monthlyReturns") || path.ends_with("/nonFinite") {
+                    return;
+                }
+                for (key, child) in object {
+                    let child_path = format!("{path}/{key}");
+                    paths.push(child_path.clone());
+                    collect_required_field_paths(child, &child_path, paths);
+                }
+            }
+            Value::Array(items) => {
+                for (index, child) in items.iter().enumerate() {
+                    collect_required_field_paths(child, &format!("{path}/{index}"), paths);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn remove_object_field(value: &mut Value, pointer: &str) {
+        let (parent_pointer, key) = pointer.rsplit_once('/').expect("field JSON pointer");
+        value
+            .pointer_mut(parent_pointer)
+            .and_then(Value::as_object_mut)
+            .expect("field parent object")
+            .remove(key)
+            .expect("required field exists");
+    }
+
+    #[test]
+    fn every_present_v2_dto_field_is_required_before_persistence() {
+        let output = representative_output();
+        let envelope: Value = serde_json::from_str(&output.record.record_json).unwrap();
+        let mut paths = Vec::new();
+        collect_required_field_paths(&envelope, "", &mut paths);
+        assert!(
+            paths.len() > 150,
+            "the mutation matrix must cover the full nested DTO"
+        );
+
+        for path in paths {
+            let mut mutant = envelope.clone();
+            remove_object_field(&mut mutant, &path);
+            let record = ValidationRecordRow {
+                id: None,
+                strategy_id: output.record.strategy_id,
+                dataset_id: output.record.dataset_id,
+                record_version: output.record.record_version.clone(),
+                gate_passed: output.record.gate_passed,
+                score: output.record.score,
+                record_json: serde_json::to_string(&mutant).unwrap(),
+                created_at: None,
+            };
+            assert!(
+                validate_validation_bundle(
+                    &output.train_summary,
+                    &output.validation_summary,
+                    &record,
+                )
+                .is_err(),
+                "removing required field {path} must fail closed"
+            );
+        }
+    }
+
+    #[test]
+    fn rejects_legacy_and_unknown_record_versions_on_new_writes() {
+        for version in ["validation-record-v1", "validation-record-v999"] {
+            let output = representative_output();
+            let record = ValidationRecordRow {
+                id: None,
+                strategy_id: output.record.strategy_id,
+                dataset_id: output.record.dataset_id,
+                record_version: version.into(),
+                gate_passed: output.record.gate_passed,
+                score: output.record.score,
+                record_json: output.record.record_json,
+                created_at: None,
+            };
+            let error = validate_validation_bundle(
+                &output.train_summary,
+                &output.validation_summary,
+                &record,
+            )
+            .expect_err("unsupported write version must fail closed");
+            let message = error.to_string();
+            assert!(
+                message.contains("validation-record") || message.contains("unsupported"),
+                "version dispatch error should be explicit: {message}"
+            );
+        }
     }
 }

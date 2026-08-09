@@ -19,8 +19,6 @@ use crate::db::repositories::{
     insert_validation_record_for_run, BacktestSummary, TradeRow, ValidationRecordRow,
 };
 
-const BENCH: &str = r#"{"version":"bench-record-v1","benchmarks":[],"randomEntry":{}}"#;
-
 fn mem_db() -> Connection {
     let conn = Connection::open_in_memory().expect("open in-memory db");
     conn.pragma_update(None, "foreign_keys", "ON")
@@ -53,38 +51,6 @@ fn parents(conn: &Connection, count: usize) -> (i64, Vec<i64>) {
     (dataset_id, strategies)
 }
 
-fn summary(strategy_id: i64, dataset_id: i64, segment: &str) -> BacktestSummary {
-    BacktestSummary {
-        id: None,
-        strategy_id,
-        dataset_id,
-        segment: segment.into(),
-        start_time: 1,
-        end_time: 10,
-        net_return: Some(0.1),
-        cagr: None,
-        max_drawdown: None,
-        sharpe: None,
-        sortino: None,
-        calmar: None,
-        win_rate: None,
-        trade_count: Some(1),
-        profit_factor: None,
-        avg_trade_return: None,
-        median_trade_return: None,
-        exposure: None,
-        turnover: None,
-        largest_win: None,
-        largest_loss: None,
-        consecutive_losses: None,
-        gate_passed: None,
-        score: None,
-        score_breakdown_json: None,
-        benchmark_result_json: None,
-        created_at: None,
-    }
-}
-
 /// A bundle the PERSIST-001 validator accepts, carrying the given verdict.
 fn bundle(
     strategy_id: i64,
@@ -92,36 +58,57 @@ fn bundle(
     passed: bool,
     score: f64,
 ) -> (BacktestSummary, BacktestSummary, ValidationRecordRow) {
-    let train = summary(strategy_id, dataset_id, "train");
-    let mut validation = summary(strategy_id, dataset_id, "validation");
-    validation.gate_passed = Some(passed);
-    validation.benchmark_result_json = Some(BENCH.into());
-    let breakdown = format!("{{\"score\":{score}}}");
-    let record_json = if passed {
+    let output = crate::discovery_runner::execution::tests::representative_output();
+    let mut train = output.train_summary;
+    let mut validation = output.validation_summary;
+    let mut record = output.record;
+    train.strategy_id = strategy_id;
+    train.dataset_id = dataset_id;
+    validation.strategy_id = strategy_id;
+    validation.dataset_id = dataset_id;
+    record.strategy_id = strategy_id;
+    record.dataset_id = dataset_id;
+    let mut envelope: serde_json::Value = serde_json::from_str(&record.record_json).unwrap();
+    envelope["strategyId"] = serde_json::json!(strategy_id);
+    envelope["datasetId"] = serde_json::json!(dataset_id);
+
+    if passed {
+        let score_record = envelope["score"].as_object_mut().unwrap();
+        for list in ["components", "penalties"] {
+            for entry in score_record[list].as_array_mut().unwrap() {
+                entry["weight"] = serde_json::json!(0.0);
+                entry["contribution"] = serde_json::json!(0.0);
+            }
+        }
+        score_record["components"][0]["normalized"] = serde_json::json!(1.0);
+        score_record["components"][0]["weight"] = serde_json::json!(score);
+        score_record["components"][0]["contribution"] = serde_json::json!(score);
+        for value in score_record["config"]["weights"]
+            .as_object_mut()
+            .unwrap()
+            .values_mut()
+        {
+            *value = serde_json::json!(0.0);
+        }
+        score_record["config"]["weights"]["cagr"] = serde_json::json!(score);
+        score_record["score"] = serde_json::json!(score);
         validation.score = Some(score);
-        validation.score_breakdown_json = Some(breakdown.clone());
-        format!(
-            "{{\"version\":\"validation-record-v1\",\"strategyId\":{strategy_id},\
-             \"datasetId\":{dataset_id},\"gatePassed\":true,\"score\":{breakdown},\
-             \"benchmark\":{BENCH}}}"
-        )
+        validation.score_breakdown_json = Some(serde_json::to_string(&envelope["score"]).unwrap());
+        record.score = Some(score);
     } else {
-        format!(
-            "{{\"version\":\"validation-record-v1\",\"strategyId\":{strategy_id},\
-             \"datasetId\":{dataset_id},\"gatePassed\":false,\"score\":null,\
-             \"benchmark\":{BENCH}}}"
-        )
-    };
-    let record = ValidationRecordRow {
-        id: None,
-        strategy_id,
-        dataset_id,
-        record_version: "validation-record-v1".into(),
-        gate_passed: passed,
-        score: if passed { Some(score) } else { None },
-        record_json,
-        created_at: None,
-    };
+        envelope["gatePassed"] = serde_json::json!(false);
+        envelope["gate"]["pass"] = serde_json::json!(false);
+        envelope["gate"]["criteria"][0]["pass"] = serde_json::json!(false);
+        envelope["gate"]["criteria"][0]["value"] = serde_json::json!(0.0);
+        envelope["contracts"]["score"] = serde_json::Value::Null;
+        envelope["score"] = serde_json::Value::Null;
+        validation.gate_passed = Some(false);
+        validation.score = None;
+        validation.score_breakdown_json = None;
+        record.gate_passed = false;
+        record.score = None;
+    }
+    record.record_json = serde_json::to_string(&envelope).unwrap();
     (train, validation, record)
 }
 
@@ -713,6 +700,7 @@ fn re_committing_a_done_candidate_is_rejected_before_any_write() {
     let run_id = started_run(&mut conn, dataset_id, &strategies);
 
     let first = bundle(strategies[0], dataset_id, true, 1.5);
+    let first_net_return = first.0.net_return.unwrap();
     let first_trades = [TradeRow {
         entry_time: 1,
         exit_time: 2,
@@ -777,7 +765,7 @@ fn re_committing_a_done_candidate_is_rejected_before_any_write() {
             |r| r.get(0),
         )
         .unwrap();
-    assert_eq!(net, 0.1, "the stored summary is untouched");
+    assert_eq!(net, first_net_return, "the stored summary is untouched");
 
     let reason: String = conn
         .query_row("SELECT reason FROM trades LIMIT 1", [], |r| r.get(0))

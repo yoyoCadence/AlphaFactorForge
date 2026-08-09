@@ -51,6 +51,9 @@ test('a pop-out window opens on the same skin as the main window', async ({ page
   await child.goto('/?window=chart&mock=1');
   await expect(child.getByTestId('chart-window-loading')).toBeVisible();
   await expect(child.locator('[data-skin]').first()).toHaveAttribute('data-skin', 'midnight-tape');
+
+  await page.getByTestId('skin-picker').locator('select').selectOption('aurora-glass');
+  await expect(child.locator('[data-skin]').first()).toHaveAttribute('data-skin', 'aurora-glass');
   await child.close();
 });
 
@@ -68,4 +71,84 @@ test('switching skin does not disturb loaded data or the strategy form', async (
   await expect(page.getByTestId('strategy-name')).toHaveValue('skin-switch-probe');
   await expect(page.getByTestId('candle-canvas')).toBeVisible();
   await expect(page.getByTestId('chart-zoom-status')).toContainText('顯示 500 根');
+});
+
+for (const id of ['forge-paper', 'signal-orange', 'aurora-glass'] as const) {
+  test(`generated background for ${id} loads locally`, async ({ page }) => {
+    await page.goto('/?mock=1');
+    await page.getByTestId('skin-picker').locator('select').selectOption(id);
+
+    const result = await page.locator('.afs-theme-root').evaluate(async (element) => {
+      const backgroundImage = getComputedStyle(element).backgroundImage;
+      const match = backgroundImage.match(/url\(["']?([^"')]+)["']?\)/);
+      if (!match) return { backgroundImage, url: '', ok: false, contentType: '' };
+      const response = await fetch(match[1]);
+      return {
+        backgroundImage,
+        url: match[1],
+        ok: response.ok,
+        contentType: response.headers.get('content-type') ?? '',
+      };
+    });
+
+    expect(result.backgroundImage).toContain('linear-gradient');
+    expect(result.url).toContain('.webp');
+    expect(result.ok).toBe(true);
+    expect(result.contentType).toContain('image/webp');
+  });
+}
+
+test('an invalid persisted skin falls back cleanly', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('afs.ui.skin', 'not-a-real-skin'));
+  await page.goto('/?mock=1');
+
+  await expect(page.locator('.afs-theme-root')).toHaveAttribute('data-skin', 'forge-paper');
+  await expect(page.getByTestId('skin-picker').locator('select')).toHaveValue('forge-paper');
+  expect(await page.evaluate(() => localStorage.getItem('afs.ui.skin'))).toBeNull();
+});
+
+test('keyboard focus remains visible on themed fields', async ({ page }) => {
+  await page.goto('/?mock=1');
+  const field = page.getByTestId('strategy-name');
+  await field.focus();
+
+  const outline = await field.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return { style: style.outlineStyle, width: style.outlineWidth };
+  });
+  expect(outline.style).toBe('solid');
+  expect(outline.width).toBe('2px');
+});
+
+test('the workspace collapses to one column without horizontal overflow', async ({ page }) => {
+  await page.setViewportSize({ width: 760, height: 700 });
+  await page.goto('/?mock=1');
+
+  const layout = page.getByTestId('backtest-layout');
+  const columns = await layout.evaluate((element) => getComputedStyle(element).gridTemplateColumns.trim().split(/\s+/));
+  const width = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, client: document.documentElement.clientWidth }));
+  expect(columns).toHaveLength(1);
+  expect(width.scroll).toBeLessThanOrEqual(width.client);
+});
+
+test('the skin picker keeps its accessible name below the compact-label breakpoint', async ({ page }) => {
+  await page.setViewportSize({ width: 520, height: 700 });
+  await page.goto('/?mock=1');
+
+  await expect(page.locator('.skin-picker-label')).toBeHidden();
+  await expect(page.getByRole('combobox', { name: '皮膚' })).toBeVisible();
+});
+
+test('switching through all skins emits no duplicate-key warning', async ({ page }) => {
+  const keyWarnings: string[] = [];
+  page.on('console', (message) => {
+    if (message.type() === 'error' && /same key|unique ["']key["']/i.test(message.text())) keyWarnings.push(message.text());
+  });
+  await page.goto('/?mock=1');
+
+  for (const id of SKINS) {
+    await page.getByTestId('skin-picker').locator('select').selectOption(id);
+    await expect(page.locator('.afs-theme-root')).toHaveAttribute('data-skin', id);
+  }
+  expect(keyWarnings).toEqual([]);
 });

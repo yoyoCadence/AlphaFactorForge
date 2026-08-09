@@ -17,10 +17,12 @@ export function SkinPicker(): React.ReactElement {
 
   return (
     <label
+      className="skin-picker"
       data-testid="skin-picker"
       style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
     >
       <span
+        className="skin-picker-label"
         style={{
           fontFamily: t.font.mono,
           fontSize: t.font.labelSize,
@@ -32,10 +34,10 @@ export function SkinPicker(): React.ReactElement {
         皮膚
       </span>
 
-      <span aria-hidden="true" style={{ display: 'flex', gap: 3 }}>
-        {[t.color.bg, t.color.accent, t.chart.up].map((hex) => (
+      <span className="skin-picker-swatches" aria-hidden="true" style={{ display: 'flex', gap: 3 }}>
+        {[t.color.bg, t.color.accent, t.chart.up].map((hex, index) => (
           <span
-            key={hex}
+            key={`${index}-${hex}`}
             style={{
               width: 9,
               height: 9,
@@ -49,6 +51,7 @@ export function SkinPicker(): React.ReactElement {
       </span>
 
       <select
+        aria-label='皮膚'
         value={skin}
         onChange={(e) => setSkin(e.target.value as SkinId)}
         style={{

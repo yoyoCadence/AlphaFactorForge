@@ -17,7 +17,7 @@ export const PARITY_FIXTURE_SCHEMA_VERSION = 'rs-core-parity-fixture-v1';
 export const CANDLE_CONTRACT_VERSION = 'ohlcv-candle-v1';
 /** Same adopted contract the validation record embeds (docs/backtest-execution-contract.md). */
 export const EXECUTION_CONTRACT_VERSION = 'backtest-execution-v1';
-export const METRICS_CONTRACT_VERSION = 'metrics-v1';
+export const METRICS_CONTRACT_VERSION = 'metrics-v2';
 
 export interface FixtureCandle {
   timestamp: number;

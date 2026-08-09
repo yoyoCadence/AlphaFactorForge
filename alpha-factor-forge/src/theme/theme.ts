@@ -12,6 +12,10 @@
 // elevation (`shadow`), and control shape (`tab`/`chip` state pairs). That is
 // what keeps them from looking like six recolours of the same screen.
 
+import auroraBackgroundUrl from '../assets/theme-backgrounds/aurora-glass-v1.webp';
+import paperBackgroundUrl from '../assets/theme-backgrounds/paper-fiber-v1.webp';
+import signalOrangeBackgroundUrl from '../assets/theme-backgrounds/signal-orange-v1.webp';
+
 export type SkinId =
   | 'forge-paper'
   | 'midnight-tape'
@@ -65,15 +69,27 @@ export interface ChartTheme {
   lw: number;
 }
 
+/** Workspace-only background layers. `color.bg` remains an opaque colour so
+ * contrast checks and canvas fallbacks never need to interpret an image. */
+export interface WorkspaceBackgroundTheme {
+  /** A local raster URL, CSS gradient/pattern, or `none`. */
+  image: string;
+  /** Readability layer painted above `image`; `none` for intentionally flat skins. */
+  scrim: string;
+  position: string;
+  size: string;
+  repeat: string;
+}
+
 export interface Theme {
   id: SkinId;
   /** Display name shown in the skin picker (zh-TW). */
   name: string;
   mode: 'light' | 'dark';
+  workspaceBackground: WorkspaceBackgroundTheme;
 
   color: {
     bg: string;
-    surface: string;
     surface2: string;
     cardBg: string;
     ink: string;
@@ -188,12 +204,50 @@ const CJK = {
   soft: "'Huninn'",
 };
 
+const flatWorkspaceBackground: WorkspaceBackgroundTheme = {
+  image: 'none',
+  scrim: 'none',
+  position: 'center',
+  size: 'auto',
+  repeat: 'no-repeat',
+};
+
+function rasterWorkspaceBackground(imageUrl: string, scrim: string): WorkspaceBackgroundTheme {
+  return {
+    image: `url("${imageUrl}")`,
+    scrim,
+    position: 'center, center',
+    size: 'auto, cover',
+    repeat: 'no-repeat, no-repeat',
+  };
+}
+
+const midnightWorkspaceBackground: WorkspaceBackgroundTheme = {
+  image: 'repeating-linear-gradient(0deg, rgba(53,224,138,0.028) 0, rgba(53,224,138,0.028) 1px, transparent 1px, transparent 4px)',
+  scrim: 'linear-gradient(rgba(6,8,10,0.6), rgba(6,8,10,0.72))',
+  position: 'center, center',
+  size: 'auto, 100% 4px',
+  repeat: 'no-repeat, repeat',
+};
+
+const blueprintWorkspaceBackground: WorkspaceBackgroundTheme = {
+  image: 'linear-gradient(rgba(99,216,255,0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(99,216,255,0.045) 1px, transparent 1px)',
+  scrim: 'linear-gradient(rgba(11,34,51,0.5), rgba(11,34,51,0.62))',
+  position: 'center, center, center',
+  size: 'auto, 32px 32px, 32px 32px',
+  repeat: 'no-repeat, repeat, repeat',
+};
+
 export const forgePaper: Theme = {
   id: 'forge-paper',
   name: '紙感工坊',
   mode: 'light',
+  workspaceBackground: rasterWorkspaceBackground(
+    paperBackgroundUrl,
+    'linear-gradient(rgba(236,234,228,0.76), rgba(236,234,228,0.84))',
+  ),
   color: {
-    bg: '#eceae4', surface: '#ffffff', surface2: '#f4f1ea', cardBg: '#ffffff',
+    bg: '#eceae4', surface2: '#f4f1ea', cardBg: '#ffffff',
     ink: '#16150f', muted: '#6d6a5f', faint: '#979388', line: '#d6d2c8', line2: '#b8b3a6',
     accent: '#16150f', accentInk: '#ffffff', accentWash: '#e3e3e2', ok: '#1f7a57', warn: '#8a7a3a', danger: '#b23b2e',
   },
@@ -237,8 +291,9 @@ export const midnightTape: Theme = {
   id: 'midnight-tape',
   name: '午夜行情帶',
   mode: 'dark',
+  workspaceBackground: midnightWorkspaceBackground,
   color: {
-    bg: '#06080a', surface: '#0d1114', surface2: '#131a1f', cardBg: '#0d1114',
+    bg: '#06080a', surface2: '#131a1f', cardBg: '#0d1114',
     ink: '#cfe3d8', muted: '#6f8a7e', faint: '#51675e', line: '#1a242a', line2: '#27353d',
     accent: '#35e08a', accentInk: '#04140c', accentWash: '#0c2219', ok: '#35e08a', warn: '#e8c34a', danger: '#ff5b52',
   },
@@ -283,8 +338,9 @@ export const swissForge: Theme = {
   id: 'swiss-forge',
   name: '瑞士方格',
   mode: 'light',
+  workspaceBackground: flatWorkspaceBackground,
   color: {
-    bg: '#ffffff', surface: '#ffffff', surface2: '#f1f0ec', cardBg: '#ffffff',
+    bg: '#ffffff', surface2: '#f1f0ec', cardBg: '#ffffff',
     ink: '#0a0a0a', muted: '#6f6f6b', faint: '#93938e', line: '#0a0a0a', line2: '#0a0a0a',
     accent: '#e63329', accentInk: '#ffffff', accentWash: '#fce7e5', ok: '#147a4e', warn: '#a8720a', danger: '#e63329',
   },
@@ -328,8 +384,12 @@ export const atelierWarm: Theme = {
   id: 'atelier-warm',
   name: '暖調工作室',
   mode: 'light',
+  workspaceBackground: rasterWorkspaceBackground(
+    paperBackgroundUrl,
+    'linear-gradient(rgba(244,241,236,0.82), rgba(244,241,236,0.9))',
+  ),
   color: {
-    bg: '#f4f1ec', surface: '#fffdfa', surface2: '#efe9e0', cardBg: '#fffdfa',
+    bg: '#f4f1ec', surface2: '#efe9e0', cardBg: '#fffdfa',
     ink: '#2b2925', muted: '#746d62', faint: '#979084', line: '#e7e0d4', line2: '#d5ccbc',
     accent: '#5f7a63', accentInk: '#ffffff', accentWash: '#e4e4dc', ok: '#4d7a5b', warn: '#a8792c', danger: '#b4573c',
   },
@@ -374,8 +434,9 @@ export const blueprint: Theme = {
   id: 'blueprint',
   name: '藍圖製圖',
   mode: 'dark',
+  workspaceBackground: blueprintWorkspaceBackground,
   color: {
-    bg: '#0b2233', surface: '#0f2b40', surface2: '#143349', cardBg: '#0f2b40',
+    bg: '#0b2233', surface2: '#143349', cardBg: '#0f2b40',
     ink: '#d9ecf8', muted: '#7fabc8', faint: '#55809e', line: '#245c7d', line2: '#2f7297',
     accent: '#63d8ff', accentInk: '#062130', accentWash: '#16384b', ok: '#7ef0c0', warn: '#ffd479', danger: '#ff8f6b',
   },
@@ -419,8 +480,12 @@ export const signalOrange: Theme = {
   id: 'signal-orange',
   name: '訊號橘工控',
   mode: 'dark',
+  workspaceBackground: rasterWorkspaceBackground(
+    signalOrangeBackgroundUrl,
+    'linear-gradient(rgba(16,19,23,0.68), rgba(16,19,23,0.82))',
+  ),
   color: {
-    bg: '#101317', surface: '#191d23', surface2: '#21262d', cardBg: '#191d23',
+    bg: '#101317', surface2: '#21262d', cardBg: '#191d23',
     ink: '#e9e7e4', muted: '#969ca4', faint: '#6b7178', line: '#2a3037', line2: '#3a424b',
     accent: '#ff6a1f', accentInk: '#140800', accentWash: '#30221d', ok: '#4ec9a5', warn: '#ffb020', danger: '#ff5252',
   },
@@ -465,8 +530,12 @@ export const broadsheet: Theme = {
   id: 'broadsheet',
   name: '早報紙本',
   mode: 'light',
+  workspaceBackground: rasterWorkspaceBackground(
+    paperBackgroundUrl,
+    'linear-gradient(rgba(239,236,226,0.72), rgba(239,236,226,0.82))',
+  ),
   color: {
-    bg: '#efece2', surface: '#f8f6ef', surface2: '#e5e1d4', cardBg: '#f8f6ef',
+    bg: '#efece2', surface2: '#e5e1d4', cardBg: '#f8f6ef',
     ink: '#1a1a17', muted: '#6b675c', faint: '#918c82', line: '#c9c4b6', line2: '#1a1a17',
     accent: '#a3231d', accentInk: '#f8f6ef', accentWash: '#f4e4df', ok: '#2a6b46', warn: '#8a6a1e', danger: '#a3231d',
   },
@@ -510,8 +579,9 @@ export const brutalYellow: Theme = {
   id: 'brutal-yellow',
   name: '粗野派',
   mode: 'light',
+  workspaceBackground: flatWorkspaceBackground,
   color: {
-    bg: '#f2f0e6', surface: '#ffffff', surface2: '#ffe600', cardBg: '#ffffff',
+    bg: '#f2f0e6', surface2: '#ffe600', cardBg: '#ffffff',
     ink: '#000000', muted: '#4a4a45', faint: '#828279', line: '#000000', line2: '#000000',
     accent: '#2b32ff', accentInk: '#ffffff', accentWash: '#e6e6ff', ok: '#009e5c', warn: '#ff8a00', danger: '#ff2d2d',
   },
@@ -556,8 +626,9 @@ export const frostGrey: Theme = {
   id: 'frost-grey',
   name: '霜灰極簡',
   mode: 'light',
+  workspaceBackground: flatWorkspaceBackground,
   color: {
-    bg: '#f5f7f8', surface: '#ffffff', surface2: '#eef1f3', cardBg: '#ffffff',
+    bg: '#f5f7f8', surface2: '#eef1f3', cardBg: '#ffffff',
     ink: '#1f2933', muted: '#61707e', faint: '#8b959d', line: '#e3e8eb', line2: '#cfd7dd',
     accent: '#4a7c8c', accentInk: '#ffffff', accentWash: '#e9eff1', ok: '#3f8f6f', warn: '#a8843c', danger: '#b4574f',
   },
@@ -601,10 +672,13 @@ export const auroraGlass: Theme = {
   id: 'aurora-glass',
   name: '霧面玻璃',
   mode: 'dark',
+  workspaceBackground: rasterWorkspaceBackground(
+    auroraBackgroundUrl,
+    'linear-gradient(rgba(11,10,24,0.28), rgba(11,10,24,0.52))',
+  ),
   color: {
-    // `bg` is a gradient, not a flat colour — the only skin that needs one.
-    bg: 'radial-gradient(120% 90% at 12% 0%, #2c2456 0%, #16132f 46%, #0b0a18 100%)',
-    surface: 'rgba(255,255,255,0.06)', surface2: 'rgba(255,255,255,0.10)', cardBg: 'rgba(255,255,255,0.055)',
+    bg: '#0b0a18',
+    surface2: 'rgba(30,26,63,0.78)', cardBg: 'rgba(11,10,24,0.55)',
     ink: '#eceafd', muted: '#a09cc9', faint: '#726ea0',
     line: 'rgba(255,255,255,0.14)', line2: 'rgba(255,255,255,0.26)',
     accent: '#a78bfa', accentInk: '#160f2e', accentWash: 'rgba(167,139,250,0.18)', ok: '#5eead4', warn: '#fbbf24', danger: '#fb7185',
@@ -674,8 +748,12 @@ export const SKIN_ORDER: SkinId[] = [
 
 export const DEFAULT_SKIN: SkinId = 'forge-paper';
 
+export function isSkinId(id: string | null | undefined): id is SkinId {
+  return typeof id === 'string' && Object.prototype.hasOwnProperty.call(THEMES, id);
+}
+
 export function getTheme(id: string | null | undefined): Theme {
-  return (id && THEMES[id as SkinId]) || THEMES[DEFAULT_SKIN];
+  return isSkinId(id) ? THEMES[id] : THEMES[DEFAULT_SKIN];
 }
 
 /** Google Fonts families every skin needs, in one request. */

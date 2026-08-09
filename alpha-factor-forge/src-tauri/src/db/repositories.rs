@@ -5,6 +5,7 @@
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 
+use crate::db::validation_record::parse_new_record;
 use crate::error::{AppError, AppResult};
 
 // ---------- DTOs (mirror the SQLite schema; shared shapes with frontend TS) ----------
@@ -125,7 +126,7 @@ pub struct TradeRow {
 
 /// One `validation_records` row (PERSIST-001, PR #64 handoff Resolution):
 /// an append-only immutable decision audit snapshot. `record_json` is the
-/// self-contained `validation-record-v1` envelope. There is NO update or
+/// self-contained versioned validation-record envelope. There is NO update or
 /// delete path in v1; `backtest_summary` stays the mutable "latest" view.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ValidationRecordRow {
@@ -724,24 +725,29 @@ pub fn validate_validation_bundle(
     // The record_json envelope must agree with the row AND with the summary's
     // latest-view snapshots — otherwise a self-contradictory audit record
     // would be appended forever (PR #65 review).
-    let envelope: serde_json::Value = serde_json::from_str(&record.record_json)?;
-    if envelope.get("version").and_then(|v| v.as_str()) != Some(record.record_version.as_str()) {
-        return fail("record_version must match the record_json envelope version");
-    }
-    if envelope.get("strategyId").and_then(|v| v.as_i64()) != Some(record.strategy_id)
-        || envelope.get("datasetId").and_then(|v| v.as_i64()) != Some(record.dataset_id)
-    {
+    let decoded = parse_new_record(&record.record_version, &record.record_json)
+        .map_err(|message| AppError::Other(format!("invalid validation bundle: {message}")))?;
+    if decoded.strategy_id != record.strategy_id || decoded.dataset_id != record.dataset_id {
         return fail("record_json identity must match the record row");
     }
-    if envelope.get("gatePassed").and_then(|v| v.as_bool()) != Some(record.gate_passed) {
+    if decoded.gate_passed != record.gate_passed {
         return fail("record_json gatePassed must match the record row");
     }
+    decoded
+        .train_metrics
+        .validate_summary(train_summary, "trainSummary")
+        .and_then(|_| {
+            decoded
+                .validation_metrics
+                .validate_summary(validation_summary, "validationSummary")
+        })
+        .map_err(|message| AppError::Other(format!("invalid validation bundle: {message}")))?;
+
+    let envelope: serde_json::Value = serde_json::from_str(&record.record_json)?;
     let env_score = envelope.get("score");
     if record.gate_passed {
-        let env_score_value = env_score
-            .and_then(|s| s.get("score"))
-            .and_then(|v| v.as_f64());
-        if env_score_value != record.score {
+        let decoded_score = decoded.score.0.as_ref().expect("strict DTO checked above");
+        if Some(decoded_score.score) != record.score {
             return fail("record_json score must equal the record row score");
         }
         let breakdown: serde_json::Value = serde_json::from_str(
@@ -753,7 +759,7 @@ pub fn validate_validation_bundle(
         if env_score != Some(&breakdown) {
             return fail("validation summary breakdown must equal the record snapshot");
         }
-    } else if env_score.map(|v| !v.is_null()).unwrap_or(true) {
+    } else if env_score.map(|value| !value.is_null()).unwrap_or(true) {
         return fail("a failing gate requires a null record_json score");
     }
     // PR #65 second review: the benchmark must be a REAL bench-record-v1
@@ -765,17 +771,6 @@ pub fn validate_validation_bundle(
             .as_deref()
             .expect("checked above"),
     )?;
-    let bench_shape_ok = benchmark
-        .as_object()
-        .map(|o| {
-            o.get("version").and_then(|v| v.as_str()) == Some("bench-record-v1")
-                && o.get("benchmarks").map(|b| b.is_array()).unwrap_or(false)
-                && o.get("randomEntry").map(|r| r.is_object()).unwrap_or(false)
-        })
-        .unwrap_or(false);
-    if !bench_shape_ok {
-        return fail("validation summary benchmark must be a bench-record-v1 object");
-    }
     if envelope.get("benchmark") != Some(&benchmark) {
         return fail("validation summary benchmark must equal the record snapshot");
     }
@@ -1369,47 +1364,29 @@ mod tests {
 
     // ---------- PERSIST-001: validation records ----------
 
-    fn seg_summary(strategy_id: i64, dataset_id: i64, segment: &str) -> BacktestSummary {
-        let mut s = summary(strategy_id, dataset_id, 0.1);
-        s.segment = segment.into();
-        s
-    }
-
-    const TEST_BREAKDOWN: &str = r#"{"formulaVersion":"score-v1","score":2.65}"#;
-    const TEST_BENCHMARK: &str =
-        r#"{"version":"bench-record-v1","benchmarks":[],"randomEntry":{"runs":20}}"#;
-
-    fn record_json_for(strategy_id: i64, dataset_id: i64, gate_passed: bool) -> String {
-        let score = if gate_passed {
-            TEST_BREAKDOWN.to_string()
-        } else {
-            "null".to_string()
-        };
-        format!(
-            r#"{{"version":"validation-record-v1","strategyId":{strategy_id},"datasetId":{dataset_id},"gatePassed":{gate_passed},"score":{score},"benchmark":{TEST_BENCHMARK}}}"#
-        )
-    }
-
     fn passing_bundle(
         strategy_id: i64,
         dataset_id: i64,
     ) -> (BacktestSummary, BacktestSummary, ValidationRecordRow) {
-        let train = seg_summary(strategy_id, dataset_id, "train");
-        let mut validation = seg_summary(strategy_id, dataset_id, "validation");
-        validation.gate_passed = Some(true);
-        validation.score = Some(2.65);
-        validation.score_breakdown_json = Some(TEST_BREAKDOWN.into());
-        validation.benchmark_result_json = Some(TEST_BENCHMARK.into());
-        let record = ValidationRecordRow {
-            id: None,
-            strategy_id,
-            dataset_id,
-            record_version: "validation-record-v1".into(),
-            gate_passed: true,
-            score: Some(2.65),
-            record_json: record_json_for(strategy_id, dataset_id, true),
-            created_at: None,
-        };
+        let output = crate::discovery_runner::execution::tests::representative_output();
+        assert!(
+            output.record.gate_passed,
+            "representative fixture must pass Gate: {}",
+            serde_json::from_str::<serde_json::Value>(&output.record.record_json).unwrap()["gate"]
+        );
+        let mut train = output.train_summary;
+        let mut validation = output.validation_summary;
+        let mut record = output.record;
+        train.strategy_id = strategy_id;
+        train.dataset_id = dataset_id;
+        validation.strategy_id = strategy_id;
+        validation.dataset_id = dataset_id;
+        record.strategy_id = strategy_id;
+        record.dataset_id = dataset_id;
+        let mut envelope: serde_json::Value = serde_json::from_str(&record.record_json).unwrap();
+        envelope["strategyId"] = serde_json::json!(strategy_id);
+        envelope["datasetId"] = serde_json::json!(dataset_id);
+        record.record_json = serde_json::to_string(&envelope).unwrap();
         (train, validation, record)
     }
 
@@ -1423,7 +1400,14 @@ mod tests {
         validation.score_breakdown_json = None;
         record.gate_passed = false;
         record.score = None;
-        record.record_json = record_json_for(strategy_id, dataset_id, false);
+        let mut envelope: serde_json::Value = serde_json::from_str(&record.record_json).unwrap();
+        envelope["gatePassed"] = serde_json::json!(false);
+        envelope["gate"]["pass"] = serde_json::json!(false);
+        envelope["gate"]["criteria"][0]["pass"] = serde_json::json!(false);
+        envelope["gate"]["criteria"][0]["value"] = serde_json::json!(0.0);
+        envelope["contracts"]["score"] = serde_json::Value::Null;
+        envelope["score"] = serde_json::Value::Null;
+        record.record_json = serde_json::to_string(&envelope).unwrap();
         (train, validation, record)
     }
 
@@ -1544,15 +1528,14 @@ mod tests {
         assert!(validate_validation_bundle(&t, &v, &r).is_ok());
 
         // …but a failing gate with any score field is not
-        let (t, mut v, mut r) = passing_bundle(1, 2);
-        r.gate_passed = false;
-        v.gate_passed = Some(false);
-        r.record_json = record_json_for(1, 2, false);
+        let (t, mut v, mut r) = failing_bundle(1, 2);
+        r.score = Some(1.0);
         assert!(
             validate_validation_bundle(&t, &v, &r).is_err(),
             "record.score still set"
         );
         r.score = None;
+        v.score = Some(1.0);
         assert!(
             validate_validation_bundle(&t, &v, &r).is_err(),
             "summary score still set"
@@ -1579,22 +1562,31 @@ mod tests {
 
         // envelope identity contradicts the row
         let (t, v, mut r) = passing_bundle(1, 2);
-        r.record_json = record_json_for(9, 2, true);
+        let mut envelope: serde_json::Value = serde_json::from_str(&r.record_json).unwrap();
+        envelope["strategyId"] = serde_json::json!(9);
+        r.record_json = serde_json::to_string(&envelope).unwrap();
         assert!(validate_validation_bundle(&t, &v, &r).is_err());
 
         // envelope gatePassed contradicts the row
         let (t, v, mut r) = passing_bundle(1, 2);
-        r.record_json = record_json_for(1, 2, false);
+        let mut envelope: serde_json::Value = serde_json::from_str(&r.record_json).unwrap();
+        envelope["gatePassed"] = serde_json::json!(false);
+        r.record_json = serde_json::to_string(&envelope).unwrap();
         assert!(validate_validation_bundle(&t, &v, &r).is_err());
 
         // envelope score value contradicts the row score
         let (t, v, mut r) = passing_bundle(1, 2);
-        r.record_json = r.record_json.replace("2.65", "9.99");
+        let mut envelope: serde_json::Value = serde_json::from_str(&r.record_json).unwrap();
+        envelope["score"]["score"] = serde_json::json!(999.0);
+        r.record_json = serde_json::to_string(&envelope).unwrap();
         assert!(validate_validation_bundle(&t, &v, &r).is_err());
 
         // summary breakdown snapshot differs from the envelope's
         let (t, mut v, r) = passing_bundle(1, 2);
-        v.score_breakdown_json = Some(r#"{"formulaVersion":"score-v1","score":2.65,"x":1}"#.into());
+        let mut breakdown: serde_json::Value =
+            serde_json::from_str(v.score_breakdown_json.as_deref().unwrap()).unwrap();
+        breakdown["x"] = serde_json::json!(1);
+        v.score_breakdown_json = Some(serde_json::to_string(&breakdown).unwrap());
         assert!(validate_validation_bundle(&t, &v, &r).is_err());
 
         // summary benchmark snapshot differs from the envelope's (valid shape)
@@ -1606,7 +1598,9 @@ mod tests {
 
         // key-order differences alone are NOT a mismatch (structural compare)
         let (t, mut v, r) = passing_bundle(1, 2);
-        v.score_breakdown_json = Some(r#"{"score":2.65,"formulaVersion":"score-v1"}"#.into());
+        let breakdown: serde_json::Value =
+            serde_json::from_str(v.score_breakdown_json.as_deref().unwrap()).unwrap();
+        v.score_breakdown_json = Some(serde_json::to_string_pretty(&breakdown).unwrap());
         assert!(validate_validation_bundle(&t, &v, &r).is_ok());
     }
 
@@ -1626,7 +1620,9 @@ mod tests {
         for bogus in cases {
             let (t, mut v, mut r) = passing_bundle(1, 2);
             v.benchmark_result_json = Some(bogus.into());
-            r.record_json = r.record_json.replace(TEST_BENCHMARK, bogus);
+            let mut envelope: serde_json::Value = serde_json::from_str(&r.record_json).unwrap();
+            envelope["benchmark"] = serde_json::from_str(bogus).unwrap();
+            r.record_json = serde_json::to_string(&envelope).unwrap();
             assert!(
                 validate_validation_bundle(&t, &v, &r).is_err(),
                 "benchmark impersonation must be rejected: {bogus}"
@@ -1639,6 +1635,7 @@ mod tests {
         let mut conn = mem_db();
         let (strategy_id, dataset_id) = saved_parent_rows(&conn);
         let (train, validation, record) = passing_bundle(strategy_id, dataset_id);
+        let expected_score = record.score;
 
         let record_id = save_validation_bundle(
             &mut conn,
@@ -1658,7 +1655,7 @@ mod tests {
             "exact JSON reads back"
         );
         assert!(read.gate_passed);
-        assert_eq!(read.score, Some(2.65));
+        assert_eq!(read.score, expected_score);
 
         // Append-only: a re-run appends a SECOND record while the summaries
         // upsert (latest view) and the trades replace.

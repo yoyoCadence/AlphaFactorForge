@@ -46,7 +46,7 @@ describe('RS-CORE benchmark parity fixture', () => {
     expect(fixture.contracts.candle).toBe('ohlcv-candle-v1');
     expect(fixture.contracts.execution).toBe('backtest-execution-v1');
     expect(fixture.contracts.prng).toBe('mulberry32-v1');
-    expect(fixture.contracts.metrics).toBe('metrics-v1');
+    expect(fixture.contracts.metrics).toBe('metrics-v2');
     expect(fixture.contracts.signals).toBe('params-signals-v1');
     expect(fixture.contracts.benchmarks).toBe('benchmark-suite-v1');
     expect(fixture.contracts.randomEntry).toBe('random-entry-v1');

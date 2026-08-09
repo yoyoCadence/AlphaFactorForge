@@ -30,7 +30,7 @@ export const DISCOVERY_CONTRACT_VERSIONS = {
   split: 'validation-split-v1',
   embargo: 'embargo-derivation-v1',
   backtest: 'backtest-execution-v1',
-  metrics: 'metrics-v1',
+  metrics: 'metrics-v2',
   benchmarks: 'benchmark-suite-v1',
   randomEntry: 'random-entry-v1',
   gate: GATE_CONTRACT_VERSION,

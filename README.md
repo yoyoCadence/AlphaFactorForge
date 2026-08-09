@@ -85,7 +85,7 @@ Target desktop app `alpha-factor-forge/`：
 - Frontend：Vite, React 18, TypeScript。
 - Core logic：`src/core/*` 純 TypeScript modules，不依賴 React/DOM/IO。
 - Bridge：frontend 透過 typed `src/tauri-client/*` wrappers 呼叫 backend。
-- Backend：Tauri v2, Rust 1.77+, `rusqlite` bundled SQLite。
+- Backend：Tauri v2, Rust 1.77.2+, `rusqlite` bundled SQLite。
 - Storage：SQLite 由 Rust/Tauri commands 管理。
 - Worker：frontend Web Worker 只負責輕量 interactive backtests、short sweeps、indicator precompute。
 - Heavy jobs：Strategy Discovery 應在 Rust backend job runner 執行。
@@ -253,7 +253,7 @@ The target desktop app is `alpha-factor-forge/`:
 - Frontend: Vite, React 18, TypeScript.
 - Core logic: pure TypeScript modules under `src/core/*`, with no React/DOM/IO dependency.
 - Bridge: the frontend calls the backend through typed `src/tauri-client/*` wrappers.
-- Backend: Tauri v2, Rust 1.77+, `rusqlite` with bundled SQLite.
+- Backend: Tauri v2, Rust 1.77.2+, `rusqlite` with bundled SQLite.
 - Storage: SQLite managed by Rust/Tauri commands.
 - Worker: frontend Web Worker only for light interactive backtests, short sweeps, or indicator precompute.
 - Heavy jobs: Strategy Discovery belongs in the Rust backend job runner.
@@ -421,7 +421,7 @@ Target desktop app は `alpha-factor-forge/` です。
 - Frontend：Vite, React 18, TypeScript。
 - Core logic：`src/core/*` 配下の pure TypeScript modules。React/DOM/IO に依存しません。
 - Bridge：frontend は typed `src/tauri-client/*` wrappers を通して backend を呼びます。
-- Backend：Tauri v2, Rust 1.77+, bundled SQLite 付き `rusqlite`。
+- Backend：Tauri v2, Rust 1.77.2+, bundled SQLite 付き `rusqlite`。
 - Storage：SQLite は Rust/Tauri commands が管理します。
 - Worker：frontend Web Worker は軽量な interactive backtests、short sweeps、indicator precompute のみに使用します。
 - Heavy jobs：Strategy Discovery は Rust backend job runner で実行します。

@@ -13,6 +13,7 @@ describe('themeToCssVars', () => {
   it('emits a non-trivial set of variables', () => {
     expect(BASELINE.length).toBeGreaterThan(40);
     expect(BASELINE.every((k) => k.startsWith('--afs-'))).toBe(true);
+    expect(BASELINE).not.toContain('--afs-surface');
   });
 
   it.each(SKIN_ORDER)('%s emits exactly the same keys', (id) => {
@@ -23,5 +24,15 @@ describe('themeToCssVars', () => {
     for (const [key, value] of Object.entries(themeToCssVars(THEMES[id]))) {
       expect(value, key).toBeTruthy();
     }
+  });
+
+  it.each(SKIN_ORDER)('%s emits the workspace and accent-wash variables', (id) => {
+    const vars = themeToCssVars(THEMES[id]);
+    expect(vars['--afs-accent-wash']).toBe(THEMES[id].color.accentWash);
+    expect(vars['--afs-workspace-image']).toBe(THEMES[id].workspaceBackground.image);
+    expect(vars['--afs-workspace-scrim']).toBe(THEMES[id].workspaceBackground.scrim);
+    expect(vars['--afs-workspace-position']).toBe(THEMES[id].workspaceBackground.position);
+    expect(vars['--afs-workspace-size']).toBe(THEMES[id].workspaceBackground.size);
+    expect(vars['--afs-workspace-repeat']).toBe(THEMES[id].workspaceBackground.repeat);
   });
 });

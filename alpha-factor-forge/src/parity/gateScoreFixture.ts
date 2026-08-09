@@ -35,7 +35,7 @@ import { FIXTURE_SOURCE_HASH_ENCODING } from './indicatorFixture';
 
 export const PARITY_FIXTURE_SCHEMA_VERSION = 'rs-core-parity-fixture-v1';
 export const GATE_SCORE_PARITY_FIXTURE_VERSION = 'gate-score-parity-v1';
-export const METRICS_CONTRACT_VERSION = 'metrics-v1';
+export const METRICS_CONTRACT_VERSION = 'metrics-v2';
 export const SPECIAL_INPUT_NUMBER_ENCODING = 'explicit-numeric-status-v1';
 export const EXPECTED_FLOAT_ENCODING = 'decimal-significant-15-v1';
 

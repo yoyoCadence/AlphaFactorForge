@@ -410,9 +410,9 @@ export function BacktestPanel(): React.ReactElement {
         helpReplayText={HELP.replay}
       />
 
-      <div style={S.panel}>
+      <div className="backtest-layout" data-testid="backtest-layout" style={S.panel}>
         {/* left column: data + strategy */}
-        <div style={{ display: 'grid', gap: 12 }}>
+        <div style={{ display: 'grid', gap: 12, minWidth: 0 }}>
           <DatasetSection
             datasets={datasets}
             selId={selId}
