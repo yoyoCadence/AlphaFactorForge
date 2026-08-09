@@ -33,7 +33,7 @@ The detailed evidence, shortest reproductions, contract cautions, and per-task a
 
 - **METRIC-002 (P1)** — completed locally; see the Done section.
 - **PERSIST-AUDIT-001 (P1)** — completed in PR #89; see the Done section.
-- **RUNNER-OWNERSHIP-001 (P1)** — completed locally; see the Done section.
+- **RUNNER-OWNERSHIP-001 (P1)** — completed in PR #90; see the Done section.
 - [ ] **RUNNER-UI-001** — typed frontend wrappers plus throttled progress/results UI, now blocked until BUG-RESULT-CONTEXT-001, METRIC-002, PERSIST-AUDIT-001, RUNNER-OWNERSHIP-001, DATA-QUALITY-001, BUG-SWEEP-CONTEXT-001, and STRATEGY-VALIDATION-001 land. When promoted, replace the stale frontend event DTOs with the backend `discovery-event-v1` contract, add the active-run wrapper, and make the throttle cancelable and stale-timer-safe.
 
 #### High-priority input and anti-overfitting guards
@@ -143,7 +143,7 @@ These were named inside the UI port entry and must not be buried by closing it. 
 
 ## Done
 
-- [x] **RUNNER-OWNERSHIP-001 (P1)** — registered `tauri-plugin-single-instance` 2.4.3 as the first builder plugin, before `setup`, SQLite initialization, and discovery orphan recovery (completed locally 2026-08-09 on `fix/runner-single-instance-ownership`).
+- [x] **RUNNER-OWNERSHIP-001 (P1)** — registered `tauri-plugin-single-instance` 2.4.3 as the first builder plugin, before `setup`, SQLite initialization, and discovery orphan recovery (2026-08-09, PR #90, merge `a451f0d`).
   - A second desktop launch now exits cleanly after the primary process shows, unminimizes, and focuses its `main` window. Three Rust regressions lock the operation/error order and the plugin → setup → recovery source order.
   - The dependency is desktop-target-only. Its official MSRV raises the declared project floor from Rust 1.77 to 1.77.2; no schema, command, event, frontend, or capability change is required. An owner-generation/lease task is not added because v1 remains a deliberately single-process desktop architecture; add defense-in-depth only if multi-process execution becomes a product requirement.
   - Windows native smoke used an isolated Tauri identifier: the second process exited 0, exactly one binary remained, the minimized primary became visible and foreground-focused, and an injected live run remained `running` instead of being paused/requeued. Validation: 690 Vitest + 135 Rust tests, typecheck, production build, cargo check, targeted rustfmt, Clippy with only the four pre-existing warnings, and `git diff --check`.

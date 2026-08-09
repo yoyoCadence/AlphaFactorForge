@@ -3,8 +3,8 @@
 Date: 2026-08-09
 Repo: yoyoCadence/AlphaFactorForge
 Branch: fix/runner-single-instance-ownership
-PR: pending
-Status: resolved locally; awaiting review
+PR: #90
+Status: resolved and merged
 
 ## Summary
 
@@ -42,3 +42,5 @@ Review the plugin-first registration and Windows native smoke evidence. No owner
 ## Resolution (added when acted on)
 
 Implemented the official plugin guard, deterministic focus behavior, dependency/MSRV alignment, regression tests, and isolated native verification. PR and commit identifiers will be added after publication.
+
+Published as PR #90 from commit `acabec5` and merged into `main` as `a451f0d` on 2026-08-09. All five required GitHub Actions jobs passed (`typecheck`, `test`, `build`, `cargo-check`, and `e2e`), and the PR closed without additional review comments.
