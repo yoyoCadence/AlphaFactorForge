@@ -1,0 +1,108 @@
+{
+  "schema_version": 1,
+  "project": "AlphaFactorForge",
+  "project_slug": "alphafactorforge",
+  "language": "zh-Hant",
+  "hero": "hero.png",
+  "thumbnail": "thumbnail.png",
+  "contact_sheet": "contact-sheet.png",
+  "campaign": "campaign.json",
+  "metadata": {
+    "product_model": "metadata/product-model.json",
+    "storyboard": "metadata/storyboard.json",
+    "claims": "metadata/claims.json",
+    "art_direction": "metadata/art-direction.json",
+    "marketing_review": "metadata/marketing-review.json",
+    "marketing_opportunities": "metadata/marketing-opportunities.json"
+  },
+  "assets": [
+    {
+      "id": "hero",
+      "order": 1,
+      "file": "01-hero.png",
+      "role": "hero",
+      "headline": "把訊號鍛成可驗證的證據",
+      "feature": "完整回測工作區",
+      "communication_goal": "建立產品核心承諾與工作站全貌",
+      "render_mode": "HYBRID",
+      "capture_source_ids": ["capture-workspace-overview"],
+      "platform_targets": ["portfolio", "github"],
+      "width": 2400,
+      "height": 1350,
+      "variants": []
+    },
+    {
+      "id": "holdout-proof",
+      "order": 2,
+      "file": "02-holdout-proof.png",
+      "role": "feature-proof",
+      "headline": "先保留未見資料，再談好成績",
+      "feature": "Holdout 樣本外驗證",
+      "communication_goal": "說明樣本外資料在驗證流程中的角色",
+      "render_mode": "HYBRID",
+      "capture_source_ids": ["capture-holdout-results"],
+      "platform_targets": ["portfolio", "github"],
+      "width": 2400,
+      "height": 1350,
+      "variants": []
+    },
+    {
+      "id": "in-sample-sweep",
+      "order": 3,
+      "file": "03-in-sample-sweep.png",
+      "role": "feature-proof",
+      "headline": "掃描參數，但別偷看樣本外",
+      "feature": "樣本內參數掃描",
+      "communication_goal": "呈現參數熱力圖與防止樣本外資料參與調參的約束",
+      "render_mode": "HYBRID",
+      "capture_source_ids": ["capture-sweep-2d"],
+      "platform_targets": ["portfolio", "github"],
+      "width": 2400,
+      "height": 1350,
+      "variants": []
+    },
+    {
+      "id": "bar-replay",
+      "order": 4,
+      "file": "04-bar-replay.png",
+      "role": "workflow",
+      "headline": "逐根回放，重看訊號怎麼發生",
+      "feature": "K 線逐根回放",
+      "communication_goal": "讓研究者理解回放如何重建當時可見的行情與訊號",
+      "render_mode": "HYBRID",
+      "capture_source_ids": ["capture-workspace-overview"],
+      "platform_targets": ["portfolio", "github"],
+      "width": 2400,
+      "height": 1350,
+      "variants": []
+    },
+    {
+      "id": "result-context-export",
+      "order": 5,
+      "file": "05-result-context-export.png",
+      "role": "workflow-proof",
+      "headline": "每次結果，只屬於當時的輸入",
+      "feature": "結果脈絡綁定與 JSON／CSV 匯出",
+      "communication_goal": "以輸入鏈與真實工作區證明結果不會被錯誤沿用",
+      "render_mode": "HYBRID",
+      "capture_source_ids": ["capture-inputs-and-results"],
+      "platform_targets": ["portfolio", "github"],
+      "width": 2400,
+      "height": 1350,
+      "variants": []
+    }
+  ],
+  "visual_signature": {
+    "dominant_mood": "嚴謹、沉著、可稽核",
+    "composition_language": "以鍛件檢驗證書為版面骨架，讓真實深色 UI 成為可查驗的證物",
+    "color_character": "暖白紙張與石墨墨色為主，安全橘標示關鍵動作，青綠標示保留與驗證",
+    "graphic_motif": "檢驗編號、校驗線、比例切分、量測節點與合格章",
+    "typography_character": "大尺度繁體中文結論搭配等寬技術註記",
+    "device_usage": "不使用裝置模型，直接展示清晰的真實桌面工作區與精準裁切",
+    "generation_style": "生成式無字材質背景、真實 UI 截圖與確定性 WPF 排版的混合製作"
+  },
+  "extensions": {
+    "campaign_family": "mill-test-report",
+    "style_version": 1
+  }
+}

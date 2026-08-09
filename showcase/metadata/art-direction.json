@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "art_direction_id": "mill-test-report-v1",
+  "name": "鍛件檢驗證書",
+  "premise": "透過材料檢驗證書與證據卷宗的視覺行為，表達 AlphaFactorForge 把策略假設鍛造成可量測、可切分、可回放與可追溯證據的產品價值。",
+  "product_metaphor": "策略是待檢驗的鍛件；資料、執行假設、樣本外切分與完成結果是同一批次的材料證明。",
+  "emotional_tone": ["嚴謹", "沉著", "具觸感", "可稽核"],
+  "visual_signature": {
+    "dominant_mood": "嚴謹、沉著、可稽核",
+    "composition_language": "以鍛件檢驗證書為版面骨架，讓真實深色 UI 成為可查驗的證物",
+    "color_character": "暖白紙張與石墨墨色為主，安全橘標示關鍵動作，青綠標示保留與驗證",
+    "graphic_motif": "檢驗編號、校驗線、比例切分、量測節點與合格章",
+    "typography_character": "大尺度繁體中文結論搭配等寬技術註記",
+    "device_usage": "不使用裝置模型，直接展示清晰的真實桌面工作區與精準裁切",
+    "generation_style": "生成式無字材質背景、真實 UI 截圖與確定性 WPF 排版的混合製作",
+    "material_and_texture": "暖白纖維紙、石墨細線、拉絲鋼試片與輕量蓋章痕跡",
+    "spatial_model": "證書式平面正視角，以左側結論和右側證物形成檢驗閱讀順序",
+    "lighting": "柔和日光與低對比量測工具陰影，不使用戲劇化控制室光效",
+    "image_rhythm": "全貌、切分、掃描、時間、稽核結論"
+  },
+  "campaign_anchors": ["每張圖保留檢驗編號與上下校驗線", "真實 UI 一律置於有明確 EVIDENCE 標籤的證物框", "橘色只標示執行、最佳化或關鍵邊界", "青綠只標示保留、驗證與流程節點", "示範資料狀態固定標示為非正式資料"],
+  "asset_variation": ["主視覺使用完整工作區", "Holdout 使用圓章與橫向證物", "掃描使用比例條與熱力圖", "回放使用圖表裁切與時間軸", "結果脈絡使用垂直資料鏈"],
+  "render_strategy": ["無字環境以 image generation 建立", "產品 UI 使用已核對的隔離 demo 截圖", "繁體中文、圖解、編號與框線以 WPF 確定性繪製", "contact sheet 由官方 skill helper 從最終圖產生"],
+  "must_preserve": ["真實 UI 結構與文字", "非正式 SAMPLE 資料聲明", "Holdout 與掃描限定語", "AlphaFactorForge 法定／產品名稱拼寫"],
+  "avoid": ["偽造 UI 控制項或績效", "深色工控控制室作為整體場景", "賽博龐克霓虹", "漂浮玻璃卡片", "手機或筆電模型", "把示範績效當成報酬承諾", "把 discovery 或 AI 未完成能力當成已上線功能"],
+  "brand_basis": {
+    "repository_evidence": ["alpha-factor-forge/src/theme/theme.ts", "alpha-factor-forge/src/components/BacktestPanel.tsx", "alpha-factor-forge/src/components/SweepSection.tsx", "alpha-factor-forge/src/components/ResultsSection.tsx"],
+    "product_traits": ["本機優先的研究工作站", "鍛造與驗證的產品命名", "高密度技術資料", "樣本外與結果稽核紀律"],
+    "user_constraints": ["完整 repository campaign", "繁體中文"],
+    "portfolio_contrast": ["暖白日光紙張取代先前深色 foundry 環境", "正視證書構圖取代控制室透視", "證物框與校驗線取代漂浮面板"]
+  },
+  "portfolio_context": {
+    "status": "compared",
+    "source": "prior AlphaFactorForge forward-test campaign visual review",
+    "projects_compared": ["alphafactorforge-forward-test"],
+    "closest_campaign": "alphafactorforge-forward-test",
+    "differences_introduced": ["warm mill-test-report field", "raw UI evidence plates", "large Traditional Chinese editorial conclusions", "no dark control-room environment"]
+  },
+  "template_fatigue": {
+    "status": "passed",
+    "tested_assets": ["hero.png", "thumbnail.png", "contact-sheet.png"],
+    "product_specific_reasons": ["鍛件檢驗證書直接連結 Forge 命名與驗證工作", "70／30 切分、256 組上限、逐根游標與結果輸入鏈皆源自實際機制"]
+  },
+  "style_version": 1
+}

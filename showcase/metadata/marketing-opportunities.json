@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-08-09T19:21:12+08:00",
+  "opportunities": [
+    {
+      "id": "opportunity-visible-run-context",
+      "category": "feature-visibility",
+      "observation": "結果脈絡綁定已由服務與 E2E 強力保護，但正常成功狀態沒有集中顯示目前資料集、策略身分與切分摘要。",
+      "marketing_impact": "重要的稽核差異需要外部圖解才能在靜態素材中被理解。",
+      "recommendation": "在績效區增加精簡的 Run Context 收據，顯示 dataset、strategy identity、range 與 Holdout split。",
+      "effort": "unknown",
+      "blocks_current_campaign": false,
+      "evidence": ["alpha-factor-forge/src/services/runArtifact.ts", "alpha-factor-forge/src/components/ResultsSection.tsx"]
+    },
+    {
+      "id": "opportunity-demo-state-routes",
+      "category": "visual-proof",
+      "observation": "目前 mock seam 可重現資料，但行銷截圖仍需多步互動才能到達 Holdout、掃描與回放狀態。",
+      "marketing_impact": "未來針對單張素材重生時，擷取成本與狀態漂移風險較高。",
+      "recommendation": "加入僅開發環境可用的 deterministic showcase state 參數，例如 ?mock=1&showcase=holdout。",
+      "effort": "unknown",
+      "blocks_current_campaign": false,
+      "evidence": ["alpha-factor-forge/src/tauri-client/mockClient.ts", "alpha-factor-forge/e2e/holdout.spec.ts", "alpha-factor-forge/e2e/sweep.spec.ts"]
+    },
+    {
+      "id": "opportunity-readme-current-state",
+      "category": "information-hierarchy",
+      "observation": "alpha-factor-forge/README.md 的部分說明仍稱目前 React UI 為薄橋接層，與已存在的完整回測工作區不一致。",
+      "marketing_impact": "訪客可能低估目前產品已可操作的範圍。",
+      "recommendation": "另開文件任務，以目前 runnable UI 與 E2E 為基準更新 app README；不要在本 campaign 任務中混入產品文件重寫。",
+      "effort": "unknown",
+      "blocks_current_campaign": false,
+      "evidence": ["alpha-factor-forge/README.md", "alpha-factor-forge/src/main.tsx", "alpha-factor-forge/e2e/holdout.spec.ts"]
+    },
+    {
+      "id": "opportunity-native-proof",
+      "category": "visual-proof",
+      "observation": "本次真實 UI 證物來自隔離 browser mock，雖然 UI 與相關來源在目前 revision 未變，仍未直接展示原生 Tauri 與 SQLite 持久化。",
+      "marketing_impact": "本機優先與原生桌面定位主要依賴程式證據與限定文案。",
+      "recommendation": "未來建立乾淨的 Tauri native demo fixture，再補一張原生視窗與重新啟動後持久化證據。",
+      "effort": "unknown",
+      "blocks_current_campaign": false,
+      "evidence": ["alpha-factor-forge/src-tauri/src/main.rs", "alpha-factor-forge/src-tauri/migrations/0001_init.sql"]
+    }
+  ]
+}

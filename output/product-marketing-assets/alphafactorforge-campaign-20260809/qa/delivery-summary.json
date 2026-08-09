@@ -1,0 +1,33 @@
+{
+  "schema_version": "1.0",
+  "campaign": "alphafactorforge-campaign-20260809",
+  "showcase_root": "showcase",
+  "validated_at": "2026-08-09",
+  "contract": {
+    "strict_manifest": true,
+    "errors": 0,
+    "warnings": 0,
+    "passed": true
+  },
+  "image_qa": {
+    "images_found": 8,
+    "images_decoded": 8,
+    "errors": 0,
+    "warnings": 1,
+    "passed": true,
+    "minimum_dimensions": "1000x800",
+    "alpha_policy": "forbid-used-alpha",
+    "warning": "manifest_hero_alias_duplicate: showcase/hero.png intentionally aliases showcase/01-hero.png"
+  },
+  "manual_review": {
+    "safe_area_and_crop": "passed",
+    "text_clipping_and_readability": "passed",
+    "privacy": "passed; captures contain isolated SAMPLE demo data only",
+    "product_accuracy": "passed; pictured UI sources are unchanged from capture revision through the campaign source commit",
+    "claim_accuracy": "passed; unsupported discovery, AI automation, overfitting-elimination, and demo-performance claims are excluded"
+  },
+  "notes": [
+    "Machine-generated QA reports containing host-specific absolute paths were removed from the deliverable.",
+    "The intentional hero alias is permitted by the campaign manifest contract."
+  ]
+}

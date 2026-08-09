@@ -1,7 +1,26 @@
-# AlphaFactorForge Workspace
+# AlphaFactorForge
 
-**Automated Indicator Discovery Workstation**  
-中文定位：**自動因子鍛造與驗證工作站**  
+**把訊號鍛成可驗證的證據。**
+
+AlphaFactorForge 是一套面向加密市場策略研究者、系統化／主觀交易者與開發者的**本機優先技術指標策略研究與回測工作站**。它把 K 線資料、策略規則、執行假設、互動圖表與回測績效放在同一個研究流程中，協助你把「看起來不錯」的歷史結果，整理成可重現、可檢查、可匯出的研究證據。
+
+![AlphaFactorForge — 把訊號鍛成可驗證的證據](showcase/hero.png)
+
+## 產品亮點
+
+- **先保留未見資料，再談好成績：**Holdout 並列全期、樣本內與樣本外績效，協助檢查策略是否只是在已知資料上表現良好。
+- **掃描參數，但不偷看樣本外：**支援 1–2 軸、最多 256 組參數組合；啟用 Holdout 時，最佳化只使用樣本內資料。
+- **逐根回放訊號形成過程：**透過滑桿、單步與 1×–4× 播放重看 K 線、訊號與持倉，並隱藏游標之後的行情。
+- **讓結果保留當時的輸入脈絡：**完成結果綁定資料集、策略與 Holdout 設定；輸入變更後舊結果失效，有效結果可匯出 JSON 報告與交易 CSV。
+
+> Campaign 畫面使用隔離的 deterministic SAMPLE 示範資料；其中績效數字只用來展示產品輸出格式，不代表實際或未來報酬。Holdout 與樣本內掃描能協助檢查過度擬合風險，但不保證消除過度擬合。
+
+[瀏覽完整產品 Campaign](showcase/contact-sheet.png) · [查看素材與實證 metadata](showcase/)
+
+---
+
+**Automated Indicator Discovery Workstation**<br>
+中文定位：**自動因子鍛造與驗證工作站**<br>
 日本語：**自動インジケーター発見・検証ワークステーション**
 
 Repository: `https://github.com/yoyoCadence/AlphaFactorForge`
