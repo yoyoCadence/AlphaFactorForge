@@ -16,7 +16,7 @@
       "score": "sha256:e765d41f5fdfcb3fde30d246179cf3b7c76847f2dacabe616f252c571d94b764",
       "strategy": "sha256:d5540e44a8fdee608f6516806c523202361f2811a977c11d56b51e1844b0de78",
       "benchmarks": "sha256:d87c527c4899f7b1ef902d0846e6780f8b4886d1fc2a70bdcba70a0637be112c",
-      "validationRecord": "sha256:e6e13941a93e4fa95899f25db886853c6fe76626ecb9a1572c4c3b0b9d47d236",
+      "validationRecord": "sha256:71ef2f5f19152be7e0375098e48acac80a0354dfe6419f11ff401b4ec09370d6",
       "metricsCodec": "sha256:031a1f1810483c2b723fddc9905c77855df5da47961e46eeead6a5e12b38c7e8",
       "nonFinite": "sha256:01b67e4ac992dc4eea5235fe9b787a254de69bbbb514f9bccfe97185be0dbc07"
     }

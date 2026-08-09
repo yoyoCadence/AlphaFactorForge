@@ -6,6 +6,7 @@ pub mod discovery;
 #[cfg(test)]
 mod discovery_tests;
 pub mod repositories;
+pub(crate) mod validation_record;
 
 use rusqlite::Connection;
 use tauri::{AppHandle, Manager};

@@ -4,15 +4,17 @@ Status: adopted Phase B foundation, 2026-07-19. Implements the PR #64 handoff Re
 
 ## Purpose
 
-One completed validation assessment produces one **immutable, append-only** row in `validation_records` (migration `0002_validation_records.sql`) plus the refreshed Train/Validation `backtest_summary` rows. The summaries remain the mutable "current/latest" view (their key upserts on re-runs); the record is the historical decision audit snapshot that survives every re-run. There is NO update or delete path in v1.
+One completed validation assessment produces one **immutable, append-only** row in `validation_records` (migration `0002_validation_records.sql`) plus the refreshed Train/Validation `backtest_summary` rows. The summaries remain the mutable "current/latest" view (their key upserts on re-runs); the record is the historical decision audit snapshot that survives every re-run. There is no update or delete path for validation records.
 
 ## Schema (0002)
 
 `validation_records(id, strategy_id FK, dataset_id FK, record_version, gate_passed CHECK(0/1), score, record_json, created_at)` with the D3 invariant locked at the DB layer: `CHECK ((gate_passed = 0 AND score IS NULL) OR (gate_passed = 1 AND score IS NOT NULL))`. The Rust command validates the finite score and JSON contents first; the CHECKs are the second line of defense. Multiple records per strategy × dataset are expected (one per assessment), indexed by `(strategy_id, dataset_id, created_at)`.
 
-## The immutable snapshot (`validation-record-v1`)
+## The immutable snapshot (`validation-record-v2`)
 
-`record_json` is self-contained: strategyId + strategyHash, datasetId + datasetHash, the embargo derivation (VAL-003), the complete split plan (VAL-001), JSON-safe Train and Validation metric snapshots, the complete benchmark record, the full encoded GateVerdict, the full ScoreBreakdown (or null on gate fail), the testedCombinations evidence, and the contract versions (`backtest-execution-v1`, `benchmark-suite-v1`, `gate-v1`, `score-v1`-or-null). Candidate trades/equity stay in their own tables; benchmark equity/trades are never stored.
+`record_json` is self-contained: strategyId + strategyHash, datasetId + datasetHash, the embargo derivation (VAL-003), the complete split plan (VAL-001), JSON-safe Train and Validation metric snapshots, the complete benchmark record, the full encoded GateVerdict, the full ScoreBreakdown (or null on gate fail), the testedCombinations evidence, and the contract versions (`backtest-execution-v1`, `benchmark-suite-v1`, `metrics-v2`, `gate-v1`, `score-v1`-or-null). Candidate trades/equity stay in their own tables; benchmark equity/trades are never stored.
+
+`validation-record-v1` rows predate the metrics contract field. They remain readable append-only history, but their metrics formula is unknown and they are never defaulted to `metrics-v2`. New writes reject v1 and every unknown record version.
 
 The benchmark snapshot (`bench-record-v1`) records the interval, inclusive validation bar range, startEquity, inherited costs, each deterministic benchmark's exact strategy config (null only for Buy & Hold, whose behaviour the benchmark contract fixes) with metrics-only snapshots, and the FULL Random Entry evidence including the `netReturns` distribution. The same snapshot is duplicated into the Validation summary's `benchmark_result_json` (latest view) — deliberate, for historical immutability.
 
@@ -25,11 +27,13 @@ The benchmark snapshot (`bench-record-v1`) records the interval, inclusive valid
 
 ## JSON discipline
 
+The Rust write boundary dispatches on `record_version` before opening a transaction and deserializes v2 through `deny_unknown_fields` DTOs. It validates every contract constant, durable hash format, embargo/split arithmetic, complete metric field/status snapshots, the fixed four benchmark identities and full Random Entry distribution, all eight Gate criteria, Score components/penalties/evidence, and summary/row/envelope consistency. JSON floating-point summary comparisons allow only a four-ULP round-trip tolerance.
+
 All encoding goes through the shared `services/metricsCodec.ts` (extracted from the report exporter so exactly one codec exists): metrics encode as finite-or-null values plus explicit METRIC-001 statuses; encoded GateVerdict criteria carry `valueStatus` for non-finite values; `assertJsonSafe` recursively rejects any unencoded non-finite number BEFORE serialization; every payload survives stringify → parse → deepEqual.
 
 ## Atomicity (D5)
 
-ONE Tauri command `save_validation_record` persists the whole bundle — Train summary + trades, Validation summary + trades, record — in one SQLite transaction; any failure rolls everything back. The bundle is fully validated BEFORE the transaction opens (segments exactly train/validation, identity match, gate/score consistency, Phase B nulls on the Train row, `record_version` matching the JSON envelope). Typed read paths: `list_validation_records` (newest first, optional strategy scope) and `get_validation_record`; the dev mock client mirrors the same validation and append semantics.
+ONE Tauri command `save_validation_record` persists the whole bundle — Train summary + trades, Validation summary + trades, record — in one SQLite transaction; any failure rolls everything back. The bundle is fully validated BEFORE the transaction opens (segments exactly train/validation, durable identity and metric snapshots match, gate/score consistency, Phase B nulls on the Train row, and explicit record-version dispatch). The runner commit path invokes the same validator before its larger candidate transaction. Typed read paths `list_validation_records` (newest first, optional strategy scope) and `get_validation_record` intentionally continue returning legacy v1 rows unchanged; the dev mock client mirrors the active v2 pins and cross-row invariants.
 
 ## Non-goals
 

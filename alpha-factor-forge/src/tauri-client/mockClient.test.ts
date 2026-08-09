@@ -34,7 +34,16 @@ const result = (startTime: number): BacktestResult => ({
 
 const verdict = (): GateVerdict => ({
   pass: true,
-  criteria: [{ id: 'minTrades', pass: true, value: 36, threshold: 30 }],
+  criteria: [
+    { id: 'minTrades', pass: true, value: 36, threshold: 30 },
+    { id: 'avgTradeReturn', pass: true, value: 0.1, threshold: 0 },
+    { id: 'rollingConsistency', pass: true, value: 0.6, threshold: 0.55 },
+    { id: 'maxDrawdown', pass: true, value: 0.1, threshold: 0.35 },
+    { id: 'monthlyConcentration', pass: true, value: 0.2, threshold: 0.4 },
+    { id: 'tradeConcentration', pass: true, value: 0.1, threshold: 0.25 },
+    { id: 'benchmarkWins', pass: true, value: 4, threshold: 4 },
+    { id: 'randomEntryPercentile', pass: true, value: 96, threshold: 95 },
+  ],
   config: DEFAULT_GATE_CONFIG,
 });
 
@@ -45,15 +54,15 @@ const makeBundle = (): ValidationBundle => {
   ).map((id) => ({ id, strat: id === 'buyHold' ? null : defaultStrategy(), result: result(100) }));
   const record = buildValidationRecord({
     strategyId: 1,
-    strategyHash: 'hash-s',
+    strategyHash: `strategy-v2:${'a'.repeat(64)}`,
     datasetId: 2,
-    datasetHash: 'hash-d',
+    datasetHash: `dataset-content-v2:${'b'.repeat(64)}`,
     embargo: deriveEmbargoBars(defaultStrategy(), 0),
     splitPlan: planValidationSplit(100, 22),
     validationRun: run,
     benchmark: buildBenchmarkRecord({
       interval: '1h',
-      validationRange: { from: 50, to: 69 },
+      validationRange: { from: 56, to: 66 },
       costs: { feePct: 0.05, slipPct: 0.02 },
       benchmarks,
       randomEntry: { runs: 20, seed: 7, netReturns: Array(20).fill(0.01), candidateNetReturn: 0.2, candidatePercentile: 96 },

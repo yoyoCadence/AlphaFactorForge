@@ -86,10 +86,13 @@ const fakeRandomEntry = (): RandomEntryBenchmark => ({
   candidatePercentile: 96,
 });
 
+const STRATEGY_HASH = `strategy-v2:${'a'.repeat(64)}`;
+const DATASET_HASH = `dataset-content-v2:${'b'.repeat(64)}`;
+
 const benchmarkRecord = (): BenchmarkRecord =>
   buildBenchmarkRecord({
     interval: '1h',
-    validationRange: { from: 50, to: 69 },
+    validationRange: { from: 56, to: 66 },
     costs: { feePct: 0.05, slipPct: 0.02 },
     benchmarks: fakeBenchmarks(),
     randomEntry: fakeRandomEntry(),
@@ -99,16 +102,23 @@ const passVerdict = (): GateVerdict => ({
   pass: true,
   criteria: [
     { id: 'minTrades', pass: true, value: 36, threshold: 30 },
+    { id: 'avgTradeReturn', pass: true, value: 0.1, threshold: 0 },
+    { id: 'rollingConsistency', pass: true, value: 0.6, threshold: 0.55 },
+    { id: 'maxDrawdown', pass: true, value: 0.1, threshold: 0.35 },
+    { id: 'monthlyConcentration', pass: true, value: 0.2, threshold: 0.4 },
+    { id: 'tradeConcentration', pass: true, value: 0.1, threshold: 0.25 },
+    { id: 'benchmarkWins', pass: true, value: 4, threshold: 4 },
     { id: 'randomEntryPercentile', pass: true, value: 96, threshold: 95 },
   ],
   config: DEFAULT_GATE_CONFIG,
 });
 
-const failVerdict = (): GateVerdict => ({
-  pass: false,
-  criteria: [{ id: 'minTrades', pass: false, value: 3, threshold: 30 }],
-  config: DEFAULT_GATE_CONFIG,
-});
+const failVerdict = (): GateVerdict => {
+  const verdict = passVerdict();
+  verdict.pass = false;
+  verdict.criteria[0] = { id: 'minTrades', pass: false, value: 3, threshold: 30 };
+  return verdict;
+};
 
 const validationRun = () => ({ train: fakeResult(0), validation: fakeResult(100) });
 
@@ -124,9 +134,9 @@ const passingOutcome = (run = validationRun()): AssessmentOutcome => ({
 
 const recordArgs = (outcome: AssessmentOutcome, run = validationRun()) => ({
   strategyId: 1,
-  strategyHash: 'strat-hash',
+  strategyHash: STRATEGY_HASH,
   datasetId: 2,
-  datasetHash: 'ds-hash',
+  datasetHash: DATASET_HASH,
   embargo: deriveEmbargoBars(defaultStrategy(), 0),
   splitPlan: planValidationSplit(100, 22),
   validationRun: run,
@@ -193,6 +203,7 @@ describe('buildValidationRecord', () => {
     expect(record.contracts).toEqual({
       execution: 'backtest-execution-v1',
       benchmark: 'benchmark-suite-v1',
+      metrics: 'metrics-v2',
       gate: 'gate-v1',
       score: 'score-v1',
     });

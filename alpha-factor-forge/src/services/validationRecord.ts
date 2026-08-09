@@ -1,7 +1,7 @@
 // PERSIST-001: the immutable validation-record composer (PR #64 handoff
 // Resolution, revised Option C).
 //
-// Builds the self-contained `validation-record-v1` decision audit snapshot and
+// Builds the self-contained `validation-record-v2` decision audit snapshot and
 // the full save bundle (Train + Validation summary rows + trade rows + record
 // row) that the atomic `save_validation_record` command persists in ONE
 // transaction. Pure — no IO/UI; unwired until the runner/Results Explorer
@@ -46,12 +46,26 @@ import { metricsToBacktestSummary } from './metricsMapper';
 import { tradesToRows } from './tradesMapper';
 import type { BacktestSummary, TradeRow, ValidationRecordRow } from '../tauri-client/commands';
 
-export const VALIDATION_RECORD_VERSION = 'validation-record-v1';
+export const VALIDATION_RECORD_VERSION = 'validation-record-v2';
 export const BENCHMARK_RECORD_VERSION = 'bench-record-v1';
+export const METRICS_CONTRACT_VERSION = 'metrics-v2';
 // Contract versions recorded for reproducibility. They name the adopted docs:
 export const BENCHMARK_CONTRACT_VERSION = 'benchmark-suite-v1'; // docs/benchmark-suite-contract.md
 export const EXECUTION_CONTRACT_VERSION = 'backtest-execution-v1'; // docs/backtest-execution-contract.md
 export { GATE_CONTRACT_VERSION };
+
+const STRATEGY_IDENTITY = /^strategy-v2:[0-9a-f]{64}$/;
+const DATASET_IDENTITY = /^dataset-content-v2:[0-9a-f]{64}$/;
+const GATE_CRITERION_IDS: GateCriterionId[] = [
+  'minTrades',
+  'avgTradeReturn',
+  'rollingConsistency',
+  'maxDrawdown',
+  'monthlyConcentration',
+  'tradeConcentration',
+  'benchmarkWins',
+  'randomEntryPercentile',
+];
 
 // ---------- benchmark record (Resolution D2) ----------
 
@@ -169,6 +183,7 @@ export interface ValidationRecord {
   contracts: {
     execution: typeof EXECUTION_CONTRACT_VERSION;
     benchmark: typeof BENCHMARK_CONTRACT_VERSION;
+    metrics: typeof METRICS_CONTRACT_VERSION;
     gate: typeof GATE_CONTRACT_VERSION;
     score: typeof SCORE_FORMULA_VERSION | null;
   };
@@ -207,11 +222,39 @@ export interface BuildValidationRecordArgs {
  *  outcome/verdict/evidence and on any unencoded non-finite number. */
 export function buildValidationRecord(args: BuildValidationRecordArgs): ValidationRecord {
   const { outcome } = args;
+  if (!STRATEGY_IDENTITY.test(args.strategyHash)) {
+    throw new RangeError('strategyHash must be a durable strategy-v2 identity');
+  }
+  if (!DATASET_IDENTITY.test(args.datasetHash)) {
+    throw new RangeError('datasetHash must be a durable dataset-content-v2 identity');
+  }
   if (outcome.passed !== outcome.gate.pass) {
     throw new RangeError('outcome.passed must equal the GateVerdict.pass it embeds');
   }
   if (!Number.isSafeInteger(args.testedCombinations) || args.testedCombinations < 1) {
     throw new RangeError('testedCombinations must be a positive safe integer');
+  }
+  if (
+    outcome.gate.criteria.length !== GATE_CRITERION_IDS.length ||
+    outcome.gate.criteria.some((criterion, index) => criterion.id !== GATE_CRITERION_IDS[index])
+  ) {
+    throw new RangeError('Gate verdict must contain all eight criteria in contract order');
+  }
+  if (![
+    args.embargo.embargoBars,
+    args.embargo.maxSignalLookbackBars,
+    args.embargo.holdingAllowanceBars,
+  ].every(Number.isFinite)) {
+    throw new RangeError('embargo derivation contains a non-finite value');
+  }
+  if (args.embargo.embargoBars !== args.splitPlan.embargoBars) {
+    throw new RangeError('embargo derivation must match splitPlan.embargoBars');
+  }
+  if (
+    args.benchmark.validationRange.from !== args.splitPlan.validation.from ||
+    args.benchmark.validationRange.to !== args.splitPlan.validation.to
+  ) {
+    throw new RangeError('benchmark validationRange must match splitPlan.validation');
   }
   if (outcome.passed) {
     if (!Number.isFinite(outcome.score.score)) {
@@ -229,6 +272,7 @@ export function buildValidationRecord(args: BuildValidationRecordArgs): Validati
     contracts: {
       execution: EXECUTION_CONTRACT_VERSION,
       benchmark: BENCHMARK_CONTRACT_VERSION,
+      metrics: METRICS_CONTRACT_VERSION,
       gate: GATE_CONTRACT_VERSION,
       score: outcome.passed ? SCORE_FORMULA_VERSION : null,
     },
@@ -393,6 +437,9 @@ export function assertValidBundle(bundle: ValidationBundle): void {
   } catch {
     return fail('record_json must be valid JSON');
   }
+  if (record.record_version !== VALIDATION_RECORD_VERSION) {
+    fail('new writes only accept validation-record-v2; v1 is legacy read-only evidence');
+  }
   if (env.version !== record.record_version) {
     fail('record_version must match the record_json envelope version');
   }
@@ -402,6 +449,7 @@ export function assertValidBundle(bundle: ValidationBundle): void {
   if (env.gatePassed !== record.gate_passed) {
     fail('record_json gatePassed must match the record row');
   }
+  assertV2EnvelopeBasics(env, fail);
   const envScore = env.score as { score?: unknown } | null;
   if (record.gate_passed) {
     if (envScore == null || envScore.score !== record.score) {
@@ -425,18 +473,105 @@ export function assertValidBundle(bundle: ValidationBundle): void {
   }
 }
 
+function assertV2EnvelopeBasics(
+  env: Record<string, unknown>,
+  fail: (message: string) => never,
+): void {
+  const exactKeys = (value: unknown, required: string[], label: string): Record<string, unknown> => {
+    if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+      return fail(`${label} must be an object`);
+    }
+    const object = value as Record<string, unknown>;
+    const keys = Object.keys(object).sort();
+    if (JSON.stringify(keys) !== JSON.stringify([...required].sort())) {
+      return fail(`${label} fields do not match validation-record-v2`);
+    }
+    return object;
+  };
+  const top = exactKeys(env, [
+    'version', 'contracts', 'strategyId', 'strategyHash', 'datasetId', 'datasetHash',
+    'embargo', 'splitPlan', 'trainMetrics', 'validationMetrics', 'benchmark', 'gate',
+    'gatePassed', 'score', 'testedCombinations',
+  ], 'record_json');
+  const contracts = exactKeys(
+    top.contracts,
+    ['execution', 'benchmark', 'metrics', 'gate', 'score'],
+    'record_json.contracts',
+  );
+  if (
+    contracts.execution !== EXECUTION_CONTRACT_VERSION ||
+    contracts.benchmark !== BENCHMARK_CONTRACT_VERSION ||
+    contracts.metrics !== METRICS_CONTRACT_VERSION ||
+    contracts.gate !== GATE_CONTRACT_VERSION
+  ) {
+    fail('record_json contract versions are inconsistent');
+  }
+  if (typeof top.strategyHash !== 'string' || !STRATEGY_IDENTITY.test(top.strategyHash)) {
+    fail('record_json strategyHash must be a durable strategy-v2 identity');
+  }
+  if (typeof top.datasetHash !== 'string' || !DATASET_IDENTITY.test(top.datasetHash)) {
+    fail('record_json datasetHash must be a durable dataset-content-v2 identity');
+  }
+  exactKeys(top.embargo, ['embargoBars', 'maxSignalLookbackBars', 'holdingAllowanceBars'], 'record_json.embargo');
+  exactKeys(top.splitPlan, [
+    'totalBars', 'usableBars', 'embargoBars', 'train', 'trainValidationEmbargo',
+    'validation', 'validationTestEmbargo', 'test',
+  ], 'record_json.splitPlan');
+  for (const name of ['trainMetrics', 'validationMetrics'] as const) {
+    exactKeys(top[name], ['values', 'nonFinite'], `record_json.${name}`);
+  }
+  const gate = exactKeys(top.gate, ['version', 'pass', 'criteria', 'config'], 'record_json.gate');
+  if (gate.version !== GATE_CONTRACT_VERSION || !Array.isArray(gate.criteria)) {
+    fail('record_json Gate evidence is invalid');
+  }
+  const gateIds = gate.criteria.map((criterion) => (
+    criterion && typeof criterion === 'object' && !Array.isArray(criterion)
+      ? (criterion as Record<string, unknown>).id
+      : null
+  ));
+  if (JSON.stringify(gateIds) !== JSON.stringify(GATE_CRITERION_IDS)) {
+    fail('record_json Gate must contain all eight criteria in contract order');
+  }
+  const tested = exactKeys(top.testedCombinations, ['n', 'basis'], 'record_json.testedCombinations');
+  if (!Number.isSafeInteger(tested.n) || (tested.n as number) < 1 || tested.basis !== 'lineage-final-unique') {
+    fail('record_json testedCombinations evidence is invalid');
+  }
+  if (recordScoreContractMismatch(contracts.score, top.score, top.gatePassed)) {
+    fail('record_json Gate, Score contract, and Score snapshot are inconsistent');
+  }
+}
+
+function recordScoreContractMismatch(contract: unknown, score: unknown, gatePassed: unknown): boolean {
+  return gatePassed === true
+    ? contract !== SCORE_FORMULA_VERSION || score === null || typeof score !== 'object' || Array.isArray(score)
+    : gatePassed !== false || contract !== null || score !== null;
+}
+
 /** Minimal bench-record-v1 shape lock: a non-null object with the exact
  *  version, a benchmarks array, and a randomEntry object ({} never passes). */
 function isBenchRecordShape(value: unknown): boolean {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
   const o = value as Record<string, unknown>;
-  return (
-    o.version === BENCHMARK_RECORD_VERSION &&
-    Array.isArray(o.benchmarks) &&
-    o.randomEntry !== null &&
-    typeof o.randomEntry === 'object' &&
-    !Array.isArray(o.randomEntry)
-  );
+  if (o.version !== BENCHMARK_RECORD_VERSION || o.benchmarkContract !== BENCHMARK_CONTRACT_VERSION) {
+    return false;
+  }
+  if (!Array.isArray(o.benchmarks) || o.benchmarks.length !== DETERMINISTIC_BENCHMARK_IDS.length) {
+    return false;
+  }
+  const ids = o.benchmarks.map((entry) => (
+    entry && typeof entry === 'object' && !Array.isArray(entry)
+      ? (entry as Record<string, unknown>).id
+      : null
+  ));
+  if (JSON.stringify(ids) !== JSON.stringify(DETERMINISTIC_BENCHMARK_IDS)) return false;
+  if (o.randomEntry === null || typeof o.randomEntry !== 'object' || Array.isArray(o.randomEntry)) {
+    return false;
+  }
+  const random = o.randomEntry as Record<string, unknown>;
+  return Number.isSafeInteger(random.runs)
+    && (random.runs as number) >= 1
+    && Array.isArray(random.netReturns)
+    && random.netReturns.length === random.runs;
 }
 
 /** JSON structural deep equality, matching Rust's serde_json::Value
