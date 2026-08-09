@@ -1,5 +1,11 @@
 {
   "schema_version": 1,
+  "primary_product_purpose": {
+    "statement": "讓 AI 生成受限策略候選，再用歷史資料驗證與淘汰候選。",
+    "status": "product-goal",
+    "current_boundary": "完整 AI Strategy Lab 前端與 provider 串接仍在 Phase C；目前最強可視證據是歷史回測與驗證工作區。",
+    "recommended_presentation": "README 先說明 AI→DSL→歷史驗證的完整目的，再用五張既有 campaign 圖依序證明驗證半部，不虛構 AI 介面。"
+  },
   "strongest_selling_points": [
     {"feature_id": "feature-holdout", "user_value": "先把未見資料留出來，再比較樣本內外落差。", "visual_proof": "全期／樣本內／樣本外三欄績效表。"},
     {"feature_id": "feature-sweep", "user_value": "探索參數時不讓樣本外末段參與最佳化。", "visual_proof": "樣本內範圍提示與真實 2D 熱力圖。"},
@@ -7,7 +13,7 @@
     {"feature_id": "feature-replay", "user_value": "逐根檢查訊號如何在當時可見資訊下發生。", "visual_proof": "產品圖表、回放滑桿、步進與速度控制。"}
   ],
   "weakest_visual_areas": ["結果脈絡綁定主要透過失效狀態與測試證明，靜態畫面不易完整表達", "Discovery runner 的技術深度目前缺乏可宣傳的前端操作畫面", "原生 Tauri／SQLite 流程需要額外 native capture 才能與 browser mock 明確區隔"],
-  "recommended_story": "不要以高報酬數字吸引目光；改以『先留資料、再掃參數、逐根檢查、結果綁輸入』形成反過度擬合的證據敘事。",
+  "recommended_story": "先用『AI 產生策略候選，歷史資料負責驗證與淘汰』說清產品目的；再以『先留資料、只在樣本內掃參數、逐根檢查、結果綁輸入』展示目前已完成的驗證能力。不要以高報酬數字或虛構 AI 介面吸引目光。",
   "recommended_assets": [
     {"role": "hero", "reason": "用工作區全貌建立產品類別與核心承諾。"},
     {"role": "feature-proof", "reason": "Holdout 是最能快速建立信任的可見差異。"},
@@ -15,5 +21,5 @@
     {"role": "workflow", "reason": "回放把抽象的防未來資料概念變成時間序列行為。"},
     {"role": "workflow-proof", "reason": "以結果脈絡收尾，強化可稽核定位並帶出匯出能力。"}
   ],
-  "product_improvement_opportunities": ["在 UI 中加入更醒目的目前 run context 摘要", "提供專用展示 fixture 與 screenshot state URL", "更新 alpha-factor-forge/README.md 的過時 UI 狀態", "Discovery 前端完成後另建獨立 campaign，不混入本次已驗證故事"]
+  "product_improvement_opportunities": ["在 UI 中加入更醒目的目前 run context 摘要", "提供專用展示 fixture 與 screenshot state URL", "更新 alpha-factor-forge/README.md 的過時 UI 狀態", "AI Strategy Lab 前端完成後補拍真實生成流程，新增一張精確的 AI 候選證明素材"]
 }
