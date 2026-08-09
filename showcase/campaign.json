@@ -27,8 +27,8 @@
       "alpha-factor-forge/src/components/SweepSection.tsx",
       "alpha-factor-forge/src/theme/theme.ts"
     ],
-    "product_traits": ["本機優先研究工作站", "重視樣本外驗證", "輸入與結果可追溯"],
-    "user_constraints": ["為目前 repository 建立完整 campaign", "使用繁體中文"],
+    "product_traits": ["AI 策略生成與歷史驗證的產品目標", "本機優先研究工作站", "重視樣本外驗證", "輸入與結果可追溯"],
+    "user_constraints": ["為目前 repository 建立完整 campaign", "使用繁體中文", "README 以 AI 生成策略與歷史驗證為核心，並使用所有有助理解的 campaign 圖像"],
     "portfolio_contrast": ["從先前深色工控／橘色 foundry 測試方向轉為暖白技術證書", "捨棄控制室場景與漂浮面板", "以紙張、校驗線與證物式 UI 建立新的第一印象"]
   },
   "render_modes": ["HYBRID", "SCREENSHOT-LED", "DETERMINISTIC"],
@@ -80,8 +80,8 @@
       "Displayed performance figures come from deterministic synthetic demo data and are not a product-performance claim."
     ]
   },
-  "target_audience": ["加密市場策略研究者", "系統化與主觀交易者", "需要可重現技術指標回測的開發者"],
-  "story_summary": "從工作站全貌開始，依序展示未見資料保留、樣本內掃描、逐根回放與結果脈絡，將『好看的績效』重新定義為『可檢查的證據』。",
+  "target_audience": ["希望用 AI 產生策略候選的加密市場研究者", "系統化與主觀交易者", "需要可重現技術指標回測的開發者"],
+  "story_summary": "先建立『AI 生成策略候選，再由歷史資料負責驗證與淘汰』的產品目標；接著以工作站、未見資料保留、樣本內掃描、逐根回放與結果脈絡，說明候選策略如何從想法變成可檢查的證據。",
   "source_commit": "0c37d28318818c8ce5ea125241965faccb5de9ee",
   "style_version": 1,
   "variant": {"id": "primary", "status": "selected", "parent": null},

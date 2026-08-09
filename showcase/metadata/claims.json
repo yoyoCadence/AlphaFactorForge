@@ -25,6 +25,19 @@
       "used_by_assets": ["hero"]
     },
     {
+      "claim_id": "claim-ai-strategy-generation-purpose",
+      "claim": "AlphaFactorForge 的核心產品目標，是讓 AI 生成受限 JSON Strategy DSL 策略候選，再用歷史資料驗證與淘汰候選。",
+      "status": "qualified",
+      "evidence": [
+        {"path": "STRATEGY_DISCOVERY.md", "kind": "maintainer-product-design", "note": "定義 AI 生成 DSL、歷史分區驗證與候選生命週期，並將最小 AI Strategy Lab 列入產品階段。"},
+        {"path": "alpha-factor-forge/src/core/strategy-dsl/schema.ts", "kind": "implementation", "note": "定義 AI 只能輸出的受限 Strategy DSL 結構。"},
+        {"path": "alpha-factor-forge/src/core/strategy-dsl/validator.ts", "kind": "implementation", "note": "以白名單 validator 拒絕不合法 DSL，避免任意程式碼路徑。"},
+        {"path": "alpha-factor-forge/src-tauri/src/commands/ai_commands.rs", "kind": "implementation-status", "note": "目前 AI command 仍為 Phase C stub，證明完整 provider 流程尚未完成。"}
+      ],
+      "qualifiers": ["這是核心產品目標；目前完整 AI Strategy Lab 前端與 provider 串接尚未完成。歷史回測只能篩選候選，不能證明未來獲利。"],
+      "used_by_assets": []
+    },
+    {
       "claim_id": "claim-holdout-comparison",
       "claim": "Holdout 可保留末段 K 線，並列全期、樣本內與樣本外績效。",
       "status": "verified",
@@ -87,7 +100,7 @@
   ],
   "rejected_claims": [
     {"claim": "目前前端已提供完整自動策略探索操作介面", "reason": "目前 repository 有 discovery 核心與後端 runner 基礎，但前端完整工作流尚未接線。"},
-    {"claim": "AI 會自動產生並執行策略", "reason": "目前前端不應宣傳未完成的 AI 產生流程，且 AI 僅允許輸出經驗證 Strategy DSL。"},
+    {"claim": "目前已可從前端讓 AI 自動產生並直接執行策略", "reason": "AI 策略生成是核心產品目標，但完整前端與 provider 串接仍未完成；未來輸出也只能是經驗證的 Strategy DSL，不能直接執行任意程式碼。"},
     {"claim": "消除或避免所有過度擬合", "reason": "Holdout 與樣本內掃描只能協助檢查風險，不能保證消除。"},
     {"claim": "示範績效代表實際或未來報酬", "reason": "畫面使用 deterministic synthetic SAMPLE 資料，績效僅展示產品輸出格式。"}
   ]

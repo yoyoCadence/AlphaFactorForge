@@ -1,14 +1,26 @@
 {
   "schema_version": 1,
   "product_name": "AlphaFactorForge",
-  "product_category": "本機優先的技術指標策略研究與回測工作站",
+  "product_category": "AI 策略生成與歷史驗證工作站（本機優先 Tauri 目標架構）",
   "target_users": {
-    "primary": ["加密市場策略研究者", "需要嚴謹樣本外驗證的交易者"],
+    "primary": ["希望用 AI 產生策略候選的加密市場研究者", "需要嚴謹樣本外驗證的交易者"],
     "secondary": ["需要可重現回測與可稽核結果的開發者"]
   },
-  "primary_job_to_be_done": "把技術指標策略假設轉成可重現、可檢查、可匯出的回測證據。",
-  "core_problem": "單一歷史績效容易掩蓋過度擬合、執行假設與輸入脈絡；研究者需要把資料、策略、切分與結果放在同一套可追溯流程中。",
-  "core_workflow": ["載入或匯入 K 線資料", "定義策略與執行模型", "執行回測及 Holdout", "進行樣本內參數掃描", "回放、儲存或匯出結果"],
+  "primary_job_to_be_done": "讓 AI 產生受約束的策略候選，再用歷史資料、樣本外切分與可稽核回測判斷哪些候選值得繼續驗證。",
+  "core_problem": "AI 可以快速提出大量看似合理的策略，但單一歷史績效容易掩蓋過度擬合、執行假設與輸入脈絡；研究者需要一條能安全接收 AI 候選並以資料淘汰它們的可追溯流程。",
+  "desired_outcome": "把 AI 生成的策略假說轉成可重現、可檢查、可匯出的歷史驗證證據，讓研究者決定淘汰或進入下一階段，而不是直接把回測結果視為可交易結論。",
+  "product_vision": {
+    "primary_purpose": "AI 生成受限 JSON Strategy DSL，歷史資料負責驗證策略候選是否值得繼續研究。",
+    "target_workflow": ["AI 生成策略候選", "DSL schema／白名單驗證", "歷史回測", "Holdout 與樣本內最佳化", "隱藏測試／paper trading／人工決策"],
+    "current_maturity": "Strategy DSL validator、歷史回測與 Discovery backend 基礎已存在；完整 AI Strategy Lab 前端與 provider 串接仍屬 Phase C。"
+  },
+  "core_workflow": [
+    "AI 產生受限 JSON Strategy DSL 策略候選（產品目標；完整前端流程尚未接線）",
+    "以 schema 與白名單 validator 拒絕不合法策略",
+    "載入歷史 K 線並設定執行模型",
+    "執行回測、Holdout 與樣本內參數掃描",
+    "逐根回放、稽核結果，決定淘汰或繼續驗證"
+  ],
   "verified_features": [
     {
       "id": "feature-core-workspace",
@@ -53,6 +65,6 @@
   "visual_strengths": ["高密度 K 線與技術指標圖表", "橘色參數熱力圖", "完整的績效表與執行假設控制", "十套可切換介面皮膚"],
   "brand_personality": ["技術性", "審慎", "本機優先", "重視可重現性"],
   "technical_strengths": ["純 TypeScript 回測核心與 Rust/Tauri 桌面後端", "SQLite 持久化", "Web Worker 輕量互動作業", "TypeScript 與 Rust 核心契約／parity 測試"],
-  "weak_or_confusing_areas": ["自動 Strategy Discovery 已有後端與核心基礎，但目前前端尚未提供完整操作介面", "alpha-factor-forge/README.md 的部分 UI 狀態描述落後於目前實作", "示範資料的高績效數字需要持續明確標示為非產品承諾"],
+  "weak_or_confusing_areas": ["AI Strategy Lab 是產品核心目標，但完整前端與 provider 串接仍未完成；必須與目前可用回測能力分層表述", "自動 Strategy Discovery 已有後端與核心基礎，但目前前端尚未提供完整操作介面", "alpha-factor-forge/README.md 的部分 UI 狀態描述落後於目前實作", "示範資料的高績效數字需要持續明確標示為非產品承諾"],
   "source_revision": "0c37d28318818c8ce5ea125241965faccb5de9ee"
 }
