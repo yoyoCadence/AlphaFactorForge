@@ -1,0 +1,170 @@
+{
+  "schema_version": 1,
+  "project_name": "AlphaFactorForge",
+  "project_version": "0.1.0",
+  "generated_at": "2026-08-09T19:21:12+08:00",
+  "language": "zh-Hant",
+  "platform": ["portfolio", "github"],
+  "asset_count": 5,
+  "art_direction": {
+    "id": "mill-test-report-v1",
+    "name": "鍛件檢驗證書",
+    "summary": "把策略研究視為鍛造後的材料檢驗：真實 UI 是證物，切分、掃描與結果脈絡則是可核對的檢驗紀錄。",
+    "path": "metadata/art-direction.json"
+  },
+  "visual_signature": {
+    "dominant_mood": "嚴謹、沉著、可稽核",
+    "composition_language": "以鍛件檢驗證書為版面骨架，讓真實深色 UI 成為可查驗的證物",
+    "color_character": "暖白紙張與石墨墨色為主，安全橘標示關鍵動作，青綠標示保留與驗證",
+    "graphic_motif": "檢驗編號、校驗線、比例切分、量測節點與合格章",
+    "typography_character": "大尺度繁體中文結論搭配等寬技術註記",
+    "device_usage": "不使用裝置模型，直接展示清晰的真實桌面工作區與精準裁切",
+    "generation_style": "生成式無字材質背景、真實 UI 截圖與確定性 WPF 排版的混合製作"
+  },
+  "brand_basis": {
+    "repository_evidence": [
+      "alpha-factor-forge/src/components/BacktestPanel.tsx",
+      "alpha-factor-forge/src/components/SweepSection.tsx",
+      "alpha-factor-forge/src/theme/theme.ts"
+    ],
+    "product_traits": ["本機優先研究工作站", "重視樣本外驗證", "輸入與結果可追溯"],
+    "user_constraints": ["為目前 repository 建立完整 campaign", "使用繁體中文"],
+    "portfolio_contrast": ["從先前深色工控／橘色 foundry 測試方向轉為暖白技術證書", "捨棄控制室場景與漂浮面板", "以紙張、校驗線與證物式 UI 建立新的第一印象"]
+  },
+  "render_modes": ["HYBRID", "SCREENSHOT-LED", "DETERMINISTIC"],
+  "capture_mode": "existing",
+  "capture_provenance": {
+    "source_revision": "06e9a152eca64430305be49c8e451df736babd5a",
+    "demo_state": {
+      "source": "in-memory mock data client (?mock=1) with seeded SAMPLE 1h 600-candle fixture",
+      "environment": "isolated_local",
+      "production_data_used": false,
+      "cleanup_status": "complete"
+    },
+    "sources": [
+      {
+        "id": "capture-workspace-overview",
+        "kind": "existing",
+        "screen": "chart, dataset, strategy and completed backtest workspace",
+        "path": "output/product-marketing-assets/alphafactorforge-campaign-20260809/raw-captures/overview-chart-results-existing.png",
+        "retention": "retained_run_folder",
+        "privacy_status": "passed"
+      },
+      {
+        "id": "capture-holdout-results",
+        "kind": "existing",
+        "screen": "full, in-sample and out-of-sample metrics table",
+        "path": "output/product-marketing-assets/alphafactorforge-campaign-20260809/raw-captures/holdout-results-existing.png",
+        "retention": "retained_run_folder",
+        "privacy_status": "passed"
+      },
+      {
+        "id": "capture-sweep-2d",
+        "kind": "existing",
+        "screen": "two-dimensional in-sample parameter sweep heatmap",
+        "path": "output/product-marketing-assets/alphafactorforge-campaign-20260809/raw-captures/sweep-2d-existing.png",
+        "retention": "retained_run_folder",
+        "privacy_status": "passed"
+      },
+      {
+        "id": "capture-inputs-and-results",
+        "kind": "existing",
+        "screen": "dataset, strategy, execution assumptions and completed result",
+        "path": "output/product-marketing-assets/alphafactorforge-campaign-20260809/raw-captures/overview-existing.png",
+        "retention": "retained_run_folder",
+        "privacy_status": "passed"
+      }
+    ],
+    "limitations": [
+      "Captures were acquired on an earlier repository revision; git diff confirmed no changes to the pictured components, styles, themes, holdout, sweep or result-context sources through the campaign source commit.",
+      "Displayed performance figures come from deterministic synthetic demo data and are not a product-performance claim."
+    ]
+  },
+  "target_audience": ["加密市場策略研究者", "系統化與主觀交易者", "需要可重現技術指標回測的開發者"],
+  "story_summary": "從工作站全貌開始，依序展示未見資料保留、樣本內掃描、逐根回放與結果脈絡，將『好看的績效』重新定義為『可檢查的證據』。",
+  "source_commit": "0c37d28318818c8ce5ea125241965faccb5de9ee",
+  "style_version": 1,
+  "variant": {"id": "primary", "status": "selected", "parent": null},
+  "assets": [
+    {
+      "id": "hero",
+      "order": 1,
+      "role": "hero",
+      "file": "01-hero.png",
+      "communication_goal": "建立產品核心承諾與工作站全貌",
+      "headline": "把訊號鍛成可驗證的證據",
+      "feature": "完整回測工作區",
+      "claim_ids": ["claim-core-workspace", "claim-local-first-target"],
+      "render_mode": "HYBRID",
+      "capture_source_ids": ["capture-workspace-overview"],
+      "platform_variants": []
+    },
+    {
+      "id": "holdout-proof",
+      "order": 2,
+      "role": "feature-proof",
+      "file": "02-holdout-proof.png",
+      "communication_goal": "說明樣本外資料在驗證流程中的角色",
+      "headline": "先保留未見資料，再談好成績",
+      "feature": "Holdout 樣本外驗證",
+      "claim_ids": ["claim-holdout-comparison"],
+      "render_mode": "HYBRID",
+      "capture_source_ids": ["capture-holdout-results"],
+      "platform_variants": []
+    },
+    {
+      "id": "in-sample-sweep",
+      "order": 3,
+      "role": "feature-proof",
+      "file": "03-in-sample-sweep.png",
+      "communication_goal": "呈現參數熱力圖與防止樣本外資料參與調參的約束",
+      "headline": "掃描參數，但別偷看樣本外",
+      "feature": "樣本內參數掃描",
+      "claim_ids": ["claim-parameter-sweep"],
+      "render_mode": "HYBRID",
+      "capture_source_ids": ["capture-sweep-2d"],
+      "platform_variants": []
+    },
+    {
+      "id": "bar-replay",
+      "order": 4,
+      "role": "workflow",
+      "file": "04-bar-replay.png",
+      "communication_goal": "讓研究者理解回放如何重建當時可見的行情與訊號",
+      "headline": "逐根回放，重看訊號怎麼發生",
+      "feature": "K 線逐根回放",
+      "claim_ids": ["claim-bar-replay"],
+      "render_mode": "HYBRID",
+      "capture_source_ids": ["capture-workspace-overview"],
+      "platform_variants": []
+    },
+    {
+      "id": "result-context-export",
+      "order": 5,
+      "role": "workflow-proof",
+      "file": "05-result-context-export.png",
+      "communication_goal": "以輸入鏈與真實工作區證明結果不會被錯誤沿用",
+      "headline": "每次結果，只屬於當時的輸入",
+      "feature": "結果脈絡綁定與 JSON／CSV 匯出",
+      "claim_ids": ["claim-result-context", "claim-report-export"],
+      "render_mode": "HYBRID",
+      "capture_source_ids": ["capture-inputs-and-results"],
+      "platform_variants": []
+    }
+  ],
+  "qa_summary": {
+    "status": "passed",
+    "reviewed_at": "2026-08-09T19:21:12+08:00",
+    "gates": {
+      "visual": "pass",
+      "product_accuracy": "pass",
+      "privacy": "pass",
+      "technical": "pass",
+      "campaign_consistency": "pass",
+      "portfolio_diversity": "pass"
+    },
+    "platform_specifications": [],
+    "open_findings": [],
+    "accepted_minor_findings": []
+  }
+}

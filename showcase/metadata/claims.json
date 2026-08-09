@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "source_revision": "0c37d28318818c8ce5ea125241965faccb5de9ee",
+  "claims": [
+    {
+      "claim_id": "claim-core-workspace",
+      "claim": "AlphaFactorForge 在同一工作區整合 K 線資料、策略、執行模型、圖表與回測績效。",
+      "status": "verified",
+      "evidence": [
+        {"path": "alpha-factor-forge/src/components/BacktestPanel.tsx", "kind": "implementation", "note": "組合資料集、策略、圖表、績效、Holdout 與掃描區段。"},
+        {"path": "alpha-factor-forge/src/main.tsx", "kind": "implementation", "note": "將 BacktestPanel 掛載為目前主工作區。"}
+      ],
+      "qualifiers": [],
+      "used_by_assets": ["hero"]
+    },
+    {
+      "claim_id": "claim-local-first-target",
+      "claim": "AlphaFactorForge 的目標架構是本機優先的 Tauri 桌面工作站。",
+      "status": "qualified",
+      "evidence": [
+        {"path": "alpha-factor-forge/src-tauri/tauri.conf.json", "kind": "configuration", "note": "定義 Tauri v2 桌面應用。"},
+        {"path": "alpha-factor-forge/src-tauri/src/main.rs", "kind": "implementation", "note": "桌面後端入口與命令註冊。"}
+      ],
+      "qualifiers": ["以目標架構／工作站定位表述，不主張已在所有桌面平台正式發佈。"],
+      "used_by_assets": ["hero"]
+    },
+    {
+      "claim_id": "claim-holdout-comparison",
+      "claim": "Holdout 可保留末段 K 線，並列全期、樣本內與樣本外績效。",
+      "status": "verified",
+      "evidence": [
+        {"path": "alpha-factor-forge/src/components/BacktestPanel.tsx", "kind": "implementation", "note": "Holdout 說明與執行流程。"},
+        {"path": "alpha-factor-forge/src/services/holdout.ts", "kind": "implementation", "note": "共享樣本內外切分數學。"},
+        {"path": "alpha-factor-forge/e2e/holdout.spec.ts", "kind": "test", "note": "驗證三欄績效出現與關閉後清除。"}
+      ],
+      "qualifiers": ["此功能協助檢查過度擬合，不保證消除過度擬合。"],
+      "used_by_assets": ["holdout-proof"]
+    },
+    {
+      "claim_id": "claim-parameter-sweep",
+      "claim": "參數掃描支援 1–2 軸、最多 256 組；Holdout 開啟時只以樣本內資料最佳化。",
+      "status": "verified",
+      "evidence": [
+        {"path": "alpha-factor-forge/src/services/paramSweep.ts", "kind": "implementation", "note": "定義 1–2 軸與 SWEEP_MAX_COMBOS=256。"},
+        {"path": "alpha-factor-forge/src/components/SweepSection.tsx", "kind": "implementation", "note": "顯示組合數、樣本內範圍與熱力圖。"},
+        {"path": "alpha-factor-forge/e2e/sweep.spec.ts", "kind": "test", "note": "驗證 Holdout 開啟時只用樣本內掃描。"}
+      ],
+      "qualifiers": ["熱力圖顯示歷史結果，最佳格仍需樣本外驗證。"],
+      "used_by_assets": ["in-sample-sweep"]
+    },
+    {
+      "claim_id": "claim-bar-replay",
+      "claim": "回放支援滑桿、逐步與 1×–4× 播放，隱藏游標之後的 K 線並顯示當根訊號與持倉。",
+      "status": "verified",
+      "evidence": [
+        {"path": "alpha-factor-forge/src/components/ChartSection.tsx", "kind": "implementation", "note": "回放控制、速度與游標狀態。"},
+        {"path": "alpha-factor-forge/src/components/BacktestPanel.tsx", "kind": "implementation", "note": "回放行為與未來 K 線隱藏的產品說明。"},
+        {"path": "alpha-factor-forge/e2e/replay.spec.ts", "kind": "test", "note": "驗證逐步、滑動、自動播放與訊號讀值。"}
+      ],
+      "qualifiers": [],
+      "used_by_assets": ["bar-replay"]
+    },
+    {
+      "claim_id": "claim-result-context",
+      "claim": "完成結果綁定資料集、策略與 Holdout 脈絡；輸入改變後先前結果失效。",
+      "status": "verified",
+      "evidence": [
+        {"path": "alpha-factor-forge/src/services/runArtifact.ts", "kind": "implementation", "note": "建立 immutable completed-run artifact 與 context key。"},
+        {"path": "alpha-factor-forge/src/components/ResultsSection.tsx", "kind": "implementation", "note": "顯示結果失效訊息並隱藏無效操作。"},
+        {"path": "alpha-factor-forge/e2e/result-context.spec.ts", "kind": "test", "note": "驗證策略、資料集、Holdout 與掃描套用會使舊結果失效。"}
+      ],
+      "qualifiers": [],
+      "used_by_assets": ["result-context-export"]
+    },
+    {
+      "claim_id": "claim-report-export",
+      "claim": "有效的最新回測可匯出 JSON 報告與交易 CSV。",
+      "status": "verified",
+      "evidence": [
+        {"path": "alpha-factor-forge/src/services/reportExport.ts", "kind": "implementation", "note": "建立 JSON 報告、CSV 與檔名。"},
+        {"path": "alpha-factor-forge/src/components/ResultsSection.tsx", "kind": "implementation", "note": "提供 JSON／CSV 匯出動作。"},
+        {"path": "alpha-factor-forge/e2e/export.spec.ts", "kind": "test", "note": "驗證兩種下載格式及輸入變更後禁止匯出。"}
+      ],
+      "qualifiers": ["僅針對目前仍有效的完成回測。"],
+      "used_by_assets": ["result-context-export"]
+    }
+  ],
+  "rejected_claims": [
+    {"claim": "目前前端已提供完整自動策略探索操作介面", "reason": "目前 repository 有 discovery 核心與後端 runner 基礎，但前端完整工作流尚未接線。"},
+    {"claim": "AI 會自動產生並執行策略", "reason": "目前前端不應宣傳未完成的 AI 產生流程，且 AI 僅允許輸出經驗證 Strategy DSL。"},
+    {"claim": "消除或避免所有過度擬合", "reason": "Holdout 與樣本內掃描只能協助檢查風險，不能保證消除。"},
+    {"claim": "示範績效代表實際或未來報酬", "reason": "畫面使用 deterministic synthetic SAMPLE 資料，績效僅展示產品輸出格式。"}
+  ]
+}

@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "product_name": "AlphaFactorForge",
+  "product_category": "本機優先的技術指標策略研究與回測工作站",
+  "target_users": {
+    "primary": ["加密市場策略研究者", "需要嚴謹樣本外驗證的交易者"],
+    "secondary": ["需要可重現回測與可稽核結果的開發者"]
+  },
+  "primary_job_to_be_done": "把技術指標策略假設轉成可重現、可檢查、可匯出的回測證據。",
+  "core_problem": "單一歷史績效容易掩蓋過度擬合、執行假設與輸入脈絡；研究者需要把資料、策略、切分與結果放在同一套可追溯流程中。",
+  "core_workflow": ["載入或匯入 K 線資料", "定義策略與執行模型", "執行回測及 Holdout", "進行樣本內參數掃描", "回放、儲存或匯出結果"],
+  "verified_features": [
+    {
+      "id": "feature-core-workspace",
+      "name": "完整回測工作區",
+      "summary": "同一介面包含資料集、策略、執行模型、K 線圖與績效結果。",
+      "evidence_ids": ["evidence-backtest-panel", "evidence-main-entry"]
+    },
+    {
+      "id": "feature-holdout",
+      "name": "Holdout 樣本外驗證",
+      "summary": "保留末段 K 線，並列全期、樣本內與樣本外績效。",
+      "evidence_ids": ["evidence-holdout-ui", "evidence-holdout-service", "evidence-holdout-e2e"]
+    },
+    {
+      "id": "feature-sweep",
+      "name": "1–2 軸參數掃描",
+      "summary": "最多掃描 256 組並以熱力圖呈現；Holdout 開啟時只使用樣本內資料最佳化。",
+      "evidence_ids": ["evidence-sweep-ui", "evidence-sweep-service", "evidence-sweep-e2e"]
+    },
+    {
+      "id": "feature-replay",
+      "name": "逐根回放",
+      "summary": "可逐步、滑動或 1×–4× 播放，隱藏游標之後的行情並顯示當根訊號與持倉。",
+      "evidence_ids": ["evidence-chart-ui", "evidence-replay-e2e"]
+    },
+    {
+      "id": "feature-result-context",
+      "name": "結果脈絡綁定",
+      "summary": "完成的回測結果綁定資料集、策略與切分；輸入變更後結果失效。",
+      "evidence_ids": ["evidence-run-artifact", "evidence-result-context-e2e"]
+    },
+    {
+      "id": "feature-export",
+      "name": "JSON 與交易 CSV 匯出",
+      "summary": "可匯出目前有效回測的報告 JSON 與交易明細 CSV。",
+      "evidence_ids": ["evidence-export-service", "evidence-export-e2e"]
+    }
+  ],
+  "differentiators": ["Holdout 與參數掃描共用切分邏輯，樣本外末段不參與調參", "完成結果與當時輸入快照綁定，避免舊結果被新輸入重新標記", "互動圖表、回放與稽核導向結果存在於同一研究工作區"],
+  "proof_points": ["真實 2D 參數熱力圖", "全期／樣本內／樣本外三欄績效", "策略與執行模型同畫面", "輸入變更即隱藏儲存與匯出動作的 E2E 回歸測試"],
+  "premium_features": [],
+  "visual_strengths": ["高密度 K 線與技術指標圖表", "橘色參數熱力圖", "完整的績效表與執行假設控制", "十套可切換介面皮膚"],
+  "brand_personality": ["技術性", "審慎", "本機優先", "重視可重現性"],
+  "technical_strengths": ["純 TypeScript 回測核心與 Rust/Tauri 桌面後端", "SQLite 持久化", "Web Worker 輕量互動作業", "TypeScript 與 Rust 核心契約／parity 測試"],
+  "weak_or_confusing_areas": ["自動 Strategy Discovery 已有後端與核心基礎，但目前前端尚未提供完整操作介面", "alpha-factor-forge/README.md 的部分 UI 狀態描述落後於目前實作", "示範資料的高績效數字需要持續明確標示為非產品承諾"],
+  "source_revision": "0c37d28318818c8ce5ea125241965faccb5de9ee"
+}

@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "language": "zh-Hant",
+  "story_summary": "從工作站全貌開始，依序展示未見資料保留、樣本內掃描、逐根回放與結果脈絡，將『好看的績效』重新定義為『可檢查的證據』。",
+  "assets": [
+    {
+      "asset_id": "hero",
+      "order": 1,
+      "communication_goal": "建立產品核心承諾與工作站全貌",
+      "feature": "feature-core-workspace",
+      "user_value": "研究者能在同一工作區看見從輸入到結果的完整脈絡。",
+      "headline": "把訊號鍛成可驗證的證據",
+      "supporting_copy": "從 K 線、策略與執行假設，到樣本外檢驗、參數掃描與可追溯結果。",
+      "proof_ui": ["圖表、資料集、策略與回測績效的真實工作區"],
+      "claim_ids": ["claim-core-workspace", "claim-local-first-target"],
+      "visual_priority": ["核心承諾", "真實工作區", "檢驗重點"],
+      "composition_intent": "大字結論與檢驗紀錄卡形成左欄，完整 UI 作為右下方主要證物。",
+      "recommended_render_mode": "HYBRID"
+    },
+    {
+      "asset_id": "holdout-proof",
+      "order": 2,
+      "communication_goal": "說明樣本外資料在驗證流程中的角色",
+      "feature": "feature-holdout",
+      "user_value": "研究者先保留未見資料，再比較策略於樣本內外的落差。",
+      "headline": "先保留未見資料，再談好成績",
+      "supporting_copy": "Holdout 將末段 K 線保留為樣本外；全期、樣本內、樣本外並列檢視。",
+      "proof_ui": ["三欄回測績效表"],
+      "claim_ids": ["claim-holdout-comparison"],
+      "visual_priority": ["30% 保留章", "三段績效證物", "不消除過度擬合的限定語"],
+      "composition_intent": "圓形保留章連到橫向績效證物，像材料批次的抽樣檢驗。",
+      "recommended_render_mode": "HYBRID"
+    },
+    {
+      "asset_id": "in-sample-sweep",
+      "order": 3,
+      "communication_goal": "呈現參數熱力圖與防止樣本外資料參與調參的約束",
+      "feature": "feature-sweep",
+      "user_value": "探索多組參數時仍保留末段資料作為獨立檢驗。",
+      "headline": "掃描參數，但別偷看樣本外",
+      "supporting_copy": "可掃描 1–2 個參數、最多 256 組；開啟 Holdout 時只用樣本內資料找最佳值。",
+      "proof_ui": ["2D 熱力圖與樣本內掃描提示"],
+      "claim_ids": ["claim-parameter-sweep"],
+      "visual_priority": ["70／30 切分", "256 組上限", "真實熱力圖"],
+      "composition_intent": "左欄以比例條和組合上限定義規則，右欄讓熱力圖成為量測結果。",
+      "recommended_render_mode": "HYBRID"
+    },
+    {
+      "asset_id": "bar-replay",
+      "order": 4,
+      "communication_goal": "讓研究者理解回放如何重建當時可見的行情與訊號",
+      "feature": "feature-replay",
+      "user_value": "可逐根檢查進出場訊號，不讓未來 K 線混入當下判讀。",
+      "headline": "逐根回放，重看訊號怎麼發生",
+      "supporting_copy": "滑桿、逐步與 1×–4× 播放，把圖表限制在當時可見的 K 線，並顯示進出場訊號與持倉。",
+      "proof_ui": ["真實圖表裁切與回放控制所在區域"],
+      "claim_ids": ["claim-bar-replay"],
+      "visual_priority": ["真實圖表", "逐根游標", "未來 K 線隱藏"],
+      "composition_intent": "圖表是主要證物，底部確定性時間軸解釋回放行為而不冒充產品控制項。",
+      "recommended_render_mode": "HYBRID"
+    },
+    {
+      "asset_id": "result-context-export",
+      "order": 5,
+      "communication_goal": "以輸入鏈與真實工作區證明結果不會被錯誤沿用",
+      "feature": "feature-result-context",
+      "user_value": "避免策略或資料已改變，卻把舊績效誤認為新結果。",
+      "headline": "每次結果，只屬於當時的輸入",
+      "supporting_copy": "資料集、策略或 Holdout 一變，先前結果立即失效；重新回測後才能儲存或匯出。",
+      "proof_ui": ["同畫面的輸入欄位、績效、JSON／CSV 與儲存動作"],
+      "claim_ids": ["claim-result-context", "claim-report-export"],
+      "visual_priority": ["輸入鏈", "完成結果", "匯出格式"],
+      "composition_intent": "垂直輸入鏈把資料集、策略、切分與結果串成一份稽核紀錄，右側展示真實工作區。",
+      "recommended_render_mode": "HYBRID"
+    }
+  ]
+}
