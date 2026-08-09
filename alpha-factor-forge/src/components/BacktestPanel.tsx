@@ -21,6 +21,7 @@ import {
   type RunContext,
 } from '../services/runArtifact';
 import { toCoreCandles } from '../services/candleAdapter';
+import { firstMarketDataIssue } from '../core/market-data/quality';
 import { makeSampleCandles } from '../services/sampleData';
 import { buildStrategyDef } from '../services/strategyRecord';
 import { strategyFromDef } from '../services/strategyLibrary';
@@ -203,6 +204,20 @@ export function BacktestPanel(): React.ReactElement {
     db.getCandles(ds.id, ds.start_time, ds.end_time)
       .then((cs) => {
         if (loadOwnerRef.current !== gen) return; // superseded: a newer selection owns the slot
+        // DATA-QUALITY-001 mount point 2 — a dataset stored before the market-data
+        // contract existed fails closed HERE. Leaving setLoadedCandles uncalled is
+        // the whole mechanism: `candles` stays NO_CANDLES, `liveContext` stays null,
+        // and the existing guards keep Run/Save/Export disabled. No second
+        // disabling mechanism is introduced.
+        const issue = firstMarketDataIssue(cs);
+        if (issue) {
+          setErr(
+            `資料集「${ds.symbol} ${ds.interval}」第 ${issue.index + 1} 根 K 線不符合市場資料規則` +
+              `（時間 ${issue.timestamp}，規則 ${issue.rule}）。` +
+              '這筆資料在品質規則建立前就已存入，請重新匯入此資料集後再回測。',
+          );
+          return;
+        }
         setLoadedCandles({ key, rows: toCoreCandles(cs) });
       })
       .catch((e) => {
