@@ -20,34 +20,19 @@ import {
   type ResolvedDiscoveryConfig,
 } from './discoveryConfig';
 import { deriveDiscoverySeed } from './discoverySeed';
+import { candidateValidity } from './strategyValidation';
 import type { ParamsStrategy } from './strategy';
 
-/**
- * Cross-field validity rules applied to every concrete combination. A grid
- * axis is independent by construction, so a Cartesian product inevitably
- * contains combinations that are not valid hypotheses (a "fast" MA slower than
- * the "slow" one). These are PRUNED and counted, not rejected — pruning is
- * the expected outcome of a legal grid, unlike a malformed config.
- *
- * Rules apply regardless of which signal a base preset selects, so the pruned
- * count stays a property of the grid alone and cannot shift when an unrelated
- * signal id changes.
- */
-export const DISCOVERY_VALIDITY_RULE_IDS = [
-  'fastMA<slowMA',
-  'macdFast<macdSlow',
-  'rsiBuy<rsiSell',
-] as const;
-export type DiscoveryValidityRuleId = (typeof DISCOVERY_VALIDITY_RULE_IDS)[number];
-
-/** The first violated rule id in fixed order, or null when the combination is
- *  a valid hypothesis. */
-export function candidateValidity(strategy: ParamsStrategy): DiscoveryValidityRuleId | null {
-  if (!(strategy.fastMA < strategy.slowMA)) return 'fastMA<slowMA';
-  if (!(strategy.macdFast < strategy.macdSlow)) return 'macdFast<macdSlow';
-  if (!(strategy.rsiBuy < strategy.rsiSell)) return 'rsiBuy<rsiSell';
-  return null;
-}
+// The cross-field validity rules moved verbatim into `strategyValidation`
+// (STRATEGY-VALIDATION-001) so the manual strategy editor can warn about the
+// same three combinations this enumerator prunes, without either side owning a
+// second copy of the rule. Re-exported here because this module remains their
+// primary consumer and every existing import path keeps resolving.
+export {
+  DISCOVERY_VALIDITY_RULE_IDS,
+  candidateValidity,
+  type DiscoveryValidityRuleId,
+} from './strategyValidation';
 
 export interface EnumerationCounts {
   /** Cartesian product size across every base, before any filtering. */

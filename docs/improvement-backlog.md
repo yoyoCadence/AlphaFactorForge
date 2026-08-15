@@ -736,8 +736,8 @@ cross-session decisions are preserved in
 
 The audit IDs expanded below as execution-ready coding-agent specifications are
 `BUG-RESULT-CONTEXT-001` (2026-07-31), `METRIC-002` (2026-08-01),
-`DATA-QUALITY-001` (2026-08-09), and `BUG-SWEEP-CONTEXT-001` (2026-08-15), in the
-adjudicated execution order. The
+`DATA-QUALITY-001` (2026-08-09), `BUG-SWEEP-CONTEXT-001` (2026-08-15), and
+`STRATEGY-VALIDATION-001` (2026-08-16), in the adjudicated execution order. The
 remaining audit IDs are recorded in `tasks.md` and the handoff, but a Planner
 must expand the chosen task to this same format before promoting it to `Next`.
 Existing `PERF-001` keeps its original specification above and must not be
@@ -1778,4 +1778,261 @@ match) and leaves no error; (6) the zh-TW stale notice appears instead of a sile
 hidden grid, and every pre-existing data-testid survives; (7) nothing from PERF-001
 (worker/cancellation) or STRATEGY-VALIDATION-001 (period validation) was bundled in.
 Return approve / request-changes / escalate in zh-TW; do not edit code.
+```
+
+---
+
+## STRATEGY-VALIDATION-001 — 手動策略指標參數的單一執行期驗證
+
+Expanded to execution-ready format on 2026-08-16, after `BUG-SWEEP-CONTEXT-001`
+merged as PR #98 (`be4e3c6`). Audit evidence: §9 of
+`../handoffs/2026-07-31-pr76-post-merge-audit-v1.md`. This is order #7, the last
+correctness gate before `RUNNER-UI-001`.
+
+- **Category**: Correctness / input validation
+- **Objective**: One runtime validator, shared by manual strategy execution and
+  persistence, that rejects indicator parameters which cannot produce a
+  meaningful series — zero, negative, fractional, non-finite, unsafe-integer
+  periods, a non-positive Bollinger multiplier, and RSI levels outside 0–100 —
+  before a backtest runs or a strategy row is written. Cross-field hypothesis
+  constraints are surfaced visibly. UI `min`/`step` are secondary protection
+  only.
+- **Why this is next**: `fastMA: 2.5` reaches `sma()` as a fractional period, so
+  `values[i - 2.5]` is `undefined`, every output becomes `NaN`, every signal is
+  `false`, and the backtest reports a confident **zero-trade result** that can be
+  saved and exported. `fastMA: 0` and `emaPeriod: 0` take the early-return path
+  to the same silent outcome. Nothing between `NumberInput` (finite only) and the
+  indicators rejects it.
+
+### Evidence (re-derived 2026-08-16 on `be4e3c6`)
+
+- `alpha-factor-forge/src/components/NumberInput.tsx:46` propagates any finite
+  parsed number live and unclamped; `min`/`max` are optional and clamp on blur
+  only. `StrategySection.tsx:316-321` passes neither for the indicator grid.
+- `alpha-factor-forge/src/services/strategySignals.ts:70-75` hands the raw values
+  to `sma`/`ema`/`rsi`/`macd`/`bbands`.
+- `alpha-factor-forge/src/core/indicators/index.ts:13-23` — `sma` returns all
+  `NaN` for `period <= 0`; for `2.5` the `sum -= values[i - period]` term indexes
+  a non-integer position (`undefined`) and poisons the running sum. `ema`
+  (`26-39`) additionally *writes* to non-integer indices, so every integer
+  position stays `NaN`.
+- `alpha-factor-forge/src/services/strategyLibrary.ts:68-72` requires persisted
+  numbers to be finite and nothing more.
+- `alpha-factor-forge/src/services/strategyRecord.ts:10-14` hashes and persists
+  whatever it is given.
+- **The rule already exists twice and is enforced nowhere on the manual path**:
+  `discoveryConfig.ts:364-380` (`checkNumericParam`, domain table at `65-82`) and
+  `embargo.ts:38-43` (`period()`) both require
+  `Number.isSafeInteger(value) && value >= 1`.
+- Shortest reproduction: 載入樣本 → 快線 MA 改成 `2.5` → 執行回測 → 得到 0 筆交易
+  的「成功」結果，且可存檔／匯出。
+
+### Adjudicated scope (do not re-derive)
+
+**1. Hard-validated set = the 11 indicator-grid fields, and only those.**
+
+| Domain (from `discoveryConfig`) | Keys | Rule |
+| --- | --- | --- |
+| `period` | `fastMA` `slowMA` `emaPeriod` `rsiPeriod` `macdFast` `macdSlow` `macdSignal` `bbPeriod` | safe integer `>= 1` |
+| `level` | `rsiBuy` `rsiSell` | in `[0, 100]` |
+| `positive` | `bbMult` | `> 0` |
+
+`checkNumericParam` is the **authority** for all eleven; the new module supplies
+only the zh-TW wording and the mount points. A test asserts the two agree on a
+value battery for every key, so the rule can never fork.
+
+**2. The five execution-model fields are deliberately excluded.**
+`feePct`, `slipPct`, `sizePct`, `slPct`, `tpPct` are owned by
+`toExecCostFractions`' documented legacy clamping, which is **already tested**:
+`sizePct: 0` means 100% (`services.test.ts:90-92`,
+`backtest.golden.test.ts:215`), a negative fee clamps to 0 rather than becoming a
+rebate (`services.test.ts:85`), and `slPct <= 0` means "off". Applying
+discovery's `percent`/`sizePercent` domains here would contradict those committed
+contracts and break existing saved strategies. Their upper bound is already
+enforced downstream by the engine's `assertNormalizedFraction`. Changing this
+legacy conversion is **not** part of this task.
+
+**3. Cross-field rules are warnings, not errors.** Reuse `candidateValidity` /
+`DISCOVERY_VALIDITY_RULE_IDS` from `candidateEnumeration.ts` (`fastMA<slowMA`,
+`macdFast<macdSlow`, `rsiBuy<rsiSell`) and render them visibly, but do not block.
+Reasons, all evidence-based: (a) none of the three produces `NaN` — they are
+computable, merely dubious, hypotheses; (b) the repo's own written judgment is
+that these are *pruned as the expected outcome of a legal grid, not rejected as
+malformed* (`candidateEnumeration.ts:25-35`); (c) whether `fastMA` is even read
+depends on the selected signal; (d) blocking them would silently blank the
+`(fastMA=20, slowMA=20)` cell of the default 2-D sweep. **Tightening these to
+errors later is a one-line change; loosening them after the fact is not.** If the
+maintainer wants them fatal, that is a product decision to record here first.
+
+**4. Library load stays loadable.** `strategyFromDef` keeps its current strict
+parsing and does **not** gain the new rules. A row saved before this contract must
+still load into the form so the user can see and repair the offending field —
+there is no strategy delete in the UI (`PARITY-003` is deferred), so rejecting at
+load would strand the row permanently. Run and Save are the boundaries that fail
+closed.
+
+### Files likely affected
+
+- new `alpha-factor-forge/src/services/strategyValidation.ts` (pure)
+- new `alpha-factor-forge/src/services/strategyValidation.test.ts`
+- `alpha-factor-forge/src/services/backtestRunner.ts` (assert at the top of
+  `runParamsBacktest` — the single funnel for every manual execution, including
+  each sweep variant)
+- `alpha-factor-forge/src/services/strategyRecord.ts` (assert before hashing, so
+  an invalid strategy never acquires a `strategy-v2` identity)
+- `alpha-factor-forge/src/services/discoveryConfig.ts` and
+  `alpha-factor-forge/src/services/candidateEnumeration.ts` — **move-only, see
+  the dependency-inversion note below**
+- `alpha-factor-forge/fixtures/rs-core/{benchmark,runner-config}-v1.json`
+  (regenerated; the freshness `sourceHashes` of the three edited reference
+  modules change, and nothing else may)
+- `alpha-factor-forge/src/components/StrategySection.tsx` (issue/warning display,
+  Run disabled, `min`/`step` hints, one new `strategy-section` testid)
+- `alpha-factor-forge/src/components/NumberInput.tsx` (accept an optional `step`
+  and forward `min`/`max`/`step` to the DOM input)
+- new `alpha-factor-forge/e2e/strategy-validation.spec.ts`
+- `CHANGELOG.md`, `tasks.md`, this file, and a Resolution appended to
+  `handoffs/2026-07-31-pr76-post-merge-audit-v1.md`
+
+**Explicitly NOT in the list, and their absence is an acceptance check:**
+`src/core/**` (the indicators keep their current behaviour; this is an admission
+gate, not an engine change), `src/services/embargo.ts`,
+`src/services/strategyLibrary.ts`, `src/parity/*.ts` (the generators themselves),
+`src-tauri/**`, and every existing `e2e/*.spec.ts`.
+
+### Dependency inversion (discovered during implementation, 2026-08-16)
+
+The original plan said `discoveryConfig.ts` and `candidateEnumeration.ts` would
+not be touched. **That is not achievable**, and the constraint is structural, not
+stylistic: `discoveryConfig` imports `randomEntry`, which imports
+`backtestRunner`. A validator that `backtestRunner` imports therefore cannot
+import `discoveryConfig` — doing so forms an ESM cycle in which
+`discoveryConfig`'s top-level constants are still `undefined` when
+`candidateEnumeration` reads them (observed: 26 pre-existing tests failing with
+`discoveryConfig.contracts is missing key "gate"`).
+
+The resolution is to **invert the dependency, not to fork the rule**:
+`NUMERIC_PARAM_DOMAINS`, `checkNumericParam`, `DISCOVERY_VALIDITY_RULE_IDS`, and
+`candidateValidity` move **verbatim** into `strategyValidation.ts`, which imports
+nothing but `./strategy`; both discovery modules import what they need and
+re-export the public names, so every existing import path and consumer is
+unchanged. `NUMERIC_PARAM_DOMAINS` becomes exported (it was module-private) so
+`discoveryConfig` can keep its axis-integrality check.
+
+The behaviour-neutrality of the move is **mechanically proven, not asserted**:
+`discoveryConfig.test.ts`, `candidateEnumeration.test.ts`, and
+`runnerConfigFixture.test.ts` must pass completely unmodified, and regenerating
+the two affected parity fixtures must change **only** the `generator.sourceHashes`
+entries of the edited modules — every expected value byte-identical.
+
+### Exact implementation plan
+
+1. Add `src/services/strategyValidation.ts`:
+   - `STRATEGY_PARAM_RULES_VERSION = 'strategy-params-v1'`.
+   - `HARD_VALIDATED_PARAM_KEYS` (the 11) and `LEGACY_CLAMPED_PARAM_KEYS` (the 5),
+     both typed as `NumericParamKey`.
+   - `validateStrategyParams(strat): { ok, issues, warnings }`, where `issues`
+     carry `{ key, value, message }` (zh-TW, naming the key exactly as
+     `strategyLibrary.ts` already does) and `warnings` carry
+     `{ rule, message }` from `candidateValidity`.
+   - `assertStrategyParams(strat)` throws `RangeError` with the first issue.
+   - Both are pure and never mutate the strategy.
+2. Call `assertStrategyParams` at the top of `runParamsBacktest` and inside
+   `buildStrategyDef` before `strategyHash`.
+3. `NumberInput` gains an optional `step` passed straight to the input; no other
+   behaviour change (clamping stays blur-only).
+4. `StrategySection` computes the validation once, disables Run when `!ok`
+   (mirroring the existing `codeModeAllowsRun` pattern), renders
+   `data-testid="strategy-issues"` and `data-testid="strategy-warnings"`, and
+   passes `min`/`step` for the eleven fields.
+5. Tests, by name: every hard key rejects 0, -1, 2.5, NaN, Infinity and
+   `MAX_SAFE_INTEGER + 1` (levels reject 101 / -1 instead of 0); the defaults pass
+   with no issue and no warning; the validator agrees with `checkNumericParam` on
+   a value battery for all eleven keys; the hard set ∪ legacy set equals the full
+   numeric key set derived from `defaultStrategy()` (so a new field must be
+   classified); the five legacy keys still accept `sizePct: 0` and `feePct: -1`;
+   the three cross-field rules warn without setting `ok: false`;
+   `runParamsBacktest` and `buildStrategyDef` reject `fastMA: 2.5`; and a
+   fractional sweep axis now yields **null** cells instead of confident zero-trade
+   cells.
+6. Add `e2e/strategy-validation.spec.ts`: 快線 MA `2.5` disables Run and shows the
+   issue (a value `min` cannot silently repair), restoring `9` re-enables it.
+
+### Non-goals
+
+- Do not change `core/indicators` or `core/backtest`. A wrong period is rejected
+  at admission; the engines keep their current semantics.
+- Do not change `toExecCostFractions`' legacy clamping or the five execution
+  fields it owns.
+- Do not change the **behaviour** of `discoveryConfig.ts` or
+  `candidateEnumeration.ts`. The dependency inversion above is a verbatim move
+  plus re-exports; no rule, message, order, or default may change, and their
+  tests must pass unmodified. Do not touch `embargo.ts` at all — it keeps its
+  own usage-aware `period()` guard, which is a different contract (it validates
+  only the periods a signal actually reads) locked by a parity fixture.
+- Do not hand-edit the regenerated fixtures; run their scripts and verify that
+  only `sourceHashes` moved.
+- Do not add the new rules to `strategyFromDef` (see adjudication 4).
+- Do not make the cross-field rules fatal (see adjudication 3).
+- Do not touch the sweep artifact, the runner UI, or any Rust file.
+- No new dependencies; no `package-lock.json` change.
+
+- **Risk level**: Medium. The rule is small, but it narrows what the app accepts,
+  so the realistic failures are (a) hard-validating a field whose legacy clamping
+  is a tested contract, (b) forking the rule from `checkNumericParam`, and (c)
+  blocking a computable hypothesis that a user legitimately wants. Adjudications
+  1–3 and the agreement/classification tests exist to make each visible.
+- **Validation plan**:
+  - `npm run typecheck`; `npm test`; `npm run build`; `npm run e2e` (local
+    Windows: default `workers=1`)
+  - No Rust change, so `cargo` is not re-run; state that in the PR.
+  - Paste `git diff --stat` and confirm `src/core/`, `embargo.ts`,
+    `strategyLibrary.ts`, `src/parity/*.ts`, `src-tauri/`, and the existing
+    `e2e/*.spec.ts` are absent from it.
+  - Paste the discovery-module diff and the fixture diff, showing the move is
+    verbatim and that only `sourceHashes` changed.
+  - Report the production bundle size before and after.
+- **Acceptance criteria**:
+  - [ ] One validator is called by both manual execution (`runParamsBacktest`) and
+        persistence (`buildStrategyDef`); neither re-implements the rules.
+  - [ ] Zero, negative, fractional, non-finite, and unsafe-integer values are
+        rejected for all eight period fields; `rsiBuy`/`rsiSell` reject outside
+        0–100; `bbMult` rejects `<= 0`.
+  - [ ] The validator and `checkNumericParam` agree for every hard key over the
+        value battery, proven by test.
+  - [ ] Hard ∪ legacy equals the full numeric key set of `ParamsStrategy`, so a
+        future field cannot silently escape classification.
+  - [ ] `sizePct: 0` and `feePct: -1` still run under the documented legacy
+        clamping.
+  - [ ] The three cross-field rules are visible in the UI and do not block.
+  - [ ] Run is disabled with a zh-TW explanation while any hard rule fails; the
+        `min`/`step` hints are additive and clamping stays blur-only.
+  - [ ] A previously saved strategy with an invalid period still loads into the
+        form and is repairable.
+  - [ ] The discovery move is verbatim: `discoveryConfig.test.ts`,
+        `candidateEnumeration.test.ts`, and `runnerConfigFixture.test.ts` pass
+        unmodified, and the two regenerated fixtures differ only in
+        `generator.sourceHashes`.
+  - [ ] No `core/`, `embargo.ts`, `strategyLibrary.ts`, parity-generator, Rust,
+        schema, dependency, or existing-e2e change; `CHANGELOG.md` records the
+        behaviour change and `tasks.md` shows the task in `Done`.
+
+### Suggested reviewer prompt
+
+```text
+Review one PR against STRATEGY-VALIDATION-001 and docs/agent-execution-protocol.md
+section 5. Prove with file:line evidence that (1) src/core/, embargo.ts,
+strategyLibrary.ts, the src/parity generators and src-tauri/ are absent from the diff, no
+existing e2e spec changed, and the discoveryConfig/candidateEnumeration edits are a verbatim
+move plus re-exports whose own tests pass unmodified with only fixture sourceHashes moving;
+(2) checkNumericParam is the single
+authority for all eleven hard-validated keys, proven by an agreement test rather than by a
+re-implemented rule; (3) the five execution-model fields are excluded and the tested legacy
+clamping (sizePct 0 -> 100%, negative fee -> 0) still holds; (4) hard ∪ legacy covers every
+numeric ParamsStrategy field, so a new field cannot escape classification; (5) both mount
+points — runParamsBacktest and buildStrategyDef — reject before any work or hashing, and a
+sweep variant degrades to a null cell instead of a confident zero-trade cell; (6) the
+cross-field rules warn without blocking, matching the recorded adjudication, and the UI copy
+is zh-TW with Run disabled on hard failures only; (7) a legacy row with an invalid period
+still loads into the form. Return approve / request-changes / escalate in zh-TW.
 ```

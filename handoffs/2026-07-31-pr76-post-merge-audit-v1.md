@@ -417,3 +417,64 @@ state，不寫入 SQLite。`freezeDeep`/`cloneDeep` 刻意在 `sweepArtifact.ts`
 - 掃描仍在 React thread 同步執行最多 256 次回測；worker 化與取消仍是 `PERF-001`。
 - 下一個裁決順序是 `STRATEGY-VALIDATION-001`，也是 `RUNNER-UI-001` 前最後一個
   correctness gate；它尚未在 `docs/improvement-backlog.md` 展開成規格。
+
+### STRATEGY-VALIDATION-001 — Claude Code, 2026-08-16
+
+- Branch: `fix/strategy-period-validation`，自 `origin/main` `be4e3c6`
+  （PR #98 合併後）開出。`tasks.md` 由 Backlog -> In Progress -> Done。規格先以
+  Planner 身分展開到 `docs/improvement-backlog.md`，再依該規格實作。
+- Files changed: 新增 `src/services/strategyValidation.ts` 與
+  `strategyValidation.test.ts`；改 `src/services/backtestRunner.ts`、
+  `src/services/strategyRecord.ts`、`src/services/discoveryConfig.ts`、
+  `src/services/candidateEnumeration.ts`、`src/components/StrategySection.tsx`、
+  `src/components/NumberInput.tsx`；重新產生
+  `fixtures/rs-core/{benchmark,runner-config}-v1.json`；新增
+  `e2e/strategy-validation.spec.ts`；更新 `docs/improvement-backlog.md`、
+  `tasks.md`、`CHANGELOG.md` 與本 handoff。
+
+#### 實作裁決
+
+1. **硬性驗證只涵蓋 11 個指標欄位。** 8 個週期為 safe integer `>= 1`、
+   `rsiBuy`/`rsiSell` 落在 0–100、`bbMult` > 0。判斷權威一律是既有的
+   `checkNumericParam`，本模組只負責 zh-TW 文案與掛載點，並以 agreement test
+   對 11 個 key 逐值比對，確保規則不可能分叉。
+2. **5 個執行模型欄位刻意排除。** `feePct`/`slipPct`/`sizePct`/`slPct`/`tpPct`
+   由 `toExecCostFractions` 的既有 legacy clamping 擁有，且已有committed 測試
+   （`sizePct: 0` = 100%、負手續費 clamp 為 0）。套用 discovery 的 percent domain
+   會與這些測試衝突並讓既存策略無法執行；上界則早已由引擎的
+   `assertNormalizedFraction` 把關。另有 classification 測試確保
+   hard ∪ legacy = `ParamsStrategy` 全部數值欄位，未來新增欄位無法漏分類。
+3. **cross-field 規則是警告，不是錯誤。** 三條規則都不會產生 NaN，只是可疑假設；
+   repo 自身的紀錄也把它們視為「合法 grid 的預期修剪」而非 malformed；且是否讀取
+   `fastMA` 取決於選用訊號。若改為致命錯誤，預設 2-D 掃描的 (20,20) 格會被靜默清空。
+   日後要收緊只是一行，放寬則不可逆——這一點請 maintainer 明確裁決後再改。
+4. **依賴反轉是被迫的，不是偏好。** `discoveryConfig -> randomEntry ->
+   backtestRunner`，所以 runner 會 import 的 validator 不可能再 import
+   `discoveryConfig`：第一版實作立即產生 ESM 循環，26 個既有測試以
+   `discoveryConfig.contracts is missing key "gate"` 失敗。解法是把 domain table、
+   `checkNumericParam`、`DISCOVERY_VALIDITY_RULE_IDS`、`candidateValidity`
+   **逐字搬入**新模組，兩個 discovery 模組改為 re-export。中立性以機械方式證明：
+   `discoveryConfig.test.ts`、`candidateEnumeration.test.ts`、
+   `runnerConfigFixture.test.ts` 完全未修改即通過，且重新產生的兩個 parity fixture
+   只有 3 行 `generator.sourceHashes` 改變，其餘期望值 byte-identical。
+5. **library 載入維持可載入。** `strategyFromDef` 未加新規則：UI 目前沒有刪除策略
+   （PARITY-003 仍 deferred），若在載入時拒絕，舊的不合法列會永遠無法修復。Run 與
+   Save 才是 fail-closed 邊界。
+
+#### Validation
+
+- `npm run typecheck`、`npm test`（773，+30）、`npm run build`、`npm run e2e`
+  （56，+3）全綠。未動 Rust，故未重跑 cargo。
+- Bundle：268.37 kB → 271.19 kB（gzip 87.90 → 88.82 kB）。新模組無 service 相依，
+  因此沒有把 discovery graph 拉進前端 bundle。
+- Fixture：`npm run fixtures:benchmarks`、`npm run fixtures:runner-config`
+  重新產生；diff 僅
+  `backtestRunner` / `discoveryConfig` / `candidateEnumeration` 三個 sourceHash。
+
+#### 殘餘風險與後續
+
+- cross-field 目前只警告（見裁決 3）。
+- `embargo.ts` 仍保有自己的 usage-aware `period()` 檢查（只驗真正被讀取的週期），
+  與本 gate 的 blanket 檢查是兩份不同契約，且由 parity fixture 鎖定，本次未合併。
+- 這是 post-PR #76 稽核順序的最後一個 correctness gate；`RUNNER-UI-001`（第 8 項）
+  自此解除封鎖，但尚未在 `docs/improvement-backlog.md` 展開成規格。
