@@ -735,8 +735,9 @@ cross-session decisions are preserved in
 `../handoffs/2026-07-31-pr76-post-merge-audit-v1.md`.
 
 The audit IDs expanded below as execution-ready coding-agent specifications are
-`BUG-RESULT-CONTEXT-001` (2026-07-31), `METRIC-002` (2026-08-01), and
-`DATA-QUALITY-001` (2026-08-09), in the adjudicated execution order. The
+`BUG-RESULT-CONTEXT-001` (2026-07-31), `METRIC-002` (2026-08-01),
+`DATA-QUALITY-001` (2026-08-09), and `BUG-SWEEP-CONTEXT-001` (2026-08-15), in the
+adjudicated execution order. The
 remaining audit IDs are recorded in `tasks.md` and the handoff, but a Planner
 must expand the chosen task to this same format before promoting it to `Next`.
 Existing `PERF-001` keeps its original specification above and must not be
@@ -1556,5 +1557,225 @@ change on resume; (6) the UI fail-closed path reuses the existing liveContext ==
 guard instead of adding a second mechanism, and its copy is zh-TW; (7) no interval
 cadence, gap, or unknown-interval-fallback change slipped in, and no PERSIST-INVARIANT-001
 or BUG-SWEEP-CONTEXT-001 work was bundled; (8) no dependency, schema, or e2e change.
+Return approve / request-changes / escalate in zh-TW; do not edit code.
+```
+
+---
+
+## BUG-SWEEP-CONTEXT-001 — 參數掃描結果綁定不可變掃描快照
+
+Expanded to execution-ready format on 2026-08-15, after `DATA-QUALITY-001`
+merged as PR #94 (`bd445f3`) and the marketing campaign merged as PR #97
+(`a3fe2fe`). Audit evidence: §8 of
+`../handoffs/2026-07-31-pr76-post-merge-audit-v1.md`. This is order #6 of the
+adjudicated post-PR #76 sequence and the last correctness gate before
+`STRATEGY-VALIDATION-001`.
+
+- **Category**: Correctness / anti-overfitting discipline
+- **Objective**: A completed parameter sweep may be shown, and its cells may be
+  applied to the strategy, only while the inputs it optimised over are still the
+  live inputs. The sweep result must carry the dataset identity, interval, the
+  exact optimised bar range including the Holdout split, the sweep
+  configuration, and the base strategy with the swept axes masked; a mismatch
+  must hide the heatmap and every apply action, and a late completion must be
+  discarded rather than painted into the current inputs.
+- **Why this is next**: `BUG-RESULT-CONTEXT-001` closed the same hazard for the
+  interactive backtest but explicitly left the sweep open (see that task's
+  Resolution, 殘餘風險 bullet 2). Today a sweep run with Holdout **off** stays on
+  screen after Holdout is switched **on**, and 套用最佳 still applies a combination
+  that was chosen using the out-of-sample tail. That is not a stale-UI annoyance:
+  it silently destroys the honesty of the segment the whole Holdout feature
+  exists to protect, and the user has no way to see that it happened.
+
+### Evidence (re-derived 2026-08-15 on `a3fe2fe`)
+
+- `alpha-factor-forge/src/components/SweepSection.tsx:219-222` clears the shown
+  result only on `resetSignal` (library load), and `232-237` (`clearSweep`) only
+  on a sweep-config edit. Nothing else invalidates it.
+- Same file `239-264` (`runSweep`) derives the optimised range from the
+  `holdout` / `holdoutPct` props at run time, but that range is never recorded
+  with the result, so the heatmap cannot know which bars produced it.
+- Same file `279-283` (`applySweepBest`) and `346` (per-cell `onPick`) act on
+  whatever `sweepResult` currently holds.
+- `alpha-factor-forge/src/components/BacktestPanel.tsx:488-507` passes `strat`,
+  `interval`, `holdout`, and `holdoutPct` as four independent props, so a sweep
+  has no single description of its own inputs to compare against — exactly the
+  per-field drift `runArtifact.ts` was created to remove.
+- Shortest reproduction: 載入樣本 → 展開參數掃描 → 執行掃描（Holdout OFF）→
+  勾選 Holdout → 不重新掃描直接按「套用最佳」。The applied combination was chosen
+  on the full period, including the bars now reserved as out-of-sample.
+- Second reproduction: 執行掃描 → 改「手續費 %」（非掃描軸）→ heatmap 仍在，
+  且每一格的指標值都是用舊手續費算的。
+
+### Files likely affected
+
+- new `alpha-factor-forge/src/services/sweepArtifact.ts` (pure; no React/DOM/IO)
+- new `alpha-factor-forge/src/services/sweepArtifact.test.ts`
+- `alpha-factor-forge/src/components/SweepSection.tsx`
+- `alpha-factor-forge/src/components/BacktestPanel.tsx` (prop wiring only)
+- new `alpha-factor-forge/e2e/sweep-context.spec.ts`
+- `CHANGELOG.md`, `tasks.md`, this file, and a Resolution section appended to
+  `handoffs/2026-07-31-pr76-post-merge-audit-v1.md`
+
+**Explicitly NOT in the list, and their absence is an acceptance check:**
+`src/services/paramSweep.ts` (the sweep engine is correct and stays untouched),
+`src/services/runArtifact.ts`, `src/tauri-client/**`, `src-tauri/**`,
+`src-tauri/migrations/**`, and every existing `e2e/*.spec.ts`.
+
+### Contract shape (adjudicated; do not redesign mid-implementation)
+
+```text
+SWEEP_CONTEXT_VERSION = 'sweep-context-v1'
+
+SweepContext = {
+  dataset: RunDatasetSnapshot   // reused verbatim from runArtifact.ts
+  basis:   { fixed: Record<string, unknown>, swept: SweepParamKey[] }
+  config:  SweepConfig          // normalized: y is null (never undefined) on 1-D
+  range:   { from, to, holdout: { pct, splitIndex } | null }
+}
+CompletedSweep = { context: SweepContext, result: SweepResult }
+```
+
+Three properties make this correct, and each has a named test:
+
+1. **The masked basis.** `basis.fixed` is the live strategy with the swept axis
+   keys **removed**, and `basis.swept` is the sorted axis-key list. Applying a
+   cell writes exactly the swept axes, so it cannot invalidate the grid it came
+   from — the intentional case the task calls out. Every other strategy field
+   stays in `fixed`, so a non-axis edit invalidates. Masking is an **equality**
+   decision only; the sweep still executes against the full live strategy.
+2. **One range definition.** The optimised range is derived from the panel's
+   `RunRange` by one helper: full period, or `[from, splitIndex - 1]` when
+   Holdout is on. It therefore shares `holdoutSplitIndex` with `run()` and with
+   the sweep's own `from`/`to`, so the recorded range cannot drift from the
+   executed one (the BUG-001 boundary stays single-sourced).
+3. **One comparison point.** `sameSweepContext` over `canonicalize` is the only
+   "is this sweep still valid?" decision. `SweepSection` must not compare
+   datasets, strategies, or holdout fields itself.
+
+### Exact implementation plan
+
+1. Add `src/services/sweepArtifact.ts`, importing `RunContext`, `RunRange`,
+   `RunDatasetSnapshot`, and `RunHoldoutSplit` from `runArtifact.ts` and
+   `SweepConfig` / `SweepParamKey` / `SweepResult` from `paramSweep.ts`. Export
+   `SWEEP_CONTEXT_VERSION`, the types above, and:
+   - `sweepRangeFromRunRange(range)` — property 2.
+   - `normalizeSweepConfig(config)` — forces `y: null` on a 1-D sweep, because
+     `canonicalize` is `JSON.stringify`-based and would otherwise key `undefined`
+     and `null` differently.
+   - `sweptParamKeys(config)` — sorted, de-duplicated axis keys.
+   - `describeSweepContext({ run, config })` — deep-cloned and deep-frozen.
+   - `sweepContextKey` / `sameSweepContext` (null is never equal to anything).
+   - `createSweepArtifact({ context, result })` — `structuredClone` + deep freeze
+     so a caller cannot mutate a stored grid.
+   - `sweepResultIsWritable({ started, live, generation, owner })` — the pure
+     late-completion predicate: the sweep must still own the slot **and** the
+     context it started for must still be live.
+2. Add `src/services/sweepArtifact.test.ts` covering, by name: swept axes masked
+   (1-D and 2-D); a non-axis strategy edit invalidates; every dataset field
+   invalidates; Holdout toggle and percentage invalidate; every sweep-config
+   field invalidates; `y: undefined` and `y: null` key identically; the Holdout
+   range equals `[0, splitIndex - 1]` and shares `holdoutSplitIndex`; null fails
+   closed; the artifact is frozen and detached; and the four branches of
+   `sweepResultIsWritable`.
+3. Rewire `SweepSection` props to a single `liveContext: RunContext | null`,
+   replacing `strat`, `interval`, `datasetSelected`, `holdout`, and `holdoutPct`.
+   `BacktestPanel` passes the `liveContext` it already computes. Do not add a
+   second source of live inputs.
+4. Replace the `sweepResult` state with `completedSweep: CompletedSweep | null`
+   plus a **render-derived** gate, mirroring `BacktestPanel`'s `artifact` /
+   `staleResult`: `sweep` is the completed sweep only while its context still
+   matches the live one, and `staleSweep` is "completed but no longer matching".
+   The heatmap, 套用最佳, and the applied-cell marker render from `sweep` only, so
+   an invalidating edit removes them in the same render that accepts the edit.
+5. When `staleSweep`, render one zh-TW notice with `data-testid="sweep-stale"`
+   telling the user the previous scan no longer matches and to re-scan. Do not
+   add a second disabling mechanism, and do not silently keep the grid visible.
+6. Add a generation token + owner ref to `SweepSection` (same shape as
+   `BacktestPanel`'s) and drive the `掃描中…` state from `sweepingGen`. On
+   completion, write the artifact only when `sweepResultIsWritable` returns true;
+   otherwise discard the result **and** leave no error behind.
+7. Keep the existing hard clears (`clearSweep` on a config edit, `resetSignal` on
+   a library load). They are a strict subset of the new gate, they preserve the
+   current behaviour that `e2e/sweep.spec.ts` already asserts, and they match the
+   precedent in `loadSavedStrategy`, which clears `completed` even though the
+   context gate would also catch it.
+8. Add `e2e/sweep-context.spec.ts` with the Holdout-toggle reproduction, the
+   non-axis-edit reproduction, and the intentional apply-a-swept-cell case.
+
+### Non-goals
+
+- Do not move the sweep into the Web Worker, add cancellation UI, or change its
+  performance characteristics — that is `PERF-001`, which has its own
+  specification above and must not be duplicated or partially started here.
+- Do not change `paramSweep.ts`: the engine, the axis/combination caps, the
+  metric projection, and the `from`/`to` semantics are correct and out of scope.
+- Do not persist the sweep artifact. There is no sweep row, no schema change, no
+  migration, and no Rust change; the artifact lives only in component state.
+- Do not change the interactive backtest's `runArtifact` contract, the strategy
+  library, Save/Export, or the report schema.
+- Do not add indicator-period validation; a swept axis that produces an invalid
+  period still yields a null cell. That is `STRATEGY-VALIDATION-001`.
+- Do not weaken or re-point any assertion in the existing `e2e/sweep.spec.ts`,
+  `e2e/holdout.spec.ts`, or `e2e/result-context.spec.ts`; every existing
+  `data-testid` must survive.
+- No new dependencies, and no `package-lock.json` change.
+
+- **Risk level**: Medium. The logic is small and pure, but the realistic failure
+  modes are (a) forgetting to mask the swept axes, which makes applying a cell
+  invalidate the grid it came from and breaks the shipped apply flow, (b) keying
+  the context off a field that legitimately changes between renders, producing a
+  heatmap that vanishes for no reason, and (c) leaving one apply path reading the
+  ungated state. Steps 1, 2, and 4 are each written to make one of those visible.
+- **Validation plan**:
+  - `cd alpha-factor-forge && npm run typecheck`
+  - `cd alpha-factor-forge && npm test`
+  - `cd alpha-factor-forge && npm run build`
+  - `cd alpha-factor-forge && npm run e2e` (local Windows: default `workers=1`;
+    do not override)
+  - No Rust file changes, so `cargo` is not re-run; state this explicitly in the
+    PR instead of omitting it.
+  - Paste `git diff --stat` and confirm `src/services/paramSweep.ts`,
+    `src/services/runArtifact.ts`, `src-tauri/`, and the existing `e2e/*.spec.ts`
+    are absent from it.
+  - Manual: 載入樣本 → 掃描 → 勾 Holdout → heatmap 與 套用最佳 消失並顯示
+    `sweep-stale` → 重新掃描 → 兩者回來且掃描範圍註記為僅樣本內。
+- **Acceptance criteria**:
+  - [ ] A completed sweep records dataset id + content hash, symbol, interval,
+        dataset time range, bar count, the optimised range including the Holdout
+        split, the normalized sweep configuration, and the masked base strategy.
+  - [ ] Toggling Holdout, or changing its percentage, hides the heatmap, 套用最佳,
+        and the applied marker, and shows `sweep-stale`.
+  - [ ] A non-axis strategy edit (e.g. 手續費 %) invalidates the sweep the same way.
+  - [ ] Applying a swept-axis cell — the intentional case — keeps the grid valid,
+        keeps 套用最佳 available, and shows the ✓ applied marker.
+  - [ ] A dataset switch cannot leave a previous dataset's heatmap reachable.
+  - [ ] A late-completing sweep whose context is no longer live is discarded and
+        leaves no result and no error; the predicate is unit-tested on all four
+        branches.
+  - [ ] The heatmap and every apply path read the gated value; no call site
+        compares strategy or dataset fields by hand.
+  - [ ] Every existing sweep/holdout/result-context `data-testid` still exists and
+        the existing e2e specs pass unmodified.
+  - [ ] No dependency, schema, migration, Rust, or `paramSweep.ts` change is in
+        the diff; `CHANGELOG.md` records the behaviour change and `tasks.md` shows
+        the task in `Done`.
+
+### Suggested reviewer prompt
+
+```text
+Review one PR against BUG-SWEEP-CONTEXT-001 and docs/agent-execution-protocol.md section 5.
+Prove with file:line evidence that (1) the sweep engine src/services/paramSweep.ts and
+src-tauri/ are absent from the diff, and no existing e2e spec was modified; (2) the swept
+axis keys are removed from the compared basis, so applying a cell does NOT invalidate the
+grid, while a non-axis strategy edit does — both proven by named unit tests; (3) the
+optimised range comes from the shared holdoutSplitIndex via one helper and equals
+[0, splitIndex-1] when Holdout is on, so the recorded range cannot drift from the executed
+one; (4) the heatmap, 套用最佳, and the per-cell onPick all read the render-derived gated
+value, not the raw state, and sameSweepContext is the only equality used; (5) a late
+completion is discarded by both halves of the guard (generation ownership AND live-context
+match) and leaves no error; (6) the zh-TW stale notice appears instead of a silently
+hidden grid, and every pre-existing data-testid survives; (7) nothing from PERF-001
+(worker/cancellation) or STRATEGY-VALIDATION-001 (period validation) was bundled in.
 Return approve / request-changes / escalate in zh-TW; do not edit code.
 ```

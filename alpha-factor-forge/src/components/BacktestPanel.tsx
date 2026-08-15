@@ -487,11 +487,10 @@ export function BacktestPanel(): React.ReactElement {
 
       {candles.length > 0 && (
         <SweepSection
-          strat={strat}
-          interval={selected?.interval ?? ''}
-          datasetSelected={selected != null && selected.id != null}
-          holdout={holdout}
-          holdoutPct={holdoutPct}
+          // BUG-SWEEP-CONTEXT-001: the sweep reads the same live description the
+          // run does, so its grid can be bound to (and compared against) exactly
+          // the inputs a backtest would use — no per-field prop drift.
+          liveContext={liveContext}
           ensureCandles={ensureCandles}
           onApplyCombo={(patch, keys, message) => {
             // Apply Best / any heatmap cell is a strategy edit like the rest

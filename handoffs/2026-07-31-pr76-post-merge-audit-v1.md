@@ -354,3 +354,66 @@ mock 的 `getCandles` 立即回傳，race 無法決定性重現。依 coding-age
   `npm test` (409); `npm run build`; `npm run e2e` (29, +4 from baseline);
   `git diff --check`; production-bundle seam scan. All pass. `tasks.md` records
   the corrected E2E count and both authorized mock controls.
+
+### BUG-SWEEP-CONTEXT-001 — Claude Code, 2026-08-15
+
+- Branch: `fix/sweep-result-context`，自 `origin/main` `a3fe2fe`（PR #97 合併後）
+  開出。`tasks.md` 由 Backlog -> In Progress -> Done。規格先以 Planner 身分展開到
+  `docs/improvement-backlog.md`（本 handoff §2 第 2 條要求），再依該規格實作。
+- Files changed: 新增 `alpha-factor-forge/src/services/sweepArtifact.ts` 與
+  `sweepArtifact.test.ts`；改 `src/components/SweepSection.tsx`、
+  `src/components/BacktestPanel.tsx`（只有 prop 接線）；新增
+  `e2e/sweep-context.spec.ts`；更新 `docs/improvement-backlog.md`、`tasks.md`、
+  `CHANGELOG.md` 與本 handoff。
+
+#### 實作裁決
+
+1. **不可變 artifact + 單一比較點。** 完成的掃描存成凍結的 `CompletedSweep`，其
+   `sweep-context-v1` context 記錄 dataset id/hash/symbol/interval/時間範圍/bar
+   數、實際最佳化的 bar 範圍（含 Holdout split）、正規化後的 sweep config，以及
+   **移除掃描軸後**的 base strategy。是否仍有效一律由 `sameSweepContext` 判斷，
+   `SweepSection` 不做逐欄比較。
+2. **掃描軸遮罩是刻意的。** 點格子（或套用最佳）寫入的就是掃描軸本身，因此不得
+   使自己來源的 heatmap 失效；非掃描欄位一律留在 basis 內，任何變更都會失效。
+   `describeSweepBasis` 的測試以 `defaultStrategy()` 推導預期 key set，不手寫清單，
+   所以 `ParamsStrategy` 日後新增欄位會自動納入。
+3. **單一範圍定義。** 最佳化範圍由 `sweepRangeFromRunRange` 從 panel 的 run range
+   導出（Holdout 開啟時為 `[from, splitIndex - 1]`），與 `run()` 共用同一支
+   `holdoutSplitIndex`，BUG-001 的樣本內邊界維持單一來源。
+4. **prop 收斂為一個 `liveContext`。** 原本的 `strat`/`interval`/
+   `datasetSelected`/`holdout`/`holdoutPct` 五個獨立 prop 讓完成的 grid 沒有任何
+   可比對的整體描述，正是 `runArtifact.ts` 當初要消除的漂移。
+5. **保留既有硬清除。** config 編輯的 `clearSweep` 與 library 載入的 `resetSignal`
+   維持不動：它們是新 gate 的嚴格子集，維持 `e2e/sweep.spec.ts` 既有斷言，也與
+   panel 的 `loadSavedStrategy` 同時清 `completed` 的既有先例一致。
+6. **late completion 用純函式驗證。** `sweepResultIsWritable`（generation ownership
+   + live context 相符）是純函式並涵蓋四個分支的單元測試；repo 沒有 React 元件測試
+   環境，且用 Playwright 逼出 20ms 視窗的 race 會變成時間相依的 flaky 測試，故不以
+   e2e 覆蓋這一項。
+
+#### Scope
+
+未動 `src/services/paramSweep.ts`、`src/services/runArtifact.ts`、`src-tauri/`、
+schema/migration、依賴，以及任何既有 `e2e/*.spec.ts`。sweep artifact 只存在於元件
+state，不寫入 SQLite。`freezeDeep`/`cloneDeep` 刻意在 `sweepArtifact.ts` 內複製一份，
+以免為了共用而改動已合併的 BUG-RESULT-CONTEXT-001 契約檔、或把 move-only refactor
+混進 fix PR；抽出單一 `services/immutable.ts` 列為建議後續。
+
+#### Validation
+
+- `npm run typecheck`、`npm test`（743，+40）、`npm run build`、`npm run e2e`
+  （53，+3）全綠。本 task 未動 Rust/schema，因此未重跑 cargo。
+- Mutation check：暫時把 context gate 改為恆真後，`sweep-context.spec.ts` 的兩個
+  gate 案例分別在 `sweep-best-marker` 斷言處失敗，證明斷言確實由 gate 支撐；
+  dataset switch 案例仍通過，因為它是由 panel 在 candles 清空時卸載整個 section 所
+  保護，dataset 欄位對 gate 的貢獻改由單元測試證明。已還原後重跑全綠。
+
+#### 殘餘風險與後續
+
+- 失效時的呈現是隱藏 heatmap 並顯示 zh-TW 提示，與 `ResultsSection` 的
+  `result-stale` 一致；若日後偏好保留表格改為 disabled，屬 UI 決策而非正確性缺口。
+- Holdout 百分比即使 clamp 後 split index 不變（例如 600 根的 30% 與 30.1%），仍會
+  使掃描失效。這是刻意 fail closed，成本只是一次重掃。
+- 掃描仍在 React thread 同步執行最多 256 次回測；worker 化與取消仍是 `PERF-001`。
+- 下一個裁決順序是 `STRATEGY-VALIDATION-001`，也是 `RUNNER-UI-001` 前最後一個
+  correctness gate；它尚未在 `docs/improvement-backlog.md` 展開成規格。
