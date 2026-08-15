@@ -17,6 +17,7 @@ import {
   type OperandId,
 } from '../services/strategy';
 import { SUPPORTED_SIGNALS } from '../services/strategySignals';
+import { validateStrategyParams } from '../services/strategyValidation';
 import { compileExpression } from '../services/exprInterpreter';
 import type { StrategyDef } from '../tauri-client/commands';
 import { HelpTip } from './HelpTip';
@@ -25,18 +26,24 @@ import { makeStyles } from './panelStyles';
 import { useTheme } from '../theme/ThemeProvider';
 import type { NumKey } from './panelTypes';
 
-const IND_FIELDS: { key: NumKey; label: string }[] = [
-  { key: 'fastMA', label: '快線 MA' },
-  { key: 'slowMA', label: '慢線 MA' },
-  { key: 'emaPeriod', label: 'EMA' },
-  { key: 'rsiPeriod', label: 'RSI 週期' },
-  { key: 'rsiBuy', label: 'RSI 買' },
-  { key: 'rsiSell', label: 'RSI 賣' },
-  { key: 'macdFast', label: 'MACD 快' },
-  { key: 'macdSlow', label: 'MACD 慢' },
-  { key: 'macdSignal', label: 'MACD 訊號' },
-  { key: 'bbPeriod', label: 'BB 週期' },
-  { key: 'bbMult', label: 'BB 倍數' },
+// STRATEGY-VALIDATION-001: the min/step columns are input HINTS only — they make
+// the spinner and arrow keys land on legal values, and `NumberInput` clamps to
+// `min` on blur. A typed or pasted value still reaches the strategy unchanged
+// (2.5 satisfies min=1), so `validateStrategyParams` remains the enforcement.
+const IND_FIELDS: { key: NumKey; label: string; min: number; max?: number; step: number }[] = [
+  { key: 'fastMA', label: '快線 MA', min: 1, step: 1 },
+  { key: 'slowMA', label: '慢線 MA', min: 1, step: 1 },
+  { key: 'emaPeriod', label: 'EMA', min: 1, step: 1 },
+  { key: 'rsiPeriod', label: 'RSI 週期', min: 1, step: 1 },
+  { key: 'rsiBuy', label: 'RSI 買', min: 0, max: 100, step: 1 },
+  { key: 'rsiSell', label: 'RSI 賣', min: 0, max: 100, step: 1 },
+  { key: 'macdFast', label: 'MACD 快', min: 1, step: 1 },
+  { key: 'macdSlow', label: 'MACD 慢', min: 1, step: 1 },
+  { key: 'macdSignal', label: 'MACD 訊號', min: 1, step: 1 },
+  { key: 'bbPeriod', label: 'BB 週期', min: 1, step: 1 },
+  // bbMult is `> 0`, which `min` cannot express; 0.1 is the smallest hint that
+  // stays inside the rule.
+  { key: 'bbMult', label: 'BB 倍數', min: 0.1, step: 0.1 },
 ];
 
 const EXEC_FIELDS: { key: NumKey; label: string }[] = [
@@ -198,9 +205,16 @@ export function StrategySection({
     isAppliedKey(key) ? { ...S.label, color: t.color.accent, fontWeight: 700 } : S.label;
   const codeValidation = validateCodeExpressions(strat.entryCode, strat.exitCode);
   const codeModeAllowsRun = strat.mode !== 'code' || codeValidation.valid;
+  // STRATEGY-VALIDATION-001 — the same validator the run and save boundaries
+  // enforce, so the button state can never disagree with what they would do.
+  // Issues block Run (mirroring codeModeAllowsRun); warnings only inform.
+  const paramValidation = validateStrategyParams(strat);
+  const issueKeys = new Set<NumKey>(paramValidation.issues.map((issue) => issue.key));
 
   return (
-    <section style={S.card}>
+    // The chart's quick row edits some of the same indicator fields with the
+    // same labels, so tests need a way to address this card's inputs.
+    <section data-testid="strategy-section" style={S.card}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
         <h2 style={{ ...S.h2, margin: 0 }}>策略</h2>
         <HelpTip id="strategy" label="策略" text={help.strategy} />
@@ -316,10 +330,31 @@ export function StrategySection({
         {IND_FIELDS.map((f) => (
           <label key={f.key} data-testid={isAppliedKey(f.key) ? `applied-${f.key}` : undefined} style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             <span style={appliedLabelStyle(f.key)}>{isAppliedKey(f.key) ? `✓ ${f.label}` : f.label}</span>
-            <NumberInput value={strat[f.key]} onChange={(n) => onChangeParam(f.key, n)} style={appliedInputStyle(f.key, S.input)} />
+            <NumberInput
+              value={strat[f.key]}
+              onChange={(n) => onChangeParam(f.key, n)}
+              min={f.min}
+              max={f.max}
+              step={f.step}
+              style={issueKeys.has(f.key)
+                ? { ...appliedInputStyle(f.key, S.input), borderColor: t.color.danger }
+                : appliedInputStyle(f.key, S.input)}
+            />
           </label>
         ))}
       </div>
+      {/* STRATEGY-VALIDATION-001: name the offending field instead of letting the
+          run produce a confident zero-trade result. */}
+      {paramValidation.issues.length > 0 && (
+        <ul data-testid="strategy-issues" style={{ margin: '8px 0 0', paddingLeft: 18, fontSize: 11, color: t.color.danger }}>
+          {paramValidation.issues.map((issue) => <li key={issue.key}>{issue.message}</li>)}
+        </ul>
+      )}
+      {paramValidation.warnings.length > 0 && (
+        <ul data-testid="strategy-warnings" style={{ margin: '8px 0 0', paddingLeft: 18, fontSize: 11, color: t.color.warn }}>
+          {paramValidation.warnings.map((warning) => <li key={warning.rule}>{warning.message}</li>)}
+        </ul>
+      )}
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, margin: '12px 0 8px' }}>
         <h2 style={{ ...S.h2, margin: 0 }}>執行模型</h2>
@@ -380,7 +415,7 @@ export function StrategySection({
           data-testid="run-backtest"
           style={{ ...S.btn, flex: 1 }}
           onClick={onRun}
-          disabled={running || !canRun || !codeModeAllowsRun}
+          disabled={running || !canRun || !codeModeAllowsRun || !paramValidation.ok}
           aria-busy={running}
         >
           {running ? '回測中…' : '▶ 執行回測'}

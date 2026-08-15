@@ -15,6 +15,11 @@ import { DEFAULT_GATE_CONFIG, GATE_CONTRACT_VERSION, type GateConfig } from './g
 import { DEFAULT_SCORE_CONFIG, SCORE_FORMULA_VERSION, type ScoreConfig } from './score';
 import { MAX_RANDOM_ENTRY_RUNS } from './randomEntry';
 import { DISCOVERY_SEED_VERSION, MAX_U32 } from './discoverySeed';
+import {
+  NUMERIC_PARAM_DOMAINS,
+  checkNumericParam,
+  type NumericParamKey,
+} from './strategyValidation';
 import type { Direction, FillMode } from '../core/backtest';
 import type { ParamsStrategy, SignalId } from './strategy';
 
@@ -49,39 +54,16 @@ export const DISCOVERY_MAX_AXIS_VALUES = 64;
 
 // ---------- parameter domains ----------
 
-type NumericDomain = 'period' | 'level' | 'positive' | 'percent' | 'sizePercent';
-
-/**
- * Domain of every numeric `ParamsStrategy` field, in declaration order.
- *
- * `percent` is bounded at 100, not merely at 0: `backtestRunner` divides these
- * legacy percent units by 100 and the engine's `assertNormalizedFraction`
- * rejects anything above 1. Admitting `feePct: 101` would queue a run that is
- * GUARANTEED to throw once a job executes — worse than not checking, because
- * the failure would land after jobs exist. `level` shares the same numeric
- * range for an unrelated reason (RSI is defined on 0..100), so the two stay
- * separate domains.
- */
-const NUMERIC_PARAM_DOMAINS = {
-  fastMA: 'period',
-  slowMA: 'period',
-  emaPeriod: 'period',
-  rsiPeriod: 'period',
-  rsiBuy: 'level',
-  rsiSell: 'level',
-  macdFast: 'period',
-  macdSlow: 'period',
-  macdSignal: 'period',
-  bbPeriod: 'period',
-  bbMult: 'positive',
-  slPct: 'percent',
-  tpPct: 'percent',
-  feePct: 'percent',
-  slipPct: 'percent',
-  sizePct: 'sizePercent',
-} as const satisfies Record<string, NumericDomain>;
-
-export type NumericParamKey = keyof typeof NUMERIC_PARAM_DOMAINS;
+// STRATEGY-VALIDATION-001 moved the numeric domain table and `checkNumericParam`
+// verbatim into `strategyValidation`, so the manual editor's run/save gate can
+// share this exact rule set. The move was forced by module structure, not
+// preference: `discoveryConfig` -> `randomEntry` -> `backtestRunner`, so a
+// validator that both `backtestRunner` and this module import cannot live here
+// without a cycle. Behaviour, wording, and every consumer are unchanged — the
+// names below are re-exported so existing imports keep resolving through
+// `discoveryConfig`.
+export { checkNumericParam } from './strategyValidation';
+export type { NumericParamKey } from './strategyValidation';
 
 /**
  * Whitelisted grid axes: the indicator and risk parameters that define the
@@ -357,26 +339,6 @@ function requireIntegerInRange(
     fail(`${path} must be an integer in [${min}, ${max}]`);
   }
   return value;
-}
-
-/** Domain check shared by base-preset fields and generated axis values, so an
- *  axis can never produce a value the base preset itself could not hold. */
-export function checkNumericParam(key: NumericParamKey, value: number): string | null {
-  if (!Number.isFinite(value)) return `${key} must be a finite number`;
-  switch (NUMERIC_PARAM_DOMAINS[key]) {
-    case 'period':
-      return Number.isSafeInteger(value) && value >= 1
-        ? null
-        : `${key} must be an integer >= 1`;
-    case 'level':
-      return value >= 0 && value <= 100 ? null : `${key} must be in [0, 100]`;
-    case 'positive':
-      return value > 0 ? null : `${key} must be > 0`;
-    case 'percent':
-      return value >= 0 && value <= 100 ? null : `${key} must be in [0, 100]`;
-    case 'sizePercent':
-      return value > 0 && value <= 100 ? null : `${key} must be in (0, 100]`;
-  }
 }
 
 // ---------- strategy preset ----------

@@ -11,6 +11,7 @@ import {
   type BacktestResult,
 } from '../core/backtest';
 import { buildSignals } from './strategySignals';
+import { assertStrategyParams } from './strategyValidation';
 import type { ParamsStrategy } from './strategy';
 
 /** Approx. bars per year per interval, for CAGR/Sharpe annualisation. */
@@ -69,6 +70,12 @@ export interface RunParamsBacktestArgs {
 /** Run a params-mode backtest end to end. Deterministic. */
 export function runParamsBacktest(args: RunParamsBacktestArgs): BacktestResult {
   const { candles, strat, interval } = args;
+  // STRATEGY-VALIDATION-001 — the single funnel for every manual execution
+  // (panel run, Holdout segments, and each parameter-sweep variant). An
+  // indicator period that cannot produce a series must fail visibly here
+  // instead of reaching the indicators, where it silently becomes NaN and then
+  // a confident zero-trade result.
+  assertStrategyParams(strat);
   const signals = buildSignals(candles, strat);
   const { feePct, slippagePct, sizingPct } = toExecCostFractions(strat);
 

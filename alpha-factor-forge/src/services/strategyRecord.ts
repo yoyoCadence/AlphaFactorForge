@@ -4,10 +4,17 @@
 
 import { strategyHash } from '../core/hashing';
 import type { StrategyDef } from '../tauri-client/commands';
+import { assertStrategyParams } from './strategyValidation';
 import type { ParamsStrategy } from './strategy';
 
 /** Async because durable strategy-v2 identity requires Web Crypto SHA-256. */
 export async function buildStrategyDef(strat: ParamsStrategy, name: string): Promise<StrategyDef> {
+  // STRATEGY-VALIDATION-001 — persistence boundary. Rejecting BEFORE the hash is
+  // what keeps an unusable strategy from acquiring a durable `strategy-v2`
+  // identity (and therefore a row, a library entry, and an exported report).
+  // This also covers the load-a-legacy-row-then-save path, which the run gate
+  // alone would miss.
+  assertStrategyParams(strat);
   const hash = await strategyHash(strat, {
     feePct: strat.feePct,
     slippagePct: strat.slipPct,

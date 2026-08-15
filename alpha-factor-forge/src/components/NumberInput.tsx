@@ -12,12 +12,17 @@ export function NumberInput({
   onChange,
   min,
   max,
+  step,
   style,
 }: {
   value: number;
   onChange: (n: number) => void;
   min?: number;
   max?: number;
+  /** Spinner/keyboard granularity hint only (STRATEGY-VALIDATION-001 secondary
+   *  protection). It is NOT enforcement: a typed or pasted value still reaches
+   *  onChange unchanged, which is why the runtime validator exists. */
+  step?: number;
   style?: React.CSSProperties;
 }): React.ReactElement {
   const [draft, setDraft] = useState(String(value));
@@ -38,6 +43,9 @@ export function NumberInput({
   return (
     <input
       type="number"
+      min={min}
+      max={max}
+      step={step}
       value={draft}
       onChange={(e) => {
         const raw = e.target.value;
