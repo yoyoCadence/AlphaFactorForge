@@ -3,12 +3,18 @@
 // Owns its own sweep UI state (open/axes/metric/result/appliedCell) and handlers
 // (run/clear/apply). The strategy itself, the applied-key highlighting, and the
 // candle loading stay in BacktestPanel; this section reaches them through props:
+//   - liveContext      the ONE description of the inputs a sweep would run on
 //   - ensureCandles()  loads candles if needed (mirrors the panel's run() path)
 //   - onApplyCombo()   pushes the picked params onto the strategy + status line
 //   - onClearApplied() clears the panel's applied-key highlight
-// Behaviour is identical to the pre-extraction inline block.
+//
+// BUG-SWEEP-CONTEXT-001: a completed grid is held as an immutable artifact bound
+// to the inputs it optimised over (see services/sweepArtifact.ts), and both the
+// heatmap and every apply path read a render-derived gate rather than the raw
+// state — so a Holdout toggle or a non-axis strategy edit removes them in the
+// same render that accepts the edit.
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   runParamSweep,
   countSweepCombos,
@@ -21,8 +27,14 @@ import {
   type SweepParamKey,
   type SweepResult,
 } from '../services/paramSweep';
-import { holdoutSplitIndex } from '../services/holdout';
-import type { ParamsStrategy } from '../services/strategy';
+import {
+  createSweepArtifact,
+  describeSweepContext,
+  sameSweepContext,
+  sweepResultIsWritable,
+  type CompletedSweep,
+} from '../services/sweepArtifact';
+import type { RunContext } from '../services/runArtifact';
 import type { Candle as CoreCandle } from '../core/backtest';
 import { HelpTip } from './HelpTip';
 import { NumberInput } from './NumberInput';
@@ -170,13 +182,14 @@ function SweepHeatmap({
 }
 
 export interface SweepSectionProps {
-  strat: ParamsStrategy;
-  /** selected dataset interval (used only when a sweep runs). */
-  interval: string;
-  /** whether a dataset is selected (guards the run, mirroring the panel). */
-  datasetSelected: boolean;
-  holdout: boolean;
-  holdoutPct: number;
+  /** BUG-SWEEP-CONTEXT-001 — the single description of the inputs a sweep started
+   *  right now would optimise over: dataset identity + interval, the live
+   *  strategy, and the Holdout split. It replaces the previous
+   *  strat/interval/datasetSelected/holdout/holdoutPct props, because four
+   *  independent props gave a completed grid nothing to compare itself against
+   *  and let any one of them be forgotten. Null while the panel has no usable
+   *  dataset, which fails every sweep action closed. */
+  liveContext: RunContext | null;
   /** Load candles if the panel hasn't yet (mirrors run()'s empty-candles path). */
   ensureCandles: () => Promise<CoreCandle[]>;
   /** Push a picked param combo onto the strategy + status line (panel-owned). */
@@ -190,11 +203,7 @@ export interface SweepSectionProps {
 }
 
 export function SweepSection({
-  strat,
-  interval,
-  datasetSelected,
-  holdout,
-  holdoutPct,
+  liveContext,
   ensureCandles,
   onApplyCombo,
   onClearApplied,
@@ -208,42 +217,86 @@ export function SweepSection({
   const [sweepY, setSweepY] = useState<SweepAxisConfig>({ key: 'slowMA', min: 20, max: 40, step: 2 });
   const [sweepUse2d, setSweepUse2d] = useState(false);
   const [sweepMetric, setSweepMetric] = useState<SweepMetricId>('net');
-  const [sweeping, setSweeping] = useState(false);
-  const [sweepResult, setSweepResult] = useState<SweepResult | null>(null);
+  // BUG-SWEEP-CONTEXT-001 — a finished sweep is kept as an immutable artifact
+  // bound to the inputs it optimised over, never as a bare grid.
+  const [completedSweep, setCompletedSweep] = useState<CompletedSweep | null>(null);
   const [sweepErr, setSweepErr] = useState<string | null>(null);
   const [appliedCell, setAppliedCell] = useState<{ x: number; y: number | null } | null>(null);
 
+  // One monotonically increasing token plus an owner ref, the same shape the
+  // panel uses for dataset loads / runs: a completing sweep may only write while
+  // it is still the newest one. Refs (not state) because a callback that already
+  // ran must read the CURRENT owner, not its render closure's copy.
+  const generationRef = useRef(0);
+  const ownerRef = useRef(0);
+  const [sweepingGen, setSweepingGen] = useState<number | null>(null);
+  const sweeping = sweepingGen != null;
+
   // Clear the shown result when the panel signals a strategy load (the heatmap
   // was computed for the previous strategy). Mirrors the old inline reset in
-  // loadSavedStrategy. The initial run (signal 0) is a harmless no-op.
+  // loadSavedStrategy. The initial run (signal 0) is a harmless no-op. This is a
+  // hard clear on top of the context gate below, matching the panel's own
+  // loadSavedStrategy, which likewise drops `completed` outright.
   useEffect(() => {
-    setSweepResult(null);
+    setCompletedSweep(null);
     setAppliedCell(null);
   }, [resetSignal]);
 
-  const sweepConfig: SweepConfig = { x: sweepX, y: sweepUse2d ? sweepY : null, metric: sweepMetric };
+  const sweepConfig: SweepConfig = useMemo(
+    () => ({ x: sweepX, y: sweepUse2d ? sweepY : null, metric: sweepMetric }),
+    [sweepX, sweepY, sweepUse2d, sweepMetric],
+  );
   const sweepCombos = countSweepCombos(sweepConfig);
   const sweepDupKey = sweepUse2d && sweepX.key === sweepY.key;
   const sweepTooMany = sweepCombos > SWEEP_MAX_COMBOS;
+
+  // The inputs a sweep started right now would optimise over. Null until the
+  // panel has a dataset whose candles are loaded, so "loading" and "load failed"
+  // fail closed for every sweep action.
+  const liveSweepContext = useMemo(
+    () => (liveContext == null ? null : describeSweepContext({ run: liveContext, config: sweepConfig })),
+    [liveContext, sweepConfig],
+  );
+  const liveSweepContextRef = useRef(liveSweepContext);
+  liveSweepContextRef.current = liveSweepContext;
+
+  // The completed sweep ONLY while it still describes the live inputs. The
+  // heatmap, 套用最佳 and the per-cell apply all read this — never
+  // `completedSweep` — so an invalidating edit removes them in the same render
+  // that accepts it. The swept axes are masked out of the comparison, so
+  // applying a cell (which writes exactly those axes) keeps the grid valid.
+  const sweep = completedSweep != null && sameSweepContext(completedSweep.context, liveSweepContext) ? completedSweep : null;
+  const staleSweep = completedSweep != null && sweep == null;
+  const sweepResult = sweep?.result ?? null;
+  // The Holdout split the sweep panel describes, read from the same live context
+  // the run uses instead of a separate pair of props.
+  const liveHoldout = liveContext?.range.holdout ?? null;
 
   // Any sweep-config edit invalidates a shown result: the visible controls would
   // otherwise describe a different sweep than the heatmap / 套用最佳 still acts on.
   // The applied-cell highlight is tied to that result, so it clears too.
   const clearSweep = () => {
-    setSweepResult(null);
+    setCompletedSweep(null);
     setSweepErr(null);
     setAppliedCell(null);
     onClearApplied();
   };
 
   async function runSweep() {
-    if (!datasetSelected) {
+    // The sweep executes the context, so the grid can never disagree about which
+    // strategy / dataset / bars produced it.
+    const run = liveContext;
+    const context = liveSweepContext;
+    if (run == null || context == null) {
       setSweepErr('請先選擇資料集');
       return;
     }
-    setSweeping(true);
+    generationRef.current += 1;
+    const generation = generationRef.current;
+    ownerRef.current = generation;
+    setSweepingGen(generation);
     setSweepErr(null);
-    setSweepResult(null);
+    setCompletedSweep(null);
     setAppliedCell(null);
     onClearApplied();
     // Let "掃描中…" paint before the (synchronous, up-to-256-backtest) run.
@@ -252,14 +305,28 @@ export function SweepSection({
       const cs = await ensureCandles();
       if (!cs.length) throw new Error('此資料集沒有 K 線');
       // BUG-001: when holdout is on, optimise on the IN-SAMPLE segment only so
-      // the out-of-sample tail stays untouched for honest validation. Same split
-      // boundary as run() (shared holdoutSplitIndex).
-      const sweepRange = holdout ? { from: 0, to: holdoutSplitIndex(cs.length, holdoutPct) - 1 } : {};
-      setSweepResult(runParamSweep({ candles: cs, strat, interval, sweep: sweepConfig, ...sweepRange }));
+      // the out-of-sample tail stays untouched for honest validation. The range
+      // now comes from the recorded context, which derives it from the same
+      // holdoutSplitIndex run() uses — so the bars the grid is labelled with are
+      // the bars it actually traded.
+      const result = runParamSweep({
+        candles: cs,
+        strat: run.strategy,
+        interval: context.dataset.interval,
+        sweep: context.config,
+        from: context.range.from,
+        to: context.range.to,
+      });
+      // Both halves of the guard: still the newest sweep, and the inputs it was
+      // started for are still the live ones. A superseded sweep is discarded
+      // silently — it must leave neither a grid nor an error behind.
+      if (!sweepResultIsWritable({ started: context, live: liveSweepContextRef.current, generation, owner: ownerRef.current })) return;
+      setCompletedSweep(createSweepArtifact({ context, result }));
     } catch (e) {
+      if (ownerRef.current !== generation) return;
       setSweepErr(e instanceof Error ? e.message : String(e));
     } finally {
-      setSweeping(false);
+      setSweepingGen((cur) => (cur === generation ? null : cur));
     }
   }
 
@@ -298,9 +365,9 @@ export function SweepSection({
           {/* BUG-001: when holdout is on, the sweep optimises on the in-sample
               segment only — say so up front so the heatmap isn't misread as
               full-period. */}
-          {holdout && (
+          {liveHoldout && (
             <div data-testid="sweep-scope" style={{ fontSize: 11, color: t.color.accent, marginBottom: 10 }}>
-              掃描範圍：僅樣本內（前 {100 - holdoutPct}%）；末 {holdoutPct}% 樣本外保留驗證，不參與最佳化。
+              掃描範圍：僅樣本內（前 {100 - liveHoldout.pct}%）；末 {liveHoldout.pct}% 樣本外保留驗證，不參與最佳化。
             </div>
           )}
           {/* controls bar: metric + 2-D toggle + live combo count (axes get
@@ -339,6 +406,13 @@ export function SweepSection({
           </div>
 
           {sweepErr && <div style={{ fontSize: 12, color: t.color.danger, marginTop: 8 }}>{sweepErr}</div>}
+          {/* BUG-SWEEP-CONTEXT-001: say the grid is gone and why, rather than
+              leaving a heatmap on screen that no longer describes these inputs. */}
+          {staleSweep && (
+            <div data-testid="sweep-stale" style={{ fontSize: 12, color: t.color.warn, marginTop: 8 }}>
+              資料集、Holdout 或非掃描參數已變更 — 先前的掃描結果已失效（不會被套用）。請重新執行掃描。
+            </div>
+          )}
           {sweepResult && (
             <SweepHeatmap
               result={sweepResult}
