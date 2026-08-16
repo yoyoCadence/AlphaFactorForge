@@ -645,3 +645,62 @@ behaviour」是起點，開工前需展開成完整 file／step 計畫。重點�
 `getActiveRun()`（DB 才是 progress 的事實來源，事件只是快路徑）、用 `sequence` 丟棄
 比快照舊的事件、unmount 時 `cancel()` throttle，並把 listener 已實作的
 drop-and-report 呈現給使用者而不是吞掉。
+
+### RUNNER-UI-001b-2 — Claude Code, 2026-08-16
+
+- Branch: `feat/discovery-runner-panel`，自 `origin/main` `bb0d38b`（PR #101 合併後）
+  開出。`tasks.md`：b-2 進 Done，`RUNNER-UI-001` 全部 slice 完成。
+- Files changed: 新增 `src/components/DiscoveryPanel.tsx`、
+  `e2e/discovery-runner.spec.ts`；改 `src/components/BacktestPanel.tsx`（掛載）、
+  `src/tauri-client/dataClient.ts`（seam 擴充）、`src/tauri-client/mockClient.ts`
+  （假 runner）；更新 `docs/improvement-backlog.md`、`tasks.md`、`CHANGELOG.md`
+  與本 handoff。無 Rust、無 migration、無契約變更。
+
+**RUNNER-EXEC-001 合併以來，後端 runner 第一次可以從產品觸及。**
+
+#### 實作裁決
+
+1. **兩條不變式撐起整個設計。**
+   （a）DB 才是 progress 的事實來源：mount 時先 `getActiveRun()` 接續既有 run
+   —— 這正是 startup recovery 把孤兒 run 轉成 `paused` 後、視窗重載仍能找回它的
+   路徑；事件只是疊在該快照上的快路徑。
+   （b）三個頻道共用**一個** monotonic `sequence` guard：重播或亂序事件被忽略，
+   被 coalesce 的 progress 也不可能覆蓋已送達的終局狀態。
+2. **panel 不擁有任何契約。** envelope 由 b-1 產生並在呼叫任何 command 前驗證
+   （不合法就不會有 run row）；事件由 slice a 解析並檢查版本；被拒絕的 payload 轉成
+   zh-TW「畫面可能落後於資料庫，請重新查詢」提示，而不是吞掉。
+3. **mock 必須發真實 wire payload。** 假 runner 用**生產環境的**訂閱函式送出真正的
+   `discovery-event-v1`（camelCase、省略 optional、gate 失敗時 `score: null`），
+   並用**生產環境的** parser 解析，所以 e2e 驗的是整條鏈而不是方便的形狀。
+   兩個 DEV-only 旋鈕：`discoveryStep=<ms>` 控制候選節奏、`discoveryRun=paused`
+   在 mount 前預先建立一個 paused run —— 沒有它，recovered-run adoption 在單一
+   e2e 內沒有可觀察路徑。
+4. **seed 顯示且可編輯。** 整個 Random Entry 分布由它決定，重現一次 run 就是重新
+   輸入這個數字；holding allowance 同樣是明確欄位（VAL-003）。
+5. **一個軸。** multi-axis 是產品決策，不是契約限制；envelope 本身支援多軸。
+
+#### e2e 抓到的真實缺陷（值得記錄）
+
+終局事件會 `cancel()` throttle，而 cancel 也會丟掉**還在排隊的那一筆 progress**
+—— 快速 run 因此最後顯示 `完成 1/3 · 已完成`。修法不是加 `flush()`，而是讓終局路徑
+**重新從資料庫讀權威計數**，而不是拼湊「剛好在 coalescing 中倖存」的事件。這是
+不變式（a）真的在做事，不是裝飾。
+
+#### Validation
+
+`npm run typecheck`、`npm test`（837，未變 —— panel 行為由 e2e 覆蓋，repo 沒有
+React 元件測試環境）、`npm run build`（bundle 271.23 → **294.16 kB**，gzip
+88.83 → 95.91 kB：`discoveryConfig`/Gate/Score/RandomEntry 首次進入 UI 相依圖，
+與規格預期一致）、`npm run e2e`（**60**，+4，既有 spec 全部未改且在 panel 已掛載的
+情況下通過）。未動 Rust 故未重跑 cargo。
+
+#### 殘餘風險與後續
+
+- bundle 增加 ~23 kB（gzip +7 kB）是刻意的取捨：共用同一支 admission parser，
+  換取「前端不可能送出後端會拒絕的 config」。若日後要瘦身，正確做法是把 parser 拆成
+  更小的模組，而不是在前端複製一份規則。
+- panel 的行為只有 e2e 覆蓋。若日後引入 React 元件測試環境，sequence guard 與
+  throttle 生命週期值得補單元測試。
+- Results Explorer 仍是 Phase B 既有的獨立任務；本 panel 只有 rolling 20 筆。
+- 尚未在真實 Tauri 環境做過 native smoke（`cargo tauri dev` 啟動一次真實 run）。
+  這正是 `CI-TAURI-SMOKE-001` 想補的洞：目前只有 mock e2e 走過 invoke/event 生命週期。

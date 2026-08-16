@@ -28,6 +28,7 @@ import { strategyFromDef } from '../services/strategyLibrary';
 import { metricsToBacktestSummary } from '../services/metricsMapper';
 import { tradesToRows } from '../services/tradesMapper';
 import { SweepSection } from './SweepSection';
+import { DiscoveryPanel } from './DiscoveryPanel';
 import { ChartSection } from './ChartSection';
 import { DatasetSection } from './DatasetSection';
 import { ResultsSection } from './ResultsSection';
@@ -504,6 +505,12 @@ export function BacktestPanel(): React.ReactElement {
           help={{ sweep: HELP.sweep, runSweep: HELP.runSweep, applyBest: HELP.applyBest }}
         />
       )}
+
+      {/* RUNNER-UI-001b-2: the backend discovery runner reads the same live
+          description the interactive run and the sweep do. Mounted
+          unconditionally, unlike the sweep, because it must be able to adopt a
+          run that startup recovery left paused even before a dataset is chosen. */}
+      <DiscoveryPanel liveContext={liveContext} onMessage={setMsg} />
 
     </div>
   );
