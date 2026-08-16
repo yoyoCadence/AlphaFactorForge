@@ -11,12 +11,15 @@
 //   TypeScript: events.test.ts
 //   Fixture:    fixtures/rs-core/discovery-event-v1.json
 //
-// Two deliberate asymmetries in the payloads, both locked by that fixture:
-//   - `candidate`, `bestStrategyId`, and `errorMessage` are `skip_serializing_if`
-//     on the Rust side, so their keys are ABSENT rather than null;
-//   - `score` is NOT, so a gate-failed candidate emits an explicit `null`.
-// The parsers below accept either spelling and normalize both to `null`, so no
-// consumer has to know which convention a given field uses.
+// The payloads use TWO OPPOSITE conventions for "no value", and the difference
+// is load-bearing — conflating them is what the PR #100 review caught:
+//   - OMITTED optionals: `candidate`, `bestStrategyId`, and `errorMessage` are
+//     `skip_serializing_if` on the Rust side, so an absent key IS the contract
+//     and is accepted as `null`.
+//   - ALWAYS-PRESENT nullable: `score` has no `skip_serializing_if`, so the key
+//     is always emitted and only its value is nullable. A missing `score` key is
+//     therefore a malformed payload, NOT "no score", and is rejected.
+// Consumers see `null` in both cases; only the parsers know which field is which.
 //
 // Unknown extra keys are ignored rather than rejected: a payload the backend
 // extends must not break a running window. Real drift is caught at build time by
@@ -235,11 +238,22 @@ export function parseDiscoveryResultEvent(payload: unknown): DiscoveryResultEven
   if (typeof record.strategyHash !== 'string' || record.strategyHash.length === 0) return null;
   if (typeof record.gatePassed !== 'boolean') return null;
 
+  // `score` is REQUIRED here, unlike the progress/done optionals: Rust declares
+  // it `Option<f64>` with no `skip_serializing_if`, so the key is always emitted
+  // and only its VALUE is nullable. Treating an absent key as "no score" would
+  // silently accept a payload that has lost the field — masking exactly the
+  // drift this contract exists to catch (PR #100 review).
+  if (!('score' in record)) return null;
   let score: number | null = null;
-  if (!isAbsent(record.score)) {
+  if (record.score !== null) {
     score = asFiniteNumber(record.score);
     if (score == null) return null;
   }
+  // Gate and Score are not independent: Score is only computed for a candidate
+  // the Gate admitted, and the validation-record table enforces the same pairing
+  // with a CHECK constraint (PERSIST-001). A payload that breaks it is
+  // internally inconsistent, so it is dropped rather than rendered.
+  if (record.gatePassed !== (score != null)) return null;
 
   return {
     eventVersion: DISCOVERY_EVENT_VERSION,

@@ -1852,9 +1852,16 @@ contracts and break existing saved strategies. Their upper bound is already
 enforced downstream by the engine's `assertNormalizedFraction`. Changing this
 legacy conversion is **not** part of this task.
 
-**3. Cross-field rules are warnings, not errors.** Reuse `candidateValidity` /
-`DISCOVERY_VALIDITY_RULE_IDS` from `candidateEnumeration.ts` (`fastMA<slowMA`,
-`macdFast<macdSlow`, `rsiBuy<rsiSell`) and render them visibly, but do not block.
+**3. Cross-field rules are warnings, not errors. — ADJUDICATED AND CLOSED
+(maintainer, 2026-08-16, PR #99).** The maintainer accepted warnings-not-fatal
+with the reasoning that these three rules constrain *hypothesis quality*, not
+computability; a manual strategy may deliberately invert its parameters, and the
+affected indicator is not necessarily read by the selected signal. Discovery may
+keep pruning them inside its search space, but that must not forbid manual
+execution or saving. **Do not re-open this by making them fatal.** Reuse
+`candidateValidity` / `DISCOVERY_VALIDITY_RULE_IDS` from
+`candidateEnumeration.ts` (`fastMA<slowMA`, `macdFast<macdSlow`,
+`rsiBuy<rsiSell`) and render them visibly, but do not block.
 Reasons, all evidence-based: (a) none of the three produces `NaN` — they are
 computable, merely dubious, hypotheses; (b) the repo's own written judgment is
 that these are *pruned as the expected outcome of a legal grid, not rejected as
@@ -1900,7 +1907,15 @@ gate, not an engine change), `src/services/embargo.ts`,
 `src/services/strategyLibrary.ts`, `src/parity/*.ts` (the generators themselves),
 `src-tauri/**`, and every existing `e2e/*.spec.ts`.
 
-### Dependency inversion (discovered during implementation, 2026-08-16)
+### Dependency inversion — ACCEPTED (maintainer, 2026-08-16, PR #99)
+
+The maintainer accepted the inversion: moving the shared domain rules into a leaf
+module that depends only on `strategy` genuinely breaks the
+`discoveryConfig -> randomEntry -> backtestRunner` cycle, the old import paths
+stay compatible through the re-exports, the existing discovery tests pass
+unmodified, and the two parity fixtures changed only three source hashes. The
+description below is retained as the record of why the original "do not touch
+discovery" constraint could not hold.
 
 The original plan said `discoveryConfig.ts` and `candidateEnumeration.ts` would
 not be touched. **That is not achievable**, and the constraint is structural, not

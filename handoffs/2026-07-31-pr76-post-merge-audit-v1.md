@@ -543,3 +543,48 @@ contract 重定義與 UI 放進同一個 PR，reviewer 無法分辨「UI 對不�
 - 事件是快路徑、DB 才是 progress 的事實來源；slice b 必須在 mount 時先查
   `get_active_discovery_run`，並在丟棄事件後允許重新查詢，不可只靠事件累加。
 - `sequence` 已納入型別但尚無消費者：slice b 應用它丟棄過期／重放事件。
+
+#### Adjudication — maintainer, 2026-08-16 (recorded from the PR #99 review)
+
+兩個在 PR #99 內文提出、留給 maintainer 的裁決已回覆，兩者皆**通過並關閉**：
+
+1. **cross-field 僅警告，不設為 fatal — 同意。** 理由（maintainer 原話重點）：這三
+   條限制的是**假設品質**，不是可計算性；手動策略可能刻意反轉參數，且相關指標未
+   必被當前訊號使用。Discovery 可在搜尋空間層修剪，但不應因此禁止手動執行或保存。
+   → 實作維持不變。日後若要改為致命錯誤，必須先在 backlog 重新裁決；本次結論不得
+   被當成「暫時如此」。
+2. **依賴反轉 — 接受。** 將共用 domain rules 移到只依賴 `strategy` 的 leaf module，
+   確實解除了 `discoveryConfig -> randomEntry -> backtestRunner` 循環；舊 import
+   path 透過 re-export 保持相容，既有 discovery 測試未改即通過，兩份 parity fixture
+   也只變更三個 source hash。
+   → 搬移方式維持不變。
+
+裁決同時寫入 `docs/improvement-backlog.md`（STRATEGY-VALIDATION-001 的
+Adjudicated scope 第 3 條與 Dependency inversion 段）與 `tasks.md` 的 Done 條目，
+因此不需要再從 chat 或 PR 內文回溯。
+
+### RUNNER-UI-001a — review follow-up, 2026-08-16
+
+PR #100 的獨立驗收（Codex）判定 request-changes，發現 **1 個阻擋性契約缺陷**，已修正：
+
+- **必填的 `score` key 可被靜默省略。** Rust 的 `DiscoveryResultEvent.score` 是
+  `Option<f64>` 且**沒有** `skip_serializing_if`，所以契約是「key 一定存在，值可為
+  有限數字或明確 `null`」。但 `parseDiscoveryResultEvent` 當時用 `isAbsent()` 同時
+  接受 `undefined` 與 `null`，因此一個整個遺失 `score` 的 gate-passed payload 會被
+  解析成 `{ gatePassed: true, score: null }` 且不觸發 `onInvalid` —— 正好掩蓋本
+  slice 要抓的 contract drift，也違反規格的「missing required key 必須拒絕」。
+  missing-key matrix 當時也剛好沒有 `score` 這一列。
+- 修正：`score` key 必須存在（`'score' in record`），值只接受 `null` 或有限數字；
+  另外依 reviewer 建議鎖定 `gatePassed === (score != null)`（Score 只在 Gate 通過時
+  計算，`validation_records` 也以 CHECK 強制同一配對），矛盾的 payload 一律丟棄。
+- 測試：新增具名測試「score key 遺失（而非為 null）必須拒絕」、gate/score 互相矛盾
+  的雙向測試，並把 `score`、`sequence`、`runId` 補進 missing-key matrix。
+  Mutation check：還原成舊的 `isAbsent` 行為後，該具名測試確實失敗。
+- 同時補上 reviewer 指出的非阻擋缺口：以 mock 掉 `@tauri-apps/api/event` 的
+  listener-level 測試，證明三個頻道都**不轉發**無法解析的 payload、改為呼叫
+  `onInvalid`（含「沒有提供 onInvalid 時不得拋錯」與 unlisten 行為）。
+- 契約文件的措辭也一併修正：原本寫「兩種 spelling 都接受並正規化」，正是誘發此
+  缺陷的說法；現在明確區分「OMITTED optional（absent 即契約）」與「ALWAYS-PRESENT
+  nullable（key 必須存在）」兩類。
+
+本次追加未動任何 Rust 檔案、payload、event 名稱或 command 簽章。

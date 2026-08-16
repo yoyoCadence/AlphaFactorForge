@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import contract from '../../fixtures/rs-core/discovery-event-v1.json';
 import {
   DISCOVERY_EVENTS,
@@ -6,10 +6,37 @@ import {
   RUN_STATUSES,
   TERMINAL_RUN_STATUSES,
   createThrottle,
+  onDiscoveryDone,
+  onDiscoveryProgress,
+  onDiscoveryResult,
   parseDiscoveryDoneEvent,
   parseDiscoveryProgressEvent,
   parseDiscoveryResultEvent,
 } from './events';
+
+// Stand-in for the Tauri event bus: the listeners are the only thing under test
+// here, so nothing needs a Tauri runtime. `vi.hoisted` because `vi.mock` is
+// hoisted above the imports.
+const bus = vi.hoisted(() => ({
+  handlers: new Map<string, (event: { payload: unknown }) => void>(),
+  unlistened: [] as string[],
+}));
+
+vi.mock('@tauri-apps/api/event', () => ({
+  listen: (channel: string, handler: (event: { payload: unknown }) => void) => {
+    bus.handlers.set(channel, handler);
+    return Promise.resolve(() => {
+      bus.handlers.delete(channel);
+      bus.unlistened.push(channel);
+    });
+  },
+}));
+
+function emit(channel: string, payload: unknown): void {
+  const handler = bus.handlers.get(channel);
+  if (!handler) throw new Error(`no subscriber for ${channel}`);
+  handler({ payload });
+}
 
 /** The authored samples Rust asserts its structs serialize to. */
 const samples = contract.samples;
@@ -135,12 +162,38 @@ describe('payload rejection', () => {
   });
 
   it.each([
-    'candidateIndex', 'jobIds', 'strategyId', 'strategyHash', 'datasetId',
-    'validationRecordId', 'gatePassed',
+    'sequence', 'runId', 'candidateIndex', 'jobIds', 'strategyId', 'strategyHash',
+    'datasetId', 'validationRecordId', 'gatePassed', 'score',
   ])('rejects a result event missing %s', (key) => {
     const raw = sample(samples.resultGatePassed) as Record<string, unknown>;
     delete raw[key];
     expect(parseDiscoveryResultEvent(raw)).toBeNull();
+  });
+
+  // `score` has no skip_serializing_if on the Rust side, so the KEY is always
+  // emitted and only its value is nullable. Accepting an absent key as "no
+  // score" would silently swallow a payload that lost the field — the drift this
+  // whole contract exists to catch (PR #100 review).
+  it('rejects a result event whose score key is missing rather than null', () => {
+    const withNull = sample(samples.resultGateFailed) as Record<string, unknown>;
+    expect(withNull.score).toBeNull();
+    expect(parseDiscoveryResultEvent(withNull)).not.toBeNull();
+
+    const withoutKey = sample(samples.resultGateFailed) as Record<string, unknown>;
+    delete withoutKey.score;
+    expect(parseDiscoveryResultEvent(withoutKey)).toBeNull();
+  });
+
+  // Score is only computed for a candidate the Gate admitted, and the
+  // validation-record table enforces the same pairing with a CHECK constraint.
+  it('rejects a payload where gatePassed and score contradict each other', () => {
+    const passedWithoutScore = sample(samples.resultGatePassed) as Record<string, unknown>;
+    passedWithoutScore.score = null;
+    expect(parseDiscoveryResultEvent(passedWithoutScore)).toBeNull();
+
+    const failedWithScore = sample(samples.resultGateFailed) as Record<string, unknown>;
+    failedWithScore.score = 0.42;
+    expect(parseDiscoveryResultEvent(failedWithScore)).toBeNull();
   });
 
   it('rejects an unknown run status', () => {
@@ -195,6 +248,63 @@ describe('payload rejection', () => {
       expect(parseDiscoveryDoneEvent(payload)).toBeNull();
     },
   );
+});
+
+// The acceptance criterion says the LISTENERS drop and report an unparseable
+// payload; the parser tests above cannot prove that on their own (PR #100 review).
+describe('subscriptions', () => {
+  beforeEach(() => {
+    bus.handlers.clear();
+    bus.unlistened.length = 0;
+  });
+
+  it('forwards a parsed progress event and never a raw payload', async () => {
+    const seen: unknown[] = [];
+    const invalid: unknown[] = [];
+    await onDiscoveryProgress((event) => seen.push(event), (channel, payload) => invalid.push([channel, payload]));
+
+    emit(DISCOVERY_EVENTS.progress, sample(samples.progressMinimal));
+    expect(seen).toHaveLength(1);
+    // Normalized, not the raw payload: the absent keys arrive as explicit nulls.
+    expect(seen[0]).toMatchObject({ runId: 12, status: 'paused', candidate: null, bestStrategyId: null });
+    expect(invalid).toHaveLength(0);
+  });
+
+  it.each([
+    ['progress', DISCOVERY_EVENTS.progress, onDiscoveryProgress],
+    ['result', DISCOVERY_EVENTS.result, onDiscoveryResult],
+    ['done', DISCOVERY_EVENTS.done, onDiscoveryDone],
+  ] as [string, string, (onEvent: (event: never) => void, onInvalid?: (channel: string, payload: unknown) => void) => Promise<unknown>][])(
+    'drops an unparseable %s payload and reports it instead',
+    async (_label, channel, subscribe) => {
+      const seen: unknown[] = [];
+      const invalid: { channel: string; payload: unknown }[] = [];
+      await subscribe(
+        (event) => seen.push(event),
+        (reportedChannel, payload) => invalid.push({ channel: reportedChannel, payload }),
+      );
+
+      const stale = { runId: 12, tested: 3, total: 4 }; // the shape the old DTOs expected
+      emit(channel, stale);
+
+      expect(seen).toEqual([]);
+      expect(invalid).toEqual([{ channel, payload: stale }]);
+    },
+  );
+
+  it('survives a dropped payload with no onInvalid handler', async () => {
+    const seen: unknown[] = [];
+    await onDiscoveryResult((event) => seen.push(event));
+    expect(() => emit(DISCOVERY_EVENTS.result, { eventVersion: 'discovery-event-v2' })).not.toThrow();
+    expect(seen).toEqual([]);
+  });
+
+  it('returns the unlisten function so a consumer can unsubscribe', async () => {
+    const unlisten = await onDiscoveryDone(() => undefined);
+    expect(typeof unlisten).toBe('function');
+    unlisten();
+    expect(bus.unlistened).toEqual([DISCOVERY_EVENTS.done]);
+  });
 });
 
 describe('createThrottle', () => {
