@@ -2209,3 +2209,103 @@ no script may overwrite it.
   - [ ] The throttle can be cancelled, never delivers a payload twice, and has a
         test proving a cancelled trailing timer does not fire.
   - [ ] No UI, mock, e2e, migration, payload, or command-signature change.
+
+---
+
+## RUNNER-UI-001b — Discovery runner panel
+
+Expanded on 2026-08-16, after slice a merged as PR #100 (`c236b1b`). Slice a's
+entry above records why `RUNNER-UI-001` is delivered in slices.
+
+**Slice b is itself two PRs.** Starting a run means submitting the whole
+`discovery-config-v1` envelope — thirteen exact keys, ten pinned contract
+versions, dataset identity, base presets with axes, complete Gate and Score
+configs, an explicit seed, caps. Assembling that is a contract-adjacent decision
+set; rendering progress is a UI problem. One PR containing both is not
+reviewable, and the config decisions must be settled before a panel is built on
+them:
+
+| Slice | Scope |
+| --- | --- |
+| **b-1** | `buildDiscoveryConfig`: assemble the envelope from the workspace's dataset + strategy, validate it with the shared parser BEFORE any invoke, and derive everything that can be derived. Pure; no UI. |
+| **b-2** | The panel: axes/seed/embargo inputs, start + pause/resume/cancel, mount-time `getActiveRun()` adoption, throttled progress, a rolling results list, the `?mock=1` discovery seam, and e2e. |
+
+The rich Results Explorer stays the separate Phase B task it already is; b-2's
+list is a rolling in-run view, not that screen.
+
+### b-1 — what it settles (adjudicated)
+
+1. **One admission authority.** The builder validates with `parseDiscoveryConfig`
+   — the same parser the Rust side mirrors — so a malformed run fails in the
+   workspace with a path-qualified message and no run row is ever created. The
+   builder adds no rule of its own.
+2. **Derive, do not ask.** `contracts`, `gateConfig`, and `scoreConfig` are
+   copied from their owning constants, and `benchmarkCosts` is derived from the
+   base strategy, because the envelope requires the two to agree and a second
+   input could only introduce a mismatch.
+3. **`maxConcurrency` is always `null` in v1.** The backend resolves it with ITS
+   core count; sending a number validated against the WebView's
+   `hardwareConcurrency` could be admitted locally and rejected there.
+4. **`rootSeed` and `holdingAllowanceBars` are explicit inputs with no hidden
+   defaults.** The seed determines the entire Random Entry distribution, so it
+   must be a value the user can see, keep, and re-enter; the allowance is the
+   VAL-003 "caller-approved, 0 is explicit" contract. `randomRootSeed()`
+   generates one, and the panel must display it.
+5. **The strategy is deep-cloned into the envelope**, so a later editor keystroke
+   cannot change what a submitted run recorded.
+
+### b-1 — findings recorded while implementing (do not re-derive)
+
+- **An empty axis list is legal**: a base with no axes is a single-candidate run
+  (validate this exact strategy end to end). The builder must not invent a
+  "needs at least one axis" rule; if the panel wants one, that is a UI product
+  decision. Pinned by test.
+- **The candidate cap is enforced by `enumerateCandidates`, not by envelope
+  admission.** An over-budget grid therefore builds successfully and is rejected
+  by the backend — before any candidate or job row exists (RUNNER-CONFIG-001).
+  The per-axis value limit, by contrast, IS an envelope rule and fails locally.
+  b-2 should surface the projected combination count from the exported
+  `axisValues`; it must not add a second cap check.
+- `randomRootSeed` clamps to `MAX_U32`: `floor(1 * (MAX_U32 + 1))` is one past
+  the admissible range, and an injectable generator can return 1.
+
+### b-2 — files likely affected (expand before starting)
+
+- new `alpha-factor-forge/src/components/DiscoveryPanel.tsx` (+ test ids)
+- `alpha-factor-forge/src/App.tsx` or the workspace shell that mounts it
+- `alpha-factor-forge/src/tauri-client/dataClient.ts` and `mockClient.ts`
+  (the discovery seam: the mock must emit `discovery-event-v1` payloads through
+  the same channels, so the panel is exercised against the real contract)
+- new `alpha-factor-forge/e2e/discovery-runner.spec.ts`
+- `CHANGELOG.md`, `tasks.md`, this file, the audit handoff
+
+### b-2 — required behaviour
+
+- On mount, call `getActiveRun()` first: startup recovery can have left a paused
+  run, and the DATABASE is the source of truth for progress. Events are a fast
+  path layered on top of that snapshot, never the only source.
+- Use `createThrottle` for progress and `cancel()` it on unmount.
+- Drop-and-report is already implemented in the listeners: the panel must render
+  the reported state ("this view may be stale, re-query") rather than swallow it.
+- Use `sequence` to ignore an event older than the snapshot the panel adopted.
+- Every control disabled while its transition is in flight; a terminal status
+  ends the subscription.
+- zh-TW copy; every new control gets a `data-testid`.
+
+- **b-1 validation plan**: `npm run typecheck`, `npm test`, `npm run build`,
+  `npm run e2e` (unchanged), and `git diff --stat` showing no `src/components/`,
+  `mockClient.ts`, `e2e/`, or `src-tauri/` change. No Rust change, so `cargo` is
+  not re-run.
+- **b-1 acceptance criteria**:
+  - [ ] The built envelope is accepted by `parseDiscoveryConfig` and carries
+        exactly the thirteen contract keys.
+  - [ ] `contracts` / `gateConfig` / `scoreConfig` are copies of the owning
+        constants, and mutating the envelope cannot corrupt them.
+  - [ ] `benchmarkCosts` follows the base strategy's costs.
+  - [ ] The strategy in the envelope is detached from the caller's object.
+  - [ ] An invalid axis, an invalid indicator period, a non-params strategy, an
+        out-of-range seed, a negative allowance, and a malformed dataset hash all
+        throw BEFORE any invoke, each with a named test.
+  - [ ] The empty-axis and over-cap boundaries are pinned as behaviour, not
+        assumed away.
+  - [ ] `randomRootSeed` is admissible at both extremes of its generator.

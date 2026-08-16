@@ -588,3 +588,60 @@ PR #100 的獨立驗收（Codex）判定 request-changes，發現 **1 個阻擋�
   nullable（key 必須存在）」兩類。
 
 本次追加未動任何 Rust 檔案、payload、event 名稱或 command 簽章。
+
+### RUNNER-UI-001b-1 — Claude Code, 2026-08-16
+
+- Branch: `feat/discovery-run-config`，自 `origin/main` `c236b1b`（PR #100 合併後）
+  開出。`tasks.md`：`RUNNER-UI-001b` 再拆為 b-1／b-2，b-1 進 Done。
+- Files changed: 新增 `src/services/discoveryRunConfig.ts` 與其測試；更新
+  `docs/improvement-backlog.md`（slice b 規格）、`tasks.md`、`CHANGELOG.md` 與本
+  handoff。無 UI、無 mock、無 e2e、無 Rust。
+
+#### 為什麼 b 還要再拆
+
+啟動一次 run 必須送出完整的 `discovery-config-v1` envelope：13 個 exact key、10 個
+pinned contract version、dataset identity、base preset 與 axes、完整 Gate／Score
+config、明確 seed、caps。這是**契約層的決策集合**；渲染進度則是 UI 問題。兩者同一個
+PR 無法審查，而且 config 的決策必須先定案，面板才有東西可以蓋在上面。
+
+#### 實作裁決
+
+1. **單一 admission 權威。** builder 用 `parseDiscoveryConfig`（Rust 端鏡像的同一支
+   parser）驗證，因此不合法的 run 在工作區就以 path-qualified 訊息失敗，**不會產生
+   任何 run row**。builder 自己不新增任何規則 —— 這也讓 STRATEGY-VALIDATION-001 的
+   週期規則自動涵蓋 discovery（parser 內部會對 base preset 跑 `checkNumericParam`）。
+2. **能推導的就不要問。** `contracts`／`gateConfig`／`scoreConfig` 一律從擁有它們的
+   常數複製；`benchmarkCosts` 由 base strategy 推導，因為 envelope 要求兩者一致，
+   多一個輸入只會製造不一致。
+3. **v1 的 `maxConcurrency` 永遠是 `null`。** 由後端以**它自己的** core count 解析；
+   若送出以 WebView `hardwareConcurrency` 驗證過的數字，可能本地通過、後端拒絕。
+4. **`rootSeed` 與 `holdingAllowanceBars` 是必填、無隱藏預設。** seed 決定整個
+   Random Entry 分布，必須是使用者看得到、留得住、能重新輸入的值；allowance 則是
+   VAL-003「caller-approved，0 也要明確」的契約。
+5. **strategy 深拷貝進 envelope**，之後在編輯器多打一個字，不會改變已送出的 run。
+
+#### 實作中發現、已釘成行為的三件事（不要重新推導）
+
+- **空 axis list 是合法的**：沒有 axes 的 base 就是「用這個策略跑一次完整驗證」的
+  single-candidate run。builder 不得自行發明「至少要一個 axis」的規則；面板若要求，
+  那是 UI 的產品決策。
+- **candidate cap 由 `enumerateCandidates` 把關，不是 envelope admission。** 超出
+  budget 的 grid 在這裡會**建置成功**，由後端在建立任何 candidate／job 之前拒絕
+  （RUNNER-CONFIG-001）。相對地，per-axis 值數上限**是** envelope 規則，會在本地失敗。
+  b-2 應以既有的 `axisValues` 顯示預估組合數，但**不得**新增第二套 cap 檢查。
+- `randomRootSeed` 需要 clamp：`floor(1 * (MAX_U32 + 1))` 剛好超出可接受範圍一格，
+  而 generator 是可注入的、可能回傳 1。這是我自己的邊界測試抓到的缺陷。
+
+#### Validation
+
+`npm run typecheck`、`npm test`（837，+20）、`npm run build`（bundle 維持
+271.23 kB，證明 builder 尚未進入 UI 相依圖）、`npm run e2e`（56，未變）。未動 Rust
+故未重跑 cargo。
+
+#### 下一步
+
+`RUNNER-UI-001b-2`：面板、`?mock=1` discovery seam、e2e。backlog 的「b-2 required
+behaviour」是起點，開工前需展開成完整 file／step 計畫。重點提醒：mount 時必須先查
+`getActiveRun()`（DB 才是 progress 的事實來源，事件只是快路徑）、用 `sequence` 丟棄
+比快照舊的事件、unmount 時 `cancel()` throttle，並把 listener 已實作的
+drop-and-report 呈現給使用者而不是吞掉。
