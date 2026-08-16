@@ -1,0 +1,97 @@
+{
+  "schemaVersion": "discovery-event-contract-v1",
+  "eventVersion": "discovery-event-v1",
+  "authored": true,
+  "note": "AUTHORED BY HAND — do not generate. Every other fixture under fixtures/rs-core is produced by a TypeScript reference script and verified by Rust, because TypeScript owns those computations. This one is the opposite direction: Rust EMITS these payloads and TypeScript CONSUMES them, so neither side may generate the other's expectations. Rust asserts serde_json::to_value(struct) == sample (src-tauri/src/discovery_runner/event_contract_tests.rs); TypeScript asserts its parsers accept the same samples and reproduce every field (src/tauri-client/events.test.ts). A field added on either side fails the other side's test, which is the drift guard that let the pre-implementation frontend DTOs go stale for a whole phase.",
+  "channels": {
+    "progress": "discovery://progress",
+    "result": "discovery://result",
+    "done": "discovery://done"
+  },
+  "samples": {
+    "progressWithCandidate": {
+      "eventVersion": "discovery-event-v1",
+      "sequence": 7,
+      "runId": 12,
+      "status": "running",
+      "counts": {
+        "totalCandidates": 4,
+        "queuedCandidates": 1,
+        "runningCandidates": 1,
+        "completedCandidates": 2,
+        "failedCandidates": 0,
+        "skippedCandidates": 0
+      },
+      "candidate": {
+        "candidateIndex": 2,
+        "strategyId": 31,
+        "datasetId": 5,
+        "jobIds": {
+          "train": 60,
+          "validation": 61
+        }
+      },
+      "bestStrategyId": 31
+    },
+    "progressMinimal": {
+      "eventVersion": "discovery-event-v1",
+      "sequence": 1,
+      "runId": 12,
+      "status": "paused",
+      "counts": {
+        "totalCandidates": 4,
+        "queuedCandidates": 4,
+        "runningCandidates": 0,
+        "completedCandidates": 0,
+        "failedCandidates": 0,
+        "skippedCandidates": 0
+      }
+    },
+    "resultGatePassed": {
+      "eventVersion": "discovery-event-v1",
+      "sequence": 8,
+      "runId": 12,
+      "candidateIndex": 2,
+      "jobIds": {
+        "train": 60,
+        "validation": 61
+      },
+      "strategyId": 31,
+      "strategyHash": "strategy-v2:4f1c2d3e5a6b7c8d9e0f1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f",
+      "datasetId": 5,
+      "validationRecordId": 44,
+      "gatePassed": true,
+      "score": 0.7351
+    },
+    "resultGateFailed": {
+      "eventVersion": "discovery-event-v1",
+      "sequence": 9,
+      "runId": 12,
+      "candidateIndex": 3,
+      "jobIds": {
+        "train": 62,
+        "validation": 63
+      },
+      "strategyId": 32,
+      "strategyHash": "strategy-v2:00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
+      "datasetId": 5,
+      "validationRecordId": 45,
+      "gatePassed": false,
+      "score": null
+    },
+    "doneCompleted": {
+      "eventVersion": "discovery-event-v1",
+      "sequence": 10,
+      "runId": 12,
+      "status": "completed",
+      "bestStrategyId": 31
+    },
+    "doneFailed": {
+      "eventVersion": "discovery-event-v1",
+      "sequence": 11,
+      "runId": 13,
+      "status": "failed",
+      "errorMessage": "candidate 3 failed: dataset 5 candle 12 violates market-data rule price_not_positive"
+    }
+  }
+}

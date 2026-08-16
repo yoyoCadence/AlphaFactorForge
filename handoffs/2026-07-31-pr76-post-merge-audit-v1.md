@@ -478,3 +478,68 @@ state，不寫入 SQLite。`freezeDeep`/`cloneDeep` 刻意在 `sweepArtifact.ts`
   與本 gate 的 blanket 檢查是兩份不同契約，且由 parity fixture 鎖定，本次未合併。
 - 這是 post-PR #76 稽核順序的最後一個 correctness gate；`RUNNER-UI-001`（第 8 項）
   自此解除封鎖，但尚未在 `docs/improvement-backlog.md` 展開成規格。
+
+### RUNNER-UI-001a — Claude Code, 2026-08-16
+
+- Branch: `feat/runner-event-contract`，自 `origin/main` `cbc3f42`（PR #99 合併後）
+  開出。`tasks.md`：`RUNNER-UI-001` 由 Backlog 拆成 a／b 兩個 slice，a 進 Done、
+  b 留在 Backlog。規格先以 Planner 身分展開到 `docs/improvement-backlog.md`。
+- Files changed: 新增 `fixtures/rs-core/discovery-event-v1.json`（**手寫**）、
+  `src-tauri/src/discovery_runner/event_contract_tests.rs`、
+  `src/tauri-client/events.test.ts`；改寫 `src/tauri-client/events.ts`；改
+  `src/tauri-client/commands.ts`、`src-tauri/src/discovery_runner/mod.rs`
+  （只加一行 `#[cfg(test)] mod` 宣告）；更新
+  `docs/improvement-backlog.md`、`tasks.md`、`CHANGELOG.md` 與本 handoff。
+
+#### 為什麼先做 slice a
+
+本 handoff §11 明確指出 `events.ts` 的舊 DTO 應由 `RUNNER-UI-001` 處理、不另立
+alias task。實際比對後發現舊 DTO 與 backend **沒有任何一個欄位相同**（舊的是
+`tested`/`total`/`skipped` 與 `current: { symbol, interval, segment }`）。若把
+contract 重定義與 UI 放進同一個 PR，reviewer 無法分辨「UI 對不對」與「contract
+對不對」，因此依 AGENTS.md §9 拆成兩個 slice：a 只做 typed boundary，b 做面板。
+
+#### 實作裁決
+
+1. **契約以「一份手寫 fixture、兩邊各自斷言」鎖定。**
+   `fixtures/rs-core/discovery-event-v1.json` 是這個目錄下唯一**刻意手寫**的
+   fixture：其他 fixture 都是 TS 產生、Rust 驗證，因為運算由 TS 擁有；這裡方向
+   相反（Rust 發送、TS 消費），任一邊產生對方的期望值都會讓 drift guard 失去意義。
+   Rust 斷言 `serde_json::to_value(struct) == sample`，TS 斷言 parser 接受同一批
+   sample，因此任一邊新增／改名欄位都會讓**對面**的測試失敗。
+2. **兩種相反的 optional 慣例都必須被覆蓋。** `candidate`/`bestStrategyId`/
+   `errorMessage` 有 `skip_serializing_if`，序列化時**key 不存在**；`score` 沒有，
+   gate 未通過時是**明確的 null**。這正是手寫 DTO 最容易錯的地方，fixture 兩種
+   permutation 都有 sample，TS parser 兩種都接受並統一正規化為 `null`。
+3. **payload 一律解析後才進 UI。** 版本不符／缺必填 key／型別錯／未知 run status／
+   整數超出 JS 安全範圍／非有限 score／optional 存在但格式錯，全部拒絕並經
+   `onInvalid` 回報（不是靜默吞掉，UI 可提示使用者重新查 `get_discovery_progress`，
+   DB 才是 progress 的 source of truth）。未知的**額外** key 則容許，避免 backend
+   加欄位就打爛正在執行的視窗；真正的 drift 由 build 時的 fixture 測試抓，而任何
+   可觀察的 payload 變更依專案慣例都必須改版本字串，改了就會被前端拒絕。
+4. **throttle 重寫為可取消。** 舊實作無法取消（trailing timer 會打進已卸載的元件），
+   且當 window 在 timer 執行前重新開啟時會**重複投遞同一個 payload**——progress
+   看不出來，results 列表會多一列。mutation check 把舊行為重現為 `[1, 2, 2]`，
+   新測試會抓到。時鐘可注入，因此不必透過 timer 內部行為測 window。
+5. **補上 `get_active_discovery_run` wrapper。** 這是 startup recovery 把孤兒 run
+   轉成 `paused` 後，前端唯一能重新找到它的方法，原本完全沒有 wrapper。
+
+#### Scope
+
+未動任何 emitted payload／event 名稱／command 名稱或簽章——本 slice 只讓前端對齊
+後端，不反向修改。未動 UI、`mockClient`、`e2e/`、migration，以及 `src-tauri` 其他
+檔案（`mod.rs` 只多一行 test-only 模組宣告）。
+
+#### Validation
+
+- `npm run typecheck`、`npm test`（806，+33）、`npm run build`、`npm run e2e`
+  （56，未變）、`cargo check --locked`、`cargo test --locked`（152，+7）全綠。
+- 手寫 fixture 一次就與真實 serde 輸出相符（7 個 Rust 契約測試首次執行即通過），
+  這也反向證明 fixture 的 camelCase／省略 key／null score 拼寫是正確的。
+
+#### 殘餘風險與後續
+
+- `RUNNER-UI-001b`（面板、mock seam、e2e）尚未展開成規格，是下一個任務。
+- 事件是快路徑、DB 才是 progress 的事實來源；slice b 必須在 mount 時先查
+  `get_active_discovery_run`，並在丟棄事件後允許重新查詢，不可只靠事件累加。
+- `sequence` 已納入型別但尚無消費者：slice b 應用它丟棄過期／重放事件。
