@@ -645,3 +645,99 @@ behaviour」是起點，開工前需展開成完整 file／step 計畫。重點�
 `getActiveRun()`（DB 才是 progress 的事實來源，事件只是快路徑）、用 `sequence` 丟棄
 比快照舊的事件、unmount 時 `cancel()` throttle，並把 listener 已實作的
 drop-and-report 呈現給使用者而不是吞掉。
+
+### RUNNER-UI-001b-2 — Claude Code, 2026-08-16
+
+- Branch: `feat/discovery-runner-panel`，自 `origin/main` `bb0d38b`（PR #101 合併後）
+  開出。`tasks.md`：b-2 進 Done，`RUNNER-UI-001` 全部 slice 完成。
+- Files changed: 新增 `src/components/DiscoveryPanel.tsx`、
+  `e2e/discovery-runner.spec.ts`；改 `src/components/BacktestPanel.tsx`（掛載）、
+  `src/tauri-client/dataClient.ts`（seam 擴充）、`src/tauri-client/mockClient.ts`
+  （假 runner）；更新 `docs/improvement-backlog.md`、`tasks.md`、`CHANGELOG.md`
+  與本 handoff。無 Rust、無 migration、無契約變更。
+
+**RUNNER-EXEC-001 合併以來，後端 runner 第一次可以從產品觸及。**
+
+#### 實作裁決
+
+1. **兩條不變式撐起整個設計。**
+   （a）DB 才是 progress 的事實來源：mount 時先 `getActiveRun()` 接續既有 run
+   —— 這正是 startup recovery 把孤兒 run 轉成 `paused` 後、視窗重載仍能找回它的
+   路徑；事件只是疊在該快照上的快路徑。
+   （b）三個頻道共用**一個** monotonic `sequence` guard：重播或亂序事件被忽略，
+   被 coalesce 的 progress 也不可能覆蓋已送達的終局狀態。
+2. **panel 不擁有任何契約。** envelope 由 b-1 產生並在呼叫任何 command 前驗證
+   （不合法就不會有 run row）；事件由 slice a 解析並檢查版本；被拒絕的 payload 轉成
+   zh-TW「畫面可能落後於資料庫，請重新查詢」提示，而不是吞掉。
+3. **mock 必須發真實 wire payload。** 假 runner 用**生產環境的**訂閱函式送出真正的
+   `discovery-event-v1`（camelCase、省略 optional、gate 失敗時 `score: null`），
+   並用**生產環境的** parser 解析，所以 e2e 驗的是整條鏈而不是方便的形狀。
+   兩個 DEV-only 旋鈕：`discoveryStep=<ms>` 控制候選節奏、`discoveryRun=paused`
+   在 mount 前預先建立一個 paused run —— 沒有它，recovered-run adoption 在單一
+   e2e 內沒有可觀察路徑。
+4. **seed 顯示且可編輯。** 整個 Random Entry 分布由它決定，重現一次 run 就是重新
+   輸入這個數字；holding allowance 同樣是明確欄位（VAL-003）。
+5. **一個軸。** multi-axis 是產品決策，不是契約限制；envelope 本身支援多軸。
+
+#### e2e 抓到的真實缺陷（值得記錄）
+
+終局事件會 `cancel()` throttle，而 cancel 也會丟掉**還在排隊的那一筆 progress**
+—— 快速 run 因此最後顯示 `完成 1/3 · 已完成`。修法不是加 `flush()`，而是讓終局路徑
+**重新從資料庫讀權威計數**，而不是拼湊「剛好在 coalescing 中倖存」的事件。這是
+不變式（a）真的在做事，不是裝飾。
+
+#### Validation
+
+`npm run typecheck`、`npm test`（837，未變 —— panel 行為由 e2e 覆蓋，repo 沒有
+React 元件測試環境）、`npm run build`（bundle 271.23 → **294.16 kB**，gzip
+88.83 → 95.91 kB：`discoveryConfig`/Gate/Score/RandomEntry 首次進入 UI 相依圖，
+與規格預期一致）、`npm run e2e`（**60**，+4，既有 spec 全部未改且在 panel 已掛載的
+情況下通過）。未動 Rust 故未重跑 cargo。
+
+#### 殘餘風險與後續
+
+- bundle 增加 ~23 kB（gzip +7 kB）是刻意的取捨：共用同一支 admission parser，
+  換取「前端不可能送出後端會拒絕的 config」。若日後要瘦身，正確做法是把 parser 拆成
+  更小的模組，而不是在前端複製一份規則。
+- panel 的行為只有 e2e 覆蓋。若日後引入 React 元件測試環境，sequence guard 與
+  throttle 生命週期值得補單元測試。
+- Results Explorer 仍是 Phase B 既有的獨立任務；本 panel 只有 rolling 20 筆。
+- 尚未在真實 Tauri 環境做過 native smoke（`cargo tauri dev` 啟動一次真實 run）。
+  這正是 `CI-TAURI-SMOKE-001` 想補的洞：目前只有 mock e2e 走過 invoke/event 生命週期。
+
+#### RUNNER-UI-001b-2 — review follow-up, 2026-08-16
+
+PR #102 的獨立驗收（Codex）判定 request-changes：**2 個阻擋性競態 + 1 個中度錯誤
+處理缺口**。三者都被 mock 原本的 timer 排程遮住，所以綠燈抓不到。全部已修。
+
+**1. sequence guard 不是 monotonic（阻擋）。**
+guard 原本放在每次 render 都從 React state 回寫的 ref 裡；但 result event 會推進
+mutable sequence、卻**不**推進 `run.lastSequence`，所以下一次 render 又把 ref 寫回
+舊值，replay 的事件會被接受第二次。**依賴 render 時序的排序不是排序**，因此整套
+排序規則移到純 reducer `src/services/discoveryFeed.ts`（17 個具名測試）。
+
+重要修正：guard 改為**每個 state slice 一個** —— `statusSequence`（狀態／計數）與
+`resultSequence`（結果列表）。原因是 progress 有節流、result 沒有，兩個頻道本來就
+會亂序抵達；共用單一計數器會讓「在較新 result 之後才抵達的 coalesced progress」
+看起來過期而被丟掉計數。延遲抵達的 snapshot 也一律以同一規則判定，不得讓畫面倒退。
+
+**2. `start()` 回傳 runId 前發出的 result 會永久遺失（阻擋）。**
+`DiscoveryRunner::start` 在回傳 run id **之前**就 emit 第一個 progress 並 spawn
+coordinator，所以短 run 可能在 WebView 還在等 command 時就發完 result、甚至結束。
+progress 可由 snapshot 補回，**result 不行** —— 沒有任何 command 回傳 result 歷史。
+reducer 現在會在「還不知道要跟哪個 run」期間 buffer 事件，並在 adoption 時 drain。
+新增 `discoveryEmitBeforeStart=1` mock 旋鈕重現 production ordering；mutation check
+（把 buffer 拿掉）確認三筆 result 全部消失，證明修正是有效的。
+
+**3. listener 註冊失敗會洩漏已註冊的頻道（中度）。**
+`Promise.all` 的拒絕會丟掉已 resolve 的 unlisten 函式，且只留下 unhandled
+rejection。改為逐一註冊並包在 try/catch 中：部分成功也會被清理，失敗會顯示在 UI。
+`discoverySubscribeFail=<channel>` 讓這條路徑可決定性重現，e2e 同時斷言沒有
+page error。
+
+Validation：`npm test` 854（+17）、typecheck、build（bundle 296.09 kB）、
+`npm run e2e` 62（+6）。未動 Rust。
+
+殘餘註記：PR 內文原本寫「三頻道共用一個 monotonic guard」，那個說法在有節流的情況
+下是錯的；正確描述是「一套排序規則、每個 state slice 一個 forward-only sequence」。
+文件與 PR 內文都已更正。
