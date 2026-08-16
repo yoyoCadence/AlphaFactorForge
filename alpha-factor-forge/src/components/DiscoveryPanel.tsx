@@ -20,16 +20,18 @@
 //      coalesced progress tick from overwriting the terminal status that `done`
 //      already delivered.
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useReducer, useState } from 'react';
 import { discovery, discoveryEvents } from '../tauri-client/dataClient';
-import type { DiscoveryProgressSnapshot } from '../tauri-client/commands';
 import {
-  TERMINAL_RUN_STATUSES,
   createThrottle,
-  type DiscoveryProgressCounts,
-  type DiscoveryResultEvent,
+  type DiscoveryProgressEvent,
   type RunStatus,
 } from '../tauri-client/events';
+import {
+  INITIAL_DISCOVERY_FEED,
+  isTerminalStatus,
+  reduceDiscoveryFeed,
+} from '../services/discoveryFeed';
 import {
   DISCOVERY_AXIS_KEYS,
   axisValues,
@@ -46,9 +48,6 @@ import { useTheme } from '../theme/ThemeProvider';
 /** Progress updates are coalesced to this window; results are not, because each
  *  one is a distinct row rather than a replacement value. */
 const PROGRESS_THROTTLE_MS = 300;
-/** Rolling window of shown results. The full history is the Results Explorer's
- *  job (a separate Phase B task), not this panel's. */
-const MAX_SHOWN_RESULTS = 20;
 
 const STATUS_LABEL: Record<RunStatus, string> = {
   idle: '閒置',
@@ -66,35 +65,7 @@ const AXIS_LABEL: Record<DiscoveryAxisKey, string> = {
   slPct: '停損%', tpPct: '停利%',
 };
 
-/** What the panel knows about the run it is following. */
-interface FollowedRun {
-  runId: number;
-  name: string;
-  status: RunStatus;
-  counts: DiscoveryProgressCounts;
-  bestStrategyId: number | null;
-  errorMessage: string | null;
-  /** Highest event sequence already applied; the single ordering guard. */
-  lastSequence: number;
-}
-
 type PendingAction = 'start' | 'pause' | 'resume' | 'cancel' | 'refresh';
-
-function isTerminal(status: RunStatus): boolean {
-  return TERMINAL_RUN_STATUSES.includes(status);
-}
-
-function fromSnapshot(snapshot: DiscoveryProgressSnapshot): FollowedRun {
-  return {
-    runId: snapshot.runId,
-    name: snapshot.name,
-    status: snapshot.status,
-    counts: snapshot.counts,
-    bestStrategyId: snapshot.bestStrategyId,
-    errorMessage: snapshot.errorMessage,
-    lastSequence: snapshot.lastEventSequence,
-  };
-}
 
 export interface DiscoveryPanelProps {
   /** The workspace's live inputs; null until a dataset's candles are loaded, which
@@ -110,23 +81,15 @@ export function DiscoveryPanel({ liveContext, onMessage }: DiscoveryPanelProps):
   const [axis, setAxis] = useState<DiscoveryAxis>({ key: 'fastMA', min: 5, max: 11, step: 3 });
   const [holdingAllowanceBars, setHoldingAllowanceBars] = useState(0);
   const [rootSeed, setRootSeed] = useState(() => randomRootSeed());
-  const [run, setRun] = useState<FollowedRun | null>(null);
-  const [results, setResults] = useState<DiscoveryResultEvent[]>([]);
+  // All ordering lives in the pure reducer (see services/discoveryFeed.ts). The
+  // first version kept the run id and applied sequence in refs re-derived from
+  // state each render, which the PR #102 review proved cannot be monotonic:
+  // ordering that depends on render timing is not ordering. `dispatch` is stable,
+  // so the subscription callbacks never capture stale values either.
+  const [feed, dispatch] = useReducer(reduceDiscoveryFeed, INITIAL_DISCOVERY_FEED);
+  const { run, results, stale } = feed;
   const [pending, setPending] = useState<PendingAction | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  /** True once a payload was dropped: the view may be behind the database. */
-  const [stale, setStale] = useState(false);
-
-  // Refs, not state: the subscription callbacks are created once and must read
-  // the CURRENT run/sequence, not the values captured in their first render.
-  const runIdRef = useRef<number | null>(null);
-  const sequenceRef = useRef(0);
-  // The name only ever comes from a snapshot, so events keep whatever the last
-  // snapshot reported instead of inventing a label.
-  const runNameRef = useRef('');
-  runIdRef.current = run?.runId ?? null;
-  sequenceRef.current = run?.lastSequence ?? 0;
-  runNameRef.current = run?.name ?? '';
 
   const combinations = useMemo(() => {
     try {
@@ -138,71 +101,62 @@ export function DiscoveryPanel({ liveContext, onMessage }: DiscoveryPanelProps):
     }
   }, [axis]);
 
-  /** Accept an event only if it belongs to the followed run and is newer than
-   *  everything already applied. */
-  const accepts = useCallback((runId: number, sequence: number): boolean => {
-    if (runIdRef.current !== runId) return false;
-    if (sequence <= sequenceRef.current) return false;
-    sequenceRef.current = sequence;
-    return true;
-  }, []);
-
   // One subscription set for the panel's lifetime. Progress is throttled because
   // a run emits one per candidate; the throttle is cancelled on unmount so a
   // queued trailing call cannot fire into a dead component.
   useEffect(() => {
-    const applyProgress = createThrottle((next: FollowedRun) => setRun(next), PROGRESS_THROTTLE_MS);
+    const applyProgress = createThrottle(
+      (event: DiscoveryProgressEvent) => dispatch({ type: 'progress', event }),
+      PROGRESS_THROTTLE_MS,
+    );
     let disposed = false;
     const unlisteners: (() => void)[] = [];
 
-    const reportDropped = (): void => setStale(true);
+    const reportDropped = (): void => dispatch({ type: 'dropped' });
 
     void (async () => {
-      const subscriptions = await Promise.all([
-        discoveryEvents.onProgress((event) => {
-          if (!accepts(event.runId, event.sequence)) return;
-          applyProgress.call({
-            runId: event.runId,
-            name: runNameRef.current,
-            status: event.status,
-            counts: event.counts,
-            bestStrategyId: event.bestStrategyId,
-            errorMessage: null,
-            lastSequence: event.sequence,
-          });
-        }, reportDropped),
-        discoveryEvents.onResult((event) => {
-          if (!accepts(event.runId, event.sequence)) return;
-          setResults((prev) => [event, ...prev].slice(0, MAX_SHOWN_RESULTS));
-        }, reportDropped),
-        discoveryEvents.onDone((event) => {
-          if (!accepts(event.runId, event.sequence)) return;
+      // Registered one at a time, not through Promise.all: a rejection there
+      // discards the unlisten functions of the subscriptions that DID resolve,
+      // leaking them, and surfaces only as an unhandled rejection (PR #102
+      // review). Here every success is recorded before the next attempt, so a
+      // partial failure can still be cleaned up and reported.
+      const register: (() => Promise<() => void>)[] = [
+        () => discoveryEvents.onProgress((event) => applyProgress.call(event), reportDropped),
+        () => discoveryEvents.onResult((event) => dispatch({ type: 'result', event }), reportDropped),
+        () => discoveryEvents.onDone((event) => {
           // Terminal state is applied immediately: it must never sit behind a
           // throttle window. Cancelling the throttle drops whatever progress tick
           // was still queued — including, on a fast run, the FINAL counts — so the
           // authoritative numbers are then re-read from the database rather than
           // reconstructed from the events that happened to survive coalescing.
-          // This is the panel's first rule doing real work, not a formality.
           applyProgress.cancel();
-          setRun((prev) => prev == null ? prev : {
-            ...prev,
-            status: event.status,
-            bestStrategyId: event.bestStrategyId ?? prev.bestStrategyId,
-            errorMessage: event.errorMessage,
-            lastSequence: event.sequence,
-          });
+          dispatch({ type: 'done', event });
           void discovery.progress(event.runId)
-            .then((snapshot) => setRun(fromSnapshot(snapshot)))
+            .then((snapshot) => dispatch({ type: 'snapshot', snapshot, adopt: false }))
             // The status from the event is already applied; only the counts stay
             // uncertain, which is exactly what the stale notice tells the user.
-            .catch(() => setStale(true));
+            .catch(() => dispatch({ type: 'dropped' }));
         }, reportDropped),
-      ]);
-      if (disposed) {
-        for (const unlisten of subscriptions) unlisten();
-        return;
+      ];
+      try {
+        for (const subscribe of register) {
+          const unlisten = await subscribe();
+          if (disposed) {
+            unlisten();
+            for (const previous of unlisteners) previous();
+            unlisteners.length = 0;
+            return;
+          }
+          unlisteners.push(unlisten);
+        }
+      } catch (error) {
+        for (const unlisten of unlisteners) unlisten();
+        unlisteners.length = 0;
+        // A panel with no event feed is not broken, only blind: the database is
+        // still readable, so say so instead of failing silently.
+        setErr(`事件訂閱失敗：${error instanceof Error ? error.message : String(error)}`);
+        dispatch({ type: 'dropped' });
       }
-      unlisteners.push(...subscriptions);
     })();
 
     return () => {
@@ -210,7 +164,7 @@ export function DiscoveryPanel({ liveContext, onMessage }: DiscoveryPanelProps):
       applyProgress.cancel();
       for (const unlisten of unlisteners) unlisten();
     };
-  }, [accepts]);
+  }, []);
 
   // The database is the source of truth: adopt whatever run already exists before
   // trusting any event. Startup recovery turns an orphaned run into `paused`, and
@@ -220,7 +174,7 @@ export function DiscoveryPanel({ liveContext, onMessage }: DiscoveryPanelProps):
     discovery.getActiveRun()
       .then((snapshot) => {
         if (cancelled || snapshot == null) return;
-        setRun(fromSnapshot(snapshot));
+        dispatch({ type: 'snapshot', snapshot, adopt: true });
         onMessage(`已接續既有的探索任務：${snapshot.name}（${STATUS_LABEL[snapshot.status]}）`);
       })
       .catch((error) => {
@@ -255,20 +209,24 @@ export function DiscoveryPanel({ liveContext, onMessage }: DiscoveryPanelProps):
       options: { axes: [axis], holdingAllowanceBars, rootSeed },
       logicalCores: logicalCores(),
     });
+    // Stop following the previous run BEFORE the command is sent. The backend
+    // emits its first progress event and spawns the coordinator before
+    // `start_discovery` returns the run id, so a short run can emit results —
+    // even finish — while this promise is still pending. Those events are
+    // buffered by the reducer and drained when the snapshot below adopts the run;
+    // a snapshot alone could not recover them, because no command returns result
+    // history (PR #102 review).
+    dispatch({ type: 'starting' });
     const runId = await discovery.start(envelope);
-    setResults([]);
-    setStale(false);
-    sequenceRef.current = 0;
     const snapshot = await discovery.progress(runId);
-    setRun(fromSnapshot(snapshot));
+    dispatch({ type: 'snapshot', snapshot, adopt: true });
     onMessage(`已啟動探索任務 #${runId}（seed ${rootSeed}）`);
   });
 
   const refresh = (): Promise<void> => act('refresh', async () => {
     if (run == null) return;
     const snapshot = await discovery.progress(run.runId);
-    setRun(fromSnapshot(snapshot));
-    setStale(false);
+    dispatch({ type: 'snapshot', snapshot, adopt: false });
   });
 
   const lifecycle = (action: 'pause' | 'resume' | 'cancel'): Promise<void> => act(action, async () => {
@@ -277,11 +235,12 @@ export function DiscoveryPanel({ liveContext, onMessage }: DiscoveryPanelProps):
     if (action === 'resume') await discovery.resume(run.runId);
     if (action === 'cancel') await discovery.cancel(run.runId);
     // Re-read rather than assume: the backend decides whether the transition
-    // took, and a drained pause can land after the command returns.
-    setRun(fromSnapshot(await discovery.progress(run.runId)));
+    // took, and a drained pause can land after the command returns. The reducer
+    // drops this read if events have already moved past it.
+    dispatch({ type: 'snapshot', snapshot: await discovery.progress(run.runId), adopt: false });
   });
 
-  const active = run != null && !isTerminal(run.status);
+  const active = run != null && !isTerminalStatus(run.status);
   const busy = pending != null;
   const canStart = liveContext != null && !active && !busy;
 

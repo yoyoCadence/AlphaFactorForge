@@ -96,6 +96,52 @@ test('adopts a run that already exists instead of relying on remembered state', 
   await expect(page.getByTestId('discovery-status')).toContainText('已暫停');
 });
 
+// PR #102 review finding 2: `DiscoveryRunner::start` emits its first progress
+// event and spawns the coordinator BEFORE it returns the run id, so a short run
+// can emit results — even finish — while the panel is still awaiting the command.
+// A snapshot restores counts, but no command returns result history, so those
+// rows are unrecoverable if they are dropped. The default timer pacing hides this
+// ordering; this knob reproduces it.
+test('keeps every result emitted before the run id was known', async ({ page }) => {
+  test.setTimeout(60_000);
+  await page.goto('/?mock=1&discoveryEmitBeforeStart=1', { waitUntil: 'domcontentloaded' });
+
+  await page.getByTestId('discovery-toggle').click();
+  await page.getByTestId('load-sample').click();
+  await expect(page.getByTestId('discovery-start')).toBeEnabled({ timeout: 20_000 });
+  await page.getByTestId('discovery-start').click();
+
+  // The whole run happened before `start` resolved; not one candidate may be lost.
+  await expect(page.getByTestId('discovery-result-0')).toBeVisible();
+  await expect(page.getByTestId('discovery-result-1')).toBeVisible();
+  await expect(page.getByTestId('discovery-result-2')).toBeVisible();
+  await expect(page.getByTestId('discovery-progress')).toContainText('完成 3/3');
+  await expect(page.getByTestId('discovery-status')).toContainText('已完成');
+  await expect(page.getByTestId('discovery-stale')).toHaveCount(0);
+});
+
+// PR #102 review finding 3: a rejected subscription used to leak the channels
+// that had already registered and appear only as an unhandled rejection.
+test('a failed event subscription is reported and the panel stays usable', async ({ page }) => {
+  test.setTimeout(60_000);
+  const consoleErrors: string[] = [];
+  page.on('pageerror', (error) => consoleErrors.push(String(error)));
+  // The result channel registers second, so the progress channel has already
+  // resolved when this one rejects — the partial-success case.
+  await page.goto('/?mock=1&discoveryRun=paused&discoverySubscribeFail=result', { waitUntil: 'domcontentloaded' });
+
+  await page.getByTestId('discovery-toggle').click();
+  await expect(page.getByTestId('discovery-error')).toContainText('事件訂閱失敗');
+  await expect(page.getByTestId('discovery-stale')).toBeVisible();
+
+  // The database is still readable, so the panel is blind rather than broken:
+  // adoption and re-query both still work.
+  await expect(page.getByTestId('discovery-status')).toContainText('已暫停');
+  await page.getByTestId('discovery-refresh').click();
+  await expect(page.getByTestId('discovery-progress')).toContainText('完成 1/4');
+  expect(consoleErrors).toEqual([]);
+});
+
 test('an invalid axis is rejected in the panel before any run is created', async ({ page }) => {
   test.setTimeout(60_000);
   await page.goto('/?mock=1', { waitUntil: 'domcontentloaded' });

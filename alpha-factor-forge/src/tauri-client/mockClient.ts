@@ -83,6 +83,32 @@ function mockPreexistingDiscoveryRun(): 'paused' | null {
   return mockSearchParam('discoveryRun') === 'paused' ? 'paused' : null;
 }
 
+/**
+ * `?mock=1&discoverySubscribeFail=result` rejects that channel's subscription.
+ *
+ * The PR #102 review found that a rejected `listen` leaked the subscriptions that
+ * had already resolved and surfaced only as an unhandled rejection. Real Tauri
+ * subscriptions do not fail on demand, so the failure path needs a deterministic
+ * trigger to be regression-tested at all.
+ */
+function mockDiscoverySubscribeFailure(): string | null {
+  return mockSearchParam('discoverySubscribeFail');
+}
+
+/**
+ * `?mock=1&discoveryEmitBeforeStart=1` runs the whole simulated run to
+ * completion BEFORE `start` resolves.
+ *
+ * This is the production ordering, not an artificial one: `DiscoveryRunner::start`
+ * emits its first progress event and spawns the coordinator before returning the
+ * run id, so a short run can emit results — even finish — while the WebView is
+ * still waiting for the command. The default timer-based pacing hides that,
+ * which is how the PR #102 review's second finding survived a green suite.
+ */
+function mockDiscoveryEmitBeforeStart(): boolean {
+  return mockSearchParam('discoveryEmitBeforeStart') === '1';
+}
+
 export function makeMockClient() {
   const candleDelayMs = mockCandleDelayMs();
   const candleFailureDatasetId = mockCandleFailureDatasetId();
@@ -235,6 +261,8 @@ export function makeMockClient() {
   // terminal done event whose sequence is the highest of the run.
 
   const discoveryStepMs = mockDiscoveryStepMs();
+  const subscribeFailureChannel = mockDiscoverySubscribeFailure();
+  const emitBeforeStart = mockDiscoveryEmitBeforeStart();
   type MockRun = {
     runId: number;
     name: string;
@@ -387,6 +415,21 @@ export function makeMockClient() {
         timer: null,
       };
       emitProgress(mockRun, null);
+      if (emitBeforeStart) {
+        // Everything happens before the caller learns the run id, exactly as the
+        // real backend can: emit, finish, and only then return.
+        while (mockRun.nextCandidate < mockRun.total) {
+          const candidateIndex = mockRun.nextCandidate;
+          mockRun.nextCandidate += 1;
+          emitResult(mockRun, candidateIndex);
+          mockRun.completed += 1;
+          emitProgress(mockRun, candidateIndex);
+        }
+        mockRun.status = 'completed';
+        emitProgress(mockRun, null);
+        emitDone(mockRun);
+        return runId;
+      }
       schedule(mockRun);
       return runId;
     },
@@ -443,6 +486,9 @@ export function makeMockClient() {
     onEvent: (event: T) => void,
     onInvalid?: InvalidEventHandler,
   ): () => void {
+    if (subscribeFailureChannel != null && channel.endsWith(subscribeFailureChannel)) {
+      throw new Error(`mock: subscription to ${channel} failed`);
+    }
     const handler = (payload: T): void => {
       const parsed = parse(payload);
       if (parsed == null) {

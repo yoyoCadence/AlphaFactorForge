@@ -704,3 +704,40 @@ React 元件測試環境）、`npm run build`（bundle 271.23 → **294.16 kB**�
 - Results Explorer 仍是 Phase B 既有的獨立任務；本 panel 只有 rolling 20 筆。
 - 尚未在真實 Tauri 環境做過 native smoke（`cargo tauri dev` 啟動一次真實 run）。
   這正是 `CI-TAURI-SMOKE-001` 想補的洞：目前只有 mock e2e 走過 invoke/event 生命週期。
+
+#### RUNNER-UI-001b-2 — review follow-up, 2026-08-16
+
+PR #102 的獨立驗收（Codex）判定 request-changes：**2 個阻擋性競態 + 1 個中度錯誤
+處理缺口**。三者都被 mock 原本的 timer 排程遮住，所以綠燈抓不到。全部已修。
+
+**1. sequence guard 不是 monotonic（阻擋）。**
+guard 原本放在每次 render 都從 React state 回寫的 ref 裡；但 result event 會推進
+mutable sequence、卻**不**推進 `run.lastSequence`，所以下一次 render 又把 ref 寫回
+舊值，replay 的事件會被接受第二次。**依賴 render 時序的排序不是排序**，因此整套
+排序規則移到純 reducer `src/services/discoveryFeed.ts`（17 個具名測試）。
+
+重要修正：guard 改為**每個 state slice 一個** —— `statusSequence`（狀態／計數）與
+`resultSequence`（結果列表）。原因是 progress 有節流、result 沒有，兩個頻道本來就
+會亂序抵達；共用單一計數器會讓「在較新 result 之後才抵達的 coalesced progress」
+看起來過期而被丟掉計數。延遲抵達的 snapshot 也一律以同一規則判定，不得讓畫面倒退。
+
+**2. `start()` 回傳 runId 前發出的 result 會永久遺失（阻擋）。**
+`DiscoveryRunner::start` 在回傳 run id **之前**就 emit 第一個 progress 並 spawn
+coordinator，所以短 run 可能在 WebView 還在等 command 時就發完 result、甚至結束。
+progress 可由 snapshot 補回，**result 不行** —— 沒有任何 command 回傳 result 歷史。
+reducer 現在會在「還不知道要跟哪個 run」期間 buffer 事件，並在 adoption 時 drain。
+新增 `discoveryEmitBeforeStart=1` mock 旋鈕重現 production ordering；mutation check
+（把 buffer 拿掉）確認三筆 result 全部消失，證明修正是有效的。
+
+**3. listener 註冊失敗會洩漏已註冊的頻道（中度）。**
+`Promise.all` 的拒絕會丟掉已 resolve 的 unlisten 函式，且只留下 unhandled
+rejection。改為逐一註冊並包在 try/catch 中：部分成功也會被清理，失敗會顯示在 UI。
+`discoverySubscribeFail=<channel>` 讓這條路徑可決定性重現，e2e 同時斷言沒有
+page error。
+
+Validation：`npm test` 854（+17）、typecheck、build（bundle 296.09 kB）、
+`npm run e2e` 62（+6）。未動 Rust。
+
+殘餘註記：PR 內文原本寫「三頻道共用一個 monotonic guard」，那個說法在有節流的情況
+下是錯的；正確描述是「一套排序規則、每個 state slice 一個 forward-only sequence」。
+文件與 PR 內文都已更正。
