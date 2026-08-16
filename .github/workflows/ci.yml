@@ -137,13 +137,20 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $exe = Get-ChildItem -Path 'alpha-factor-forge/src-tauri/target/debug' -Filter '*.exe' -File |
-            Select-Object -First 1
-          if ($null -eq $exe) { throw 'no built executable found in src-tauri/target/debug' }
+          # By name, not "whichever .exe turns up first": a rename or a second
+          # top-level executable would otherwise smoke the wrong binary silently.
+          # The name is `name` in src-tauri/Cargo.toml.
+          $exe = Get-Item -Path 'alpha-factor-forge/src-tauri/target/debug/alpha-factor-forge.exe' -ErrorAction SilentlyContinue
+          if ($null -eq $exe) {
+            $found = (Get-ChildItem -Path 'alpha-factor-forge/src-tauri/target/debug' -Filter '*.exe' -File |
+              ForEach-Object { $_.Name }) -join ', '
+            throw "alpha-factor-forge.exe was not built; executables present: $found"
+          }
           Write-Host "launching $($exe.FullName)"
 
           # A clean machine: the database must be created by this run, not found.
           $dbPath = Join-Path $env:APPDATA 'com.alphafactorforge.desktop\alphafactorforge.sqlite3'
+          $walPath = "$dbPath-wal"
           if (Test-Path $dbPath) { throw "database already existed before the smoke: $dbPath" }
 
           $app = Start-Process -FilePath $exe.FullName -PassThru
@@ -163,6 +170,18 @@ jobs:
             $dbSize = (Get-Item $dbPath).Length
             if ($dbSize -le 0) { throw "SQLite database at $dbPath is empty" }
             Write-Host "database created: $dbPath ($dbSize bytes)"
+
+            # The main file alone does NOT prove migrations ran: `db::initialize`
+            # sets journal_mode=WAL *before* applying them, so the schema lands in
+            # the WAL sidecar and the main file stays at one 4096-byte header page
+            # — indistinguishable from a run that applied nothing. The connection
+            # is still open here, so the sidecar must exist and carry the writes.
+            if (-not (Test-Path $walPath)) {
+              throw "no WAL sidecar at ${walPath}: migrations did not write to the database"
+            }
+            $walSize = (Get-Item $walPath).Length
+            if ($walSize -le 0) { throw "WAL sidecar at $walPath is empty: no migration wrote anything" }
+            Write-Host "WAL sidecar: $walPath ($walSize bytes)"
 
             # The WebView2 host only exists once the window actually rendered, so
             # this is what separates "the process is alive" from "the app came up".

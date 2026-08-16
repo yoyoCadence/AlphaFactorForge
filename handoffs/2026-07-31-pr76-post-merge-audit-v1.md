@@ -794,3 +794,31 @@ runner 上快得多；`--no-bundle` 跳過這條 lane 不需要的 installer。
 PR #102 驗收的非阻擋文件項：`DiscoveryPanel.tsx` 檔頭仍在描述被否決的「三頻道共用
 單一 counter」設計。已改為正確的 per-state-slice 規則，並寫明「為何單一 counter 在
 有節流時是錯的」以及「該設計已被否決、不得重新引入」，避免後人把它當契約。
+
+#### 驗收後續（同一 branch，PR #103 的第二個 commit）
+
+驗收 PR #103 時發現兩件事，直接補在這條 branch 上：
+
+**A. 被否決的設計還留在規格文件裡。** 第一個 commit 只改了 `DiscoveryPanel.tsx`
+檔頭，但真正會被「重新實作的人」讀成契約的是
+`docs/improvement-backlog.md` 的 RUNNER-UI-001b-2「Required behaviour（each one is
+an acceptance criterion）」第 2 條——它仍寫著「One monotonic sequence guard for
+all three channels」。`tasks.md` 的 Done 條目同樣。兩處都改成 per-state-slice ＋
+pure reducer 的正確規則，並明寫「單一 counter 與 React ref 兩種形狀都已被 PR #102
+review 否決，不得重新引入」。原先 handoff 寫的「文件與 PR 內文都已更正」，就這兩處
+而言並不成立。
+
+**B. DB 大小斷言比文件宣稱的弱。** backlog 表格寫「DB 存在且非空 → 排除 app-data
+解析**與 migration 套用**」，但 `db::initialize` 是先設 `journal_mode=WAL` 才套
+migration，schema 因此落在 `-wal`，主檔停在一個 4096-byte header page——CI log 印
+的正是 4096，也就是「一條 migration 都沒套」會看到的同一個數字。加上 `-wal` sidecar
+存在且非空的斷言（檢查時 app 還活著，連線未關，sidecar 必然在），並把表格的歸因改
+正。注意 migration 失敗**本來就會**被「25 秒後仍活著」抓到（`apply_migrations` 在
+`.expect()` 後面），所以這是歸因寫錯，不是覆蓋漏洞。
+
+順帶把 exe 探索從「取找到的第一個 .exe」改成按名稱 `alpha-factor-forge.exe`
+（對齊 `src-tauri/Cargo.toml` 的 `name`），找不到時把 top-level 實際有哪些 exe 印
+出來。改名或多出第二個 exe 時會紅燈，而不是靜默 smoke 錯的 binary。
+
+**本機已驗 / CI 才驗**：文件與 exe 名稱斷言是靜態的；`-wal` 斷言與第一個 commit 的
+啟動斷言一樣，由本 PR 的 CI 執行——我沒有為了驗它在使用者桌面上彈出視窗。

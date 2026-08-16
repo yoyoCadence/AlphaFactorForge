@@ -2358,10 +2358,20 @@ creates a run and then reloads the window inside one e2e.
 1. **The database is the source of truth.** On mount, call `getActiveRun()` first
    and adopt its snapshot; events are a fast path layered on top. A "重新查詢"
    control re-reads `progress(runId)` at any time.
-2. **One monotonic sequence guard for all three channels.** An event whose
-   `sequence` is not newer than what the panel already holds is ignored — this is
-   also what stops a coalesced progress tick from overwriting a terminal status
-   delivered by `done`.
+2. **A forward-only sequence guard PER STATE SLICE, in a pure reducer.** An event
+   whose `sequence` is not newer than what that slice already holds is ignored,
+   which is what stops a coalesced progress tick from overwriting a terminal
+   status delivered by `done`. One counter for status/counts (progress, done,
+   snapshots) and a separate one for the result list — **not** a single counter
+   for all three channels, which is what this criterion originally said and what
+   the PR #102 review rejected: progress is throttled and results are not, so a
+   coalesced progress tick landing after a newer result would look stale and its
+   counts would be dropped. The ordering must also live in a pure `(state, event)`
+   reducer rather than in React refs; the same review proved a ref re-derived from
+   state on every render cannot be monotonic, because a result event advances the
+   mutable sequence while the state's stays behind, so the next render writes the
+   older value back and a replayed event is accepted twice. Delivered as
+   `services/discoveryFeed.ts` — do not reintroduce either rejected shape.
 3. **Throttled progress, cancelled on unmount**, using slice a's `createThrottle`.
 4. **A dropped payload is surfaced, not swallowed.** The listeners already report
    through `onInvalid`; the panel shows a zh-TW notice that the view may be stale
@@ -2433,7 +2443,8 @@ Vite mock E2E，沒有 native executable/build/invoke/event smoke").
 | a debug binary exists in `target/debug` after `tauri build --debug --no-bundle` | link failures, a missing/invalid `tauri.conf.json`, missing icons |
 | the database did **not** exist before the run | a smoke that passes on a leftover file from an earlier attempt |
 | the process is still alive after 25s | either `.expect()` in `setup` firing, and any startup panic |
-| `%APPDATA%/com.alphafactorforge.desktop/alphafactorforge.sqlite3` exists and is non-empty | app-data resolution and migration application |
+| `%APPDATA%/com.alphafactorforge.desktop/alphafactorforge.sqlite3` exists and is non-empty | app-data resolution and the file being created at all |
+| its `-wal` sidecar exists and is non-empty | migrations having actually run. The main file alone does **not** prove this: `db::initialize` sets `journal_mode=WAL` before applying migrations, so the schema lands in the WAL and the main file stays at one 4096-byte header page — exactly what a lane with zero migrations applied would also show. (Migration failure is still caught, by the liveness assertion above: `apply_migrations` sits behind `.expect()`.) |
 | an `msedgewebview2` process exists | "the process is running" without the window ever rendering |
 
 A **debug** build on purpose: it links the same binary and runs the same startup
@@ -2458,8 +2469,10 @@ skips installer generation, which this lane never needs.
   the PR itself, and the PR must state which halves were verified where.
 - **Acceptance criteria**:
   - [ ] A `windows-latest` lane builds the real binary on every PR.
-  - [ ] The lane fails if the app exits early, if the database is missing or
-        empty, or if no WebView2 host process appears.
+  - [ ] The lane fails if the app exits early, if the database or its `-wal`
+        sidecar is missing or empty, or if no WebView2 host process appears.
+  - [ ] The lane smokes the binary by its expected name rather than whichever
+        executable it happens to find first.
   - [ ] The lane refuses to pass on a pre-existing database.
   - [ ] No dependency, lockfile, or product-code change.
   - [ ] The PR states plainly that the scripted invoke/event round trip remains
