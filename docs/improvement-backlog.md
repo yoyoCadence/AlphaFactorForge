@@ -1852,9 +1852,16 @@ contracts and break existing saved strategies. Their upper bound is already
 enforced downstream by the engine's `assertNormalizedFraction`. Changing this
 legacy conversion is **not** part of this task.
 
-**3. Cross-field rules are warnings, not errors.** Reuse `candidateValidity` /
-`DISCOVERY_VALIDITY_RULE_IDS` from `candidateEnumeration.ts` (`fastMA<slowMA`,
-`macdFast<macdSlow`, `rsiBuy<rsiSell`) and render them visibly, but do not block.
+**3. Cross-field rules are warnings, not errors. — ADJUDICATED AND CLOSED
+(maintainer, 2026-08-16, PR #99).** The maintainer accepted warnings-not-fatal
+with the reasoning that these three rules constrain *hypothesis quality*, not
+computability; a manual strategy may deliberately invert its parameters, and the
+affected indicator is not necessarily read by the selected signal. Discovery may
+keep pruning them inside its search space, but that must not forbid manual
+execution or saving. **Do not re-open this by making them fatal.** Reuse
+`candidateValidity` / `DISCOVERY_VALIDITY_RULE_IDS` from
+`candidateEnumeration.ts` (`fastMA<slowMA`, `macdFast<macdSlow`,
+`rsiBuy<rsiSell`) and render them visibly, but do not block.
 Reasons, all evidence-based: (a) none of the three produces `NaN` — they are
 computable, merely dubious, hypotheses; (b) the repo's own written judgment is
 that these are *pruned as the expected outcome of a legal grid, not rejected as
@@ -1900,7 +1907,15 @@ gate, not an engine change), `src/services/embargo.ts`,
 `src/services/strategyLibrary.ts`, `src/parity/*.ts` (the generators themselves),
 `src-tauri/**`, and every existing `e2e/*.spec.ts`.
 
-### Dependency inversion (discovered during implementation, 2026-08-16)
+### Dependency inversion — ACCEPTED (maintainer, 2026-08-16, PR #99)
+
+The maintainer accepted the inversion: moving the shared domain rules into a leaf
+module that depends only on `strategy` genuinely breaks the
+`discoveryConfig -> randomEntry -> backtestRunner` cycle, the old import paths
+stay compatible through the re-exports, the existing discovery tests pass
+unmodified, and the two parity fixtures changed only three source hashes. The
+description below is retained as the record of why the original "do not touch
+discovery" constraint could not hold.
 
 The original plan said `discoveryConfig.ts` and `candidateEnumeration.ts` would
 not be touched. **That is not achievable**, and the constraint is structural, not
@@ -2036,3 +2051,161 @@ cross-field rules warn without blocking, matching the recorded adjudication, and
 is zh-TW with Run disabled on hard failures only; (7) a legacy row with an invalid period
 still loads into the form. Return approve / request-changes / escalate in zh-TW.
 ```
+
+---
+
+## RUNNER-UI-001 — Discovery runner frontend boundary and UI
+
+Expanded to execution-ready format on 2026-08-16, after `STRATEGY-VALIDATION-001`
+merged as PR #99 (`cbc3f42`) closed the last correctness gate. Audit evidence:
+§11 of `../handoffs/2026-07-31-pr76-post-merge-audit-v1.md` (the accepted-contract
+note that this task, not an alias task, owns the stale `events.ts` DTOs).
+
+- **Category**: Feature / contract alignment
+- **Objective**: Give the frontend a typed, version-checked boundary to the
+  merged backend runner, then a progress/results surface built on it.
+
+**This task is delivered as two slices**, because one session cannot honestly
+cover both and a UI PR that also redefines the event contract is not reviewable:
+
+| Slice | Scope |
+| --- | --- |
+| **RUNNER-UI-001a** | The typed boundary only: real `discovery-event-v1` DTOs, a shared authored contract fixture asserted from BOTH languages, version/shape-checked listeners, the missing `get_active_discovery_run` wrapper, typed progress snapshots, and a cancelable stale-timer-safe throttle. **No UI, no mock, no e2e.** |
+| **RUNNER-UI-001b** | The runner panel: start/pause/resume/cancel controls, throttled progress, a results list, recovered-run adoption on mount, the `?mock=1` discovery seam, and browser e2e. Must be expanded to this format before it starts. |
+
+### Evidence (re-derived 2026-08-16 on `cbc3f42`)
+
+- `alpha-factor-forge/src/tauri-client/events.ts:7-22` still declares the
+  pre-implementation DTOs: `DiscoveryProgress { tested, total, skipped, current:
+  { symbol, interval, segment } }` and `DiscoveryResultEvent { segment, score,
+  gatePassed }`. The backend emits neither shape.
+- The real contract is `alpha-factor-forge/src-tauri/src/discovery_runner/mod.rs:38`
+  (`DISCOVERY_EVENT_VERSION = "discovery-event-v1"`) with
+  `DiscoveryProgressEvent` (`82-94`), `DiscoveryResultEvent` (`96-110`), and
+  `DiscoveryDoneEvent` (`112-123`), all `rename_all = "camelCase"`. **Not one
+  field name in the frontend DTOs exists in them**, and `eventVersion`,
+  `sequence`, `counts`, `jobIds`, `strategyHash`, `validationRecordId`, and the
+  terminal `status`/`errorMessage` are absent from the frontend entirely.
+- Nothing imports `events.ts` today (grep: only its own definitions), so the
+  drift was invisible and the rewrite is risk-free — but it also means the first
+  UI built on it would have consumed `undefined` for every field.
+- `alpha-factor-forge/src/tauri-client/commands.ts:166-172` types
+  `discovery.progress` as `invoke<unknown>` and has **no wrapper at all** for
+  `get_active_discovery_run` (`src-tauri/src/commands/discovery_commands.rs:82`),
+  which is the only way to rediscover a run that startup recovery paused.
+- `events.ts:43-61` (`throttle`) cannot be cancelled, so a trailing timer
+  outlives an unmount and fires into dead state; it also keeps `pending` forever
+  and, if a leading call happens while a trailing timer is still queued (which a
+  busy sweep or a delayed timer makes reachable), **delivers the same payload
+  twice** — harmless for a progress counter, wrong for an append-only results
+  list.
+
+### Slice A — files likely affected
+
+- new `alpha-factor-forge/fixtures/rs-core/discovery-event-v1.json` (**authored,
+  not generated**: the producer is Rust and the consumer is TypeScript, so
+  neither side may generate the other's expectations)
+- new `alpha-factor-forge/src-tauri/src/discovery_runner/event_contract_tests.rs`
+- `alpha-factor-forge/src-tauri/src/discovery_runner/mod.rs` (one
+  `#[cfg(test)] mod event_contract_tests;` declaration — no runtime change)
+- `alpha-factor-forge/src/tauri-client/events.ts` (rewritten)
+- new `alpha-factor-forge/src/tauri-client/events.test.ts`
+- `alpha-factor-forge/src/tauri-client/commands.ts` (typed discovery wrappers)
+- `CHANGELOG.md`, `tasks.md`, this file, and a Resolution appended to
+  `handoffs/2026-07-31-pr76-post-merge-audit-v1.md`
+
+**Explicitly NOT in slice A, and their absence is an acceptance check:** any
+`src/components/**`, `src/tauri-client/mockClient.ts`, `e2e/**`,
+`src-tauri/migrations/**`, every other `src-tauri/src/**` file, and any change to
+the emitted payloads themselves.
+
+### Slice A — the fixture is the contract
+
+One authored JSON file holds a sample of every event variant, including the
+optional-field permutations that `skip_serializing_if` makes observable:
+
+| Sample | Why it exists |
+| --- | --- |
+| `progressWithCandidate` | all fields present, including `candidate` + `bestStrategyId` |
+| `progressMinimal` | `candidate` and `bestStrategyId` **absent keys**, not nulls |
+| `resultGatePassed` | `score` present |
+| `resultGateFailed` | `score: null` — `Option<f64>` has no `skip_serializing_if`, so the key IS emitted |
+| `doneCompleted` | terminal status + `bestStrategyId`, no `errorMessage` |
+| `doneFailed` | `errorMessage` present, `bestStrategyId` absent |
+
+Rust asserts `serde_json::to_value(struct) == sample` for each; TypeScript asserts
+its parser accepts each sample and reproduces every field. A field added on
+either side fails the other side's test, which is the drift guard that was
+missing. The fixture is authored by hand and that is recorded in the file itself;
+no script may overwrite it.
+
+### Slice A — exact implementation plan
+
+1. Author the fixture with the exact serde spelling: `camelCase`, `RunStatus`
+   lowercase, absent optional keys where `skip_serializing_if` applies, and
+   `score: null` where it does not.
+2. Add the Rust contract test module and declare it in `mod.rs` behind
+   `#[cfg(test)]`. Construct each event struct literally (never by running a
+   discovery) and compare against the fixture sample. Also assert
+   `DISCOVERY_EVENT_VERSION` and the three channel-name constants.
+3. Rewrite `events.ts`:
+   - `DISCOVERY_EVENT_VERSION` and the three channel names, mirroring Rust.
+   - Interfaces matching the Rust structs field for field.
+   - `parseDiscoveryProgressEvent` / `Result` / `Done`: return the typed payload
+     or `null`. They must reject a wrong/missing `eventVersion`, a missing
+     required key, a wrong runtime type, and a non-finite number, and must treat
+     an absent optional key and an explicit `null` as the same "no value".
+   - `onDiscoveryProgress` / `Result` / `Done` subscribe, parse, and **drop**
+     unparseable payloads instead of handing `undefined` fields to the UI; the
+     drop is reported through an injectable `onInvalid` hook so the UI slice can
+     surface it rather than swallow it.
+4. Replace `throttle` with `createThrottle(fn, ms, { now })` returning
+   `{ call, cancel }`: leading call immediate, trailing call scheduled once,
+   `pending` cleared on every delivery, `cancel()` clearing the timer and the
+   pending payload, and no payload ever delivered twice. Use an injectable clock
+   so the tests are deterministic under fake timers.
+5. `commands.ts`: type `discovery.progress` and the new
+   `discovery.getActiveRun()` as `DiscoveryProgressSnapshot | null`, mirroring
+   `DiscoveryProgressSnapshot` field for field (including `version`,
+   `currentCandidateIndexes`, `lastEventSequence`).
+6. Tests: fixture acceptance, every rejection branch, throttle behaviour
+   (leading, coalesced trailing, no double delivery, cancel before and after the
+   trailing timer, unmount-safety), and one test asserting the TS channel names
+   and version string equal the values the Rust test pins.
+
+### Slice A — non-goals
+
+- Do not change any emitted payload, event name, command name, or command
+  signature. This slice makes the frontend match the backend, never the reverse.
+- Do not build UI, wire a panel, extend `mockClient`, or add e2e — that is
+  slice B, and mixing them would make the contract unreviewable.
+- Do not add a Rust runtime dependency; the contract test uses the existing
+  `serde_json`.
+- Do not generate the fixture from either side.
+- Do not touch migrations, other Rust modules, or the discovery engine.
+
+- **Risk level**: Low-medium. The code it replaces is unreachable, so the risk is
+  concentrated in getting the authored fixture wrong; the Rust assertion is what
+  converts that from a silent future bug into a failing test today.
+- **Validation plan**:
+  - `cd alpha-factor-forge && npm run typecheck && npm test && npm run build`
+  - `npm run e2e` (unchanged suite must stay green even though nothing new is
+    exercised)
+  - `cd alpha-factor-forge/src-tauri && cargo check --locked && cargo test --locked`
+  - Paste the fixture-driven Rust test output; if the authored fixture needed a
+    correction, say so and show the corrected assertion passing.
+  - Paste `git diff --stat` and confirm `src/components/`, `mockClient.ts`,
+    `e2e/`, `migrations/`, and all other `src-tauri/src` files are absent.
+- **Slice A acceptance criteria**:
+  - [ ] Every field of all three events is represented in TypeScript with the
+        same name and type the Rust struct serializes.
+  - [ ] Rust and TypeScript both assert the same authored fixture, including the
+        absent-optional and `score: null` permutations.
+  - [ ] An unknown `eventVersion`, a missing required key, a wrong type, and a
+        non-finite number are each rejected by a named test, and the listener
+        drops rather than forwards them.
+  - [ ] `get_active_discovery_run` has a typed wrapper and `progress` is no
+        longer `unknown`.
+  - [ ] The throttle can be cancelled, never delivers a payload twice, and has a
+        test proving a cancelled trailing timer does not fire.
+  - [ ] No UI, mock, e2e, migration, payload, or command-signature change.

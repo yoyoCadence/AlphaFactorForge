@@ -5,6 +5,9 @@
 // browser for component dev), `isTauri()` is false and callers should guard.
 
 import { invoke, isTauri } from '@tauri-apps/api/core';
+// Type-only: the runner's status/count vocabulary is defined once, next to the
+// event payloads that share it.
+import type { DiscoveryProgressCounts, RunStatus } from './events';
 
 export { isTauri };
 
@@ -163,10 +166,39 @@ export const ai = {
 };
 
 // ---- Discovery (Phase B) ----
+
+// One `get_discovery_progress` / `get_active_discovery_run` result. Mirrors
+// `DiscoveryProgressSnapshot` in `discovery_runner/mod.rs` field for field; the
+// counts and status vocabulary are shared with the event payloads, whose shape
+// is pinned from both languages (see `events.ts`). The DATABASE is the source of
+// truth for progress — events are a fast path — so the UI must be able to
+// re-query this at any time, including after dropping an unparseable event.
+export interface DiscoveryProgressSnapshot {
+  /** `discovery-progress-v1`. */
+  version: string;
+  runId: number;
+  name: string;
+  status: RunStatus;
+  counts: DiscoveryProgressCounts;
+  /** Candidate indexes currently claimed by workers. */
+  currentCandidateIndexes: number[];
+  bestStrategyId: number | null;
+  errorMessage: string | null;
+  /** Highest event sequence already emitted, so a late subscriber can tell
+   *  whether an incoming event is newer than the snapshot it started from. */
+  lastEventSequence: number;
+}
+
 export const discovery = {
   start: (config: unknown) => invoke<number>('start_discovery', { config }),
   pause: (runId: number) => invoke<void>('pause_discovery', { runId }),
   resume: (runId: number) => invoke<void>('resume_discovery', { runId }),
   cancel: (runId: number) => invoke<void>('cancel_discovery', { runId }),
-  progress: (runId: number) => invoke<unknown>('get_discovery_progress', { runId }),
+  progress: (runId: number) =>
+    invoke<DiscoveryProgressSnapshot>('get_discovery_progress', { runId }),
+  /** The one non-terminal run, if any. Startup recovery turns an orphaned run
+   *  into `paused`, and this is how the frontend rediscovers it instead of
+   *  relying on a run id remembered by a window that has since reloaded. */
+  getActiveRun: () =>
+    invoke<DiscoveryProgressSnapshot | null>('get_active_discovery_run'),
 };

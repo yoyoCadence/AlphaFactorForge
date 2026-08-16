@@ -6,6 +6,10 @@
 //! receive immutable owned/`Arc` data and never receive a database handle.
 
 pub(crate) mod execution;
+/// RUNNER-UI-001a: asserts the emitted `discovery-event-v1` JSON against the
+/// authored fixture the TypeScript client parses. Test-only; no runtime effect.
+#[cfg(test)]
+mod event_contract_tests;
 #[cfg(test)]
 mod tests;
 
