@@ -741,3 +741,84 @@ Validation：`npm test` 854（+17）、typecheck、build（bundle 296.09 kB）�
 殘餘註記：PR 內文原本寫「三頻道共用一個 monotonic guard」，那個說法在有節流的情況
 下是錯的；正確描述是「一套排序規則、每個 state slice 一個 forward-only sequence」。
 文件與 PR 內文都已更正。
+
+### CI-TAURI-SMOKE-001a — Claude Code, 2026-08-16
+
+- Branch: `feat/native-tauri-smoke-lane`，自 `origin/main` `1c5d4f0`（PR #102 合併後）
+  開出。`tasks.md`：`CI-TAURI-SMOKE-001` 拆為 a／b，a 進 Done、b 留 Backlog 並標明
+  被依賴決策阻擋。
+- Files changed: `.github/workflows/ci.yml`（新增 `native-smoke` job）、
+  `src/components/DiscoveryPanel.tsx`（只有檔頭註解，承接 PR #102 的非阻擋項）、
+  `docs/improvement-backlog.md`、`tasks.md`、`CHANGELOG.md` 與本 handoff。
+  **無依賴變更、無 lockfile 變更、無產品程式碼變更。**
+
+#### 為什麼這條 lane 有價值
+
+在此之前**沒有任何 lane 啟動過這個 app**：`cargo check`／`cargo test` 不會連結
+binary，Playwright 依設計是對 in-memory `?mock=1` client 驅動 React tree。而
+`main.rs` 的 `setup` 把整個啟動持久化路徑都放在 `.expect()` 後面
+（app-data 解析 → 建 DB → 套 migration → orphan recovery），這條路徑至今只有人工驗過。
+
+#### 這條 lane 斷言什麼（每一項都排除一個具體失敗）
+
+| 斷言 | 排除 |
+| --- | --- |
+| build 後 `target/debug` 有 exe | link 失敗、`tauri.conf.json` 無效、icon 缺失 |
+| 啟動前 DB **不存在** | 用前一次嘗試留下的檔案僥倖通過 |
+| 25 秒後 process 仍活著 | `setup` 兩個 `.expect()` 任一觸發、任何啟動 panic |
+| DB 存在且非空 | app-data 解析與 migration 套用 |
+| 有 `msedgewebview2` process | 「process 在跑」但視窗從未 render |
+
+debug build 是刻意的：連結的是同一個 binary、跑的是同一條啟動路徑，但在 Windows
+runner 上快得多；`--no-bundle` 跳過這條 lane 不需要的 installer。
+
+#### 本機已驗 / CI 才驗（誠實劃分）
+
+- **本機已驗**：`npm run tauri -- build --debug --no-bundle` 成功（44s，暖 cache），
+  top-level 只有一個 exe `alpha-factor-forge.exe`，我的探索步驟能找到它；DB 路徑
+  字串 `%APPDATA%\com.alphafactorforge.desktop\alphafactorforge.sqlite3` 在真實
+  機器上確認存在（4096 bytes），所以 CI 腳本的路徑是對的。
+- **CI 才驗**：啟動存活斷言與 WebView2 process 檢查。我沒有在使用者桌面上彈出視窗
+  25 秒去驗這一段；若 CI 這步失敗就是一次正常迭代，我已在 PR 內文明說。
+
+#### 刻意不做
+
+`CI-TAURI-SMOKE-001b`（腳本化 invoke/event round trip）需要 WebDriver
+（`tauri-driver` + `msedgedriver`），依 protocol §4.6「不可新增套件，除非任務明確
+要求且 maintainer 已核准」，這是**依賴決策**，不是我能自行決定的。因此本 slice 只
+證明 binary 連結、啟動、render 與啟動持久化路徑完成，**不證明** command 有 round-trip。
+若之後要做，建議先裁決 tauri-driver，並注意它需要 msedgedriver 版本與 Edge 對齊。
+
+#### 併帶處理
+
+PR #102 驗收的非阻擋文件項：`DiscoveryPanel.tsx` 檔頭仍在描述被否決的「三頻道共用
+單一 counter」設計。已改為正確的 per-state-slice 規則，並寫明「為何單一 counter 在
+有節流時是錯的」以及「該設計已被否決、不得重新引入」，避免後人把它當契約。
+
+#### 驗收後續（同一 branch，PR #103 的第二個 commit）
+
+驗收 PR #103 時發現兩件事，直接補在這條 branch 上：
+
+**A. 被否決的設計還留在規格文件裡。** 第一個 commit 只改了 `DiscoveryPanel.tsx`
+檔頭，但真正會被「重新實作的人」讀成契約的是
+`docs/improvement-backlog.md` 的 RUNNER-UI-001b-2「Required behaviour（each one is
+an acceptance criterion）」第 2 條——它仍寫著「One monotonic sequence guard for
+all three channels」。`tasks.md` 的 Done 條目同樣。兩處都改成 per-state-slice ＋
+pure reducer 的正確規則，並明寫「單一 counter 與 React ref 兩種形狀都已被 PR #102
+review 否決，不得重新引入」。原先 handoff 寫的「文件與 PR 內文都已更正」，就這兩處
+而言並不成立。
+
+**B. DB 大小斷言比文件宣稱的弱。** backlog 表格寫「DB 存在且非空 → 排除 app-data
+解析**與 migration 套用**」，但 `db::initialize` 是先設 `journal_mode=WAL` 才套
+migration，schema 因此落在 `-wal`，主檔停在一個 4096-byte header page——CI log 印
+的正是 4096，也就是「一條 migration 都沒套」會看到的同一個數字。加上 `-wal` sidecar
+存在且非空的斷言（檢查時 app 還活著，連線未關，sidecar 必然在），並把表格的歸因改
+正。注意 migration 失敗**本來就會**被「25 秒後仍活著」抓到（`apply_migrations` 在
+`.expect()` 後面），所以這是歸因寫錯，不是覆蓋漏洞。
+
+順帶把 exe 探索從「取找到的第一個 .exe」改成按名稱 `alpha-factor-forge.exe`
+（對齊 `src-tauri/Cargo.toml` 的 `name`），找不到時把 top-level 實際有哪些 exe 印
+出來。改名或多出第二個 exe 時會紅燈，而不是靜默 smoke 錯的 binary。
+
+**本機已驗 / CI 才驗**：文件與 exe 名稱斷言是靜態的；`-wal` 斷言與第一個 commit 的
+啟動斷言一樣，由本 PR 的 CI 執行——我沒有為了驗它在使用者桌面上彈出視窗。

@@ -93,6 +93,110 @@ jobs:
       - name: Run backend tests
         run: cargo test --locked
 
+  # CI-TAURI-SMOKE-001a — the first lane that builds and RUNS the real desktop
+  # binary. Everything before it stopped short of that: `cargo check`/`cargo test`
+  # never link the app, and the Playwright suite drives the React tree against the
+  # in-memory `?mock=1` client, so no lane had ever proved the app starts on a
+  # clean machine. This one links the binary, launches it, and asserts the startup
+  # path it cannot fake — a real WebView2 render plus the SQLite database that
+  # `setup` creates, migrates, and runs orphan recovery against.
+  #
+  # A debug build on purpose: it links the same binary and exercises the same
+  # startup path as release, in a fraction of the time on a Windows runner. What
+  # this lane still does NOT do is script an invoke/event round trip; that needs
+  # a WebDriver stack (tauri-driver + msedgedriver) and is therefore a dependency
+  # decision, recorded as CI-TAURI-SMOKE-001b.
+  native-smoke:
+    name: native-smoke
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: alpha-factor-forge/package-lock.json
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install dependencies
+        working-directory: alpha-factor-forge
+        run: npm ci
+
+      # `beforeBuildCommand` in tauri.conf.json runs `npm run build`, so the
+      # frontend bundle is produced by this step too — no separate build needed.
+      - name: Build the native desktop binary
+        working-directory: alpha-factor-forge
+        run: npm run tauri -- build --debug --no-bundle
+
+      - name: Smoke the built binary
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          # By name, not "whichever .exe turns up first": a rename or a second
+          # top-level executable would otherwise smoke the wrong binary silently.
+          # The name is `name` in src-tauri/Cargo.toml.
+          $exe = Get-Item -Path 'alpha-factor-forge/src-tauri/target/debug/alpha-factor-forge.exe' -ErrorAction SilentlyContinue
+          if ($null -eq $exe) {
+            $found = (Get-ChildItem -Path 'alpha-factor-forge/src-tauri/target/debug' -Filter '*.exe' -File |
+              ForEach-Object { $_.Name }) -join ', '
+            throw "alpha-factor-forge.exe was not built; executables present: $found"
+          }
+          Write-Host "launching $($exe.FullName)"
+
+          # A clean machine: the database must be created by this run, not found.
+          $dbPath = Join-Path $env:APPDATA 'com.alphafactorforge.desktop\alphafactorforge.sqlite3'
+          $walPath = "$dbPath-wal"
+          if (Test-Path $dbPath) { throw "database already existed before the smoke: $dbPath" }
+
+          $app = Start-Process -FilePath $exe.FullName -PassThru
+          try {
+            Start-Sleep -Seconds 25
+
+            # `setup` uses .expect() for database initialization and orphan
+            # recovery, so either failing kills the process. Still being alive is
+            # therefore a real assertion about both.
+            if ($app.HasExited) {
+              throw "the app exited early with code $($app.ExitCode)"
+            }
+
+            if (-not (Test-Path $dbPath)) {
+              throw "SQLite database was not created at $dbPath"
+            }
+            $dbSize = (Get-Item $dbPath).Length
+            if ($dbSize -le 0) { throw "SQLite database at $dbPath is empty" }
+            Write-Host "database created: $dbPath ($dbSize bytes)"
+
+            # The main file alone does NOT prove migrations ran: `db::initialize`
+            # sets journal_mode=WAL *before* applying them, so the schema lands in
+            # the WAL sidecar and the main file stays at one 4096-byte header page
+            # — indistinguishable from a run that applied nothing. The connection
+            # is still open here, so the sidecar must exist and carry the writes.
+            if (-not (Test-Path $walPath)) {
+              throw "no WAL sidecar at ${walPath}: migrations did not write to the database"
+            }
+            $walSize = (Get-Item $walPath).Length
+            if ($walSize -le 0) { throw "WAL sidecar at $walPath is empty: no migration wrote anything" }
+            Write-Host "WAL sidecar: $walPath ($walSize bytes)"
+
+            # The WebView2 host only exists once the window actually rendered, so
+            # this is what separates "the process is alive" from "the app came up".
+            $webview = Get-Process -Name 'msedgewebview2' -ErrorAction SilentlyContinue
+            if ($null -eq $webview) {
+              throw 'no msedgewebview2 process: the app window never rendered'
+            }
+            Write-Host "WebView2 host processes: $($webview.Count)"
+          }
+          finally {
+            if (-not $app.HasExited) {
+              Stop-Process -Id $app.Id -Force -ErrorAction SilentlyContinue
+            }
+          }
+
   e2e:
     name: e2e
     runs-on: ubuntu-latest
