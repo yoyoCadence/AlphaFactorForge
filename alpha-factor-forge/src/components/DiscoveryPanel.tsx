@@ -15,10 +15,15 @@
 //      mount is the primary read — startup recovery can have left a paused run —
 //      and events are a fast path layered on top of that snapshot. A re-query
 //      control exists precisely because the fast path can drop a payload.
-//   2. ONE monotonic sequence guard covers all three channels. An event that is
-//      not newer than what the panel holds is ignored, which is also what stops a
-//      coalesced progress tick from overwriting the terminal status that `done`
-//      already delivered.
+//   2. ALL event ordering lives in `services/discoveryFeed.ts`, never here. Its
+//      applied sequence is forward-only and kept PER STATE SLICE — one for
+//      status/counts, one for the result list — because progress is throttled and
+//      results are not, so a single counter for all three channels would make a
+//      coalesced progress tick that lands after a newer result look stale and
+//      drop its counts. That single-counter design was tried, rejected in the
+//      PR #102 review, and must not be reintroduced; the reducer also buffers
+//      events that arrive before the run id is known, which is the only way the
+//      results of a run that finishes before `start_discovery` returns survive.
 
 import React, { useEffect, useMemo, useReducer, useState } from 'react';
 import { discovery, discoveryEvents } from '../tauri-client/dataClient';

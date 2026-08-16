@@ -2391,3 +2391,76 @@ creates a run and then reloads the window inside one e2e.
   (new spec + all existing specs unmodified). No Rust change, so `cargo` is not
   re-run. Report the bundle delta, since the panel pulls `discoveryConfig` and
   its Gate/Score/RandomEntry dependencies into the UI graph for the first time.
+
+---
+
+## CI-TAURI-SMOKE-001 — native Windows build and startup smoke
+
+Expanded on 2026-08-16, after `RUNNER-UI-001b-2` merged as PR #102 (`1c5d4f0`)
+finally gave the runner a real invoke/event caller. Audit evidence: §10 of
+`../handoffs/2026-07-31-pr76-post-merge-audit-v1.md` ("CI 只有 cargo check/test 與
+Vite mock E2E，沒有 native executable/build/invoke/event smoke").
+
+- **Category**: CI / verification coverage
+- **Objective**: Prove in CI that the real desktop binary links, starts on a clean
+  machine, renders its window, and completes its startup persistence path.
+
+**Delivered as two slices, because the second needs a dependency decision:**
+
+| Slice | Scope |
+| --- | --- |
+| **a** | A `windows-latest` lane that builds the binary and smokes its startup: process still alive, SQLite database created from nothing, WebView2 host present. No new dependencies. |
+| **b** | A scripted invoke/event round trip through the native bridge. Needs a WebDriver stack (`tauri-driver` + `msedgedriver`) — **a maintainer dependency decision**, so it is not started here. |
+
+### Why the existing lanes are not enough (evidence)
+
+- `.github/workflows/ci.yml` `cargo-check` runs on `windows-latest` but only
+  `cargo check --locked` and `cargo test --locked`: neither links the app binary,
+  so `tauri.conf.json`, the generated icons, the capability files, and the
+  WebView2 dependency are never exercised together.
+- The `e2e` lane drives the React tree against the in-memory `?mock=1` client, by
+  design (`mockClient.ts` header). It cannot touch Tauri.
+- Therefore **no lane had ever started the app**. `main.rs:29-41` does the whole
+  persistence startup inside `setup` — `db::initialize` resolves the app-data
+  directory, creates the file, applies migrations, and then
+  `recover_orphans` repairs interrupted runs — and both calls `.expect()`, so a
+  failure aborts the process. Until now that path was only ever verified by hand.
+
+### Slice a — what the lane asserts, and why each assertion is meaningful
+
+| Assertion | What it rules out |
+| --- | --- |
+| a debug binary exists in `target/debug` after `tauri build --debug --no-bundle` | link failures, a missing/invalid `tauri.conf.json`, missing icons |
+| the database did **not** exist before the run | a smoke that passes on a leftover file from an earlier attempt |
+| the process is still alive after 25s | either `.expect()` in `setup` firing, and any startup panic |
+| `%APPDATA%/com.alphafactorforge.desktop/alphafactorforge.sqlite3` exists and is non-empty | app-data resolution and migration application |
+| an `msedgewebview2` process exists | "the process is running" without the window ever rendering |
+
+A **debug** build on purpose: it links the same binary and runs the same startup
+path as release in a fraction of the time on a Windows runner, and `--no-bundle`
+skips installer generation, which this lane never needs.
+
+### Slice a — non-goals
+
+- No scripted invoke or event assertion (that is slice b).
+- No new dependency, no `package-lock.json` or `Cargo.lock` change.
+- Do not add a release/bundle lane: signing and installer generation are a
+  release concern, not a per-PR gate.
+- Do not weaken any existing lane to make room for this one.
+
+- **Risk level**: Medium — the risk is CI-only. The realistic failure is
+  environmental (a Windows runner that cannot render a WebView2 window), which
+  would show up as a red lane rather than as a wrong product claim. If it proves
+  flaky, the honest response is to keep the build half and drop the launch half,
+  not to make the assertions vacuous.
+- **Validation plan**: build the binary locally to confirm the lane's build
+  command and executable discovery; the launch assertions are exercised by CI on
+  the PR itself, and the PR must state which halves were verified where.
+- **Acceptance criteria**:
+  - [ ] A `windows-latest` lane builds the real binary on every PR.
+  - [ ] The lane fails if the app exits early, if the database is missing or
+        empty, or if no WebView2 host process appears.
+  - [ ] The lane refuses to pass on a pre-existing database.
+  - [ ] No dependency, lockfile, or product-code change.
+  - [ ] The PR states plainly that the scripted invoke/event round trip remains
+        slice b, pending the WebDriver dependency decision.

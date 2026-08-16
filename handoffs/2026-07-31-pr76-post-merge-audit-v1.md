@@ -741,3 +741,56 @@ Validation：`npm test` 854（+17）、typecheck、build（bundle 296.09 kB）�
 殘餘註記：PR 內文原本寫「三頻道共用一個 monotonic guard」，那個說法在有節流的情況
 下是錯的；正確描述是「一套排序規則、每個 state slice 一個 forward-only sequence」。
 文件與 PR 內文都已更正。
+
+### CI-TAURI-SMOKE-001a — Claude Code, 2026-08-16
+
+- Branch: `feat/native-tauri-smoke-lane`，自 `origin/main` `1c5d4f0`（PR #102 合併後）
+  開出。`tasks.md`：`CI-TAURI-SMOKE-001` 拆為 a／b，a 進 Done、b 留 Backlog 並標明
+  被依賴決策阻擋。
+- Files changed: `.github/workflows/ci.yml`（新增 `native-smoke` job）、
+  `src/components/DiscoveryPanel.tsx`（只有檔頭註解，承接 PR #102 的非阻擋項）、
+  `docs/improvement-backlog.md`、`tasks.md`、`CHANGELOG.md` 與本 handoff。
+  **無依賴變更、無 lockfile 變更、無產品程式碼變更。**
+
+#### 為什麼這條 lane 有價值
+
+在此之前**沒有任何 lane 啟動過這個 app**：`cargo check`／`cargo test` 不會連結
+binary，Playwright 依設計是對 in-memory `?mock=1` client 驅動 React tree。而
+`main.rs` 的 `setup` 把整個啟動持久化路徑都放在 `.expect()` 後面
+（app-data 解析 → 建 DB → 套 migration → orphan recovery），這條路徑至今只有人工驗過。
+
+#### 這條 lane 斷言什麼（每一項都排除一個具體失敗）
+
+| 斷言 | 排除 |
+| --- | --- |
+| build 後 `target/debug` 有 exe | link 失敗、`tauri.conf.json` 無效、icon 缺失 |
+| 啟動前 DB **不存在** | 用前一次嘗試留下的檔案僥倖通過 |
+| 25 秒後 process 仍活著 | `setup` 兩個 `.expect()` 任一觸發、任何啟動 panic |
+| DB 存在且非空 | app-data 解析與 migration 套用 |
+| 有 `msedgewebview2` process | 「process 在跑」但視窗從未 render |
+
+debug build 是刻意的：連結的是同一個 binary、跑的是同一條啟動路徑，但在 Windows
+runner 上快得多；`--no-bundle` 跳過這條 lane 不需要的 installer。
+
+#### 本機已驗 / CI 才驗（誠實劃分）
+
+- **本機已驗**：`npm run tauri -- build --debug --no-bundle` 成功（44s，暖 cache），
+  top-level 只有一個 exe `alpha-factor-forge.exe`，我的探索步驟能找到它；DB 路徑
+  字串 `%APPDATA%\com.alphafactorforge.desktop\alphafactorforge.sqlite3` 在真實
+  機器上確認存在（4096 bytes），所以 CI 腳本的路徑是對的。
+- **CI 才驗**：啟動存活斷言與 WebView2 process 檢查。我沒有在使用者桌面上彈出視窗
+  25 秒去驗這一段；若 CI 這步失敗就是一次正常迭代，我已在 PR 內文明說。
+
+#### 刻意不做
+
+`CI-TAURI-SMOKE-001b`（腳本化 invoke/event round trip）需要 WebDriver
+（`tauri-driver` + `msedgedriver`），依 protocol §4.6「不可新增套件，除非任務明確
+要求且 maintainer 已核准」，這是**依賴決策**，不是我能自行決定的。因此本 slice 只
+證明 binary 連結、啟動、render 與啟動持久化路徑完成，**不證明** command 有 round-trip。
+若之後要做，建議先裁決 tauri-driver，並注意它需要 msedgedriver 版本與 Edge 對齊。
+
+#### 併帶處理
+
+PR #102 驗收的非阻擋文件項：`DiscoveryPanel.tsx` 檔頭仍在描述被否決的「三頻道共用
+單一 counter」設計。已改為正確的 per-state-slice 規則，並寫明「為何單一 counter 在
+有節流時是錯的」以及「該設計已被否決、不得重新引入」，避免後人把它當契約。
