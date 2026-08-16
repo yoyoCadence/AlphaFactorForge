@@ -822,3 +822,65 @@ migration，schema 因此落在 `-wal`，主檔停在一個 4096-byte header pag
 
 **本機已驗 / CI 才驗**：文件與 exe 名稱斷言是靜態的；`-wal` 斷言與第一個 commit 的
 啟動斷言一樣，由本 PR 的 CI 執行——我沒有為了驗它在使用者桌面上彈出視窗。
+
+### PERSIST-INVARIANT-001 — Claude Code, 2026-08-16
+
+- Branch: `fix/persist-bundle-invariants`，自 `origin/main` `2b80be9`（PR #103
+  合併後）開出。`tasks.md` 由 Backlog 移到 Done。
+- Files changed: `src/db/repositories.rs`（新增 `validate_result_bundle`、在
+  `write_backtest_result` 掛載、`BacktestSummary` 加 `Clone`、20 個 mutation 測試
+  與 1 個原子性測試、修正兩個 fixture 測試）、`src/db/discovery_tests.rs`（fixture
+  自我一致化）、`docs/improvement-backlog.md`、`tasks.md`、`CHANGELOG.md`、本 handoff。
+  無 schema／migration／前端變更。
+
+#### 掛載點
+
+`write_backtest_result` 是三個 writer 的共同漏斗（手動存檔、手動 validation
+bundle、runner candidate commit），所以檢查放在這裡，未來第四個 writer 無法忘記。
+函式內在檢查之前沒有任何寫入，且每個 caller 都包在 transaction 內，因此被拒絕的
+替換會讓既有結果**逐位元不變**。
+
+#### 嚴格度的刻意界線
+
+只約束「定義上有界」的比率：`win_rate`、`exposure` 是計數比計數，必須落在 `[0,1]`；
+`max_drawdown`、`turnover` 要求非負但**不封頂在 1** —— 空頭部位可能虧超過初始權益，
+真實回撤可以超過 100%。其餘欄位只要求有限，而這不是新規則而是既有契約：metrics
+mapper 會把合法的無限 profit factor narrow 成 NULL，所以欄位裡出現非有限值就代表
+mapper 被繞過了。
+
+#### 導入時 19 個既有測試失敗，全部是 fixture 描述了不可能的資料
+
+這是本任務最值得記錄的部分（細節在 backlog spec）：
+
+1. discovery store 測試把 token trade 切片（多半是空的）與來自
+   `representative_output()` 的真實 summary（`trade_count` = 179）配在一起。真正的
+   runner 不會這樣：`CandidateExecutionOutput` 帶著屬於各 summary 的 trades，
+   coordinator 在同一個 transaction 一起 commit。
+2. **把 summary 的 count 改成符合 token 切片，試過並被否決**：PERSIST-AUDIT-001 的
+   `validate_validation_bundle` 早就要求 `trade_count` 等於不可變 record 的 metric
+   snapshot，所以那樣做等於滿足一個 validator、違反另一個。兩者合起來只剩一個自我
+   一致的選項 —— commit assessment 自己的 trades。
+3. `save_validation_bundle_rolls_back_the_whole_bundle_on_failure` 原本用「非法
+   segment」注入失敗，而這個 gate 現在會在任何 insert **之前**就攔下來 —— 那會讓一個
+   rollback proof 悄悄變成 rejection proof。改用**懸空的 `dataset_id`**：純 validator
+   看不到它，只會在第二個 summary insert 時以 FK 違反失敗，此時第一個 summary 與其
+   trade row 已經寫入 transaction。
+4. token trades 用玩具時間戳（1、2）配上真實 epoch 毫秒範圍的 summary，被範圍不變式
+   擋下；現在改為由各 summary 自己的 `start_time` 導出。
+
+**沒有任何一個失敗是產品缺陷**，這也反向證明不變式挑中的正是「不可能的資料」。
+
+#### Validation
+
+`cargo test --locked`（**155**，+3）、`cargo check --locked`、typecheck、
+`npm test`（854，未變）、build、`npm run e2e`（62，未變）。前端 mapper 本來就產生
+一致的 bundle，未變的前端測試即為佐證。
+
+#### 併帶更正（PR #103 的自我修正）
+
+我在 PR #103 的 handoff 與內文把「DB 檔案存在且 4096 bytes」當成 migration 已套用的
+證據。**那是錯的**：`db::initialize` 在套 migration **之前**就設了
+`journal_mode=WAL`，所以 schema 落在 WAL sidecar，主檔會停在單一 4096-byte header
+page —— 與「什麼都沒套」完全無法區分。maintainer 在合併前補上了 WAL sidecar 斷言，
+那才是真正的證據。教訓：**斷言要挑「只有成功才會出現」的證據，不是「成功時也會出現」
+的證據。**

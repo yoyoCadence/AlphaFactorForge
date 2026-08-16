@@ -2477,3 +2477,93 @@ skips installer generation, which this lane never needs.
   - [ ] No dependency, lockfile, or product-code change.
   - [ ] The PR states plainly that the scripted invoke/event round trip remains
         slice b, pending the WebDriver dependency decision.
+
+---
+
+## PERSIST-INVARIANT-001 — summary/trade bundle invariants
+
+Expanded and implemented on 2026-08-16, after `CI-TAURI-SMOKE-001a` merged as
+PR #103 (`2b80be9`). Audit evidence: §10 of
+`../handoffs/2026-07-31-pr76-post-merge-audit-v1.md`
+("`save_backtest_result`/validation writes 未驗 summary/trades 跨欄位一致").
+
+- **Category**: Correctness / audit integrity
+- **Objective**: No write may store a summary that contradicts the trade rows
+  beside it.
+
+### Evidence
+
+- `repositories.rs` `save_backtest_result` accepted any bundle: a `trade_count`
+  that disagreed with the rows, a side outside `LONG|SHORT`, an exit before its
+  entry, trades outside the summary's own range, a non-positive price, or a
+  non-finite metric.
+- The schema cannot catch any of it. Its CHECKs cover single columns; agreement
+  BETWEEN a summary and its rows is not expressible there.
+- A stored contradiction is worse than a rejected write: every later reader — the
+  library, the report export, Gate/Score evidence — trusts the row.
+
+### Where it is enforced, and why there
+
+`write_backtest_result` is the funnel: the manual save, the manual validation
+bundle, and the runner's candidate commit all pass through it, so a future fourth
+writer cannot forget the invariants. Nothing is written before the check inside
+that function, and every caller wraps it in a transaction, so a rejection leaves
+the previously stored result exactly as it was.
+
+### Deliberate limits on strictness
+
+Only definitionally bounded ratios are bounded. `win_rate` and `exposure` are
+counts over counts, so they must sit in `[0, 1]`; `max_drawdown` and `turnover`
+must be non-negative but are **not** capped at 1, because a short position can
+lose more than the starting equity and a real drawdown may exceed 100%.
+`net_return`, `sharpe`, `calmar` and friends are only required to be finite.
+
+Every present numeric field must be finite. That is not a new rule but the
+existing persistence contract: the metrics mapper narrows a legitimately infinite
+value (a profit factor with no losing trade) to NULL, so a non-finite value in a
+column means the mapper was bypassed.
+
+### What the existing tests revealed (do not re-derive)
+
+Introducing the invariant made 19 existing Rust tests fail, and every one of them
+was a **fixture** describing impossible data rather than a product defect:
+
+1. The discovery store tests committed token trade slices — usually none at all —
+   beside summaries taken from `representative_output()`, a real assessment whose
+   `trade_count` is 179. The real runner never does this:
+   `CandidateExecutionOutput` carries the trades belonging to each summary and the
+   coordinator commits both in one transaction.
+2. Restating those summaries' `trade_count` to match the token slices was tried
+   and **rejected**: `validate_validation_bundle` (PERSIST-AUDIT-001) already
+   requires `trade_count` to equal the immutable record's metric snapshot, so
+   satisfying one validator that way contradicts the other. The two together
+   leave exactly one self-consistent choice — commit the assessment's own trades —
+   which is what the fixtures now do.
+3. `save_validation_bundle_rolls_back_the_whole_bundle_on_failure` injected its
+   failure by setting an illegal segment, which this gate now catches **before**
+   any row is inserted — silently turning a rollback proof into a rejection proof.
+   Its injected failure is now a dangling `dataset_id`: invisible to a pure
+   validator, and only failing as a foreign-key violation on the second summary
+   insert, after the first summary and its trade row have already written.
+4. Token trades used toy timestamps (`1`, `2`) beside fixture summaries whose
+   ranges are real epoch milliseconds, so the range invariant rejected them. They
+   are now derived from each summary's own `start_time`.
+
+### Non-goals
+
+- No schema or migration change: this is a pre-write gate, not a stored contract.
+- Do not bound metrics whose range is not definitional (see above).
+- Do not touch the validation-record DTO validation (PERSIST-AUDIT-001 owns it);
+  the two are complementary and now jointly pin summary ↔ trades ↔ record.
+- No frontend change: the TypeScript mapper already produces consistent bundles,
+  which the unchanged suite confirms.
+
+- **Validation**: `cargo test --locked` (155, +3), `cargo check --locked`,
+  typecheck, `npm test` (854, unchanged), build, `npm run e2e` (62, unchanged).
+- **Acceptance criteria**:
+  - [x] Every invariant has a mutation case starting from the same valid bundle,
+        so a rejection can only come from the one field it changes.
+  - [x] An impossible replacement leaves the stored summary and trade rows
+        byte-for-byte unchanged, with no extra or orphaned rows.
+  - [x] The check sits at the single funnel all three writers pass through.
+  - [x] No schema, migration, or frontend change.
