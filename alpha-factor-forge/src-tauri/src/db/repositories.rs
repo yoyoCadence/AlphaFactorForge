@@ -508,7 +508,15 @@ pub fn list_strategies(conn: &Connection) -> AppResult<Vec<StrategyDef>> {
 /// Upsert one summary row. Re-running the same `(strategy_id, dataset_id,
 /// segment)` overwrites the metrics (so a re-backtest refreshes in place rather
 /// than duplicating). Returns the row id.
-pub fn insert_backtest_summary(conn: &Connection, s: &BacktestSummary) -> AppResult<i64> {
+///
+/// **Module-private on purpose.** This is the raw writer: it takes no trade rows,
+/// so it cannot check the cross-field invariants, and while it was `pub` any
+/// module could have written a summary that contradicts its trades — leaving
+/// PERSIST-INVARIANT-001's "no writer can forget the invariants" as a convention
+/// rather than something the compiler enforces (PR #104 review). Its only caller
+/// is `write_backtest_result` below, which validates first; new callers must go
+/// through that funnel too.
+fn insert_backtest_summary(conn: &Connection, s: &BacktestSummary) -> AppResult<i64> {
     conn.execute(
         "INSERT INTO backtest_summary
             (strategy_id, dataset_id, segment, start_time, end_time,
@@ -607,9 +615,13 @@ pub(crate) fn write_backtest_result(
 
 // ---------- result-bundle invariants (PERSIST-INVARIANT-001) ----------
 
-/// The segments the 0001 CHECK constraint allows.
+/// The segments migration 0001 also CHECKs, so this gate reports the problem
+/// with a useful message before the schema would reject it anyway.
 const RESULT_SEGMENTS: [&str; 4] = ["train", "validation", "test", "full"];
-/// The side vocabulary the 0001 CHECK constraint allows.
+/// The trade sides. Unlike `segment`, `trades.side` carries **no** CHECK in
+/// migration 0001 — only a `-- LONG | SHORT` comment — so this is the ONLY
+/// enforcement of that vocabulary. Do not read it as a restatement of a
+/// database guarantee (PR #104 review).
 const TRADE_SIDES: [&str; 2] = ["LONG", "SHORT"];
 
 /// Every cross-field invariant a summary + its trades must satisfy before the

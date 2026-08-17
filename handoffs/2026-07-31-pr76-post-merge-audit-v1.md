@@ -884,3 +884,28 @@ mapper 被繞過了。
 page —— 與「什麼都沒套」完全無法區分。maintainer 在合併前補上了 WAL sidecar 斷言，
 那才是真正的證據。教訓：**斷言要挑「只有成功才會出現」的證據，不是「成功時也會出現」
 的證據。**
+
+#### PERSIST-INVARIANT-001 — review follow-up, 2026-08-17
+
+PR #104 的獨立驗收判定 request-changes：**1 個阻擋性封裝缺口 + 1 個非阻擋文案誤述**。
+兩者都已修，且都獨立覆核過。
+
+**1. [阻擋] raw writer 仍可繞過 funnel。** `insert_backtest_summary` 仍是 `pub fn`。
+它不接收 trade rows，因此本質上無法檢查任何 cross-field 不變式；只要它是公開的，
+任何 module 都能寫入與其 trades 矛盾的 summary。換句話說，我在 PR 內文寫的「未來第
+四個 writer 無法忘記」當時只是**慣例**，不是編譯器保證。已改為 module-private
+（`fn`），唯一 caller 就是同檔的 validating funnel；`cargo check` 無 warning 也反向
+證明沒有其他 caller。Rust 可見性本身就是防線，不需要額外 runtime test。
+
+**2. [非阻擋] 註解誤述 schema 保證。** 我寫 `TRADE_SIDES` 是「0001 CHECK 允許的
+vocabulary」。實際查證 migration 0001：`segment`（line 65）**有** CHECK，
+`trades.side`（line 99）**沒有**，只有 `-- LONG | SHORT` 註解。所以這個 validator 是
+side 詞彙的**唯一**強制點。原本的措辭會讓後人誤以為資料庫是第二道防線 —— 而它不是。
+兩個常數的註解都已改為描述真實狀況。
+
+這一輪的教訓與上一輪同源：**不要在註解裡宣稱一個沒去查證的保證。** 前一輪是把「成功
+時也會出現的證據」當成「只有成功才會出現的證據」（WAL），這一輪是把「有註解」當成
+「有 CHECK」。
+
+Validation：`cargo check --locked`（無 warning）、`cargo test --locked` 155/155。
+本輪未動任何測試邏輯與產品行為。
