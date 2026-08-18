@@ -822,3 +822,90 @@ migration，schema 因此落在 `-wal`，主檔停在一個 4096-byte header pag
 
 **本機已驗 / CI 才驗**：文件與 exe 名稱斷言是靜態的；`-wal` 斷言與第一個 commit 的
 啟動斷言一樣，由本 PR 的 CI 執行——我沒有為了驗它在使用者桌面上彈出視窗。
+
+### PERSIST-INVARIANT-001 — Claude Code, 2026-08-16
+
+- Branch: `fix/persist-bundle-invariants`，自 `origin/main` `2b80be9`（PR #103
+  合併後）開出。`tasks.md` 由 Backlog 移到 Done。
+- Files changed: `src/db/repositories.rs`（新增 `validate_result_bundle`、在
+  `write_backtest_result` 掛載、`BacktestSummary` 加 `Clone`、20 個 mutation 測試
+  與 1 個原子性測試、修正兩個 fixture 測試）、`src/db/discovery_tests.rs`（fixture
+  自我一致化）、`docs/improvement-backlog.md`、`tasks.md`、`CHANGELOG.md`、本 handoff。
+  無 schema／migration／前端變更。
+
+#### 掛載點
+
+`write_backtest_result` 是三個 writer 的共同漏斗（手動存檔、手動 validation
+bundle、runner candidate commit），所以檢查放在這裡，未來第四個 writer 無法忘記。
+函式內在檢查之前沒有任何寫入，且每個 caller 都包在 transaction 內，因此被拒絕的
+替換會讓既有結果**逐位元不變**。
+
+#### 嚴格度的刻意界線
+
+只約束「定義上有界」的比率：`win_rate`、`exposure` 是計數比計數，必須落在 `[0,1]`；
+`max_drawdown`、`turnover` 要求非負但**不封頂在 1** —— 空頭部位可能虧超過初始權益，
+真實回撤可以超過 100%。其餘欄位只要求有限，而這不是新規則而是既有契約：metrics
+mapper 會把合法的無限 profit factor narrow 成 NULL，所以欄位裡出現非有限值就代表
+mapper 被繞過了。
+
+#### 導入時 19 個既有測試失敗，全部是 fixture 描述了不可能的資料
+
+這是本任務最值得記錄的部分（細節在 backlog spec）：
+
+1. discovery store 測試把 token trade 切片（多半是空的）與來自
+   `representative_output()` 的真實 summary（`trade_count` = 179）配在一起。真正的
+   runner 不會這樣：`CandidateExecutionOutput` 帶著屬於各 summary 的 trades，
+   coordinator 在同一個 transaction 一起 commit。
+2. **把 summary 的 count 改成符合 token 切片，試過並被否決**：PERSIST-AUDIT-001 的
+   `validate_validation_bundle` 早就要求 `trade_count` 等於不可變 record 的 metric
+   snapshot，所以那樣做等於滿足一個 validator、違反另一個。兩者合起來只剩一個自我
+   一致的選項 —— commit assessment 自己的 trades。
+3. `save_validation_bundle_rolls_back_the_whole_bundle_on_failure` 原本用「非法
+   segment」注入失敗，而這個 gate 現在會在任何 insert **之前**就攔下來 —— 那會讓一個
+   rollback proof 悄悄變成 rejection proof。改用**懸空的 `dataset_id`**：純 validator
+   看不到它，只會在第二個 summary insert 時以 FK 違反失敗，此時第一個 summary 與其
+   trade row 已經寫入 transaction。
+4. token trades 用玩具時間戳（1、2）配上真實 epoch 毫秒範圍的 summary，被範圍不變式
+   擋下；現在改為由各 summary 自己的 `start_time` 導出。
+
+**沒有任何一個失敗是產品缺陷**，這也反向證明不變式挑中的正是「不可能的資料」。
+
+#### Validation
+
+`cargo test --locked`（**155**，+3）、`cargo check --locked`、typecheck、
+`npm test`（854，未變）、build、`npm run e2e`（62，未變）。前端 mapper 本來就產生
+一致的 bundle，未變的前端測試即為佐證。
+
+#### 併帶更正（PR #103 的自我修正）
+
+我在 PR #103 的 handoff 與內文把「DB 檔案存在且 4096 bytes」當成 migration 已套用的
+證據。**那是錯的**：`db::initialize` 在套 migration **之前**就設了
+`journal_mode=WAL`，所以 schema 落在 WAL sidecar，主檔會停在單一 4096-byte header
+page —— 與「什麼都沒套」完全無法區分。maintainer 在合併前補上了 WAL sidecar 斷言，
+那才是真正的證據。教訓：**斷言要挑「只有成功才會出現」的證據，不是「成功時也會出現」
+的證據。**
+
+#### PERSIST-INVARIANT-001 — review follow-up, 2026-08-17
+
+PR #104 的獨立驗收判定 request-changes：**1 個阻擋性封裝缺口 + 1 個非阻擋文案誤述**。
+兩者都已修，且都獨立覆核過。
+
+**1. [阻擋] raw writer 仍可繞過 funnel。** `insert_backtest_summary` 仍是 `pub fn`。
+它不接收 trade rows，因此本質上無法檢查任何 cross-field 不變式；只要它是公開的，
+任何 module 都能寫入與其 trades 矛盾的 summary。換句話說，我在 PR 內文寫的「未來第
+四個 writer 無法忘記」當時只是**慣例**，不是編譯器保證。已改為 module-private
+（`fn`），唯一 caller 就是同檔的 validating funnel；`cargo check` 無 warning 也反向
+證明沒有其他 caller。Rust 可見性本身就是防線，不需要額外 runtime test。
+
+**2. [非阻擋] 註解誤述 schema 保證。** 我寫 `TRADE_SIDES` 是「0001 CHECK 允許的
+vocabulary」。實際查證 migration 0001：`segment`（line 65）**有** CHECK，
+`trades.side`（line 99）**沒有**，只有 `-- LONG | SHORT` 註解。所以這個 validator 是
+side 詞彙的**唯一**強制點。原本的措辭會讓後人誤以為資料庫是第二道防線 —— 而它不是。
+兩個常數的註解都已改為描述真實狀況。
+
+這一輪的教訓與上一輪同源：**不要在註解裡宣稱一個沒去查證的保證。** 前一輪是把「成功
+時也會出現的證據」當成「只有成功才會出現的證據」（WAL），這一輪是把「有註解」當成
+「有 CHECK」。
+
+Validation：`cargo check --locked`（無 warning）、`cargo test --locked` 155/155。
+本輪未動任何測試邏輯與產品行為。

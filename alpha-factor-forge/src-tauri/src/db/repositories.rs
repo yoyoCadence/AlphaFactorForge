@@ -56,7 +56,7 @@ pub struct StrategyDef {
 /// Phase A persists `net_return..consecutive_losses` (from core/metrics, which
 /// the frontend maps from its camelCase `Metrics` shape); `gate_passed / score
 /// / *_json` stay `None` until Phase B fills them.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BacktestSummary {
     #[serde(default)]
     pub id: Option<i64>,
@@ -508,7 +508,15 @@ pub fn list_strategies(conn: &Connection) -> AppResult<Vec<StrategyDef>> {
 /// Upsert one summary row. Re-running the same `(strategy_id, dataset_id,
 /// segment)` overwrites the metrics (so a re-backtest refreshes in place rather
 /// than duplicating). Returns the row id.
-pub fn insert_backtest_summary(conn: &Connection, s: &BacktestSummary) -> AppResult<i64> {
+///
+/// **Module-private on purpose.** This is the raw writer: it takes no trade rows,
+/// so it cannot check the cross-field invariants, and while it was `pub` any
+/// module could have written a summary that contradicts its trades — leaving
+/// PERSIST-INVARIANT-001's "no writer can forget the invariants" as a convention
+/// rather than something the compiler enforces (PR #104 review). Its only caller
+/// is `write_backtest_result` below, which validates first; new callers must go
+/// through that funnel too.
+fn insert_backtest_summary(conn: &Connection, s: &BacktestSummary) -> AppResult<i64> {
     conn.execute(
         "INSERT INTO backtest_summary
             (strategy_id, dataset_id, segment, start_time, end_time,
@@ -566,6 +574,13 @@ pub(crate) fn write_backtest_result(
     summary: &BacktestSummary,
     trades: &[TradeRow],
 ) -> AppResult<i64> {
+    // PERSIST-INVARIANT-001 — checked HERE, in the funnel, rather than in each
+    // caller. All three writers pass through this function (the manual save, the
+    // manual validation bundle, and the runner's candidate commit), so a future
+    // fourth writer cannot forget the invariants. Nothing is written before this
+    // point in this function, and every caller wraps it in a transaction, so a
+    // rejection leaves the previously stored result exactly as it was.
+    validate_result_bundle(summary, trades)?;
     let summary_id = insert_backtest_summary(conn, summary)?;
 
     conn.execute(
@@ -596,6 +611,164 @@ pub(crate) fn write_backtest_result(
     }
 
     Ok(summary_id)
+}
+
+// ---------- result-bundle invariants (PERSIST-INVARIANT-001) ----------
+
+/// The segments migration 0001 also CHECKs, so this gate reports the problem
+/// with a useful message before the schema would reject it anyway.
+const RESULT_SEGMENTS: [&str; 4] = ["train", "validation", "test", "full"];
+/// The trade sides. Unlike `segment`, `trades.side` carries **no** CHECK in
+/// migration 0001 — only a `-- LONG | SHORT` comment — so this is the ONLY
+/// enforcement of that vocabulary. Do not read it as a restatement of a
+/// database guarantee (PR #104 review).
+const TRADE_SIDES: [&str; 2] = ["LONG", "SHORT"];
+
+/// Every cross-field invariant a summary + its trades must satisfy before the
+/// pair may be written.
+///
+/// The audit found that `save_backtest_result` accepted any bundle at all: a
+/// `trade_count` that disagreed with the rows beside it, a side outside
+/// `LONG|SHORT`, an exit before its entry, trades outside the summary's own time
+/// range, non-positive prices, or a non-finite metric. None of that is caught by
+/// the schema — the CHECKs cover single columns, not agreement BETWEEN a summary
+/// and its rows — and a stored contradiction is worse than a rejected write,
+/// because every later reader trusts the row.
+///
+/// Two deliberate limits on strictness, so this gate rejects contradictions
+/// rather than unusual-but-real results:
+///   - Only definitionally bounded ratios are bounded. `win_rate` and `exposure`
+///     are counts over counts, so they must sit in `[0, 1]`; `max_drawdown` and
+///     `turnover` must be non-negative but are NOT capped at 1, because a short
+///     position can lose more than the starting equity and a real drawdown may
+///     exceed 100%. `net_return`, `sharpe`, `calmar`, and friends are only
+///     required to be finite.
+///   - Every PRESENT numeric field must be finite. That is not an extra rule but
+///     the existing persistence contract: the metrics mapper narrows a
+///     legitimately infinite value (a profit factor with no losing trade) to
+///     NULL, so a non-finite value in a column means the mapper was bypassed.
+pub fn validate_result_bundle(summary: &BacktestSummary, trades: &[TradeRow]) -> AppResult<()> {
+    let fail = |msg: String| -> AppResult<()> {
+        Err(AppError::Other(format!("invalid result bundle: {msg}")))
+    };
+
+    if !RESULT_SEGMENTS.contains(&summary.segment.as_str()) {
+        return fail(format!(
+            "segment must be one of {}, got \"{}\"",
+            RESULT_SEGMENTS.join("|"),
+            summary.segment
+        ));
+    }
+    if summary.start_time > summary.end_time {
+        return fail(format!(
+            "summary range is inverted: start {} > end {}",
+            summary.start_time, summary.end_time
+        ));
+    }
+
+    // Finite-or-null: a present non-finite value means the metrics mapper's
+    // narrowing was bypassed on the way in.
+    for (name, value) in [
+        ("net_return", summary.net_return),
+        ("cagr", summary.cagr),
+        ("max_drawdown", summary.max_drawdown),
+        ("sharpe", summary.sharpe),
+        ("sortino", summary.sortino),
+        ("calmar", summary.calmar),
+        ("win_rate", summary.win_rate),
+        ("profit_factor", summary.profit_factor),
+        ("avg_trade_return", summary.avg_trade_return),
+        ("median_trade_return", summary.median_trade_return),
+        ("exposure", summary.exposure),
+        ("turnover", summary.turnover),
+        ("largest_win", summary.largest_win),
+        ("largest_loss", summary.largest_loss),
+        ("score", summary.score),
+    ] {
+        if let Some(value) = value {
+            if !value.is_finite() {
+                return fail(format!("{name} must be finite when present, got {value}"));
+            }
+        }
+    }
+
+    // Ratios that are counts over counts.
+    for (name, value) in [("win_rate", summary.win_rate), ("exposure", summary.exposure)] {
+        if let Some(value) = value {
+            if !(0.0..=1.0).contains(&value) {
+                return fail(format!("{name} must be within [0, 1], got {value}"));
+            }
+        }
+    }
+    for (name, value) in [
+        ("max_drawdown", summary.max_drawdown),
+        ("turnover", summary.turnover),
+    ] {
+        if let Some(value) = value {
+            if value < 0.0 {
+                return fail(format!("{name} must be non-negative, got {value}"));
+            }
+        }
+    }
+    for (name, value) in [
+        ("trade_count", summary.trade_count),
+        ("consecutive_losses", summary.consecutive_losses),
+    ] {
+        if let Some(value) = value {
+            if value < 0 {
+                return fail(format!("{name} must be non-negative, got {value}"));
+            }
+        }
+    }
+
+    // The invariant a reader is most likely to trust blindly: the summary's
+    // count and the rows beside it must be the same number.
+    if let Some(count) = summary.trade_count {
+        if count != trades.len() as i64 {
+            return fail(format!(
+                "trade_count {count} does not match the {} trade rows in the bundle",
+                trades.len()
+            ));
+        }
+    }
+
+    for (index, trade) in trades.iter().enumerate() {
+        let at = |msg: String| -> AppResult<()> { fail(format!("trade {index}: {msg}")) };
+        if !TRADE_SIDES.contains(&trade.side.as_str()) {
+            return at(format!(
+                "side must be one of {}, got \"{}\"",
+                TRADE_SIDES.join("|"),
+                trade.side
+            ));
+        }
+        if trade.entry_time > trade.exit_time {
+            return at(format!(
+                "exit {} precedes entry {}",
+                trade.exit_time, trade.entry_time
+            ));
+        }
+        if trade.entry_time < summary.start_time || trade.exit_time > summary.end_time {
+            return at(format!(
+                "[{}, {}] falls outside the summary range [{}, {}]",
+                trade.entry_time, trade.exit_time, summary.start_time, summary.end_time
+            ));
+        }
+        for (name, price) in [
+            ("entry_price", trade.entry_price),
+            ("exit_price", trade.exit_price),
+        ] {
+            if !price.is_finite() || price <= 0.0 {
+                return at(format!("{name} must be finite and > 0, got {price}"));
+            }
+        }
+        for (name, value) in [("pnl", trade.pnl), ("pnl_pct", trade.pnl_pct)] {
+            if !value.is_finite() {
+                return at(format!("{name} must be finite, got {value}"));
+            }
+        }
+    }
+
+    Ok(())
 }
 
 /// Atomically upsert a summary and replace all trade rows attached to it.
@@ -1039,6 +1212,16 @@ mod tests {
             score_breakdown_json: None,
             benchmark_result_json: None,
             created_at: None,
+        }
+    }
+
+    /// Restate a fixture summary's `trade_count` for the slice a test commits.
+    /// PERSIST-INVARIANT-001 requires the two to agree, and the fixture
+    /// summaries carry a real assessment's count.
+    fn with_trade_count(summary: &BacktestSummary, trades: usize) -> BacktestSummary {
+        BacktestSummary {
+            trade_count: Some(trades as i64),
+            ..summary.clone()
         }
     }
 
@@ -1886,13 +2069,26 @@ mod tests {
         let (strategy_id, dataset_id) = saved_parent_rows(&conn);
         let (train, validation, record) = passing_bundle(strategy_id, dataset_id);
         let expected_score = record.score;
+        // PERSIST-INVARIANT-001: a summary's `trade_count` must equal the rows
+        // committed with it. The fixture summaries come from a real assessment,
+        // so they are restated for the deliberately small slices this test uses
+        // to prove that trades attach per summary (1 + 2 = 3).
+        let train_1 = with_trade_count(&train, 1);
+        let validation_2 = with_trade_count(&validation, 2);
+        // Inside each summary's own range: PERSIST-INVARIANT-001 rejects a trade
+        // outside it, and these fixtures carry real epoch-millisecond ranges.
+        let train_trade = trade(train.start_time, train.start_time + 1, None);
+        let validation_trades = [
+            trade(validation.start_time, validation.start_time + 1, None),
+            trade(validation.start_time + 2, validation.end_time, None),
+        ];
 
         let record_id = save_validation_bundle(
             &mut conn,
-            &train,
-            &[trade(1, 2, None)],
-            &validation,
-            &[trade(3, 4, None), trade(5, 6, None)],
+            &train_1,
+            &[train_trade],
+            &validation_2,
+            &validation_trades,
             &record,
         )
         .unwrap();
@@ -1909,8 +2105,10 @@ mod tests {
 
         // Append-only: a re-run appends a SECOND record while the summaries
         // upsert (latest view) and the trades replace.
+        let train_0 = with_trade_count(&train, 0);
+        let validation_0 = with_trade_count(&validation, 0);
         let id2 =
-            save_validation_bundle(&mut conn, &train, &[], &validation, &[], &record).unwrap();
+            save_validation_bundle(&mut conn, &train_0, &[], &validation_0, &[], &record).unwrap();
         assert_ne!(record_id, id2);
         assert_eq!(
             list_validation_records(&conn, Some(strategy_id))
@@ -1935,17 +2133,24 @@ mod tests {
     fn save_validation_bundle_rolls_back_the_whole_bundle_on_failure() {
         let mut conn = mem_db();
         let (strategy_id, dataset_id) = saved_parent_rows(&conn);
-        let (train, mut validation, record) = passing_bundle(strategy_id, dataset_id);
-        // Bypass command-level pre-validation on purpose: an illegal segment
-        // makes the SECOND summary insert violate the schema CHECK after the
-        // train summary already wrote inside the transaction.
-        validation.segment = "bogus".into();
+        let (train, validation, record) = passing_bundle(strategy_id, dataset_id);
+        let train_1 = with_trade_count(&train, 1);
+        // The injected failure must be one this crate CANNOT reject up front, or
+        // this stops being a rollback proof. It used to be an illegal segment,
+        // which PERSIST-INVARIANT-001 now catches at the write funnel before any
+        // row is inserted — a rejection proof wearing a rollback proof's name.
+        // A dangling dataset reference is invisible to a pure validator and only
+        // fails as a foreign-key violation on the SECOND summary insert, after
+        // the train summary and its trade row have already written inside the
+        // transaction.
+        let mut orphan_validation = with_trade_count(&validation, 0);
+        orphan_validation.dataset_id = dataset_id + 9_999;
 
         let result = save_validation_bundle(
             &mut conn,
-            &train,
-            &[trade(1, 2, None)],
-            &validation,
+            &train_1,
+            &[trade(train.start_time, train.start_time + 1, None)],
+            &orphan_validation,
             &[],
             &record,
         );
@@ -1957,5 +2162,163 @@ mod tests {
         );
         assert_eq!(count(&conn, "trades"), 0);
         assert_eq!(count(&conn, "validation_records"), 0);
+    }
+
+    // ---------- PERSIST-INVARIANT-001 ----------
+
+    /// A bundle that describes a possible result: `summary()` spans [1, 10] and
+    /// the trade sits inside it.
+    fn valid_bundle() -> (BacktestSummary, Vec<TradeRow>) {
+        let mut s = summary(1, 1, 0.25);
+        s.trade_count = Some(1);
+        s.win_rate = Some(1.0);
+        s.exposure = Some(0.5);
+        s.max_drawdown = Some(0.1);
+        s.turnover = Some(2.0);
+        s.consecutive_losses = Some(0);
+        (s, vec![trade(2, 3, Some("signal"))])
+    }
+
+    #[test]
+    fn validate_result_bundle_accepts_a_possible_result() {
+        let (s, trades) = valid_bundle();
+        assert!(validate_result_bundle(&s, &trades).is_ok());
+        // Absent optional metrics are not the same as invalid ones.
+        let mut sparse = summary(1, 1, 0.0);
+        sparse.trade_count = None;
+        assert!(validate_result_bundle(&sparse, &[]).is_ok());
+    }
+
+    /// One mutation per invariant. Each case starts from the SAME valid bundle,
+    /// so a rejection can only be caused by the single field it changes.
+    #[test]
+    fn validate_result_bundle_rejects_every_impossible_bundle() {
+        type Mutate = fn(&mut BacktestSummary, &mut Vec<TradeRow>);
+        let cases: Vec<(&str, &str, Mutate)> = vec![
+            ("unknown segment", "segment must be one of", |s, _| {
+                s.segment = "bogus".into();
+            }),
+            ("inverted summary range", "summary range is inverted", |s, t| {
+                s.start_time = 100;
+                s.end_time = 1;
+                t.clear();
+                s.trade_count = Some(0);
+            }),
+            ("non-finite metric", "must be finite when present", |s, _| {
+                s.sharpe = Some(f64::NAN);
+            }),
+            ("infinite profit factor", "must be finite when present", |s, _| {
+                // The mapper narrows a legitimately infinite factor to NULL, so a
+                // value here means that narrowing was bypassed.
+                s.profit_factor = Some(f64::INFINITY);
+            }),
+            ("win rate above one", "must be within [0, 1]", |s, _| {
+                s.win_rate = Some(1.5);
+            }),
+            ("negative exposure", "must be within [0, 1]", |s, _| {
+                s.exposure = Some(-0.1);
+            }),
+            ("negative drawdown", "must be non-negative", |s, _| {
+                s.max_drawdown = Some(-0.1);
+            }),
+            ("negative turnover", "must be non-negative", |s, _| {
+                s.turnover = Some(-1.0);
+            }),
+            ("negative trade count", "must be non-negative", |s, t| {
+                s.trade_count = Some(-1);
+                t.clear();
+            }),
+            ("negative loss streak", "must be non-negative", |s, _| {
+                s.consecutive_losses = Some(-1);
+            }),
+            ("count disagrees with rows", "does not match", |s, _| {
+                s.trade_count = Some(2);
+            }),
+            ("unknown side", "side must be one of", |_, t| {
+                t[0].side = "long".into();
+            }),
+            ("exit before entry", "precedes entry", |_, t| {
+                t[0].entry_time = 5;
+                t[0].exit_time = 4;
+            }),
+            ("trade before the summary", "falls outside the summary range", |_, t| {
+                t[0].entry_time = 0;
+            }),
+            ("trade after the summary", "falls outside the summary range", |_, t| {
+                t[0].exit_time = 11;
+            }),
+            ("zero entry price", "must be finite and > 0", |_, t| {
+                t[0].entry_price = 0.0;
+            }),
+            ("negative exit price", "must be finite and > 0", |_, t| {
+                t[0].exit_price = -1.0;
+            }),
+            ("non-finite exit price", "must be finite and > 0", |_, t| {
+                t[0].exit_price = f64::NAN;
+            }),
+            ("non-finite pnl", "pnl must be finite", |_, t| {
+                t[0].pnl = f64::NAN;
+            }),
+            ("non-finite pnl percent", "pnl_pct must be finite", |_, t| {
+                t[0].pnl_pct = f64::INFINITY;
+            }),
+        ];
+
+        for (label, fragment, mutate) in cases {
+            let (mut s, mut trades) = valid_bundle();
+            mutate(&mut s, &mut trades);
+            let error = validate_result_bundle(&s, &trades)
+                .expect_err(&format!("{label} must be rejected"));
+            let message = error.to_string();
+            assert!(
+                message.contains(fragment),
+                "{label}: expected a message containing {fragment:?}, got {message:?}"
+            );
+        }
+    }
+
+    /// The invariant is enforced at the write funnel, so an impossible
+    /// replacement cannot land — and the previously stored result must survive it
+    /// completely, not partially.
+    #[test]
+    fn an_impossible_replacement_leaves_the_stored_result_intact() {
+        let mut conn = mem_db();
+        let (strategy_id, dataset_id) = saved_parent_rows(&conn);
+        let (mut good, trades) = valid_bundle();
+        good.strategy_id = strategy_id;
+        good.dataset_id = dataset_id;
+
+        let summary_id = save_backtest_result(&mut conn, &good, &trades).unwrap();
+        let before: (f64, i64, i64) = conn
+            .query_row(
+                "SELECT net_return, trade_count,
+                        (SELECT COUNT(*) FROM trades WHERE backtest_summary_id = ?1)
+                 FROM backtest_summary WHERE id = ?1",
+                params![summary_id],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            )
+            .unwrap();
+        assert_eq!(before, (0.25, 1, 1));
+
+        // Same key, so this WOULD upsert the summary and replace its trades —
+        // except its count contradicts the single row it carries.
+        let mut broken = good.clone();
+        broken.net_return = Some(-0.99);
+        broken.trade_count = Some(7);
+        let error = save_backtest_result(&mut conn, &broken, &trades).expect_err("must reject");
+        assert!(error.to_string().contains("does not match"));
+
+        let after: (f64, i64, i64) = conn
+            .query_row(
+                "SELECT net_return, trade_count,
+                        (SELECT COUNT(*) FROM trades WHERE backtest_summary_id = ?1)
+                 FROM backtest_summary WHERE id = ?1",
+                params![summary_id],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            )
+            .unwrap();
+        assert_eq!(after, before, "the stored result is byte-for-byte unchanged");
+        assert_eq!(count(&conn, "backtest_summary"), 1, "no extra summary row");
+        assert_eq!(count(&conn, "trades"), 1, "no orphaned trade rows");
     }
 }

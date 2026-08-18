@@ -141,46 +141,41 @@ fn started_run(conn: &mut Connection, dataset_id: i64, strategies: &[i64]) -> i6
     run_id
 }
 
-const NO_TRADES: &[TradeRow] = &[];
+// A hand-written `trade()` helper and a `NO_TRADES` constant used to live here.
+// Both are gone: PERSIST-INVARIANT-001 requires a summary's `trade_count` to
+// equal the rows committed with it, and PERSIST-AUDIT-001 requires it to equal
+// the immutable record's metric snapshot, so no hand-made slice can be paired
+// with these real fixture summaries. `fixture_trades()` below is the only
+// self-consistent source.
 
-/// One closed round-trip, so trade rows are actually present where a test
-/// needs to prove they roll back.
-fn trade(entry_time: i64, exit_time: i64) -> TradeRow {
-    TradeRow {
-        entry_time,
-        exit_time,
-        side: "LONG".into(),
-        entry_price: 100.0,
-        exit_price: 110.0,
-        pnl: 10.0,
-        pnl_pct: 0.1,
-        reason: Some("signal".into()),
-    }
+/// The trade rows that belong to `bundle()`'s summaries.
+///
+/// These state-machine tests used to commit token trade slices — usually none at
+/// all — beside summaries taken from `representative_output()`, a real assessment
+/// whose `trade_count` is the real 179. That pairing is impossible data, and two
+/// validators now say so from different directions: PERSIST-INVARIANT-001 requires
+/// `trade_count` to equal the rows committed with it, and PERSIST-AUDIT-001
+/// already required it to equal the immutable record's metric snapshot. Together
+/// they leave exactly one self-consistent choice — commit the assessment's OWN
+/// trades — which is also what the real runner does, since
+/// `CandidateExecutionOutput` carries the trades belonging to each summary and the
+/// coordinator commits both in one transaction. Restating the count to match a
+/// token slice was tried and rejected: it satisfies one validator by
+/// contradicting the other.
+fn fixture_trades() -> (Vec<TradeRow>, Vec<TradeRow>) {
+    let output = crate::discovery_runner::execution::tests::representative_output();
+    (output.train_trades, output.validation_trades)
 }
 
-#[allow(clippy::too_many_arguments)]
-fn commit_with_trades(
-    conn: &mut Connection,
-    run_id: i64,
-    candidate_index: i64,
-    bundle: &(BacktestSummary, BacktestSummary, ValidationRecordRow),
-    train_trades: &[TradeRow],
-    validation_trades: &[TradeRow],
-    progress_json: Option<&str>,
-) -> crate::error::AppResult<i64> {
-    commit_candidate_assessment(
-        conn,
-        &CandidateAssessment {
-            run_id,
-            candidate_index,
-            train_summary: &bundle.0,
-            train_trades,
-            validation_summary: &bundle.1,
-            validation_trades,
-            record: &bundle.2,
-            progress_json,
-        },
-    )
+/// The same self-consistent trades, tagged so a test can tell WHICH commit's
+/// rows survived. Only `reason` changes, so the count still matches the summary
+/// and the immutable record.
+fn labelled_fixture_trades(label: &str) -> (Vec<TradeRow>, Vec<TradeRow>) {
+    let (mut train, mut validation) = fixture_trades();
+    for trade in train.iter_mut().chain(validation.iter_mut()) {
+        trade.reason = Some(label.to_owned());
+    }
+    (train, validation)
 }
 
 fn commit(
@@ -190,15 +185,16 @@ fn commit(
     bundle: &(BacktestSummary, BacktestSummary, ValidationRecordRow),
     progress_json: Option<&str>,
 ) -> crate::error::AppResult<i64> {
+    let (train_trades, validation_trades) = fixture_trades();
     commit_candidate_assessment(
         conn,
         &CandidateAssessment {
             run_id,
             candidate_index,
             train_summary: &bundle.0,
-            train_trades: NO_TRADES,
+            train_trades: &train_trades,
             validation_summary: &bundle.1,
-            validation_trades: NO_TRADES,
+            validation_trades: &validation_trades,
             record: &bundle.2,
             progress_json,
         },
@@ -701,25 +697,21 @@ fn re_committing_a_done_candidate_is_rejected_before_any_write() {
 
     let first = bundle(strategies[0], dataset_id, true, 1.5);
     let first_net_return = first.0.net_return.unwrap();
-    let first_trades = [TradeRow {
-        entry_time: 1,
-        exit_time: 2,
-        side: "LONG".into(),
-        entry_price: 10.0,
-        exit_price: 11.0,
-        pnl: 1.0,
-        pnl_pct: 0.1,
-        reason: Some("first".into()),
-    }];
+    // Tagged copies of the assessment's OWN trades: a token slice would
+    // contradict `trade_count` and the immutable record's metric snapshot, so it
+    // would be rejected up front and this test would never reach the write it
+    // means to exercise.
+    let (first_train_trades, first_validation_trades) = labelled_fixture_trades("first");
+    let expected_trade_rows = (first_train_trades.len() + first_validation_trades.len()) as i64;
     commit_candidate_assessment(
         &mut conn,
         &CandidateAssessment {
             run_id,
             candidate_index: 0,
             train_summary: &first.0,
-            train_trades: &first_trades,
+            train_trades: &first_train_trades,
             validation_summary: &first.1,
-            validation_trades: &first_trades,
+            validation_trades: &first_validation_trades,
             record: &first.2,
             progress_json: Some("{\"done\":1}"),
         },
@@ -732,25 +724,16 @@ fn re_committing_a_done_candidate_is_rejected_before_any_write() {
     let mut second = bundle(strategies[0], dataset_id, true, 9.9);
     second.0.net_return = Some(-42.0);
     second.1.net_return = Some(-42.0);
-    let second_trades = [TradeRow {
-        entry_time: 5,
-        exit_time: 6,
-        side: "SHORT".into(),
-        entry_price: 20.0,
-        exit_price: 19.0,
-        pnl: -1.0,
-        pnl_pct: -0.05,
-        reason: Some("second".into()),
-    }];
+    let (second_train_trades, second_validation_trades) = labelled_fixture_trades("second");
     let outcome = commit_candidate_assessment(
         &mut conn,
         &CandidateAssessment {
             run_id,
             candidate_index: 0,
             train_summary: &second.0,
-            train_trades: &second_trades,
+            train_trades: &second_train_trades,
             validation_summary: &second.1,
-            validation_trades: &second_trades,
+            validation_trades: &second_validation_trades,
             record: &second.2,
             progress_json: Some("{\"done\":2}"),
         },
@@ -773,8 +756,8 @@ fn re_committing_a_done_candidate_is_rejected_before_any_write() {
     assert_eq!(reason, "first", "the stored trades are untouched");
     assert_eq!(
         count(&conn, "trades"),
-        2,
-        "one trade per summary, unchanged"
+        expected_trade_rows,
+        "both segments' trade rows, unchanged"
     );
     assert_eq!(count(&conn, "validation_records"), 1);
     assert_eq!(
@@ -806,20 +789,16 @@ fn a_failure_at_the_last_write_rolls_back_jobs_lifecycle_and_progress() {
     )
     .unwrap();
 
-    // Non-empty trades on BOTH segments, so the trade rows are genuinely
-    // covered rather than trivially absent.
+    // The assessment's own trades, on BOTH segments, so the trade rows are
+    // genuinely covered rather than trivially absent. They have to be the real
+    // ones: a token slice would contradict the summary's `trade_count` and the
+    // immutable record's metric snapshot, and be rejected before any write —
+    // which would silently turn this rollback proof into a rejection proof.
     let b = bundle(strategies[0], dataset_id, true, 1.5);
-    let trades = [trade(1, 2)];
-    assert!(commit_with_trades(
-        &mut conn,
-        run_id,
-        0,
-        &b,
-        &trades,
-        &trades,
-        Some("{\"boom\":1}")
-    )
-    .is_err());
+    let (train_trades, validation_trades) = fixture_trades();
+    let expected_trade_rows = (train_trades.len() + validation_trades.len()) as i64;
+    assert!(expected_trade_rows > 0, "the fixture must carry trade rows");
+    assert!(commit(&mut conn, run_id, 0, &b, Some("{\"boom\":1}")).is_err());
 
     assert_eq!(count(&conn, "backtest_summary"), 0, "summaries rolled back");
     assert_eq!(count(&conn, "trades"), 0, "trade rows rolled back");
@@ -841,17 +820,12 @@ fn a_failure_at_the_last_write_rolls_back_jobs_lifecycle_and_progress() {
     // trades and progress must now appear, proving neither assertion was
     // trivially satisfied by an empty input.
     conn.execute_batch("DROP TRIGGER boom;").unwrap();
-    commit_with_trades(
-        &mut conn,
-        run_id,
-        0,
-        &b,
-        &trades,
-        &trades,
-        Some("{\"done\":1}"),
-    )
-    .unwrap();
-    assert_eq!(count(&conn, "trades"), 2, "the trade rows really do write");
+    commit(&mut conn, run_id, 0, &b, Some("{\"done\":1}")).unwrap();
+    assert_eq!(
+        count(&conn, "trades"),
+        expected_trade_rows,
+        "the trade rows really do write"
+    );
     assert_eq!(
         get_discovery_run(&conn, run_id).unwrap().progress_json,
         Some("{\"done\":1}".into()),
