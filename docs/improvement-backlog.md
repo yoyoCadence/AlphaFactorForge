@@ -2567,3 +2567,76 @@ was a **fixture** describing impossible data rather than a product defect:
         byte-for-byte unchanged, with no extra or orphaned rows.
   - [x] The check sits at the single funnel all three writers pass through.
   - [x] No schema, migration, or frontend change.
+
+---
+
+## IO-ROBUSTNESS-001 — atomic report filenames
+
+Implemented on 2026-08-18, after `PERSIST-INVARIANT-001` merged as PR #104
+(`e3fc79f`). Audit evidence: §10 of
+`../handoffs/2026-07-31-pr76-post-merge-audit-v1.md`
+("`file_commands.rs:22-24,66-88` 使用 `exists -> std::fs::write`，有
+check-then-write truncation race；改 `create_new` retry").
+
+- **Category**: Correctness / data loss
+- **Objective**: Two exports finishing together must never overwrite one another,
+  and no export may destroy a report that already exists.
+
+### Evidence
+
+- `unique_report_path` chose a name with `Path::exists()`, and `save_report` then
+  called `std::fs::write`, which **truncates**. Anything created in the window
+  between the check and the write was silently destroyed.
+- The loser is never told: `save_report` returns the path it believes it wrote,
+  so the UI reports success for a file whose contents belong to someone else.
+- The old timestamped last resort had the same shape — it returned a path that
+  was then written unconditionally.
+
+### The fix
+
+Naming and creation become one atomic step. `OpenOptions::create_new` makes the
+OS refuse the open if the path appeared meanwhile, so a collision is a retry
+under the next candidate name instead of data loss. Exhausting the candidates is
+an error, not a timestamped fallback: after a thousand same-named reports the
+caller needs to hear about it, and a timestamp can collide too.
+
+**Behaviour change to record:** `save_report` can now fail with
+`no unused name for "<file>" after 1000 attempts` where it previously wrote a
+timestamped file. Failing loudly is the point — the previous path could still
+truncate.
+
+### Mutation evidence (this is what makes the tests meaningful)
+
+Reverting only `.create_new(true)` to `.create(true).truncate(true)` — exactly
+`std::fs::write` semantics — makes **all four** new tests fail, and the
+concurrency test fails with the real-world signature:
+
+```
+assertion `left == right` failed: each writer's own bytes must survive
+  left: "writer-1"
+ right: "writer-0"
+```
+
+That is writer-0's report holding writer-1's bytes: the data loss reproduced, not
+merely a naming difference.
+
+### Non-goals
+
+- No change to `safe_report_filename` (the sanitisation contract is unrelated and
+  its test is kept verbatim).
+- No frontend change: `files.saveReport` keeps its signature, and the mock
+  browser-download path is untouched.
+- Do not make the writer atomic by writing to a temp file and renaming: rename
+  would still clobber an existing target, and the requirement here is to pick an
+  unused NAME, not to replace a known one.
+
+- **Validation**: `cargo test --locked` (158, +3), `cargo check --locked` (no
+  warnings), typecheck, `npm test`, build, `npm run e2e`.
+- **Acceptance criteria**:
+  - [x] Name selection and file creation are one atomic step; no `exists()`
+        check remains in the write path.
+  - [x] An existing report is never truncated.
+  - [x] Concurrent writers released by a barrier each get their own file, and
+        every file holds exactly what its own writer passed.
+  - [x] Exhaustion fails loudly and leaves every existing file untouched.
+  - [x] The mutation back to `fs::write` semantics fails the new tests.

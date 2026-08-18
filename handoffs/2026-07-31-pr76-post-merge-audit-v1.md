@@ -909,3 +909,53 @@ side 詞彙的**唯一**強制點。原本的措辭會讓後人誤以為資料�
 
 Validation：`cargo check --locked`（無 warning）、`cargo test --locked` 155/155。
 本輪未動任何測試邏輯與產品行為。
+
+### IO-ROBUSTNESS-001 — Claude Code, 2026-08-18
+
+- Branch: `fix/atomic-report-filenames`，自 `origin/main` `e3fc79f`（PR #104
+  合併後）開出。`tasks.md` 由 Backlog 移到 Done。
+- Files changed: `src/commands/file_commands.rs`（`unique_report_path` 換成
+  `write_new_report`、測試模組重寫）、`docs/improvement-backlog.md`、`tasks.md`、
+  `CHANGELOG.md`、本 handoff。無前端、schema、依賴變更。
+
+#### 缺陷與修法
+
+`unique_report_path` 用 `Path::exists()` 選名，`save_report` 再呼叫
+`std::fs::write` —— 而 `write` 會 **truncate**。檢查與寫入之間的空窗期內若有人建立
+同名檔案，內容會被靜默摧毀，而且**輸家不會知道**：`save_report` 回傳的是它「以為」
+自己寫的路徑。舊的 timestamped 最後手段是同一個形狀（回傳一個路徑然後無條件寫入）。
+
+改為 `OpenOptions::create_new`：選名與建立變成**同一個原子步驟**，OS 會在路徑已存在
+時拒絕開檔，因此碰撞變成「換下一個候選名重試」而不是資料遺失。候選名用盡改為報錯而
+非 timestamp fallback —— 同名報告累積到一千份時使用者需要知道，而 timestamp 也可能
+碰撞。
+
+**行為變更**：`save_report` 現在可能回傳
+`no unused name for "<file>" after 1000 attempts`，這是刻意的，因為舊路徑仍可能 truncate。
+
+#### Mutation 證據（這才是測試有意義的原因）
+
+只把 `.create_new(true)` 還原成 `.create(true).truncate(true)`（正是 `fs::write` 的
+語義），**四個新測試全部失敗**，且並行測試以真實世界的簽名失敗：
+
+```
+assertion `left == right` failed: each writer's own bytes must survive
+  left: "writer-1"
+ right: "writer-0"
+```
+
+那是 writer-0 的報告裡裝著 writer-1 的位元組 —— 重現的是**資料遺失**，不只是命名差異。
+
+#### 環境陷阱（下一位 agent 會遇到）
+
+本機 `cargo test` 在 mutation 檢查途中連續兩次以
+`LINK : fatal error LNK1104: 無法開啟檔案 ...target\debug\deps\alpha_factor_forge-<hash>.exe`
+失敗，而 `tasklist` 顯示沒有任何 process 持有它。原因是 repo 位於 OneDrive 同步資料夾，
+`target/` 也在其中，OneDrive 會短暫鎖住剛寫出的 exe。**解法：把 target 目錄移出
+OneDrive**，例如 `CARGO_TARGET_DIR=/c/tmp/aff-target cargo test --locked`。這是純本機
+環境變數，**不要**提交 `.cargo/config.toml` 的 target-dir 覆寫（CI 沒有這個問題）。
+
+#### Validation
+
+`cargo test --locked` 158（+3）、`cargo check --locked` 無 warning、typecheck、
+`npm test` 854、build、`npm run e2e` 62。
