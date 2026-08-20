@@ -80,7 +80,16 @@ const MAX_REPORT_SUFFIX: u32 = 1000;
 /// instead of data loss. Exhausting the candidates is an error rather than a
 /// timestamped last resort: after this many same-named reports the caller needs
 /// to hear about it, and a timestamp could collide too.
-pub(crate) fn write_new_report(dir: &Path, file_name: &str, contents: &str) -> AppResult<PathBuf> {
+///
+/// Private on purpose. It takes an arbitrary `file_name` and hands it straight
+/// to `dir.join`, and `join` REPLACES the base when given an absolute path — so
+/// a `pub(crate)` version would let any backend module escape the downloads
+/// directory and the `.json`/`.csv` contract that `safe_report_filename`
+/// enforces. `save_report` sanitises first and is the only caller; the nested
+/// test module can still reach a private parent item. If this ever needs crate
+/// visibility, move the filename validation in here instead of widening the
+/// boundary (PR #105 review).
+fn write_new_report(dir: &Path, file_name: &str, contents: &str) -> AppResult<PathBuf> {
     write_new_report_within(dir, file_name, contents, MAX_REPORT_SUFFIX)
 }
 

@@ -959,3 +959,22 @@ OneDrive**，例如 `CARGO_TARGET_DIR=/c/tmp/aff-target cargo test --locked`。�
 
 `cargo test --locked` 158（+3）、`cargo check --locked` 無 warning、typecheck、
 `npm test` 854、build、`npm run e2e` 62。
+
+#### IO-ROBUSTNESS-001 — review follow-up, 2026-08-20
+
+PR #105 驗收發現 1 項 P2：**`write_new_report` 的 `pub(crate)` 悄悄移動了 trust
+boundary**。它接受任意 `file_name` 並直接交給 `dir.join`，而 `join` 在參數是絕對路徑
+時會**取代** base —— 所以任何 backend module 都能繞過 Downloads 目錄邊界與
+`.json`／`.csv` 契約（那個契約只存在於 `save_report` 呼叫的 `safe_report_filename`）。
+
+已改回 private，並把理由寫在函式的 doc comment 上：`save_report` 先 sanitise 且是唯一
+caller；巢狀的 `#[cfg(test)] mod tests` 仍可存取 private parent item，所以沒有任何損失。
+若日後真的需要 crate 可見，正確做法是把檔名驗證**移進**這個 helper，而不是放寬邊界。
+
+**這是連續第二次同一種形狀的 finding**（前一次是 PERSIST-INVARIANT-001 的
+`insert_backtest_summary` 維持 `pub`）。共同根因：我在抽出 helper 時給了「剛好夠用」
+以上的可見性，而那個更寬的簽章正好推翻我在同一個 PR 裡宣稱的保證。規則已明確化：
+**抽出 helper 時用最窄的可見性；測試不是放寬的理由；真的需要放寬就把驗證搬進去。**
+
+Validation：`cargo check --locked` 無 warning、`cargo test --locked` 158/158。
+本輪只動可見性與註解，無行為變更。
