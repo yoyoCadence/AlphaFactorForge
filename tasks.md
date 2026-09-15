@@ -1,4 +1,4 @@
-﻿# AlphaFactorForge Tasks
+# AlphaFactorForge Tasks
 
 This is the single active task board for the workspace. The former `task.md` legacy feature map has been merged into this file and should not be recreated as a second task board.
 
@@ -24,6 +24,27 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 - None.
 
 ## Backlog
+
+### AlphaBTC capability transfer and persistent service (2026-09-15)
+
+User-directed scope: preserve AlphaBTC's useful research/data/accounting/operations capabilities in AlphaFactorForge, including a UI that controls a service able to run without the UI. Capability inventory C01–C20, source evidence, limitations, dependencies, and acceptance specifications are in [the transfer handoff](handoffs/2026-09-15-alphabtc-capability-transfer-v1.md). This extends the product requirements; it does not claim headless/24-hour AI automation is already implemented or silently complete existing Phase C/D work. This section is the status owner; the handoff is a specification, not a second task board.
+
+- [ ] **ABC-01** — specify service/UI/CLI lifecycle, workspace ownership, recovery authority, and versioned command/event contracts.
+- [ ] **ABC-02** — extract the Tauri event sink and add one bounded headless execution host using the existing computation/store; prove UI exit and competing-owner behavior.
+- [ ] **ABC-03** — connect UI/CLI to the common service contract with idempotent commands and restart-safe state/event recovery.
+- [ ] **ABC-04** — extend DATA-QUALITY-001/PARITY-002 with raw-response provenance, revisions, venue/quote/availability identity, and rejection fixtures.
+- [ ] **ABC-05** — freeze hypothesis/candidate artifacts before execution and preserve lineage and rejection evidence alongside existing run records.
+- [ ] **ABC-06** — specify research feasibility, numerical precision, trial-family accounting, and adaptive-search/confirmation separation.
+- [ ] **ABC-07** — extend the existing hidden Test task with atomic consumption, crash/restore invariants, and an overlapping-period disclosure ledger.
+- [ ] **ABC-08** — produce execution/accounting differential fixtures before porting fill modes or changing metrics semantics.
+- [ ] **ABC-09** — specify and implement archived engine artifacts and verified replay beyond contract hashes alone.
+- [ ] **ABC-10** — extend Phase D with a bounded single-account forward-paper slice, shared ledger, idempotent checkpoint, and persistent risk latch.
+- [ ] **ABC-11** — specify consistent workspace backup and isolated restore preserving artifacts, risk states, and Test consumption.
+- [ ] **ABC-12** — extend Results Explorer/result-context work with service reconnection, provenance, stable selections, and persistent visible feedback; require real UI acceptance.
+- [ ] **ABC-13** — specify durable scheduling, finite budgets, restart/sleep/update policies, and service health; split implementation/OS packaging after the contract.
+- [ ] **ABC-14** — extend Phase C/full automation with a finite AI-batch contract covering executable DSL, information boundaries, generation evidence, budgets, and uncertain provider-call recovery.
+
+Existing multi-asset/portfolio, supervised allocation reduction, and long-run operational validation remain separate follow-ups. The corresponding existing tasks below are retained; ABC work supplies additional contracts/acceptance rather than authorizing duplicate implementations.
 
 ### Post-PR #76 project audit follow-ups (2026-07-31)
 
@@ -144,6 +165,8 @@ These were named inside the UI port entry and must not be buried by closing it. 
 - [ ] Full closed-loop AI automation.
 
 ## Done
+
+- [x] **ABC-DOC-001** — AlphaBTC capability inventory and transfer specifications (2026-09-15). Recorded 20 source-grounded capabilities, 14 bounded follow-up specifications, and the corrected product requirement that the desktop UI and independent continuous service can coexist. Added only the handoff and this task-board entry on `docs/alphabtc-capability-transfer`, based on locally known `origin/main` `e3fc79f`; original feature branch/commits retained. GitHub fetch failed authentication, so latest remote state is unverified and no PR was published. Validation: local file/link/ID consistency and diff checks; no engine/test/DB changes, no runtime suites or service/AI execution. Feature implementation remains Backlog.
 
 - [x] **IO-ROBUSTNESS-001 (P2)** — report writes can no longer clobber each other (2026-08-18, branch `fix/atomic-report-filenames`, branched from `origin/main` `e3fc79f`).
   - `unique_report_path` chose a name with `Path::exists()` and `save_report` then called `std::fs::write`, which **truncates**: anything created between the check and the write was silently destroyed, and the loser was never told — `save_report` returned the path it believed it had written. The old timestamped last resort had the same shape.
