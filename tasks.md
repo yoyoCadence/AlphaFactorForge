@@ -29,9 +29,14 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 User-directed scope: preserve AlphaBTC's useful research/data/accounting/operations capabilities in AlphaFactorForge, including a UI that controls a service able to run without the UI. Capability inventory C01–C20, source evidence, limitations, dependencies, and acceptance specifications are in [the transfer handoff](handoffs/2026-09-15-alphabtc-capability-transfer-v1.md). This extends the product requirements; it does not claim headless/24-hour AI automation is already implemented or silently complete existing Phase C/D work. This section is the status owner; the handoff is a specification, not a second task board.
 
-- [ ] **ABC-01** — specify service/UI/CLI lifecycle, workspace ownership, recovery authority, and versioned command/event contracts.
-- [ ] **ABC-02** — extract the Tauri event sink and add one bounded headless execution host using the existing computation/store; prove UI exit and competing-owner behavior.
-- [ ] **ABC-03** — connect UI/CLI to the common service contract with idempotent commands and restart-safe state/event recovery.
+Ordering: this section does not change the existing Phase B sequence. The Results Explorer UI (the next Phase B step named in the Current Snapshot) and the remaining Post-PR #76 order stay ahead; ABC-01 is the first ABC item eligible for Next and is promoted only after Results Explorer is Done, unless the maintainer explicitly reorders.
+
+Granularity: each ABC item is a bounded specification, not a one-session task. Before any ABC item moves to Next, split it into sub-items that each fit one session (AGENTS.md §9); the parent stays in Backlog as the status owner for its sub-items.
+
+- [ ] **ABC-01** — specify service/UI/CLI lifecycle, workspace ownership, recovery authority, and versioned command/event contracts. Recovery/migration authority follows the workspace lease holder, not the process type: the desktop still recovers when it starts in embedded mode (today's `main.rs` path, asserted by the PR #103 native smoke lane), and only skips recovery in connect mode. Must list the affected existing contracts (RUNNER-OWNERSHIP-001 OS-level guard retained; PR #103 smoke lane unchanged) and update `STRATEGY_DISCOVERY.md`/README on completion.
+- [ ] **ABC-02a** — extract the Tauri event sink (`TauriDiscoveryEventSink`/`AppHandle`) out of runner orchestration with zero behavior change; existing Rust tests prove event order and commit-then-emit are unchanged. Independently mergeable.
+- [ ] **ABC-02b** — add one bounded headless execution host using the existing computation/store; prove UI exit and competing-owner behavior.
+- [ ] **ABC-03** — connect UI/CLI to the common service contract with idempotent commands and restart-safe state/event recovery; remove the desktop's connect-mode recovery path only (embedded mode retained; native smoke lane stays green).
 - [ ] **ABC-04** — extend DATA-QUALITY-001/PARITY-002 with raw-response provenance, revisions, venue/quote/availability identity, and rejection fixtures.
 - [ ] **ABC-05** — freeze hypothesis/candidate artifacts before execution and preserve lineage and rejection evidence alongside existing run records.
 - [ ] **ABC-06** — specify research feasibility, numerical precision, trial-family accounting, and adaptive-search/confirmation separation.
@@ -156,17 +161,17 @@ These were named inside the UI port entry and must not be buried by closing it. 
 ### Deferred / Optional Product Work
 
 - [ ] Walk-forward analysis beyond the initial split.
-- [ ] Multi-asset portfolio backtesting.
+- [ ] Multi-asset portfolio backtesting. (C08 in the AlphaBTC transfer handoff informs it; not an ABC item — see that section's closing note.)
 - [ ] Alerts and webhooks.
-- [ ] Paper-live forward test flow.
-- [ ] Hidden Test one-time reveal and promotion flow.
+- [ ] Paper-live forward test flow. (Specification: ABC-10.)
+- [ ] Hidden Test one-time reveal and promotion flow. (Specification: ABC-07.)
 - [ ] Strategy clustering and family refinement.
 - [ ] Meme/low-liquidity risk filters and dynamic slippage.
-- [ ] Full closed-loop AI automation.
+- [ ] Full closed-loop AI automation. (Specification: ABC-14.)
 
 ## Done
 
-- [x] **ABC-DOC-001** — AlphaBTC capability inventory and transfer specifications (2026-09-15). Recorded 20 source-grounded capabilities, 14 bounded follow-up specifications, and the corrected product requirement that the desktop UI and independent continuous service can coexist. Added only the handoff and this task-board entry on `docs/alphabtc-capability-transfer`, based on locally known `origin/main` `e3fc79f`; original feature branch/commits retained. GitHub fetch failed authentication, so latest remote state is unverified and no PR was published. Validation: local file/link/ID consistency and diff checks; no engine/test/DB changes, no runtime suites or service/AI execution. Feature implementation remains Backlog.
+- [x] **ABC-DOC-001** — AlphaBTC capability inventory and transfer specifications (2026-09-15). Recorded 20 source-grounded capabilities, 15 bounded follow-up specifications (ABC-01, 02a, 02b, 03–14), and the corrected product requirement that the desktop UI and independent continuous service can coexist. Added only the handoff and this task-board entry on `docs/alphabtc-capability-transfer`, based on locally known `origin/main` `e3fc79f`; original feature branch/commits retained. Validation: local file/link/ID consistency and diff checks; no engine/test/DB changes, no runtime suites or service/AI execution. Pre-PR review verified every C01–C20 source claim and numeric figure against both repositories and moved recovery authority to the workspace-lease holder so ABC-01/03 stay compatible with RUNNER-OWNERSHIP-001 and the PR #103 smoke lane. Feature implementation remains Backlog.
 
 - [x] **IO-ROBUSTNESS-001 (P2)** — report writes can no longer clobber each other (2026-08-18, branch `fix/atomic-report-filenames`, branched from `origin/main` `e3fc79f`).
   - `unique_report_path` chose a name with `Path::exists()` and `save_report` then called `std::fs::write`, which **truncates**: anything created between the check and the write was silently destroyed, and the loser was never told — `save_report` returned the path it believed it had written. The old timestamped last resort had the same shape.

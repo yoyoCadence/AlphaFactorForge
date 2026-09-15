@@ -14,7 +14,7 @@ Status: 能力清單與實作規格已交付；功能尚未移植，服務拆分
 基準與範圍：
 
 - AlphaBTC：本機 `58b1683`（引擎基準沿用 `c716d2a`），來源路徑 `C:\Users\memor\OneDrive\桌面\AlphaBTC`。
-- AlphaFactorForge：先檢查 `fix/atomic-report-filenames`／`beef407`，文件分支從本機已知 `origin/main`／`e3fc79f` 建立；這兩個提交的相關 runner／研究架構一致。原功能分支與提交保留。
+- AlphaFactorForge：文件分支從本機已知 `origin/main`／`e3fc79f` 建立。未合併的 `fix/atomic-report-filenames`（`beef407`）只改報表檔案寫入，不影響本文引用的 runner／研究架構；本文不依賴該分支。
 - `git fetch origin` 回傳 GitHub authentication failed，沒有成功確認最新遠端 main。本地文件可以審查，發布前仍需重新同步、比對差異。未將舊遠端基準冒稱最新。
 - 本輪只修改本文件及 `tasks.md`。沒有安裝服務、執行研究／AI、讀寫研究或模擬帳戶 DB、搬移資料、修改引擎或驗證門檻。
 
@@ -27,6 +27,8 @@ Status: 能力清單與實作規格已交付；功能尚未移植，服務拆分
 3. UI 重新連接：顯示服務內既有計畫、進度、帳戶與歷史，不能再次建立或重跑同一工作。遠端機器上的服務日後可透過受控連線管理；不預設公開 HTTP 端點。
 
 **兩個專案都尚未達成完整的 24/7 自動 AI 研究。** AlphaBTC 的 CLI／HTTP 共用 application services 與 paper watch 是可沿用的分層經驗，不等於已有完整研究排程、作業系統服務或長期運行證據。
+
+AlphaBTC 的實際邊界（依 `control.ts`、`store.ts`、`cli.ts`）：`serve` 是一個 Node 程序，HTTP server、`Control` 與所有研究／paper 工作（`worker_threads`）都在同一程序內；解耦的是瀏覽器分頁與程序，不是 UI 與服務。`Control` 建構時取得 DB 內 `locks` 表的 `ui-controller` 租約（45 秒 TTL、每秒續約），並由持有者執行重啟修復：RUNNING job 與 experiments 標為 INTERRUPTED、所有 paper 排程強制暫停，**不自動恢復**。這個租約只在 `serve` 對 `serve` 之間互斥；CLI 的 `research`／`paper --watch`／`holdout` 直接開同一 DB、不取租約，CLI paper 與 server paper session 也寫不同位置。因此跨宿主種類（桌面／CLI／headless）的 workspace 所有權在兩個專案都是新能力，ABC-01 不能直接搬 AlphaBTC 的 lock 方案，只能沿用「誰持有租約誰做 recovery」的原則。
 
 AlphaFactorForge 的 `src-tauri/src/main.rs` 目前在 Tauri setup 開啟 DB、建立 `DiscoveryRunner` 並修復孤兒工作；runner 工作由該應用程式程序持有。`discovery_runner/mod.rs` 有 `DiscoveryEventSink` 邊界可利用，但仍含 `AppHandle`／Tauri sink；`lib.rs` 刻意只暴露純 `discovery_core`。因此可沿既有分層拆出獨立的執行宿主，不能宣稱今天關掉整個桌面程序後還會計算。
 
@@ -92,23 +94,24 @@ flowchart TD
 關鍵設計條件：
 
 - 服務存活與 WebView、視窗數量、UI 更新互不綁定。桌面退出不連帶停止既有服務；停止服務是明確操作。
-- 桌面程式不得在重新連接時自行對同一 DB 執行孤兒修復。runner recovery、migrations、writer ownership 由服務協調；原 desktop single-instance guard 不能防止 CLI／服務雙啟。
+- **孤兒修復、migrations、writer ownership 只由取得 workspace lease 的宿主執行**，依租約持有者而非程序類型決定。桌面程式以嵌入模式啟動（沒有既存有效 lease）時，仍由它取得 lease 並執行 recovery——這是今天 `main.rs` `setup` 的行為，也是 PR #103 native smoke lane 所斷言的路徑，不改變；桌面偵測到既存有效 lease 時改為連接模式，不做 recovery、不跑 migrations。RUNNER-OWNERSHIP-001 的 OS 層 single-instance guard 只防止兩個桌面程序，保留；workspace lease 是 DB 層、跨宿主種類（桌面／CLI／headless）的第二層，原 guard 不能防止 CLI／服務雙啟。lease TTL／續約頻率與過期判定的時鐘來源在 ABC-01 訂定並說明依據（SQLite `busy_timeout`、休眠喚醒後的時鐘跳動），不照搬 AlphaBTC 的 45 秒／1 秒。
 - 短 transaction／單一 writer、持久 job identity、租約與所有權世代，防止過期 worker 在新宿主接管後寫入；不能只使用 pid 或 UI 狀態判斷擁有者。
 - command 有 request ID／run ID／workspace ID、冪等、能力／版本檢查；事件有 cursor／服務世代，斷線後重讀快照並續接。現有程序內 sequence 不可冒稱跨重啟全域唯一。
 - 對外可見的狀態在 DB commit 後發布；通知丟失不能抹掉結果。UI 保存的是選取偏好，服務保存的是事實。
-- service restart 後，資料與版本／預算檢查通過的研究可依使用者已保存政策恢復；風控停止、取消、耗盡預算、已消耗 holdout 不能自動解除。模型呼叫外部成功但本機尚未記錄的中斷也須保留不確定性，避免無限重複付費。
+- service restart 後，資料與版本／預算檢查通過的研究可依使用者已保存政策恢復（**新增行為**：AlphaBTC 重啟一律暫停所有排程、不自動續跑）；風控停止、取消、耗盡預算、已消耗 holdout 不能自動解除。模型呼叫外部成功但本機尚未記錄的中斷也須保留不確定性，避免無限重複付費。
 - 預設保留本機控制。遠端運行和遠端公開控制是不同範圍；初版可先驗證受控終端下的 headless，不把 localhost 防護當網際網路部署方案。
 - 同一個支援的 OS／架構與合約版本下先證明 UI／CLI 一致；跨平台浮點／編譯差異另定數值誤差與重現主張，不能承諾全平台 bit-identical。
 
 ## 5. 可逐項排程的工作規格
 
-以下是輸入、範圍及驗收規格，狀態集中在 `tasks.md`。各項涉及 schema／引擎變更時另開小型實作分支；後續較大能力仍須拆成一次工作階段可驗收的子項。
+以下是輸入、範圍及驗收規格，狀態集中在 `tasks.md`。各項涉及 schema／引擎變更時另開小型實作分支。每個 ABC 項目是有界規格，不是單一工作階段的任務：任一項 promote 到 Next 前必須先拆成各自能在一個工作階段完成的子項（AGENTS.md §9），父項留在 Backlog 作為子項的狀態擁有者。
 
 | 工作 | 範圍與輸入 | 完成判準／後續依賴 |
 |---|---|---|
-| ABC-01 服務生命週期與 ownership 契約 | C01/C19，現有 main.rs、AppState、runner/store；定義服務／UI／CLI、workspace、命令／事件與恢復狀態 | 寫成版本化契約及故障情境矩陣；明確誰可 migrate／recover／write、何時允許恢復。先定案，不在此項導入所有服務功能 |
-| ABC-02 執行宿主解耦 | ABC-01；抽出 Tauri sink，新增一次有限批次的無 WebView 宿主，沿用既有計算與 DB coordinator | UI／CLI 受控輸入結果相同；退出 UI 不停批次，雙宿主搶同 workspace 被拒絕，重連採用原 run；仍不做全天候排程 |
-| ABC-03 命令與重連接線 | ABC-02；桌面與 CLI 經同一控制契約，停用 desktop 自行 recovery 路徑 | UI／CLI 不重複排程／寫入；事件漏失／重啟後能恢復最新狀態與游標；未授權控制被拒絕 |
+| ABC-01 服務生命週期與 ownership 契約 | C01/C19，現有 main.rs、AppState、runner/store；定義服務／UI／CLI、workspace、命令／事件與恢復狀態 | 寫成版本化契約及故障情境矩陣；明確誰可 migrate／recover／write、何時允許恢復。列出受影響的既有契約：RUNNER-OWNERSHIP-001（OS 層 guard 保留，lease 為第二層）、PR #103 native smoke lane（嵌入模式行為不變，可新增「lease row 存在」斷言）。完成時同步更新 `STRATEGY_DISCOVERY.md`（新增服務／桌面／CLI 執行模型一節）與 README 的 Phase D 描述，使 source-of-truth 架構文件與本契約一致；在此之前，本 handoff 是該需求的唯一紀錄。先定案，不在此項導入所有服務功能 |
+| ABC-02a Tauri sink 抽離 | ABC-01；把 `TauriDiscoveryEventSink` 與 `AppHandle` 依賴移出 runner orchestration，行為零變動 | 純重構、可獨立合併；既有 Rust 測試證明事件序列、commit-then-emit 順序與 payload 不變；不新增宿主 |
+| ABC-02b 有限批次 headless 宿主 | ABC-02a；新增一次有限批次的無 WebView 宿主，沿用既有計算與 DB coordinator | UI／CLI 受控輸入結果相同；退出 UI 不停批次，雙宿主搶同 workspace 被拒絕，重連採用原 run；仍不做全天候排程 |
+| ABC-03 命令與重連接線 | ABC-02b；桌面與 CLI 經同一控制契約，移除桌面**連接模式**下的 recovery 路徑（嵌入模式保留） | UI／CLI 不重複排程／寫入；事件漏失／重啟後能恢復最新狀態與游標；未授權控制被拒絕；native smoke lane 仍綠 |
 | ABC-04 原件與來源契約 | C02–C04；擴充既有 DATA-QUALITY/PARITY-002，先做單一來源原件存取及修訂模型 | 正常、缺漏、修訂衝突、未收盤、時間單位與來源混淆 fixtures 通過；拒絕原件仍可重播，第二交易所另案接線 |
 | ABC-05 假說與候選凍結紀錄 | C05、既有 config／strategy／validation linkage；先定 hypothesis + candidate artifact 與入隊原子性 | 未回測就能查到假說／版本；重複請求不新增候選，原始假說不可被後續編輯改寫；AI 生成功能另沿 Phase C 接入 |
 | ABC-06 研究可行性與試驗帳本契約 | C11；先處理樣本／fold／holdout 長度、抽樣精度、試驗家族、跨輪選擇／確認分工 | 對 AlphaBTC 實際不足案例給明確拒絕原因；基準／診斷／重現不直接當新假說，探索不能藉開新 DB 消失。檢定方法另經協定審查及回歸實作 |
@@ -121,7 +124,7 @@ flowchart TD
 | ABC-13 持久排程與運行政策契約 | ABC-01/06，新增能力；定義頻率、新資料觸發、預算、停止、休眠／重啟／更新 | 先定下一次時間、補排／合併、研究與 paper 不同恢復政策、服務健康與磁碟上限；實作／OS 服務包裝另拆子項，不直接加無限迴圈 |
 | ABC-14 AI 有限批次驗收契約 | ABC-05/06，承接 Phase C 與 full closed-loop 待辦 | 定義可見資料、已驗證 DSL、模型／token／金額／候選／時間上限、呼叫中斷和完整提案紀錄；正式接線仍須 executable DSL／provider 完成，不接受任意程式碼 |
 
-建議依賴：ABC-01 → 02 → 03；ABC-04/05/06/08 可在各自契約範圍獨立推進。ABC-07/09 補強資格與可重現證據，ABC-10/11 支撐 forward 與恢復；ABC-12 跟隨使用者控制契約。ABC-13/14 的規格可先訂，完整實作須等待各依賴與現有 Phase C 逐項通過。
+建議依賴：ABC-01 → 02a → 02b → 03；ABC-04/05/06/08 可在各自契約範圍獨立推進。相對既有任務板的順序：本節不改變 Phase B 既有排序，Results Explorer UI（Current Snapshot 指名的下一步）與 Post-PR #76 剩餘順序仍在前；ABC-01 是第一個可進 Next 的 ABC 項目，且只在 Results Explorer 進 Done 後 promote，除非維護者明確重排。ABC-01 是純契約工作，不被 Results Explorer 阻擋，規格可並行撰寫。ABC-07/09 補強資格與可重現證據，ABC-10/11 支撐 forward 與恢復；ABC-12 跟隨使用者控制契約。ABC-13/14 的規格可先訂，完整實作須等待各依賴與現有 Phase C 逐項通過。
 
 多資產 covariance、定期降額（C08/C10）接續既有 multi-asset／regime／paper 工作，避免混入首個單帳戶 slice。整體 24/7 故障／soak 驗收在上述工程能力完成後另排；不能因一輪 fixture 通過就宣稱生產可靠。
 
@@ -136,5 +139,7 @@ flowchart TD
 ## Verification
 
 本次為文件承接。核對兩專案本機 Git 狀態與上述來源，檢查 Markdown 連結／程式路徑、ID 對照及 diff whitespace；未重跑 Node/Vitest/Rust/E2E suite，沒有新增長期運行或獲利證據。遠端 fetch 認證失敗，尚未推送或建立 PR。
+
+發布前審查（2026-09-15，同日、PR 開立前）：第二位 agent 逐項比對 AlphaBTC `control.ts`／`store.ts`／`paper.ts`／`lifecycle.ts`／`risk.ts`／`server.ts`／`cli.ts` 與 AlphaFactorForge `main.rs`／`lib.rs`／`discovery_runner`／`ci.yml`，確認 C01–C20 依據與數值宣稱無誤；修正了 §1 的 AlphaBTC 所有權邊界說明、§4 recovery 所有權改為依 lease 持有者（與 RUNNER-OWNERSHIP-001、PR #103 smoke lane 相容）、§5 拆出 ABC-02a/02b 並補相對既有任務板的順序、基準段落移除對未合併分支的依賴描述。
 
 相關本機來源分析：`C:\Users\memor\OneDrive\桌面\AlphaBTC\docs\AUTONOMOUS_RESEARCH.md`。既有目標契約參考：[discovery config](../docs/discovery-config-contract.md)、[原探索設計](../STRATEGY_DISCOVERY.md)、[唯一任務板](../tasks.md)。本文包含足夠自足的輸入／驗收摘要，接手不依賴先前聊天。
