@@ -82,7 +82,7 @@
 | --- | --- | --- | --- |
 | 共用成交／帳務核心 | 可規劃 | 既有 `backtest-execution-v1`；paper 模式無 | P18 |
 | 單帳戶 paper、風控鎖、checkpoint | 可規劃 | 0001 lifecycle CHECK 限 `candidate|validated|rejected`；`paper_live` 保留 | P19／P20 |
-| Results Explorer | 可規劃 | 既有 records／summaries／trades 查詢；UI 未建 | P01 |
+| Results Explorer | 可用 | P01（2026-09-16）：`ResultsExplorer.tsx`＋`get_trades`；Validation 排名、Test 隱藏、缺漏如實呈現；不含 DSL 樹、服務重連（ABC-12／P21） | — |
 | 工作中心、固定通知、接續上次工作 | 可規劃 | 目前操作訊息在頁首 | P21 |
 
 ## 6. 工具鏈與依賴（本機）
@@ -106,7 +106,7 @@
 
 ## 8. P00 結論
 
-- 不依賴 AI 的 phase（P01–P14、P18–P19）依賴皆已到位，可依序規劃。
+- 不依賴 AI 的 phase（P02–P14、P18–P19）依賴皆已到位，可依序規劃；P01 已完成。
 - **AI unattended 功能標為阻擋**，原因：生成環境隔離尚未驗證、模型清單與設定不一致、
   Codex 子命令為 experimental。P15 以一次有界真實生成解除或維持阻擋；不得改為付費
   API 或 GUI 點擊自動化。

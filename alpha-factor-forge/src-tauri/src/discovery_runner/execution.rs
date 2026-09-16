@@ -869,6 +869,7 @@ pub fn execute_candidate(
         score: score_value,
         record_json,
         created_at: None,
+        discovery_run_id: None,
     };
 
     Ok(CandidateExecutionOutput {
@@ -1113,6 +1114,7 @@ pub(crate) mod tests {
                 score: output.record.score,
                 record_json: serde_json::to_string(&mutant).unwrap(),
                 created_at: None,
+                discovery_run_id: None,
             };
             assert!(
                 validate_validation_bundle(
@@ -1139,6 +1141,7 @@ pub(crate) mod tests {
                 score: output.record.score,
                 record_json: output.record.record_json,
                 created_at: None,
+                discovery_run_id: None,
             };
             let error = validate_validation_bundle(
                 &output.train_summary,

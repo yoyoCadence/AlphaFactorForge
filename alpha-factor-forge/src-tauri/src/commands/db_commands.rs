@@ -89,6 +89,14 @@ pub fn get_backtest_results(
     repositories::list_backtest_summaries(&conn, strategy_id)
 }
 
+/// P01 Results Explorer: the closed trades stored under one summary row. Read
+/// only; an unknown id returns an empty list (see `repositories::list_trades`).
+#[tauri::command]
+pub fn get_trades(state: State<AppState>, summary_id: i64) -> AppResult<Vec<TradeRow>> {
+    let conn = state.db.lock().map_err(|_| AppError::Other("db lock poisoned".into()))?;
+    repositories::list_trades(&conn, summary_id)
+}
+
 /// PERSIST-001 (PR #64 handoff Resolution): atomically persist one validation
 /// bundle — Train summary + trades, Validation summary + trades, and the
 /// immutable append-only validation record — in ONE transaction. The bundle

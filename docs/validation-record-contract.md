@@ -35,7 +35,11 @@ All encoding goes through the shared `services/metricsCodec.ts` (extracted from 
 
 ONE Tauri command `save_validation_record` persists the whole bundle — Train summary + trades, Validation summary + trades, record — in one SQLite transaction; any failure rolls everything back. The bundle is fully validated BEFORE the transaction opens (segments exactly train/validation, durable identity and metric snapshots match, gate/score consistency, Phase B nulls on the Train row, and explicit record-version dispatch). The runner commit path invokes the same validator before its larger candidate transaction. Typed read paths `list_validation_records` (newest first, optional strategy scope) and `get_validation_record` intentionally continue returning legacy v1 rows unchanged; the dev mock client mirrors the active v2 pins and cross-row invariants.
 
+## Read path additions (P01 Results Explorer, 2026-09-16)
+
+The typed read DTO now also carries `discovery_run_id` (migration 0003's column; `None` for a manual save). It is read-only: `insert_validation_record_for_run` still takes the run id as its own argument, so a caller cannot claim a run through the DTO. A separate read-only command `get_trades(summary_id)` returns a summary's stored trades oldest entry first (`[]` for an unknown id). The explorer parses `record_json` defensively (`services/resultsExplorer.ts`): v1 rows are shown as legacy and never interpreted, an unreadable snapshot reports why, and absent sections are listed rather than defaulted. Nothing about the write path, the JSON discipline, or atomicity changed.
+
 ## Non-goals
 
-- UI / Results Explorer wiring; lifecycle promotion/rejection; the discovery runner state machine (a future `discovery_run_id` linkage arrives via its own migration if needed).
+- Lifecycle promotion/rejection; the discovery runner state machine (the `discovery_run_id` linkage arrived with migration 0003 and is exposed read-only as above).
 - Test-segment execution or persistence; broad persistence refactors beyond this schema.
