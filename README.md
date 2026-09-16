@@ -208,6 +208,8 @@ Phase D: Deferred Automation
 
 Phase D 明確不屬於第一輪實作範圍。
 
+持續研究計畫（2026-09-16 起）：`docs/plans/active-plan.md` 把 Phase C／D 與 AlphaBTC 承接工作重排為 P00–P22 共 23 個有界 phase（每次一個 phase）。已完成 **P00 契約與相容性預檢**：第一個 AI provider 定為 **Codex／ChatGPT 訂閱**（經本機 `codex app-server`，不轉成 API key；上面 Phase C 的 keychain 路徑保留給其他 provider），runtime／AI／市場契約已凍結（`docs/research-runtime-contract.md`、`docs/ai-provider-contract.md`、`docs/market-contract.md`），可用／阻擋能力登記在 `docs/autonomous-research-capability-registry.md`。目前 **AI unattended 模式、關閉 UI 後持續研究、ETF 市場語意、paper 帳戶都尚未交付**；phase 狀態以 `tasks.md` 為準。
+
 ### 已知問題與待確認
 
 Legacy PWA：
@@ -376,6 +378,8 @@ Phase D: Deferred Automation
 
 Phase D is explicitly out of the first implementation pass.
 
+Continuous research plan (from 2026-09-16): `docs/plans/active-plan.md` re-sequences Phase C/D and the AlphaBTC transfer work into 23 bounded phases, P00–P22 (one phase per session). **P00, the contract and compatibility precheck, is done**: the first AI provider is the **Codex/ChatGPT subscription** via the local `codex app-server` (never converted to an API key; the keychain path in Phase C above is kept for other providers), the runtime/AI/market contracts are frozen (`docs/research-runtime-contract.md`, `docs/ai-provider-contract.md`, `docs/market-contract.md`), and available/blocked capabilities are recorded in `docs/autonomous-research-capability-registry.md`. **AI unattended mode, research that continues after the UI closes, ETF market semantics, and paper accounts are not delivered yet**; phase status lives in `tasks.md`.
+
 ### Known Issues And Open Questions
 
 Legacy PWA:
@@ -543,6 +547,8 @@ Phase D: Deferred Automation
 - Full closed-loop AI automation。
 
 Phase D は最初の実装範囲には含めません。
+
+継続研究計画（2026-09-16 以降）：`docs/plans/active-plan.md` は Phase C／D と AlphaBTC 移管作業を P00–P22 の 23 の有界フェーズに再編します（1 セッション 1 フェーズ）。**P00 契約・互換性事前確認は完了**：最初の AI プロバイダはローカル `codex app-server` 経由の **Codex／ChatGPT サブスクリプション**（API key へは変換しない。上記 Phase C の keychain 経路は他プロバイダ用に保持）、runtime／AI／市場契約を凍結（`docs/research-runtime-contract.md`、`docs/ai-provider-contract.md`、`docs/market-contract.md`）、利用可能／ブロック中の能力は `docs/autonomous-research-capability-registry.md` に記録。**AI 無人モード、UI 終了後も続く研究、ETF 市場セマンティクス、paper 口座はまだ未提供**。フェーズ状況は `tasks.md` が正です。
 
 ### 既知の問題と確認事項
 

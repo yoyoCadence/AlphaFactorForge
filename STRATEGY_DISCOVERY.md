@@ -133,6 +133,8 @@ AI 與生成器都只輸出這種結構：
 - 前端「AI 設定」面板只負責：觸發 `set_api_key`（值直送 backend 寫入 keychain，前端不留存）、按「測試連接」、顯示連線狀態。**前端永遠不讀回 key。**
 - Rate limit、retry、配額耗盡降級（自動關 AI 線、只跑傳統窮舉）都在 backend 處理。
 
+> **2026-09-16 補充（P00 契約預檢）**：第一個實際接入的 provider 改為 **Codex／ChatGPT 訂閱**，由 Tauri backend／研究服務以 stdio 啟動本機 `codex app-server`，登入憑證由 Codex 自己管理，**不轉成 API key、不複製認證檔**；上面的 keychain 架構保留給日後的 API-key provider。狀態機（`WaitingQuota`／`AuthRequired`／`UnknownOutcome`）、受限生成環境、預算與 Validation／Test 資訊邊界定義於 [`docs/ai-provider-contract.md`](docs/ai-provider-contract.md)；本機能力與阻擋原因見 [`docs/autonomous-research-capability-registry.md`](docs/autonomous-research-capability-registry.md)。AI unattended 模式在生成環境隔離被證明前維持阻擋。
+
 ### 沙箱保證
 即使 AI 被提示注入，它能輸出的最壞情況也只是「一棵不合法的 DSL 樹」→ 編譯器拒絕。沒有任何路徑能讓 AI 文字變成可執行程式碼。
 

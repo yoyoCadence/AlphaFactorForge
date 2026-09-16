@@ -1,0 +1,178 @@
+# Research runtime contract v1（`research-command-v1` / `research-event-v1` / `ownership-lease-v1`）
+
+> 由 P00（契約與相容性預檢，2026-09-16）登記。上游規劃：
+> [`plans/active-plan.md`](plans/active-plan.md) §3.1–§3.3；需求來源：
+> [`../handoffs/2026-09-15-alphabtc-capability-transfer-v1.md`](../handoffs/2026-09-15-alphabtc-capability-transfer-v1.md)
+> §4（ABC-01）。本機驗證證據與可用／不可用能力矩陣：
+> [`autonomous-research-capability-registry.md`](autonomous-research-capability-registry.md)。
+
+**狀態：契約已定案，尚未實作。** 本文件定義後續 P02（runtime 解耦）、P03（跨宿主
+ownership）、P04（headless 與 bridge）必須遵守的邊界與識別；P00 不新增程式、
+migration 或依賴。任何實作 phase 若需偏離本文，先修訂本文並提升版本，不得在程式
+內默默改變語意。
+
+---
+
+## 0. 不變的既有契約
+
+本契約是**附加層**，以下既有行為不變：
+
+| 既有契約 | 位置 | 本契約的關係 |
+| --- | --- | --- |
+| desktop single-instance（RUNNER-OWNERSHIP-001） | `src-tauri/src/single_instance.rs`，PR #103 native smoke lane | 保留為 OS 層第一道 guard，只防兩個桌面程序；本契約的 lease 是 DB 層第二道，跨宿主種類 |
+| 嵌入模式啟動 recovery | `src-tauri/src/main.rs` `setup`：`db::initialize` → `DiscoveryRunner::recover_orphans` | 桌面在沒有既存有效 lease 時仍走此路徑並取得 lease；smoke lane 斷言不變 |
+| `discovery-event-v1` | `src-tauri/src/discovery_runner/mod.rs`、`src/tauri-client/events.ts`、雙語 fixture | 事件 payload 與「每個狀態區塊獨立排序」行為不改；`research-event-v1` 只包一層 envelope |
+| `discovery-config-v1` 與其 12 個 pinned 版本 | `src/services/discoveryRunConfig.ts` | 不改寫；新市場語意用新版本識別（見 [`market-contract.md`](market-contract.md)） |
+| migrations 0001–0003 | `src-tauri/migrations/` | 原文不動；本契約需要的表以 0004+ 新增序號加入（實作 phase 才加） |
+| 一個 transaction 的候選提交、單一 SQLite writer（RUNNER-STORE/EXEC-001） | `src-tauri/src/db/discovery.rs`、`discovery_runner/execution.rs` | ownership epoch 檢查加在同一 transaction 內，不拆開 |
+
+---
+
+## 1. 宿主模式與所有權模型（`ownership-lease-v1`）
+
+### 1.1 宿主種類
+
+| 宿主 | 說明 | 可否持有 lease |
+| --- | --- | --- |
+| desktop-embedded | 今天的 `main.rs`：Tauri 程序內建 runner | 可 |
+| desktop-connect | 桌面偵測到既存有效 lease，只做代理，不跑 migration／recovery | 否 |
+| service | 未來的 headless service binary（P04） | 可 |
+| mcp-adapter | VS Code stdio adapter（P16），透過控制介面連接 service | 否 |
+
+同一時間一個 workspace 只有一個 lease holder；**只有 holder 可執行 migration、
+orphan recovery、runner 寫入**。recovery 權限跟隨 lease，不跟隨程序種類。
+
+### 1.2 取得 lease 的順序（固定）
+
+1. **OS 排他檔案鎖**：對 workspace 資料目錄內的 `ownership.lock` 取得排他鎖。
+   失敗即進入 connect 模式或退出；不得重試搶占。此步驟**先於**開啟 SQLite 與
+   migration。
+2. 開啟 SQLite；設定 `busy_timeout = 5000`（毫秒，預設）。今天的 `db::initialize`
+   沒有設定 busy_timeout，P02 加入。
+3. 執行 migration（只有 holder）。
+4. 寫入 ownership row：`epoch = 前一 epoch + 1`、`holder_kind`、`holder_instance_id`
+   （隨機 128-bit）、`pid`、`heartbeat_at`。
+5. 執行 orphan recovery（沿用 `recover_orphans`）。
+6. 開始 heartbeat。
+
+### 1.3 Epoch 與工作提交
+
+- 每個 runner 寫入 transaction 必須帶目前 `epoch`，並在同一 transaction 內以
+  `WHERE epoch = ?` 檢查；不符即 rollback，並以 `StaleOwner` 錯誤結束該 worker。
+- 舊 worker（前一 epoch 的 CPU 工作）回報結果時因 epoch 不符被拒，**不得**寫入
+  summaries／trades／validation records。
+- 休眠喚醒、時鐘跳動後，holder 先重新確認自己仍持有 OS 鎖與 DB 內 epoch，才繼續
+  提交；任一不符則自行降級為 connect 模式並停止 workers。
+
+### 1.4 Heartbeat 與失聯
+
+| 參數 | 值 | 依據 |
+| --- | --- | --- |
+| heartbeat 週期 | 5 秒 | 計畫 §3.2 |
+| 失聯判定 | 30 秒未更新 | 計畫 §3.2；6 個週期的容錯 |
+| 時鐘來源 | 單調時鐘計算間隔；wall clock 只作顯示 | 休眠／時鐘跳動不得誤判 |
+
+**heartbeat 過期只能把 UI 狀態標為「服務失聯」，不能單獨授權另一宿主搶占仍持有
+OS 鎖的程序。** 搶占的唯一途徑是原程序釋放或作業系統回收 OS 鎖。
+
+### 1.5 背景模式切換
+
+桌面啟用「關閉 UI 後繼續」時，順序固定：停止接受新工作 → 完成 checkpoint →
+釋放 lease（含 OS 鎖）→ 啟動 service → 桌面轉為 connect 模式。任一步失敗即回滾到
+嵌入模式並告知使用者；不得出現雙寫。
+
+---
+
+## 2. 命令 envelope（`research-command-v1`）
+
+所有跨宿主命令（桌面 bridge、MCP adapter、未來 CLI）使用同一 envelope：
+
+```json
+{
+  "protocolVersion": "research-command-v1",
+  "workspaceId": "<workspace 資料目錄的穩定識別>",
+  "requestId": "<呼叫端產生的 UUID v4>",
+  "command": "discovery.start",
+  "payload": { }
+}
+```
+
+| 欄位 | 規則 |
+| --- | --- |
+| `protocolVersion` | 必須完全等於已知版本；不同版本一律拒絕（`UnsupportedProtocol`），不做寬鬆相容 |
+| `workspaceId` | 與 service 目前 workspace 不符即拒絕（`WorkspaceMismatch`） |
+| `requestId` | 冪等鍵。同一 `requestId` 重送回傳**第一次**的結果；不重複建立 run／account／invocation。保存期限至少 24 小時 |
+| `command` | 白名單字串，`<domain>.<verb>`；未知命令拒絕 |
+| `payload` | 命令專屬；沿用既有 typed 契約（例如 `discovery.start` 的 payload 就是 `discovery-config-v1` envelope） |
+
+明確**不提供**的命令：任意 shell、任意 SQL、任意檔案路徑讀寫、實盤下單。
+
+錯誤回應為結構化物件 `{ code, message, retryable }`，`code` 為固定字串集合，
+包含至少：`UnsupportedProtocol`、`WorkspaceMismatch`、`Unauthorized`、
+`NotOwner`、`StaleOwner`、`DuplicateRequest`、`Validation`、`NotFound`、`Busy`。
+
+---
+
+## 3. 事件 envelope（`research-event-v1`）
+
+```json
+{
+  "protocolVersion": "research-event-v1",
+  "eventId": 123456,
+  "epoch": 7,
+  "entity": { "kind": "discovery_run", "id": "42" },
+  "eventVersion": "discovery-event-v1",
+  "committedAt": "2026-09-16T00:00:00Z",
+  "payload": { }
+}
+```
+
+- `eventId`：DB 內單調遞增的持久序號（跨重啟全域唯一）；今天 runner 的程序內
+  `sequence` 不能冒充它，兩者並存，`payload` 內保留原 sequence。
+- 事件**只在 DB commit 後**發布（沿用 commit-then-emit）。
+- 重連流程固定：先讀 snapshot（等同今天 `get_active_discovery_run` /
+  `get_discovery_progress`），再以 `afterEventId` cursor 續接；漏失事件不能抹掉
+  已提交結果。
+- 每個狀態區塊獨立排序的 feed 行為（`src/services/discoveryFeed.ts`）不變。
+
+---
+
+## 4. 本機控制介面（P04 實作）
+
+| 項目 | 規則 |
+| --- | --- |
+| 綁定 | 僅 `127.0.0.1`，動態 port |
+| endpoint manifest | 寫在 workspace 的本機應用資料目錄（非 OneDrive），內容：port、`workspaceId`、`epoch`、service 版本；檔案權限限目前使用者 |
+| 認證 | 隨機控制 token，與 manifest 同目錄、同權限；請求以 header 攜帶；比對需 constant-time |
+| 請求檢查 | `Host` 必須是 loopback；含 `Origin` 的請求一律拒絕（瀏覽器來源不得直連） |
+| token 使用者 | Tauri backend、MCP adapter；**不傳給前端 WebView**，不寫進 SQLite／logs |
+| 傳輸 | HTTP/1.1 JSON；事件以 long-poll `afterEventId` 或 SSE，二擇一於 P04 定案 |
+
+`codex app-server` 自身的 `--listen ws://` 與 `--ws-auth` 屬於 Codex 程序，不是
+本控制介面；本專案不對外暴露 Codex 的端點（見
+[`ai-provider-contract.md`](ai-provider-contract.md)）。
+
+---
+
+## 5. 儲存與相容性規則
+
+1. 使用者 DB 位置不變（`<app_data_dir>/alphafactorforge.sqlite3`）；新 artifacts
+   存在其相鄰、非 OneDrive 的本機資料目錄。
+2. 新表以 0004+ migration 加入；升級前先做一致備份，失敗回滾；**舊 binary 遇到較新
+   `schema_migrations` 必須拒絕寫入**（今天沒有這個檢查，P03 加入）。
+3. 舊 summaries／trades 保留為「最新結果投影」；新研究結果以 attempt ID 保存完整
+   不可變 artifacts（P05）。不宣稱能恢復過去已被覆寫的交易明細。
+4. artifacts 先 staging → 校驗 → 原子更名 → 才提交 DB 參照；已被引用的檔案不得
+   悄悄刪除。
+5. 秘密不進 SQLite、artifacts、前端或 logs。
+
+---
+
+## 6. 實作 phase 對照
+
+| Phase | 使用本契約的部分 | 必測情境（來自計畫 §6） |
+| --- | --- | --- |
+| P02 | §0 邊界、busy_timeout、DB path 注入、event sink 抽離 | 既有 golden／runner 原子性不變 |
+| P03 | §1 lease、§2 冪等、§3 eventId、§5.2 schema 保護 | 雙啟、owner crash、休眠、時鐘變動、舊 worker 提交、重複命令、亂序 |
+| P04 | §4 控制介面、connect 模式 | 關 UI 工作持續、重連採同一 run |
+| P16 | §2 命令白名單（MCP 工具對照） | 不能揭露 Test、不能改閘門 |
