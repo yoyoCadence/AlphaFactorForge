@@ -646,6 +646,10 @@ fn committing_a_candidate_writes_the_whole_assessment() {
         )
         .unwrap();
     assert_eq!(linked, run_id);
+    // P01: the typed read path exposes the same link, so the Results Explorer
+    // can label a runner assessment with its work id without a raw query.
+    let read = crate::db::repositories::get_validation_record(&conn, record_id).unwrap();
+    assert_eq!(read.discovery_run_id, Some(run_id));
     assert_eq!(lifecycle(&conn, strategies[0]), "validated");
     assert_eq!(
         get_discovery_run(&conn, run_id).unwrap().progress_json,

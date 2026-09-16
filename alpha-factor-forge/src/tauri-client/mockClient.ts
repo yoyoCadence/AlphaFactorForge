@@ -34,6 +34,36 @@ import { axisValues, type DiscoveryAxis } from '../services/discoveryConfig';
 import { prepareDatasetImport, type ImportCandlesInput } from './dbClient';
 import { assertValidBundle } from '../services/validationRecord';
 import { strategyHashFromDefinitionJson } from '../core/hashing';
+import { seedHistory } from './mockHistorySeed';
+
+/**
+ * `?mock=1&seedHistory=1` pre-fills saved history (P01 Results Explorer).
+ *
+ * The explorer's job is to re-open results that already exist, and the only
+ * product writers of validation records are the backend runner and a future
+ * manual assessment — neither reachable from a browser E2E. The seed is built
+ * by the real composer chain (see `mockHistorySeed.ts`) and written through
+ * the mock's own save paths before the first read resolves.
+ */
+function mockSeedHistory(): boolean {
+  return mockSearchParam('seedHistory') === '1';
+}
+
+/** Every method of `target` waits for `ready` first; a failed seed therefore
+ *  surfaces on the first read instead of as an empty, plausible workspace. */
+function afterReady<T extends Record<string, (...args: never[]) => Promise<unknown>>>(
+  target: T,
+  ready: Promise<unknown>,
+): T {
+  const gated: Record<string, (...args: never[]) => Promise<unknown>> = {};
+  for (const [name, method] of Object.entries(target)) {
+    gated[name] = async (...args: never[]) => {
+      await ready;
+      return method(...args);
+    };
+  }
+  return gated as T;
+}
 
 /**
  * E2E-only candle-load controls, read from `?mock=1&candleDelay=<ms>` and
@@ -187,7 +217,10 @@ export function makeMockClient() {
       );
       const existingId = existingIndex >= 0 ? summaries[existingIndex].id : undefined;
       const id = existingId ?? nextId++;
-      const stored = { ...summary, id };
+      // SQLite stamps `created_at` on insert only; the upsert keeps the
+      // original stamp, which is what the explorer's newest-first order reads.
+      const created_at = existingIndex >= 0 ? summaries[existingIndex].created_at : new Date().toISOString();
+      const stored = { ...summary, id, created_at };
       if (existingIndex >= 0) summaries[existingIndex] = stored;
       else summaries.push(stored);
       tradesBySummaryId.set(id, trades.map((trade) => ({ ...trade })));
@@ -195,6 +228,12 @@ export function makeMockClient() {
     },
     getBacktestResults: async (strategyId?: number) =>
       summaries.filter((s) => strategyId == null || s.strategy_id === strategyId),
+    // P01: detached copies, oldest entry first, `[]` for an unknown id —
+    // mirroring `repositories::list_trades`.
+    getTrades: async (summaryId: number) =>
+      (tradesBySummaryId.get(summaryId) ?? [])
+        .map((trade) => ({ ...trade }))
+        .sort((a, b) => a.entry_time - b.entry_time),
     // PERSIST-001 parity: runs the SAME shared bundle validator the composer
     // targets (the TS mirror of Rust's validate_validation_bundle), so
     // `?mock=1` rejects exactly the bundles native Tauri rejects, then
@@ -517,7 +556,25 @@ export function makeMockClient() {
     sequence = 3;
   }
 
-  return { db, files, importDataset, isTauri: () => true, discovery, discoveryEvents };
+  if (!mockSeedHistory()) {
+    return { db, files, importDataset, isTauri: () => true, discovery, discoveryEvents };
+  }
+  const seeded = seedHistory(db);
+  // Awaited by every gated method; this handler only marks the rejection as
+  // observed so the browser does not also log it as unhandled.
+  seeded.catch(() => undefined);
+  const importAfterSeed = async (input: ImportCandlesInput): Promise<number> => {
+    await seeded;
+    return importDataset(input);
+  };
+  return {
+    db: afterReady(db, seeded),
+    files,
+    importDataset: importAfterSeed,
+    isTauri: () => true,
+    discovery,
+    discoveryEvents,
+  };
 }
 
 function isTerminalMockStatus(status: RunStatus): boolean {

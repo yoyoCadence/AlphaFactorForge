@@ -93,6 +93,9 @@ export interface ValidationRecordRow {
   score?: number | null;
   record_json: string;
   created_at?: string;
+  /** The discovery run that produced this assessment (migration 0003), or
+   *  null for a manual save. Read-only: the backend ignores it on writes. */
+  discovery_run_id?: number | null;
 }
 
 // One closed trade written under a backtest_summary row. `bars` is not part of
@@ -123,6 +126,9 @@ export const db = {
     invoke<number>('save_backtest_result', { summary, trades }),
   getBacktestResults: (strategyId?: number) =>
     invoke<BacktestSummary[]>('get_backtest_results', { strategyId }),
+  /** P01 Results Explorer: the closed trades stored under one summary row,
+   *  oldest entry first. An unknown id yields `[]`, not an error. */
+  getTrades: (summaryId: number) => invoke<TradeRow[]>('get_trades', { summaryId }),
   /** PERSIST-001: atomically save Train + Validation summaries/trades and the
    *  immutable validation record in ONE backend transaction. */
   saveValidationRecord: (

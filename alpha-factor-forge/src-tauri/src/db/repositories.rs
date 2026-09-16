@@ -143,6 +143,12 @@ pub struct ValidationRecordRow {
     pub record_json: String,
     #[serde(default)]
     pub created_at: Option<String>, // set by DB default; read-only
+    /// The discovery run that produced this assessment (migration 0003), or
+    /// None for a manual save. Read-only like `created_at`: the writer takes
+    /// the run id as its own argument (`insert_validation_record_for_run`), so
+    /// a caller cannot claim a run through the DTO.
+    #[serde(default)]
+    pub discovery_run_id: Option<i64>,
 }
 
 // ---------- datasets ----------
@@ -857,6 +863,34 @@ pub fn list_backtest_summaries(
     Ok(rows)
 }
 
+/// The closed trades stored under one summary, oldest entry first (ties by
+/// insertion order). An unknown summary id yields an empty list rather than
+/// an error: the Results Explorer (P01) shows "no stored detail" for it, which
+/// is the honest answer — trades are replaced whenever their summary key is
+/// re-saved, so history that was overwritten cannot be recovered here.
+pub fn list_trades(conn: &Connection, summary_id: i64) -> AppResult<Vec<TradeRow>> {
+    let mut stmt = conn.prepare(
+        "SELECT entry_time, exit_time, side, entry_price, exit_price, pnl, pnl_pct, reason
+         FROM trades WHERE backtest_summary_id = ?1
+         ORDER BY entry_time ASC, id ASC",
+    )?;
+    let rows = stmt
+        .query_map(params![summary_id], |r| {
+            Ok(TradeRow {
+                entry_time: r.get(0)?,
+                exit_time: r.get(1)?,
+                side: r.get(2)?,
+                entry_price: r.get(3)?,
+                exit_price: r.get(4)?,
+                pnl: r.get(5)?,
+                pnl_pct: r.get(6)?,
+                reason: r.get(7)?,
+            })
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(rows)
+}
+
 // ---------- validation records (PERSIST-001) ----------
 
 /// Pre-transaction validation of the whole bundle (Resolution D5). Pure over
@@ -1027,7 +1061,8 @@ pub fn save_validation_bundle(
 }
 
 const VALIDATION_RECORD_COLS: &str =
-    "id, strategy_id, dataset_id, record_version, gate_passed, score, record_json, created_at";
+    "id, strategy_id, dataset_id, record_version, gate_passed, score, record_json, created_at,
+     discovery_run_id";
 
 fn map_validation_record(r: &rusqlite::Row) -> rusqlite::Result<ValidationRecordRow> {
     Ok(ValidationRecordRow {
@@ -1039,6 +1074,7 @@ fn map_validation_record(r: &rusqlite::Row) -> rusqlite::Result<ValidationRecord
         score: r.get(5)?,
         record_json: r.get(6)?,
         created_at: Some(r.get(7)?),
+        discovery_run_id: r.get(8)?,
     })
 }
 
@@ -1728,6 +1764,41 @@ mod tests {
         assert_eq!(net_return, 0.2);
     }
 
+    /// P01 Results Explorer read path: trades come back oldest entry first
+    /// exactly as stored, an unknown summary is empty (not an error), and a
+    /// re-save shows the replacement rows only — the overwritten history is
+    /// gone and the reader must not pretend otherwise.
+    #[test]
+    fn list_trades_reads_stored_rows_in_entry_order_and_reflects_replacement() {
+        let mut conn = mem_db();
+        let (strategy_id, dataset_id) = saved_parent_rows(&conn);
+        let first = with_trade_count(&summary(strategy_id, dataset_id, 0.1), 2);
+        let summary_id = save_backtest_result(
+            &mut conn,
+            &first,
+            // Inserted newest-first on purpose: the reader must sort by entry.
+            &[trade(3, 4, Some("later")), trade(1, 2, None)],
+        )
+        .unwrap();
+
+        let read = list_trades(&conn, summary_id).unwrap();
+        assert_eq!(read.len(), 2);
+        assert_eq!((read[0].entry_time, read[0].exit_time), (1, 2));
+        assert_eq!(read[0].reason, None);
+        assert_eq!((read[1].entry_time, read[1].exit_time), (3, 4));
+        assert_eq!(read[1].reason.as_deref(), Some("later"));
+        assert_eq!(read[1].side, "LONG");
+        assert_eq!(read[1].pnl_pct, 0.1);
+
+        assert!(list_trades(&conn, summary_id + 999).unwrap().is_empty());
+
+        let replacement = with_trade_count(&summary(strategy_id, dataset_id, 0.2), 1);
+        save_backtest_result(&mut conn, &replacement, &[trade(5, 6, None)]).unwrap();
+        let after = list_trades(&conn, summary_id).unwrap();
+        assert_eq!(after.len(), 1);
+        assert_eq!(after[0].entry_time, 5);
+    }
+
     #[test]
     fn save_backtest_result_rolls_back_summary_and_trades_together() {
         let mut conn = mem_db();
@@ -2102,6 +2173,7 @@ mod tests {
         );
         assert!(read.gate_passed);
         assert_eq!(read.score, expected_score);
+        assert_eq!(read.discovery_run_id, None, "a manual save is linked to no run");
 
         // Append-only: a re-run appends a SECOND record while the summaries
         // upsert (latest view) and the trades replace.
