@@ -51,6 +51,38 @@ Granularity: each ABC item is a bounded specification, not a one-session task. B
 
 Existing multi-asset/portfolio, supervised allocation reduction, and long-run operational validation remain separate follow-ups. The corresponding existing tasks below are retained; ABC work supplies additional contracts/acceptance rather than authorizing duplicate implementations.
 
+#### Implementation plan phases (`docs/plans/active-plan.md`, 2026-09-16)
+
+The maintainer-approved implementation plan sequences the ABC specifications (plus the AI-subscription, market-data, and paper work) into 23 bounded phases, P00–P22 (`docs/plans/active-plan.md` §5). **One phase per implementation session**; the next eligible phase is the first unfinished one whose dependencies are Done, and each phase needs its own explicit authorization. Phase rows below are the status owner for that phase; the ABC parent items above stay the specification owner and are not duplicated as tasks. Living capability status: `docs/autonomous-research-capability-registry.md`.
+
+| Phase | Scope (module) | Depends on | ABC / existing task | Status |
+| --- | --- | --- | --- | --- |
+| P00 | Contract & compatibility precheck (runtime / AI / market contracts, local Codex and dependency check, capability registry) | — | ABC-01 contract half, ABC-14 contract half | **Done** (2026-09-16, see Done section) |
+| P01 | Results Explorer over existing records/summaries/trades; no calculation change | P00 | "Build Results Explorer UI" (Phase B) | Next eligible |
+| P02 | Runtime decoupling: runner event sink, DB path init, shared orchestration | P00 | ABC-02a | Backlog |
+| P03 | Cross-host ownership: OS lock, epoch, idempotent requests, event ledger, migration guard | P02 | ABC-01 implementation, ABC-03 (part) | Backlog |
+| P04 | Headless service binary, loopback control API, desktop connect mode | P03 | ABC-02b, ABC-03 | Backlog |
+| P05 | Full research history: hypothesis, attempt, lineage, immutable artifacts | P03 | ABC-05 | Backlog |
+| P06 | Market foundation: instrument, calendar, raw, revision, snapshot | P03 | ABC-04 | Backlog |
+| P07 | Crypto adapter (Binance archive/REST) | P06 | ABC-04 | Backlog |
+| P08 | ETF market semantics (calendar, annualization, split, dividend, native currency, cost) | P06 | new | Backlog |
+| P09 | US ETF adapter (Tiingo) — **blocked until a Tiingo account exists** | P08 | new | Backlog |
+| P10 | TW ETF adapter (FinMind + TWSE) | P08 | new | Backlog |
+| P11 | Executable DSL (TS + Rust evaluators, whitelist intersection) | P05 | Phase C "DSL validator" | Backlog |
+| P12 | Research feasibility & trial ledger | P05, P06, P11 | ABC-06 | Backlog |
+| P13 | One-time Validation/Test reveal registry | P12 | ABC-07 | Backlog |
+| P14 | Engine archive & workspace backup/restore | P03, P05, P13 | ABC-09, ABC-11 | Backlog |
+| P15 | Codex subscription adapter — **AI unattended mode blocked until isolation is proven** (registry §2) | P00, P11, P12 | ABC-14, Phase C | Backlog |
+| P16 | VS Code MCP adapter | P04, P05, P12 | new | Backlog |
+| P17 | Persistent research scheduler | P07, P12, P13, P15 | ABC-13 | Backlog |
+| P18 | Shared fill/accounting kernel | P08, P11 | ABC-08 | Backlog |
+| P19 | Single-account paper | P14, P18 | ABC-10 | Backlog |
+| P20 | Real paper scheduling, multi-account, auto-open authorization | P17, P19 | Phase D paper-live | Backlog |
+| P21 | Integrated UX (onboarding, work center, notifications) | P01, P04, P17, P20 | ABC-12 | Backlog |
+| P22 | Windows operational acceptance (7-day soak) | P14, P20, P21 | new | Backlog |
+
+Ordering note: with this plan the maintainer has explicitly reordered — P01 (Results Explorer) is still the next Phase B step, and P02 (ABC-02a) may follow without waiting for the ABC-01 implementation half, which is P03.
+
 ### Post-PR #76 project audit follow-ups (2026-07-31)
 
 The detailed evidence, shortest reproductions, contract cautions, and per-task acceptance plan live in `handoffs/2026-07-31-pr76-post-merge-audit-v1.md`. The order below is deliberate. Promote and complete one small task at a time; do not bundle these findings into RUNNER-UI-001 or rewrite the merged PR #76 scope.
@@ -171,6 +203,7 @@ These were named inside the UI port entry and must not be buried by closing it. 
 
 ## Done
 
+- [x] **P00 — Contract & compatibility precheck** (2026-09-16, branch `docs/p00-contract-precheck`, stacked on `docs/alphabtc-capability-transfer`). First phase of `docs/plans/active-plan.md`. Added three frozen contracts — `docs/research-runtime-contract.md` (`research-command-v1` / `research-event-v1` / `ownership-lease-v1`: hosts, OS-lock-then-epoch ownership, 5 s heartbeat / 30 s stale, 5 s busy timeout, idempotent command envelope, committed event ledger, loopback control surface, storage compatibility), `docs/ai-provider-contract.md` (`ai-invocation-v1`: Codex app-server stdio adapter, restricted generation environment, `Ready`/`WaitingQuota`/`AuthRequired`/`UnknownOutcome`/`Blocked` states, budgets, information boundary, executable-DSL whitelist intersection), and `docs/market-contract.md` (`market-instrument-v1` / `market-provenance-v1` / `market-snapshot-v1`, source matrix, ETF semantics, backfill flow) — plus the living `docs/autonomous-research-capability-registry.md` listing every capability as available / plannable / blocked / unverified with the blocking reason. Local precheck evidence: `codex-cli 0.140.0`, ChatGPT login (plus plan), a quota-free app-server stdio handshake (`initialize`, `account/read`, `account/rateLimits/read`, `model/list`, `config/read`) and the generated protocol schema (261 files, kept out of the repo); Rust 1.96 / Node 24.14.1 / Tauri CLI 2.11.3; crates.io and the Binance / Tiingo / FinMind / TWSE hosts reachable. **Blocked and recorded**: AI unattended mode (generation-environment isolation unverified — 2 global MCP servers, per-thread override untested; config default model `gpt-6-astra` absent from `model/list`, which returns only `gpt-5.5`; Codex sub-commands experimental), Tiingo (no account), ETF calendar/annualization semantics, JSON DSL execution (no runtime consumer; 11 of 24 whitelisted indicators implemented in both cores). Nothing was started or imported: no research run, no market data, no code, migration, or dependency change; existing suites not re-run (docs-only phase per plan §6). `git fetch`/`gh` returned 401 (stale `GITHUB_TOKEN`), so push and PR are pending. Handoff: `handoffs/2026-09-16-p00-contract-precheck-v1.md`.
 - [x] **ABC-DOC-001** — AlphaBTC capability inventory and transfer specifications (2026-09-15). Recorded 20 source-grounded capabilities, 15 bounded follow-up specifications (ABC-01, 02a, 02b, 03–14), and the corrected product requirement that the desktop UI and independent continuous service can coexist. Added only the handoff and this task-board entry on `docs/alphabtc-capability-transfer`, based on locally known `origin/main` `e3fc79f`; original feature branch/commits retained. Validation: local file/link/ID consistency and diff checks; no engine/test/DB changes, no runtime suites or service/AI execution. Pre-PR review verified every C01–C20 source claim and numeric figure against both repositories and moved recovery authority to the workspace-lease holder so ABC-01/03 stay compatible with RUNNER-OWNERSHIP-001 and the PR #103 smoke lane. Feature implementation remains Backlog.
 
 - [x] **PERSIST-INVARIANT-001 (P2)** — reject a summary that contradicts the trade rows beside it (2026-08-16, branch `fix/persist-bundle-invariants`, branched from `origin/main` `2b80be9`).
