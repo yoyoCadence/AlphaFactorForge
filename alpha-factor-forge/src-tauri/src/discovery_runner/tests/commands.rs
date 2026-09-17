@@ -224,7 +224,9 @@ fn a_success_whose_receipt_failed_is_recovered_on_retry_without_executing_again(
     {
         let conn = db.lock().unwrap();
         assert_eq!(runtime_ledger::read_request(&conn, "cancel-1").unwrap().unwrap().status, "pending", "receipt was refused");
-        let effect = discovery::read_request_effect(&conn, "cancel-1").unwrap().expect("effect row committed with the cancel");
+        let effect = discovery::read_request_outcome(&conn, "cancel-1").unwrap().expect("outcome row committed with the cancel");
+        assert_eq!(effect.stage, crate::db::discovery::OutcomeStage::Accepted);
+        assert_eq!(effect.outcome_json.as_deref(), Some(r#"{"runId":1}"#));
         assert_eq!((effect.run_id, effect.command.as_str()), (run_id, "discovery.cancel"));
         assert_eq!(discovery::get_discovery_run(&conn, run_id).unwrap().status, RunStatus::Cancelled);
     }
@@ -351,4 +353,261 @@ fn a_recorded_busy_is_final_and_not_labelled_retryable() {
         thread::sleep(Duration::from_millis(5));
     }
     wait_for_coordinator_exit(&runner, run_2);
+}
+
+// ---------- 2026-09-17 re-review regressions (R1: the FIRST outcome, immutably) ----------
+
+/// Like `PermittedProductionExecutor`, but the candidate FAILS once released:
+/// the run is accepted, then fails later for reasons that have nothing to do
+/// with the command that started it.
+struct FailAfterPermit {
+    started: mpsc::Sender<i64>,
+    gate: Arc<PermitGate>,
+}
+
+impl CandidateExecutor for FailAfterPermit {
+    fn execute(&self, work: &CandidateWork) -> Result<CandidateExecutionOutput, String> {
+        self.started
+            .send(work.candidate.index)
+            .map_err(|_| "test executor start receiver dropped".to_string())?;
+        self.gate.acquire()?;
+        Err("review: candidate execution failed".into())
+    }
+}
+
+fn dispatcher_with_executor(
+    db: &SharedDb,
+    executor: Arc<dyn CandidateExecutor>,
+) -> (Dispatcher, DiscoveryRunner, String, Arc<RecordingSink>) {
+    let (epoch, workspace) = {
+        let mut conn = db.lock().unwrap();
+        let epoch = acquire(&mut conn, HolderKind::DesktopEmbedded, 1).unwrap().epoch;
+        (epoch, runtime_ledger::workspace_id(&conn).unwrap())
+    };
+    let sink = Arc::new(RecordingSink::new(db.clone()));
+    let runner = DiscoveryRunner { executor, ..DiscoveryRunner::with_epoch(epoch) };
+    let dispatcher = Dispatcher::new(
+        db.clone(),
+        runner.clone(),
+        epoch,
+        workspace.clone(),
+        sink.clone(),
+        Arc::new(InFlightRequests::default()),
+    );
+    (dispatcher, runner, workspace, sink)
+}
+
+fn wait_for_run_status(runner: &DiscoveryRunner, db: &SharedDb, run_id: i64, expected: RunStatus) {
+    let deadline = Instant::now() + TEST_TIMEOUT;
+    while runner.progress(db, run_id).unwrap().status != expected {
+        assert!(Instant::now() < deadline, "run {run_id} never reached {expected:?}");
+        thread::sleep(Duration::from_millis(5));
+    }
+}
+
+fn runs_count(db: &SharedDb) -> i64 {
+    db.lock().unwrap().query_row("SELECT COUNT(*) FROM discovery_runs", [], |r| r.get(0)).unwrap()
+}
+
+fn receipt_status(db: &SharedDb, request_id: &str) -> Option<String> {
+    runtime_ledger::read_request(&db.lock().unwrap(), request_id).unwrap().map(|r| r.status)
+}
+
+/// Re-review case 1: a `start` that was accepted stays accepted even though a
+/// worker failed the run afterwards; the retry replays `Ok`, never the later
+/// failure, and starts nothing.
+#[test]
+fn an_accepted_start_replays_ok_even_after_the_run_fails_later() {
+    let candles = alternating_candles(240, 1_577_836_800_000);
+    let db = migrated_db();
+    let (dataset_id, dataset_hash) = import_dataset(&db, &candles);
+    let (started_tx, started_rx) = mpsc::channel();
+    let gate = Arc::new(PermitGate::new());
+    let (dispatcher, runner, workspace, _sink) =
+        dispatcher_with_executor(&db, Arc::new(FailAfterPermit { started: started_tx, gate: gate.clone() }));
+    let config = runner_config(dataset_id, &dataset_hash, 1);
+
+    deny(&db, "deny_receipt", "UPDATE ON command_requests");
+    let first = dispatcher.dispatch(envelope(&workspace, "start-1", "discovery.start", config.clone())).expect("accepted");
+    assert_eq!(first, json!({ "runId": 1 }));
+    assert_eq!(receipt_status(&db, "start-1").as_deref(), Some("pending"), "receipt refused");
+    {
+        let conn = db.lock().unwrap();
+        let row = discovery::read_request_outcome(&conn, "start-1").unwrap().expect("outcome row");
+        assert_eq!(row.stage, crate::db::discovery::OutcomeStage::Accepted);
+    }
+
+    // Now the worker fails the run.
+    assert_eq!(started_rx.recv_timeout(TEST_TIMEOUT).unwrap(), 0);
+    gate.release();
+    wait_for_run_status(&runner, &db, 1, RunStatus::Failed);
+    wait_for_coordinator_exit(&runner, 1);
+    allow(&db, "deny_receipt");
+
+    // The first answer, not the run's later fate.
+    let retry = dispatcher.dispatch(envelope(&workspace, "start-1", "discovery.start", config.clone())).expect("replayed");
+    assert_eq!(retry, first);
+    assert_eq!(runs_count(&db), 1, "nothing started again");
+    assert_eq!(receipt_status(&db, "start-1").as_deref(), Some("succeeded"), "receipt repaired");
+    assert_eq!(runner.progress(&db, 1).unwrap().status, RunStatus::Failed, "the run's own fate is untouched");
+}
+
+/// Re-review case 2: a `start` that created its run row but failed to queue
+/// the jobs answered with that failure; the retry replays the failure —
+/// never a success for an idle, job-less run — and starts nothing.
+#[test]
+fn a_start_that_failed_after_creating_its_run_replays_the_failure_not_a_success() {
+    let candles = alternating_candles(240, 1_577_836_800_000);
+    let db = migrated_db();
+    let (dataset_id, dataset_hash) = import_dataset(&db, &candles);
+    let (dispatcher, runner, workspace, _sink, _gate, _started_rx) = gated_dispatcher(&db);
+    let config = runner_config(dataset_id, &dataset_hash, 1);
+
+    deny(&db, "deny_jobs", "INSERT ON discovery_jobs");
+    deny(&db, "deny_receipt", "UPDATE ON command_requests");
+    let first = dispatcher.dispatch(envelope(&workspace, "start-1", "discovery.start", config.clone()));
+    let first_error = first.unwrap_err();
+    assert_eq!(first_error.code, ErrorCode::Validation, "{first_error:?}");
+    assert!(first_error.message.contains("deny_jobs"), "{first_error:?}");
+    assert!(!first_error.retryable, "recorded with the run row: final");
+    {
+        let conn = db.lock().unwrap();
+        let row = discovery::read_request_outcome(&conn, "start-1").unwrap().expect("rejection recorded");
+        assert_eq!(row.stage, crate::db::discovery::OutcomeStage::Rejected);
+        assert_eq!(discovery::get_discovery_run(&conn, 1).unwrap().status, RunStatus::Idle);
+        assert_eq!(discovery::list_discovery_jobs(&conn, 1).unwrap().len(), 0);
+    }
+    allow(&db, "deny_jobs");
+    allow(&db, "deny_receipt");
+
+    let retry = dispatcher.dispatch(envelope(&workspace, "start-1", "discovery.start", config.clone()));
+    assert_eq!(retry.unwrap_err(), first_error, "the first failure, verbatim");
+    assert_eq!(runs_count(&db), 1);
+    assert_eq!(runner.progress(&db, 1).unwrap().status, RunStatus::Idle, "still idle, still no coordinator");
+    assert_eq!(receipt_status(&db, "start-1").as_deref(), Some("failed"));
+}
+
+/// The crash-shaped variant of case 2: the run row exists but neither an
+/// acceptance nor a rejection could be recorded. The retry reports that
+/// fact — it does not turn it into a success and does not start again.
+#[test]
+fn a_start_that_only_began_replays_an_honest_failure() {
+    let candles = alternating_candles(240, 1_577_836_800_000);
+    let db = migrated_db();
+    let (dataset_id, dataset_hash) = import_dataset(&db, &candles);
+    let (dispatcher, runner, workspace, _sink, _gate, _started_rx) = gated_dispatcher(&db);
+    let config = runner_config(dataset_id, &dataset_hash, 1);
+
+    deny(&db, "deny_jobs", "INSERT ON discovery_jobs");
+    deny(&db, "deny_outcome_progress", "UPDATE ON request_outcomes");
+    deny(&db, "deny_receipt", "UPDATE ON command_requests");
+    let first = dispatcher.dispatch(envelope(&workspace, "start-1", "discovery.start", config.clone()));
+    let first_error = first.unwrap_err();
+    assert_eq!(first_error.code, ErrorCode::Validation);
+    // Nothing durable but the `begun` row could be written, so this is NOT
+    // final: the caller is told the outcome was not recorded.
+    assert!(first_error.retryable, "{first_error:?}");
+    assert!(first_error.message.contains("could not be recorded"));
+    {
+        let conn = db.lock().unwrap();
+        let row = discovery::read_request_outcome(&conn, "start-1").unwrap().expect("begun row");
+        assert_eq!(row.stage, crate::db::discovery::OutcomeStage::Begun);
+    }
+    for name in ["deny_jobs", "deny_outcome_progress", "deny_receipt"] {
+        allow(&db, name);
+    }
+
+    let retry = dispatcher.dispatch(envelope(&workspace, "start-1", "discovery.start", config.clone()));
+    let error = retry.unwrap_err();
+    assert_eq!(error.code, ErrorCode::Validation);
+    assert!(error.message.contains("never completed its admission"), "{error:?}");
+    assert!(!error.retryable);
+    assert_eq!(runs_count(&db), 1, "no second run");
+    assert_eq!(runner.progress(&db, 1).unwrap().status, RunStatus::Idle);
+    assert_eq!(receipt_status(&db, "start-1").as_deref(), Some("failed"), "the fact is now the receipt");
+}
+
+/// Re-review case 3: completion wins the race with a pause. `pause` answers
+/// success; that acceptance is recorded with the completion, so a retry
+/// replays the success instead of pausing a run that no longer has a
+/// coordinator.
+#[test]
+fn a_pause_that_completion_won_replays_its_success() {
+    let candles = alternating_candles(240, 1_577_836_800_000);
+    let db = migrated_db();
+    let (dataset_id, dataset_hash) = import_dataset(&db, &candles);
+    let (dispatcher, runner, workspace, _sink, gate, started_rx) = gated_dispatcher(&db);
+    let config = runner_config(dataset_id, &dataset_hash, 1);
+
+    let started = dispatcher.dispatch(envelope(&workspace, "start", "discovery.start", config)).expect("start");
+    let run_id = started["runId"].as_i64().unwrap();
+    assert_eq!(started_rx.recv_timeout(TEST_TIMEOUT).unwrap(), 0);
+
+    deny(&db, "deny_receipt", "UPDATE ON command_requests");
+    let (pause_tx, pause_rx) = mpsc::channel();
+    let first = thread::scope(|scope| {
+        scope.spawn(|| {
+            let _ = pause_tx.send(dispatcher.dispatch(envelope(&workspace, "pause-1", "discovery.pause", json!({ "runId": run_id }))));
+        });
+        wait_for_phase(&runner, run_id, ControlPhase::PauseRequested);
+        // The only candidate completes: completion wins, pause is "successful".
+        gate.release();
+        pause_rx.recv_timeout(TEST_TIMEOUT).expect("pause answered")
+    });
+    assert_eq!(first.as_ref().unwrap(), &json!({ "runId": run_id }));
+    wait_for_run_status(&runner, &db, run_id, RunStatus::Completed);
+    wait_for_coordinator_exit(&runner, run_id);
+    assert_eq!(receipt_status(&db, "pause-1").as_deref(), Some("pending"));
+    {
+        let conn = db.lock().unwrap();
+        let row = discovery::read_request_outcome(&conn, "pause-1").unwrap().expect("accepted with the completion");
+        assert_eq!(row.stage, crate::db::discovery::OutcomeStage::Accepted);
+        assert_eq!(row.command, "discovery.pause");
+    }
+    allow(&db, "deny_receipt");
+
+    let retry = dispatcher.dispatch(envelope(&workspace, "pause-1", "discovery.pause", json!({ "runId": run_id })));
+    assert_eq!(retry.unwrap(), first.unwrap(), "the recorded success, not a fresh pause");
+    assert_eq!(receipt_status(&db, "pause-1").as_deref(), Some("succeeded"));
+    assert_eq!(runner.progress(&db, run_id).unwrap().status, RunStatus::Completed);
+}
+
+/// `resume` whose checkpoint failed after the run had already switched back
+/// to running: the rejection is recorded with the failure, so the retry
+/// replays it and does not resume again.
+#[test]
+fn a_resume_that_failed_after_beginning_replays_the_failure() {
+    let candles = alternating_candles(240, 1_577_836_800_000);
+    let db = migrated_db();
+    let (dataset_id, dataset_hash) = import_dataset(&db, &candles);
+    let (dispatcher, runner, workspace, _sink, gate, started_rx) = gated_dispatcher(&db);
+    let run_id = paused_run(&dispatcher, &runner, &db, &workspace, runner_config(dataset_id, &dataset_hash, 2), &gate, &started_rx);
+
+    // The Paused -> Running transition does not touch progress_json; the
+    // resumed checkpoint does, and is denied.
+    db.lock()
+        .unwrap()
+        .execute_batch(
+            "CREATE TEMP TRIGGER deny_checkpoint BEFORE UPDATE OF progress_json ON discovery_runs
+             BEGIN SELECT RAISE(ABORT, 'deny_checkpoint'); END;",
+        )
+        .unwrap();
+    deny(&db, "deny_receipt", "UPDATE ON command_requests");
+    let first = dispatcher.dispatch(envelope(&workspace, "resume-1", "discovery.resume", json!({ "runId": run_id })));
+    let first_error = first.unwrap_err();
+    assert!(first_error.message.contains("deny_checkpoint"), "{first_error:?}");
+    assert!(!first_error.retryable, "recorded with the run failure: final");
+    {
+        let conn = db.lock().unwrap();
+        let row = discovery::read_request_outcome(&conn, "resume-1").unwrap().expect("rejected with the failure");
+        assert_eq!(row.stage, crate::db::discovery::OutcomeStage::Rejected);
+        assert_eq!(discovery::get_discovery_run(&conn, run_id).unwrap().status, RunStatus::Failed);
+    }
+    allow(&db, "deny_checkpoint");
+    allow(&db, "deny_receipt");
+
+    let retry = dispatcher.dispatch(envelope(&workspace, "resume-1", "discovery.resume", json!({ "runId": run_id })));
+    assert_eq!(retry.unwrap_err(), first_error);
+    assert_eq!(runner.progress(&db, run_id).unwrap().status, RunStatus::Failed, "not resumed again");
+    assert_eq!(receipt_status(&db, "resume-1").as_deref(), Some("failed"));
 }

@@ -407,65 +407,170 @@ pub fn claim_candidate_jobs(
     Ok(claimed)
 }
 
-// ---------- request effects (P03b R1) ----------
+// ---------- request outcomes (P03b R1) ----------
 
-/// The command request a domain change is being made for. Recorded in the
-/// SAME transaction as the change (`request_effects`, migration 0006), so a
-/// receipt that fails afterwards can be recovered from the effect and the
-/// change is never executed twice for one request.
-#[derive(Clone, Copy, Debug)]
-pub struct RequestEffect<'a> {
+/// How far a mutating command got, as recorded in the SAME transaction as the
+/// domain change that decides it (`request_outcomes`, migration 0006).
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum OutcomeStage {
+    /// State began to change for this request but admission is not finished
+    /// (a run row exists, a paused run switched to running). Superseded by
+    /// exactly one of the other two; a crash leaves this stage behind.
+    Begun,
+    /// Admission finished; the caller was told `{ "runId": n }`.
+    Accepted,
+    /// The command failed after it had begun; the caller was told the message.
+    Rejected,
+}
+
+impl OutcomeStage {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            OutcomeStage::Begun => "begun",
+            OutcomeStage::Accepted => "accepted",
+            OutcomeStage::Rejected => "rejected",
+        }
+    }
+
+    fn parse(raw: &str) -> Option<Self> {
+        match raw {
+            "begun" => Some(OutcomeStage::Begun),
+            "accepted" => Some(OutcomeStage::Accepted),
+            "rejected" => Some(OutcomeStage::Rejected),
+            _ => None,
+        }
+    }
+}
+
+/// One request outcome to record inside a store transaction. `outcome` is
+/// `None` for `Begun`, the result JSON for `Accepted`, and the error
+/// message for `Rejected` — exactly what the caller is (or was) told, so a
+/// replay reconstructs the first answer rather than inferring a new one.
+#[derive(Clone, Debug)]
+pub struct RequestOutcome<'a> {
     pub request_id: &'a str,
     pub command: &'a str,
+    pub stage: OutcomeStage,
+    pub outcome: Option<serde_json::Value>,
+}
+
+impl<'a> RequestOutcome<'a> {
+    pub fn begun(request_id: &'a str, command: &'a str) -> Self {
+        Self { request_id, command, stage: OutcomeStage::Begun, outcome: None }
+    }
+
+    pub fn accepted(request_id: &'a str, command: &'a str, run_id: i64) -> Self {
+        Self {
+            request_id,
+            command,
+            stage: OutcomeStage::Accepted,
+            outcome: Some(serde_json::json!({ "runId": run_id })),
+        }
+    }
+
+    pub fn rejected(request_id: &'a str, command: &'a str, message: &str) -> Self {
+        Self {
+            request_id,
+            command,
+            stage: OutcomeStage::Rejected,
+            outcome: Some(serde_json::json!({ "error": message })),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct RequestEffectRow {
+pub struct RequestOutcomeRow {
     pub request_id: String,
     pub run_id: i64,
     pub command: String,
+    pub stage: OutcomeStage,
+    pub outcome_json: Option<String>,
     pub epoch: i64,
 }
 
-/// Insert the effect row inside `tx`. A request may have exactly one effect:
-/// the PRIMARY KEY makes a second attempt to change state for the same
-/// request fail — and roll the change back with it.
-fn record_request_effect(
+/// Record `outcomes` inside `tx`. A new request id inserts; an existing
+/// `begun` row may be superseded by `accepted`/`rejected`; an existing
+/// `accepted`/`rejected` row is immutable and a conflicting write fails —
+/// rolling back the domain change with it, which is the point.
+pub(crate) fn record_request_outcomes(
     tx: &Connection,
     epoch: Option<i64>,
-    effect: Option<&RequestEffect<'_>>,
+    outcomes: &[RequestOutcome<'_>],
     run_id: i64,
 ) -> AppResult<()> {
-    if let Some(effect) = effect {
-        tx.execute(
-            "INSERT INTO request_effects (request_id, run_id, command, epoch)
-             VALUES (?1, ?2, ?3, ?4)",
-            params![effect.request_id, run_id, effect.command, epoch.unwrap_or(0)],
+    for outcome in outcomes {
+        let outcome_json = match &outcome.outcome {
+            Some(value) => Some(serde_json::to_string(value)?),
+            None => None,
+        };
+        let changed = tx.execute(
+            "INSERT INTO request_outcomes (request_id, run_id, command, stage, outcome_json, epoch)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+             ON CONFLICT(request_id) DO UPDATE SET
+                 stage = excluded.stage,
+                 outcome_json = excluded.outcome_json,
+                 updated_at = datetime('now')
+             WHERE request_outcomes.stage = 'begun'
+               AND request_outcomes.run_id = excluded.run_id",
+            params![
+                outcome.request_id,
+                run_id,
+                outcome.command,
+                outcome.stage.as_str(),
+                outcome_json,
+                epoch.unwrap_or(0)
+            ],
         )?;
+        if changed != 1 {
+            return Err(AppError::Other(format!(
+                "request {} already has a final outcome; refusing to overwrite it",
+                outcome.request_id
+            )));
+        }
     }
     Ok(())
 }
 
-pub fn read_request_effect(conn: &Connection, request_id: &str) -> AppResult<Option<RequestEffectRow>> {
-    Ok(conn
+/// Record a rejection that has no domain transaction of its own (the
+/// command failed between two of its store writes). Best effort by design:
+/// if this cannot be written, the `begun` row still proves the command never
+/// completed, which is what a replay reports.
+pub fn record_request_rejection(
+    conn: &Connection,
+    epoch: Option<i64>,
+    request_id: &str,
+    command: &str,
+    run_id: i64,
+    message: &str,
+) -> AppResult<()> {
+    let tx = super::ownership::write_transaction_quiet(conn, epoch)?;
+    record_request_outcomes(&tx, epoch, &[RequestOutcome::rejected(request_id, command, message)], run_id)?;
+    tx.commit()?;
+    Ok(())
+}
+
+pub fn read_request_outcome(conn: &Connection, request_id: &str) -> AppResult<Option<RequestOutcomeRow>> {
+    let row: Option<(String, i64, String, String, Option<String>, i64)> = conn
         .query_row(
-            "SELECT request_id, run_id, command, epoch FROM request_effects WHERE request_id = ?1",
+            "SELECT request_id, run_id, command, stage, outcome_json, epoch
+             FROM request_outcomes WHERE request_id = ?1",
             params![request_id],
-            |r| {
-                Ok(RequestEffectRow {
-                    request_id: r.get(0)?,
-                    run_id: r.get(1)?,
-                    command: r.get(2)?,
-                    epoch: r.get(3)?,
-                })
-            },
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?)),
         )
-        .optional()?)
+        .optional()?;
+    match row {
+        None => Ok(None),
+        Some((request_id, run_id, command, stage, outcome_json, epoch)) => {
+            let stage = OutcomeStage::parse(&stage)
+                .ok_or_else(|| AppError::Other(format!("unknown request outcome stage {stage:?}")))?;
+            Ok(Some(RequestOutcomeRow { request_id, run_id, command, stage, outcome_json, epoch }))
+        }
+    }
 }
 
 /// Create an `idle` run. Idle holds no global slot, so drafting a run never
-/// blocks another one. Test convenience: production callers name their
-/// request (`create_discovery_run_with_effect`).
+/// blocks another one. Test convenience: production callers record their
+/// request (`create_discovery_run_with_outcomes`).
 #[cfg(test)]
 pub fn create_discovery_run(
     conn: &Connection,
@@ -473,17 +578,17 @@ pub fn create_discovery_run(
     name: &str,
     config_json: &str,
 ) -> AppResult<i64> {
-    create_discovery_run_with_effect(conn, epoch, name, config_json, None)
+    create_discovery_run_with_outcomes(conn, epoch, name, config_json, &[])
 }
 
-/// `create_discovery_run` that also records the creating request's effect in
-/// the same transaction (P03b R1).
-pub fn create_discovery_run_with_effect(
+/// `create_discovery_run` that also records request outcomes (normally the
+/// creating request's `begun` stage) in the same transaction (P03b R1).
+pub fn create_discovery_run_with_outcomes(
     conn: &Connection,
     epoch: Option<i64>,
     name: &str,
     config_json: &str,
-    effect: Option<&RequestEffect<'_>>,
+    outcomes: &[RequestOutcome<'_>],
 ) -> AppResult<i64> {
     if name.trim().is_empty() {
         return Err(AppError::Other(
@@ -496,7 +601,7 @@ pub fn create_discovery_run_with_effect(
         params![name, config_json],
     )?;
     let id = tx.last_insert_rowid();
-    record_request_effect(&tx, epoch, effect, id)?;
+    record_request_outcomes(&tx, epoch, outcomes, id)?;
     tx.commit()?;
     Ok(id)
 }
@@ -620,6 +725,20 @@ pub fn update_discovery_progress(
     expected_status: RunStatus,
     progress_json: &str,
 ) -> AppResult<()> {
+    update_discovery_progress_with_outcomes(conn, epoch, run_id, expected_status, progress_json, &[])
+}
+
+/// `update_discovery_progress` that also records request outcomes in the
+/// same transaction — the initial checkpoint of `start`/`resume` is where
+/// those commands are ACCEPTED (P03b R1).
+pub fn update_discovery_progress_with_outcomes(
+    conn: &Connection,
+    epoch: Option<i64>,
+    run_id: i64,
+    expected_status: RunStatus,
+    progress_json: &str,
+    outcomes: &[RequestOutcome<'_>],
+) -> AppResult<()> {
     if !expected_status.is_active() {
         return Err(AppError::Other(
             "progress updates require an expected running or paused status".into(),
@@ -651,6 +770,7 @@ pub fn update_discovery_progress(
             expected_status.as_str()
         )));
     }
+    record_request_outcomes(&tx, epoch, outcomes, run_id)?;
     tx.commit()?;
     Ok(())
 }
@@ -663,8 +783,8 @@ pub fn update_discovery_progress(
 /// and the state machine would only be as strong as the caller's discipline.
 /// Its siblings `start_discovery_run` and `complete_discovery_run` are already
 /// transactional, so leaving this one bare was the odd case out.
-/// Test convenience: production callers name their request
-/// (`transition_run_with_effect`).
+/// Test convenience: production callers record their request
+/// (`transition_run_with_outcomes`).
 #[cfg(test)]
 pub fn transition_run(
     conn: &Connection,
@@ -672,17 +792,18 @@ pub fn transition_run(
     run_id: i64,
     to: RunStatus,
 ) -> AppResult<()> {
-    transition_run_with_effect(conn, epoch, run_id, to, None)
+    transition_run_with_outcomes(conn, epoch, run_id, to, &[])
 }
 
-/// `transition_run` that also records the requesting command's effect in the
-/// same transaction (P03b R1).
-pub fn transition_run_with_effect(
+/// `transition_run` that also records request outcomes in the same
+/// transaction (P03b R1): `resume` begins here, a drained `pause` is
+/// accepted here.
+pub fn transition_run_with_outcomes(
     conn: &Connection,
     epoch: Option<i64>,
     run_id: i64,
     to: RunStatus,
-    effect: Option<&RequestEffect<'_>>,
+    outcomes: &[RequestOutcome<'_>],
 ) -> AppResult<()> {
     let tx = super::ownership::write_transaction(conn, epoch)?;
     let from = current_status(&tx, run_id)?;
@@ -704,7 +825,7 @@ pub fn transition_run_with_effect(
          WHERE id = ?1"
     );
     tx.execute(&sql, params![run_id, to.as_str()])?;
-    record_request_effect(&tx, epoch, effect, run_id)?;
+    record_request_outcomes(&tx, epoch, outcomes, run_id)?;
     tx.commit()?;
     Ok(())
 }
@@ -743,10 +864,24 @@ pub fn select_best_strategy(conn: &Connection, run_id: i64) -> AppResult<Option<
 /// Terminate a run, recording its best gate passer. `best_strategy_id` is
 /// derived here rather than accepted, so a caller cannot record a winner the
 /// stored assessments do not support.
+/// Test convenience: production callers record their request
+/// (`complete_discovery_run_with_outcomes`).
+#[cfg(test)]
 pub fn complete_discovery_run(
     conn: &mut Connection,
     epoch: Option<i64>,
     run_id: i64,
+) -> AppResult<Option<i64>> {
+    complete_discovery_run_with_outcomes(conn, epoch, run_id, &[])
+}
+
+/// `complete_discovery_run` that also records request outcomes in the same
+/// transaction — a pause that completion wins over is accepted here (P03b R1).
+pub fn complete_discovery_run_with_outcomes(
+    conn: &mut Connection,
+    epoch: Option<i64>,
+    run_id: i64,
+    outcomes: &[RequestOutcome<'_>],
 ) -> AppResult<Option<i64>> {
     let tx = super::ownership::write_transaction(conn, epoch)?;
     let from = current_status(&tx, run_id)?;
@@ -796,6 +931,7 @@ pub fn complete_discovery_run(
          WHERE id = ?1",
         params![run_id, best],
     )?;
+    record_request_outcomes(&tx, epoch, outcomes, run_id)?;
     tx.commit()?;
     Ok(best)
 }
@@ -991,24 +1127,25 @@ fn skip_unfinished_jobs(conn: &Connection, run_id: i64) -> AppResult<usize> {
 /// still queued or running becomes `skipped`. Because crash recovery
 /// deliberately ignores terminal runs, a cancelled run left holding queued
 /// jobs would never be repaired — hence one transaction.
-/// Test convenience: production callers name their request
-/// (`cancel_discovery_run_with_effect`).
+/// Test convenience: production callers record their request
+/// (`cancel_discovery_run_with_outcomes`).
 #[cfg(test)]
 pub fn cancel_discovery_run(
     conn: &Connection,
     epoch: Option<i64>,
     run_id: i64,
 ) -> AppResult<usize> {
-    cancel_discovery_run_with_effect(conn, epoch, run_id, None)
+    cancel_discovery_run_with_outcomes(conn, epoch, run_id, &[])
 }
 
-/// `cancel_discovery_run` that also records the requesting command's effect
-/// in the same transaction (P03b R1).
-pub fn cancel_discovery_run_with_effect(
+/// `cancel_discovery_run` that also records request outcomes in the same
+/// transaction: the cancel's own acceptance, and the rejection of a pause
+/// that was still draining (P03b R1).
+pub fn cancel_discovery_run_with_outcomes(
     conn: &Connection,
     epoch: Option<i64>,
     run_id: i64,
-    effect: Option<&RequestEffect<'_>>,
+    outcomes: &[RequestOutcome<'_>],
 ) -> AppResult<usize> {
     let tx = super::ownership::write_transaction(conn, epoch)?;
     let from = current_status(&tx, run_id)?;
@@ -1026,7 +1163,7 @@ pub fn cancel_discovery_run_with_effect(
          WHERE id = ?1",
         [run_id],
     )?;
-    record_request_effect(&tx, epoch, effect, run_id)?;
+    record_request_outcomes(&tx, epoch, outcomes, run_id)?;
     tx.commit()?;
     Ok(skipped)
 }
@@ -1037,11 +1174,27 @@ pub fn cancel_discovery_run_with_effect(
 /// D5 requires an engine/system failure to fail the run WITH evidence. A
 /// separate status write could crash before the evidence landed, leaving a
 /// terminal run that records no reason and that recovery will never revisit.
+/// Test convenience: production callers record their request
+/// (`fail_discovery_run_with_outcomes`).
+#[cfg(test)]
 pub fn fail_discovery_run(
     conn: &Connection,
     epoch: Option<i64>,
     run_id: i64,
     error_message: &str,
+) -> AppResult<usize> {
+    fail_discovery_run_with_outcomes(conn, epoch, run_id, error_message, &[])
+}
+
+/// `fail_discovery_run` that also records request outcomes in the same
+/// transaction — the rejection of the `start`/`resume`/`pause` request
+/// that this failure answers (P03b R1).
+pub fn fail_discovery_run_with_outcomes(
+    conn: &Connection,
+    epoch: Option<i64>,
+    run_id: i64,
+    error_message: &str,
+    outcomes: &[RequestOutcome<'_>],
 ) -> AppResult<usize> {
     if error_message.trim().is_empty() {
         return Err(AppError::Other(
@@ -1075,6 +1228,7 @@ pub fn fail_discovery_run(
          WHERE id = ?1",
         params![run_id, error_message],
     )?;
+    record_request_outcomes(&tx, epoch, outcomes, run_id)?;
     tx.commit()?;
     Ok(failed)
 }

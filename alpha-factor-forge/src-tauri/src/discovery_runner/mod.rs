@@ -34,7 +34,7 @@ use serde_json::{json, Value};
 
 use crate::db::discovery::{
     self, CandidateAssessment, CandidateJobSpec, ClaimedCandidateJobs, DiscoveryJobRow,
-    DiscoveryRunRow, JobStatus, RecoveryReport, RequestEffect, RunStatus, Segment,
+    DiscoveryRunRow, JobStatus, RecoveryReport, RequestOutcome, RunStatus, Segment,
     DISCOVERY_PROGRESS_VERSION,
 };
 use crate::db::repositories::{self, StrategyDef};
@@ -50,6 +50,24 @@ pub const DISCOVERY_RESULT_EVENT: &str = "discovery://result";
 pub const DISCOVERY_DONE_EVENT: &str = "discovery://done";
 
 type SharedDb = Arc<Mutex<rusqlite::Connection>>;
+
+/// The command names the runner records outcomes under (P03b R1). They are
+/// the dispatcher's whitelist names; the runner only needs them as labels.
+const START_COMMAND: &str = "discovery.start";
+const RESUME_COMMAND: &str = "discovery.resume";
+const PAUSE_COMMAND: &str = "discovery.pause";
+const CANCEL_COMMAND: &str = "discovery.cancel";
+
+/// What `pause` answers when the coordinator failed / was cancelled while
+/// draining. One definition, because the coordinator records the same text
+/// as the request's outcome BEFORE `pause` returns it.
+fn pause_failed_message(run_id: i64) -> String {
+    format!("discovery run {run_id} failed while draining for pause")
+}
+
+fn pause_cancelled_message(run_id: i64) -> String {
+    format!("discovery run {run_id} was cancelled while draining for pause")
+}
 
 fn other(message: impl Into<String>) -> AppError {
     AppError::Other(message.into())
@@ -184,9 +202,11 @@ struct ControlState {
     /// P03a: the lease epoch this coordinator runs under; every write the
     /// coordinator makes is checked inside its store transaction.
     epoch: Option<i64>,
-    /// P03b R1: the command request that asked for the pending pause, so the
-    /// coordinator's Paused transition can record its effect in the same
-    /// transaction. Taken by `pause_run_after_drain`.
+    /// P03b R1: the command request that asked for the pending pause. The
+    /// coordinator records its outcome in whichever transaction resolves the
+    /// pause — the Paused transition (accepted), completion winning the race
+    /// (accepted), a run failure (rejected), or a cancel (rejected) — BEFORE
+    /// the phase changes and `pause` wakes up to answer the same thing.
     pause_request_id: Option<String>,
 }
 
@@ -340,9 +360,12 @@ impl DiscoveryRunner {
         self.start_for_request(db, sink, raw_config, None)
     }
 
-    /// `start` on behalf of a command request: the run row is created in the
-    /// same transaction as the request's effect row (P03b R1), so a receipt
-    /// that fails afterwards can be recovered without starting a second run.
+    /// `start` on behalf of a command request (P03b R1). The request's
+    /// outcome is recorded with the store writes that decide it: `begun` with
+    /// the run row, `accepted` with the initial checkpoint, `rejected` with
+    /// the failure in between. A coordinator that fails to spawn AFTER the
+    /// checkpoint is a failure of the (accepted) run, reported through its
+    /// status and Done event, not a different answer to the command.
     pub fn start_for_request(
         &self,
         db: SharedDb,
@@ -350,7 +373,9 @@ impl DiscoveryRunner {
         raw_config: Value,
         request_id: Option<&str>,
     ) -> AppResult<i64> {
-        let effect = request_id.map(|request_id| RequestEffect { request_id, command: "discovery.start" });
+        let begun: Vec<RequestOutcome<'_>> = request_id
+            .map(|request_id| vec![RequestOutcome::begun(request_id, START_COMMAND)])
+            .unwrap_or_default();
         let logical_cores = logical_cores();
         let config = Arc::new(
             parse_discovery_config(&raw_config, logical_cores as f64)
@@ -405,25 +430,47 @@ impl DiscoveryRunner {
             }
 
             let name = discovery_run_name(dataset.id, &dataset.content_hash)?;
-            let run_id = discovery::create_discovery_run_with_effect(
+            let run_id = discovery::create_discovery_run_with_outcomes(
                 &conn,
                 self.epoch,
                 &name,
                 &raw_config_json,
-                effect.as_ref(),
+                &begun,
             )?;
-            discovery::start_discovery_run(&mut conn, self.epoch, run_id, &specs)?;
+            if let Err(error) = discovery::start_discovery_run(&mut conn, self.epoch, run_id, &specs) {
+                if matches!(error, AppError::StaleOwner(_)) {
+                    return Err(error);
+                }
+                // The run row exists (idle) but was never queued. Record the
+                // rejection on its own; if even that fails, the `begun` row
+                // still proves the start never completed.
+                let message = error.to_string();
+                if let Some(request_id) = request_id {
+                    let _ = discovery::record_request_rejection(
+                        &conn, self.epoch, request_id, START_COMMAND, run_id, &message,
+                    );
+                }
+                return Err(other(message));
+            }
             let initial_sequence = 1;
             let progress =
                 stored_progress_json(plan.counts, plan.counts.final_unique, 0, initial_sequence)?;
-            if let Err(error) = discovery::update_discovery_progress(
-                &conn, self.epoch, run_id, RunStatus::Running, &progress,
+            let accepted: Vec<RequestOutcome<'_>> = request_id
+                .map(|request_id| vec![RequestOutcome::accepted(request_id, START_COMMAND, run_id)])
+                .unwrap_or_default();
+            if let Err(error) = discovery::update_discovery_progress_with_outcomes(
+                &conn, self.epoch, run_id, RunStatus::Running, &progress, &accepted,
             ) {
                 if matches!(error, AppError::StaleOwner(_)) {
                     return Err(error);
                 }
                 let message = format!("failed to initialize discovery progress: {error}");
-                let _ = discovery::fail_discovery_run(&conn, self.epoch, run_id, &message);
+                let rejected: Vec<RequestOutcome<'_>> = request_id
+                    .map(|request_id| vec![RequestOutcome::rejected(request_id, START_COMMAND, &message)])
+                    .unwrap_or_default();
+                let _ = discovery::fail_discovery_run_with_outcomes(
+                    &conn, self.epoch, run_id, &message, &rejected,
+                );
                 return Err(other(message));
             }
 
@@ -467,6 +514,9 @@ impl DiscoveryRunner {
         if let Err(error) =
             self.spawn_coordinator(db.clone(), sink.clone(), run_id, control.clone(), prepared)
         {
+            // The run was accepted (durably) a moment ago; losing its
+            // coordinator is the run's failure, reported through its status
+            // and Done event exactly like a failure one candidate later.
             self.remove_control(run_id, &control);
             let mut state = lock(&control.state, "discovery control")?;
             let message = format!("failed to spawn discovery coordinator: {error}");
@@ -478,7 +528,6 @@ impl DiscoveryRunner {
                 &control.changed,
                 &message,
             );
-            return Err(other(message));
         }
         Ok(run_id)
     }
@@ -492,8 +541,10 @@ impl DiscoveryRunner {
         self.resume_for_request(db, sink, run_id, None)
     }
 
-    /// `resume` on behalf of a command request (effect recorded with the
-    /// Paused → Running transition, P03b R1).
+    /// `resume` on behalf of a command request (P03b R1): `begun` with the
+    /// Paused → Running transition, `accepted` with the resumed checkpoint,
+    /// `rejected` if that checkpoint fails. As for `start`, a coordinator that
+    /// fails to spawn afterwards fails the accepted run rather than the command.
     pub fn resume_for_request(
         &self,
         db: SharedDb,
@@ -501,7 +552,9 @@ impl DiscoveryRunner {
         run_id: i64,
         request_id: Option<&str>,
     ) -> AppResult<()> {
-        let effect = request_id.map(|request_id| RequestEffect { request_id, command: "discovery.resume" });
+        let begun: Vec<RequestOutcome<'_>> = request_id
+            .map(|request_id| vec![RequestOutcome::begun(request_id, RESUME_COMMAND)])
+            .unwrap_or_default();
         if let Some(control) = self.control(run_id)? {
             let phase = lock(&control.state, "discovery control")?.phase;
             if phase == ControlPhase::Paused {
@@ -557,21 +610,29 @@ impl DiscoveryRunner {
         {
             let conn = lock(&db, "db")?;
             discovery::assert_owner(&conn, self.epoch)?;
-            discovery::transition_run_with_effect(&conn, self.epoch, run_id, RunStatus::Running, effect.as_ref())?;
+            discovery::transition_run_with_outcomes(&conn, self.epoch, run_id, RunStatus::Running, &begun)?;
             let progress = stored_progress_json(
                 prepared.enumeration,
                 prepared.total_candidates,
                 prepared.completed_candidates,
                 resume_sequence,
             )?;
-            if let Err(error) = discovery::update_discovery_progress(
-                &conn, self.epoch, run_id, RunStatus::Running, &progress,
+            let accepted: Vec<RequestOutcome<'_>> = request_id
+                .map(|request_id| vec![RequestOutcome::accepted(request_id, RESUME_COMMAND, run_id)])
+                .unwrap_or_default();
+            if let Err(error) = discovery::update_discovery_progress_with_outcomes(
+                &conn, self.epoch, run_id, RunStatus::Running, &progress, &accepted,
             ) {
                 if matches!(error, AppError::StaleOwner(_)) {
                     return Err(error);
                 }
                 let message = format!("failed to checkpoint resumed discovery: {error}");
-                let _ = discovery::fail_discovery_run(&conn, self.epoch, run_id, &message);
+                let rejected: Vec<RequestOutcome<'_>> = request_id
+                    .map(|request_id| vec![RequestOutcome::rejected(request_id, RESUME_COMMAND, &message)])
+                    .unwrap_or_default();
+                let _ = discovery::fail_discovery_run_with_outcomes(
+                    &conn, self.epoch, run_id, &message, &rejected,
+                );
                 return Err(other(message));
             }
         }
@@ -598,6 +659,7 @@ impl DiscoveryRunner {
         if let Err(error) =
             self.spawn_coordinator(db.clone(), sink.clone(), run_id, control.clone(), prepared)
         {
+            // Accepted a moment ago; see `start_for_request`.
             self.remove_control(run_id, &control);
             let mut state = lock(&control.state, "discovery control")?;
             let message = format!("failed to spawn discovery coordinator: {error}");
@@ -609,7 +671,6 @@ impl DiscoveryRunner {
                 &control.changed,
                 &message,
             );
-            return Err(other(message));
         }
         Ok(())
     }
@@ -650,12 +711,8 @@ impl DiscoveryRunner {
         }
         match state.phase {
             ControlPhase::Paused | ControlPhase::Completed => Ok(()),
-            ControlPhase::Failed => Err(other(format!(
-                "discovery run {run_id} failed while draining for pause"
-            ))),
-            ControlPhase::CancelRequested => Err(other(format!(
-                "discovery run {run_id} was cancelled while draining for pause"
-            ))),
+            ControlPhase::Failed => Err(other(pause_failed_message(run_id))),
+            ControlPhase::CancelRequested => Err(other(pause_cancelled_message(run_id))),
             ControlPhase::Running | ControlPhase::PauseRequested => Err(other(
                 "discovery pause acknowledgement entered an invalid state",
             )),
@@ -680,7 +737,9 @@ impl DiscoveryRunner {
         run_id: i64,
         request_id: Option<&str>,
     ) -> AppResult<()> {
-        let effect = request_id.map(|request_id| RequestEffect { request_id, command: "discovery.cancel" });
+        let own: Vec<RequestOutcome<'_>> = request_id
+            .map(|request_id| vec![RequestOutcome::accepted(request_id, CANCEL_COMMAND, run_id)])
+            .unwrap_or_default();
         if let Some(control) = self.control(run_id)? {
             let mut state = lock(&control.state, "discovery control")?;
             if !matches!(
@@ -692,10 +751,19 @@ impl DiscoveryRunner {
                 )));
             }
             let sequence = state.reserve_sequences(1)?;
+            // A pause still draining loses to this cancel: its request is
+            // rejected in the same transaction, with the words `pause` will
+            // answer once it wakes up.
+            let pause_request_id = state.pause_request_id.take();
+            let cancelled_pause_message = pause_cancelled_message(run_id);
+            let mut outcomes = own.clone();
+            if let Some(pause_request_id) = pause_request_id.as_deref() {
+                outcomes.push(RequestOutcome::rejected(pause_request_id, PAUSE_COMMAND, &cancelled_pause_message));
+            }
             let run = {
                 let conn = lock(db, "db")?;
                 discovery::assert_owner(&conn, self.epoch)?;
-                discovery::cancel_discovery_run_with_effect(&conn, self.epoch, run_id, effect.as_ref())?;
+                discovery::cancel_discovery_run_with_outcomes(&conn, self.epoch, run_id, &outcomes)?;
                 discovery::get_discovery_run(&conn, run_id)?
             };
             state.phase = ControlPhase::CancelRequested;
@@ -724,7 +792,7 @@ impl DiscoveryRunner {
             let sequence = last_event_sequence(before.progress_json.as_deref())
                 .checked_add(1)
                 .ok_or_else(|| other("discovery event sequence overflow"))?;
-            discovery::cancel_discovery_run_with_effect(&conn, self.epoch, run_id, effect.as_ref())?;
+            discovery::cancel_discovery_run_with_outcomes(&conn, self.epoch, run_id, &own)?;
             (discovery::get_discovery_run(&conn, run_id)?, sequence)
         };
         emit_after_commit(
@@ -1447,10 +1515,11 @@ fn pause_run_after_drain(
         // sequence gap, but can never repeat an emitted sequence.
         discovery::update_discovery_progress(&conn, state.epoch, run_id, RunStatus::Running, &progress)?;
         let pause_request_id = state.pause_request_id.take();
-        let effect = pause_request_id
+        let accepted: Vec<RequestOutcome<'_>> = pause_request_id
             .as_deref()
-            .map(|request_id| RequestEffect { request_id, command: "discovery.pause" });
-        discovery::transition_run_with_effect(&conn, state.epoch, run_id, RunStatus::Paused, effect.as_ref())?;
+            .map(|request_id| vec![RequestOutcome::accepted(request_id, PAUSE_COMMAND, run_id)])
+            .unwrap_or_default();
+        discovery::transition_run_with_outcomes(&conn, state.epoch, run_id, RunStatus::Paused, &accepted)?;
     }
     state.phase = ControlPhase::Paused;
     changed.notify_all();
@@ -1482,10 +1551,18 @@ fn complete_run_after_commit(
     changed: &Condvar,
 ) -> AppResult<()> {
     let sequence = state.reserve_sequences(1)?;
+    // A pause still draining when the last candidate completes is answered
+    // "paused" — `pause` treats Completed as success — so its acceptance is
+    // recorded with the completion.
+    let pause_request_id = state.pause_request_id.take();
+    let accepted: Vec<RequestOutcome<'_>> = pause_request_id
+        .as_deref()
+        .map(|request_id| vec![RequestOutcome::accepted(request_id, PAUSE_COMMAND, run_id)])
+        .unwrap_or_default();
     let run = {
         let mut conn = lock(db, "db")?;
         discovery::assert_owner(&conn, state.epoch)?;
-        discovery::complete_discovery_run(&mut conn, state.epoch, run_id)?;
+        discovery::complete_discovery_run_with_outcomes(&mut conn, state.epoch, run_id, &accepted)?;
         discovery::get_discovery_run(&conn, run_id)?
     };
     state.phase = ControlPhase::Completed;
@@ -1508,10 +1585,18 @@ fn fail_run_after_commit(
     ) {
         return;
     }
+    // A pause still draining is answered with the failure; record that
+    // answer in the failure's own transaction.
+    let pause_request_id = state.pause_request_id.take();
+    let failed_pause_message = pause_failed_message(run_id);
+    let rejected: Vec<RequestOutcome<'_>> = pause_request_id
+        .as_deref()
+        .map(|request_id| vec![RequestOutcome::rejected(request_id, PAUSE_COMMAND, &failed_pause_message)])
+        .unwrap_or_default();
     let committed = (|| -> AppResult<DiscoveryRunRow> {
         let conn = lock(db, "db")?;
         discovery::assert_owner(&conn, state.epoch)?;
-        discovery::fail_discovery_run(&conn, state.epoch, run_id, message)?;
+        discovery::fail_discovery_run_with_outcomes(&conn, state.epoch, run_id, message, &rejected)?;
         discovery::get_discovery_run(&conn, run_id)
     })();
     match committed {

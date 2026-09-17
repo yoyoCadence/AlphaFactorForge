@@ -2026,8 +2026,8 @@ mod tests {
         conn.prepare("SELECT event_id FROM runtime_events")
             .expect("0005 adds the event ledger");
         crate::db::apply_migrations(&conn).expect("re-run must be a no-op");
-        conn.prepare("SELECT request_id FROM request_effects")
-            .expect("0006 adds the request effects");
+        conn.prepare("SELECT request_id, stage FROM request_outcomes")
+            .expect("0006 adds the request outcomes");
         assert_eq!(count(&conn, "schema_migrations"), 6);
     }
 

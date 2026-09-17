@@ -117,9 +117,12 @@ export function shouldRetrySameRequest(error: CommandError): boolean {
 
 /** The reader's reconnect rule (contract §3, P03b R2): after a snapshot at
  *  `snapshotVersion`, an EMPTY events page whose `stateVersion` moved on, or
- *  any page carrying a ledger gap at or after the snapshot, means the ledger
- *  does not hold everything that happened — take a fresh snapshot. */
+ *  a ledger gap recorded AFTER that snapshot, means the ledger does not hold
+ *  everything that happened — take a fresh snapshot. A gap at or before the
+ *  snapshot's own version is already covered by that snapshot (the version is
+ *  read before the rows), so it must not keep demanding re-reads: the marker
+ *  is persistent and a quiet workspace never advances past it. */
 export function needsResnapshot(snapshotVersion: number, page: { events: unknown[]; stateVersion: number; ledgerGap: { stateVersion: number } | null }): boolean {
-  if (page.ledgerGap != null && page.ledgerGap.stateVersion >= snapshotVersion) return true;
+  if (page.ledgerGap != null && page.ledgerGap.stateVersion > snapshotVersion) return true;
   return page.events.length === 0 && page.stateVersion > snapshotVersion;
 }
