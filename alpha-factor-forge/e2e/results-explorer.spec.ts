@@ -124,3 +124,88 @@ test('shows a manually saved backtest with its trades, and says when nothing is 
   await load.click();
   await expect(detail.locator('table[data-testid^="results-explorer-trade-rows-"] tbody tr')).toHaveCount(expectedTrades);
 });
+
+// ---- 2026-09-17 acceptance review regressions ----
+// (handoffs/2026-09-17-p01-acceptance-review-v1.md)
+
+test('R1: a same-count re-save between the list read and the trade read is disclosed, not attached', async ({ page }) => {
+  await page.goto('/?mock=1&seedHistory=1&replaceBeforeDetail=1');
+  await page.getByTestId('results-explorer-toggle').click();
+  await page.getByTestId('results-explorer-view-summaries').click();
+  const fullRow = page.locator('tr[data-testid^="results-explorer-summary-"][data-segment="full"]');
+  await fullRow.click();
+  const detail = page.getByTestId('results-explorer-summary-detail');
+  const shownNetReturn = (await fullRow.locator('td').nth(5).textContent())!;
+  const load = detail.locator('button[data-testid^="results-explorer-load-trades-"]');
+  const expectedTrades = Number(/（(\d+) 筆）/.exec((await load.textContent()) ?? '')?.[1]);
+
+  // The mock re-saves the same key (same id, same trade count, different
+  // content) right before answering this read.
+  await load.click();
+  const stale = detail.locator('[data-testid^="results-explorer-stale-detail-"]');
+  await expect(stale).toBeVisible();
+  await expect(stale).toContainText('已被重新保存');
+  await expect(stale).toContainText(`畫面淨報酬 ${shownNetReturn}`);
+  await expect(stale).toContainText(`交易數 ${expectedTrades}`);
+  await expect(detail.locator('table[data-testid^="results-explorer-trade-rows-"]')).toHaveCount(0);
+  // The displayed snapshot is untouched by the newer save.
+  await expect(fullRow.locator('td').nth(5)).toHaveText(shownNetReturn);
+
+  // Refresh shows the newer row; its trades now load and are the newer ones.
+  await page.getByTestId('results-explorer-refresh').click();
+  await expect(page.getByTestId('results-explorer-refresh')).toBeEnabled();
+  await expect(fullRow.locator('td').nth(5)).not.toHaveText(shownNetReturn);
+  await fullRow.click();
+  await detail.locator('button[data-testid^="results-explorer-load-trades-"]').click();
+  const rows = detail.locator('table[data-testid^="results-explorer-trade-rows-"] tbody tr');
+  await expect(rows).toHaveCount(expectedTrades);
+  await expect(rows.first()).toContainText('gen2');
+});
+
+test('R1: a trade response that lands after a refresh is dropped', async ({ page }) => {
+  await page.goto('/?mock=1&seedHistory=1&detailDelay=1500');
+  await page.getByTestId('results-explorer-toggle').click();
+  await page.getByTestId('results-explorer-view-summaries').click();
+  const fullRow = page.locator('tr[data-testid^="results-explorer-summary-"][data-segment="full"]');
+  await fullRow.click();
+  const detail = page.getByTestId('results-explorer-summary-detail');
+  const load = detail.locator('button[data-testid^="results-explorer-load-trades-"]');
+  await load.click();
+  await expect(load).toHaveText('載入中…');
+
+  // Refresh while the read is in flight, then let the old response arrive.
+  const before = await page.getByTestId('results-explorer-loaded-at').getAttribute('data-loaded-at');
+  await page.getByTestId('results-explorer-refresh').click();
+  await expect(page.getByTestId('results-explorer-refresh')).toBeEnabled();
+  await expect(page.getByTestId('results-explorer-loaded-at')).not.toHaveAttribute('data-loaded-at', before!);
+  await page.waitForTimeout(2000);
+  await expect(detail.locator('table[data-testid^="results-explorer-trade-rows-"]')).toHaveCount(0);
+  await expect(detail.locator('[data-testid^="results-explorer-stale-detail-"]')).toHaveCount(0);
+  await expect(load).toBeEnabled();
+  await expect(load).toContainText('載入 全期 交易明細');
+
+  // A fresh read against the refreshed snapshot still works.
+  await load.click();
+  await expect(detail.locator('table[data-testid^="results-explorer-trade-rows-"]')).toBeVisible({ timeout: 5000 });
+});
+
+test('R2: a failed first read stays failed until the user refreshes', async ({ page }) => {
+  await page.goto('/?mock=1&explorerFailOnce=1');
+  await page.getByTestId('results-explorer-toggle').click();
+  const error = page.getByTestId('results-explorer-error');
+  await expect(error).toContainText('讀取失敗');
+  await expect(error).toContainText('backtest_summary read failed once');
+  await expect(page.getByTestId('results-explorer-refresh')).toBeEnabled();
+
+  // The mock serves every call after the first, so an automatic retry would
+  // have replaced this error with the empty-state message by now.
+  await page.waitForTimeout(800);
+  await expect(error).toBeVisible();
+  await expect(page.getByTestId('results-explorer-empty')).toHaveCount(0);
+  await expect(page.getByTestId('results-explorer-loaded-at')).toHaveCount(0);
+
+  await page.getByTestId('results-explorer-refresh').click();
+  await expect(page.getByTestId('results-explorer-empty')).toContainText('還沒有驗證紀錄');
+  await expect(error).toHaveCount(0);
+  await expect(page.getByTestId('results-explorer-loaded-at')).toBeVisible();
+});

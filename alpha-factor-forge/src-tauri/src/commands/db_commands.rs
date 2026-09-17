@@ -4,7 +4,8 @@
 use tauri::State;
 
 use crate::db::repositories::{
-    self, BacktestSummary, Candle, Dataset, StrategyDef, TradeRow, ValidationRecordRow,
+    self, BacktestResultDetail, BacktestSummary, Candle, Dataset, StrategyDef, TradeRow,
+    ValidationRecordRow,
 };
 use crate::error::{AppError, AppResult};
 use crate::AppState;
@@ -89,12 +90,17 @@ pub fn get_backtest_results(
     repositories::list_backtest_summaries(&conn, strategy_id)
 }
 
-/// P01 Results Explorer: the closed trades stored under one summary row. Read
-/// only; an unknown id returns an empty list (see `repositories::list_trades`).
+/// P01 Results Explorer: one summary row and its stored trades, read in one
+/// transaction so the reader can check the pair against the row it displays
+/// (see `repositories::get_backtest_result_detail`). Read only; None when the
+/// summary no longer exists.
 #[tauri::command]
-pub fn get_trades(state: State<AppState>, summary_id: i64) -> AppResult<Vec<TradeRow>> {
+pub fn get_backtest_result_detail(
+    state: State<AppState>,
+    summary_id: i64,
+) -> AppResult<Option<BacktestResultDetail>> {
     let conn = state.db.lock().map_err(|_| AppError::Other("db lock poisoned".into()))?;
-    repositories::list_trades(&conn, summary_id)
+    repositories::get_backtest_result_detail(&conn, summary_id)
 }
 
 /// PERSIST-001 (PR #64 handoff Resolution): atomically persist one validation

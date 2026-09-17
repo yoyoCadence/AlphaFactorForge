@@ -80,6 +80,13 @@ export interface BacktestSummary {
   created_at?: string;
 }
 
+/** `get_backtest_result_detail` result: the pair the database held at one
+ *  instant (mirrors Rust `BacktestResultDetail`). */
+export interface BacktestResultDetail {
+  summary: BacktestSummary;
+  trades: TradeRow[];
+}
+
 // One validation_records row (PERSIST-001): an append-only immutable decision
 // audit snapshot. `record_json` is a self-contained versioned envelope;
 // v1 rows remain readable legacy evidence and new writes use v2.
@@ -126,9 +133,14 @@ export const db = {
     invoke<number>('save_backtest_result', { summary, trades }),
   getBacktestResults: (strategyId?: number) =>
     invoke<BacktestSummary[]>('get_backtest_results', { strategyId }),
-  /** P01 Results Explorer: the closed trades stored under one summary row,
-   *  oldest entry first. An unknown id yields `[]`, not an error. */
-  getTrades: (summaryId: number) => invoke<TradeRow[]>('get_trades', { summaryId }),
+  /** P01 Results Explorer: one summary row and its stored trades, read in one
+   *  backend transaction. The reader compares `summary` with the row it is
+   *  displaying before it shows `trades`, because a re-save of the same
+   *  strategy/dataset/segment reuses the id and replaces the rows (the
+   *  `created_at` stamp survives the upsert, so only the whole row tells the
+   *  two saves apart). `null` when the summary no longer exists. */
+  getBacktestResultDetail: (summaryId: number) =>
+    invoke<BacktestResultDetail | null>('get_backtest_result_detail', { summaryId }),
   /** PERSIST-001: atomically save Train + Validation summaries/trades and the
    *  immutable validation record in ONE backend transaction. */
   saveValidationRecord: (

@@ -37,7 +37,7 @@ ONE Tauri command `save_validation_record` persists the whole bundle — Train s
 
 ## Read path additions (P01 Results Explorer, 2026-09-16)
 
-The typed read DTO now also carries `discovery_run_id` (migration 0003's column; `None` for a manual save). It is read-only: `insert_validation_record_for_run` still takes the run id as its own argument, so a caller cannot claim a run through the DTO. A separate read-only command `get_trades(summary_id)` returns a summary's stored trades oldest entry first (`[]` for an unknown id). The explorer parses `record_json` defensively (`services/resultsExplorer.ts`): v1 rows are shown as legacy and never interpreted, an unreadable snapshot reports why, and absent sections are listed rather than defaulted. Nothing about the write path, the JSON discipline, or atomicity changed.
+The typed read DTO now also carries `discovery_run_id` (migration 0003's column; `None` for a manual save). It is read-only: `insert_validation_record_for_run` still takes the run id as its own argument, so a caller cannot claim a run through the DTO. A separate read-only command `get_backtest_result_detail(summary_id)` returns a summary row together with its stored trades (oldest entry first) from one transaction, or `null` for an unknown id; the pair exists so a reader can compare the returned summary with the row it displays, since a re-save of the same key reuses the id and `created_at` while replacing the trades. The explorer parses `record_json` defensively (`services/resultsExplorer.ts`): v1 rows are shown as legacy and never interpreted, an unreadable snapshot reports why, and absent sections are listed rather than defaulted. Nothing about the write path, the JSON discipline, or atomicity changed.
 
 ## Non-goals
 

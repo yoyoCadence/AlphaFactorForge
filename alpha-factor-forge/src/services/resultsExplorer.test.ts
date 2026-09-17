@@ -21,8 +21,10 @@ import {
   latestSummariesFor,
   parseValidationRecordJson,
   rankValidationRecords,
+  sameSummaryRow,
   shortHash,
   summaryCells,
+  SUMMARY_COLUMNS,
 } from './resultsExplorer';
 
 const row = (over: Partial<ValidationRecordRow>): ValidationRecordRow => ({
@@ -193,11 +195,51 @@ describe('parseValidationRecordJson', () => {
     expect(summaries.some((s) => s.id === report.hiddenTestSummaryId)).toBe(true);
     expect(hideTestSegments(summaries).some((s) => s.id === report.hiddenTestSummaryId)).toBe(false);
 
-    // Trades read back for the rows that have them, empty for the test row.
-    const validationTrades = await db.getTrades(second.validation!.id!);
-    expect(validationTrades).toHaveLength(second.validation!.trade_count!);
-    expect(validationTrades.every((t, i) => i === 0 || t.entry_time >= validationTrades[i - 1].entry_time)).toBe(true);
-    expect(await db.getTrades(report.hiddenTestSummaryId)).toEqual([]);
-    expect(await db.getTrades(99_999)).toEqual([]);
+    // The detail read returns the pair the store holds: the summary equals the
+    // listed row column for column, and the trades are oldest-entry first.
+    const detail = await db.getBacktestResultDetail(second.validation!.id!);
+    expect(detail).not.toBeNull();
+    expect(sameSummaryRow(second.validation!, detail!.summary)).toBe(true);
+    expect(detail!.trades).toHaveLength(second.validation!.trade_count!);
+    expect(detail!.trades.every((t, i) => i === 0 || t.entry_time >= detail!.trades[i - 1].entry_time)).toBe(true);
+    expect((await db.getBacktestResultDetail(report.hiddenTestSummaryId))!.trades).toEqual([]);
+    expect(await db.getBacktestResultDetail(99_999)).toBeNull();
+
+    // Review R1: a re-save under the same key keeps the id AND created_at but
+    // changes the row, and that is what the reader must notice — not the
+    // trade count, which stays the same here.
+    const displayed = first.full!;
+    const gen2 = (await db.getBacktestResultDetail(displayed.id!))!.trades.map((t) => ({ ...t, pnl: t.pnl + 1 }));
+    await db.saveBacktestResult({ ...displayed, net_return: (displayed.net_return ?? 0) + 0.5 }, gen2);
+    const after = (await db.getBacktestResultDetail(displayed.id!))!;
+    expect(after.summary.id).toBe(displayed.id);
+    expect(after.summary.created_at).toBe(displayed.created_at);
+    expect(after.summary.trade_count).toBe(displayed.trade_count);
+    expect(sameSummaryRow(displayed, after.summary)).toBe(false);
+  });
+});
+
+describe('sameSummaryRow', () => {
+  const base: BacktestSummary = {
+    id: 3, strategy_id: 1, dataset_id: 1, segment: 'full', start_time: 1, end_time: 9,
+    net_return: 0.1, trade_count: 4, created_at: '2026-01-01T00:00:00Z',
+  };
+
+  it('covers every persisted column exactly once', () => {
+    expect(new Set(SUMMARY_COLUMNS).size).toBe(SUMMARY_COLUMNS.length);
+    expect(SUMMARY_COLUMNS).toHaveLength(27);
+  });
+
+  it('treats absent and null as the same, and any changed column as different', () => {
+    expect(sameSummaryRow(base, { ...base })).toBe(true);
+    expect(sameSummaryRow(base, { ...base, sortino: null, gate_passed: null })).toBe(true);
+    for (const column of SUMMARY_COLUMNS) {
+      const changed: BacktestSummary = { ...base, [column]: column === 'segment' ? 'train' : column === 'created_at' ? 'x' : 42 };
+      expect(sameSummaryRow(base, changed)).toBe(false);
+    }
+    // Same count, different content — the case a count check misses.
+    expect(sameSummaryRow(base, { ...base, net_return: 0.6 })).toBe(false);
+    expect(sameSummaryRow({ ...base, net_return: Number.NaN }, { ...base, net_return: Number.NaN })).toBe(true);
+    expect(sameSummaryRow({ ...base, net_return: 0 }, { ...base, net_return: -0 })).toBe(false);
   });
 });
