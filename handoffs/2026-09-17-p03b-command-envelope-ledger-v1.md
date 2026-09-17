@@ -4,7 +4,7 @@ Date: 2026-09-17
 Repo: yoyoCadence/AlphaFactorForge
 Branch: `docs/p00-contract-precheck`（P03a 驗收修正 `7d7f774` 之後續做；本機 git，GitHub 仍鎖）
 PR: 尚未建立
-Status: 第三次驗收 H1（重疊重送）與 H2（cancel 回滾遺失 pause requestId）已修正並有確定性回歸（2026-09-17，Rust 205／vitest 874）；待第四次驗收後再進 P04
+Status: 第四次驗收通過（2026-09-17，Codex，受驗 commit `acf8079`）；H1／H2 關閉，Rust 205／Vitest 874；P04 尚未開始，另行授權
 
 ## Summary
 
@@ -395,3 +395,25 @@ Base：`c5832be`；分支 `docs/p00-contract-precheck`，開始時 worktree clea
   clippy 新模組無 warning；暫存目錄無殘留。Playwright 未重跑（無 UI 變更）；原生 Tauri 未執行。
 - 範圍說明：claim 只覆蓋同一程序（同一 `InFlightRequests`）；跨程序的同 id 重送由 lease（只有 owner 能執行）與 `command_requests`
   reservation 的 `BEGIN IMMEDIATE` 串行化，本次未新增測試。migration 0006 的本機改寫維持前次揭露，未做舊 0006 workspace 升級驗證。
+
+## Resolution — 第四次驗收通過（2026-09-17，Codex）
+
+受驗 commit：`acf8079`，分支 `docs/p00-contract-precheck`；驗收開始時工作目錄乾淨。
+本次核對修正 diff、呼叫端接線及回歸測試，並重跑下列檢查；未發現新的阻擋問題。
+
+- **H1 關閉**：mutating dispatch 在 reservation 前取得 claim，guard 持有到執行／重播及 receipt
+  回寫完成；等待者取得 claim 後重新 reserve／讀取持久結果。桌面 AppState 保存單一
+  `Arc<InFlightRequests>`，每次建構 Dispatcher 都傳入其 clone，沒有每個命令另建 registry。
+  reservation 與執行之間的重疊重送、Barrier 同時重送，以及直接持有 claim 的等待／重播測試均通過。
+- **H2 關閉**：cancel、drain 的 Paused transition、completion、failure 四處均保留 pause requestId，
+  在成功提交後才清除；前面步驟出錯時仍可交給後續決定結果的 transaction。
+  TEMP TRIGGER 令 cancel 回滾、completion 隨後成功、receipt 恢復後重播原成功的回歸通過。
+- **實跑驗證**：`cargo test --locked` **205 passed（52 + 153）**；`npm.cmd test`
+  **874 passed（50 files）**；`npm.cmd run typecheck`、`npm.cmd run build` 通過；
+  `cargo check --locked` 無 warning。`cargo clippy --locked --tests` 成功，仍有 core 既存的
+  4 項 warning（backtest 的兩處 unnecessary_map_or、score 的 manual_range_contains／manual_clamp），
+  本次修正模組沒有新增 warning。
+- **驗收範圍**：本次沒有重跑作者所述突變檢查；沒有跨程序同 id 重送的新測試，也沒有舊版
+  migration 0006 workspace 升級驗證。Playwright／原生 Tauri 未執行。上述結果不延伸為這些範圍的通過證明。
+- **交接**：P03b 本次複驗通過；P04 仍待使用者另行授權。本次只更新本 handoff，保留先前驗收歷史，
+  未修改產品程式碼，未 commit／push。
