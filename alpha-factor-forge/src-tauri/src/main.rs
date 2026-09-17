@@ -5,9 +5,11 @@
 
 mod commands;
 mod db;
+mod desktop;
 mod discovery_runner;
 mod error;
 mod identity;
+mod runtime;
 mod single_instance;
 
 use std::sync::{Arc, Mutex};
@@ -27,16 +29,26 @@ fn main() {
         // primary process's discovery run.
         .plugin(single_instance::plugin())
         .setup(|app| {
-            // Resolve app data dir and open/initialize the database there.
-            let conn = db::initialize(app.handle()).expect("failed to initialize SQLite database");
-            let db = Arc::new(Mutex::new(conn));
-            let discovery = discovery_runner::DiscoveryRunner::default();
+            // The desktop's only host-specific input: where its data directory
+            // is. Opening, migrating, and startup repair are the shared
+            // orchestration in `runtime`, so a headless host (P04) reaches the
+            // same database state through the same code.
+            let db_path = app
+                .path()
+                .app_data_dir()
+                .expect("no app data dir")
+                .join(db::DB_FILE_NAME);
             // Startup repair is persistence-only: orphaned running work is
             // paused/requeued, but no CPU work resumes without a user command.
-            discovery
-                .recover_orphans(&db)
-                .expect("failed to recover orphaned discovery runs");
-            app.manage(AppState { db, discovery });
+            let workspace = runtime::open_workspace(&db_path)
+                .expect("failed to initialize SQLite database or recover orphaned discovery runs");
+            if workspace.recovery != db::discovery::RecoveryReport::default() {
+                eprintln!(
+                    "startup recovery: paused {} orphaned run(s), requeued {} job(s)",
+                    workspace.recovery.runs_paused, workspace.recovery.jobs_requeued
+                );
+            }
+            app.manage(AppState { db: workspace.db, discovery: workspace.discovery });
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

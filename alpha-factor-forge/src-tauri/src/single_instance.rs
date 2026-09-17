@@ -124,11 +124,18 @@ mod tests {
         let setup = source
             .find(".setup(|app|")
             .expect("main must retain its setup boundary");
+        // P02: startup recovery moved into `runtime::open_workspace`, which
+        // opens, migrates, and repairs in one call (its own tests prove the
+        // repair). The ordering guard therefore anchors on that call site.
         let recovery = source
-            .find(".recover_orphans(&db)")
-            .expect("main must retain startup recovery");
+            .find("runtime::open_workspace(&db_path)")
+            .expect("main must retain startup recovery through the shared runtime");
 
         assert!(plugin < setup);
         assert!(setup < recovery);
+        assert!(
+            !source.contains("db::initialize(") && !source.contains(".recover_orphans("),
+            "main must not bypass the shared runtime with its own open/recover calls"
+        );
     }
 }

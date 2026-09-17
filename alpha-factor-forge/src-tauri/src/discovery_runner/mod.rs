@@ -2,8 +2,13 @@
 //!
 //! The pure computation stays in `execution`; this module owns the fixed CPU
 //! worker pool, cooperative controls, the single SQLite coordinator/writer,
-//! checkpointed progress, and post-commit Tauri events. Compute workers only
+//! checkpointed progress, and post-commit events. Compute workers only
 //! receive immutable owned/`Arc` data and never receive a database handle.
+//!
+//! P02 (docs/research-runtime-contract.md §0): this module is host-agnostic.
+//! Events leave through the `DiscoveryEventSink` trait only; the desktop's
+//! Tauri implementation lives in `crate::desktop::discovery_events`, and
+//! `runtime::boundary_tests` asserts no `tauri` symbol re-enters here.
 
 pub(crate) mod execution;
 /// RUNNER-UI-001a: asserts the emitted `discovery-event-v1` JSON against the
@@ -26,7 +31,6 @@ use alpha_factor_forge::discovery_core::market_data;
 use alpha_factor_forge::discovery_core::types::Candle as CoreCandle;
 use serde::Serialize;
 use serde_json::{json, Value};
-use tauri::{AppHandle, Emitter};
 
 use crate::db::discovery::{
     self, CandidateAssessment, CandidateJobSpec, ClaimedCandidateJobs, DiscoveryJobRow,
@@ -133,42 +137,13 @@ pub enum DiscoveryEvent {
     Done(DiscoveryDoneEvent),
 }
 
-/// Event boundary used by production Tauri and by coordinator tests.
+/// Event boundary used by the desktop host (`desktop::discovery_events`) and
+/// by coordinator tests.
 ///
 /// Emission errors never roll back or fail already-committed work. The
 /// database is the source of truth and the frontend can re-query progress.
 pub trait DiscoveryEventSink: Send + Sync {
     fn emit(&self, event: &DiscoveryEvent) -> Result<(), String>;
-}
-
-#[derive(Clone)]
-pub struct TauriDiscoveryEventSink {
-    app: AppHandle,
-}
-
-impl TauriDiscoveryEventSink {
-    pub fn new(app: AppHandle) -> Self {
-        Self { app }
-    }
-}
-
-impl DiscoveryEventSink for TauriDiscoveryEventSink {
-    fn emit(&self, event: &DiscoveryEvent) -> Result<(), String> {
-        match event {
-            DiscoveryEvent::Progress(payload) => self
-                .app
-                .emit_to("main", DISCOVERY_PROGRESS_EVENT, payload)
-                .map_err(|error| error.to_string()),
-            DiscoveryEvent::Result(payload) => self
-                .app
-                .emit_to("main", DISCOVERY_RESULT_EVENT, payload)
-                .map_err(|error| error.to_string()),
-            DiscoveryEvent::Done(payload) => self
-                .app
-                .emit_to("main", DISCOVERY_DONE_EVENT, payload)
-                .map_err(|error| error.to_string()),
-        }
-    }
 }
 
 fn emit_after_commit(sink: &dyn DiscoveryEventSink, event: DiscoveryEvent) {

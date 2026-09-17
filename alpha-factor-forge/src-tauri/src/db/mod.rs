@@ -1,6 +1,13 @@
 // SKELETON — DB connection + migration runner.
 // FULL parts: connection open, migration application, schema_version tracking.
 // Verify: cargo check; runtime verified locally via `cargo tauri dev`.
+//
+// P02 (docs/research-runtime-contract.md §0/§5): this module knows nothing
+// about the host. The desktop resolves its app-data directory in `main.rs` and
+// passes a path here; a future service binary passes its own. The file name
+// and the pragma order are part of what the CI native smoke lane asserts (the
+// database at `<app_data_dir>/alphafactorforge.sqlite3` plus a WAL sidecar
+// carrying the migrations), so neither moves.
 
 pub mod discovery;
 #[cfg(test)]
@@ -8,10 +15,22 @@ mod discovery_tests;
 pub mod repositories;
 pub(crate) mod validation_record;
 
+use std::path::Path;
+use std::time::Duration;
+
 use rusqlite::Connection;
-use tauri::{AppHandle, Manager};
 
 use crate::error::AppResult;
+
+/// The workspace database file inside the host's data directory. Fixed: the
+/// desktop's existing databases live under this name and are never moved.
+pub const DB_FILE_NAME: &str = "alphafactorforge.sqlite3";
+
+/// How long a connection waits on a locked database before failing
+/// (`ownership-lease-v1` §1.2 step 2). Today one process holds one
+/// connection, so this only matters once a second host (P03/P04) exists —
+/// it is set now so that host does not have to remember it.
+pub const BUSY_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Ordered migrations. Each is applied once; applied versions are tracked
 /// in the `schema_migrations` table. ADD new migrations to the END only.
@@ -27,18 +46,20 @@ const MIGRATIONS: &[(&str, &str)] = &[
     ),
 ];
 
-/// Open the database in the OS app-data dir and run pending migrations.
-pub fn initialize(app: &AppHandle) -> AppResult<Connection> {
-    let dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| crate::error::AppError::Other(format!("no app data dir: {e}")))?;
-    std::fs::create_dir_all(&dir)?;
-    let db_path = dir.join("alphafactorforge.sqlite3");
+/// Open (creating if needed) the workspace database at `db_path` and run
+/// pending migrations. The parent directory is created; `journal_mode=WAL`
+/// is set BEFORE the migrations (the CI smoke lane relies on the schema
+/// therefore landing in the WAL sidecar), then `foreign_keys=ON` and the
+/// busy timeout.
+pub fn open_at(db_path: &Path) -> AppResult<Connection> {
+    if let Some(dir) = db_path.parent() {
+        std::fs::create_dir_all(dir)?;
+    }
 
     let conn = Connection::open(db_path)?;
     conn.pragma_update(None, "journal_mode", "WAL")?;
     conn.pragma_update(None, "foreign_keys", "ON")?;
+    conn.busy_timeout(BUSY_TIMEOUT)?;
 
     apply_migrations(&conn)?;
     Ok(conn)

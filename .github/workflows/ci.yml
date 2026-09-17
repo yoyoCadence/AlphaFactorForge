@@ -171,7 +171,7 @@ jobs:
             if ($dbSize -le 0) { throw "SQLite database at $dbPath is empty" }
             Write-Host "database created: $dbPath ($dbSize bytes)"
 
-            # The main file alone does NOT prove migrations ran: `db::initialize`
+            # The main file alone does NOT prove migrations ran: `db::open_at`
             # sets journal_mode=WAL *before* applying them, so the schema lands in
             # the WAL sidecar and the main file stays at one 4096-byte header page
             # — indistinguishable from a run that applied nothing. The connection

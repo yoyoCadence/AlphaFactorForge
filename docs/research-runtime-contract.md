@@ -20,7 +20,7 @@ migration 或依賴。任何實作 phase 若需偏離本文，先修訂本文並
 | 既有契約 | 位置 | 本契約的關係 |
 | --- | --- | --- |
 | desktop single-instance（RUNNER-OWNERSHIP-001） | `src-tauri/src/single_instance.rs`，PR #103 native smoke lane | 保留為 OS 層第一道 guard，只防兩個桌面程序；本契約的 lease 是 DB 層第二道，跨宿主種類 |
-| 嵌入模式啟動 recovery | `src-tauri/src/main.rs` `setup`：`db::initialize` → `DiscoveryRunner::recover_orphans` | 桌面在沒有既存有效 lease 時仍走此路徑並取得 lease；smoke lane 斷言不變 |
+| 嵌入模式啟動 recovery | `src-tauri/src/main.rs` `setup` → `runtime::open_workspace`（`db::open_at` → migration → `DiscoveryRunner::recover_orphans`；P02 起） | 桌面在沒有既存有效 lease 時仍走此路徑並取得 lease；smoke lane 斷言不變 |
 | `discovery-event-v1` | `src-tauri/src/discovery_runner/mod.rs`、`src/tauri-client/events.ts`、雙語 fixture | 事件 payload 與「每個狀態區塊獨立排序」行為不改；`research-event-v1` 只包一層 envelope |
 | `discovery-config-v1` 與其 12 個 pinned 版本 | `src/services/discoveryRunConfig.ts` | 不改寫；新市場語意用新版本識別（見 [`market-contract.md`](market-contract.md)） |
 | migrations 0001–0003 | `src-tauri/migrations/` | 原文不動；本契約需要的表以 0004+ 新增序號加入（實作 phase 才加） |
@@ -47,8 +47,8 @@ orphan recovery、runner 寫入**。recovery 權限跟隨 lease，不跟隨程�
 1. **OS 排他檔案鎖**：對 workspace 資料目錄內的 `ownership.lock` 取得排他鎖。
    失敗即進入 connect 模式或退出；不得重試搶占。此步驟**先於**開啟 SQLite 與
    migration。
-2. 開啟 SQLite；設定 `busy_timeout = 5000`（毫秒，預設）。今天的 `db::initialize`
-   沒有設定 busy_timeout，P02 加入。
+2. 開啟 SQLite；設定 `busy_timeout = 5000`（毫秒，預設）。P02 起 `db::open_at` 已設定
+   （`db::BUSY_TIMEOUT`）。
 3. 執行 migration（只有 holder）。
 4. 寫入 ownership row：`epoch = 前一 epoch + 1`、`holder_kind`、`holder_instance_id`
    （隨機 128-bit）、`pid`、`heartbeat_at`。
@@ -172,7 +172,7 @@ OS 鎖的程序。** 搶占的唯一途徑是原程序釋放或作業系統回�
 
 | Phase | 使用本契約的部分 | 必測情境（來自計畫 §6） |
 | --- | --- | --- |
-| P02 | §0 邊界、busy_timeout、DB path 注入、event sink 抽離 | 既有 golden／runner 原子性不變 |
+| P02（完成 2026-09-17） | §0 邊界、busy_timeout、DB path 注入、event sink 抽離 — `db::open_at`、`runtime::open_workspace`、`desktop::discovery_events`、`runtime::boundary_tests` | 既有 golden／runner 原子性不變（runner 測試檔未動） |
 | P03 | §1 lease、§2 冪等、§3 eventId、§5.2 schema 保護 | 雙啟、owner crash、休眠、時鐘變動、舊 worker 提交、重複命令、亂序 |
 | P04 | §4 控制介面、connect 模式 | 關 UI 工作持續、重連採同一 run |
 | P16 | §2 命令白名單（MCP 工具對照） | 不能揭露 Test、不能改閘門 |

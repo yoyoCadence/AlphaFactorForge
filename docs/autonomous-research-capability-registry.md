@@ -16,9 +16,10 @@
 | --- | --- | --- | --- |
 | 桌面嵌入模式（Tauri 內建 runner、啟動 recovery） | 可用 | `src-tauri/src/main.rs` `setup`；PR #103 native smoke lane | — |
 | desktop single-instance | 可用 | RUNNER-OWNERSHIP-001；`single_instance.rs` | — |
-| 關閉 UI 後研究繼續 | 阻擋 | runner 生命週期與 Tauri 程序綁定；`TauriDiscoveryEventSink` 持 `AppHandle`（`discovery_runner/mod.rs:145`）；`db::initialize(&AppHandle)` 依賴 app data dir | P02 解耦 → P04 service |
+| 關閉 UI 後研究繼續 | 阻擋 | runner 生命週期仍與 Tauri 程序綁定（沒有 service binary）。P02 已解除程式碼層耦合：sink 在 `desktop/discovery_events.rs`、`db::open_at(path)`、`runtime::open_workspace(path)` 皆不依賴 Tauri（`runtime::boundary_tests` 守衛） | P04 service |
+| host-agnostic runtime（`runtime::open_workspace`：開庫→migration→runner→孤兒恢復） | 可用 | P02；桌面 `main.rs` 只提供 app data dir 路徑；未提供 headless 排程或 service binary | — |
 | 跨宿主 workspace ownership（OS 鎖＋epoch） | 可規劃 | 契約：[`research-runtime-contract.md`](research-runtime-contract.md) §1；crates.io 可達，`fs4 1.1.0` 可用（尚未加入依賴） | P03 |
-| SQLite `busy_timeout` | 阻擋（設定缺失） | `db/mod.rs` `initialize` 只設 WAL／foreign_keys | P02 |
+| SQLite `busy_timeout` | 可用 | P02：`db::open_at` 設 `BUSY_TIMEOUT = 5 s`，runtime 測試斷言 `PRAGMA busy_timeout = 5000` | — |
 | 舊 binary 拒絕較新 schema | 阻擋（檢查缺失） | `apply_migrations` 只套用未記錄的 migration，不比對未知版本 | P03 |
 | 冪等命令／持久事件 ledger | 可規劃 | 契約 §2–§3；runner 事件為程序內 `sequence` | P03 |
 | loopback 控制介面 | 可規劃 | 契約 §4；`hyper 1.10.1`、`tokio 1.52.3` 已在 `Cargo.lock`（由 tauri 依賴帶入，非直接依賴） | P04 |
@@ -106,7 +107,7 @@
 
 ## 8. P00 結論
 
-- 不依賴 AI 的 phase（P02–P14、P18–P19）依賴皆已到位，可依序規劃；P01 已完成。
+- 不依賴 AI 的 phase（P03–P14、P18–P19）依賴皆已到位，可依序規劃；P01、P02 已完成。
 - **AI unattended 功能標為阻擋**，原因：生成環境隔離尚未驗證、模型清單與設定不一致、
   Codex 子命令為 experimental。P15 以一次有界真實生成解除或維持阻擋；不得改為付費
   API 或 GUI 點擊自動化。
