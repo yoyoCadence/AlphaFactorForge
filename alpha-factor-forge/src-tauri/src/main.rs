@@ -23,6 +23,8 @@ pub struct AppState {
     /// P03a: the workspace lease (OS lock + epoch + heartbeat). Held here for
     /// the life of the process; dropping it would release ownership.
     pub ownership: runtime::OwnershipHandle,
+    /// P03b: the identity every `research-command-v1` envelope must name.
+    pub workspace_id: String,
 }
 
 fn main() {
@@ -62,6 +64,7 @@ fn main() {
                 db: workspace.db,
                 discovery: workspace.discovery,
                 ownership: workspace.ownership,
+                workspace_id: workspace.workspace_id,
             });
             Ok(())
         })
@@ -102,6 +105,9 @@ fn main() {
             commands::discovery_commands::cancel_discovery,
             commands::discovery_commands::get_discovery_progress,
             commands::discovery_commands::get_active_discovery_run,
+            // --- Versioned command envelope (P03b, research-command-v1) ---
+            commands::runtime_commands::get_workspace_info,
+            commands::runtime_commands::dispatch_research_command,
         ])
         .run(tauri::generate_context!())
         .expect("error while running AlphaFactorForge");

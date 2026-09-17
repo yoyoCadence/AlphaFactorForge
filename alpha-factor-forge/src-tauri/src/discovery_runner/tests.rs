@@ -11,6 +11,7 @@ use crate::db::repositories::{self, Candle, Dataset};
 const RUNNER_CONFIG_FIXTURE: &str = include_str!("../../../fixtures/rs-core/runner-config-v1.json");
 const TEST_TIMEOUT: Duration = Duration::from_secs(10);
 
+mod commands;
 mod ownership;
 
 thread_local! {

@@ -12,6 +12,8 @@
 const HOST_AGNOSTIC_SOURCES: &[(&str, &str)] = &[
     ("runtime/mod.rs", include_str!("mod.rs")),
     ("runtime/lease.rs", include_str!("lease.rs")),
+    ("runtime/commands.rs", include_str!("commands.rs")),
+    ("db/runtime_ledger.rs", include_str!("../db/runtime_ledger.rs")),
     ("db/mod.rs", include_str!("../db/mod.rs")),
     ("db/ownership.rs", include_str!("../db/ownership.rs")),
     ("db/repositories.rs", include_str!("../db/repositories.rs")),

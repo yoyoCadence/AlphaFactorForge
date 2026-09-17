@@ -6,8 +6,9 @@
 > §4（ABC-01）。本機驗證證據與可用／不可用能力矩陣：
 > [`autonomous-research-capability-registry.md`](autonomous-research-capability-registry.md)。
 
-**狀態：契約已定案；P02（runtime 解耦）與 P03a（§1 lease、§5.2 schema 保護）已於
-2026-09-17 實作；§2 命令冪等、§3 事件帳本待 P03b，§4 控制介面與 connect 模式待 P04。** 本文件定義後續 phase 必須遵守的
+**狀態：契約已定案；P02（runtime 解耦）、P03a（§1 lease、§5.2 schema 保護）、P03b
+（§2 命令 envelope 與冪等、§3 事件帳本）已於 2026-09-17 實作；§4 控制介面與 connect 模式
+待 P04。** 本文件定義後續 phase 必須遵守的
 邊界與識別；P00 不新增程式、migration 或依賴。任何實作 phase 若需偏離本文，先修訂
 本文並提升版本，不得在程式內默默改變語意。
 
@@ -178,6 +179,6 @@ OS 鎖的程序。** 搶占的唯一途徑是原程序釋放或作業系統回�
 | --- | --- | --- |
 | P02（完成 2026-09-17） | §0 邊界、busy_timeout、DB path 注入、event sink 抽離 — `db::open_at`、`runtime::open_workspace`、`desktop::discovery_events`、`runtime::boundary_tests` | 既有 golden／runner 原子性不變（runner 測試檔未動） |
 | P03a（完成 2026-09-17） | §1 lease（`runtime/lease.rs`、migration 0004、`db/ownership.rs`、runner epoch 檢查）、§5.2 schema 保護（`SchemaTooNew`） | 雙啟、owner crash／接手、休眠（heartbeat 停止不釋放鎖）、時鐘變動（以 `heartbeat_seq` 與讀者單調時間判定）、舊 worker 提交 — 皆有 Rust 測試 |
-| P03b | §2 冪等 requestId、§3 持久 eventId／snapshot＋cursor | 重複命令、亂序、事件漏失 |
+| P03b（完成 2026-09-17） | §2 `CommandEnvelope`／`CommandError`／白名單／reserve-then-complete 冪等（`runtime/commands.rs`、`db/runtime_ledger.rs`、migration 0005）、§3 `LedgerSink`＋`events.read`（snapshot → `afterEventId`） | 重複命令（同 requestId 三次只建一個 run、回放第一次結果）、payload 不同→`DuplicateRequest`、未完成→`Busy`、亂序／漏失（帳本依 eventId 分頁重讀）— 皆有 Rust 測試 |
 | P04 | §4 控制介面、connect 模式 | 關 UI 工作持續、重連採同一 run |
 | P16 | §2 命令白名單（MCP 工具對照） | 不能揭露 Test、不能改閘門 |

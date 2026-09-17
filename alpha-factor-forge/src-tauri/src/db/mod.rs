@@ -14,6 +14,7 @@ pub mod discovery;
 mod discovery_tests;
 pub mod ownership;
 pub mod repositories;
+pub mod runtime_ledger;
 pub(crate) mod validation_record;
 
 use std::path::Path;
@@ -48,6 +49,10 @@ const MIGRATIONS: &[(&str, &str)] = &[
     (
         "0004_workspace_ownership",
         include_str!("../../migrations/0004_workspace_ownership.sql"),
+    ),
+    (
+        "0005_runtime_ledger",
+        include_str!("../../migrations/0005_runtime_ledger.sql"),
     ),
 ];
 
