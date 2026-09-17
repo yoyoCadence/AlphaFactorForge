@@ -16,7 +16,7 @@
 
 use std::time::Duration;
 
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{params, Connection, OptionalExtension, Transaction, TransactionBehavior};
 use serde::Serialize;
 
 use crate::error::{AppError, AppResult};
@@ -24,6 +24,7 @@ use crate::error::{AppError, AppResult};
 /// Contract §1.4: heartbeat period and the interval after which a reader may
 /// call the owner "unreachable" (advisory only).
 pub const HEARTBEAT_PERIOD: Duration = Duration::from_secs(5);
+#[cfg_attr(not(test), allow(dead_code))] // P04 connect-mode liveness reader.
 pub const STALE_AFTER: Duration = Duration::from_secs(30);
 
 /// Contract §1.1 host kinds that may hold the lease.
@@ -46,6 +47,7 @@ impl HolderKind {
 /// The single `workspace_ownership` row as stored.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(not(test), allow(dead_code))] // P04 connect-mode holder display.
 pub struct OwnershipRow {
     pub epoch: i64,
     pub holder_kind: String,
@@ -64,6 +66,7 @@ pub struct Acquired {
     pub instance_id: String,
 }
 
+#[cfg_attr(not(test), allow(dead_code))] // P04 connect-mode holder display.
 pub fn read(conn: &Connection) -> AppResult<Option<OwnershipRow>> {
     Ok(conn
         .query_row(
@@ -118,6 +121,19 @@ pub fn acquire(conn: &mut Connection, kind: HolderKind, pid: u32) -> AppResult<A
     Ok(Acquired { epoch, instance_id })
 }
 
+/// Acquire SQLite's write reservation BEFORE checking the epoch. The check
+/// and every subsequent write belong to this transaction; another connection
+/// cannot advance the epoch between them. Errors roll back on drop.
+/// `None` is reserved for existing store tests/unleased callers; runtime
+/// runners always supply the epoch returned by `open_workspace`.
+pub fn write_transaction(conn: &Connection, epoch: Option<i64>) -> AppResult<Transaction<'_>> {
+    let tx = Transaction::new_unchecked(conn, TransactionBehavior::Immediate)?;
+    if let Some(epoch) = epoch {
+        assert_epoch(&tx, epoch)?;
+    }
+    Ok(tx)
+}
+
 /// Fail with `StaleOwner` unless the stored epoch is exactly `expected`.
 /// Call this INSIDE the transaction that is about to write (contract §1.3),
 /// so the check and the write are one unit.
@@ -139,24 +155,27 @@ pub fn assert_epoch(conn: &Connection, expected: i64) -> AppResult<()> {
 /// Bump the liveness counter. Refuses (with `StaleOwner`) if the epoch moved,
 /// which is how a heartbeat thread learns it no longer owns the workspace.
 pub fn heartbeat(conn: &Connection, epoch: i64) -> AppResult<i64> {
-    assert_epoch(conn, epoch)?;
-    conn.execute(
+    let tx = write_transaction(conn, Some(epoch))?;
+    tx.execute(
         "UPDATE workspace_ownership
          SET heartbeat_seq = heartbeat_seq + 1, heartbeat_at = datetime('now')
          WHERE id = 1 AND epoch = ?1",
         params![epoch],
     )?;
-    Ok(conn.query_row(
+    let sequence = tx.query_row(
         "SELECT heartbeat_seq FROM workspace_ownership WHERE id = 1",
         [],
         |r| r.get(0),
-    )?)
+    )?;
+    tx.commit()?;
+    Ok(sequence)
 }
 
 /// Advisory liveness (contract §1.4): the owner is "unreachable" when its
 /// heartbeat counter has not moved for `STALE_AFTER` of the READER's own
 /// monotonic time. A stale verdict labels a UI; it never authorises a
 /// take-over, because a sleeping owner still holds the OS lock.
+#[cfg_attr(not(test), allow(dead_code))] // P04 connect-mode liveness reader.
 pub fn lease_is_stale(seq_before: i64, seq_now: i64, elapsed: Duration) -> bool {
     seq_now == seq_before && elapsed >= STALE_AFTER
 }

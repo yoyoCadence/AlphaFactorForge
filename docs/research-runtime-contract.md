@@ -59,6 +59,10 @@ orphan recovery、runner 寫入**。recovery 權限跟隨 lease，不跟隨程�
 
 - 每個 runner 寫入 transaction 必須帶目前 `epoch`，並在同一 transaction 內以
   `WHERE epoch = ?` 檢查；不符即 rollback，並以 `StaleOwner` 錯誤結束該 worker。
+  P03a review 修正（2026-09-17）：所有 runner store 寫入明確接收 epoch，經
+  `ownership::write_transaction` 先 `BEGIN IMMEDIATE`、再於 transaction 內比較 epoch。
+  範圍含 claim、strategy／run 建立、progress、狀態轉移、cancel／fail／complete、recovery
+  與候選 assessment。transaction 外的 preflight 僅供提早拒絕；Rust mutex 不代替此防護。
 - 舊 worker（前一 epoch 的 CPU 工作）回報結果時因 epoch 不符被拒，**不得**寫入
   summaries／trades／validation records。
 - 休眠喚醒、時鐘跳動後，holder 先重新確認自己仍持有 OS 鎖與 DB 內 epoch，才繼續

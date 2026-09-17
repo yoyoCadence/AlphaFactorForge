@@ -18,7 +18,7 @@
 | desktop single-instance | 可用 | RUNNER-OWNERSHIP-001；`single_instance.rs` | — |
 | 關閉 UI 後研究繼續 | 阻擋 | runner 生命週期仍與 Tauri 程序綁定（沒有 service binary）。P02 已解除程式碼層耦合：sink 在 `desktop/discovery_events.rs`、`db::open_at(path)`、`runtime::open_workspace(path)` 皆不依賴 Tauri（`runtime::boundary_tests` 守衛） | P04 service |
 | host-agnostic runtime（`runtime::open_workspace`：開庫→migration→runner→孤兒恢復） | 可用 | P02；桌面 `main.rs` 只提供 app data dir 路徑；未提供 headless 排程或 service binary | — |
-| 跨宿主 workspace ownership（OS 鎖＋epoch＋heartbeat） | 可用 | P03a（2026-09-17）：`runtime/lease.rs`（std `File::try_lock`，未加 crate）、migration 0004 `workspace_ownership`、`db/ownership.rs`；runner 每次寫入檢查 epoch，候選提交在同一 transaction 內檢查；雙啟／崩潰接手／舊 worker 提交／heartbeat 有測試。connect 模式待 P04 | — |
+| 跨宿主 workspace ownership（OS 鎖＋epoch＋heartbeat） | 可用 | P03a（2026-09-17，含 review R1/R2 修正）：`runtime/lease.rs`（std `File::try_lock`，未加 crate）、migration 0004 `workspace_ownership`、`db/ownership.rs`；所有 runner store 寫入（含 claim、strategy／run／progress）在 `BEGIN IMMEDIATE` transaction 內檢查 epoch；雙啟／lease 釋放接手／舊 coordinator claim／檢查後換手再 cancel／跨連線 transaction 排他／heartbeat 有測試。connect 模式待 P04 | — |
 | SQLite `busy_timeout` | 可用 | P02：`db::open_at` 設 `BUSY_TIMEOUT = 5 s`，runtime 測試斷言 `PRAGMA busy_timeout = 5000` | — |
 | 舊 binary 拒絕較新 schema | 可用 | P03a：`apply_migrations` 遇未知 `schema_migrations` 版本回 `SchemaTooNew`，整個開啟失敗（含讀取，比契約「拒絕寫入」更嚴） | — |
 | 冪等命令／持久事件 ledger | 可規劃 | 契約 §2–§3；runner 事件為程序內 `sequence` | P03b |
