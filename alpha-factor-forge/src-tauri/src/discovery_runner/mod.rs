@@ -34,7 +34,8 @@ use serde_json::{json, Value};
 
 use crate::db::discovery::{
     self, CandidateAssessment, CandidateJobSpec, ClaimedCandidateJobs, DiscoveryJobRow,
-    DiscoveryRunRow, JobStatus, RecoveryReport, RunStatus, Segment, DISCOVERY_PROGRESS_VERSION,
+    DiscoveryRunRow, JobStatus, RecoveryReport, RequestEffect, RunStatus, Segment,
+    DISCOVERY_PROGRESS_VERSION,
 };
 use crate::db::repositories::{self, StrategyDef};
 use crate::error::{AppError, AppResult};
@@ -183,6 +184,10 @@ struct ControlState {
     /// P03a: the lease epoch this coordinator runs under; every write the
     /// coordinator makes is checked inside its store transaction.
     epoch: Option<i64>,
+    /// P03b R1: the command request that asked for the pending pause, so the
+    /// coordinator's Paused transition can record its effect in the same
+    /// transaction. Taken by `pause_run_after_drain`.
+    pause_request_id: Option<String>,
 }
 
 impl ControlState {
@@ -212,6 +217,7 @@ impl RunControl {
                 phase: ControlPhase::Running,
                 last_sequence,
                 epoch,
+                pause_request_id: None,
             }),
             changed: Condvar::new(),
         }
@@ -331,6 +337,20 @@ impl DiscoveryRunner {
         sink: Arc<dyn DiscoveryEventSink>,
         raw_config: Value,
     ) -> AppResult<i64> {
+        self.start_for_request(db, sink, raw_config, None)
+    }
+
+    /// `start` on behalf of a command request: the run row is created in the
+    /// same transaction as the request's effect row (P03b R1), so a receipt
+    /// that fails afterwards can be recovered without starting a second run.
+    pub fn start_for_request(
+        &self,
+        db: SharedDb,
+        sink: Arc<dyn DiscoveryEventSink>,
+        raw_config: Value,
+        request_id: Option<&str>,
+    ) -> AppResult<i64> {
+        let effect = request_id.map(|request_id| RequestEffect { request_id, command: "discovery.start" });
         let logical_cores = logical_cores();
         let config = Arc::new(
             parse_discovery_config(&raw_config, logical_cores as f64)
@@ -385,7 +405,13 @@ impl DiscoveryRunner {
             }
 
             let name = discovery_run_name(dataset.id, &dataset.content_hash)?;
-            let run_id = discovery::create_discovery_run(&conn, self.epoch, &name, &raw_config_json)?;
+            let run_id = discovery::create_discovery_run_with_effect(
+                &conn,
+                self.epoch,
+                &name,
+                &raw_config_json,
+                effect.as_ref(),
+            )?;
             discovery::start_discovery_run(&mut conn, self.epoch, run_id, &specs)?;
             let initial_sequence = 1;
             let progress =
@@ -463,6 +489,19 @@ impl DiscoveryRunner {
         sink: Arc<dyn DiscoveryEventSink>,
         run_id: i64,
     ) -> AppResult<()> {
+        self.resume_for_request(db, sink, run_id, None)
+    }
+
+    /// `resume` on behalf of a command request (effect recorded with the
+    /// Paused → Running transition, P03b R1).
+    pub fn resume_for_request(
+        &self,
+        db: SharedDb,
+        sink: Arc<dyn DiscoveryEventSink>,
+        run_id: i64,
+        request_id: Option<&str>,
+    ) -> AppResult<()> {
+        let effect = request_id.map(|request_id| RequestEffect { request_id, command: "discovery.resume" });
         if let Some(control) = self.control(run_id)? {
             let phase = lock(&control.state, "discovery control")?.phase;
             if phase == ControlPhase::Paused {
@@ -518,7 +557,7 @@ impl DiscoveryRunner {
         {
             let conn = lock(&db, "db")?;
             discovery::assert_owner(&conn, self.epoch)?;
-            discovery::transition_run(&conn, self.epoch, run_id, RunStatus::Running)?;
+            discovery::transition_run_with_effect(&conn, self.epoch, run_id, RunStatus::Running, effect.as_ref())?;
             let progress = stored_progress_json(
                 prepared.enumeration,
                 prepared.total_candidates,
@@ -576,6 +615,14 @@ impl DiscoveryRunner {
     }
 
     pub fn pause(&self, db: &SharedDb, run_id: i64) -> AppResult<()> {
+        self.pause_for_request(db, run_id, None)
+    }
+
+    /// `pause` on behalf of a command request. The Paused transition happens
+    /// in the coordinator after the in-flight candidate drains, so the request
+    /// id rides on the control state and is recorded by that transition's
+    /// transaction (P03b R1).
+    pub fn pause_for_request(&self, db: &SharedDb, run_id: i64, request_id: Option<&str>) -> AppResult<()> {
         let control = self
             .control(run_id)?
             .ok_or_else(|| other(format!("discovery run {run_id} has no active coordinator")))?;
@@ -594,6 +641,7 @@ impl DiscoveryRunner {
             }
         }
         state.phase = ControlPhase::PauseRequested;
+        state.pause_request_id = request_id.map(str::to_owned);
         while state.phase == ControlPhase::PauseRequested {
             state = control
                 .changed
@@ -620,6 +668,19 @@ impl DiscoveryRunner {
         sink: Arc<dyn DiscoveryEventSink>,
         run_id: i64,
     ) -> AppResult<()> {
+        self.cancel_for_request(db, sink, run_id, None)
+    }
+
+    /// `cancel` on behalf of a command request (effect recorded with the
+    /// cancel transaction, P03b R1).
+    pub fn cancel_for_request(
+        &self,
+        db: &SharedDb,
+        sink: Arc<dyn DiscoveryEventSink>,
+        run_id: i64,
+        request_id: Option<&str>,
+    ) -> AppResult<()> {
+        let effect = request_id.map(|request_id| RequestEffect { request_id, command: "discovery.cancel" });
         if let Some(control) = self.control(run_id)? {
             let mut state = lock(&control.state, "discovery control")?;
             if !matches!(
@@ -634,7 +695,7 @@ impl DiscoveryRunner {
             let run = {
                 let conn = lock(db, "db")?;
                 discovery::assert_owner(&conn, self.epoch)?;
-                discovery::cancel_discovery_run(&conn, self.epoch, run_id)?;
+                discovery::cancel_discovery_run_with_effect(&conn, self.epoch, run_id, effect.as_ref())?;
                 discovery::get_discovery_run(&conn, run_id)?
             };
             state.phase = ControlPhase::CancelRequested;
@@ -663,7 +724,7 @@ impl DiscoveryRunner {
             let sequence = last_event_sequence(before.progress_json.as_deref())
                 .checked_add(1)
                 .ok_or_else(|| other("discovery event sequence overflow"))?;
-            discovery::cancel_discovery_run(&conn, self.epoch, run_id)?;
+            discovery::cancel_discovery_run_with_effect(&conn, self.epoch, run_id, effect.as_ref())?;
             (discovery::get_discovery_run(&conn, run_id)?, sequence)
         };
         emit_after_commit(
@@ -675,17 +736,29 @@ impl DiscoveryRunner {
 
     pub fn progress(&self, db: &SharedDb, run_id: i64) -> AppResult<DiscoveryProgressSnapshot> {
         let conn = lock(db, "db")?;
-        let run = discovery::get_discovery_run(&conn, run_id)?;
-        let jobs = discovery::list_discovery_jobs(&conn, run_id)?;
+        self.progress_on(&conn, run_id)
+    }
+
+    /// `progress` on a connection the caller already holds, so it can be
+    /// read in the same critical section as other state (P03b: the state
+    /// version a snapshot is labelled with).
+    pub fn progress_on(&self, conn: &rusqlite::Connection, run_id: i64) -> AppResult<DiscoveryProgressSnapshot> {
+        let run = discovery::get_discovery_run(conn, run_id)?;
+        let jobs = discovery::list_discovery_jobs(conn, run_id)?;
         progress_snapshot(&run, &jobs)
     }
 
     pub fn active_progress(&self, db: &SharedDb) -> AppResult<Option<DiscoveryProgressSnapshot>> {
         let conn = lock(db, "db")?;
-        let Some(run) = discovery::active_discovery_run(&conn)? else {
+        self.active_progress_on(&conn)
+    }
+
+    /// `active_progress` on a connection the caller already holds.
+    pub fn active_progress_on(&self, conn: &rusqlite::Connection) -> AppResult<Option<DiscoveryProgressSnapshot>> {
+        let Some(run) = discovery::active_discovery_run(conn)? else {
             return Ok(None);
         };
-        let jobs = discovery::list_discovery_jobs(&conn, run.id)?;
+        let jobs = discovery::list_discovery_jobs(conn, run.id)?;
         progress_snapshot(&run, &jobs).map(Some)
     }
 
@@ -1373,7 +1446,11 @@ fn pause_run_after_drain(
         // to paused. A crash between these commits can create a harmless
         // sequence gap, but can never repeat an emitted sequence.
         discovery::update_discovery_progress(&conn, state.epoch, run_id, RunStatus::Running, &progress)?;
-        discovery::transition_run(&conn, state.epoch, run_id, RunStatus::Paused)?;
+        let pause_request_id = state.pause_request_id.take();
+        let effect = pause_request_id
+            .as_deref()
+            .map(|request_id| RequestEffect { request_id, command: "discovery.pause" });
+        discovery::transition_run_with_effect(&conn, state.epoch, run_id, RunStatus::Paused, effect.as_ref())?;
     }
     state.phase = ControlPhase::Paused;
     changed.notify_all();

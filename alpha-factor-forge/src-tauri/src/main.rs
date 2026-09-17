@@ -25,6 +25,9 @@ pub struct AppState {
     pub ownership: runtime::OwnershipHandle,
     /// P03b: the identity every `research-command-v1` envelope must name.
     pub workspace_id: String,
+    /// P03b: request ids currently executing, shared by every dispatcher this
+    /// process builds, so a retry never runs beside its first attempt.
+    pub in_flight: Arc<runtime::commands::InFlightRequests>,
 }
 
 fn main() {
@@ -65,6 +68,7 @@ fn main() {
                 discovery: workspace.discovery,
                 ownership: workspace.ownership,
                 workspace_id: workspace.workspace_id,
+                in_flight: Arc::new(runtime::commands::InFlightRequests::default()),
             });
             Ok(())
         })

@@ -407,13 +407,83 @@ pub fn claim_candidate_jobs(
     Ok(claimed)
 }
 
+// ---------- request effects (P03b R1) ----------
+
+/// The command request a domain change is being made for. Recorded in the
+/// SAME transaction as the change (`request_effects`, migration 0006), so a
+/// receipt that fails afterwards can be recovered from the effect and the
+/// change is never executed twice for one request.
+#[derive(Clone, Copy, Debug)]
+pub struct RequestEffect<'a> {
+    pub request_id: &'a str,
+    pub command: &'a str,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RequestEffectRow {
+    pub request_id: String,
+    pub run_id: i64,
+    pub command: String,
+    pub epoch: i64,
+}
+
+/// Insert the effect row inside `tx`. A request may have exactly one effect:
+/// the PRIMARY KEY makes a second attempt to change state for the same
+/// request fail — and roll the change back with it.
+fn record_request_effect(
+    tx: &Connection,
+    epoch: Option<i64>,
+    effect: Option<&RequestEffect<'_>>,
+    run_id: i64,
+) -> AppResult<()> {
+    if let Some(effect) = effect {
+        tx.execute(
+            "INSERT INTO request_effects (request_id, run_id, command, epoch)
+             VALUES (?1, ?2, ?3, ?4)",
+            params![effect.request_id, run_id, effect.command, epoch.unwrap_or(0)],
+        )?;
+    }
+    Ok(())
+}
+
+pub fn read_request_effect(conn: &Connection, request_id: &str) -> AppResult<Option<RequestEffectRow>> {
+    Ok(conn
+        .query_row(
+            "SELECT request_id, run_id, command, epoch FROM request_effects WHERE request_id = ?1",
+            params![request_id],
+            |r| {
+                Ok(RequestEffectRow {
+                    request_id: r.get(0)?,
+                    run_id: r.get(1)?,
+                    command: r.get(2)?,
+                    epoch: r.get(3)?,
+                })
+            },
+        )
+        .optional()?)
+}
+
 /// Create an `idle` run. Idle holds no global slot, so drafting a run never
-/// blocks another one.
+/// blocks another one. Test convenience: production callers name their
+/// request (`create_discovery_run_with_effect`).
+#[cfg(test)]
 pub fn create_discovery_run(
     conn: &Connection,
     epoch: Option<i64>,
     name: &str,
     config_json: &str,
+) -> AppResult<i64> {
+    create_discovery_run_with_effect(conn, epoch, name, config_json, None)
+}
+
+/// `create_discovery_run` that also records the creating request's effect in
+/// the same transaction (P03b R1).
+pub fn create_discovery_run_with_effect(
+    conn: &Connection,
+    epoch: Option<i64>,
+    name: &str,
+    config_json: &str,
+    effect: Option<&RequestEffect<'_>>,
 ) -> AppResult<i64> {
     if name.trim().is_empty() {
         return Err(AppError::Other(
@@ -426,6 +496,7 @@ pub fn create_discovery_run(
         params![name, config_json],
     )?;
     let id = tx.last_insert_rowid();
+    record_request_effect(&tx, epoch, effect, id)?;
     tx.commit()?;
     Ok(id)
 }
@@ -592,11 +663,26 @@ pub fn update_discovery_progress(
 /// and the state machine would only be as strong as the caller's discipline.
 /// Its siblings `start_discovery_run` and `complete_discovery_run` are already
 /// transactional, so leaving this one bare was the odd case out.
+/// Test convenience: production callers name their request
+/// (`transition_run_with_effect`).
+#[cfg(test)]
 pub fn transition_run(
     conn: &Connection,
     epoch: Option<i64>,
     run_id: i64,
     to: RunStatus,
+) -> AppResult<()> {
+    transition_run_with_effect(conn, epoch, run_id, to, None)
+}
+
+/// `transition_run` that also records the requesting command's effect in the
+/// same transaction (P03b R1).
+pub fn transition_run_with_effect(
+    conn: &Connection,
+    epoch: Option<i64>,
+    run_id: i64,
+    to: RunStatus,
+    effect: Option<&RequestEffect<'_>>,
 ) -> AppResult<()> {
     let tx = super::ownership::write_transaction(conn, epoch)?;
     let from = current_status(&tx, run_id)?;
@@ -618,6 +704,7 @@ pub fn transition_run(
          WHERE id = ?1"
     );
     tx.execute(&sql, params![run_id, to.as_str()])?;
+    record_request_effect(&tx, epoch, effect, run_id)?;
     tx.commit()?;
     Ok(())
 }
@@ -904,10 +991,24 @@ fn skip_unfinished_jobs(conn: &Connection, run_id: i64) -> AppResult<usize> {
 /// still queued or running becomes `skipped`. Because crash recovery
 /// deliberately ignores terminal runs, a cancelled run left holding queued
 /// jobs would never be repaired — hence one transaction.
+/// Test convenience: production callers name their request
+/// (`cancel_discovery_run_with_effect`).
+#[cfg(test)]
 pub fn cancel_discovery_run(
     conn: &Connection,
     epoch: Option<i64>,
     run_id: i64,
+) -> AppResult<usize> {
+    cancel_discovery_run_with_effect(conn, epoch, run_id, None)
+}
+
+/// `cancel_discovery_run` that also records the requesting command's effect
+/// in the same transaction (P03b R1).
+pub fn cancel_discovery_run_with_effect(
+    conn: &Connection,
+    epoch: Option<i64>,
+    run_id: i64,
+    effect: Option<&RequestEffect<'_>>,
 ) -> AppResult<usize> {
     let tx = super::ownership::write_transaction(conn, epoch)?;
     let from = current_status(&tx, run_id)?;
@@ -925,6 +1026,7 @@ pub fn cancel_discovery_run(
          WHERE id = ?1",
         [run_id],
     )?;
+    record_request_effect(&tx, epoch, effect, run_id)?;
     tx.commit()?;
     Ok(skipped)
 }

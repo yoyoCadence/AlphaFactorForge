@@ -54,6 +54,7 @@ pub async fn dispatch_research_command(
         state.ownership.epoch,
         state.workspace_id.clone(),
         Arc::new(TauriDiscoveryEventSink::new(app)),
+        state.in_flight.clone(),
     );
     tauri::async_runtime::spawn_blocking(move || dispatcher.dispatch(envelope))
         .await

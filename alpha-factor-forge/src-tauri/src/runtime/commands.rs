@@ -21,11 +21,15 @@
 //! reconnect cursor: snapshot first (`discovery.active` / `discovery.
 //! progress`), then `events.read` with `afterEventId`.
 
-use std::sync::Arc;
+use std::collections::HashSet;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
+use crate::db::discovery::{self, RunStatus};
+use crate::db::ownership;
 use crate::db::runtime_ledger::{self, Reservation, StoredEvent};
 use crate::discovery_runner::{
     DiscoveryEvent, DiscoveryEventSink, DiscoveryRunner, DISCOVERY_DONE_EVENT,
@@ -211,15 +215,42 @@ impl Command {
 
 // ---------- the dispatcher ----------
 
+/// Request ids currently executing in THIS process. A retry that arrives
+/// while its first attempt is still running is answered "pending" instead of
+/// being executed a second time; once no attempt is in flight, a `pending`
+/// receipt with no durable effect means the first attempt died before it
+/// changed anything, and the retry is the first execution.
+#[derive(Default)]
+pub struct InFlightRequests(Mutex<HashSet<String>>);
+
+impl InFlightRequests {
+    fn begin(&self, request_id: &str) -> bool {
+        self.0.lock().map(|mut set| set.insert(request_id.to_owned())).unwrap_or(false)
+    }
+
+    fn end(&self, request_id: &str) {
+        if let Ok(mut set) = self.0.lock() {
+            set.remove(request_id);
+        }
+    }
+
+    fn contains(&self, request_id: &str) -> bool {
+        self.0.lock().map(|set| set.contains(request_id)).unwrap_or(true)
+    }
+}
+
 /// Everything a host needs to serve envelopes for one owned workspace. The
 /// sink is the host's; the dispatcher wraps it in a `LedgerSink` so every
-/// runner event is ledgered before the host sees it.
+/// runner event is ledgered before the host sees it. `in_flight` must be
+/// shared by every dispatcher a host builds for the same workspace.
 pub struct Dispatcher {
     db: SharedDb,
     discovery: DiscoveryRunner,
+    ledger: Arc<LedgerSink>,
     sink: Arc<dyn DiscoveryEventSink>,
     epoch: i64,
     workspace_id: String,
+    in_flight: Arc<InFlightRequests>,
 }
 
 impl Dispatcher {
@@ -229,9 +260,11 @@ impl Dispatcher {
         epoch: i64,
         workspace_id: String,
         host_sink: Arc<dyn DiscoveryEventSink>,
+        in_flight: Arc<InFlightRequests>,
     ) -> Self {
-        let sink: Arc<dyn DiscoveryEventSink> = Arc::new(LedgerSink::new(db.clone(), epoch, host_sink));
-        Self { db, discovery, sink, epoch, workspace_id }
+        let ledger = Arc::new(LedgerSink::new(db.clone(), epoch, host_sink));
+        let sink: Arc<dyn DiscoveryEventSink> = ledger.clone();
+        Self { db, discovery, ledger, sink, epoch, workspace_id, in_flight }
     }
 
     /// Parse, check, and run one envelope. Never panics on caller input.
@@ -264,7 +297,7 @@ impl Dispatcher {
         })?;
 
         if !command.mutates() {
-            return self.execute(command, &envelope.payload);
+            return self.execute(command, &envelope.payload, None);
         }
 
         // Idempotency: reserve first, so a retry can never start a second
@@ -282,71 +315,146 @@ impl Dispatcher {
             )?
         };
         match reservation {
-            Reservation::Fresh => {}
-            Reservation::Replay(stored) => return replay(stored),
-            Reservation::Conflict(stored) => {
-                return Err(CommandError::new(
-                    ErrorCode::DuplicateRequest,
-                    format!(
-                        "requestId {} was already used for {} with a different payload",
-                        stored.request_id, stored.command
-                    ),
-                    false,
-                ))
-            }
+            Reservation::Fresh => self.execute_and_record(command, &envelope),
+            Reservation::Replay(stored) if stored.status == "pending" => self.settle_pending(command, &envelope, stored),
+            Reservation::Replay(stored) => replay(stored),
+            Reservation::Conflict(stored) => Err(CommandError::new(
+                ErrorCode::DuplicateRequest,
+                format!(
+                    "requestId {} was already used for {} with a different payload",
+                    stored.request_id, stored.command
+                ),
+                false,
+            )),
         }
+    }
 
-        let outcome = self.execute(command, &envelope.payload);
-        let recorded = {
-            let conn = self.lock_db()?;
-            match &outcome {
-                Ok(result) => {
-                    runtime_ledger::complete_request(&conn, Some(self.epoch), &envelope.request_id, Ok(result))
-                }
-                Err(error) => {
-                    let error_json = serde_json::to_value(error).map_err(AppError::from)?;
-                    runtime_ledger::complete_request(&conn, Some(self.epoch), &envelope.request_id, Err(&error_json))
-                }
-            }
-        };
-        if let Err(error) = recorded {
-            // The work happened; only its receipt failed. Say so rather than
-            // hide it, and do not turn a success into a failure for the
-            // caller — the pending row is what a retry will see.
-            eprintln!("command {} completed but its outcome was not recorded: {error}", envelope.request_id);
+    /// A `pending` receipt seen again. Three cases, in order (R1):
+    /// 1. the first attempt is still executing here — say so, execute nothing;
+    /// 2. a durable effect exists — the change committed and only the receipt
+    ///    was lost: recover the outcome from the effect, execute nothing;
+    /// 3. neither — the first attempt died before it changed anything: this
+    ///    is the first execution.
+    fn settle_pending(
+        &self,
+        command: Command,
+        envelope: &CommandEnvelope,
+        stored: runtime_ledger::StoredRequest,
+    ) -> Result<Value, CommandError> {
+        if self.in_flight.contains(&envelope.request_id) {
+            return Err(pending_error(&stored.request_id, "its first attempt is still executing"));
         }
+        let effect = {
+            let conn = self.lock_db()?;
+            discovery::read_request_effect(&conn, &envelope.request_id)?
+        };
+        match effect {
+            Some(effect) => {
+                let outcome = self.outcome_from_effect(&effect)?;
+                self.record_receipt(&envelope.request_id, &outcome);
+                outcome
+            }
+            None => self.execute_and_record(command, envelope),
+        }
+    }
+
+    /// The first outcome, reconstructed from the durable effect the change
+    /// left behind — never by running the command again.
+    fn outcome_from_effect(&self, effect: &discovery::RequestEffectRow) -> Result<Result<Value, CommandError>, CommandError> {
+        let run = {
+            let conn = self.lock_db()?;
+            discovery::get_discovery_run(&conn, effect.run_id)?
+        };
+        let outcome = if effect.command == Command::DiscoveryStart.name() && run.status == RunStatus::Failed {
+            // The run row was created (the effect) but the start did not
+            // complete; the first response was that failure.
+            Err(final_error(CommandError::new(
+                ErrorCode::Validation,
+                run.error_message.unwrap_or_else(|| "discovery run failed while starting".into()),
+                false,
+            )))
+        } else {
+            Ok(json!({ "runId": effect.run_id }))
+        };
+        Ok(outcome)
+    }
+
+    fn execute_and_record(&self, command: Command, envelope: &CommandEnvelope) -> Result<Value, CommandError> {
+        if !self.in_flight.begin(&envelope.request_id) {
+            return Err(pending_error(&envelope.request_id, "its first attempt is still executing"));
+        }
+        // R3: an error that is about to be RECORDED is this request's final
+        // answer. Retrying the same id can only replay it, so it must not be
+        // labelled retryable; the caller starts a new request.
+        let outcome = self
+            .execute(command, &envelope.payload, Some(&envelope.request_id))
+            .map_err(final_error);
+        self.record_receipt(&envelope.request_id, &outcome);
+        self.in_flight.end(&envelope.request_id);
         outcome
     }
 
-    fn execute(&self, command: Command, payload: &Value) -> Result<Value, CommandError> {
+    /// Write the receipt. A failure here is reported, never hidden, and does
+    /// not change the answer: a success is recoverable from its effect row
+    /// (`settle_pending`), and a failure without an effect simply executes
+    /// again on retry, which is its first execution.
+    fn record_receipt(&self, request_id: &str, outcome: &Result<Value, CommandError>) {
+        let recorded = self
+            .db
+            .lock()
+            .map_err(|_| AppError::Other("db lock poisoned".into()))
+            .and_then(|conn| match outcome {
+            Ok(result) => runtime_ledger::complete_request(&conn, Some(self.epoch), request_id, Ok(result)),
+            Err(error) => {
+                let error_json = serde_json::to_value(error)?;
+                runtime_ledger::complete_request(&conn, Some(self.epoch), request_id, Err(&error_json))
+            }
+        });
+        if let Err(error) = recorded {
+            eprintln!(
+                "command {request_id} completed but its receipt was not recorded ({error}); \
+                 a retry recovers it from the request's effect row"
+            );
+        }
+    }
+
+    fn execute(&self, command: Command, payload: &Value, request_id: Option<&str>) -> Result<Value, CommandError> {
         match command {
             Command::DiscoveryStart => {
-                let run_id = self.discovery.start(self.db.clone(), self.sink.clone(), payload.clone())?;
+                let run_id = self.discovery.start_for_request(self.db.clone(), self.sink.clone(), payload.clone(), request_id)?;
                 Ok(json!({ "runId": run_id }))
             }
             Command::DiscoveryPause => {
                 let run_id = run_id_of(payload)?;
-                self.discovery.pause(&self.db, run_id)?;
+                self.discovery.pause_for_request(&self.db, run_id, request_id)?;
                 Ok(json!({ "runId": run_id }))
             }
             Command::DiscoveryResume => {
                 let run_id = run_id_of(payload)?;
-                self.discovery.resume(self.db.clone(), self.sink.clone(), run_id)?;
+                self.discovery.resume_for_request(self.db.clone(), self.sink.clone(), run_id, request_id)?;
                 Ok(json!({ "runId": run_id }))
             }
             Command::DiscoveryCancel => {
                 let run_id = run_id_of(payload)?;
-                self.discovery.cancel(&self.db, self.sink.clone(), run_id)?;
+                self.discovery.cancel_for_request(&self.db, self.sink.clone(), run_id, request_id)?;
                 Ok(json!({ "runId": run_id }))
             }
             Command::DiscoveryProgress => {
                 let run_id = run_id_of(payload)?;
-                let snapshot = self.discovery.progress(&self.db, run_id)?;
-                Ok(serde_json::to_value(snapshot).map_err(AppError::from)?)
+                // Version BEFORE the snapshot: the snapshot is then "at least
+                // this version", which is the safe side for gap detection.
+                let (version, snapshot) = {
+                    let conn = self.lock_db()?;
+                    (ownership::state_version(&conn)?, self.discovery.progress_on(&conn, run_id)?)
+                };
+                Ok(json!({ "run": snapshot, "stateVersion": version }))
             }
             Command::DiscoveryActive => {
-                let snapshot = self.discovery.active_progress(&self.db)?;
-                Ok(serde_json::to_value(snapshot).map_err(AppError::from)?)
+                let (version, snapshot) = {
+                    let conn = self.lock_db()?;
+                    (ownership::state_version(&conn)?, self.discovery.active_progress_on(&conn)?)
+                };
+                Ok(json!({ "run": snapshot, "stateVersion": version }))
             }
             Command::EventsRead => {
                 let after = payload.get("afterEventId").and_then(Value::as_i64).unwrap_or(0);
@@ -358,20 +466,31 @@ impl Dispatcher {
                     .and_then(Value::as_u64)
                     .map(|n| (n as usize).clamp(1, MAX_EVENT_PAGE))
                     .unwrap_or(MAX_EVENT_PAGE);
-                let (events, last) = {
+                // Events first, version AFTER: if the state moved past the last
+                // ledgered event, `stateVersion` says so and the reader must
+                // re-snapshot (R2).
+                let (events, last, version, gap) = {
                     let conn = self.lock_db()?;
                     (
                         runtime_ledger::read_events_after(&conn, after, limit)?,
                         runtime_ledger::last_event_id(&conn)?,
+                        ownership::state_version(&conn)?,
+                        runtime_ledger::read_ledger_gap(&conn)?,
                     )
                 };
                 let envelopes = events.into_iter().map(EventEnvelope::from_stored).collect::<Result<Vec<_>, _>>()?;
-                Ok(json!({ "events": envelopes, "lastEventId": last }))
+                Ok(json!({
+                    "events": envelopes,
+                    "lastEventId": last,
+                    "stateVersion": version,
+                    "ledgerGap": gap,
+                    "ledgerDegraded": self.ledger.degraded(),
+                }))
             }
             Command::OwnershipRead => {
                 let row = {
                     let conn = self.lock_db()?;
-                    crate::db::ownership::read(&conn)?
+                    ownership::read(&conn)?
                 };
                 Ok(json!({ "ownership": row, "workspaceId": self.workspace_id }))
             }
@@ -383,6 +502,25 @@ impl Dispatcher {
             .lock()
             .map_err(|_| CommandError::new(ErrorCode::Busy, "db lock poisoned", true))
     }
+}
+
+/// The one error that IS retryable with the same request id: the request is
+/// reserved but has no recorded outcome yet.
+fn pending_error(request_id: &str, why: &str) -> CommandError {
+    CommandError::new(
+        ErrorCode::Busy,
+        format!("requestId {request_id} is pending: {why}; retry the same requestId later"),
+        true,
+    )
+}
+
+/// R3: a recorded failure is final for its request id, whatever caused it.
+fn final_error(mut error: CommandError) -> CommandError {
+    if error.retryable {
+        error.retryable = false;
+        error.message.push_str("; this requestId is now final — send a new requestId to try again");
+    }
+    error
 }
 
 /// Answer a repeated request from its stored outcome, executing nothing.
@@ -401,14 +539,7 @@ fn replay(stored: runtime_ledger::StoredRequest) -> Result<Value, CommandError> 
             })?;
             Err(error)
         }
-        _ => Err(CommandError::new(
-            ErrorCode::Busy,
-            format!(
-                "requestId {} is still pending: its first attempt has not completed (or died before recording an outcome); inspect state and use a new requestId",
-                stored.request_id
-            ),
-            true,
-        )),
+        other => Err(pending_error(&stored.request_id, &format!("unexpected receipt status {other:?}"))),
     }
 }
 
@@ -449,19 +580,28 @@ fn canonical_json(value: &Value) -> String {
 
 /// Appends every runner event to `runtime_events` under the owner's epoch,
 /// then forwards it to the host. The append happens AFTER the runner's own
-/// commit (commit-then-emit is unchanged); if the append itself fails the
-/// event is still forwarded — the database state is the truth and the
-/// failure is reported, so a reconnecting reader may miss that ledger row but
-/// never a committed result.
+/// commit (commit-then-emit is unchanged). If the append fails the event is
+/// still forwarded, the failure is reported, a durable gap marker is written
+/// (best effort) and this sink is flagged degraded — and, independently of
+/// all three, the state version moved with the domain write, so a cursor
+/// reader sees "state changed, no event" and re-snapshots (R2). The
+/// database state is the truth; a reconnecting reader never misses a
+/// committed result.
 pub struct LedgerSink {
     db: SharedDb,
     epoch: i64,
     inner: Arc<dyn DiscoveryEventSink>,
+    degraded: AtomicBool,
 }
 
 impl LedgerSink {
     pub fn new(db: SharedDb, epoch: i64, inner: Arc<dyn DiscoveryEventSink>) -> Self {
-        Self { db, epoch, inner }
+        Self { db, epoch, inner, degraded: AtomicBool::new(false) }
+    }
+
+    /// True once an append has failed on this sink.
+    pub fn degraded(&self) -> bool {
+        self.degraded.load(Ordering::SeqCst)
     }
 
     fn append(&self, event: &DiscoveryEvent) -> Result<i64, String> {
@@ -483,12 +623,28 @@ impl LedgerSink {
         )
         .map_err(|error| error.to_string())
     }
+
+    fn mark_gap(&self) {
+        self.degraded.store(true, Ordering::SeqCst);
+        let marked = self
+            .db
+            .lock()
+            .map_err(|_| AppError::Other("db lock poisoned".into()))
+            .and_then(|conn| {
+                let version = ownership::state_version(&conn)?;
+                runtime_ledger::record_ledger_gap(&conn, self.epoch, version)
+            });
+        if let Err(error) = marked {
+            eprintln!("event ledger gap marker not written either: {error}");
+        }
+    }
 }
 
 impl DiscoveryEventSink for LedgerSink {
     fn emit(&self, event: &DiscoveryEvent) -> Result<(), String> {
         if let Err(error) = self.append(event) {
-            eprintln!("event ledger append failed (event still forwarded): {error}");
+            eprintln!("event ledger append failed (event still forwarded; readers must re-snapshot): {error}");
+            self.mark_gap();
         }
         self.inner.emit(event)
     }
@@ -527,6 +683,7 @@ mod tests {
             epoch,
             workspace.clone(),
             host.clone(),
+            Arc::new(InFlightRequests::default()),
         );
         (dispatcher, workspace, host)
     }
@@ -577,13 +734,17 @@ mod tests {
     fn reads_are_served_without_a_ledger_row() {
         let (dispatcher, ws, _) = dispatcher();
         let active = dispatcher.dispatch(envelope(&ws, "r1", "discovery.active", json!({}))).unwrap();
-        assert_eq!(active, Value::Null, "no run yet");
+        assert_eq!(active["run"], Value::Null, "no run yet");
+        assert_eq!(active["stateVersion"], 0, "nothing has been written to a run yet");
         let ownership = dispatcher.dispatch(envelope(&ws, "r2", "ownership.read", json!({}))).unwrap();
         assert_eq!(ownership["workspaceId"], ws);
         assert_eq!(ownership["ownership"]["epoch"], 1);
         let events = dispatcher.dispatch(envelope(&ws, "r3", "events.read", json!({}))).unwrap();
         assert_eq!(events["events"].as_array().unwrap().len(), 0);
         assert_eq!(events["lastEventId"], 0);
+        assert_eq!(events["stateVersion"], 0);
+        assert_eq!(events["ledgerGap"], Value::Null);
+        assert_eq!(events["ledgerDegraded"], false);
         let conn = dispatcher.db.lock().unwrap();
         let rows: i64 = conn.query_row("SELECT COUNT(*) FROM command_requests", [], |r| r.get(0)).unwrap();
         assert_eq!(rows, 0, "reads are not idempotency-tracked");
@@ -596,6 +757,7 @@ mod tests {
         let first = dispatcher.dispatch(envelope(&ws, "req-cancel", "discovery.cancel", json!({ "runId": 99 })));
         let first_error = first.unwrap_err();
         assert_eq!(first_error.code, ErrorCode::NotFound, "{first_error:?}");
+        assert!(!first_error.retryable, "a recorded failure is final for its request id (R3)");
 
         let again = dispatcher.dispatch(envelope(&ws, "req-cancel", "discovery.cancel", json!({ "runId": 99 })));
         assert_eq!(again.unwrap_err(), first_error, "the stored outcome, verbatim");
@@ -628,11 +790,38 @@ mod tests {
             )
             .unwrap();
         }
+        // No effect row and no attempt in flight: the first attempt died before
+        // it changed anything, so this IS the first execution — it runs (and
+        // here fails, because run 1 does not exist) and is recorded as final.
         let retry = dispatcher.dispatch(envelope(&ws, "req-lost", "discovery.pause", json!({ "runId": 1 })));
         let error = retry.unwrap_err();
+        assert_eq!(error.code, ErrorCode::Validation, "{error:?}");
+        assert!(!error.retryable, "recorded, therefore final");
+        let conn = dispatcher.db.lock().unwrap();
+        assert_eq!(runtime_ledger::read_request(&conn, "req-lost").unwrap().unwrap().status, "failed");
+        drop(conn);
+
+        // While an attempt IS in flight, the same id is answered pending and
+        // nothing runs.
+        {
+            let conn = dispatcher.db.lock().unwrap();
+            runtime_ledger::reserve_request(
+                &conn,
+                Some(dispatcher.epoch),
+                "req-busy",
+                &ws,
+                "discovery.pause",
+                &payload_hash(&json!({ "runId": 1 })),
+            )
+            .unwrap();
+        }
+        assert!(dispatcher.in_flight.begin("req-busy"));
+        let pending = dispatcher.dispatch(envelope(&ws, "req-busy", "discovery.pause", json!({ "runId": 1 })));
+        let error = pending.unwrap_err();
         assert_eq!(error.code, ErrorCode::Busy);
-        assert!(error.retryable);
-        assert!(error.message.contains("still pending"));
+        assert!(error.retryable, "pending is the one retryable state");
+        assert!(error.message.contains("still executing"));
+        dispatcher.in_flight.end("req-busy");
     }
 
     #[test]

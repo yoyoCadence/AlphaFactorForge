@@ -246,7 +246,11 @@ export type CommandErrorCode =
   | 'Busy';
 
 /** What `dispatch_research_command` rejects with: structured, never a bare
- *  string, so a caller can act on `code`. */
+ *  string, so a caller can act on `code`. `retryable` means "the SAME
+ *  requestId may be sent again and can still make progress": true only while
+ *  the request is pending (its first attempt is executing or died before
+ *  recording anything). A recorded failure is final for its requestId and is
+ *  never marked retryable — start a new request instead. */
 export interface CommandError {
   code: CommandErrorCode;
   message: string;
@@ -271,6 +275,24 @@ export interface EventsPage {
   events: EventEnvelope[];
   /** The highest event id ever issued; equals the cursor when nothing follows. */
   lastEventId: number;
+  /** The workspace's state version: bumped by every committed change to a
+   *  run/job/result (never by ledger rows, receipts, or heartbeats). A reader
+   *  that took a snapshot at version `s` and then reads an EMPTY page whose
+   *  `stateVersion > s` has missed something the ledger does not hold (an
+   *  append that failed) and must take a fresh snapshot. */
+  stateVersion: number;
+  /** A durable marker that at least one event could not be appended, or null. */
+  ledgerGap: { epoch: number; stateVersion: number } | null;
+  /** True once this host's ledger sink has failed an append in this process. */
+  ledgerDegraded: boolean;
+}
+
+/** `discovery.active` / `discovery.progress`: the snapshot and the state
+ *  version it is at least as new as. Keep `stateVersion` beside the cursor
+ *  you read events from (see `EventsPage.stateVersion`). */
+export interface SnapshotResponse<T> {
+  run: T;
+  stateVersion: number;
 }
 
 /** What a caller needs before its first envelope. */

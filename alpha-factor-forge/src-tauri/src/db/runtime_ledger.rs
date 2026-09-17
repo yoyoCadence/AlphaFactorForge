@@ -1,9 +1,11 @@
 //! P03b — the request ledger, the event ledger, and the workspace identity
 //! (migration 0005, docs/research-runtime-contract.md §2 / §3).
 //!
-//! Everything here writes through `ownership::write_transaction`, so only the
-//! lease holder can reserve a request, complete one, or append an event; a
-//! stale owner gets `StaleOwner` exactly as it does for run writes.
+//! Everything here writes through `ownership::write_transaction_quiet`, so
+//! only the lease holder can reserve a request, complete one, or append an
+//! event (a stale owner gets `StaleOwner` exactly as it does for run
+//! writes), while none of these writes moves the state version: receipts and
+//! ledger rows describe the state, they are not the state (R2).
 //!
 //! Idempotency (§2) is reserve-then-complete: `reserve_request` inserts a
 //! `pending` row BEFORE the command runs; a second envelope with the same
@@ -18,7 +20,7 @@ use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::db::ownership::write_transaction;
+use crate::db::ownership::write_transaction_quiet as write_transaction;
 use crate::error::{AppError, AppResult};
 
 /// Requests are kept at least this long (§2 says ≥ 24 h; this is deliberately
@@ -232,6 +234,43 @@ pub fn read_events_after(conn: &Connection, after: i64, limit: usize) -> AppResu
         })?
         .collect::<Result<Vec<_>, _>>()?;
     Ok(rows)
+}
+
+/// R2: a durable marker that at least one event could not be appended.
+/// Written (best effort) by the ledger sink when an append fails; a reader
+/// that sees it must re-snapshot rather than trust the cursor alone. It is a
+/// separate table from the ledger on purpose — the very write that failed
+/// may keep failing on `runtime_events`.
+pub fn record_ledger_gap(conn: &Connection, epoch: i64, state_version: i64) -> AppResult<()> {
+    let tx = write_transaction(conn, Some(epoch))?;
+    tx.execute(
+        "INSERT INTO app_settings (key, value_json, updated_at)
+         VALUES ('ledger_gap', json_object('epoch', ?1, 'stateVersion', ?2), datetime('now'))
+         ON CONFLICT(key) DO UPDATE SET
+             value_json = excluded.value_json, updated_at = excluded.updated_at",
+        params![epoch, state_version],
+    )?;
+    tx.commit()?;
+    Ok(())
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LedgerGap {
+    pub epoch: i64,
+    pub state_version: i64,
+}
+
+pub fn read_ledger_gap(conn: &Connection) -> AppResult<Option<LedgerGap>> {
+    let raw: Option<String> = conn
+        .query_row("SELECT value_json FROM app_settings WHERE key = 'ledger_gap'", [], |r| r.get(0))
+        .optional()?;
+    match raw {
+        None => Ok(None),
+        Some(json) => Ok(Some(serde_json::from_str(&json).map_err(|error| {
+            AppError::Other(format!("ledger_gap marker unreadable: {error}"))
+        })?)),
+    }
 }
 
 /// The highest `event_id` ever issued (0 when none). Survives deletes.

@@ -54,6 +54,10 @@ const MIGRATIONS: &[(&str, &str)] = &[
         "0005_runtime_ledger",
         include_str!("../../migrations/0005_runtime_ledger.sql"),
     ),
+    (
+        "0006_request_effects",
+        include_str!("../../migrations/0006_request_effects.sql"),
+    ),
 ];
 
 /// Open (creating if needed) the workspace database at `db_path` and run
