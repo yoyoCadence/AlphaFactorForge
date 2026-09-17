@@ -10,7 +10,7 @@ use crate::db::repositories::{
 use crate::error::{AppError, AppResult};
 use crate::AppState;
 
-/// Migrations run automatically at startup (db::initialize). These two are
+/// Migrations run automatically at startup (runtime::open_workspace). These two are
 /// exposed for explicit re-trigger / health-check from Settings.
 #[tauri::command]
 pub fn init_database(_state: State<AppState>) -> AppResult<String> {

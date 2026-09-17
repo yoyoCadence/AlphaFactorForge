@@ -9,7 +9,8 @@ use std::sync::Arc;
 use serde_json::Value;
 use tauri::{AppHandle, State};
 
-use crate::discovery_runner::{DiscoveryProgressSnapshot, TauriDiscoveryEventSink};
+use crate::desktop::discovery_events::TauriDiscoveryEventSink;
+use crate::discovery_runner::DiscoveryProgressSnapshot;
 use crate::error::{AppError, AppResult};
 use crate::AppState;
 
