@@ -754,7 +754,12 @@ impl DiscoveryRunner {
             // A pause still draining loses to this cancel: its request is
             // rejected in the same transaction, with the words `pause` will
             // answer once it wakes up.
-            let pause_request_id = state.pause_request_id.take();
+            // H2: the pause request stays on the control state until the
+            // transaction that answers it has COMMITTED. A cancel that rolls
+            // back leaves the pause waiting, and whatever resolves it later
+            // (completion, the drain, a failure, another cancel) still finds
+            // its id and records its outcome.
+            let pause_request_id = state.pause_request_id.clone();
             let cancelled_pause_message = pause_cancelled_message(run_id);
             let mut outcomes = own.clone();
             if let Some(pause_request_id) = pause_request_id.as_deref() {
@@ -766,6 +771,7 @@ impl DiscoveryRunner {
                 discovery::cancel_discovery_run_with_outcomes(&conn, self.epoch, run_id, &outcomes)?;
                 discovery::get_discovery_run(&conn, run_id)?
             };
+            state.pause_request_id = None;
             state.phase = ControlPhase::CancelRequested;
             control.changed.notify_all();
             emit_after_commit(
@@ -1514,13 +1520,15 @@ fn pause_run_after_drain(
         // to paused. A crash between these commits can create a harmless
         // sequence gap, but can never repeat an emitted sequence.
         discovery::update_discovery_progress(&conn, state.epoch, run_id, RunStatus::Running, &progress)?;
-        let pause_request_id = state.pause_request_id.take();
+        let pause_request_id = state.pause_request_id.clone();
         let accepted: Vec<RequestOutcome<'_>> = pause_request_id
             .as_deref()
             .map(|request_id| vec![RequestOutcome::accepted(request_id, PAUSE_COMMAND, run_id)])
             .unwrap_or_default();
         discovery::transition_run_with_outcomes(&conn, state.epoch, run_id, RunStatus::Paused, &accepted)?;
     }
+    // Committed: only now is the pause request answered (H2).
+    state.pause_request_id = None;
     state.phase = ControlPhase::Paused;
     changed.notify_all();
     emit_after_commit(
@@ -1554,7 +1562,7 @@ fn complete_run_after_commit(
     // A pause still draining when the last candidate completes is answered
     // "paused" — `pause` treats Completed as success — so its acceptance is
     // recorded with the completion.
-    let pause_request_id = state.pause_request_id.take();
+    let pause_request_id = state.pause_request_id.clone();
     let accepted: Vec<RequestOutcome<'_>> = pause_request_id
         .as_deref()
         .map(|request_id| vec![RequestOutcome::accepted(request_id, PAUSE_COMMAND, run_id)])
@@ -1565,6 +1573,8 @@ fn complete_run_after_commit(
         discovery::complete_discovery_run_with_outcomes(&mut conn, state.epoch, run_id, &accepted)?;
         discovery::get_discovery_run(&conn, run_id)?
     };
+    // Committed: only now is the pause request answered (H2).
+    state.pause_request_id = None;
     state.phase = ControlPhase::Completed;
     changed.notify_all();
     emit_after_commit(sink, DiscoveryEvent::Done(done_event(sequence, &run)));
@@ -1587,7 +1597,7 @@ fn fail_run_after_commit(
     }
     // A pause still draining is answered with the failure; record that
     // answer in the failure's own transaction.
-    let pause_request_id = state.pause_request_id.take();
+    let pause_request_id = state.pause_request_id.clone();
     let failed_pause_message = pause_failed_message(run_id);
     let rejected: Vec<RequestOutcome<'_>> = pause_request_id
         .as_deref()
@@ -1601,6 +1611,8 @@ fn fail_run_after_commit(
     })();
     match committed {
         Ok(run) => {
+            // Committed: only now is the pause request answered (H2).
+            state.pause_request_id = None;
             if let Ok(sequence) = state.reserve_sequences(1) {
                 state.phase = ControlPhase::Failed;
                 changed.notify_all();
