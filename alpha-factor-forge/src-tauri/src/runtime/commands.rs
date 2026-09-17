@@ -23,7 +23,7 @@
 
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Condvar, Mutex};
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -38,6 +38,26 @@ use crate::discovery_runner::{
 use crate::error::AppError;
 
 use super::SharedDb;
+
+/// Test-only scheduling hook (H1 regression): runs once, on the dispatching
+/// thread, right after a mutating envelope's reservation and before its
+/// outcome is decided. Never compiled into the application.
+#[cfg(test)]
+pub(crate) mod test_hooks {
+    thread_local! {
+        pub static AFTER_RESERVATION: std::cell::RefCell<Option<Box<dyn FnOnce()>>> =
+            std::cell::RefCell::new(None);
+    }
+
+    pub fn after_reservation() {
+        AFTER_RESERVATION.with(|slot| {
+            let callback = slot.borrow_mut().take();
+            if let Some(callback) = callback {
+                callback();
+            }
+        });
+    }
+}
 
 pub const COMMAND_PROTOCOL_VERSION: &str = "research-command-v1";
 pub const EVENT_PROTOCOL_VERSION: &str = "research-event-v1";
@@ -215,27 +235,45 @@ impl Command {
 
 // ---------- the dispatcher ----------
 
-/// Request ids currently executing in THIS process. A retry that arrives
-/// while its first attempt is still running is answered "pending" instead of
-/// being executed a second time; once no attempt is in flight, a `pending`
-/// receipt with no durable effect means the first attempt died before it
-/// changed anything, and the retry is the first execution.
+/// Per-request-id exclusion for THIS process (H1). A mutating envelope holds
+/// its request id's claim for the WHOLE flow — reserve, read the receipt and
+/// outcome, execute or replay, complete — so two envelopes with the same id
+/// never interleave: the second waits for the first to finish and then reads
+/// the persistent state the first left behind (a recorded outcome to replay),
+/// instead of judging from a reservation it took before the first ran.
+/// A shared set plus separate begin/end calls was tried and rejected: any
+/// gap between "reserved" and "claimed" let a duplicate run in between.
 #[derive(Default)]
-pub struct InFlightRequests(Mutex<HashSet<String>>);
+pub struct InFlightRequests {
+    held: Mutex<HashSet<String>>,
+    released: Condvar,
+}
+
+/// Holds one request id's claim; dropping it releases the claim and wakes
+/// waiters.
+pub struct RequestClaim<'a> {
+    registry: &'a InFlightRequests,
+    request_id: String,
+}
 
 impl InFlightRequests {
-    fn begin(&self, request_id: &str) -> bool {
-        self.0.lock().map(|mut set| set.insert(request_id.to_owned())).unwrap_or(false)
-    }
-
-    fn end(&self, request_id: &str) {
-        if let Ok(mut set) = self.0.lock() {
-            set.remove(request_id);
+    /// Block until `request_id` is free, then claim it.
+    pub fn claim(&self, request_id: &str) -> RequestClaim<'_> {
+        let mut held = self.held.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        while held.contains(request_id) {
+            held = self.released.wait(held).unwrap_or_else(|poisoned| poisoned.into_inner());
         }
+        held.insert(request_id.to_owned());
+        RequestClaim { registry: self, request_id: request_id.to_owned() }
     }
+}
 
-    fn contains(&self, request_id: &str) -> bool {
-        self.0.lock().map(|set| set.contains(request_id)).unwrap_or(true)
+impl Drop for RequestClaim<'_> {
+    fn drop(&mut self) {
+        if let Ok(mut held) = self.registry.held.lock() {
+            held.remove(&self.request_id);
+        }
+        self.registry.released.notify_all();
     }
 }
 
@@ -300,6 +338,12 @@ impl Dispatcher {
             return self.execute(command, &envelope.payload, None);
         }
 
+        // H1: the whole idempotent flow runs under this request id's claim.
+        // A duplicate envelope waits here and, once let in, sees whatever the
+        // first attempt persisted — it never acts on a reservation it took
+        // before the first attempt finished.
+        let _claim = self.in_flight.claim(&envelope.request_id);
+
         // Idempotency: reserve first, so a retry can never start a second
         // piece of work whatever happens after this point.
         let payload_hash = payload_hash(&envelope.payload);
@@ -314,6 +358,8 @@ impl Dispatcher {
                 &payload_hash,
             )?
         };
+        #[cfg(test)]
+        test_hooks::after_reservation();
         match reservation {
             Reservation::Fresh => self.execute_and_record(command, &envelope),
             Reservation::Replay(stored) if stored.status == "pending" => self.settle_pending(command, &envelope, stored),
@@ -329,23 +375,20 @@ impl Dispatcher {
         }
     }
 
-    /// A `pending` receipt seen again. In order (R1):
-    /// 1. the first attempt is still executing here — say so, execute nothing;
-    /// 2. an immutable outcome row exists — the command's first answer was
+    /// A `pending` receipt seen again, under the request's claim (so no
+    /// attempt is executing in this process). In order (R1):
+    /// 1. an immutable outcome row exists — the command's first answer was
     ///    decided and recorded with the change that decided it: replay THAT
     ///    (accepted → the result, rejected → the error, begun → "never
     ///    completed its admission"), repair the receipt, execute nothing;
-    /// 3. neither — the first attempt died before it changed anything: this
+    /// 2. none — the first attempt died before it changed anything: this
     ///    is the first execution.
     fn settle_pending(
         &self,
         command: Command,
         envelope: &CommandEnvelope,
-        stored: runtime_ledger::StoredRequest,
+        _stored: runtime_ledger::StoredRequest,
     ) -> Result<Value, CommandError> {
-        if self.in_flight.contains(&envelope.request_id) {
-            return Err(pending_error(&stored.request_id, "its first attempt is still executing"));
-        }
         let recorded = {
             let conn = self.lock_db()?;
             discovery::read_request_outcome(&conn, &envelope.request_id)?
@@ -361,9 +404,6 @@ impl Dispatcher {
     }
 
     fn execute_and_record(&self, command: Command, envelope: &CommandEnvelope) -> Result<Value, CommandError> {
-        if !self.in_flight.begin(&envelope.request_id) {
-            return Err(pending_error(&envelope.request_id, "its first attempt is still executing"));
-        }
         // R3: an error that is about to be RECORDED is this request's final
         // answer. Retrying the same id can only replay it, so it must not be
         // labelled retryable; the caller starts a new request.
@@ -371,7 +411,6 @@ impl Dispatcher {
             .execute(command, &envelope.payload, Some(&envelope.request_id))
             .map_err(final_error);
         let receipt_recorded = self.record_receipt(&envelope.request_id, &outcome);
-        self.in_flight.end(&envelope.request_id);
         if receipt_recorded {
             return outcome;
         }
@@ -548,8 +587,8 @@ fn outcome_from_row(row: &discovery::RequestOutcomeRow) -> Result<Result<Value, 
     })
 }
 
-/// The one error that IS retryable with the same request id: the request is
-/// reserved but has no recorded outcome yet.
+/// Retryable with the same request id: the request is reserved but its
+/// receipt is in a state this build cannot interpret.
 fn pending_error(request_id: &str, why: &str) -> CommandError {
     CommandError::new(
         ErrorCode::Busy,
@@ -845,27 +884,35 @@ mod tests {
         assert_eq!(runtime_ledger::read_request(&conn, "req-lost").unwrap().unwrap().status, "failed");
         drop(conn);
 
-        // While an attempt IS in flight, the same id is answered pending and
-        // nothing runs.
-        {
-            let conn = dispatcher.db.lock().unwrap();
-            runtime_ledger::reserve_request(
-                &conn,
-                Some(dispatcher.epoch),
-                "req-busy",
-                &ws,
-                "discovery.pause",
-                &payload_hash(&json!({ "runId": 1 })),
-            )
-            .unwrap();
-        }
-        assert!(dispatcher.in_flight.begin("req-busy"));
-        let pending = dispatcher.dispatch(envelope(&ws, "req-busy", "discovery.pause", json!({ "runId": 1 })));
-        let error = pending.unwrap_err();
-        assert_eq!(error.code, ErrorCode::Busy);
-        assert!(error.retryable, "pending is the one retryable state");
-        assert!(error.message.contains("still executing"));
-        dispatcher.in_flight.end("req-busy");
+    }
+
+    /// H1: a duplicate envelope does not run beside its first attempt — it
+    /// waits for the claim, then replays what the first attempt recorded.
+    #[test]
+    fn a_duplicate_waits_for_the_claim_and_replays_instead_of_executing() {
+        let (dispatcher, ws, _) = dispatcher();
+        let registry = dispatcher.in_flight.clone();
+        let claim = registry.claim("req-held");
+        let (done_tx, done_rx) = std::sync::mpsc::channel();
+        std::thread::scope(|scope| {
+            scope.spawn(|| {
+                let result = dispatcher.dispatch(envelope(&ws, "req-held", "discovery.cancel", json!({ "runId": 99 })));
+                let _ = done_tx.send(result);
+            });
+            assert!(
+                done_rx.recv_timeout(std::time::Duration::from_millis(200)).is_err(),
+                "the duplicate must wait while the claim is held"
+            );
+            // Meanwhile "the first attempt" records its outcome as a receipt.
+            {
+                let conn = dispatcher.db.lock().unwrap();
+                runtime_ledger::reserve_request(&conn, Some(dispatcher.epoch), "req-held", &ws, "discovery.cancel", &payload_hash(&json!({ "runId": 99 }))).unwrap();
+                runtime_ledger::complete_request(&conn, Some(dispatcher.epoch), "req-held", Ok(&json!({ "runId": 99 }))).unwrap();
+            }
+            drop(claim);
+            let result = done_rx.recv_timeout(std::time::Duration::from_secs(5)).expect("released");
+            assert_eq!(result.unwrap(), json!({ "runId": 99 }), "replayed the first attempt's receipt, executed nothing");
+        });
     }
 
     #[test]

@@ -106,7 +106,7 @@ OS 鎖的程序。** 搶占的唯一途徑是原程序釋放或作業系統回�
 | --- | --- |
 | `protocolVersion` | 必須完全等於已知版本；不同版本一律拒絕（`UnsupportedProtocol`），不做寬鬆相容 |
 | `workspaceId` | 與 service 目前 workspace 不符即拒絕（`WorkspaceMismatch`） |
-| `requestId` | 冪等鍵。同一 `requestId` 重送回傳**第一次**的結果；不重複建立 run／account／invocation。保存期限至少 24 小時。實作（P03b）：先預約（`pending`）再執行；命令的**不可變第一次結果**寫在決定它的 store transaction 內（`request_outcomes`：`begun` → `accepted`＋結果／`rejected`＋錯誤訊息），回條失敗時重送逐字重播該列、不看 run 之後的狀態、不重做；只有 `begun` 的列重播「未完成 admission」；已記錄的失敗為該 id 的終局（`retryable=false`），`retryable=true` 只代表 pending 或「結果未能記錄」 |
+| `requestId` | 冪等鍵。同一 `requestId` 重送回傳**第一次**的結果；不重複建立 run／account／invocation。保存期限至少 24 小時。實作（P03b）：先預約（`pending`）再執行；命令的**不可變第一次結果**寫在決定它的 store transaction 內（`request_outcomes`：`begun` → `accepted`＋結果／`rejected`＋錯誤訊息），回條失敗時重送逐字重播該列、不看 run 之後的狀態、不重做；只有 `begun` 的列重播「未完成 admission」；同一 id 的重疊重送在同程序內以 per-request claim 串行化（第二個等第一個完成後重播，不重做）；已記錄的失敗為該 id 的終局（`retryable=false`），`retryable=true` 只代表 pending 或「結果未能記錄」 |
 | `command` | 白名單字串，`<domain>.<verb>`；未知命令拒絕 |
 | `payload` | 命令專屬；沿用既有 typed 契約（例如 `discovery.start` 的 payload 就是 `discovery-config-v1` envelope） |
 

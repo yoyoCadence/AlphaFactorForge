@@ -611,3 +611,155 @@ fn a_resume_that_failed_after_beginning_replays_the_failure() {
     assert_eq!(runner.progress(&db, run_id).unwrap().status, RunStatus::Failed, "not resumed again");
     assert_eq!(receipt_status(&db, "resume-1").as_deref(), Some("failed"));
 }
+
+// ---------- 2026-09-17 third-review regressions (H1 overlap, H2 cancel rollback) ----------
+
+/// H1: two envelopes with the same request id arriving together execute the
+/// command exactly once and both receive that one outcome — whichever wins
+/// the claim executes, the other waits and replays the receipt it left.
+#[test]
+fn overlapping_duplicates_execute_once_and_receive_the_same_outcome() {
+    let candles = alternating_candles(240, 1_577_836_800_000);
+    let db = migrated_db();
+    let (dataset_id, dataset_hash) = import_dataset(&db, &candles);
+    let (dispatcher, runner, workspace, sink, gate, started_rx) = gated_dispatcher(&db);
+    let run_id = paused_run(&dispatcher, &runner, &db, &workspace, runner_config(dataset_id, &dataset_hash, 2), &gate, &started_rx);
+    let done_before = done_events(&sink);
+
+    let barrier = std::sync::Barrier::new(2);
+    let (a, b) = thread::scope(|scope| {
+        let send = |label: &'static str| {
+            let dispatcher = &dispatcher;
+            let workspace = &workspace;
+            let barrier = &barrier;
+            scope.spawn(move || {
+                barrier.wait();
+                (label, dispatcher.dispatch(envelope(workspace, "cancel-dup", "discovery.cancel", json!({ "runId": run_id }))))
+            })
+        };
+        let a = send("a");
+        let b = send("b");
+        (a.join().unwrap(), b.join().unwrap())
+    });
+    assert_eq!(a.1.as_ref().unwrap(), &json!({ "runId": run_id }), "{a:?}");
+    assert_eq!(b.1.as_ref().unwrap(), &json!({ "runId": run_id }), "{b:?}");
+    assert_eq!(done_events(&sink), done_before + 1, "the cancel ran exactly once");
+    assert_eq!(receipt_status(&db, "cancel-dup").as_deref(), Some("succeeded"));
+    assert_eq!(runner.progress(&db, run_id).unwrap().status, RunStatus::Cancelled);
+
+    // And a third, later send is a plain replay of the same answer.
+    let again = dispatcher.dispatch(envelope(&workspace, "cancel-dup", "discovery.cancel", json!({ "runId": run_id })));
+    assert_eq!(again.unwrap(), json!({ "runId": run_id }));
+    assert_eq!(done_events(&sink), done_before + 1);
+}
+
+/// H1, deterministically: A is held between its reservation and its
+/// execution; B, sent meanwhile with the same id, must not get in — it waits
+/// for A's claim and then replays A's outcome. (With the claim removed, B
+/// would run inside the window and A would execute a second time.)
+#[test]
+fn a_duplicate_sent_while_the_first_is_between_reservation_and_execution_waits_and_replays() {
+    use crate::runtime::commands::test_hooks::AFTER_RESERVATION;
+
+    let candles = alternating_candles(240, 1_577_836_800_000);
+    let db = migrated_db();
+    let (dataset_id, dataset_hash) = import_dataset(&db, &candles);
+    let (dispatcher, runner, workspace, sink, gate, started_rx) = gated_dispatcher(&db);
+    let run_id = paused_run(&dispatcher, &runner, &db, &workspace, runner_config(dataset_id, &dataset_hash, 2), &gate, &started_rx);
+    let done_before = done_events(&sink);
+
+    let (a_reserved_tx, a_reserved_rx) = mpsc::channel::<()>();
+    let (go_tx, go_rx) = mpsc::channel::<()>();
+    let (b_done_tx, b_done_rx) = mpsc::channel();
+    let (a, b) = thread::scope(|scope| {
+        let a = scope.spawn(|| {
+            AFTER_RESERVATION.with(|slot| {
+                *slot.borrow_mut() = Some(Box::new(move || {
+                    let _ = a_reserved_tx.send(());
+                    let _ = go_rx.recv_timeout(TEST_TIMEOUT);
+                }))
+            });
+            dispatcher.dispatch(envelope(&workspace, "cancel-dup", "discovery.cancel", json!({ "runId": run_id })))
+        });
+        a_reserved_rx.recv_timeout(TEST_TIMEOUT).expect("A is past its reservation");
+
+        let b = scope.spawn(|| {
+            let result = dispatcher.dispatch(envelope(&workspace, "cancel-dup", "discovery.cancel", json!({ "runId": run_id })));
+            let _ = b_done_tx.send(());
+            result
+        });
+        assert!(b_done_rx.recv_timeout(Duration::from_millis(300)).is_err(), "B must wait for A's claim");
+        assert_eq!(done_events(&sink), done_before, "nothing executed while A is held");
+
+        go_tx.send(()).unwrap();
+        (a.join().unwrap(), b.join().unwrap())
+    });
+    assert_eq!(a.as_ref().unwrap(), &json!({ "runId": run_id }), "A executed: {a:?}");
+    assert_eq!(b.as_ref().unwrap(), &json!({ "runId": run_id }), "B replayed A: {b:?}");
+    assert_eq!(done_events(&sink), done_before + 1, "the cancel ran exactly once");
+    assert_eq!(receipt_status(&db, "cancel-dup").as_deref(), Some("succeeded"));
+}
+
+/// H2: a cancel whose transaction rolls back must not consume the pending
+/// pause's request id. The pause is still waiting, completion later commits
+/// and records its acceptance, and a retry of the pause replays that success.
+#[test]
+fn a_rolled_back_cancel_leaves_the_pause_request_to_the_transaction_that_answers_it() {
+    let candles = alternating_candles(240, 1_577_836_800_000);
+    let db = migrated_db();
+    let (dataset_id, dataset_hash) = import_dataset(&db, &candles);
+    let (dispatcher, runner, workspace, _sink, gate, started_rx) = gated_dispatcher(&db);
+    let config = runner_config(dataset_id, &dataset_hash, 1);
+
+    let started = dispatcher.dispatch(envelope(&workspace, "start", "discovery.start", config)).expect("start");
+    let run_id = started["runId"].as_i64().unwrap();
+    assert_eq!(started_rx.recv_timeout(TEST_TIMEOUT).unwrap(), 0);
+
+    deny(&db, "deny_receipt", "UPDATE ON command_requests");
+    let (pause_tx, pause_rx) = mpsc::channel();
+    let first = thread::scope(|scope| {
+        scope.spawn(|| {
+            let _ = pause_tx.send(dispatcher.dispatch(envelope(&workspace, "pause-1", "discovery.pause", json!({ "runId": run_id }))));
+        });
+        wait_for_phase(&runner, run_id, ControlPhase::PauseRequested);
+
+        // A cancel that cannot commit: the run stays running, the pause
+        // stays waiting, and its request id must stay with it.
+        db.lock()
+            .unwrap()
+            .execute_batch(
+                "CREATE TEMP TRIGGER deny_cancel BEFORE UPDATE OF status ON discovery_runs
+                 WHEN NEW.status = 'cancelled' BEGIN SELECT RAISE(ABORT, 'deny_cancel'); END;",
+            )
+            .unwrap();
+        let cancelled = dispatcher.dispatch(envelope(&workspace, "cancel-1", "discovery.cancel", json!({ "runId": run_id })));
+        let cancel_error = cancelled.unwrap_err();
+        assert!(cancel_error.message.contains("deny_cancel"), "{cancel_error:?}");
+        assert!(pause_rx.try_recv().is_err(), "the pause is still waiting");
+        assert_eq!(runner.progress(&db, run_id).unwrap().status, RunStatus::Running);
+        {
+            let conn = db.lock().unwrap();
+            assert!(discovery::read_request_outcome(&conn, "pause-1").unwrap().is_none(), "nothing recorded for the pause yet");
+            assert!(discovery::read_request_outcome(&conn, "cancel-1").unwrap().is_none(), "the rolled-back cancel left no outcome");
+        }
+        allow(&db, "deny_cancel");
+
+        // Completion wins over the still-pending pause and records its success.
+        gate.release();
+        pause_rx.recv_timeout(TEST_TIMEOUT).expect("pause answered")
+    });
+    assert_eq!(first.as_ref().unwrap(), &json!({ "runId": run_id }));
+    wait_for_run_status(&runner, &db, run_id, RunStatus::Completed);
+    wait_for_coordinator_exit(&runner, run_id);
+    {
+        let conn = db.lock().unwrap();
+        let row = discovery::read_request_outcome(&conn, "pause-1").unwrap().expect("pause accepted with the completion");
+        assert_eq!(row.stage, crate::db::discovery::OutcomeStage::Accepted);
+    }
+    assert_eq!(receipt_status(&db, "pause-1").as_deref(), Some("pending"), "receipt was refused");
+    allow(&db, "deny_receipt");
+
+    let retry = dispatcher.dispatch(envelope(&workspace, "pause-1", "discovery.pause", json!({ "runId": run_id })));
+    assert_eq!(retry.unwrap(), first.unwrap(), "the recorded success, not 'no active coordinator'");
+    assert_eq!(receipt_status(&db, "pause-1").as_deref(), Some("succeeded"));
+}

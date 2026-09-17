@@ -4,7 +4,7 @@ Date: 2026-09-17
 Repo: yoyoCadence/AlphaFactorForge
 Branch: `docs/p00-contract-precheck`（P03a 驗收修正 `7d7f774` 之後續做；本機 git，GitHub 仍鎖）
 PR: 尚未建立
-Status: P03b 複驗 R1（第一次結果不可變重播）與 M1 已修正並有回歸（2026-09-17，Rust 201／vitest 874）；待第三次驗收後再進 P04
+Status: 第三次驗收 H1（重疊重送）與 H2（cancel 回滾遺失 pause requestId）已修正並有確定性回歸（2026-09-17，Rust 205／vitest 874）；待第四次驗收後再進 P04
 
 ## Summary
 
@@ -307,3 +307,91 @@ heartbeat 都不會解除。測試預期已補齊後為 false，實際為 true�
   暫存目錄無殘留。Playwright 未重跑（無 UI 變更）；原生 Tauri 未執行。
 - 殘餘限制（如實記錄）：coordinator 的 fail／complete／cancel transaction 本身失敗時，`pause` 仍依 phase 回答但沒有持久列
   （DB 層故障）；帳本 append 仍在 runner commit 之後、非同一 transaction，由 `stateVersion`／`ledgerGap` 補救。
+
+## Resolution — Codex 第三次驗收 `d7a4e3e`（2026-09-17）
+
+Base：`c5832be`；分支 `docs/p00-contract-precheck`，開始時 worktree clean。
+**仍不通過**：前輪 start 後續失敗、partial start、completion 勝出的 pause 與 M1
+均已有回歸且通過；但以下兩項仍會破壞相同 requestId 的結果一致性。
+
+### H1（High）：reserve 與 in-flight claim 分離，重疊重送會再次執行並回不同答案
+
+- 位置：`runtime/commands.rs:317–319` 的 Fresh／pending 分流，338 行起的
+  `settle_pending`，363 行起的 `execute_and_record`。
+- 確定性重現：A reserve 得 Fresh，**尚未**呼叫 `in_flight.begin` 時暫停；B 以
+  相同 envelope／同一 dispatcher／同一 `InFlightRequests` 進來，讀到 pending，
+  但 in-flight 為空、沒有 outcome，所以執行 cancel 並保存 accepted／succeeded，
+  回 `Ok({runId:1})`。待 B 完成並清掉 in-flight 後，讓 A 繼續。A 仍使用舊的 Fresh
+  判定，begin 成功後再次執行 cancel，回 `Validation: ... is cancelled`。
+  第三次相同 id 依 receipt 重播 Ok。無需任何 DB 故障即可得到同 id 的不同終局答案。
+- 驗收插樁只放在 reservation 區塊結束、match 之前，模擬 A 被排程器暫停而 B
+  跑完的合法交錯；未修改 reserve／execute／receipt／outcome 實作。
+- 修正要求：對同一 requestId 的「取得執行權 → 讀取並判定 receipt/outcome →
+  執行或重播 → 完成」使用完整的互斥／claim 流程。若拿到執行權前曾釋放控制，
+  必須在取得後重新讀取持久狀態，不能繼續使用先前的 Fresh 或無 outcome 判定。
+  `settle_pending` 的 contains→read→begin 窗口也要一起處理；共享 set 本身不足以
+  保證整段流程原子。補上述交錯的回歸，確認只執行一次且已完成後都回同一結果。
+
+### H2（High）：cancel 回滾提前消耗 pause requestId，後續成功仍沒有可重播結果
+
+- 位置：`discovery_runner/mod.rs:757–766`：先 `state.pause_request_id.take()`，
+  再進入 cancel transaction；`pause_run_after_drain`、`complete_run_after_commit`、
+  `fail_run_after_commit` 也有相同的提前 take 模式。
+- 確定性重現：單 candidate gated run，dispatch pause 並等到 PauseRequested；
+  暫時拒絕 command receipt UPDATE，另以 TEMP TRIGGER 只拒絕 run 的 Cancelled
+  狀態 UPDATE。dispatch cancel，因此 cancel transaction 整筆 rollback。
+  此時 run 仍 running、pause 仍等待，但 pause requestId 已從 ControlState 消失。
+  移除 cancel trigger、放行 worker，completion 正常提交並令 pause 回成功；
+  因 requestId 已丟失，沒有 pause outcome。解除 receipt 故障後同 id 重送，
+  回 `Validation: discovery run 1 has no active coordinator`，不是原成功。
+- 這不僅是「DB 持續壞掉，無法保存任何結果」：取消已回滾，後續 completion 的
+  domain transaction **成功提交**，原本可以同時保存 pause 結果；資訊是在記憶體
+  中先被消耗，SQLite rollback 無法替它恢復。
+- 修正要求：transaction 成功提交後才清除 pause requestId，或失敗時恢復它。
+  讓未解決的 pause 保留到真正決定它的 transition／completion／failure／cancel，
+  並檢查所有提前 take 的分支，尤其 complete／pause transition 失敗後轉 fail 的路徑。
+  補「cancel 回滾 → pause 後續成功 → receipt 恢復重播成功」的回歸。
+
+### 驗證與工作目錄
+
+- 基線 `cargo test --locked`：**201 passed（52 + 149）**；`npm.cmd test`：
+  **874 passed**；typecheck／build 通過；cargo check 無 warning；clippy --tests
+  成功，只有原有 core 的 4 個 warnings。
+- 臨時 probes：`cargo test --locked review_ -- --nocapture` **2 failed**：
+
+  ```text
+  overlap: original=Err(Validation, ... is cancelled), duplicate=Ok({runId:1}), replay=Ok({runId:1})
+  cancel rollback: pause=Ok({runId:1}), outcome=None, replay=Err(Validation, ... no active coordinator)
+  ```
+
+- H1 使用 cfg(test) 的一次性排程 callback；H2 使用真實 dispatcher／runner、gated
+  executor 與 SQLite TEMP TRIGGER。測試與 callback 已移除，source 回到受驗 commit；
+  僅本 handoff 有修改。未重跑 Playwright／原生 Tauri UI，未 commit／push。
+- migration 0006 的本機未發布改寫已由原作者揭露；本次沒有原生 app-data 升級驗證，
+  不把這次 fresh DB 測試解讀成舊版 0006 workspace 的升級證明。
+- 下一步先修 H1/H2，再重新確認 P03b／ABC-01 的 Done；P04 尚未開始。
+
+## Resolution — 第三次驗收 H1／H2 修正與回歸（2026-09-17，Claude Code）
+
+使用者要求修正；沿用 `docs/p00-contract-precheck`，保留上方三次驗收紀錄。
+
+- **H1 已關閉（重疊重送只執行一次、同答案）**：`InFlightRequests` 改為 per-request claim（`Mutex<HashSet>`＋`Condvar`，
+  `claim(request_id)` 阻塞直到該 id 空閒，`RequestClaim` drop 時釋放並喚醒）。mutating envelope 在 **reserve 之前**取得 claim，
+  並持有整段「reserve → 讀 receipt/outcome → 執行或重播 → 完成」；重複 envelope 在 claim 上等待，進入後重新讀取持久狀態
+  （已有 receipt → 重播），不再沿用先前的 Fresh／無 outcome 判定。原本分離的 `begin`／`end`／`contains` 與「執行中→pending」回覆移除。
+- **H2 已關閉（pause requestId 只在 transaction 提交後清除）**：cancel（含 control 分支）、drain 的 Paused 轉換、completion、
+  failure 四處由 `take()` 改為 `clone()`，成功 commit 後才 `state.pause_request_id = None`；transaction 回滾時 pause 仍掛在
+  ControlState，交給之後真正解決它的 transition／completion／failure／cancel 記錄結果。
+- **回歸（`discovery_runner/tests/commands.rs`）**：
+  `a_duplicate_sent_while_the_first_is_between_reservation_and_execution_waits_and_replays`（`#[cfg(test)]` thread-local hook
+  `runtime::commands::test_hooks::AFTER_RESERVATION` 把 A 停在 reservation 之後；B 同 id 送入必須在 300 ms 內不返回且無事件；
+  放行 A → A 執行、B 重播同一 Ok、Done 只多 1、receipt succeeded）；`overlapping_duplicates_execute_once_and_receive_the_same_outcome`
+  （Barrier 同時送入，兩者同 Ok、Done 只多 1）；`a_rolled_back_cancel_leaves_the_pause_request_to_the_transaction_that_answers_it`
+  （單 candidate；PauseRequested 後以 `BEFORE UPDATE OF status … WHEN NEW.status = 'cancelled'` 讓 cancel 回滾；run 仍 running、pause 仍等待、
+  兩者皆無 outcome 列；放行 worker → completion 勝出 → pause Ok 且 outcome accepted；解除 receipt 故障後同 id 重送 → 重播 Ok）；
+  單元測試 `a_duplicate_waits_for_the_claim_and_replays_instead_of_executing`（持有 claim 時 dispatch 阻塞、釋放後重播 receipt）。
+  突變檢查：claim 不等待 → 確定性 H1 測試紅；cancel 改回 `take()` → H2 測試紅；還原後全綠。
+- **驗證**：`cargo test --locked` **205 passed（52 + 153）**；`npm.cmd test` **874**；typecheck／build 通過；一般 build 0 warning；
+  clippy 新模組無 warning；暫存目錄無殘留。Playwright 未重跑（無 UI 變更）；原生 Tauri 未執行。
+- 範圍說明：claim 只覆蓋同一程序（同一 `InFlightRequests`）；跨程序的同 id 重送由 lease（只有 owner 能執行）與 `command_requests`
+  reservation 的 `BEGIN IMMEDIATE` 串行化，本次未新增測試。migration 0006 的本機改寫維持前次揭露，未做舊 0006 workspace 升級驗證。
