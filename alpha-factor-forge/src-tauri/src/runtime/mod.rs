@@ -62,6 +62,25 @@ mod tests {
             .join(db::DB_FILE_NAME)
     }
 
+    /// Removes the test's temp root on drop. Every test drops its workspace
+    /// (and with it the SQLite connection) BEFORE this guard runs, otherwise
+    /// Windows refuses to delete the open database file; a failed removal is
+    /// reported instead of silently leaving directories behind (P02 review).
+    struct TempRoot(PathBuf);
+
+    impl Drop for TempRoot {
+        fn drop(&mut self) {
+            if self.0.exists() {
+                std::fs::remove_dir_all(&self.0)
+                    .unwrap_or_else(|error| panic!("temp root {} not removed: {error}", self.0.display()));
+            }
+        }
+    }
+
+    fn temp_root_of(db_path: &std::path::Path) -> TempRoot {
+        TempRoot(db_path.parent().unwrap().parent().unwrap().to_path_buf())
+    }
+
     fn pragma<T: rusqlite::types::FromSql>(conn: &rusqlite::Connection, name: &str) -> T {
         conn.query_row(&format!("PRAGMA {name}"), [], |row| row.get(0))
             .expect("pragma readable")
@@ -70,6 +89,7 @@ mod tests {
     #[test]
     fn open_workspace_creates_the_directory_migrates_and_sets_the_connection_pragmas() {
         let path = fresh_db_path();
+        let _root = temp_root_of(&path);
         assert!(!path.parent().unwrap().exists(), "the directory must not pre-exist");
 
         let workspace = open_workspace(&path).expect("fresh open");
@@ -89,13 +109,13 @@ mod tests {
             .unwrap();
         assert_eq!(applied, 3, "0001–0003 applied on first open");
         drop(conn);
-
-        let _ = std::fs::remove_dir_all(path.parent().unwrap().parent().unwrap());
+        drop(workspace);
     }
 
     #[test]
     fn reopening_the_same_path_is_idempotent_and_keeps_stored_rows() {
         let path = fresh_db_path();
+        let _root = temp_root_of(&path);
         let first = open_workspace(&path).expect("first open");
         first
             .db
@@ -116,13 +136,13 @@ mod tests {
             .unwrap();
         assert_eq!(value, "\"kept\"");
         drop(conn);
-
-        let _ = std::fs::remove_dir_all(path.parent().unwrap().parent().unwrap());
+        drop(second);
     }
 
     #[test]
     fn open_workspace_repairs_an_orphaned_running_run_before_returning() {
         let path = fresh_db_path();
+        let _root = temp_root_of(&path);
         {
             // Leave the database exactly as a crash would: a `running` run row
             // with a `running` job, and no process to own it.
@@ -152,7 +172,6 @@ mod tests {
             .unwrap();
         assert_eq!(job, "queued");
         drop(conn);
-
-        let _ = std::fs::remove_dir_all(path.parent().unwrap().parent().unwrap());
+        drop(workspace);
     }
 }
