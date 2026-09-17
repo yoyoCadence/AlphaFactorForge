@@ -208,7 +208,7 @@ Phase D: Deferred Automation
 
 Phase D 明確不屬於第一輪實作範圍。
 
-持續研究計畫（2026-09-16 起）：`docs/plans/active-plan.md` 把 Phase C／D 與 AlphaBTC 承接工作重排為 P00–P22 共 23 個有界 phase（每次一個 phase）。已完成 **P00 契約與相容性預檢**：第一個 AI provider 定為 **Codex／ChatGPT 訂閱**（經本機 `codex app-server`，不轉成 API key；上面 Phase C 的 keychain 路徑保留給其他 provider），runtime／AI／市場契約已凍結（`docs/research-runtime-contract.md`、`docs/ai-provider-contract.md`、`docs/market-contract.md`），可用／阻擋能力登記在 `docs/autonomous-research-capability-registry.md`。**P01 Results Explorer 已完成（2026-09-16）**：可重新開啟已保存的驗證紀錄（Validation 排名、Test 隱藏）、回測摘要與交易明細，缺漏的歷史明細如實呈現。**P02–P03 已完成（2026-09-17）**：runner／DB 層不再依賴 Tauri，桌面以 OS 鎖＋ownership epoch＋heartbeat 持有工作區（第二個宿主會被拒、舊 worker 不能寫入、舊版程式拒開較新 schema），並有 `research-command-v1` 冪等命令 envelope 與跨重啟的持久事件帳本（見 `STRATEGY_DISCOVERY.md` §4）。目前 **AI unattended 模式、關閉 UI 後持續研究、ETF 市場語意、paper 帳戶都尚未交付**；phase 狀態以 `tasks.md` 為準。
+持續研究計畫（2026-09-16 起）：`docs/plans/active-plan.md` 把 Phase C／D 與 AlphaBTC 承接工作重排為 P00–P22 共 23 個有界 phase（每次一個 phase）。已完成 **P00 契約與相容性預檢**：第一個 AI provider 定為 **Codex／ChatGPT 訂閱**（經本機 `codex app-server`，不轉成 API key；上面 Phase C 的 keychain 路徑保留給其他 provider），runtime／AI／市場契約已凍結（`docs/research-runtime-contract.md`、`docs/ai-provider-contract.md`、`docs/market-contract.md`），可用／阻擋能力登記在 `docs/autonomous-research-capability-registry.md`。**P01 Results Explorer 已完成（2026-09-16）**：可重新開啟已保存的驗證紀錄（Validation 排名、Test 隱藏）、回測摘要與交易明細，缺漏的歷史明細如實呈現。**P02–P03 已完成（2026-09-17）**：runner／DB 層不再依賴 Tauri，桌面以 OS 鎖＋ownership epoch＋heartbeat 持有工作區（第二個宿主會被拒、舊 worker 不能寫入、舊版程式拒開較新 schema），並有 `research-command-v1` 冪等命令 envelope 與跨重啟的持久事件帳本（見 `STRATEGY_DISCOVERY.md` §4）。**P04a 已完成（2026-09-17）**：無介面研究 service `alpha-factor-forge-service`（同一 Cargo package 的第二個 binary；`run` 持有工作區並在 `127.0.0.1` 動態 port 提供 token 保護的 loopback 控制介面，`stop` 讓它把進行中的 run drain 到 checkpoint 再退出，`status` 顯示端點；`--data-dir` 可指定隔離工作區）。桌面目前仍自己持有工作區，**桌面尚不能連接執行中的 service**（P04b）：兩者不能同時開同一工作區，後開的一方會被 OS 鎖拒絕。目前 **AI unattended 模式、桌面 connect 模式、ETF 市場語意、paper 帳戶都尚未交付**；phase 狀態以 `tasks.md` 為準。
 
 ### 已知問題與待確認
 
@@ -252,6 +252,16 @@ Rust/Tauri prerequisites 與 icons 準備好後再啟動 desktop app：
 ```bash
 cd alpha-factor-forge
 cargo tauri dev
+```
+
+無介面 service（P04a；桌面關閉時才能取得工作區鎖，Windows 預設工作區為 `%APPDATA%\com.alphafactorforge.desktop`）：
+
+```bash
+cd alpha-factor-forge/src-tauri
+cargo run --bin alpha-factor-forge-service -- run      # 持有工作區並服務，直到 stop
+cargo run --bin alpha-factor-forge-service -- status   # 顯示已發布的端點與是否回應
+cargo run --bin alpha-factor-forge-service -- stop     # drain 進行中的 run 到 checkpoint 後退出
+# 隔離工作區：加 --data-dir <目錄>；exit code：2 另一宿主持有、3 資料庫較新、4 無 service
 ```
 
 ---
@@ -378,7 +388,7 @@ Phase D: Deferred Automation
 
 Phase D is explicitly out of the first implementation pass.
 
-Continuous research plan (from 2026-09-16): `docs/plans/active-plan.md` re-sequences Phase C/D and the AlphaBTC transfer work into 23 bounded phases, P00–P22 (one phase per session). **P00, the contract and compatibility precheck, is done**: the first AI provider is the **Codex/ChatGPT subscription** via the local `codex app-server` (never converted to an API key; the keychain path in Phase C above is kept for other providers), the runtime/AI/market contracts are frozen (`docs/research-runtime-contract.md`, `docs/ai-provider-contract.md`, `docs/market-contract.md`), and available/blocked capabilities are recorded in `docs/autonomous-research-capability-registry.md`. **P01 Results Explorer is done (2026-09-16)**: saved validation records (Validation ranking, Test hidden), backtest summaries, and trades can be re-opened, with missing history stated honestly. **P02–P03 are done (2026-09-17)**: the runner and database layer no longer depend on Tauri, the desktop owns its workspace through an OS lock + ownership epoch + heartbeat (a second host is refused, a stale worker cannot write, an older build refuses a newer schema), and the `research-command-v1` idempotent command envelope plus a restart-safe event ledger exist (see `STRATEGY_DISCOVERY.md` §4). **AI unattended mode, research that continues after the UI closes, ETF market semantics, and paper accounts are not delivered yet**; phase status lives in `tasks.md`.
+Continuous research plan (from 2026-09-16): `docs/plans/active-plan.md` re-sequences Phase C/D and the AlphaBTC transfer work into 23 bounded phases, P00–P22 (one phase per session). **P00, the contract and compatibility precheck, is done**: the first AI provider is the **Codex/ChatGPT subscription** via the local `codex app-server` (never converted to an API key; the keychain path in Phase C above is kept for other providers), the runtime/AI/market contracts are frozen (`docs/research-runtime-contract.md`, `docs/ai-provider-contract.md`, `docs/market-contract.md`), and available/blocked capabilities are recorded in `docs/autonomous-research-capability-registry.md`. **P01 Results Explorer is done (2026-09-16)**: saved validation records (Validation ranking, Test hidden), backtest summaries, and trades can be re-opened, with missing history stated honestly. **P02–P03 are done (2026-09-17)**: the runner and database layer no longer depend on Tauri, the desktop owns its workspace through an OS lock + ownership epoch + heartbeat (a second host is refused, a stale worker cannot write, an older build refuses a newer schema), and the `research-command-v1` idempotent command envelope plus a restart-safe event ledger exist (see `STRATEGY_DISCOVERY.md` §4). **P04a is done (2026-09-17)**: the headless research service `alpha-factor-forge-service` (a second binary of the same Cargo package; `run` owns the workspace and serves a token-protected loopback control API on a `127.0.0.1` port the OS picks, `stop` drains a running run to a checkpoint before it exits, `status` shows the endpoint; `--data-dir` selects an isolated workspace). The desktop still owns the workspace itself and **cannot connect to a running service yet** (P04b): the two cannot open the same workspace at once, the later one is refused by the OS lock. **AI unattended mode, the desktop connect mode, ETF market semantics, and paper accounts are not delivered yet**; phase status lives in `tasks.md`.
 
 ### Known Issues And Open Questions
 
@@ -548,7 +558,7 @@ Phase D: Deferred Automation
 
 Phase D は最初の実装範囲には含めません。
 
-継続研究計画（2026-09-16 以降）：`docs/plans/active-plan.md` は Phase C／D と AlphaBTC 移管作業を P00–P22 の 23 の有界フェーズに再編します（1 セッション 1 フェーズ）。**P00 契約・互換性事前確認は完了**：最初の AI プロバイダはローカル `codex app-server` 経由の **Codex／ChatGPT サブスクリプション**（API key へは変換しない。上記 Phase C の keychain 経路は他プロバイダ用に保持）、runtime／AI／市場契約を凍結（`docs/research-runtime-contract.md`、`docs/ai-provider-contract.md`、`docs/market-contract.md`）、利用可能／ブロック中の能力は `docs/autonomous-research-capability-registry.md` に記録。**P01 Results Explorer は完了（2026-09-16）**：保存済みの検証記録（Validation 順位、Test は非表示）、バックテスト要約、約定明細を再び開けます。欠けた履歴はそのまま明示します。**P02–P03 は完了（2026-09-17）**：runner／DB 層は Tauri に依存せず、デスクトップは OS ロック＋ownership epoch＋heartbeat でワークスペースを保持します（第二のホストは拒否、古い worker は書き込めず、古いビルドは新しい schema を開きません）。`research-command-v1` の冪等コマンド envelope と再起動をまたぐイベント台帳もあります（`STRATEGY_DISCOVERY.md` §4）。**AI 無人モード、UI 終了後も続く研究、ETF 市場セマンティクス、paper 口座はまだ未提供**。フェーズ状況は `tasks.md` が正です。
+継続研究計画（2026-09-16 以降）：`docs/plans/active-plan.md` は Phase C／D と AlphaBTC 移管作業を P00–P22 の 23 の有界フェーズに再編します（1 セッション 1 フェーズ）。**P00 契約・互換性事前確認は完了**：最初の AI プロバイダはローカル `codex app-server` 経由の **Codex／ChatGPT サブスクリプション**（API key へは変換しない。上記 Phase C の keychain 経路は他プロバイダ用に保持）、runtime／AI／市場契約を凍結（`docs/research-runtime-contract.md`、`docs/ai-provider-contract.md`、`docs/market-contract.md`）、利用可能／ブロック中の能力は `docs/autonomous-research-capability-registry.md` に記録。**P01 Results Explorer は完了（2026-09-16）**：保存済みの検証記録（Validation 順位、Test は非表示）、バックテスト要約、約定明細を再び開けます。欠けた履歴はそのまま明示します。**P02–P03 は完了（2026-09-17）**：runner／DB 層は Tauri に依存せず、デスクトップは OS ロック＋ownership epoch＋heartbeat でワークスペースを保持します（第二のホストは拒否、古い worker は書き込めず、古いビルドは新しい schema を開きません）。`research-command-v1` の冪等コマンド envelope と再起動をまたぐイベント台帳もあります（`STRATEGY_DISCOVERY.md` §4）。**P04a は完了（2026-09-17）**：ヘッドレス研究サービス `alpha-factor-forge-service`（同じ Cargo package の第二バイナリ。`run` はワークスペースを保持し、OS が選ぶ `127.0.0.1` ポートで token 保護の loopback 制御 API を提供、`stop` は実行中の run を checkpoint まで drain してから終了、`status` はエンドポイントを表示。`--data-dir` で隔離ワークスペースを指定可）。デスクトップは引き続き自身でワークスペースを保持し、**実行中のサービスへはまだ接続できません**（P04b）。両者は同じワークスペースを同時に開けず、後から開いた側が OS ロックで拒否されます。**AI 無人モード、デスクトップ connect モード、ETF 市場セマンティクス、paper 口座はまだ未提供**。フェーズ状況は `tasks.md` が正です。
 
 ### 既知の問題と確認事項
 

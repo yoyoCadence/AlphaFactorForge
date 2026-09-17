@@ -23,7 +23,17 @@
 #[cfg(test)]
 mod boundary_tests;
 pub mod commands;
+// P04a: the service half of the runtime. The desktop binary compiles it (one
+// package, shared modules) but only the service binary calls it until the
+// desktop's connect mode (P04b) does; until then it is dead there by design
+// and the allowance below goes away with P04b.
+#[allow(dead_code)]
+pub mod control_api;
+#[allow(dead_code)]
+pub mod control_client;
 pub mod lease;
+#[allow(dead_code)]
+pub mod service;
 
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};

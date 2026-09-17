@@ -167,10 +167,10 @@ AI 與生成器都只輸出這種結構：
 - **平行度**：backend 依 CPU 核心數開 worker thread pool 跑回測，與前端完全解耦。
 - **K 線快取**：同（幣種×時間框×區段）只讀一次，backend 內共享，後續策略複用。
 
-### 宿主、所有權與命令契約（P02–P03，2026-09-17 補充）
+### 宿主、所有權與命令契約（P02–P04a，2026-09-17 補充）
 > 詳細規則見 [`docs/research-runtime-contract.md`](docs/research-runtime-contract.md)；本節只記結論。
 
-- **三種宿主**：桌面嵌入模式（今天的 `main.rs`）、無介面 service（P04）、桌面 connect 模式（P04）。開庫、migration、建 runner、孤兒恢復集中在 host-agnostic 的 `runtime::open_workspace`；runner 與 DB 層不引用 Tauri（`runtime::boundary_tests` 守衛）。
+- **三種宿主**：桌面嵌入模式（今天的 `main.rs`）、無介面 service（P04a 已交付：`alpha-factor-forge-service run|stop|status [--data-dir]`，同一 Cargo package 的第二個 binary，經 `127.0.0.1` 動態 port 的 loopback 控制介面接受 envelope，manifest 與 token 放在工作區目錄；關 UI 後 run 繼續、重連採同一 run、關閉時 drain 到 Paused checkpoint）、桌面 connect 模式（P04b，桌面尚未能連接 service）。開庫、migration、建 runner、孤兒恢復集中在 host-agnostic 的 `runtime::open_workspace`；runner 與 DB 層不引用 Tauri（`runtime::boundary_tests` 守衛）。
 - **誰持有 lease 誰能寫**：啟動順序固定為 OS 排他鎖（`ownership.lock`）→ 開 SQLite → migration → `workspace_ownership` epoch+1 → 孤兒恢復 → 5 秒 heartbeat。第二個宿主拿不到鎖直接被拒；runner 每次寫入在 `BEGIN IMMEDIATE` transaction 內檢查 epoch，舊 worker 回報得到 `StaleOwner`。heartbeat 過期只標「失聯」，不授權搶占。舊 binary 遇到較新 schema 整個拒開。
 - **版本化命令**：跨宿主命令一律走 `research-command-v1` envelope（`protocolVersion`、`workspaceId`、`requestId`、`command`、`payload`），由 `runtime::commands::Dispatcher` 執行：版本必須完全相符、workspace 必須相符、命令白名單（`discovery.*`、`events.read`、`ownership.read`），mutating 命令以 `requestId` 冪等（先預約後執行，重送回放第一次結果；同 id 不同內容 → `DuplicateRequest`；第一次未完成 → `Busy`）。錯誤是結構化的 `{ code, message, retryable }`。
 - **持久事件帳本**：runner 事件 commit 後先寫入 `runtime_events`（跨重啟單調遞增的 `eventId`）再送給宿主；重連順序固定為「先讀 snapshot（`discovery.active`／`progress`，附 `stateVersion`），再 `events.read` 以 `afterEventId` 續接；空頁面但 `stateVersion` 前進或有 `ledgerGap` 就重讀 snapshot」。上面的 Tauri event 協定仍是桌面的即時快路徑，不變。

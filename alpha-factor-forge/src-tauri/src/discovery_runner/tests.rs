@@ -12,6 +12,7 @@ const RUNNER_CONFIG_FIXTURE: &str = include_str!("../../../fixtures/rs-core/runn
 const TEST_TIMEOUT: Duration = Duration::from_secs(10);
 
 mod commands;
+mod control_api;
 mod ownership;
 
 thread_local! {

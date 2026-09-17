@@ -16,13 +16,14 @@
 | --- | --- | --- | --- |
 | 桌面嵌入模式（Tauri 內建 runner、啟動 recovery） | 可用 | `src-tauri/src/main.rs` `setup`；PR #103 native smoke lane | — |
 | desktop single-instance | 可用 | RUNNER-OWNERSHIP-001；`single_instance.rs` | — |
-| 關閉 UI 後研究繼續 | 阻擋 | runner 生命週期仍與 Tauri 程序綁定（沒有 service binary）。P02 已解除程式碼層耦合：sink 在 `desktop/discovery_events.rs`、`db::open_at(path)`、`runtime::open_workspace(path)` 皆不依賴 Tauri（`runtime::boundary_tests` 守衛） | P04 service |
+| 關閉 UI 後研究繼續 | 可用（service 宿主） | P04a（2026-09-17）：`alpha-factor-forge-service run` 以 host kind `service` 持有工作區，run 由 service 程序內的 coordinator 執行，啟動它的 client 消失後仍繼續；重連 = `discovery.active` → `events.read` cursor（Rust 測試 `a_run_started_over_the_api_continues_without_its_client_and_a_new_client_adopts_it`、`tests/service_smoke.rs`）。**桌面尚未能連接 service**（桌面仍自己持有工作區；桌面開著時 service 拿不到鎖，反之亦然） | P04b connect 模式 |
 | host-agnostic runtime（`runtime::open_workspace`：開庫→migration→runner→孤兒恢復） | 可用 | P02；桌面 `main.rs` 只提供 app data dir 路徑；未提供 headless 排程或 service binary | — |
 | 跨宿主 workspace ownership（OS 鎖＋epoch＋heartbeat） | 可用 | P03a（2026-09-17，含 review R1/R2 修正）：`runtime/lease.rs`（std `File::try_lock`，未加 crate）、migration 0004 `workspace_ownership`、`db/ownership.rs`；所有 runner store 寫入（含 claim、strategy／run／progress）在 `BEGIN IMMEDIATE` transaction 內檢查 epoch；雙啟／lease 釋放接手／舊 coordinator claim／檢查後換手再 cancel／跨連線 transaction 排他／heartbeat 有測試。connect 模式待 P04 | — |
 | SQLite `busy_timeout` | 可用 | P02：`db::open_at` 設 `BUSY_TIMEOUT = 5 s`，runtime 測試斷言 `PRAGMA busy_timeout = 5000` | — |
 | 舊 binary 拒絕較新 schema | 可用 | P03a：`apply_migrations` 遇未知 `schema_migrations` 版本回 `SchemaTooNew`，整個開啟失敗（含讀取，比契約「拒絕寫入」更嚴） | — |
 | 冪等命令／持久事件 ledger | 可用 | P03b（2026-09-17）：`research-command-v1` dispatcher（reserve-then-complete by requestId）、`runtime_events` 帳本（AUTOINCREMENT eventId，跨重啟不重用）、`events.read` cursor；桌面命令 `dispatch_research_command`／`get_workspace_info`。UI 尚未改走 envelope（P04） | — |
-| loopback 控制介面 | 可規劃 | 契約 §4；`hyper 1.10.1`、`tokio 1.52.3` 已在 `Cargo.lock`（由 tauri 依賴帶入，非直接依賴） | P04 |
+| loopback 控制介面 | 可用 | P04a：`runtime/control_api.rs` std-only HTTP/1.1（未採 hyper／tokio）；`127.0.0.1` 動態 port、manifest `control-endpoint.json`＋`control-token`（`getrandom` CSPRNG、constant-time 比對）、Host／Origin 檢查、body／head 上限、`/v1/info`／`/v1/commands`／`/v1/events` long-poll／`/v1/shutdown`；curl 實測 401／200／403／long-poll。`dirs`、`getrandom` 由 tauri 既有鎖定版本升為直接依賴，無新 crate | — |
+| 桌面 connect 模式（另一宿主持有工作區時桌面只做代理） | 可規劃 | 契約 §1.1 desktop-connect、§4 client 已有（`runtime/control_client.rs`）；桌面 `main.rs` 仍在 `NotOwner` 時 panic | P04b |
 | VS Code MCP 入口 | 可規劃 | 依賴 P04 控制介面；MCP 協定本身由本專案的 stdio adapter 實作 | P16 |
 | Windows 排程／服務包裝 | 未驗證 | 未檢查 Task Scheduler／服務帳戶行為 | P22 |
 
@@ -107,7 +108,7 @@
 
 ## 8. P00 結論
 
-- 不依賴 AI 的 phase（P04–P14、P18–P19）依賴皆已到位，可依序規劃；P01、P02、P03a、P03b 已完成。
+- 不依賴 AI 的 phase（P04–P14、P18–P19）依賴皆已到位，可依序規劃；P01、P02、P03a、P03b、P04a 已完成。
 - **AI unattended 功能標為阻擋**，原因：生成環境隔離尚未驗證、模型清單與設定不一致、
   Codex 子命令為 experimental。P15 以一次有界真實生成解除或維持阻擋；不得改為付費
   API 或 GUI 點擊自動化。
