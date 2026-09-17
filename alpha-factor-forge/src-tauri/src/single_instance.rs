@@ -128,7 +128,7 @@ mod tests {
         // opens, migrates, and repairs in one call (its own tests prove the
         // repair). The ordering guard therefore anchors on that call site.
         let recovery = source
-            .find("runtime::open_workspace(&db_path)")
+            .find("runtime::open_workspace(&db_path,")
             .expect("main must retain startup recovery through the shared runtime");
 
         assert!(plugin < setup);

@@ -197,6 +197,7 @@ fn commit(
             validation_trades: &validation_trades,
             record: &bundle.2,
             progress_json,
+            epoch: None,
         },
     )
 }
@@ -617,6 +618,52 @@ fn start_rejects_empty_duplicate_or_negative_candidate_indexes() {
 
 // ---------- the atomic candidate commit ----------
 
+/// P03a (contract §1.3): a result produced under an epoch the workspace has
+/// since left is refused INSIDE the commit transaction — no summary, trade,
+/// record, job, or lifecycle write happens — while the current epoch's
+/// identical commit succeeds.
+#[test]
+fn a_candidate_from_a_previous_epoch_is_refused_before_any_write() {
+    use crate::db::ownership::{acquire, HolderKind};
+
+    let mut conn = mem_db();
+    let (dataset_id, strategies) = parents(&conn, 1);
+    let run_id = started_run(&mut conn, dataset_id, &strategies);
+    let b = bundle(strategies[0], dataset_id, true, 1.5);
+    let (train_trades, validation_trades) = fixture_trades();
+
+    let old = acquire(&mut conn, HolderKind::DesktopEmbedded, 1).unwrap();
+    let new = acquire(&mut conn, HolderKind::Service, 2).unwrap();
+    assert_eq!((old.epoch, new.epoch), (1, 2));
+
+    let assessment = |epoch: Option<i64>| CandidateAssessment {
+        run_id,
+        candidate_index: 0,
+        train_summary: &b.0,
+        train_trades: &train_trades,
+        validation_summary: &b.1,
+        validation_trades: &validation_trades,
+        record: &b.2,
+        progress_json: Some("{\"done\":1}"),
+        epoch,
+    };
+
+    let stale = commit_candidate_assessment(&mut conn, &assessment(Some(old.epoch)));
+    assert!(matches!(stale, Err(crate::error::AppError::StaleOwner(_))), "got {stale:?}");
+    assert_eq!(count(&conn, "backtest_summary"), 0, "no summary written");
+    assert_eq!(count(&conn, "trades"), 0, "no trade written");
+    assert_eq!(count(&conn, "validation_records"), 0, "no record written");
+    assert!(
+        list_discovery_jobs(&conn, run_id).unwrap().iter().all(|j| j.status == JobStatus::Queued),
+        "jobs untouched"
+    );
+    assert_eq!(lifecycle(&conn, strategies[0]), "candidate", "no promotion");
+
+    commit_candidate_assessment(&mut conn, &assessment(Some(new.epoch)))
+        .expect("the current epoch commits the same assessment");
+    assert_eq!(count(&conn, "validation_records"), 1);
+}
+
 #[test]
 fn committing_a_candidate_writes_the_whole_assessment() {
     let mut conn = mem_db();
@@ -718,6 +765,7 @@ fn re_committing_a_done_candidate_is_rejected_before_any_write() {
             validation_trades: &first_validation_trades,
             record: &first.2,
             progress_json: Some("{\"done\":1}"),
+            epoch: None,
         },
     )
     .unwrap();
@@ -740,6 +788,7 @@ fn re_committing_a_done_candidate_is_rejected_before_any_write() {
             validation_trades: &second_validation_trades,
             record: &second.2,
             progress_json: Some("{\"done\":2}"),
+            epoch: None,
         },
     );
     assert!(outcome.is_err(), "the second assessment must be refused");

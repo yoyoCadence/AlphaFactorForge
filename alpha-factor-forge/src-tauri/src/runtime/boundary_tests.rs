@@ -11,7 +11,9 @@
 /// Every source file that must stay free of the desktop framework.
 const HOST_AGNOSTIC_SOURCES: &[(&str, &str)] = &[
     ("runtime/mod.rs", include_str!("mod.rs")),
+    ("runtime/lease.rs", include_str!("lease.rs")),
     ("db/mod.rs", include_str!("../db/mod.rs")),
+    ("db/ownership.rs", include_str!("../db/ownership.rs")),
     ("db/repositories.rs", include_str!("../db/repositories.rs")),
     ("db/discovery.rs", include_str!("../db/discovery.rs")),
     ("db/validation_record.rs", include_str!("../db/validation_record.rs")),

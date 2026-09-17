@@ -12,6 +12,7 @@
 pub mod discovery;
 #[cfg(test)]
 mod discovery_tests;
+pub mod ownership;
 pub mod repositories;
 pub(crate) mod validation_record;
 
@@ -43,6 +44,10 @@ const MIGRATIONS: &[(&str, &str)] = &[
     (
         "0003_discovery_runner",
         include_str!("../../migrations/0003_discovery_runner.sql"),
+    ),
+    (
+        "0004_workspace_ownership",
+        include_str!("../../migrations/0004_workspace_ownership.sql"),
     ),
 ];
 
@@ -87,7 +92,14 @@ pub(crate) fn apply_one_migration(conn: &Connection, version: &str, sql: &str) -
     Ok(())
 }
 
-/// Create the bookkeeping table, then apply any migration not yet recorded.
+/// Create the bookkeeping table, refuse a database written by a NEWER build,
+/// then apply any migration not yet recorded.
+///
+/// The refusal (P03a, contract §5.2): a version in `schema_migrations` that
+/// this binary does not know means a later build has already migrated the
+/// file. Opening it here would let old code write against a schema it has
+/// never seen, so the whole open fails instead — reads included, which is
+/// stricter than the contract's "must refuse to write" and deliberately so.
 pub fn apply_migrations(conn: &Connection) -> AppResult<()> {
     conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -95,6 +107,23 @@ pub fn apply_migrations(conn: &Connection) -> AppResult<()> {
             applied_at TEXT NOT NULL DEFAULT (datetime('now'))
         );",
     )?;
+
+    let mut stmt = conn.prepare("SELECT version FROM schema_migrations ORDER BY version")?;
+    let applied = stmt
+        .query_map([], |r| r.get::<_, String>(0))?
+        .collect::<Result<Vec<_>, _>>()?;
+    drop(stmt);
+    let unknown: Vec<String> = applied
+        .into_iter()
+        .filter(|version| !MIGRATIONS.iter().any(|(known, _)| known == version))
+        .collect();
+    if !unknown.is_empty() {
+        return Err(crate::error::AppError::SchemaTooNew(format!(
+            "this build knows migrations up to {}, but the database already has {}",
+            MIGRATIONS.last().map(|(v, _)| *v).unwrap_or("none"),
+            unknown.join(", ")
+        )));
+    }
 
     for (version, sql) in MIGRATIONS {
         let already: bool = conn

@@ -189,6 +189,21 @@ pub struct CandidateAssessment<'a> {
     pub record: &'a ValidationRecordRow,
     /// Run-level progress digest written in the same transaction.
     pub progress_json: Option<&'a str>,
+    /// P03a: the ownership epoch this assessment was produced under. Checked
+    /// INSIDE the commit transaction (contract §1.3), so a worker that is
+    /// still reporting after the lease moved on can never write a result.
+    /// `None` only for callers with no lease at all (tests, legacy paths).
+    pub epoch: Option<i64>,
+}
+
+/// P03a: fail with `StaleOwner` unless the stored ownership epoch equals
+/// `epoch`; a `None` epoch (no lease) is not checked. Every runner write
+/// calls this under the same connection guard as the write it protects.
+pub fn assert_owner(conn: &Connection, epoch: Option<i64>) -> AppResult<()> {
+    match epoch {
+        Some(expected) => crate::db::ownership::assert_epoch(conn, expected),
+        None => Ok(()),
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize)]
@@ -726,6 +741,10 @@ pub fn commit_candidate_assessment(
     // `return Err` below undoes the whole assessment. That behaviour is what
     // `a_failure_after_the_writes_rolls_everything_back` pins down.
     let tx = conn.transaction()?;
+
+    // The lease first: a result produced under an epoch the workspace has
+    // since left belongs to a host that no longer owns it (contract §1.3).
+    assert_owner(&tx, assessment.epoch)?;
 
     // A run must be actively running to absorb a result. Committing into a
     // paused/terminal run would resurrect work the user stopped.

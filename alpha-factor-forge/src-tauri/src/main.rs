@@ -20,6 +20,9 @@ use tauri::Manager;
 pub struct AppState {
     pub db: Arc<Mutex<rusqlite::Connection>>,
     pub discovery: discovery_runner::DiscoveryRunner,
+    /// P03a: the workspace lease (OS lock + epoch + heartbeat). Held here for
+    /// the life of the process; dropping it would release ownership.
+    pub ownership: runtime::OwnershipHandle,
 }
 
 fn main() {
@@ -38,17 +41,28 @@ fn main() {
                 .app_data_dir()
                 .expect("no app data dir")
                 .join(db::DB_FILE_NAME);
-            // Startup repair is persistence-only: orphaned running work is
-            // paused/requeued, but no CPU work resumes without a user command.
-            let workspace = runtime::open_workspace(&db_path)
-                .expect("failed to initialize SQLite database or recover orphaned discovery runs");
+            // P03a: the desktop is the embedded host and must OWN the
+            // workspace (OS lock -> open -> migrate -> epoch -> recovery ->
+            // heartbeat). Another host holding the lock, or a database written
+            // by a newer build, stops startup here with the reason; connect
+            // mode arrives with P04. Startup repair is persistence-only:
+            // orphaned running work is paused/requeued, but no CPU work
+            // resumes without a user command.
+            let workspace = match runtime::open_workspace(&db_path, db::ownership::HolderKind::DesktopEmbedded) {
+                Ok(workspace) => workspace,
+                Err(error) => panic!("cannot own the workspace at {}: {error}", db_path.display()),
+            };
             if workspace.recovery != db::discovery::RecoveryReport::default() {
                 eprintln!(
                     "startup recovery: paused {} orphaned run(s), requeued {} job(s)",
                     workspace.recovery.runs_paused, workspace.recovery.jobs_requeued
                 );
             }
-            app.manage(AppState { db: workspace.db, discovery: workspace.discovery });
+            app.manage(AppState {
+                db: workspace.db,
+                discovery: workspace.discovery,
+                ownership: workspace.ownership,
+            });
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

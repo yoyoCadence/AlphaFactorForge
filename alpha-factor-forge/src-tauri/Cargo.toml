@@ -4,7 +4,8 @@ version = "0.1.0"
 description = "AlphaFactorForge - Automated Indicator Discovery Workstation"
 authors = ["AlphaFactorForge"]
 edition = "2021"
-rust-version = "1.77.2"
+# 1.89 for std file locks (`File::try_lock`, P03a workspace lease); CI builds on stable.
+rust-version = "1.89"
 
 # SKELETON - compilable scaffold. Some command bodies are minimal / todo!().
 # Verify locally with: cd src-tauri && cargo check
