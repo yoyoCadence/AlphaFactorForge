@@ -67,3 +67,30 @@ GitHub：仍 401，僅本機 commit。
 ## Resolution (added when acted on)
 
 （待補：push／PR 編號、review 結果。）
+
+### 2026-09-17 — Independent acceptance review (Codex)
+
+Reviewed commit: `898e2c925a849a870b9c4c73f97c4053f27efed9` on `docs/p00-contract-precheck`; worktree was clean before review.
+
+**Result: P02 passes code/Rust acceptance; no blocking finding.** Native desktop launch/restart remains unverified in this run; the presence of the CI smoke lane is not a claim that this unpushed commit has executed in CI.
+
+- Event sink extraction retains the same event variants, names, `main` target, payloads, error mapping, and post-commit emission position. The new `MAIN_WINDOW_LABEL` constant replaces the previous identical literal.
+- Desktop app-data resolution still selects `alphafactorforge.sqlite3`; opening the database, WAL/foreign-key setup, migrations, runner construction, and orphan recovery retain their order. The single-instance plugin still precedes setup. Recovery pauses/requeues only; opening a workspace does not start CPU work.
+- The explicit 5-second busy timeout matches the existing rusqlite 0.31.0 default (verified in the locally installed dependency's `src/inner_connection.rs`, `sqlite3_busy_timeout(db, 5000)`). Thus this change makes the contract explicit rather than introducing a new wait duration. The additional non-empty recovery report is diagnostic stderr output.
+- Verified directly against `153db80`: discovery core, runner execution, existing runner/event tests, migrations, Cargo manifest/lock, and frontend source are unchanged. No service binary, scheduler, or cross-host ownership implementation is introduced. P03/P04 still own those additions.
+- `cargo test --locked`: **162 passed** (52 library + 110 binary), including the six new runtime/boundary tests and existing golden/parity, recovery, atomicity, and commit-before-event tests.
+- `cargo check --locked`: **passed**, no warning.
+- `cargo clippy --locked`: **passed**; four pre-existing warnings in unchanged `discovery_core/backtest.rs` and `discovery_core/score.rs`, none in the P02 changes.
+- Frontend tests were not repeated because no frontend code changed. Native `cargo tauri dev` / packaged desktop startup was not run, and no user workspace database was opened by this review.
+
+#### Non-blocking follow-ups
+
+1. **Low — close test workspaces before deleting their directories.** In `runtime/mod.rs` at lines 93, 120, and 156, `drop(conn)` releases the mutex guard but `workspace` / `second` still owns the SQLite connection. `remove_dir_all` then fails on Windows and its error is discarded. This review observed all three `aff-runtime-test-22848-{0,1,2}` directories left after the successful test process (the earlier test run's directories were also still present). Drop the owning workspace before cleanup and surface cleanup errors, or use a scoped temporary-directory owner. This affects test hygiene, not runtime correctness. A cleanup attempt limited to this review's three directories was rejected by automatic approval review (`blocked by policy`); those temporary directories remain.
+2. The phase table correctly marks P03 next, but older prose in `tasks.md` still says P02 is next (Current Snapshot and the ABC ordering introduction), and the runtime contract's opening status still says unimplemented. Align those summaries in the next documentation update; the implementation and phase table are unambiguous.
+
+Review changed only this tracked handoff. No commit, push, PR, or P03 work was performed.
+
+### 2026-09-17 — non-blocking follow-ups acted on (Claude Code)
+
+1. `runtime/mod.rs` tests now hold a `TempRoot` guard that removes the temp directory on drop and panics if removal fails; each test drops its `Workspace` (closing the SQLite connection) before the guard runs. Re-ran `cargo test runtime::` (6 passed) and confirmed no `aff-runtime-test-*` directory is left behind; the twelve directories left by earlier runs (`7160`, `13108`, `21296`, `22848`) were removed.
+2. `tasks.md` Current Snapshot and ABC ordering prose now name P03 as next; the runtime contract's opening status records P02 as implemented and §1–§5 as pending P03/P04.

@@ -6,10 +6,10 @@
 > §4（ABC-01）。本機驗證證據與可用／不可用能力矩陣：
 > [`autonomous-research-capability-registry.md`](autonomous-research-capability-registry.md)。
 
-**狀態：契約已定案，尚未實作。** 本文件定義後續 P02（runtime 解耦）、P03（跨宿主
-ownership）、P04（headless 與 bridge）必須遵守的邊界與識別；P00 不新增程式、
-migration 或依賴。任何實作 phase 若需偏離本文，先修訂本文並提升版本，不得在程式
-內默默改變語意。
+**狀態：契約已定案；P02（runtime 解耦）已於 2026-09-17 實作，§1–§5 的 lease／
+命令／事件／控制介面／schema 保護仍待 P03、P04。** 本文件定義後續 phase 必須遵守的
+邊界與識別；P00 不新增程式、migration 或依賴。任何實作 phase 若需偏離本文，先修訂
+本文並提升版本，不得在程式內默默改變語意。
 
 ---
 
