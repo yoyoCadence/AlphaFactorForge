@@ -28,7 +28,7 @@ use std::sync::{Arc, Mutex};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
-use crate::db::discovery::{self, RunStatus};
+use crate::db::discovery::{self, OutcomeStage};
 use crate::db::ownership;
 use crate::db::runtime_ledger::{self, Reservation, StoredEvent};
 use crate::discovery_runner::{
@@ -329,10 +329,12 @@ impl Dispatcher {
         }
     }
 
-    /// A `pending` receipt seen again. Three cases, in order (R1):
+    /// A `pending` receipt seen again. In order (R1):
     /// 1. the first attempt is still executing here — say so, execute nothing;
-    /// 2. a durable effect exists — the change committed and only the receipt
-    ///    was lost: recover the outcome from the effect, execute nothing;
+    /// 2. an immutable outcome row exists — the command's first answer was
+    ///    decided and recorded with the change that decided it: replay THAT
+    ///    (accepted → the result, rejected → the error, begun → "never
+    ///    completed its admission"), repair the receipt, execute nothing;
     /// 3. neither — the first attempt died before it changed anything: this
     ///    is the first execution.
     fn settle_pending(
@@ -344,39 +346,18 @@ impl Dispatcher {
         if self.in_flight.contains(&envelope.request_id) {
             return Err(pending_error(&stored.request_id, "its first attempt is still executing"));
         }
-        let effect = {
+        let recorded = {
             let conn = self.lock_db()?;
-            discovery::read_request_effect(&conn, &envelope.request_id)?
+            discovery::read_request_outcome(&conn, &envelope.request_id)?
         };
-        match effect {
-            Some(effect) => {
-                let outcome = self.outcome_from_effect(&effect)?;
+        match recorded {
+            Some(row) => {
+                let outcome = outcome_from_row(&row)?;
                 self.record_receipt(&envelope.request_id, &outcome);
                 outcome
             }
             None => self.execute_and_record(command, envelope),
         }
-    }
-
-    /// The first outcome, reconstructed from the durable effect the change
-    /// left behind — never by running the command again.
-    fn outcome_from_effect(&self, effect: &discovery::RequestEffectRow) -> Result<Result<Value, CommandError>, CommandError> {
-        let run = {
-            let conn = self.lock_db()?;
-            discovery::get_discovery_run(&conn, effect.run_id)?
-        };
-        let outcome = if effect.command == Command::DiscoveryStart.name() && run.status == RunStatus::Failed {
-            // The run row was created (the effect) but the start did not
-            // complete; the first response was that failure.
-            Err(final_error(CommandError::new(
-                ErrorCode::Validation,
-                run.error_message.unwrap_or_else(|| "discovery run failed while starting".into()),
-                false,
-            )))
-        } else {
-            Ok(json!({ "runId": effect.run_id }))
-        };
-        Ok(outcome)
     }
 
     fn execute_and_record(&self, command: Command, envelope: &CommandEnvelope) -> Result<Value, CommandError> {
@@ -389,32 +370,60 @@ impl Dispatcher {
         let outcome = self
             .execute(command, &envelope.payload, Some(&envelope.request_id))
             .map_err(final_error);
-        self.record_receipt(&envelope.request_id, &outcome);
+        let receipt_recorded = self.record_receipt(&envelope.request_id, &outcome);
         self.in_flight.end(&envelope.request_id);
-        outcome
+        if receipt_recorded {
+            return outcome;
+        }
+        // The receipt could not be written. A success, and every failure the
+        // runner recorded with its own transaction, is still replayable from
+        // the outcome row. A failure that changed nothing has NO durable
+        // trace now, so it is not final: say so, and let the same request id
+        // be tried again (that retry is its first execution).
+        match outcome {
+            Ok(result) => Ok(result),
+            Err(error) => {
+                let durable = {
+                    let conn = self.lock_db()?;
+                    // A `begun` row is a fact about the run, not a recorded answer;
+                    // only an accepted/rejected stage replays THIS answer.
+                    discovery::read_request_outcome(&conn, &envelope.request_id)?
+                        .is_some_and(|row| row.stage != OutcomeStage::Begun)
+                };
+                if durable {
+                    Err(error)
+                } else {
+                    Err(CommandError::new(
+                        error.code,
+                        format!("{} (this outcome could not be recorded; the same requestId may be retried)", error.message),
+                        true,
+                    ))
+                }
+            }
+        }
     }
 
-    /// Write the receipt. A failure here is reported, never hidden, and does
-    /// not change the answer: a success is recoverable from its effect row
-    /// (`settle_pending`), and a failure without an effect simply executes
-    /// again on retry, which is its first execution.
-    fn record_receipt(&self, request_id: &str, outcome: &Result<Value, CommandError>) {
+    /// Write the receipt; returns whether it was recorded. A failure here is
+    /// reported, never hidden, and never turns a durable answer into a
+    /// different one (see `settle_pending` / `execute_and_record`).
+    fn record_receipt(&self, request_id: &str, outcome: &Result<Value, CommandError>) -> bool {
         let recorded = self
             .db
             .lock()
             .map_err(|_| AppError::Other("db lock poisoned".into()))
             .and_then(|conn| match outcome {
-            Ok(result) => runtime_ledger::complete_request(&conn, Some(self.epoch), request_id, Ok(result)),
+                Ok(result) => runtime_ledger::complete_request(&conn, Some(self.epoch), request_id, Ok(result)),
+                Err(error) => {
+                    let error_json = serde_json::to_value(error)?;
+                    runtime_ledger::complete_request(&conn, Some(self.epoch), request_id, Err(&error_json))
+                }
+            });
+        match recorded {
+            Ok(()) => true,
             Err(error) => {
-                let error_json = serde_json::to_value(error)?;
-                runtime_ledger::complete_request(&conn, Some(self.epoch), request_id, Err(&error_json))
+                eprintln!("command {request_id} completed but its receipt was not recorded: {error}");
+                false
             }
-        });
-        if let Err(error) = recorded {
-            eprintln!(
-                "command {request_id} completed but its receipt was not recorded ({error}); \
-                 a retry recovers it from the request's effect row"
-            );
         }
     }
 
@@ -502,6 +511,41 @@ impl Dispatcher {
             .lock()
             .map_err(|_| CommandError::new(ErrorCode::Busy, "db lock poisoned", true))
     }
+}
+
+/// The first answer, rebuilt from the immutable outcome row the change left
+/// behind. Never inferred from the run's CURRENT status, which keeps moving
+/// after the command answered (a worker can fail a run that a `start` was
+/// rightly told had been accepted).
+fn outcome_from_row(row: &discovery::RequestOutcomeRow) -> Result<Result<Value, CommandError>, CommandError> {
+    let parsed: Option<Value> = match &row.outcome_json {
+        Some(json) => Some(serde_json::from_str(json).map_err(|error| {
+            CommandError::new(ErrorCode::Validation, format!("stored outcome unreadable: {error}"), false)
+        })?),
+        None => None,
+    };
+    Ok(match row.stage {
+        OutcomeStage::Accepted => Ok(parsed.unwrap_or(Value::Null)),
+        OutcomeStage::Rejected => {
+            let message = parsed
+                .as_ref()
+                .and_then(|value| value.get("error"))
+                .and_then(Value::as_str)
+                .unwrap_or("the command was rejected")
+                .to_owned();
+            // The same mapping the first answer went through, so the replay
+            // is that answer, code and all.
+            Err(final_error(CommandError::from(AppError::Other(message))))
+        }
+        OutcomeStage::Begun => Err(final_error(CommandError::new(
+            ErrorCode::Validation,
+            format!(
+                "{} for requestId {} began on run {} but never completed its admission (the first attempt failed or was interrupted before an outcome was recorded); inspect run {} and send a new requestId",
+                row.command, row.request_id, row.run_id, row.run_id
+            ),
+            false,
+        ))),
+    })
 }
 
 /// The one error that IS retryable with the same request id: the request is

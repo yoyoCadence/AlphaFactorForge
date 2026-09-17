@@ -93,5 +93,12 @@ describe('error handling helpers', () => {
     expect(needsResnapshot(5, page(2, 7, null))).toBe(false);
     expect(needsResnapshot(5, page(2, 7, 6))).toBe(true);
     expect(needsResnapshot(5, page(0, 5, 4))).toBe(false);
+    // M1: the full cycle — a gap is found, the reader re-snapshots at that
+    // version, and the same page must NOT demand another re-read; only a
+    // gap recorded after the new snapshot does.
+    expect(needsResnapshot(5, page(0, 7, 7))).toBe(true);
+    expect(needsResnapshot(7, page(0, 7, 7))).toBe(false);
+    expect(needsResnapshot(7, page(0, 9, 9))).toBe(true);
+    expect(needsResnapshot(9, page(0, 9, 9))).toBe(false);
   });
 });

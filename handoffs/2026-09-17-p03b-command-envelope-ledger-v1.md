@@ -4,7 +4,7 @@ Date: 2026-09-17
 Repo: yoyoCadence/AlphaFactorForge
 Branch: `docs/p00-contract-precheck`（P03a 驗收修正 `7d7f774` 之後續做；本機 git，GitHub 仍鎖）
 PR: 尚未建立
-Status: P03b 驗收 R1/R2/R3 已修正並有回歸（2026-09-17，Rust 196／vitest 874）；待重新驗收後再進 P04
+Status: P03b 複驗 R1（第一次結果不可變重播）與 M1 已修正並有回歸（2026-09-17，Rust 201／vitest 874）；待第三次驗收後再進 P04
 
 ## Summary
 
@@ -193,3 +193,117 @@ worktree clean。**本次暫不通過**：三項可重現問題如下。P04 的 
 - 已知限制（如實記錄）：效果列覆蓋四個 mutating 命令的 domain 變更；`pause` 在 run 已 Paused／Completed 時不做轉換也不寫效果列，
   此時回條失敗後的重送會再執行一次 pause（對已暫停 run 為 no-op）。帳本 append 仍在 runner commit 之後、非同一 transaction，
   漏讀由 `stateVersion`／`ledgerGap` 補救而非杜絕。
+
+## Resolution — Codex 複驗 `c5832be`（2026-09-17）
+
+Base：`e2e07e1`；分支 `docs/p00-contract-precheck`，複驗開始時 worktree clean。
+**結論：仍不通過。** 原 cancel 回條恢復案例、R2 的漏事件偵測與 R3 的 final Busy
+語意已通過；R1 的一般性重播承諾尚未成立，另外重同步 helper 有 M1。
+
+### R1（High，未關閉）：效果列不是第一次命令結果，恢復仍會改寫答案
+
+位置：`runtime/commands.rs:338–380`（`settle_pending`／`outcome_from_effect`）、
+`discovery_runner/mod.rs:408–415`（run create 與 start 分開提交），以及同檔 652 行
+（pause 遇 Completed 回成功）、1449 行起（僅 Paused transition 記錄 pause effect）。
+
+新增三條確定性驗收 probe，皆使用真實 dispatcher／runner、既有 gated executor、
+in-memory SQLite 的 TEMP TRIGGER；沒有替換產品邏輯，三條皆失敗：
+
+1. **成功 start 被後來的 worker 失敗改成失敗**：暫時拒絕 `command_requests` UPDATE，
+   呼叫合法 start，第一次得到 `Ok({runId:1})`；再放行會失敗的 worker，等待 run Failed
+   與 coordinator 退出；解除回條故障、以相同 requestId 重送。
+   `outcome_from_effect` 用目前 run.status=Failed 推斷「start 本身失敗」，重播變為
+   `Validation: candidate 0 execution failed...`。這是後續計算結果，不是第一次 start
+   的回應，不能拿來覆蓋原成功。
+2. **失敗 start 被恢復成成功**：暫時拒絕 `discovery_jobs` INSERT 與回條 UPDATE。
+   run create＋effect 已提交，後續 start transaction 失敗，因此第一次回 Validation。
+   解除兩個故障後同 id 重送，效果列被解讀成成功，回 `Ok({runId:1})`；DB 的 run
+   實際仍為 **idle、沒有 jobs／coordinator**。僅有 create effect 不代表整個 start
+   已接受／完成初始化。崩潰停在兩個 transaction 之間也有相同歧義。
+3. **completion 勝出的 pause 成功沒有效果列**：一個 candidate 的 run 正在 gated
+   executor；拒絕回條 UPDATE，另一執行緒 dispatch pause，確定 ControlPhase 已為
+   PauseRequested 後釋放 worker。最後一個 candidate 完成，runner 既有規則讓
+   Completed 勝出，pause 第一次回成功；coordinator 退出後解除故障、重送同 id。
+   `request_effects` 沒有 pause 的列，dispatcher 再執行 pause，回
+   `Validation: discovery run 1 has no active coordinator`。原交接的「再執行 pause
+   為 no-op」不符合實作；已 Paused／Completed 的 run 並沒有通用的 no-op 成功路徑。
+
+修正要求：保存可重建**不可變第一次 outcome／命令接受階段**的持久依據，不用會持續
+變動的 run.status 推測；區分「run row 建立」與「start 接受成功／初始化失敗」；pause
+以 Completed 成功返回等沒有 Paused transition 的成功路徑也必須可恢復。
+只刪除 `run.status == Failed` 分支，或將所有 effect 一律當成功，不能修復上述全部反例。
+請以三條情境補回歸，並同時檢查 resume 初始化／無 effect 的失敗結果保存。
+
+### M1（Medium）：gap 已包含在新 snapshot 中，仍永久要求重讀
+
+位置：`src/services/researchCommand.ts:122–124` 的 `needsResnapshot` 使用
+`ledgerGap.stateVersion >= snapshotVersion`，而 gap marker 是持久的、不會在讀 snapshot
+時清除。
+
+確定性 TypeScript probe：舊 snapshotVersion=5，事件頁為
+`{events:[], stateVersion:7, ledgerGap:{stateVersion:7}}`，需要 resnapshot 是正確的。
+讀者重讀後已取得包含取消狀態的 snapshotVersion=7；再收到相同頁面時 helper 仍回 true。
+沒有新 domain write 時版本不再前進，照規則實作的 reader 會反覆重讀；單純讀取與
+heartbeat 都不會解除。測試預期已補齊後為 false，實際為 true。
+
+修正要求：只有尚未由 snapshot 覆蓋的 gap 才要求重讀，例如採嚴格較新的 version，
+或明確的已確認 gap watermark。補「發現 gap → 讀取同版本 snapshot → 下一頁不再
+要求重讀」完整循環，並保留較新 gap 仍會觸發的測試。
+
+### 已確認通過與驗證範圍
+
+- 原 R1 的 cancel 範例：effect 與 cancel transaction 共存，重送不再多發 Done，
+  成功補寫 receipt；但不能因此推論四個 mutating command 都完成重播保證。
+- 原 R2 的靜態漏事件案例：domain stateVersion 前進可偵測、持久 gap 可提示重新讀取，
+  已解決原本 cursor 空頁卻完全無法知道漏掉終態的問題；M1 是讀取後無法停止重同步。
+- 原 R3：已記錄 Busy 的第一次與重播均 retryable=false，需新 id，通過。
+- 基線全套：`cargo test --locked` **196 passed（52 + 144）**；`npm.cmd test`
+  **874 passed**；typecheck／build 通過；一般 cargo check 無 warning；
+  `cargo clippy --locked --tests` 成功，僅既有 core 的 4 個 warnings。
+- 擴充驗收：`cargo test --locked review_ -- --nocapture` **3 failed**（上述 R1
+  三例）；builder 測試加入 M1 後 **9 passed／1 failed**。關鍵輸出：
+
+  ```text
+  later failure: first=Ok({runId:1}), retry=Err(Validation, candidate execution failed)
+  partial start: first=Err(Validation, review_jobs), retry=Ok({runId:1}), status=idle
+  pause/complete: first=Ok({runId:1}), effect=None, retry=Err(no active coordinator)
+  needsResnapshot(7, pageVersion=7, gapVersion=7): expected false, received true
+  ```
+
+- 臨時 probes 已移除，產品與測試 source 回到 `c5832be`；只留下本複驗文件修改。
+  未重跑 Playwright／原生 Tauri UI；未 commit／push。下一步先修 R1／M1，再確認
+  P03b Done／ABC-01 Done，尚不應進 P04。
+
+## Resolution — 複驗 R1／M1 修正與回歸（2026-09-17，Claude Code）
+
+使用者要求修正；沿用 `docs/p00-contract-precheck`，保留上方兩次驗收紀錄。
+
+- **R1 已關閉（第一次結果不可變重播）**：`request_effects` 改為 `request_outcomes`（migration 0006 在本分支
+  尚未 push 前直接改寫，註明於此），每列記錄命令的**不可變第一次結果**：`begun`（開始改狀態）→ `accepted`
+  （`{runId}`）／`rejected`（錯誤訊息），只有 `begun` 可被覆蓋。寫入時機＝決定該結果的 store transaction：
+  - `start`：run row 建立 → `begun`；初始 checkpoint（`update_discovery_progress_with_outcomes`）→ `accepted`；
+    `start_discovery_run` 失敗 → 獨立 `record_request_rejection`；checkpoint 失敗 → `fail_discovery_run_with_outcomes` 內 `rejected`。
+  - `resume`：Paused→Running → `begun`；checkpoint → `accepted`；checkpoint 失敗 → fail tx 內 `rejected`。
+  - `pause`：request id 掛在 `ControlState`，由**解決它的那個 transaction** 記錄：drain 的 Paused 轉換或
+    completion 勝出 → `accepted`；run failure → `rejected`（`pause_failed_message`）；cancel 搶先 → `rejected`
+    （`pause_cancelled_message`）。訊息由同一組函式產生，`pause()` 醒來後回答的就是被記錄的那句。
+  - `cancel`：cancel tx 內 `accepted`。
+  - coordinator 在 acceptance 之後 spawn 失敗：改為 **run 失敗**（status＋Done 事件）而非命令 Err，避免與已記錄的
+    `accepted` 矛盾（thread spawn 失敗僅在 OS 資源耗盡時發生）。
+  `Dispatcher::settle_pending`：執行中 → pending；有列 → `outcome_from_row` 逐字重播（accepted→Ok、rejected→同一
+  `AppError→CommandError` 對映＋`final_error`、begun→「never completed its admission」終局錯誤）並補回條；無列 → 首次執行。
+  無 domain 變更的失敗若回條也寫不進去 → 回覆 `retryable=true` 並註明「could not be recorded」（`begun`-only 不算已記錄）。
+- **M1 已關閉**：`needsResnapshot` 改為 gap 版本**嚴格大於** snapshot 版本才要求重讀；補完整循環測試
+  （發現 gap → 以該版本重讀 snapshot → 同頁不再要求；更新的 gap 仍觸發）。
+- **回歸（`discovery_runner/tests/commands.rs`）**：
+  `an_accepted_start_replays_ok_even_after_the_run_fails_later`（拒絕回條；worker 失敗使 run Failed；重送仍 Ok、run 數 1、回條修為 succeeded）；
+  `a_start_that_failed_after_creating_its_run_replays_the_failure_not_a_success`（拒絕 jobs INSERT＋回條；第一次 Err；重送逐字同一 Err、run 仍 idle 無 jobs）；
+  `a_start_that_only_began_replays_an_honest_failure`（再拒絕 request_outcomes UPDATE；第一次為未記錄的 retryable 錯誤；重送得「never completed its admission」、不建第二個 run）；
+  `a_pause_that_completion_won_replays_its_success`（單 candidate；PauseRequested 後放行 → completion 勝出 → pause Ok；重送 Ok）；
+  `a_resume_that_failed_after_beginning_replays_the_failure`（`BEFORE UPDATE OF progress_json` 拒絕 checkpoint；第一次 Err；重送同一 Err、不再 resume）。
+  突變檢查：accepted 列改為推斷失敗 → case 1 紅；不記錄 partial-start rejection → case 2 紅；completion 不記錄 pause → case 3 紅；還原後全綠。
+- 其餘只給測試用的無結果 wrapper（`complete_discovery_run`／`fail_discovery_run`）改 `#[cfg(test)]`，一般 build 0 warning。
+- **驗證**：`cargo test --locked` **201 passed（52 + 149）**；`npm.cmd test` **874**；typecheck／build 通過；clippy 新模組無 warning；
+  暫存目錄無殘留。Playwright 未重跑（無 UI 變更）；原生 Tauri 未執行。
+- 殘餘限制（如實記錄）：coordinator 的 fail／complete／cancel transaction 本身失敗時，`pause` 仍依 phase 回答但沒有持久列
+  （DB 層故障）；帳本 append 仍在 runner commit 之後、非同一 transaction，由 `stateVersion`／`ledgerGap` 補救。
