@@ -2004,8 +2004,10 @@ mod tests {
         .ok();
         conn.prepare("SELECT discovery_run_id FROM validation_records")
             .expect("0003 adds the run linkage column");
+        conn.prepare("SELECT epoch, heartbeat_seq FROM workspace_ownership")
+            .expect("0004 adds the ownership row");
         crate::db::apply_migrations(&conn).expect("re-run must be a no-op");
-        assert_eq!(count(&conn, "schema_migrations"), 3);
+        assert_eq!(count(&conn, "schema_migrations"), 4);
     }
 
     #[test]
@@ -2034,7 +2036,8 @@ mod tests {
         assert_eq!(count(&conn, "strategy_def"), 1, "existing data survives");
         assert_eq!(count(&conn, "datasets"), 1);
         assert_eq!(count(&conn, "validation_records"), 0, "new table exists");
-        assert_eq!(count(&conn, "schema_migrations"), 3);
+        assert_eq!(count(&conn, "schema_migrations"), 4);
+        assert_eq!(count(&conn, "workspace_ownership"), 1, "0004 seeds the unowned row");
         // The 0001 -> 0003 path must also land 0003's structure, not just 0002.
         conn.prepare("SELECT discovery_run_id FROM validation_records")
             .expect("0003 run linkage column");

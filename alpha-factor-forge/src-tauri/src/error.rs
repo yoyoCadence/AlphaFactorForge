@@ -11,6 +11,16 @@ pub enum AppError {
     Serde(#[from] serde_json::Error),
     #[error("not implemented: {0}")]
     NotImplemented(&'static str),
+    // ---- ownership (P03a, research-runtime-contract §1 / §2 error codes) ----
+    /// This process does not hold the workspace lease (another host does).
+    #[error("not owner: {0}")]
+    NotOwner(String),
+    /// The lease moved to a newer epoch after this writer started.
+    #[error("stale owner: {0}")]
+    StaleOwner(String),
+    /// The database was written by a newer build than this one.
+    #[error("schema newer than this build: {0}")]
+    SchemaTooNew(String),
     #[error("{0}")]
     Other(String),
 }

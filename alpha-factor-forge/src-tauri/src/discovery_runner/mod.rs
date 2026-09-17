@@ -180,6 +180,9 @@ enum ControlPhase {
 struct ControlState {
     phase: ControlPhase,
     last_sequence: u64,
+    /// P03a: the lease epoch this coordinator runs under; every write the
+    /// coordinator makes is checked against it first (`assert_owner`).
+    epoch: Option<i64>,
 }
 
 impl ControlState {
@@ -203,11 +206,12 @@ struct RunControl {
 }
 
 impl RunControl {
-    fn new(last_sequence: u64) -> Self {
+    fn new(last_sequence: u64, epoch: Option<i64>) -> Self {
         Self {
             state: Mutex::new(ControlState {
                 phase: ControlPhase::Running,
                 last_sequence,
+                epoch,
             }),
             changed: Condvar::new(),
         }
@@ -285,6 +289,10 @@ impl CandidateExecutor for ProductionExecutor {
 pub struct DiscoveryRunner {
     controls: Arc<Mutex<HashMap<i64, Arc<RunControl>>>>,
     executor: Arc<dyn CandidateExecutor>,
+    /// P03a: the workspace ownership epoch this runner writes under, handed
+    /// over by `runtime::open_workspace`. `None` means "no lease" and is
+    /// only for tests and pre-lease callers; production always sets it.
+    epoch: Option<i64>,
 }
 
 impl Default for DiscoveryRunner {
@@ -292,13 +300,28 @@ impl Default for DiscoveryRunner {
         Self {
             controls: Arc::new(Mutex::new(HashMap::new())),
             executor: Arc::new(ProductionExecutor),
+            epoch: None,
         }
     }
 }
 
 impl DiscoveryRunner {
+    /// A runner that writes under `epoch` and refuses to write once the
+    /// workspace has moved to another epoch (contract §1.3).
+    pub fn with_epoch(epoch: i64) -> Self {
+        Self {
+            epoch: Some(epoch),
+            ..Self::default()
+        }
+    }
+
+    pub fn epoch(&self) -> Option<i64> {
+        self.epoch
+    }
+
     pub fn recover_orphans(&self, db: &SharedDb) -> AppResult<RecoveryReport> {
         let mut conn = lock(db, "db")?;
+        discovery::assert_owner(&conn, self.epoch)?;
         discovery::recover_orphaned_runs(&mut conn)
     }
 
@@ -318,6 +341,7 @@ impl DiscoveryRunner {
 
         let (run_id, prepared) = {
             let mut conn = lock(&db, "db")?;
+            discovery::assert_owner(&conn, self.epoch)?;
             if let Some(active) = discovery::active_discovery_run(&conn)? {
                 return Err(other(format!(
                     "discovery run {} is already {}",
@@ -393,7 +417,7 @@ impl DiscoveryRunner {
             )
         };
 
-        let control = Arc::new(RunControl::new(1));
+        let control = Arc::new(RunControl::new(1, self.epoch));
         self.insert_control(run_id, control.clone())?;
         emit_after_commit(
             sink.as_ref(),
@@ -490,6 +514,7 @@ impl DiscoveryRunner {
             .ok_or_else(|| other("discovery event sequence overflow"))?;
         {
             let conn = lock(&db, "db")?;
+            discovery::assert_owner(&conn, self.epoch)?;
             discovery::transition_run(&conn, run_id, RunStatus::Running)?;
             let progress = stored_progress_json(
                 prepared.enumeration,
@@ -506,7 +531,7 @@ impl DiscoveryRunner {
             }
         }
 
-        let control = Arc::new(RunControl::new(resume_sequence));
+        let control = Arc::new(RunControl::new(resume_sequence, self.epoch));
         self.insert_control(run_id, control.clone())?;
         emit_after_commit(
             sink.as_ref(),
@@ -602,6 +627,7 @@ impl DiscoveryRunner {
             let sequence = state.reserve_sequences(1)?;
             let run = {
                 let conn = lock(db, "db")?;
+                discovery::assert_owner(&conn, self.epoch)?;
                 discovery::cancel_discovery_run(&conn, run_id)?;
                 discovery::get_discovery_run(&conn, run_id)?
             };
@@ -618,6 +644,7 @@ impl DiscoveryRunner {
         // control. It is still cancellable directly from its persisted state.
         let (run, sequence) = {
             let conn = lock(db, "db")?;
+            discovery::assert_owner(&conn, self.epoch)?;
             let before = discovery::get_discovery_run(&conn, run_id)?;
             if before.status != RunStatus::Paused {
                 return Err(other(format!(
@@ -982,6 +1009,7 @@ impl DiscoveryRunner {
                     validation_trades: &output.validation_trades,
                     record: &output.record,
                     progress_json: Some(&progress_json),
+                    epoch: state.epoch,
                 };
                 match discovery::commit_candidate_assessment(&mut conn, &assessment) {
                     Ok(record_id) => record_id,
@@ -1331,6 +1359,7 @@ fn pause_run_after_drain(
     )?;
     {
         let conn = lock(db, "db")?;
+        discovery::assert_owner(&conn, state.epoch)?;
         // Persist the next sequence while the run is still running, then move
         // to paused. A crash between these commits can create a harmless
         // sequence gap, but can never repeat an emitted sequence.
@@ -1369,6 +1398,7 @@ fn complete_run_after_commit(
     let sequence = state.reserve_sequences(1)?;
     let run = {
         let mut conn = lock(db, "db")?;
+        discovery::assert_owner(&conn, state.epoch)?;
         discovery::complete_discovery_run(&mut conn, run_id)?;
         discovery::get_discovery_run(&conn, run_id)?
     };
@@ -1394,6 +1424,7 @@ fn fail_run_after_commit(
     }
     let committed = (|| -> AppResult<DiscoveryRunRow> {
         let conn = lock(db, "db")?;
+        discovery::assert_owner(&conn, state.epoch)?;
         discovery::fail_discovery_run(&conn, run_id, message)?;
         discovery::get_discovery_run(&conn, run_id)
     })();
