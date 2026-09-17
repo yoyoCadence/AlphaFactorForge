@@ -220,3 +220,73 @@ export const discovery = {
   getActiveRun: () =>
     invoke<DiscoveryProgressSnapshot | null>('get_active_discovery_run'),
 };
+
+// ---- Versioned command envelope (P03b, research-command-v1) ----
+
+/** `research-command-v1` (docs/research-runtime-contract.md §2). Built by
+ *  `services/researchCommand.ts`; the backend rejects any other shape. */
+export interface CommandEnvelope {
+  protocolVersion: 'research-command-v1';
+  workspaceId: string;
+  requestId: string;
+  command: string;
+  payload: unknown;
+}
+
+/** Contract §2 error codes, exactly as the backend serializes them. */
+export type CommandErrorCode =
+  | 'UnsupportedProtocol'
+  | 'WorkspaceMismatch'
+  | 'Unauthorized'
+  | 'NotOwner'
+  | 'StaleOwner'
+  | 'DuplicateRequest'
+  | 'Validation'
+  | 'NotFound'
+  | 'Busy';
+
+/** What `dispatch_research_command` rejects with: structured, never a bare
+ *  string, so a caller can act on `code`. */
+export interface CommandError {
+  code: CommandErrorCode;
+  message: string;
+  retryable: boolean;
+}
+
+/** `research-event-v1` (contract §3): one persistent ledger row. `eventId`
+ *  is the reconnect cursor; `payload` is the inner `eventVersion` contract
+ *  (today always `discovery-event-v1`). */
+export interface EventEnvelope {
+  protocolVersion: 'research-event-v1';
+  eventId: number;
+  epoch: number;
+  entity: { kind: string; id: string };
+  eventVersion: string;
+  channel: string;
+  committedAt: string;
+  payload: unknown;
+}
+
+export interface EventsPage {
+  events: EventEnvelope[];
+  /** The highest event id ever issued; equals the cursor when nothing follows. */
+  lastEventId: number;
+}
+
+/** What a caller needs before its first envelope. */
+export interface WorkspaceInfo {
+  workspaceId: string;
+  epoch: number;
+  holderKind: string;
+  instanceId: string;
+  commandProtocolVersion: string;
+  eventProtocolVersion: string;
+}
+
+export const runtime = {
+  info: () => invoke<WorkspaceInfo>('get_workspace_info'),
+  /** Rejects with a `CommandError` object (see `isCommandError` in
+   *  `services/researchCommand.ts`). */
+  dispatch: (envelope: CommandEnvelope) =>
+    invoke<unknown>('dispatch_research_command', { envelope }),
+};

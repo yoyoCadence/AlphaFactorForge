@@ -10,9 +10,22 @@ use serde_json::Value;
 use tauri::{AppHandle, State};
 
 use crate::desktop::discovery_events::TauriDiscoveryEventSink;
-use crate::discovery_runner::DiscoveryProgressSnapshot;
+use crate::discovery_runner::{DiscoveryEventSink, DiscoveryProgressSnapshot};
 use crate::error::{AppError, AppResult};
+use crate::runtime::commands::LedgerSink;
 use crate::AppState;
+
+/// P03b: the desktop sink, wrapped so every event is appended to the
+/// persistent ledger (`runtime_events`) before the window sees it. The
+/// envelope path (`runtime_commands`) does the same, so a reconnecting
+/// reader gets one cursor regardless of which entry point started the run.
+fn ledgered_sink(app: AppHandle, state: &AppState) -> Arc<dyn DiscoveryEventSink> {
+    Arc::new(LedgerSink::new(
+        state.db.clone(),
+        state.ownership.epoch,
+        Arc::new(TauriDiscoveryEventSink::new(app)),
+    ))
+}
 
 fn join_error(error: impl std::fmt::Display) -> AppError {
     AppError::Other(format!("discovery command task failed: {error}"))
@@ -26,7 +39,7 @@ pub async fn start_discovery(
 ) -> AppResult<i64> {
     let db = state.db.clone();
     let runner = state.discovery.clone();
-    let sink = Arc::new(TauriDiscoveryEventSink::new(app));
+    let sink = ledgered_sink(app, &state);
     tauri::async_runtime::spawn_blocking(move || runner.start(db, sink, config))
         .await
         .map_err(join_error)?
@@ -49,7 +62,7 @@ pub async fn resume_discovery(
 ) -> AppResult<()> {
     let db = state.db.clone();
     let runner = state.discovery.clone();
-    let sink = Arc::new(TauriDiscoveryEventSink::new(app));
+    let sink = ledgered_sink(app, &state);
     tauri::async_runtime::spawn_blocking(move || runner.resume(db, sink, run_id))
         .await
         .map_err(join_error)?
@@ -63,7 +76,7 @@ pub async fn cancel_discovery(
 ) -> AppResult<()> {
     let db = state.db.clone();
     let runner = state.discovery.clone();
-    let sink = Arc::new(TauriDiscoveryEventSink::new(app));
+    let sink = ledgered_sink(app, &state);
     tauri::async_runtime::spawn_blocking(move || runner.cancel(&db, sink, run_id))
         .await
         .map_err(join_error)?

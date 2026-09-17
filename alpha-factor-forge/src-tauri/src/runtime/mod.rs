@@ -22,6 +22,7 @@
 
 #[cfg(test)]
 mod boundary_tests;
+pub mod commands;
 pub mod lease;
 
 use std::path::Path;
@@ -31,7 +32,7 @@ use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
 use crate::db::ownership::{self, HolderKind, HEARTBEAT_PERIOD};
-use crate::db::{self, discovery::RecoveryReport};
+use crate::db::{self, discovery::RecoveryReport, runtime_ledger};
 use crate::discovery_runner::DiscoveryRunner;
 use crate::error::{AppError, AppResult};
 
@@ -47,6 +48,10 @@ pub struct Workspace {
     pub recovery: RecoveryReport,
     /// The lease. Drop it and the workspace is no longer owned.
     pub ownership: OwnershipHandle,
+    /// P03b: the stable identity every command envelope must name
+    /// (`research-command-v1` §2); minted by migration 0005. A host builds
+    /// its `commands::Dispatcher` from this, the epoch, and its own sink.
+    pub workspace_id: String,
 }
 
 /// Proof of ownership for one acquisition: the OS lock, the epoch every write
@@ -181,12 +186,20 @@ pub fn open_workspace_with(
     // 5. Orphan recovery, as the holder of the new epoch.
     let discovery = DiscoveryRunner::with_epoch(acquired.epoch);
     let recovery = discovery.recover_orphans(&db)?;
+    // P03b: the workspace identity and the request ledger's housekeeping,
+    // both as the owner (a stale holder could do neither).
+    let workspace_id = {
+        let conn = db.lock().map_err(|_| AppError::Other("db lock poisoned".into()))?;
+        runtime_ledger::purge_old_requests(&conn, Some(acquired.epoch))?;
+        runtime_ledger::workspace_id(&conn)?
+    };
     // 6. Heartbeat.
     let heartbeat = Heartbeat::spawn(db.clone(), acquired.epoch, heartbeat_period)?;
     Ok(Workspace {
         db,
         discovery,
         recovery,
+        workspace_id,
         ownership: OwnershipHandle {
             epoch: acquired.epoch,
             instance_id: acquired.instance_id,
@@ -268,7 +281,8 @@ mod tests {
         let applied: i64 = conn
             .query_row("SELECT COUNT(*) FROM schema_migrations", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(applied, 4, "0001–0004 applied on first open");
+        assert_eq!(applied, 5, "0001–0005 applied on first open");
+        assert_eq!(workspace.workspace_id.len(), 32, "0005 minted the workspace id");
         drop(conn);
         drop(workspace);
     }
@@ -278,6 +292,7 @@ mod tests {
         let path = fresh_db_path();
         let _root = temp_root_of(&path);
         let first = open(&path);
+        let first_workspace_id = first.workspace_id.clone();
         first
             .db
             .lock()
@@ -291,7 +306,8 @@ mod tests {
         let applied: i64 = conn
             .query_row("SELECT COUNT(*) FROM schema_migrations", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(applied, 4, "no migration is re-applied");
+        assert_eq!(applied, 5, "no migration is re-applied");
+        assert_eq!(second.workspace_id, first_workspace_id, "the id survives a reopen");
         let value: String = conn
             .query_row("SELECT value_json FROM app_settings WHERE key = 'p02'", [], |r| r.get(0))
             .unwrap();
@@ -455,7 +471,7 @@ mod tests {
         let error = refused.err().expect("a newer schema must refuse the open");
         assert!(matches!(error, AppError::SchemaTooNew(_)), "got {error:?}");
         assert!(error.to_string().contains("0099_from_the_future"));
-        assert!(error.to_string().contains("0004_workspace_ownership"), "names what this build knows");
+        assert!(error.to_string().contains("0005_runtime_ledger"), "names what this build knows");
 
         // Refused BEFORE ownership: the row is still unowned, and the lock was
         // released with the failed attempt so a matching build could open it.
