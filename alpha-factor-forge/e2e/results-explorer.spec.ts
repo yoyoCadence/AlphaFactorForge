@@ -189,6 +189,38 @@ test('R1: a trade response that lands after a refresh is dropped', async ({ page
   await expect(detail.locator('table[data-testid^="results-explorer-trade-rows-"]')).toBeVisible({ timeout: 5000 });
 });
 
+for (const view of ['records', 'summaries'] as const) {
+  test(`R1: ${view} cannot start a detail read while the list is refreshing`, async ({ page }) => {
+    await page.goto('/?mock=1&seedHistory=1&explorerRefreshDelay=3000');
+    await page.getByTestId('results-explorer-toggle').click();
+    await page.getByTestId(`results-explorer-view-${view}`).click();
+    if (view === 'records') {
+      await recordRows(page).first().click();
+    } else {
+      await page.locator('tr[data-testid^="results-explorer-summary-"][data-segment="full"]').click();
+    }
+    const detail = page.getByTestId(`results-explorer-${view === 'records' ? 'record' : 'summary'}-detail`);
+    const buttons = detail.locator('button[data-testid^="results-explorer-load-trades-"]');
+    const load = buttons.first();
+    await expect(load).toBeEnabled();
+    const before = await page.getByTestId('results-explorer-loaded-at').getAttribute('data-loaded-at');
+
+    // Reverse of the preceding regression: the LIST read starts first.
+    // The old snapshot remains visible, but none of its detail actions may
+    // join the new read generation while that list is still pending.
+    await page.getByTestId('results-explorer-refresh').click();
+    await expect(page.getByTestId('results-explorer-refresh')).toBeDisabled();
+    for (const button of await buttons.all()) await expect(button).toBeDisabled();
+    await expect(detail.locator('table[data-testid^="results-explorer-trade-rows-"]')).toHaveCount(0);
+
+    await expect(page.getByTestId('results-explorer-loaded-at')).not.toHaveAttribute('data-loaded-at', before!);
+    await expect(load).toBeEnabled();
+    await load.click();
+    await expect(detail.locator('table[data-testid^="results-explorer-trade-rows-"]')).toBeVisible();
+    await expect(detail.locator('[data-testid^="results-explorer-stale-detail-"]')).toHaveCount(0);
+  });
+}
+
 test('R2: a failed first read stays failed until the user refreshes', async ({ page }) => {
   await page.goto('/?mock=1&explorerFailOnce=1');
   await page.getByTestId('results-explorer-toggle').click();

@@ -5,7 +5,7 @@ Repo: yoyoCadence/AlphaFactorForge
 Branch: `docs/p00-contract-precheck`
 Reviewed commit: `5e029d75b16572e91f9e4328adce418466dcf74a`
 PR: None; local review only
-Status: Changes required — P01 acceptance is not yet passed
+Status: Resolved — R1/R2 regression checks pass; native Tauri restart/reopen remains untested
 
 ## Summary
 
@@ -68,3 +68,56 @@ Pending fixes and re-verification of R1 and R2. Existing green tests alone do no
 - Mutation check: each of the three Playwright regressions was run against a deliberately un-fixed component (comparison forced true; generation check removed; the old `data == null && !loading` guard restored) and failed as intended, then the fix was restored.
 - Re-verification: `npm.cmd run typecheck` clean; `npm.cmd test` 865 passed; `npm.cmd run build` passed; `cargo test --locked` 156 passed; `E2E_PORT=5199 playwright test --workers=1` 67 passed. Native Tauri restart/reopen still not exercised.
 - Known limit, stated rather than hidden: a re-save whose row is column-for-column identical to the displayed one is indistinguishable from it (the screen is then also not wrong). A true generation marker belongs to P05's immutable attempt artifacts.
+
+### 2026-09-17 — independent re-review of `6a3bdfd` (Codex)
+
+**Acceptance: changes still required. R2 is closed; R1 remains open for detail requests started DURING a list refresh.** The transaction-based pair read and column comparison resolve the original replacement-before-detail case, and the existing generation check handles detail requests started before refresh. The reverse ordering remains unsafe.
+
+#### R1 follow-up — High: prevent old-screen detail requests from joining a refresh's new generation
+
+Locations in `alpha-factor-forge/src/components/ResultsExplorer.tsx`:
+
+- Line 127 increments `readGenRef` when a list read **starts**; line 137 later installs the new displayed snapshot without changing that generation.
+- Lines 172–185 capture the current generation but compare the result to the `displayed` argument captured at the time of the click, rather than the snapshot currently on screen when the response arrives.
+- Line 671 disables the detail button only for another detail read, so it remains usable while the list is refreshing. The handler has no corresponding list-loading guard.
+
+Consequently, a detail request started on the old screen while refresh is pending already carries the new generation. If its response arrives after the new list is installed, both checks pass against the old captured row and its old trades are cached by ID under the new visible row.
+
+**Independent browser reproduction:** an isolated temporary page imported the production `ResultsExplorer` unchanged and supplied controlled typed-client responses. Each detail response was an internally consistent `(summary, trades)` pair; no calculation or production source was changed.
+
+1. Initial `getBacktestResults()` returns summary A: ID 1, return 0.10, trade count 1. Open the summaries view and select it.
+2. Click “重新整理”; hold the second list read pending. The old screen remains visible and its “載入 全期 交易明細（1 筆）” button is still enabled.
+3. Click that detail button. Capture pair A (summary A plus one trade labelled `generation-1`) and hold its response pending.
+4. Simulate persistence of summary B under ID 1 (return 0.20, trade count 2). Resolve the pending list read with B.
+5. Confirm the screen now shows **20.00% / 交易數 2**. Then resolve the pending detail response with pair A.
+6. Observed: the same screen still shows **20.00% / 交易數 2**, but its trade table contains **one `generation-1` trade**. No stale-result warning appears.
+
+This is the mirror image of the existing E2E `R1: a trade response that lands after a refresh is dropped`: that test starts the detail read *before* clicking refresh, so the start-time generation increment invalidates it and cannot expose this gap.
+
+**Required fix:** make detail admission and response acceptance belong to a displayed snapshot. A bounded solution is to disable detail actions and guard the handler during list loading; alternatively invalidate/check the actual displayed-snapshot generation when a successful refresh installs it. Preserve the existing before-refresh rejection and explicit refresh-failure behavior. Add a deterministic regression for **refresh starts → detail attempt on old screen → new list completes → old detail arrives**; assert either that no detail request is admitted during loading or that its response cannot attach to the refreshed row. Do not rely only on trade counts. No P05 archive work is required for this correction.
+
+#### Re-verification
+
+- `npm.cmd test`: **865 passed**, 49 files.
+- `npm.cmd run build`: **passed**, including TypeScript checking.
+- `cargo test --locked`: **156 passed** (52 + 104).
+- `cargo check --locked`: **passed**.
+- `E2E_PORT=5199 npm.cmd run e2e`: **67 passed**, including all three added R1/R2 regressions.
+- Independent Browser reproduction above: **remaining R1 defect confirmed**.
+- Native Tauri restart/reopen remains untested; this run does not claim native end-to-end acceptance.
+- Temporary probe files removed and the review-owned server stopped after verification. Product files remain unchanged.
+
+### 2026-09-17 — remaining R1 fixed and verified (Codex)
+
+User explicitly authorized the fix after the `6a3bdfd` re-review. Changes are on the same branch, local and uncommitted on top of `6a3bdfd`; the earlier review additions are preserved.
+
+- `ResultsExplorer` now blocks new detail reads while a list read is pending. `listLoading` reaches the shared `TradesBlock` through both records and summaries, disabling every unloaded-detail button. A synchronous `listLoadingRef` is set before any await/state render; `loadTrades` checks it before admission, so correctness does not depend solely on the disabled button. The same guard prevents overlapping list reads and is released in `finally` after either success or failure.
+- Existing generation checks continue to reject detail responses started before refresh, and failed list reads still retain their error until explicit refresh (R2). No calculation, database command, persistence contract, or schema changed.
+- Added `explorerRefreshDelay` to the existing DEV mock controls (bounded to 10 seconds, initial read immediate). Two E2E regressions exercise records and summaries separately: initial detail is available → refresh starts first → every old-screen detail button is disabled → refresh completes → the selected result's detail can load normally.
+- Red/green evidence: both new tests were run before the component change and failed specifically because the detail button remained enabled. After the fix, both pass. The previous three R1/R2 regressions also pass.
+- Final verification: `npm.cmd test` **865 passed**; `npm.cmd run build` **passed**, including TypeScript checking; `E2E_PORT=5199 npm.cmd run e2e` **69 passed**. Backend is unchanged from the independently verified `6a3bdfd` (156 Rust tests and cargo check passed in the preceding review); Rust was not rerun for this frontend-only fix. `git diff --check` passes.
+- **R1 and R2 are closed for the reviewed browser/mock and repository behavior.** Native Tauri restart/reopen remains a separate unperformed verification, and P05's full immutable attempt history remains out of scope. This fix does not authorize P02.
+
+### 2026-09-17 — local commit authorized
+
+The user requested a commit. The fix, two regressions, task/changelog updates, and review notes are included with this entry in `fix(ui): block explorer detail reads during list refresh`. No push or PR is part of this action.

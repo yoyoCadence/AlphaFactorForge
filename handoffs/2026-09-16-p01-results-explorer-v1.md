@@ -70,6 +70,8 @@ GitHub：`git push` 401（`GITHUB_TOKEN` 失效）。本次只做本機 commit�
 
 ## Resolution (added when acted on)
 
+Latest independent acceptance: the `6a3bdfd` re-review closes R2 but leaves R1 open for a detail read started during list refresh. See the final re-review section of [the acceptance report](2026-09-17-p01-acceptance-review-v1.md) for reproduction and the remaining bounded fix.
+
 （待補：push／PR 編號、review 結果。）
 
 ### 2026-09-17 acceptance review
@@ -91,3 +93,14 @@ Codex 驗收 `5e029d7`：既有 863 Vitest／156 Rust／64 Playwright 與 build 
 - 重驗：typecheck、build、865 vitest、156 Rust、67 Playwright 全綠。原生 Tauri 仍未執行。
 - 已知限制（如實記錄）：內容完全相同的重存（整列逐欄相等）無法與原列區分，畫面也因此不會錯——完整的世代標記
   屬 P05 不可變 attempt artifacts。
+
+### 2026-09-17 反向時序修正完成（Codex）
+
+- 使用者授權修正 `6a3bdfd` 重驗留下的 R1：列表重新整理期間，records／summaries 的明細按鈕均禁用，讀取函式也用同步 ref 拒絕啟動；成功或失敗皆解除防護，原有遲到回應檢查與 R2 保留。
+- 新增兩條回歸（`explorerRefreshDelay=3000`），分別覆蓋兩種入口。修正前兩條均因按鈕仍可用而失敗，修正後通過。
+- 最終驗證：865 Vitest、69 Playwright、build（含 typecheck）全通過。Rust 未修改，沿用前次 156 tests／cargo check 通過的證據；原生 Tauri restart 尚未執行。
+- R1／R2 的已報告缺陷已關閉，詳見 [驗收報告最後的 Resolution](2026-09-17-p01-acceptance-review-v1.md)。本次檔案修改尚未 commit／push，P02 未啟動。
+
+### 2026-09-17 本機提交
+
+使用者隨後授權 commit；上述修正、回歸測試與紀錄隨本節提交為 `fix(ui): block explorer detail reads during list refresh`。尚未 push／建立 PR。
