@@ -24,6 +24,8 @@
 //      the displayed row column for column (`sameSummaryRow`); a mismatch is
 //      disclosed and the trades are not shown, and a response that lands after
 //      a refresh is dropped (acceptance review R1).
+//      While the list refreshes, no detail read may start against the old
+//      screen using the new read generation.
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { db, isTauri } from '../tauri-client/dataClient';
@@ -122,8 +124,13 @@ export function ResultsExplorer(): React.ReactElement {
   // started under and is dropped if a refresh has moved it on since (rule 4):
   // a late response must not populate the cache of a newer snapshot.
   const readGenRef = useRef(0);
+  // Synchronous admission guard: set before any await or React render, so an
+  // old button/handler cannot start a detail read while the list is loading.
+  const listLoadingRef = useRef(false);
 
   const load = useCallback(async () => {
+    if (listLoadingRef.current) return;
+    listLoadingRef.current = true;
     readGenRef.current += 1;
     setStatus('loading');
     setErr(null);
@@ -142,6 +149,8 @@ export function ResultsExplorer(): React.ReactElement {
       // Keep whatever was on screen and say why the read failed; do not retry.
       setErr(error instanceof Error ? error.message : String(error));
       setStatus('failed');
+    } finally {
+      listLoadingRef.current = false;
     }
   }, []);
 
@@ -170,6 +179,7 @@ export function ResultsExplorer(): React.ReactElement {
   /** Read the (summary, trades) pair for the DISPLAYED summary and keep the
    *  trades only if the persisted summary is still that exact row. */
   const loadTrades = async (displayed: BacktestSummary): Promise<void> => {
+    if (listLoadingRef.current) return;
     const summaryId = displayed.id!;
     if (trades.has(summaryId)) return;
     const gen = readGenRef.current;
@@ -294,6 +304,7 @@ export function ResultsExplorer(): React.ReactElement {
               selectedListed={selectedRecordListed}
               onSelect={setSelectedRecordId}
               trades={trades}
+              listLoading={loading}
               tradesLoading={tradesLoading}
               tradesErr={tradesErr}
               onLoadTrades={loadTrades}
@@ -310,6 +321,7 @@ export function ResultsExplorer(): React.ReactElement {
               selectedListed={selectedSummaryListed}
               onSelect={setSelectedSummaryId}
               trades={trades}
+              listLoading={loading}
               tradesLoading={tradesLoading}
               tradesErr={tradesErr}
               onLoadTrades={loadTrades}
@@ -332,6 +344,7 @@ interface ListProps<Row> {
   selectedListed: boolean;
   onSelect: (id: number) => void;
   trades: Map<number, DetailState>;
+  listLoading: boolean;
   tradesLoading: number | null;
   tradesErr: string | null;
   onLoadTrades: (displayed: BacktestSummary) => Promise<void>;
@@ -655,7 +668,7 @@ function SummariesView(props: ListProps<BacktestSummary>): React.ReactElement {
 function TradesBlock<Row>(props: ListProps<Row> & { summary: BacktestSummary; label: string }): React.ReactElement {
   const t = useTheme();
   const S = makeStyles(t);
-  const { summary, label, trades, tradesLoading, tradesErr, onLoadTrades, cell } = props;
+  const { summary, label, trades, listLoading, tradesLoading, tradesErr, onLoadTrades, cell } = props;
   const id = summary.id!;
   const detail = trades.get(id);
   const rows = detail?.kind === 'ok' ? detail.trades : null;
@@ -668,7 +681,7 @@ function TradesBlock<Row>(props: ListProps<Row> & { summary: BacktestSummary; la
           data-testid={`results-explorer-load-trades-${id}`}
           style={{ ...S.btnGhost, padding: '3px 10px' }}
           onClick={() => void onLoadTrades(summary)}
-          disabled={tradesLoading != null}
+          disabled={listLoading || tradesLoading != null}
           aria-busy={tradesLoading === id}
         >
           {tradesLoading === id ? '載入中…' : `載入 ${label} 交易明細（${fmtInt(expected)} 筆）`}

@@ -63,6 +63,9 @@ function mockSeedHistory(): boolean {
  * - `?mock=1&explorerFailOnce=1` rejects the FIRST `getBacktestResults` call
  *   and serves later ones, so a suite can tell "no automatic retry" from
  *   "retried and recovered" (R2).
+ * - `?mock=1&explorerRefreshDelay=<ms>` delays subsequent summary-list reads
+ *   while leaving the initial read immediate, exposing detail actions on an
+ *   old screen during refresh (R1, reverse request ordering).
  */
 function mockDetailDelayMs(): number {
   const raw = mockSearchParam('detailDelay');
@@ -76,6 +79,12 @@ function mockReplaceBeforeDetail(): boolean {
 
 function mockExplorerFailOnce(): boolean {
   return mockSearchParam('explorerFailOnce') === '1';
+}
+
+function mockExplorerRefreshDelayMs(): number {
+  const raw = mockSearchParam('explorerRefreshDelay');
+  const ms = raw == null ? 0 : Number(raw);
+  return Number.isFinite(ms) && ms > 0 ? Math.min(ms, 10_000) : 0;
 }
 
 /** Every method of `target` waits for `ready` first; a failed seed therefore
@@ -183,6 +192,8 @@ export function makeMockClient() {
   const detailDelayMs = mockDetailDelayMs();
   let replaceBeforeDetail = mockReplaceBeforeDetail();
   let failNextResultsRead = mockExplorerFailOnce();
+  const explorerRefreshDelayMs = mockExplorerRefreshDelayMs();
+  let resultsReadCount = 0;
 
   const db = {
     init: async () => 'mock database ready',
@@ -259,6 +270,9 @@ export function makeMockClient() {
       return id;
     },
     getBacktestResults: async (strategyId?: number) => {
+      if (resultsReadCount++ > 0 && explorerRefreshDelayMs > 0) {
+        await new Promise((resolve) => globalThis.setTimeout(resolve, explorerRefreshDelayMs));
+      }
       if (failNextResultsRead) {
         failNextResultsRead = false;
         throw new Error('mock: backtest_summary read failed once');
