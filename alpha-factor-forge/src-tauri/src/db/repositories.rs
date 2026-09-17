@@ -418,10 +418,12 @@ pub fn insert_verified_strategy(conn: &Connection, strategy: &StrategyDef) -> Ap
 /// its chosen name/source or validation-owned lifecycle.
 pub fn get_or_insert_verified_runner_strategy(
     conn: &Connection,
+    epoch: Option<i64>,
     strategy: &StrategyDef,
 ) -> AppResult<i64> {
     crate::identity::verify_strategy_identity(strategy)?;
-    conn.execute(
+    let tx = super::ownership::write_transaction(conn, epoch)?;
+    tx.execute(
         "INSERT INTO strategy_def
             (name, type, dsl_json, original_definition_json, param_schema_json,
              source, ai_prompt_hash, strategy_hash, lifecycle, parent_strategy_id)
@@ -440,11 +442,12 @@ pub fn get_or_insert_verified_runner_strategy(
             strategy.parent_strategy_id
         ],
     )?;
-    let id = conn.query_row(
+    let id = tx.query_row(
         "SELECT id FROM strategy_def WHERE strategy_hash = ?1",
         [&strategy.strategy_hash],
         |row| row.get(0),
     )?;
+    tx.commit()?;
     Ok(id)
 }
 
@@ -1713,7 +1716,7 @@ mod tests {
         runner_candidate.name = "generated candidate name".into();
         runner_candidate.source = "traditional".into();
         runner_candidate.lifecycle = "candidate".into();
-        let returned_id = get_or_insert_verified_runner_strategy(&conn, &runner_candidate).unwrap();
+        let returned_id = get_or_insert_verified_runner_strategy(&conn, None, &runner_candidate).unwrap();
 
         assert_eq!(returned_id, existing_id);
         let count: i64 = conn
@@ -1737,12 +1740,26 @@ mod tests {
     }
 
     #[test]
+    fn runner_strategy_insert_is_fenced_by_its_transaction() {
+        use crate::db::ownership::{acquire, HolderKind};
+        let mut conn = mem_db();
+        let strategy = verified_blocks_strategy();
+        let old = acquire(&mut conn, HolderKind::DesktopEmbedded, 1).unwrap();
+        let current = acquire(&mut conn, HolderKind::Service, 2).unwrap();
+        let result = get_or_insert_verified_runner_strategy(&conn, Some(old.epoch), &strategy);
+        assert!(matches!(result, Err(AppError::StaleOwner(_))), "{result:?}");
+        assert!(list_strategies(&conn).unwrap().is_empty());
+        get_or_insert_verified_runner_strategy(&conn, Some(current.epoch), &strategy).unwrap();
+        assert_eq!(list_strategies(&conn).unwrap().len(), 1);
+    }
+
+    #[test]
     fn runner_strategy_insert_still_verifies_the_durable_identity() {
         let conn = mem_db();
         let mut forged = verified_blocks_strategy();
         forged.strategy_hash = "strategy-v2:forged".into();
 
-        assert!(get_or_insert_verified_runner_strategy(&conn, &forged).is_err());
+        assert!(get_or_insert_verified_runner_strategy(&conn, None, &forged).is_err());
         assert_eq!(
             conn.query_row("SELECT COUNT(*) FROM strategy_def", [], |row| row
                 .get::<_, i64>(0))

@@ -197,8 +197,8 @@ pub struct CandidateAssessment<'a> {
 }
 
 /// P03a: fail with `StaleOwner` unless the stored ownership epoch equals
-/// `epoch`; a `None` epoch (no lease) is not checked. Every runner write
-/// calls this under the same connection guard as the write it protects.
+/// `epoch`; a `None` epoch (no lease) is not checked. This is an advisory
+/// preflight only: each store write also checks inside `write_transaction`.
 pub fn assert_owner(conn: &Connection, epoch: Option<i64>) -> AppResult<()> {
     match epoch {
         Some(expected) => crate::db::ownership::assert_epoch(conn, expected),
@@ -324,10 +324,11 @@ pub fn list_discovery_jobs(conn: &Connection, run_id: i64) -> AppResult<Vec<Disc
 /// moving either row, and a late claim cannot enter a paused or terminal run.
 pub fn claim_candidate_jobs(
     conn: &Connection,
+    epoch: Option<i64>,
     run_id: i64,
     candidate_index: i64,
 ) -> AppResult<ClaimedCandidateJobs> {
-    let tx = conn.unchecked_transaction()?;
+    let tx = super::ownership::write_transaction(conn, epoch)?;
     let run_status = current_status(&tx, run_id)?;
     if run_status != RunStatus::Running {
         return Err(AppError::Other(format!(
@@ -408,17 +409,25 @@ pub fn claim_candidate_jobs(
 
 /// Create an `idle` run. Idle holds no global slot, so drafting a run never
 /// blocks another one.
-pub fn create_discovery_run(conn: &Connection, name: &str, config_json: &str) -> AppResult<i64> {
+pub fn create_discovery_run(
+    conn: &Connection,
+    epoch: Option<i64>,
+    name: &str,
+    config_json: &str,
+) -> AppResult<i64> {
     if name.trim().is_empty() {
         return Err(AppError::Other(
             "discovery run name must not be empty".into(),
         ));
     }
-    conn.execute(
+    let tx = super::ownership::write_transaction(conn, epoch)?;
+    tx.execute(
         "INSERT INTO discovery_runs (name, status, config_json) VALUES (?1, 'idle', ?2)",
         params![name, config_json],
     )?;
-    Ok(conn.last_insert_rowid())
+    let id = tx.last_insert_rowid();
+    tx.commit()?;
+    Ok(id)
 }
 
 fn current_status(conn: &Connection, run_id: i64) -> AppResult<RunStatus> {
@@ -442,6 +451,7 @@ fn current_status(conn: &Connection, run_id: i64) -> AppResult<RunStatus> {
 /// than relying on a check-then-act race here.
 pub fn start_discovery_run(
     conn: &mut Connection,
+    epoch: Option<i64>,
     run_id: i64,
     candidates: &[CandidateJobSpec],
 ) -> AppResult<()> {
@@ -487,7 +497,7 @@ pub fn start_discovery_run(
         seen_identities.push(identity);
     }
 
-    let tx = conn.transaction()?;
+    let tx = super::ownership::write_transaction(conn, epoch)?;
     let from = current_status(&tx, run_id)?;
     // `idle -> running` lives here, not in the generic table: starting a run
     // is enqueueing its candidates, and the two must not be separable.
@@ -534,6 +544,7 @@ pub fn start_discovery_run(
 /// overwrite progress after pause/resume/cancel/fail changed the run state.
 pub fn update_discovery_progress(
     conn: &Connection,
+    epoch: Option<i64>,
     run_id: i64,
     expected_status: RunStatus,
     progress_json: &str,
@@ -554,7 +565,7 @@ pub fn update_discovery_progress(
         )));
     }
 
-    let tx = conn.unchecked_transaction()?;
+    let tx = super::ownership::write_transaction(conn, epoch)?;
     let updated = tx.execute(
         "UPDATE discovery_runs
          SET progress_json = ?3, updated_at = datetime('now')
@@ -581,8 +592,13 @@ pub fn update_discovery_progress(
 /// and the state machine would only be as strong as the caller's discipline.
 /// Its siblings `start_discovery_run` and `complete_discovery_run` are already
 /// transactional, so leaving this one bare was the odd case out.
-pub fn transition_run(conn: &Connection, run_id: i64, to: RunStatus) -> AppResult<()> {
-    let tx = conn.unchecked_transaction()?;
+pub fn transition_run(
+    conn: &Connection,
+    epoch: Option<i64>,
+    run_id: i64,
+    to: RunStatus,
+) -> AppResult<()> {
+    let tx = super::ownership::write_transaction(conn, epoch)?;
     let from = current_status(&tx, run_id)?;
     if !transition_allowed(from, to) {
         return Err(AppError::Other(format!(
@@ -640,8 +656,12 @@ pub fn select_best_strategy(conn: &Connection, run_id: i64) -> AppResult<Option<
 /// Terminate a run, recording its best gate passer. `best_strategy_id` is
 /// derived here rather than accepted, so a caller cannot record a winner the
 /// stored assessments do not support.
-pub fn complete_discovery_run(conn: &mut Connection, run_id: i64) -> AppResult<Option<i64>> {
-    let tx = conn.transaction()?;
+pub fn complete_discovery_run(
+    conn: &mut Connection,
+    epoch: Option<i64>,
+    run_id: i64,
+) -> AppResult<Option<i64>> {
+    let tx = super::ownership::write_transaction(conn, epoch)?;
     let from = current_status(&tx, run_id)?;
     if from != RunStatus::Running {
         return Err(AppError::Other(format!(
@@ -697,8 +717,8 @@ pub fn complete_discovery_run(conn: &mut Connection, run_id: i64) -> AppResult<O
 /// in-flight jobs return to `queued`. CPU work is never resumed automatically
 /// — the user must explicitly resume — and `done` rows are left untouched
 /// because they mean a complete atomic assessment already exists.
-pub fn recover_orphaned_runs(conn: &mut Connection) -> AppResult<RecoveryReport> {
-    let tx = conn.transaction()?;
+pub fn recover_orphaned_runs(conn: &mut Connection, epoch: Option<i64>) -> AppResult<RecoveryReport> {
+    let tx = super::ownership::write_transaction(conn, epoch)?;
     let jobs_requeued = tx.execute(
         "UPDATE discovery_jobs
          SET status = 'queued', updated_at = datetime('now')
@@ -740,11 +760,9 @@ pub fn commit_candidate_assessment(
     // Rusqlite rolls a Transaction back on drop, so every `?` and early
     // `return Err` below undoes the whole assessment. That behaviour is what
     // `a_failure_after_the_writes_rolls_everything_back` pins down.
-    let tx = conn.transaction()?;
-
     // The lease first: a result produced under an epoch the workspace has
     // since left belongs to a host that no longer owns it (contract §1.3).
-    assert_owner(&tx, assessment.epoch)?;
+    let tx = super::ownership::write_transaction(conn, assessment.epoch)?;
 
     // A run must be actively running to absorb a result. Committing into a
     // paused/terminal run would resurrect work the user stopped.
@@ -886,8 +904,12 @@ fn skip_unfinished_jobs(conn: &Connection, run_id: i64) -> AppResult<usize> {
 /// still queued or running becomes `skipped`. Because crash recovery
 /// deliberately ignores terminal runs, a cancelled run left holding queued
 /// jobs would never be repaired — hence one transaction.
-pub fn cancel_discovery_run(conn: &Connection, run_id: i64) -> AppResult<usize> {
-    let tx = conn.unchecked_transaction()?;
+pub fn cancel_discovery_run(
+    conn: &Connection,
+    epoch: Option<i64>,
+    run_id: i64,
+) -> AppResult<usize> {
+    let tx = super::ownership::write_transaction(conn, epoch)?;
     let from = current_status(&tx, run_id)?;
     if !from.is_active() {
         return Err(AppError::Other(format!(
@@ -913,13 +935,18 @@ pub fn cancel_discovery_run(conn: &Connection, run_id: i64) -> AppResult<usize> 
 /// D5 requires an engine/system failure to fail the run WITH evidence. A
 /// separate status write could crash before the evidence landed, leaving a
 /// terminal run that records no reason and that recovery will never revisit.
-pub fn fail_discovery_run(conn: &Connection, run_id: i64, error_message: &str) -> AppResult<usize> {
+pub fn fail_discovery_run(
+    conn: &Connection,
+    epoch: Option<i64>,
+    run_id: i64,
+    error_message: &str,
+) -> AppResult<usize> {
     if error_message.trim().is_empty() {
         return Err(AppError::Other(
             "a failed run must record why it failed".into(),
         ));
     }
-    let tx = conn.unchecked_transaction()?;
+    let tx = super::ownership::write_transaction(conn, epoch)?;
     let from = current_status(&tx, run_id)?;
     // Only a RUNNING run may fail, matching D5's table. `paused -> failed` is
     // not an edge there: a paused run resumes or cancels.

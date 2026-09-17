@@ -13,7 +13,9 @@
 //! added; on Windows it is `LockFileEx`, on Unix `flock`.
 
 use std::fs::{File, OpenOptions, TryLockError};
-use std::path::{Path, PathBuf};
+use std::path::Path;
+#[cfg(test)]
+use std::path::PathBuf;
 
 use crate::error::{AppError, AppResult};
 
@@ -24,9 +26,11 @@ pub const LOCK_FILE_NAME: &str = "ownership.lock";
 #[derive(Debug)]
 pub struct OsLock {
     _file: File,
+    #[cfg(test)]
     path: PathBuf,
 }
 
+#[cfg(test)]
 impl OsLock {
     pub fn path(&self) -> &Path {
         &self.path
@@ -46,7 +50,11 @@ pub fn try_lock_workspace(data_dir: &Path) -> AppResult<OsLock> {
         .truncate(false)
         .open(&path)?;
     match file.try_lock() {
-        Ok(()) => Ok(OsLock { _file: file, path }),
+        Ok(()) => Ok(OsLock {
+            _file: file,
+            #[cfg(test)]
+            path,
+        }),
         Err(TryLockError::WouldBlock) => Err(AppError::NotOwner(format!(
             "another host holds the workspace lock at {}",
             path.display()

@@ -181,7 +181,7 @@ struct ControlState {
     phase: ControlPhase,
     last_sequence: u64,
     /// P03a: the lease epoch this coordinator runs under; every write the
-    /// coordinator makes is checked against it first (`assert_owner`).
+    /// coordinator makes is checked inside its store transaction.
     epoch: Option<i64>,
 }
 
@@ -322,7 +322,7 @@ impl DiscoveryRunner {
     pub fn recover_orphans(&self, db: &SharedDb) -> AppResult<RecoveryReport> {
         let mut conn = lock(db, "db")?;
         discovery::assert_owner(&conn, self.epoch)?;
-        discovery::recover_orphaned_runs(&mut conn)
+        discovery::recover_orphaned_runs(&mut conn, self.epoch)
     }
 
     pub fn start(
@@ -372,7 +372,7 @@ impl DiscoveryRunner {
                     parent_strategy_id: None,
                 };
                 let strategy_id =
-                    repositories::get_or_insert_verified_runner_strategy(&conn, &strategy)?;
+                    repositories::get_or_insert_verified_runner_strategy(&conn, self.epoch, &strategy)?;
                 scheduled.push(ScheduledCandidate {
                     candidate: candidate.clone(),
                     strategy_id,
@@ -385,16 +385,19 @@ impl DiscoveryRunner {
             }
 
             let name = discovery_run_name(dataset.id, &dataset.content_hash)?;
-            let run_id = discovery::create_discovery_run(&conn, &name, &raw_config_json)?;
-            discovery::start_discovery_run(&mut conn, run_id, &specs)?;
+            let run_id = discovery::create_discovery_run(&conn, self.epoch, &name, &raw_config_json)?;
+            discovery::start_discovery_run(&mut conn, self.epoch, run_id, &specs)?;
             let initial_sequence = 1;
             let progress =
                 stored_progress_json(plan.counts, plan.counts.final_unique, 0, initial_sequence)?;
-            if let Err(error) =
-                discovery::update_discovery_progress(&conn, run_id, RunStatus::Running, &progress)
-            {
+            if let Err(error) = discovery::update_discovery_progress(
+                &conn, self.epoch, run_id, RunStatus::Running, &progress,
+            ) {
+                if matches!(error, AppError::StaleOwner(_)) {
+                    return Err(error);
+                }
                 let message = format!("failed to initialize discovery progress: {error}");
-                let _ = discovery::fail_discovery_run(&conn, run_id, &message);
+                let _ = discovery::fail_discovery_run(&conn, self.epoch, run_id, &message);
                 return Err(other(message));
             }
 
@@ -515,18 +518,21 @@ impl DiscoveryRunner {
         {
             let conn = lock(&db, "db")?;
             discovery::assert_owner(&conn, self.epoch)?;
-            discovery::transition_run(&conn, run_id, RunStatus::Running)?;
+            discovery::transition_run(&conn, self.epoch, run_id, RunStatus::Running)?;
             let progress = stored_progress_json(
                 prepared.enumeration,
                 prepared.total_candidates,
                 prepared.completed_candidates,
                 resume_sequence,
             )?;
-            if let Err(error) =
-                discovery::update_discovery_progress(&conn, run_id, RunStatus::Running, &progress)
-            {
+            if let Err(error) = discovery::update_discovery_progress(
+                &conn, self.epoch, run_id, RunStatus::Running, &progress,
+            ) {
+                if matches!(error, AppError::StaleOwner(_)) {
+                    return Err(error);
+                }
                 let message = format!("failed to checkpoint resumed discovery: {error}");
-                let _ = discovery::fail_discovery_run(&conn, run_id, &message);
+                let _ = discovery::fail_discovery_run(&conn, self.epoch, run_id, &message);
                 return Err(other(message));
             }
         }
@@ -628,7 +634,7 @@ impl DiscoveryRunner {
             let run = {
                 let conn = lock(db, "db")?;
                 discovery::assert_owner(&conn, self.epoch)?;
-                discovery::cancel_discovery_run(&conn, run_id)?;
+                discovery::cancel_discovery_run(&conn, self.epoch, run_id)?;
                 discovery::get_discovery_run(&conn, run_id)?
             };
             state.phase = ControlPhase::CancelRequested;
@@ -645,6 +651,8 @@ impl DiscoveryRunner {
         let (run, sequence) = {
             let conn = lock(db, "db")?;
             discovery::assert_owner(&conn, self.epoch)?;
+            #[cfg(test)]
+            tests::after_epoch_preflight();
             let before = discovery::get_discovery_run(&conn, run_id)?;
             if before.status != RunStatus::Paused {
                 return Err(other(format!(
@@ -655,7 +663,7 @@ impl DiscoveryRunner {
             let sequence = last_event_sequence(before.progress_json.as_deref())
                 .checked_add(1)
                 .ok_or_else(|| other("discovery event sequence overflow"))?;
-            discovery::cancel_discovery_run(&conn, run_id)?;
+            discovery::cancel_discovery_run(&conn, self.epoch, run_id)?;
             (discovery::get_discovery_run(&conn, run_id)?, sequence)
         };
         emit_after_commit(
@@ -782,6 +790,7 @@ impl DiscoveryRunner {
                         let claimed = match lock(&db, "db").and_then(|conn| {
                             discovery::claim_candidate_jobs(
                                 &conn,
+                                state.epoch,
                                 run_id,
                                 scheduled.candidate.index,
                             )
@@ -1363,8 +1372,8 @@ fn pause_run_after_drain(
         // Persist the next sequence while the run is still running, then move
         // to paused. A crash between these commits can create a harmless
         // sequence gap, but can never repeat an emitted sequence.
-        discovery::update_discovery_progress(&conn, run_id, RunStatus::Running, &progress)?;
-        discovery::transition_run(&conn, run_id, RunStatus::Paused)?;
+        discovery::update_discovery_progress(&conn, state.epoch, run_id, RunStatus::Running, &progress)?;
+        discovery::transition_run(&conn, state.epoch, run_id, RunStatus::Paused)?;
     }
     state.phase = ControlPhase::Paused;
     changed.notify_all();
@@ -1399,7 +1408,7 @@ fn complete_run_after_commit(
     let run = {
         let mut conn = lock(db, "db")?;
         discovery::assert_owner(&conn, state.epoch)?;
-        discovery::complete_discovery_run(&mut conn, run_id)?;
+        discovery::complete_discovery_run(&mut conn, state.epoch, run_id)?;
         discovery::get_discovery_run(&conn, run_id)?
     };
     state.phase = ControlPhase::Completed;
@@ -1425,7 +1434,7 @@ fn fail_run_after_commit(
     let committed = (|| -> AppResult<DiscoveryRunRow> {
         let conn = lock(db, "db")?;
         discovery::assert_owner(&conn, state.epoch)?;
-        discovery::fail_discovery_run(&conn, run_id, message)?;
+        discovery::fail_discovery_run(&conn, state.epoch, run_id, message)?;
         discovery::get_discovery_run(&conn, run_id)
     })();
     match committed {
