@@ -105,6 +105,33 @@ export function latestSummariesFor(
   return out;
 }
 
+/** Every persisted column of a summary row, in one place, so the identity
+ *  comparison below cannot silently skip a column that a future save changes. */
+export const SUMMARY_COLUMNS: readonly (keyof BacktestSummary)[] = [
+  'id', 'strategy_id', 'dataset_id', 'segment', 'start_time', 'end_time',
+  'net_return', 'cagr', 'max_drawdown', 'sharpe', 'sortino', 'calmar', 'win_rate',
+  'trade_count', 'profit_factor', 'avg_trade_return', 'median_trade_return',
+  'exposure', 'turnover', 'largest_win', 'largest_loss', 'consecutive_losses',
+  'gate_passed', 'score', 'score_breakdown_json', 'benchmark_result_json', 'created_at',
+];
+
+/**
+ * Whether two summary rows are the same persisted row with the same content.
+ *
+ * The persistence key (strategy, dataset, segment) reuses the row id and
+ * `created_at` on a re-save, so neither identifies a generation; the whole
+ * row does. Absent and null are the same thing here: the mock stores whatever
+ * the writer omitted, SQLite reads it back as null. Numbers are compared with
+ * `Object.is` so NaN never sneaks through as "equal to itself".
+ */
+export function sameSummaryRow(a: BacktestSummary, b: BacktestSummary): boolean {
+  return SUMMARY_COLUMNS.every((column) => {
+    const x = a[column] ?? null;
+    const y = b[column] ?? null;
+    return Object.is(x, y);
+  });
+}
+
 export function describeStrategy(strategies: readonly StrategyDef[], id: number): string {
   const def = strategies.find((row) => row.id === id);
   return def ? `${def.name} · ${def.type} #${id}` : `策略 #${id}（已不存在）`;

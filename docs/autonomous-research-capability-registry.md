@@ -82,7 +82,7 @@
 | --- | --- | --- | --- |
 | 共用成交／帳務核心 | 可規劃 | 既有 `backtest-execution-v1`；paper 模式無 | P18 |
 | 單帳戶 paper、風控鎖、checkpoint | 可規劃 | 0001 lifecycle CHECK 限 `candidate|validated|rejected`；`paper_live` 保留 | P19／P20 |
-| Results Explorer | 可用 | P01（2026-09-16）：`ResultsExplorer.tsx`＋`get_trades`；Validation 排名、Test 隱藏、缺漏如實呈現；不含 DSL 樹、服務重連（ABC-12／P21） | — |
+| Results Explorer | 可用 | P01（2026-09-16，驗收修正 2026-09-17）：`ResultsExplorer.tsx`＋`get_backtest_result_detail`；Validation 排名、Test 隱藏、缺漏如實呈現、明細綁定畫面上的摘要列、讀取失敗不自動重試；不含 DSL 樹、服務重連（ABC-12／P21） | — |
 | 工作中心、固定通知、接續上次工作 | 可規劃 | 目前操作訊息在頁首 | P21 |
 
 ## 6. 工具鏈與依賴（本機）

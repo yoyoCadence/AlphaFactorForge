@@ -51,7 +51,7 @@ fn main() {
             commands::db_commands::save_backtest_result,
             commands::db_commands::get_backtest_results,
             // --- Results Explorer (Phase B, P01) ---
-            commands::db_commands::get_trades,
+            commands::db_commands::get_backtest_result_detail,
             // --- Validation records (Phase B, PERSIST-001) ---
             commands::db_commands::save_validation_record,
             commands::db_commands::list_validation_records,

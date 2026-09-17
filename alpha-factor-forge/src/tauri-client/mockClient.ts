@@ -11,6 +11,7 @@ import type {
   Candle,
   Dataset,
   StrategyDef,
+  BacktestResultDetail,
   BacktestSummary,
   TradeRow,
   ValidationRecordRow,
@@ -47,6 +48,34 @@ import { seedHistory } from './mockHistorySeed';
  */
 function mockSeedHistory(): boolean {
   return mockSearchParam('seedHistory') === '1';
+}
+
+/**
+ * P01 acceptance-review controls (`handoffs/2026-09-17-p01-acceptance-review-v1.md`).
+ *
+ * - `?mock=1&detailDelay=<ms>` delays every `getBacktestResultDetail` response,
+ *   which is the only way to have a refresh land while a trade read is in
+ *   flight and prove the late response is dropped (R1, late response).
+ * - `?mock=1&replaceBeforeDetail=1` re-saves the requested summary — same id,
+ *   same trade COUNT, different content — immediately before the first detail
+ *   response, simulating another save landing between the explorer's list read
+ *   and its trade read (R1, same-count replacement).
+ * - `?mock=1&explorerFailOnce=1` rejects the FIRST `getBacktestResults` call
+ *   and serves later ones, so a suite can tell "no automatic retry" from
+ *   "retried and recovered" (R2).
+ */
+function mockDetailDelayMs(): number {
+  const raw = mockSearchParam('detailDelay');
+  const ms = raw == null ? 0 : Number(raw);
+  return Number.isFinite(ms) && ms > 0 ? Math.min(ms, 10_000) : 0;
+}
+
+function mockReplaceBeforeDetail(): boolean {
+  return mockSearchParam('replaceBeforeDetail') === '1';
+}
+
+function mockExplorerFailOnce(): boolean {
+  return mockSearchParam('explorerFailOnce') === '1';
 }
 
 /** Every method of `target` waits for `ready` first; a failed seed therefore
@@ -151,6 +180,9 @@ export function makeMockClient() {
   const tradesBySummaryId = new Map<number, TradeRow[]>();
   const validationRecords: ValidationRecordRow[] = [];
   let nextId = 1;
+  const detailDelayMs = mockDetailDelayMs();
+  let replaceBeforeDetail = mockReplaceBeforeDetail();
+  let failNextResultsRead = mockExplorerFailOnce();
 
   const db = {
     init: async () => 'mock database ready',
@@ -226,14 +258,39 @@ export function makeMockClient() {
       tradesBySummaryId.set(id, trades.map((trade) => ({ ...trade })));
       return id;
     },
-    getBacktestResults: async (strategyId?: number) =>
-      summaries.filter((s) => strategyId == null || s.strategy_id === strategyId),
-    // P01: detached copies, oldest entry first, `[]` for an unknown id —
-    // mirroring `repositories::list_trades`.
-    getTrades: async (summaryId: number) =>
-      (tradesBySummaryId.get(summaryId) ?? [])
-        .map((trade) => ({ ...trade }))
-        .sort((a, b) => a.entry_time - b.entry_time),
+    getBacktestResults: async (strategyId?: number) => {
+      if (failNextResultsRead) {
+        failNextResultsRead = false;
+        throw new Error('mock: backtest_summary read failed once');
+      }
+      return summaries.filter((s) => strategyId == null || s.strategy_id === strategyId);
+    },
+    // P01: the summary and its trades as one detached pair, oldest entry
+    // first, `null` for an unknown id — mirroring
+    // `repositories::get_backtest_result_detail`.
+    getBacktestResultDetail: async (summaryId: number): Promise<BacktestResultDetail | null> => {
+      if (detailDelayMs > 0) await new Promise((resolve) => globalThis.setTimeout(resolve, detailDelayMs));
+      if (replaceBeforeDetail) {
+        replaceBeforeDetail = false;
+        const current = summaries.find((s) => s.id === summaryId);
+        if (current) {
+          const gen2 = (tradesBySummaryId.get(summaryId) ?? []).map((trade) => ({
+            ...trade,
+            pnl: trade.pnl + 1,
+            reason: 'gen2',
+          }));
+          await db.saveBacktestResult({ ...current, net_return: (current.net_return ?? 0) + 0.5 }, gen2);
+        }
+      }
+      const summary = summaries.find((s) => s.id === summaryId);
+      if (!summary) return null;
+      return {
+        summary: { ...summary },
+        trades: (tradesBySummaryId.get(summaryId) ?? [])
+          .map((trade) => ({ ...trade }))
+          .sort((a, b) => a.entry_time - b.entry_time),
+      };
+    },
     // PERSIST-001 parity: runs the SAME shared bundle validator the composer
     // targets (the TS mirror of Rust's validate_validation_bundle), so
     // `?mock=1` rejects exactly the bundles native Tauri rejects, then

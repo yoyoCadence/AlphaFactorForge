@@ -793,69 +793,69 @@ pub fn save_backtest_result(
     Ok(summary_id)
 }
 
-/// List summaries, newest first. Pass `strategy_id` to scope to one strategy.
-pub fn list_backtest_summaries(
-    conn: &Connection,
-    strategy_id: Option<i64>,
-) -> AppResult<Vec<BacktestSummary>> {
-    const COLS: &str = "id, strategy_id, dataset_id, segment, start_time, end_time,
+const SUMMARY_COLS: &str = "id, strategy_id, dataset_id, segment, start_time, end_time,
              net_return, cagr, max_drawdown, sharpe, sortino, calmar, win_rate,
              trade_count, profit_factor, avg_trade_return, median_trade_return,
              exposure, turnover, largest_win, largest_loss, consecutive_losses,
              gate_passed, score, score_breakdown_json, benchmark_result_json, created_at";
 
-    let map_row = |r: &rusqlite::Row| -> rusqlite::Result<BacktestSummary> {
-        Ok(BacktestSummary {
-            id: Some(r.get(0)?),
-            strategy_id: r.get(1)?,
-            dataset_id: r.get(2)?,
-            segment: r.get(3)?,
-            start_time: r.get(4)?,
-            end_time: r.get(5)?,
-            net_return: r.get(6)?,
-            cagr: r.get(7)?,
-            max_drawdown: r.get(8)?,
-            sharpe: r.get(9)?,
-            sortino: r.get(10)?,
-            calmar: r.get(11)?,
-            win_rate: r.get(12)?,
-            trade_count: r.get(13)?,
-            profit_factor: r.get(14)?,
-            avg_trade_return: r.get(15)?,
-            median_trade_return: r.get(16)?,
-            exposure: r.get(17)?,
-            turnover: r.get(18)?,
-            largest_win: r.get(19)?,
-            largest_loss: r.get(20)?,
-            consecutive_losses: r.get(21)?,
-            gate_passed: r.get(22)?,
-            score: r.get(23)?,
-            score_breakdown_json: r.get(24)?,
-            benchmark_result_json: r.get(25)?,
-            created_at: Some(r.get(26)?),
-        })
-    };
+fn map_summary_row(r: &rusqlite::Row) -> rusqlite::Result<BacktestSummary> {
+    Ok(BacktestSummary {
+        id: Some(r.get(0)?),
+        strategy_id: r.get(1)?,
+        dataset_id: r.get(2)?,
+        segment: r.get(3)?,
+        start_time: r.get(4)?,
+        end_time: r.get(5)?,
+        net_return: r.get(6)?,
+        cagr: r.get(7)?,
+        max_drawdown: r.get(8)?,
+        sharpe: r.get(9)?,
+        sortino: r.get(10)?,
+        calmar: r.get(11)?,
+        win_rate: r.get(12)?,
+        trade_count: r.get(13)?,
+        profit_factor: r.get(14)?,
+        avg_trade_return: r.get(15)?,
+        median_trade_return: r.get(16)?,
+        exposure: r.get(17)?,
+        turnover: r.get(18)?,
+        largest_win: r.get(19)?,
+        largest_loss: r.get(20)?,
+        consecutive_losses: r.get(21)?,
+        gate_passed: r.get(22)?,
+        score: r.get(23)?,
+        score_breakdown_json: r.get(24)?,
+        benchmark_result_json: r.get(25)?,
+        created_at: Some(r.get(26)?),
+    })
+}
 
+/// List summaries, newest first. Pass `strategy_id` to scope to one strategy.
+pub fn list_backtest_summaries(
+    conn: &Connection,
+    strategy_id: Option<i64>,
+) -> AppResult<Vec<BacktestSummary>> {
     let rows = match strategy_id {
         Some(sid) => {
             let sql = format!(
-                "SELECT {COLS} FROM backtest_summary
+                "SELECT {SUMMARY_COLS} FROM backtest_summary
                  WHERE strategy_id = ?1 ORDER BY created_at DESC, segment ASC"
             );
             let mut stmt = conn.prepare(&sql)?;
             let rows = stmt
-                .query_map(params![sid], map_row)?
+                .query_map(params![sid], map_summary_row)?
                 .collect::<Result<Vec<_>, _>>()?;
             rows
         }
         None => {
             let sql = format!(
-                "SELECT {COLS} FROM backtest_summary
+                "SELECT {SUMMARY_COLS} FROM backtest_summary
                  ORDER BY created_at DESC, segment ASC"
             );
             let mut stmt = conn.prepare(&sql)?;
             let rows = stmt
-                .query_map([], map_row)?
+                .query_map([], map_summary_row)?
                 .collect::<Result<Vec<_>, _>>()?;
             rows
         }
@@ -863,11 +863,18 @@ pub fn list_backtest_summaries(
     Ok(rows)
 }
 
+/// One summary row by id, or None when no such row exists.
+pub fn get_backtest_summary(conn: &Connection, id: i64) -> AppResult<Option<BacktestSummary>> {
+    let sql = format!("SELECT {SUMMARY_COLS} FROM backtest_summary WHERE id = ?1");
+    Ok(conn
+        .query_row(&sql, params![id], map_summary_row)
+        .optional()?)
+}
+
 /// The closed trades stored under one summary, oldest entry first (ties by
-/// insertion order). An unknown summary id yields an empty list rather than
-/// an error: the Results Explorer (P01) shows "no stored detail" for it, which
-/// is the honest answer — trades are replaced whenever their summary key is
-/// re-saved, so history that was overwritten cannot be recovered here.
+/// insertion order). An unknown summary id yields an empty list; callers that
+/// need to tell "no such summary" from "no trades" use
+/// `get_backtest_result_detail`.
 pub fn list_trades(conn: &Connection, summary_id: i64) -> AppResult<Vec<TradeRow>> {
     let mut stmt = conn.prepare(
         "SELECT entry_time, exit_time, side, entry_price, exit_price, pnl, pnl_pct, reason
@@ -889,6 +896,41 @@ pub fn list_trades(conn: &Connection, summary_id: i64) -> AppResult<Vec<TradeRow
         })?
         .collect::<Result<Vec<_>, _>>()?;
     Ok(rows)
+}
+
+/// A summary row together with the trades stored under it, read as one unit.
+#[derive(Debug, Serialize)]
+pub struct BacktestResultDetail {
+    pub summary: BacktestSummary,
+    pub trades: Vec<TradeRow>,
+}
+
+/// Read a summary and its trades in ONE transaction, so the pair is exactly
+/// what the database held at one instant (P01 acceptance review R1).
+///
+/// The persistence contract reuses a summary id when the same
+/// strategy/dataset/segment is re-saved and replaces its trades, so a caller
+/// that fetched trades by id alone could attach a newer save's rows to an
+/// older summary it was still displaying. Returning the summary alongside
+/// lets the reader compare it with the row it shows and refuse a mismatch.
+/// `created_at` survives the upsert and is therefore not a generation marker;
+/// the comparison has to be over the whole row. None means no such summary.
+pub fn get_backtest_result_detail(
+    conn: &Connection,
+    summary_id: i64,
+) -> AppResult<Option<BacktestResultDetail>> {
+    let tx = conn.unchecked_transaction()?;
+    let detail = match get_backtest_summary(&tx, summary_id)? {
+        Some(summary) => Some(BacktestResultDetail {
+            trades: list_trades(&tx, summary_id)?,
+            summary,
+        }),
+        None => None,
+    };
+    // Read-only: nothing to commit, and an explicit rollback keeps the
+    // transaction's end obvious.
+    tx.rollback()?;
+    Ok(detail)
 }
 
 // ---------- validation records (PERSIST-001) ----------
@@ -1767,7 +1809,9 @@ mod tests {
     /// P01 Results Explorer read path: trades come back oldest entry first
     /// exactly as stored, an unknown summary is empty (not an error), and a
     /// re-save shows the replacement rows only — the overwritten history is
-    /// gone and the reader must not pretend otherwise.
+    /// gone and the reader must not pretend otherwise. The detail read returns
+    /// the summary the trades were read with, so a replacement between two
+    /// reads is visible to the caller as a changed summary (review R1).
     #[test]
     fn list_trades_reads_stored_rows_in_entry_order_and_reflects_replacement() {
         let mut conn = mem_db();
@@ -1791,12 +1835,38 @@ mod tests {
         assert_eq!(read[1].pnl_pct, 0.1);
 
         assert!(list_trades(&conn, summary_id + 999).unwrap().is_empty());
+        assert!(get_backtest_result_detail(&conn, summary_id + 999)
+            .unwrap()
+            .is_none());
 
-        let replacement = with_trade_count(&summary(strategy_id, dataset_id, 0.2), 1);
-        save_backtest_result(&mut conn, &replacement, &[trade(5, 6, None)]).unwrap();
-        let after = list_trades(&conn, summary_id).unwrap();
-        assert_eq!(after.len(), 1);
-        assert_eq!(after[0].entry_time, 5);
+        let before = get_backtest_result_detail(&conn, summary_id)
+            .unwrap()
+            .expect("stored summary");
+        assert_eq!(before.summary.id, Some(summary_id));
+        assert_eq!(before.summary.net_return, Some(0.1));
+        assert_eq!(before.trades.len(), 2);
+
+        // Same trade COUNT, different content: the summary row is what tells
+        // the two generations apart, never the count (review R1).
+        let replacement = with_trade_count(&summary(strategy_id, dataset_id, 0.2), 2);
+        save_backtest_result(
+            &mut conn,
+            &replacement,
+            &[trade(5, 6, None), trade(7, 8, Some("gen2"))],
+        )
+        .unwrap();
+        let after = get_backtest_result_detail(&conn, summary_id)
+            .unwrap()
+            .expect("still stored under the same id");
+        assert_eq!(after.summary.id, before.summary.id, "the key reuses the id");
+        assert_eq!(
+            after.summary.created_at, before.summary.created_at,
+            "created_at survives the upsert, so it cannot mark a generation"
+        );
+        assert_eq!(after.summary.net_return, Some(0.2));
+        assert_eq!(after.trades.len(), 2);
+        assert_eq!(after.trades[0].entry_time, 5);
+        assert_eq!(after.trades[1].reason.as_deref(), Some("gen2"));
     }
 
     #[test]

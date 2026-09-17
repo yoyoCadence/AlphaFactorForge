@@ -2,8 +2,8 @@
 //
 // Reads the existing `validation_records`, `backtest_summary`, and `trades`
 // tables through the typed client and shows them without recomputing anything
-// (`services/resultsExplorer.ts` owns every presentation rule). Three product
-// rules from the plan shape the component:
+// (`services/resultsExplorer.ts` owns every presentation rule). Four rules
+// shape the component — three from the plan, one from the acceptance review:
 //   1. Validation ranking only, Test hidden. Rows are ordered by the persisted
 //      gate/score; a `test` segment is filtered out by the service even though
 //      no writer produces one today.
@@ -12,11 +12,20 @@
 //      finishes later does not replace what is on screen (the runner panel
 //      reports that itself). A selection survives a refresh and, if the row is
 //      no longer in the filtered list, is reported as such rather than dropped.
+//      A read that fails stays failed — with its message — until the user asks
+//      again; the first read happens once per open, never in a retry loop
+//      (acceptance review R2).
 //   3. Missing history is said out loud. Summaries are a latest-result
 //      projection whose trades are replaced on re-save, so a record whose
 //      summaries are gone says so; a snapshot that cannot be read says why.
+//   4. Trades belong to the summary on screen, not to an id. The persistence
+//      key reuses a summary id on re-save and replaces its trades, so a trade
+//      read is a one-transaction (summary, trades) pair whose summary must equal
+//      the displayed row column for column (`sameSummaryRow`); a mismatch is
+//      disclosed and the trades are not shown, and a response that lands after
+//      a refresh is dropped (acceptance review R1).
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { db, isTauri } from '../tauri-client/dataClient';
 import type {
   BacktestSummary,
@@ -28,6 +37,7 @@ import type {
 import {
   DASH,
   NO_FILTERS,
+  sameSummaryRow,
   describeDataset,
   describeStrategy,
   filterRecords,
@@ -59,6 +69,20 @@ interface Loaded {
 
 type View = 'records' | 'summaries';
 
+/** idle: never read for this open. failed keeps `err` (and any earlier
+ *  `data`) until an explicit refresh; nothing re-reads on its own. */
+type LoadStatus = 'idle' | 'loading' | 'ready' | 'failed';
+
+/** What one trade read established about the summary it was asked for. */
+type DetailState =
+  | { kind: 'ok'; trades: TradeRow[] }
+  /** The persisted row no longer equals the displayed row: something re-saved
+   *  the same key in between. The trades are NOT kept — they belong to
+   *  `latest`, not to what is on screen. */
+  | { kind: 'stale'; latest: BacktestSummary }
+  /** The summary row itself is gone. */
+  | { kind: 'gone' };
+
 const SEGMENT_LABEL: Record<BacktestSummary['segment'], string> = {
   train: 'Train',
   validation: 'Validation',
@@ -81,22 +105,27 @@ export function ResultsExplorer(): React.ReactElement {
   const t = useTheme();
   const S = makeStyles(t);
   const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState<LoadStatus>('idle');
   const [err, setErr] = useState<string | null>(null);
   const [data, setData] = useState<Loaded | null>(null);
   const [view, setView] = useState<View>('records');
   const [filters, setFilters] = useState<ExplorerFilters>(NO_FILTERS);
   const [selectedRecordId, setSelectedRecordId] = useState<number | null>(null);
   const [selectedSummaryId, setSelectedSummaryId] = useState<number | null>(null);
-  // Trades are fetched per summary on demand and kept for the explorer's
-  // lifetime: a summary's trades only change when its key is re-saved, and a
-  // refresh clears this cache along with everything else.
-  const [trades, setTrades] = useState<Map<number, TradeRow[]>>(new Map());
+  // Trade detail is fetched per displayed summary on demand. Entries are keyed
+  // by summary id but only ever hold what was verified against the row on
+  // screen (rule 4); a refresh replaces the snapshot and empties this map.
+  const [trades, setTrades] = useState<Map<number, DetailState>>(new Map());
   const [tradesLoading, setTradesLoading] = useState<number | null>(null);
   const [tradesErr, setTradesErr] = useState<string | null>(null);
+  // Bumped by every list read. A trade read captures the generation it was
+  // started under and is dropped if a refresh has moved it on since (rule 4):
+  // a late response must not populate the cache of a newer snapshot.
+  const readGenRef = useRef(0);
 
   const load = useCallback(async () => {
-    setLoading(true);
+    readGenRef.current += 1;
+    setStatus('loading');
     setErr(null);
     try {
       const [strategies, datasets, summaries, records] = await Promise.all([
@@ -108,17 +137,21 @@ export function ResultsExplorer(): React.ReactElement {
       setData({ strategies, datasets, summaries: hideTestSegments(summaries), records, loadedAt: Date.now() });
       setTrades(new Map());
       setTradesErr(null);
+      setStatus('ready');
     } catch (error) {
+      // Keep whatever was on screen and say why the read failed; do not retry.
       setErr(error instanceof Error ? error.message : String(error));
-    } finally {
-      setLoading(false);
+      setStatus('failed');
     }
   }, []);
 
-  // First open reads once; later reads are explicit (rule 2).
+  // The first open reads exactly once. `status` is the guard: a failure moves
+  // it to 'failed', which this effect does not touch, so the only way to read
+  // again is the refresh button (rule 2, review R2).
   useEffect(() => {
-    if (open && data == null && !loading && isTauri()) void load();
-  }, [open, data, loading, load]);
+    if (open && status === 'idle' && isTauri()) void load();
+  }, [open, status, load]);
+  const loading = status === 'loading';
 
   const rankedRecords = useMemo(
     () => (data ? rankValidationRecords(filterRecords(data.records, filters)) : []),
@@ -134,17 +167,30 @@ export function ResultsExplorer(): React.ReactElement {
   const selectedSummary = data?.summaries.find((row) => row.id === selectedSummaryId) ?? null;
   const selectedSummaryListed = visibleSummaries.some((row) => row.id === selectedSummaryId);
 
-  const loadTrades = async (summaryId: number): Promise<void> => {
+  /** Read the (summary, trades) pair for the DISPLAYED summary and keep the
+   *  trades only if the persisted summary is still that exact row. */
+  const loadTrades = async (displayed: BacktestSummary): Promise<void> => {
+    const summaryId = displayed.id!;
     if (trades.has(summaryId)) return;
+    const gen = readGenRef.current;
     setTradesLoading(summaryId);
     setTradesErr(null);
     try {
-      const rows = await db.getTrades(summaryId);
-      setTrades((current) => new Map(current).set(summaryId, rows));
+      const detail = await db.getBacktestResultDetail(summaryId);
+      // A refresh happened while this was in flight: the snapshot this read was
+      // meant for is gone, so the answer is discarded rather than cached.
+      if (gen !== readGenRef.current) return;
+      const state: DetailState = detail == null
+        ? { kind: 'gone' }
+        : sameSummaryRow(displayed, detail.summary)
+          ? { kind: 'ok', trades: detail.trades }
+          : { kind: 'stale', latest: detail.summary };
+      setTrades((current) => new Map(current).set(summaryId, state));
     } catch (error) {
+      if (gen !== readGenRef.current) return;
       setTradesErr(error instanceof Error ? error.message : String(error));
     } finally {
-      setTradesLoading(null);
+      setTradesLoading((current) => (current === summaryId ? null : current));
     }
   };
 
@@ -172,7 +218,7 @@ export function ResultsExplorer(): React.ReactElement {
           {open ? '收合' : '展開'}
         </button>
         {data != null && (
-          <span data-testid="results-explorer-loaded-at" style={{ fontSize: 11, color: t.color.muted }}>
+          <span data-testid="results-explorer-loaded-at" data-loaded-at={data.loadedAt} style={{ fontSize: 11, color: t.color.muted }}>
             載入於 {fmtTime(data.loadedAt)} · 紀錄 {data.records.length} · 摘要 {data.summaries.length}
           </span>
         )}
@@ -232,7 +278,13 @@ export function ResultsExplorer(): React.ReactElement {
           {!isTauri() && (
             <div style={{ fontSize: 11, color: t.color.muted, marginTop: 8 }}>瀏覽器模式沒有資料庫可讀。</div>
           )}
-          {err && <div data-testid="results-explorer-error" style={{ fontSize: 12, color: t.color.danger, marginTop: 8 }}>{err}</div>}
+          {err && (
+            <div data-testid="results-explorer-error" style={{ fontSize: 12, color: t.color.danger, marginTop: 8 }}>
+              讀取失敗：{err}
+              {data != null ? '　下方仍是上次載入的資料。' : ''}
+              　按「重新整理」再試。
+            </div>
+          )}
 
           {data != null && view === 'records' && (
             <RecordsView
@@ -279,10 +331,10 @@ interface ListProps<Row> {
   selected: Row | null;
   selectedListed: boolean;
   onSelect: (id: number) => void;
-  trades: Map<number, TradeRow[]>;
+  trades: Map<number, DetailState>;
   tradesLoading: number | null;
   tradesErr: string | null;
-  onLoadTrades: (summaryId: number) => Promise<void>;
+  onLoadTrades: (displayed: BacktestSummary) => Promise<void>;
   cell: React.CSSProperties;
   rowStyle: (selected: boolean) => React.CSSProperties;
 }
@@ -605,22 +657,33 @@ function TradesBlock<Row>(props: ListProps<Row> & { summary: BacktestSummary; la
   const S = makeStyles(t);
   const { summary, label, trades, tradesLoading, tradesErr, onLoadTrades, cell } = props;
   const id = summary.id!;
-  const rows = trades.get(id);
+  const detail = trades.get(id);
+  const rows = detail?.kind === 'ok' ? detail.trades : null;
   const expected = summary.trade_count ?? null;
 
   return (
     <div data-testid={`results-explorer-trades-${id}`} style={{ minWidth: 0 }}>
-      {rows == null ? (
+      {detail == null ? (
         <button
           data-testid={`results-explorer-load-trades-${id}`}
           style={{ ...S.btnGhost, padding: '3px 10px' }}
-          onClick={() => void onLoadTrades(id)}
+          onClick={() => void onLoadTrades(summary)}
           disabled={tradesLoading != null}
           aria-busy={tradesLoading === id}
         >
           {tradesLoading === id ? '載入中…' : `載入 ${label} 交易明細（${fmtInt(expected)} 筆）`}
         </button>
-      ) : rows.length === 0 ? (
+      ) : detail.kind === 'stale' ? (
+        <div data-testid={`results-explorer-stale-detail-${id}`} style={{ fontSize: 12, color: t.color.warn }}>
+          摘要 #{id} 在載入後已被重新保存（畫面淨報酬 {fmtPct(summary.net_return)}、交易數 {fmtInt(expected)}；
+          資料庫最新 淨報酬 {fmtPct(detail.latest.net_return)}、交易數 {fmtInt(detail.latest.trade_count)}）。
+          明細屬於最新結果，未載入到這份畫面；請按「重新整理」查看最新結果。
+        </div>
+      ) : detail.kind === 'gone' ? (
+        <div data-testid={`results-explorer-gone-detail-${id}`} style={{ fontSize: 12, color: t.color.warn }}>
+          資料庫已無摘要 #{id}；請按「重新整理」。
+        </div>
+      ) : rows == null || rows.length === 0 ? (
         <div data-testid={`results-explorer-no-trades-${id}`} style={{ fontSize: 12, color: t.color.muted }}>
           {expected != null && expected > 0
             ? `摘要記錄 ${expected} 筆交易，但資料庫裡沒有對應明細（可能已被覆寫或早於明細保存）。`
@@ -652,7 +715,7 @@ function TradesBlock<Row>(props: ListProps<Row> & { summary: BacktestSummary; la
           </tbody>
         </table>
       )}
-      {tradesErr && tradesLoading == null && rows == null && (
+      {tradesErr && tradesLoading == null && detail == null && (
         <div data-testid="results-explorer-trades-error" style={{ fontSize: 12, color: t.color.danger }}>{tradesErr}</div>
       )}
     </div>

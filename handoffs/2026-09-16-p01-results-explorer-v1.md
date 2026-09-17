@@ -27,11 +27,11 @@ UI」，驗收「可重開查看已保存結果；缺歷史明細如實呈現；
 | 檔案 | 變更 |
 | --- | --- |
 | `src-tauri/src/db/repositories.rs` | `list_trades(conn, summary_id)`；`ValidationRecordRow.discovery_run_id`（serde default、唯讀）；`VALIDATION_RECORD_COLS`／map 讀出；2 個測試（trades 讀回順序／未知 id／覆寫；手動紀錄 run id 為 None） |
-| `src-tauri/src/commands/db_commands.rs`、`main.rs` | `get_trades` 命令與註冊 |
+| `src-tauri/src/commands/db_commands.rs`、`main.rs` | `get_backtest_result_detail` 命令與註冊（驗收修正前為 `get_trades`） |
 | `src-tauri/src/discovery_runner/execution.rs` | 3 個 struct literal 補 `discovery_run_id: None` |
 | `src-tauri/src/db/discovery_tests.rs` | runner 提交後以 typed 讀取斷言 `discovery_run_id == Some(run_id)` |
-| `src/tauri-client/commands.ts` | `db.getTrades`、`ValidationRecordRow.discovery_run_id?` |
-| `src/tauri-client/mockClient.ts` | `getTrades`、摘要 `created_at`、`?mock=1&seedHistory=1` 種子閘門（`afterReady`） |
+| `src/tauri-client/commands.ts` | `db.getBacktestResultDetail`、`ValidationRecordRow.discovery_run_id?` |
+| `src/tauri-client/mockClient.ts` | `getBacktestResultDetail`、摘要 `created_at`、`?mock=1&seedHistory=1` 種子閘門（`afterReady`）、驗收回歸控制 `replaceBeforeDetail`／`detailDelay`／`explorerFailOnce` |
 | `src/tauri-client/mockHistorySeed.ts` | 新增：以真實 composer 鏈產生 v2 bundle 的種子（candle seed 34；MA 9/21 預設 gate 失敗、MA 3/8 寬鬆 gate 通過且門檻寫入快照）＋手動 `full` 列＋隱藏的 `test` 列 |
 | `src/services/resultsExplorer.ts`（＋`.test.ts`） | 純規則：Test 隱藏、Validation 排名、篩選、最新摘要 join、空值格式、`record_json` 防禦性解析（legacy／unreadable／missing） |
 | `src/components/ResultsExplorer.tsx` | 新增元件；`BacktestPanel.tsx` 掛載於 DiscoveryPanel 之下 |
@@ -71,3 +71,23 @@ GitHub：`git push` 401（`GITHUB_TOKEN` 失效）。本次只做本機 commit�
 ## Resolution (added when acted on)
 
 （待補：push／PR 編號、review 結果。）
+
+### 2026-09-17 acceptance review
+
+Codex 驗收 `5e029d7`：既有 863 Vitest／156 Rust／64 Playwright 與 build 通過，但驗收尚未通過。
+已重現交易明細與摘要跨次保存混用、首次讀取失敗無限自動重試兩項缺陷。
+詳見 [P01 acceptance review](2026-09-17-p01-acceptance-review-v1.md)；待修正與重驗後再追加 Resolution。
+
+### 2026-09-17 修正（R1／R2）
+
+- **R1**：`get_trades` 改為 `get_backtest_result_detail`，在同一 transaction 讀回（summary, trades）；前端以 `sameSummaryRow`
+  逐欄比對回傳 summary 與畫面上凍結的列（id 與 `created_at` 在同 key 重存時都不變，故以整列為身分），不符即顯示
+  「已被重新保存」並列出兩邊淨報酬／交易數、**不掛載**新明細；每次列表讀取遞增 read generation，遲到的明細回應
+  被丟棄。同數量替換由 Rust 測試與 Playwright 回歸各覆蓋一次。
+- **R2**：讀取狀態改為 `idle → loading → ready | failed`；只在 `idle` 自動讀一次，失敗保留訊息（與先前資料），
+  只有「重新整理」會再讀。
+- 回歸：`e2e/results-explorer.spec.ts` 新增 3 條（mock 控制 `replaceBeforeDetail`、`detailDelay=1500`、
+  `explorerFailOnce`），並以三個突變（略過比對／略過 generation 檢查／恢復舊 effect 守衛）各自驗證測試會失敗。
+- 重驗：typecheck、build、865 vitest、156 Rust、67 Playwright 全綠。原生 Tauri 仍未執行。
+- 已知限制（如實記錄）：內容完全相同的重存（整列逐欄相等）無法與原列區分，畫面也因此不會錯——完整的世代標記
+  屬 P05 不可變 attempt artifacts。
