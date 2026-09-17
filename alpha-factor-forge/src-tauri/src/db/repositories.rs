@@ -2026,7 +2026,9 @@ mod tests {
         conn.prepare("SELECT event_id FROM runtime_events")
             .expect("0005 adds the event ledger");
         crate::db::apply_migrations(&conn).expect("re-run must be a no-op");
-        assert_eq!(count(&conn, "schema_migrations"), 5);
+        conn.prepare("SELECT request_id FROM request_effects")
+            .expect("0006 adds the request effects");
+        assert_eq!(count(&conn, "schema_migrations"), 6);
     }
 
     #[test]
@@ -2055,8 +2057,9 @@ mod tests {
         assert_eq!(count(&conn, "strategy_def"), 1, "existing data survives");
         assert_eq!(count(&conn, "datasets"), 1);
         assert_eq!(count(&conn, "validation_records"), 0, "new table exists");
-        assert_eq!(count(&conn, "schema_migrations"), 5);
+        assert_eq!(count(&conn, "schema_migrations"), 6);
         assert_eq!(count(&conn, "workspace_ownership"), 1, "0004 seeds the unowned row");
+        assert_eq!(count(&conn, "runtime_state"), 1, "0006 seeds the state version");
         assert_eq!(count(&conn, "command_requests"), 0, "0005 request ledger exists");
         // The 0001 -> 0003 path must also land 0003's structure, not just 0002.
         conn.prepare("SELECT discovery_run_id FROM validation_records")

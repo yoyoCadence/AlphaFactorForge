@@ -281,7 +281,7 @@ mod tests {
         let applied: i64 = conn
             .query_row("SELECT COUNT(*) FROM schema_migrations", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(applied, 5, "0001–0005 applied on first open");
+        assert_eq!(applied, 6, "0001–0006 applied on first open");
         assert_eq!(workspace.workspace_id.len(), 32, "0005 minted the workspace id");
         drop(conn);
         drop(workspace);
@@ -306,7 +306,7 @@ mod tests {
         let applied: i64 = conn
             .query_row("SELECT COUNT(*) FROM schema_migrations", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(applied, 5, "no migration is re-applied");
+        assert_eq!(applied, 6, "no migration is re-applied");
         assert_eq!(second.workspace_id, first_workspace_id, "the id survives a reopen");
         let value: String = conn
             .query_row("SELECT value_json FROM app_settings WHERE key = 'p02'", [], |r| r.get(0))
@@ -471,7 +471,7 @@ mod tests {
         let error = refused.err().expect("a newer schema must refuse the open");
         assert!(matches!(error, AppError::SchemaTooNew(_)), "got {error:?}");
         assert!(error.to_string().contains("0099_from_the_future"));
-        assert!(error.to_string().contains("0005_runtime_ledger"), "names what this build knows");
+        assert!(error.to_string().contains("0006_request_effects"), "names what this build knows");
 
         // Refused BEFORE ownership: the row is still unowned, and the lock was
         // released with the failed attempt so a matching build could open it.

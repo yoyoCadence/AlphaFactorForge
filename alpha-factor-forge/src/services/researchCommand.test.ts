@@ -14,6 +14,7 @@ import {
   RESEARCH_COMMANDS,
   buildCommandEnvelope,
   isCommandError,
+  needsResnapshot,
   newRequestId,
   shouldRetrySameRequest,
 } from './researchCommand';
@@ -76,9 +77,21 @@ describe('error handling helpers', () => {
   });
 
   it('retries the same request id only when the backend says so', () => {
-    expect(shouldRetrySameRequest({ code: 'Busy', message: '', retryable: true })).toBe(true);
+    expect(shouldRetrySameRequest({ code: 'Busy', message: 'pending', retryable: true })).toBe(true);
+    // A recorded Busy (slot held by another run) comes back final.
+    expect(shouldRetrySameRequest({ code: 'Busy', message: 'already paused; this requestId is now final', retryable: false })).toBe(false);
     expect(shouldRetrySameRequest({ code: 'DuplicateRequest', message: '', retryable: true })).toBe(false);
     expect(shouldRetrySameRequest({ code: 'Validation', message: '', retryable: false })).toBe(false);
     expect(shouldRetrySameRequest({ code: 'StaleOwner', message: '', retryable: false })).toBe(false);
+  });
+
+  it('asks for a fresh snapshot when the state moved without events or a gap is marked', () => {
+    const page = (events: number, stateVersion: number, gap: number | null) =>
+      ({ events: Array.from({ length: events }), stateVersion, ledgerGap: gap == null ? null : { stateVersion: gap } });
+    expect(needsResnapshot(5, page(0, 5, null))).toBe(false);
+    expect(needsResnapshot(5, page(0, 7, null))).toBe(true);
+    expect(needsResnapshot(5, page(2, 7, null))).toBe(false);
+    expect(needsResnapshot(5, page(2, 7, 6))).toBe(true);
+    expect(needsResnapshot(5, page(0, 5, 4))).toBe(false);
   });
 });

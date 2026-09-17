@@ -106,7 +106,7 @@ OS 鎖的程序。** 搶占的唯一途徑是原程序釋放或作業系統回�
 | --- | --- |
 | `protocolVersion` | 必須完全等於已知版本；不同版本一律拒絕（`UnsupportedProtocol`），不做寬鬆相容 |
 | `workspaceId` | 與 service 目前 workspace 不符即拒絕（`WorkspaceMismatch`） |
-| `requestId` | 冪等鍵。同一 `requestId` 重送回傳**第一次**的結果；不重複建立 run／account／invocation。保存期限至少 24 小時 |
+| `requestId` | 冪等鍵。同一 `requestId` 重送回傳**第一次**的結果；不重複建立 run／account／invocation。保存期限至少 24 小時。實作（P03b）：先預約（`pending`）再執行；domain 變更與 `request_effects` 效果列同 transaction 提交，回條失敗時重送由效果列復原第一次結果、不重做；已記錄的失敗為該 id 的終局（`retryable=false`），`retryable=true` 只代表 pending |
 | `command` | 白名單字串，`<domain>.<verb>`；未知命令拒絕 |
 | `payload` | 命令專屬；沿用既有 typed 契約（例如 `discovery.start` 的 payload 就是 `discovery-config-v1` envelope） |
 
@@ -135,6 +135,9 @@ OS 鎖的程序。** 搶占的唯一途徑是原程序釋放或作業系統回�
 - `eventId`：DB 內單調遞增的持久序號（跨重啟全域唯一）；今天 runner 的程序內
   `sequence` 不能冒充它，兩者並存，`payload` 內保留原 sequence。
 - 事件**只在 DB commit 後**發布（沿用 commit-then-emit）。
+- `stateVersion`（P03b R2）：每個 domain 寫入 transaction 遞增的持久版本（`runtime_state.mutation_seq`）；
+  snapshot 與 `events.read` 都回傳。讀者規則：空頁面但版本前進、或 `ledgerGap` 標記在 snapshot 之後 →
+  必須重讀 snapshot。帳本 append 失敗不會抹掉已提交結果，也不會讓只追 cursor 的讀者永久漏讀。
 - 重連流程固定：先讀 snapshot（等同今天 `get_active_discovery_run` /
   `get_discovery_progress`），再以 `afterEventId` cursor 續接；漏失事件不能抹掉
   已提交結果。

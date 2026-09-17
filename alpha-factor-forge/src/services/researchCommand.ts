@@ -104,10 +104,22 @@ export function isCommandError(value: unknown): value is CommandError {
   );
 }
 
-/** Whether a failed attempt may be retried WITH THE SAME request id. A
- *  `DuplicateRequest` means the id is already spoken for by different
- *  content; a `Validation` failure will fail again; `Busy` is the backend
- *  saying "later" (including "outcome unknown, still pending"). */
+/** Whether a failed attempt may be retried WITH THE SAME request id. The
+ *  backend sets `retryable` only for a pending request (first attempt still
+ *  executing, or it died before recording anything); every recorded failure
+ *  — including a `Busy` caused by a run already holding the slot — is final
+ *  for that id and replays verbatim, so the caller must mint a new request.
+ *  `DuplicateRequest` is excluded defensively: that id belongs to other
+ *  content. */
 export function shouldRetrySameRequest(error: CommandError): boolean {
   return error.retryable && error.code !== 'DuplicateRequest';
+}
+
+/** The reader's reconnect rule (contract §3, P03b R2): after a snapshot at
+ *  `snapshotVersion`, an EMPTY events page whose `stateVersion` moved on, or
+ *  any page carrying a ledger gap at or after the snapshot, means the ledger
+ *  does not hold everything that happened — take a fresh snapshot. */
+export function needsResnapshot(snapshotVersion: number, page: { events: unknown[]; stateVersion: number; ledgerGap: { stateVersion: number } | null }): boolean {
+  if (page.ledgerGap != null && page.ledgerGap.stateVersion >= snapshotVersion) return true;
+  return page.events.length === 0 && page.stateVersion > snapshotVersion;
 }

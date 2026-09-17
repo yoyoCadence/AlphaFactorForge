@@ -126,12 +126,30 @@ pub fn acquire(conn: &mut Connection, kind: HolderKind, pid: u32) -> AppResult<A
 /// cannot advance the epoch between them. Errors roll back on drop.
 /// `None` is reserved for existing store tests/unleased callers; runtime
 /// runners always supply the epoch returned by `open_workspace`.
+///
+/// This is the DOMAIN write boundary: it also bumps `runtime_state.
+/// mutation_seq` (the state version readers compare, P03b R2), so every
+/// committed change to a run, job, or result moves the version. Writes that
+/// only describe state — heartbeats, request receipts, ledger appends — use
+/// `write_transaction_quiet` and leave the version alone.
 pub fn write_transaction(conn: &Connection, epoch: Option<i64>) -> AppResult<Transaction<'_>> {
+    let tx = write_transaction_quiet(conn, epoch)?;
+    tx.execute("UPDATE runtime_state SET mutation_seq = mutation_seq + 1 WHERE id = 1", [])?;
+    Ok(tx)
+}
+
+/// The same reservation and epoch check, without moving the state version.
+pub fn write_transaction_quiet(conn: &Connection, epoch: Option<i64>) -> AppResult<Transaction<'_>> {
     let tx = Transaction::new_unchecked(conn, TransactionBehavior::Immediate)?;
     if let Some(epoch) = epoch {
         assert_epoch(&tx, epoch)?;
     }
     Ok(tx)
+}
+
+/// The current state version (`runtime_state.mutation_seq`).
+pub fn state_version(conn: &Connection) -> AppResult<i64> {
+    Ok(conn.query_row("SELECT mutation_seq FROM runtime_state WHERE id = 1", [], |r| r.get(0))?)
 }
 
 /// Fail with `StaleOwner` unless the stored epoch is exactly `expected`.
@@ -155,7 +173,7 @@ pub fn assert_epoch(conn: &Connection, expected: i64) -> AppResult<()> {
 /// Bump the liveness counter. Refuses (with `StaleOwner`) if the epoch moved,
 /// which is how a heartbeat thread learns it no longer owns the workspace.
 pub fn heartbeat(conn: &Connection, epoch: i64) -> AppResult<i64> {
-    let tx = write_transaction(conn, Some(epoch))?;
+    let tx = write_transaction_quiet(conn, Some(epoch))?;
     tx.execute(
         "UPDATE workspace_ownership
          SET heartbeat_seq = heartbeat_seq + 1, heartbeat_at = datetime('now')
