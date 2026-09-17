@@ -857,6 +857,16 @@ impl DiscoveryRunner {
             .cloned())
     }
 
+    /// The runs whose coordinator is alive in this process right now. P04a:
+    /// a host that is shutting down pauses each of these and waits for the
+    /// list to empty before it releases the workspace, so the last
+    /// checkpoint is committed by this epoch and not repaired by the next.
+    pub fn active_coordinator_run_ids(&self) -> AppResult<Vec<i64>> {
+        let mut ids: Vec<i64> = lock(&self.controls, "discovery controls")?.keys().copied().collect();
+        ids.sort_unstable();
+        Ok(ids)
+    }
+
     fn remove_control(&self, run_id: i64, expected: &Arc<RunControl>) {
         if let Ok(mut controls) = self.controls.lock() {
             if controls

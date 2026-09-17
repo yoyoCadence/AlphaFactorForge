@@ -13,6 +13,10 @@ const HOST_AGNOSTIC_SOURCES: &[(&str, &str)] = &[
     ("runtime/mod.rs", include_str!("mod.rs")),
     ("runtime/lease.rs", include_str!("lease.rs")),
     ("runtime/commands.rs", include_str!("commands.rs")),
+    ("runtime/control_api.rs", include_str!("control_api.rs")),
+    ("runtime/control_client.rs", include_str!("control_client.rs")),
+    ("runtime/service.rs", include_str!("service.rs")),
+    ("service_main.rs", include_str!("../service_main.rs")),
     ("db/runtime_ledger.rs", include_str!("../db/runtime_ledger.rs")),
     ("db/mod.rs", include_str!("../db/mod.rs")),
     ("db/ownership.rs", include_str!("../db/ownership.rs")),
@@ -62,6 +66,16 @@ fn the_desktop_adapter_is_where_tauri_events_live() {
     let adapter = without_line_comments(include_str!("../desktop/discovery_events.rs"));
     assert!(adapter.contains("use tauri::"), "the desktop adapter imports tauri");
     assert!(adapter.contains("impl DiscoveryEventSink for TauriDiscoveryEventSink"));
+}
+
+/// P04a: the service binary must open the workspace the desktop owns, and
+/// the desktop's directory is `<data dir>/<bundle identifier>` from its
+/// config. The service cannot read that config (it must not name the
+/// framework), so the identifier is a constant pinned here to the config.
+#[test]
+fn the_service_identifier_is_the_desktop_bundle_identifier() {
+    let config: serde_json::Value = serde_json::from_str(include_str!("../../tauri.conf.json")).unwrap();
+    assert_eq!(config["identifier"], super::service::APP_IDENTIFIER);
 }
 
 #[test]

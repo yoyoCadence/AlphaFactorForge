@@ -103,7 +103,7 @@ pub struct CommandError {
 }
 
 impl CommandError {
-    fn new(code: ErrorCode, message: impl Into<String>, retryable: bool) -> Self {
+    pub(crate) fn new(code: ErrorCode, message: impl Into<String>, retryable: bool) -> Self {
         Self { code, message: message.into(), retryable }
     }
 
@@ -506,34 +506,8 @@ impl Dispatcher {
             }
             Command::EventsRead => {
                 let after = payload.get("afterEventId").and_then(Value::as_i64).unwrap_or(0);
-                if after < 0 {
-                    return Err(CommandError::new(ErrorCode::Validation, "afterEventId must be >= 0", false));
-                }
-                let limit = payload
-                    .get("limit")
-                    .and_then(Value::as_u64)
-                    .map(|n| (n as usize).clamp(1, MAX_EVENT_PAGE))
-                    .unwrap_or(MAX_EVENT_PAGE);
-                // Events first, version AFTER: if the state moved past the last
-                // ledgered event, `stateVersion` says so and the reader must
-                // re-snapshot (R2).
-                let (events, last, version, gap) = {
-                    let conn = self.lock_db()?;
-                    (
-                        runtime_ledger::read_events_after(&conn, after, limit)?,
-                        runtime_ledger::last_event_id(&conn)?,
-                        ownership::state_version(&conn)?,
-                        runtime_ledger::read_ledger_gap(&conn)?,
-                    )
-                };
-                let envelopes = events.into_iter().map(EventEnvelope::from_stored).collect::<Result<Vec<_>, _>>()?;
-                Ok(json!({
-                    "events": envelopes,
-                    "lastEventId": last,
-                    "stateVersion": version,
-                    "ledgerGap": gap,
-                    "ledgerDegraded": self.ledger.degraded(),
-                }))
+                let limit = payload.get("limit").and_then(Value::as_u64).map(|n| n as usize);
+                self.events_page(after, limit)
             }
             Command::OwnershipRead => {
                 let row = {
@@ -543,6 +517,37 @@ impl Dispatcher {
                 Ok(json!({ "ownership": row, "workspaceId": self.workspace_id }))
             }
         }
+    }
+
+    /// One `events.read` page (contract §3): the ledger after `after`, at
+    /// most `limit` rows (clamped to `MAX_EVENT_PAGE`), plus the cursor and
+    /// version a reader needs to continue. Shared by the envelope command and
+    /// the loopback API's long-poll (P04a), so both hand out the same shape.
+    pub fn events_page(&self, after: i64, limit: Option<usize>) -> Result<Value, CommandError> {
+        if after < 0 {
+            return Err(CommandError::new(ErrorCode::Validation, "afterEventId must be >= 0", false));
+        }
+        let limit = limit.map(|n| n.clamp(1, MAX_EVENT_PAGE)).unwrap_or(MAX_EVENT_PAGE);
+        // Events first, version AFTER: if the state moved past the last
+        // ledgered event, `stateVersion` says so and the reader must
+        // re-snapshot (R2).
+        let (events, last, version, gap) = {
+            let conn = self.lock_db()?;
+            (
+                runtime_ledger::read_events_after(&conn, after, limit)?,
+                runtime_ledger::last_event_id(&conn)?,
+                ownership::state_version(&conn)?,
+                runtime_ledger::read_ledger_gap(&conn)?,
+            )
+        };
+        let envelopes = events.into_iter().map(EventEnvelope::from_stored).collect::<Result<Vec<_>, _>>()?;
+        Ok(json!({
+            "events": envelopes,
+            "lastEventId": last,
+            "stateVersion": version,
+            "ledgerGap": gap,
+            "ledgerDegraded": self.ledger.degraded(),
+        }))
     }
 
     fn lock_db(&self) -> Result<std::sync::MutexGuard<'_, rusqlite::Connection>, CommandError> {

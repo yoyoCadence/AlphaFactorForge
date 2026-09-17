@@ -7,8 +7,8 @@
 > [`autonomous-research-capability-registry.md`](autonomous-research-capability-registry.md)。
 
 **狀態：契約已定案；P02（runtime 解耦）、P03a（§1 lease、§5.2 schema 保護）、P03b
-（§2 命令 envelope 與冪等、§3 事件帳本）已於 2026-09-17 實作；§4 控制介面與 connect 模式
-待 P04。** 本文件定義後續 phase 必須遵守的
+（§2 命令 envelope 與冪等、§3 事件帳本）、P04a（§4 控制介面與 service 宿主，`control-endpoint-v1`）
+已於 2026-09-17 實作；桌面 connect 模式待 P04b。** 本文件定義後續 phase 必須遵守的
 邊界與識別；P00 不新增程式、migration 或依賴。任何實作 phase 若需偏離本文，先修訂
 本文並提升版本，不得在程式內默默改變語意。
 
@@ -37,7 +37,7 @@
 | --- | --- | --- |
 | desktop-embedded | 今天的 `main.rs`：Tauri 程序內建 runner | 可 |
 | desktop-connect | 桌面偵測到既存有效 lease，只做代理，不跑 migration／recovery | 否 |
-| service | 未來的 headless service binary（P04） | 可 |
+| service | headless service binary `alpha-factor-forge-service`（P04a，`runtime/service.rs`） | 可 |
 | mcp-adapter | VS Code stdio adapter（P16），透過控制介面連接 service | 否 |
 
 同一時間一個 workspace 只有一個 lease holder；**只有 holder 可執行 migration、
@@ -145,16 +145,25 @@ OS 鎖的程序。** 搶占的唯一途徑是原程序釋放或作業系統回�
 
 ---
 
-## 4. 本機控制介面（P04 實作）
+## 4. 本機控制介面（P04a 實作，`control-endpoint-v1`）
 
 | 項目 | 規則 |
 | --- | --- |
-| 綁定 | 僅 `127.0.0.1`，動態 port |
-| endpoint manifest | 寫在 workspace 的本機應用資料目錄（非 OneDrive），內容：port、`workspaceId`、`epoch`、service 版本；檔案權限限目前使用者 |
-| 認證 | 隨機控制 token，與 manifest 同目錄、同權限；請求以 header 攜帶；比對需 constant-time |
-| 請求檢查 | `Host` 必須是 loopback；含 `Origin` 的請求一律拒絕（瀏覽器來源不得直連） |
-| token 使用者 | Tauri backend、MCP adapter；**不傳給前端 WebView**，不寫進 SQLite／logs |
-| 傳輸 | HTTP/1.1 JSON；事件以 long-poll `afterEventId` 或 SSE，二擇一於 P04 定案 |
+| 綁定 | 僅 `127.0.0.1`，動態 port（`runtime/control_api.rs` `ControlServer::bind`） |
+| endpoint manifest | 寫在 workspace 的本機應用資料目錄（非 OneDrive），檔名 `control-endpoint.json`：`manifestVersion`、`port`、`workspaceId`、`epoch`、`holderKind`、`instanceId`、`pid`、`serviceVersion`、`startedAt`；先寫暫存檔再原子更名；Unix 0600、Windows 承襲使用者 profile 目錄 ACL；讀者使用前必須以 `/v1/info` 核對 `instanceId`（崩潰的 service 會留下過期 manifest） |
+| 認證 | 隨機控制 token（`getrandom` 32 bytes → 64 hex），檔名 `control-token`，與 manifest 同目錄、同權限、不寫進 manifest；請求以 `Authorization: Bearer <token>` 攜帶；比對 constant-time；失敗 401 |
+| 請求檢查 | `Host` 必須是 `127.0.0.1` 或 `localhost`（若帶 port 須等於本 port），否則 403；缺 `Host` 400；含 `Origin` 的請求一律 403（瀏覽器來源不得直連）；以上皆先於認證與路由 |
+| 傳輸 | HTTP/1.1 JSON，每連線一個請求、`Connection: close`；body 必須帶 `Content-Length`（≤ 1 MiB，不接受 chunked，違者 411／413）；request head ≤ 16 KiB（431） |
+| 路由 | `GET /v1/info`（身分與協定版本）；`POST /v1/commands`（body 為 §2 envelope；成功 200 `{"result"}`，拒絕依 code 對應 400／401／404／409／503 並回 `{"error": CommandError}`）；`GET /v1/events?afterEventId=&limit=&waitMs=`（§3 `events.read` 同一頁面形狀，**long-poll**：無新事件時最多等 `waitMs`（上限 30 s），帳本增長、`stateVersion` 前進或開始關閉即返回；SSE 不採用）；`POST /v1/shutdown`（202，見 §4.1） |
+| token 使用者 | Tauri backend（P04b）、MCP adapter（P16）、`service stop`／`status`；**不傳給前端 WebView**，不寫進 SQLite／logs／回應 |
+| 不提供 | shell、SQL、檔案路徑、實盤端點；不綁定 `0.0.0.0`／IPv6 |
+
+### 4.1 service 宿主生命週期（`runtime/service.rs`）
+
+1. `run`：以 §1.2 順序取得 lease（host kind `service`）→ 建 §2 dispatcher（host sink 只喚醒 long-poll 讀者）→ 綁定 port → 發布 manifest 與 token → 服務。
+2. `POST /v1/shutdown`（或 `stop` 子命令）：立即拒絕 mutating 命令（503 `Busy`、`retryable=true`，因為從未預約，同 requestId 可交給下一個 owner），讀取命令照常；對每個活著的 coordinator 發 pause，等待其在**本 epoch** 提交 Paused checkpoint 並退出（上限 60 s）；停止監聽；**先撤下 manifest／token、再釋放 lease**（避免刪到下一個 owner 剛發布的檔案）。
+3. 沒有 signal handler：Ctrl+C／kill 等同崩潰，由下一個 owner 的啟動 recovery 處理（run 變 paused）；留下的 manifest 因 `/v1/info` 不回應或 `instanceId` 不符而被 `stop`／`status` 判為過期，不會被誤用。
+4. 預設資料目錄 = `dirs::data_dir()/com.alphafactorforge.desktop`（與 tauri `app_data_dir` 同一解析），`--data-dir` 可覆寫（隔離工作區、測試）。
 
 `codex app-server` 自身的 `--listen ws://` 與 `--ws-auth` 屬於 Codex 程序，不是
 本控制介面；本專案不對外暴露 Codex 的端點（見
@@ -183,5 +192,6 @@ OS 鎖的程序。** 搶占的唯一途徑是原程序釋放或作業系統回�
 | P02（完成 2026-09-17） | §0 邊界、busy_timeout、DB path 注入、event sink 抽離 — `db::open_at`、`runtime::open_workspace`、`desktop::discovery_events`、`runtime::boundary_tests` | 既有 golden／runner 原子性不變（runner 測試檔未動） |
 | P03a（完成 2026-09-17） | §1 lease（`runtime/lease.rs`、migration 0004、`db/ownership.rs`、runner epoch 檢查）、§5.2 schema 保護（`SchemaTooNew`） | 雙啟、owner crash／接手、休眠（heartbeat 停止不釋放鎖）、時鐘變動（以 `heartbeat_seq` 與讀者單調時間判定）、舊 worker 提交 — 皆有 Rust 測試 |
 | P03b（完成 2026-09-17） | §2 `CommandEnvelope`／`CommandError`／白名單／reserve-then-complete 冪等（`runtime/commands.rs`、`db/runtime_ledger.rs`、migration 0005）、§3 `LedgerSink`＋`events.read`（snapshot → `afterEventId`） | 重複命令（同 requestId 三次只建一個 run、回放第一次結果）、payload 不同→`DuplicateRequest`、未完成→`Busy`、亂序／漏失（帳本依 eventId 分頁重讀）— 皆有 Rust 測試 |
-| P04 | §4 控制介面、connect 模式 | 關 UI 工作持續、重連採同一 run |
+| P04a（完成 2026-09-17） | §4 控制介面（`runtime/control_api.rs`、`control_client.rs`）、§4.1 service 宿主（`runtime/service.rs`、`service_main.rs`） | 關 UI 工作持續（啟動的 client 消失後 run 繼續）、重連採同一 run（`discovery.active` → `events.read` cursor → long-poll 被 runner 事件喚醒）、關閉時 drain 到 Paused checkpoint 且下一 owner 無孤兒可 resume、雙啟 exit 2、真實 binary smoke — 皆有 Rust 測試 |
+| P04b | 桌面 connect 模式（`NotOwner` → 讀 manifest → 走 §4）、事件轉送到視窗、§1.5 背景切換 | 嵌入模式 native smoke 保留、桌面重連採同一 run |
 | P16 | §2 命令白名單（MCP 工具對照） | 不能揭露 Test、不能改閘門 |
