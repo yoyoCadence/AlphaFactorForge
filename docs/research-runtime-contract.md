@@ -8,7 +8,7 @@
 
 **狀態：契約已定案；P02（runtime 解耦）、P03a（§1 lease、§5.2 schema 保護）、P03b
 （§2 命令 envelope 與冪等、§3 事件帳本）、P04a（§4 控制介面與 service 宿主，`control-endpoint-v1`）
-已於 2026-09-17 實作；桌面 connect 模式待 P04b。** 本文件定義後續 phase 必須遵守的
+已於 2026-09-17 實作；P04b（§1.1 desktop-connect、§1.5 背景切換）已於 2026-09-18 實作。** 本文件定義後續 phase 必須遵守的
 邊界與識別；P00 不新增程式、migration 或依賴。任何實作 phase 若需偏離本文，先修訂
 本文並提升版本，不得在程式內默默改變語意。
 
@@ -36,7 +36,7 @@
 | 宿主 | 說明 | 可否持有 lease |
 | --- | --- | --- |
 | desktop-embedded | 今天的 `main.rs`：Tauri 程序內建 runner | 可 |
-| desktop-connect | 桌面偵測到既存有效 lease，只做代理，不跑 migration／recovery | 否 |
+| desktop-connect | 桌面偵測到既存有效 lease，只做代理，不跑 migration／recovery（P04b，`runtime/connect.rs`、`runtime/host.rs`：`NotOwner` → 讀 manifest → `/v1/info` 核對 → `db::open_migrated` 不遷移開庫 → 代理命令、轉送帳本事件） | 否 |
 | service | headless service binary `alpha-factor-forge-service`（P04a，`runtime/service.rs`） | 可 |
 | mcp-adapter | VS Code stdio adapter（P16），透過控制介面連接 service | 否 |
 
@@ -85,6 +85,14 @@ OS 鎖的程序。** 搶占的唯一途徑是原程序釋放或作業系統回�
 桌面啟用「關閉 UI 後繼續」時，順序固定：停止接受新工作 → 完成 checkpoint →
 釋放 lease（含 OS 鎖）→ 啟動 service → 桌面轉為 connect 模式。任一步失敗即回滾到
 嵌入模式並告知使用者；不得出現雙寫。
+
+P04b 實作（`runtime/host.rs` `hand_over_to_service`）：「停止接受新工作」= `Admission` 關門並等待
+已進入的 mutating 命令（每個桌面 mutating 命令整段持有 guard）；「完成 checkpoint」= 對每個活著的
+coordinator 發 PauseRequested 並等其退出（上限 60 s，逾時回滾為嵌入）；釋放 = drop `Workspace`；啟動 =
+桌面 binary 旁的 `alpha-factor-forge-service run`（detached，輸出到工作區 `service.log`）；連接 = 等 manifest
+（上限 30 s）→ §4 驗證 → 從帳本現況 cursor 起轉送。失敗時重新取鎖回嵌入；取鎖也失敗才進 `switching`
+並附原因。反向 `take_back_from_service`：`service stop`（drain 到 checkpoint）→ 短暫重試取鎖 → 嵌入。
+桌面模式變更與 service 失聯／恢復以 `runtime://host` 通知視窗，視窗依 §3 重讀 snapshot。
 
 ---
 
@@ -193,5 +201,5 @@ OS 鎖的程序。** 搶占的唯一途徑是原程序釋放或作業系統回�
 | P03a（完成 2026-09-17） | §1 lease（`runtime/lease.rs`、migration 0004、`db/ownership.rs`、runner epoch 檢查）、§5.2 schema 保護（`SchemaTooNew`） | 雙啟、owner crash／接手、休眠（heartbeat 停止不釋放鎖）、時鐘變動（以 `heartbeat_seq` 與讀者單調時間判定）、舊 worker 提交 — 皆有 Rust 測試 |
 | P03b（完成 2026-09-17） | §2 `CommandEnvelope`／`CommandError`／白名單／reserve-then-complete 冪等（`runtime/commands.rs`、`db/runtime_ledger.rs`、migration 0005）、§3 `LedgerSink`＋`events.read`（snapshot → `afterEventId`） | 重複命令（同 requestId 三次只建一個 run、回放第一次結果）、payload 不同→`DuplicateRequest`、未完成→`Busy`、亂序／漏失（帳本依 eventId 分頁重讀）— 皆有 Rust 測試 |
 | P04a（完成 2026-09-17） | §4 控制介面（`runtime/control_api.rs`、`control_client.rs`）、§4.1 service 宿主（`runtime/service.rs`、`service_main.rs`） | 關 UI 工作持續（啟動的 client 消失後 run 繼續）、重連採同一 run（`discovery.active` → `events.read` cursor → long-poll 被 runner 事件喚醒）、關閉時 drain 到 Paused checkpoint 且下一 owner 無孤兒可 resume、雙啟 exit 2、真實 binary smoke — 皆有 Rust 測試 |
-| P04b | 桌面 connect 模式（`NotOwner` → 讀 manifest → 走 §4）、事件轉送到視窗、§1.5 背景切換 | 嵌入模式 native smoke 保留、桌面重連採同一 run |
+| P04b（完成 2026-09-18） | §1.1 desktop-connect（`runtime/connect.rs`、`db::open_migrated`）、§1.5 背景切換（`runtime/host.rs`）、事件轉送（`desktop/discovery_events.rs` `LedgerEventSink`、`runtime://host`） | 嵌入模式 native smoke 保留（`main.rs` 空工作區仍自己持有並建庫；CI lane 不變）、桌面重連採同一 run（Rust：hand-over 中的 run 以 Paused checkpoint 交給 service、桌面代理 resume、Done 轉送、take-back epoch 3；Playwright：connect 模式啟動採用 service 的 paused run；原生：真實 desktop binary 對執行中 service 記錄 connected） |
 | P16 | §2 命令白名單（MCP 工具對照） | 不能揭露 Test、不能改閘門 |

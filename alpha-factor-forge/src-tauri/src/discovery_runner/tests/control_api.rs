@@ -299,3 +299,80 @@ fn a_draining_service_pauses_the_run_at_a_checkpoint_the_next_owner_resumes() {
     wait_for_coordinator_exit(&next, run_id);
     assert_eq!(next.progress(&db, run_id).unwrap().counts.completed_candidates, 2);
 }
+
+// ---------- P04b: the desktop's forwarder over the same API ----------
+
+/// The connect-mode forwarder hands a window every ledger row after its
+/// cursor, in ledger order, exactly once, and keeps following across pages
+/// while the run produces more.
+#[test]
+fn the_forwarder_replays_the_ledger_after_its_cursor_in_order_and_exactly_once() {
+    use crate::runtime::connect::{EventForwarder, LedgerEventSink};
+
+    #[derive(Default)]
+    struct Recorder(Mutex<Vec<(String, i64, u64)>>);
+    impl LedgerEventSink for Recorder {
+        fn emit(&self, channel: &str, payload: &Value) -> Result<(), String> {
+            let run_id = payload["runId"].as_i64().unwrap_or(-1);
+            let sequence = payload["sequence"].as_u64().unwrap_or(0);
+            self.0.lock().unwrap().push((channel.to_string(), run_id, sequence));
+            Ok(())
+        }
+    }
+
+    let candles = alternating_candles(240, 1_577_836_800_000);
+    let db = migrated_db();
+    let (dataset_id, dataset_hash) = import_dataset(&db, &candles);
+    let served = served_gated_runner(&db);
+    let client = served.client();
+
+    // History the window is NOT told about: a first run completed before the
+    // forwarder started (its snapshot covers it).
+    let first = client
+        .dispatch(&served.envelope("start-1", "discovery.start", runner_config(dataset_id, &dataset_hash, 1)))
+        .unwrap()
+        .unwrap()["runId"]
+        .as_i64()
+        .unwrap();
+    assert_eq!(served.started_rx.recv_timeout(TEST_TIMEOUT).unwrap(), 0);
+    served.gate.release();
+    wait_for_status(&served.runner, &db, first, RunStatus::Completed);
+    wait_for_coordinator_exit(&served.runner, first);
+    let cursor = client.events(0, None, Duration::ZERO).unwrap()["lastEventId"].as_i64().unwrap();
+    assert!(cursor > 0);
+
+    let recorder = Arc::new(Recorder::default());
+    let forwarder = EventForwarder::spawn(client.clone(), recorder.clone(), cursor).unwrap();
+    let second = client
+        .dispatch(&served.envelope("start-2", "discovery.start", runner_config(dataset_id, &dataset_hash, 2)))
+        .unwrap()
+        .unwrap()["runId"]
+        .as_i64()
+        .unwrap();
+    assert_eq!(served.started_rx.recv_timeout(TEST_TIMEOUT).unwrap(), 0);
+    served.gate.release();
+    assert_eq!(served.started_rx.recv_timeout(TEST_TIMEOUT).unwrap(), 1);
+    served.gate.release();
+    wait_for_status(&served.runner, &db, second, RunStatus::Completed);
+    wait_for_coordinator_exit(&served.runner, second);
+    let deadline = Instant::now() + TEST_TIMEOUT;
+    while !recorder.0.lock().unwrap().iter().any(|(channel, _, _)| channel == DISCOVERY_DONE_EVENT) {
+        assert!(Instant::now() < deadline, "Done never forwarded: {:?}", recorder.0.lock().unwrap());
+        thread::sleep(Duration::from_millis(20));
+    }
+    forwarder.stop();
+
+    let forwarded = recorder.0.lock().unwrap().clone();
+    assert!(forwarded.iter().all(|(_, run_id, _)| *run_id == second), "only the second run: {forwarded:?}");
+    let sequences: Vec<u64> = forwarded.iter().map(|(_, _, sequence)| *sequence).collect();
+    let mut sorted = sequences.clone();
+    sorted.sort_unstable();
+    sorted.dedup();
+    assert_eq!(sequences, sorted, "ledger order, no duplicates: {forwarded:?}");
+    assert_eq!(forwarded.iter().filter(|(channel, _, _)| channel == DISCOVERY_DONE_EVENT).count(), 1);
+    assert_eq!(forwarded.iter().filter(|(channel, _, _)| channel == DISCOVERY_RESULT_EVENT).count(), 2);
+    assert_eq!(forwarded.last().unwrap().0, DISCOVERY_DONE_EVENT);
+    // Everything the ledger holds after the cursor was forwarded, no more.
+    let ledger = client.events(cursor, None, Duration::ZERO).unwrap();
+    assert_eq!(ledger["events"].as_array().unwrap().len(), forwarded.len());
+}

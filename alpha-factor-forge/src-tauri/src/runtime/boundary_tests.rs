@@ -13,6 +13,8 @@ const HOST_AGNOSTIC_SOURCES: &[(&str, &str)] = &[
     ("runtime/mod.rs", include_str!("mod.rs")),
     ("runtime/lease.rs", include_str!("lease.rs")),
     ("runtime/commands.rs", include_str!("commands.rs")),
+    ("runtime/connect.rs", include_str!("connect.rs")),
+    ("runtime/host.rs", include_str!("host.rs")),
     ("runtime/control_api.rs", include_str!("control_api.rs")),
     ("runtime/control_client.rs", include_str!("control_client.rs")),
     ("runtime/service.rs", include_str!("service.rs")),

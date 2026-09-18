@@ -295,14 +295,36 @@ export interface SnapshotResponse<T> {
   stateVersion: number;
 }
 
-/** What a caller needs before its first envelope. */
+/** P04b: which host the desktop is (`runtime::host` in Rust).
+ *  `desktop-embedded`: the desktop owns the workspace and runs research in
+ *  its own process (closing it stops the work). `desktop-connect`: a
+ *  background service owns the workspace; the desktop proxies commands and
+ *  forwards the service's events, so closing the desktop changes nothing.
+ *  `switching`: a hand-over is in progress (or failed and left nothing
+ *  usable — `HostStatus.detail` says why). */
+export type HostMode = 'desktop-embedded' | 'desktop-connect' | 'switching';
+export const HOST_MODES: readonly HostMode[] = ['desktop-embedded', 'desktop-connect', 'switching'];
+
+/** What a caller needs before its first envelope. `holderKind` names whoever
+ *  holds the lease (the desktop itself, or the service it proxies);
+ *  `hostMode` is the desktop's own mode. */
 export interface WorkspaceInfo {
   workspaceId: string;
   epoch: number;
   holderKind: string;
   instanceId: string;
+  hostMode: HostMode;
   commandProtocolVersion: string;
   eventProtocolVersion: string;
+}
+
+/** `get_host_status` / the two switches (mirrors Rust `HostStatus`). */
+export interface HostStatus {
+  hostMode: HostMode;
+  dataDir: string;
+  serviceExecutable: string;
+  serviceExecutablePresent: boolean;
+  detail: string | null;
 }
 
 export const runtime = {
@@ -311,4 +333,14 @@ export const runtime = {
    *  `services/researchCommand.ts`). */
   dispatch: (envelope: CommandEnvelope) =>
     invoke<unknown>('dispatch_research_command', { envelope }),
+  hostStatus: () => invoke<HostStatus>('get_host_status'),
+  /** Plan §3.1 background mode: the desktop stops taking new work, lets the
+   *  running discovery reach a checkpoint, releases the workspace, starts
+   *  the service binary beside it, and connects. Resolves with the new
+   *  status; rejects with a `CommandError` and the desktop back in whatever
+   *  mode it could reach (usually embedded again). */
+  enterBackgroundMode: () => invoke<HostStatus>('enter_background_mode'),
+  /** The reverse: the service drains to a checkpoint and exits, the desktop
+   *  owns the workspace again. */
+  exitBackgroundMode: () => invoke<HostStatus>('exit_background_mode'),
 };

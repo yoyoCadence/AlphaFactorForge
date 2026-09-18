@@ -16,14 +16,15 @@
 | --- | --- | --- | --- |
 | 桌面嵌入模式（Tauri 內建 runner、啟動 recovery） | 可用 | `src-tauri/src/main.rs` `setup`；PR #103 native smoke lane | — |
 | desktop single-instance | 可用 | RUNNER-OWNERSHIP-001；`single_instance.rs` | — |
-| 關閉 UI 後研究繼續 | 可用（service 宿主） | P04a（2026-09-17）：`alpha-factor-forge-service run` 以 host kind `service` 持有工作區，run 由 service 程序內的 coordinator 執行，啟動它的 client 消失後仍繼續；重連 = `discovery.active` → `events.read` cursor（Rust 測試 `a_run_started_over_the_api_continues_without_its_client_and_a_new_client_adopts_it`、`tests/service_smoke.rs`）。**桌面尚未能連接 service**（桌面仍自己持有工作區；桌面開著時 service 拿不到鎖，反之亦然） | P04b connect 模式 |
+| 關閉 UI 後研究繼續 | 可用（service 宿主） | P04a（2026-09-17）：`alpha-factor-forge-service run` 以 host kind `service` 持有工作區，run 由 service 程序內的 coordinator 執行，啟動它的 client 消失後仍繼續；重連 = `discovery.active` → `events.read` cursor（Rust 測試 `a_run_started_over_the_api_continues_without_its_client_and_a_new_client_adopts_it`、`tests/service_smoke.rs`）。P04b（2026-09-18）：桌面「在背景繼續」把進行中的 run 在 checkpoint 交給 service（`host::hand_over_to_service`），桌面轉為 connect 模式後關閉視窗不影響 run；重開桌面對執行中的 service 直接 connect 並採用同一 run（Rust `tests/host.rs`、Playwright `host-mode.spec.ts`、原生 smoke） | — |
 | host-agnostic runtime（`runtime::open_workspace`：開庫→migration→runner→孤兒恢復） | 可用 | P02；桌面 `main.rs` 只提供 app data dir 路徑；未提供 headless 排程或 service binary | — |
 | 跨宿主 workspace ownership（OS 鎖＋epoch＋heartbeat） | 可用 | P03a（2026-09-17，含 review R1/R2 修正）：`runtime/lease.rs`（std `File::try_lock`，未加 crate）、migration 0004 `workspace_ownership`、`db/ownership.rs`；所有 runner store 寫入（含 claim、strategy／run／progress）在 `BEGIN IMMEDIATE` transaction 內檢查 epoch；雙啟／lease 釋放接手／舊 coordinator claim／檢查後換手再 cancel／跨連線 transaction 排他／heartbeat 有測試。connect 模式待 P04 | — |
 | SQLite `busy_timeout` | 可用 | P02：`db::open_at` 設 `BUSY_TIMEOUT = 5 s`，runtime 測試斷言 `PRAGMA busy_timeout = 5000` | — |
 | 舊 binary 拒絕較新 schema | 可用 | P03a：`apply_migrations` 遇未知 `schema_migrations` 版本回 `SchemaTooNew`，整個開啟失敗（含讀取，比契約「拒絕寫入」更嚴） | — |
 | 冪等命令／持久事件 ledger | 可用 | P03b（2026-09-17）：`research-command-v1` dispatcher（reserve-then-complete by requestId）、`runtime_events` 帳本（AUTOINCREMENT eventId，跨重啟不重用）、`events.read` cursor；桌面命令 `dispatch_research_command`／`get_workspace_info`。UI 尚未改走 envelope（P04） | — |
 | loopback 控制介面 | 可用 | P04a：`runtime/control_api.rs` std-only HTTP/1.1（未採 hyper／tokio）；`127.0.0.1` 動態 port、manifest `control-endpoint.json`＋`control-token`（`getrandom` CSPRNG、constant-time 比對）、Host／Origin 檢查、body／head 上限、`/v1/info`／`/v1/commands`／`/v1/events` long-poll／`/v1/shutdown`；curl 實測 401／200／403／long-poll。`dirs`、`getrandom` 由 tauri 既有鎖定版本升為直接依賴，無新 crate | — |
-| 桌面 connect 模式（另一宿主持有工作區時桌面只做代理） | 可規劃 | 契約 §1.1 desktop-connect、§4 client 已有（`runtime/control_client.rs`）；桌面 `main.rs` 仍在 `NotOwner` 時 panic | P04b |
+| 桌面 connect 模式（另一宿主持有工作區時桌面只做代理） | 可用 | P04b：`host::open_or_connect`（`NotOwner` → manifest → `/v1/info` 核對 → `db::open_migrated`）；discovery 命令與 envelope 經 `ServiceProxy` 代理；帳本事件由 forwarder 轉送到視窗（`LedgerEventSink`）；`runtime://host` 通知模式變更／失聯；`get_workspace_info.hostMode`。持有鎖但未發布端點的宿主仍拒絕啟動並說明 | — |
+| 背景模式切換（桌面 ⇄ service，契約 §1.5） | 可用 | P04b：`enter_background_mode`／`exit_background_mode`（Admission 關門→checkpoint→釋放→啟動 detached service→連接；反向 stop→重取鎖）；失敗回滾為嵌入。service 由桌面 binary 旁的同名 exe 啟動（`service.log` 在工作區）；未包進安裝包、無 Windows ACL 呼叫、Ctrl+C 仍為崩潰路徑 | 包裝／ACL：P22 |
 | VS Code MCP 入口 | 可規劃 | 依賴 P04 控制介面；MCP 協定本身由本專案的 stdio adapter 實作 | P16 |
 | Windows 排程／服務包裝 | 未驗證 | 未檢查 Task Scheduler／服務帳戶行為 | P22 |
 
@@ -108,7 +109,7 @@
 
 ## 8. P00 結論
 
-- 不依賴 AI 的 phase（P04–P14、P18–P19）依賴皆已到位，可依序規劃；P01、P02、P03a、P03b、P04a 已完成。
+- 不依賴 AI 的 phase（P04–P14、P18–P19）依賴皆已到位，可依序規劃；P01、P02、P03a、P03b、P04a、P04b 已完成。
 - **AI unattended 功能標為阻擋**，原因：生成環境隔離尚未驗證、模型清單與設定不一致、
   Codex 子命令為 experimental。P15 以一次有界真實生成解除或維持阻擋；不得改為付費
   API 或 GUI 點擊自動化。

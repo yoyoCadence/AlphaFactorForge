@@ -16,6 +16,8 @@ import type {
   TradeRow,
   ValidationRecordRow,
   DiscoveryProgressSnapshot,
+  HostMode,
+  HostStatus,
 } from './commands';
 import {
   DISCOVERY_EVENTS,
@@ -24,7 +26,10 @@ import {
   parseDiscoveryDoneEvent,
   parseDiscoveryProgressEvent,
   parseDiscoveryResultEvent,
+  parseHostEvent,
+  RUNTIME_HOST_EVENT,
   type DiscoveryDoneEvent,
+  type HostEvent,
   type DiscoveryProgressCounts,
   type DiscoveryProgressEvent,
   type DiscoveryResultEvent,
@@ -175,6 +180,20 @@ function mockDiscoverySubscribeFailure(): string | null {
  */
 function mockDiscoveryEmitBeforeStart(): boolean {
   return mockSearchParam('discoveryEmitBeforeStart') === '1';
+}
+
+/**
+ * P04b: `?mock=1&hostMode=desktop-connect` starts the mock desktop already
+ * connected to a (simulated) background service; the default is embedded.
+ * `&hostSwitchFail=1` makes the next switch fail the way the backend does —
+ * rejecting, and reporting the mode it fell back to.
+ */
+function mockInitialHostMode(): HostMode {
+  return mockSearchParam('hostMode') === 'desktop-connect' ? 'desktop-connect' : 'desktop-embedded';
+}
+
+function mockHostSwitchFails(): boolean {
+  return mockSearchParam('hostSwitchFail') === '1';
 }
 
 export function makeMockClient() {
@@ -611,6 +630,66 @@ export function makeMockClient() {
     return () => handlers.delete(handler);
   }
 
+  // ---------- P04b: host mode ----------
+  //
+  // The mock runner is the same in both modes (that is the point of connect
+  // mode: the window cannot tell). A switch goes through 'switching' with a
+  // short delay and announces itself on the host channel with the real
+  // payload shape, parsed by the production parser.
+  let hostMode: HostMode = mockInitialHostMode();
+  let switchFails = mockHostSwitchFails();
+  const hostHandlers = new Set<(event: HostEvent) => void>();
+  const hostStatus = (detail: string | null = null): HostStatus => ({
+    hostMode,
+    dataDir: 'C:\\mock\\workspace',
+    serviceExecutable: 'C:\\mock\\alpha-factor-forge-service.exe',
+    serviceExecutablePresent: true,
+    detail,
+  });
+  const announceHost = (serviceReachable: boolean, reason: string | null): void => {
+    const payload: HostEvent = { hostMode, serviceReachable, reason };
+    for (const handler of hostHandlers) handler(payload);
+  };
+  const switchHost = async (target: HostMode, from: HostMode): Promise<HostStatus> => {
+    if (hostMode !== from) {
+      throw { code: 'Busy', message: `mock: not in ${from} mode`, retryable: false };
+    }
+    hostMode = 'switching';
+    await new Promise((resolve) => globalThis.setTimeout(resolve, 60));
+    if (switchFails) {
+      switchFails = false;
+      hostMode = from;
+      announceHost(true, null);
+      throw { code: 'Busy', message: `mock: the switch failed (the desktop is now ${from})`, retryable: false };
+    }
+    hostMode = target;
+    announceHost(true, null);
+    return hostStatus();
+  };
+  const runtime = {
+    info: async () => ({
+      workspaceId: 'mock-workspace',
+      epoch: hostMode === 'desktop-connect' ? 2 : 1,
+      holderKind: hostMode === 'desktop-connect' ? 'service' : 'desktop-embedded',
+      instanceId: 'mock-instance',
+      hostMode,
+      commandProtocolVersion: 'research-command-v1',
+      eventProtocolVersion: 'research-event-v1',
+    }),
+    dispatch: async (_envelope: unknown): Promise<unknown> => {
+      throw new Error('mock: dispatch_research_command is not simulated');
+    },
+    hostStatus: async () => hostStatus(),
+    enterBackgroundMode: () => switchHost('desktop-connect', 'desktop-embedded'),
+    exitBackgroundMode: () => switchHost('desktop-embedded', 'desktop-connect'),
+  };
+  const runtimeEvents = {
+    onHostChanged: async (
+      onEvent: (event: HostEvent) => void,
+      onInvalid?: InvalidEventHandler,
+    ) => subscribeMock(hostHandlers, parseHostEvent, RUNTIME_HOST_EVENT, onEvent, onInvalid),
+  };
+
   if (mockPreexistingDiscoveryRun() === 'paused') {
     const runId = nextId++;
     mockRun = {
@@ -628,7 +707,7 @@ export function makeMockClient() {
   }
 
   if (!mockSeedHistory()) {
-    return { db, files, importDataset, isTauri: () => true, discovery, discoveryEvents };
+    return { db, files, importDataset, isTauri: () => true, discovery, discoveryEvents, runtime, runtimeEvents };
   }
   const seeded = seedHistory(db);
   // Awaited by every gated method; this handler only marks the rejection as
@@ -645,6 +724,8 @@ export function makeMockClient() {
     isTauri: () => true,
     discovery,
     discoveryEvents,
+    runtime,
+    runtimeEvents,
   };
 }
 

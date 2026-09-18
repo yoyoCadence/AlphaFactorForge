@@ -118,10 +118,19 @@ pub fn parse_args<S: AsRef<str>>(args: &[S]) -> Result<Cli, String> {
     })
 }
 
+/// Overrides the workspace directory for BOTH binaries (the desktop reads it
+/// too), so an isolated workspace can be smoked natively without touching
+/// the user's. Unset in normal use.
+pub const DATA_DIR_ENV: &str = "AFF_DATA_DIR";
+
 /// `<platform data dir>/<identifier>`: the same resolution as tauri's
 /// `app_data_dir` (which is `dirs::data_dir().join(identifier)`), so on
-/// Windows this is `%APPDATA%\com.alphafactorforge.desktop`.
+/// Windows this is `%APPDATA%\com.alphafactorforge.desktop` — unless
+/// `AFF_DATA_DIR` names another directory.
 pub fn default_data_dir() -> Option<PathBuf> {
+    if let Some(dir) = std::env::var_os(DATA_DIR_ENV).filter(|dir| !dir.is_empty()) {
+        return Some(PathBuf::from(dir));
+    }
     dirs::data_dir().map(|dir| dir.join(APP_IDENTIFIER))
 }
 

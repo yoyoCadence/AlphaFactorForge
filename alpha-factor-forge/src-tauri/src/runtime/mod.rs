@@ -23,15 +23,18 @@
 #[cfg(test)]
 mod boundary_tests;
 pub mod commands;
-// P04a: the service half of the runtime. The desktop binary compiles it (one
-// package, shared modules) but only the service binary calls it until the
-// desktop's connect mode (P04b) does; until then it is dead there by design
-// and the allowance below goes away with P04b.
+// P04b: the desktop's connect mode and host-mode switches.
+pub mod connect;
+// P04a: the control interface. The desktop binary compiles the whole module
+// (one package, shared files) but uses only the manifest/token/client half;
+// the server half (`ControlServer`, publishing) runs in the service binary.
 #[allow(dead_code)]
 pub mod control_api;
-#[allow(dead_code)]
 pub mod control_client;
+pub mod host;
 pub mod lease;
+// P04a: the service lifecycle. The desktop uses `stop` (take-back) and the
+// binary name; `run`/`status`/`main` are the service binary's.
 #[allow(dead_code)]
 pub mod service;
 
@@ -465,6 +468,39 @@ mod tests {
         drop(db);
     }
 
+    /// P04b: a non-owner opens the database without migrating. It must be
+    /// exactly this build's schema: behind → `SchemaPending` (the owner runs
+    /// an older build), ahead → `SchemaTooNew`, absent → the owner has not
+    /// created it. Nothing is written in any refused case.
+    #[test]
+    fn a_non_owner_opens_only_an_exactly_migrated_database() {
+        let path = fresh_db_path();
+        let _root = temp_root_of(&path);
+        let absent = db::open_migrated(&path).expect_err("no file yet");
+        assert!(absent.to_string().contains("has not created it"), "{absent}");
+
+        let owner = open(&path);
+        {
+            let conn = db::open_migrated(&path).expect("same build, fully migrated");
+            assert_eq!(pragma::<String>(&conn, "journal_mode"), "wal");
+            assert_eq!(pragma::<i64>(&conn, "foreign_keys"), 1);
+            assert_eq!(pragma::<i64>(&conn, "busy_timeout"), db::BUSY_TIMEOUT.as_millis() as i64);
+            let applied: i64 = conn.query_row("SELECT COUNT(*) FROM schema_migrations", [], |r| r.get(0)).unwrap();
+            assert_eq!(applied, 6, "nothing applied by the non-owner");
+        }
+        // Behind: the owner's build is older than this one.
+        owner.db.lock().unwrap().execute("DELETE FROM schema_migrations WHERE version = '0006_request_effects'", []).unwrap();
+        let behind = db::open_migrated(&path).expect_err("pending migration");
+        assert!(matches!(behind, AppError::SchemaPending(_)), "{behind:?}");
+        assert!(behind.to_string().contains("0006_request_effects"));
+        let still: i64 = owner.db.lock().unwrap().query_row("SELECT COUNT(*) FROM schema_migrations", [], |r| r.get(0)).unwrap();
+        assert_eq!(still, 5, "the non-owner did not migrate");
+        // Ahead: the owner's build is newer than this one.
+        owner.db.lock().unwrap().execute_batch("INSERT INTO schema_migrations (version) VALUES ('0006_request_effects'), ('0099_from_the_future')").unwrap();
+        let ahead = db::open_migrated(&path).expect_err("unknown migration");
+        assert!(matches!(ahead, AppError::SchemaTooNew(_)), "{ahead:?}");
+        drop(owner);
+    }
     #[test]
     fn a_database_written_by_a_newer_build_is_refused_before_anything_runs() {
         let path = fresh_db_path();

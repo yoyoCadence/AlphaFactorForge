@@ -11,11 +11,13 @@ import {
   discovery as realDiscovery,
   files as realFiles,
   isTauri as realIsTauri,
+  runtime as realRuntime,
 } from './commands';
 import {
   onDiscoveryDone,
   onDiscoveryProgress,
   onDiscoveryResult,
+  onHostChanged,
 } from './events';
 import { importDataset as realImportDataset } from './dbClient';
 import { makeMockClient } from './mockClient';
@@ -31,6 +33,12 @@ const realDiscoveryEvents = {
   onDone: onDiscoveryDone,
 };
 
+// P04b: the host mode (embedded / connected to a background service) and its
+// change notification join the seam so the panel can show and switch it.
+const realRuntimeEvents = {
+  onHostChanged,
+};
+
 type Client = {
   db: typeof realDb;
   files: typeof realFiles;
@@ -38,6 +46,8 @@ type Client = {
   isTauri: typeof realIsTauri;
   discovery: typeof realDiscovery;
   discoveryEvents: typeof realDiscoveryEvents;
+  runtime: typeof realRuntime;
+  runtimeEvents: typeof realRuntimeEvents;
 };
 
 function pick(): Client {
@@ -54,6 +64,8 @@ function pick(): Client {
     isTauri: realIsTauri,
     discovery: realDiscovery,
     discoveryEvents: realDiscoveryEvents,
+    runtime: realRuntime,
+    runtimeEvents: realRuntimeEvents,
   };
 }
 
@@ -65,3 +77,5 @@ export const importDataset = client.importDataset;
 export const isTauri = client.isTauri;
 export const discovery = client.discovery;
 export const discoveryEvents = client.discoveryEvents;
+export const runtime = client.runtime;
+export const runtimeEvents = client.runtimeEvents;

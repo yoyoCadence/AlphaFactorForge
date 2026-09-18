@@ -9,9 +9,12 @@ import {
   onDiscoveryDone,
   onDiscoveryProgress,
   onDiscoveryResult,
+  onHostChanged,
   parseDiscoveryDoneEvent,
   parseDiscoveryProgressEvent,
   parseDiscoveryResultEvent,
+  parseHostEvent,
+  RUNTIME_HOST_EVENT,
 } from './events';
 
 // Stand-in for the Tauri event bus: the listeners are the only thing under test
@@ -412,5 +415,39 @@ describe('createThrottle', () => {
     time.advance(5_000);
     throttled.call(2);
     expect(seen).toEqual([1, 2]);
+  });
+});
+
+// ---------- P04b: host mode ----------
+
+describe('parseHostEvent', () => {
+  it('accepts the Rust payload for every host mode and normalizes a missing reason', () => {
+    expect(parseHostEvent({ hostMode: 'desktop-connect', serviceReachable: true, reason: null }))
+      .toEqual({ hostMode: 'desktop-connect', serviceReachable: true, reason: null });
+    expect(parseHostEvent({ hostMode: 'desktop-embedded', serviceReachable: true }))
+      .toEqual({ hostMode: 'desktop-embedded', serviceReachable: true, reason: null });
+    expect(parseHostEvent({ hostMode: 'switching', serviceReachable: false, reason: 'connection refused' }))
+      .toEqual({ hostMode: 'switching', serviceReachable: false, reason: 'connection refused' });
+  });
+
+  it('rejects an unknown mode, a non-boolean reachability, a non-string reason, and non-objects', () => {
+    expect(parseHostEvent({ hostMode: 'service', serviceReachable: true })).toBeNull();
+    expect(parseHostEvent({ hostMode: 'desktop-connect', serviceReachable: 'yes' })).toBeNull();
+    expect(parseHostEvent({ hostMode: 'desktop-connect', serviceReachable: true, reason: 7 })).toBeNull();
+    expect(parseHostEvent(null)).toBeNull();
+    expect(parseHostEvent('desktop-connect')).toBeNull();
+  });
+
+  it('subscribes on the channel the desktop posts to and reports a malformed payload', async () => {
+    const seen: unknown[] = [];
+    const invalid: unknown[] = [];
+    const stop = await onHostChanged((event) => seen.push(event), (_channel, payload) => invalid.push(payload));
+    expect(RUNTIME_HOST_EVENT).toBe('runtime://host');
+    bus.handlers.get(RUNTIME_HOST_EVENT)!({ payload: { hostMode: 'desktop-connect', serviceReachable: false, reason: 'gone' } });
+    bus.handlers.get(RUNTIME_HOST_EVENT)!({ payload: { hostMode: 'nowhere' } });
+    expect(seen).toEqual([{ hostMode: 'desktop-connect', serviceReachable: false, reason: 'gone' }]);
+    expect(invalid).toEqual([{ hostMode: 'nowhere' }]);
+    stop();
+    expect(bus.unlistened).toContain(RUNTIME_HOST_EVENT);
   });
 });
