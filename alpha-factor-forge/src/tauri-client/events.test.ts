@@ -10,11 +10,14 @@ import {
   onDiscoveryProgress,
   onDiscoveryResult,
   onHostChanged,
+  onResnapshotNeeded,
   parseDiscoveryDoneEvent,
   parseDiscoveryProgressEvent,
   parseDiscoveryResultEvent,
   parseHostEvent,
+  parseResnapshotEvent,
   RUNTIME_HOST_EVENT,
+  RUNTIME_RESNAPSHOT_EVENT,
 } from './events';
 
 // Stand-in for the Tauri event bus: the listeners are the only thing under test
@@ -449,5 +452,26 @@ describe('parseHostEvent', () => {
     expect(invalid).toEqual([{ hostMode: 'nowhere' }]);
     stop();
     expect(bus.unlistened).toContain(RUNTIME_HOST_EVENT);
+  });
+});
+
+describe('parseResnapshotEvent', () => {
+  it('accepts the bridge payload and rejects anything without a reason and a finite version', () => {
+    expect(parseResnapshotEvent({ reason: 'the ledger has a gap', stateVersion: 9 })).toEqual({ reason: 'the ledger has a gap', stateVersion: 9 });
+    expect(parseResnapshotEvent({ reason: 'x' })).toBeNull();
+    expect(parseResnapshotEvent({ stateVersion: 1 })).toBeNull();
+    expect(parseResnapshotEvent({ reason: 'x', stateVersion: '9' })).toBeNull();
+    expect(parseResnapshotEvent({ reason: 'x', stateVersion: Number.NaN })).toBeNull();
+    expect(parseResnapshotEvent(null)).toBeNull();
+  });
+
+  it('subscribes on the channel the bridge posts to', async () => {
+    const seen: unknown[] = [];
+    const stop = await onResnapshotNeeded((event) => seen.push(event));
+    expect(RUNTIME_RESNAPSHOT_EVENT).toBe('runtime://resnapshot');
+    bus.handlers.get(RUNTIME_RESNAPSHOT_EVENT)!({ payload: { reason: 'reconnected', stateVersion: 3 } });
+    expect(seen).toEqual([{ reason: 'reconnected', stateVersion: 3 }]);
+    stop();
+    expect(bus.unlistened).toContain(RUNTIME_RESNAPSHOT_EVENT);
   });
 });

@@ -94,6 +94,14 @@ coordinator 發 PauseRequested 並等其退出（上限 60 s，逾時回滾為�
 並附原因。反向 `take_back_from_service`：`service stop`（drain 到 checkpoint）→ 短暫重試取鎖 → 嵌入。
 桌面模式變更與 service 失聯／恢復以 `runtime://host` 通知視窗，視窗依 §3 重讀 snapshot。
 
+connect 模式的 bridge（`runtime/connect.rs` forwarder）自己執行 §3 的缺口規則：出現**新的** `ledgerGap` 標記、
+`stateVersion` 前進但該頁無事件、某列無法交給視窗，或失聯後重新發現 service，都以 `runtime://resnapshot`
+（`{reason, stateVersion}`）要求視窗重讀——每個事實一次，不對已通知的標記重複。視窗先讀 `discovery.active`，
+若無活躍 run（跟隨中的 run 已終止，正是 Done 列缺失時的情況）改讀該 run 的 `discovery.progress`。失聯時
+forwarder 持續重新讀取 manifest 並以 §4 規則核對（同 workspaceId、instanceId、協定版本、schema），拒絕其他
+workspace 的端點；成功後替換桌面的 proxy 並通知重讀；帳本 eventId 跨 service 重啟不重用，cursor 沿用。
+take-back 的 `stop` 失敗時桌面維持 connect 且 forwarder 不中斷。
+
 ---
 
 ## 2. 命令 envelope（`research-command-v1`）

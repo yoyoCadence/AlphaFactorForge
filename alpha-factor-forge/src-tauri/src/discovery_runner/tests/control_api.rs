@@ -310,13 +310,22 @@ fn the_forwarder_replays_the_ledger_after_its_cursor_in_order_and_exactly_once()
     use crate::runtime::connect::{EventForwarder, LedgerEventSink};
 
     #[derive(Default)]
-    struct Recorder(Mutex<Vec<(String, i64, u64)>>);
+    struct Recorder(Mutex<Vec<(String, i64, u64)>>, Mutex<Vec<String>>);
     impl LedgerEventSink for Recorder {
         fn emit(&self, channel: &str, payload: &Value) -> Result<(), String> {
             let run_id = payload["runId"].as_i64().unwrap_or(-1);
             let sequence = payload["sequence"].as_u64().unwrap_or(0);
             self.0.lock().unwrap().push((channel.to_string(), run_id, sequence));
             Ok(())
+        }
+        fn connection_lost(&self, reason: &str) {
+            self.1.lock().unwrap().push(format!("lost: {reason}"));
+        }
+        fn connection_restored(&self) {
+            self.1.lock().unwrap().push("restored".into());
+        }
+        fn resnapshot_needed(&self, reason: &str, _state_version: i64) {
+            self.1.lock().unwrap().push(format!("resnapshot: {reason}"));
         }
     }
 
@@ -342,7 +351,21 @@ fn the_forwarder_replays_the_ledger_after_its_cursor_in_order_and_exactly_once()
     assert!(cursor > 0);
 
     let recorder = Arc::new(Recorder::default());
-    let forwarder = EventForwarder::spawn(client.clone(), recorder.clone(), cursor).unwrap();
+    let proxy = Arc::new(Mutex::new(crate::runtime::connect::ServiceProxy {
+        manifest: crate::runtime::control_api::EndpointManifest {
+            manifest_version: crate::runtime::control_api::MANIFEST_VERSION.into(),
+            port: served.server.port(),
+            workspace_id: served.workspace.clone(),
+            epoch: 1,
+            holder_kind: "service".into(),
+            instance_id: "in-process".into(),
+            pid: std::process::id(),
+            service_version: crate::runtime::control_api::SERVICE_VERSION.into(),
+            started_at: "2026-09-18T00:00:00Z".into(),
+        },
+        client: client.clone(),
+    }));
+    let forwarder = EventForwarder::spawn(proxy, std::env::temp_dir(), recorder.clone(), cursor).unwrap();
     let second = client
         .dispatch(&served.envelope("start-2", "discovery.start", runner_config(dataset_id, &dataset_hash, 2)))
         .unwrap()
@@ -375,4 +398,7 @@ fn the_forwarder_replays_the_ledger_after_its_cursor_in_order_and_exactly_once()
     // Everything the ledger holds after the cursor was forwarded, no more.
     let ledger = client.events(cursor, None, Duration::ZERO).unwrap();
     assert_eq!(ledger["events"].as_array().unwrap().len(), forwarded.len());
+    // Every row was delivered and no gap appeared, so the window was never
+    // told to re-read; nor was the service ever lost.
+    assert_eq!(*recorder.1.lock().unwrap(), Vec::<String>::new());
 }

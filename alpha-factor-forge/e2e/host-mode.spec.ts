@@ -61,3 +61,21 @@ test('a failed switch reports the mode the desktop fell back to and keeps the co
   await toggle.click();
   await expect(badge).toHaveAttribute('data-host-mode', 'desktop-connect');
 });
+
+test('a missing terminal event is recovered by re-reading the run, not by waiting for it', async ({ page }) => {
+  // The mock withholds the Done event and posts runtime://resnapshot instead,
+  // as the connect-mode bridge does for a ledger gap. The panel must land on
+  // the terminal status through the re-read.
+  await page.goto('/?mock=1&hostMode=desktop-connect&discoveryStep=30&discoveryDropDone=1', { waitUntil: 'domcontentloaded' });
+  await page.getByTestId('discovery-toggle').click();
+  await page.getByTestId('load-sample').click();
+  const start = page.getByTestId('discovery-start');
+  await expect(start).toBeEnabled({ timeout: 20_000 });
+  await start.click();
+  await expect(page.getByTestId('discovery-progress')).toContainText('完成 3/3', { timeout: 30_000 });
+  await expect(page.getByTestId('discovery-status')).toContainText('已完成', { timeout: 30_000 });
+  await expect(page.getByText('已重新讀取進度')).toBeVisible();
+  // Terminal: the controls agree with the database, not with the last event.
+  await expect(page.getByTestId('discovery-cancel')).toBeDisabled();
+  await expect(start).toBeEnabled();
+});

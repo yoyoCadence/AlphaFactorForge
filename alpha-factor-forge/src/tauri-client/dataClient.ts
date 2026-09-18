@@ -18,6 +18,7 @@ import {
   onDiscoveryProgress,
   onDiscoveryResult,
   onHostChanged,
+  onResnapshotNeeded,
 } from './events';
 import { importDataset as realImportDataset } from './dbClient';
 import { makeMockClient } from './mockClient';
@@ -37,6 +38,7 @@ const realDiscoveryEvents = {
 // change notification join the seam so the panel can show and switch it.
 const realRuntimeEvents = {
   onHostChanged,
+  onResnapshotNeeded,
 };
 
 type Client = {

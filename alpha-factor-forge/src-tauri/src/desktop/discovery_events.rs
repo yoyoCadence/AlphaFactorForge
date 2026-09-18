@@ -27,6 +27,18 @@ const MAIN_WINDOW_LABEL: &str = "main";
 
 /// P04b: the host-mode notification (`src/tauri-client/events.ts`).
 pub const HOST_EVENT: &str = "runtime://host";
+/// P04b: "your view may be behind the database; re-read your run"
+/// (contract §3). Posted by the forwarder for a ledger gap, a state version
+/// that moved without a row, a row it could not deliver, or a reconnect.
+pub const RESNAPSHOT_EVENT: &str = "runtime://resnapshot";
+
+/// The payload of `runtime://resnapshot`.
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ResnapshotEvent<'a> {
+    pub reason: &'a str,
+    pub state_version: i64,
+}
 
 /// The payload of `runtime://host`.
 #[derive(Clone, Debug, Serialize)]
@@ -93,5 +105,12 @@ impl LedgerEventSink for TauriDiscoveryEventSink {
 
     fn connection_restored(&self) {
         self.host_changed(crate::runtime::host::DESKTOP_CONNECT, true, None);
+    }
+
+    fn resnapshot_needed(&self, reason: &str, state_version: i64) {
+        let payload = ResnapshotEvent { reason, state_version };
+        if let Err(error) = self.app.emit_to(MAIN_WINDOW_LABEL, RESNAPSHOT_EVENT, payload) {
+            eprintln!("resnapshot event emission failed: {error}");
+        }
     }
 }

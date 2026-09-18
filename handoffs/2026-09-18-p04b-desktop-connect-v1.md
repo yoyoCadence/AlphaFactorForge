@@ -4,7 +4,7 @@ Date: 2026-09-18
 Repo: yoyoCadence/AlphaFactorForge
 Branch: `docs/p00-contract-precheck`（P04a 驗收修正 `757b9f5` 之後續做；本機 git，GitHub 仍鎖）
 PR: 尚未建立
-Status: 實作完成、本機驗證通過（Rust 243／Vitest 877／Playwright 72／原生 smoke），待 Codex 驗收；P04 至此完整，P05 另行授權
+Status: 驗收 H1／H2／M1 已修正並有確定性回歸（2026-09-18，Rust 246／Vitest 879／Playwright 73）；待複驗後再進 P05
 
 ## Summary
 
@@ -114,8 +114,7 @@ P04 驗收「關 UI 工作持續；重連採用同一 run；嵌入模式 native 
 
 ## 未完成項目／已知限制
 
-- **`ledgerGap`／`stateVersion` 只前進而無事件**：forwarder 不轉送，視窗也不主動重讀（與嵌入模式的 emit 失敗
-  行為一致）；視窗端整合 `needsResnapshot` 屬 P21。
+- ~~`ledgerGap`／`stateVersion` 只前進而無事件不重讀~~：驗收 H2 修正，見下方 Resolution。
 - **service 未包進安裝包**、**Windows 未明確設 ACL**、**無 signal handler**：維持 P04a 揭露；P22。
 - **take-back 的重取鎖視窗**：`service stop` 回報後 OS 鎖仍有毫秒級延遲，`relock` 重試 10 s；逾時進 `switching`。
 - **switching 狀態的恢復**：若 hand-over 釋放鎖後 launch 失敗且重取鎖也失敗（例如另一宿主趁隙取得），桌面停在
@@ -136,3 +135,109 @@ P04 驗收「關 UI 工作持續；重連採用同一 run；嵌入模式 native 
 ## Resolution (added when acted on)
 
 （待補：Codex 驗收結果、push／PR 編號。）
+
+## Review — P04b 驗收未通過（2026-09-18，Codex）
+
+受驗 commit `2afdcb5`；分支 `docs/p00-contract-precheck`，驗收起始 worktree 乾淨。
+P04a 四項修正已在 `757b9f5` 提交；本次檢查 P04b 桌面接線、切換失敗回復與事件同步。
+既有 Rust 243 項測試全過，但三條隔離工作區故障 probes 均失敗。
+
+### H1（High）— 收回桌面失敗後，Connected 模式永久失去事件轉送
+
+- 位置：`src-tauri/src/runtime/host.rs:320–328`。`service::stop` 的結果尚未分支處理，就呼叫
+  `connected.stop_following()`；Err 分支把同一個 connected 放回 slot，但不重新啟動 forwarder。
+- 重現：啟動真實 service lifecycle、連接並啟動 forwarder；僅把隔離 workspace 的 token 檔暫時換成
+  不相符的合法格式 token，讓 take-back 的 stop 回 401。桌面正確回 `SwitchFailed(now=desktop-connect)`；
+  還原檔案後，原本已驗證的 proxy（仍持有正確 token）成功啟動 run，DB 正常 completed；等待 6 秒
+  （超過 forwarder 的 5 秒 poll），仍完全沒有 Done 被轉送。
+- 影響：看似已回復可用的背景模式，命令能執行，進度與結果卻不再更新；使用者沒有事件失聯提示。
+  timeout／其他 stop error 也會經過同一條錯誤回復路徑。
+- 修正要求：stop 失敗時保留正在工作的 forwarder，或在回復 Connected 前以原 cursor 恢復它；
+  加入「take-back 失敗 → service 仍能執行 → 桌面仍收到完成」回歸。
+- Probe：`review_failed_take_back_must_keep_forwarding`，失敗訊息：
+  `restored Connected mode must still forward the service's Done event`。
+
+### H2（High）— 帳本缺口資訊在 bridge 被丟棄，終態可永久漏讀
+
+- 位置：`src-tauri/src/runtime/connect.rs:280–300` 的 `forward_loop` 只處理 events，忽略
+  stateVersion／ledgerGap／ledgerDegraded；`ServiceProxy::active/progress` 也剝掉版本只回 run。
+  視窗沒有其他定期 snapshot reconciliation。這違反契約 §3 已定案的缺口重讀規則，不能視為
+  單純 P21 UX 整合；P04b 現在就是這個帳本的實際讀者。
+- 重現：在隔離 DB 加 BEFORE INSERT trigger，只拒絕 `channel='discovery://done'` 的帳本 append，
+  真實 service 完成一個 run。讀回 DB 是 completed，events API 有
+  `ledgerGap={epoch:2,stateVersion:9}`；forwarder 只交出 progress／result／progress，
+  沒有 Done，沒有任何要求重讀或標示 stale 的通知（lost=0、restored=0）。
+- 影響：已提交的完成結果沒有遺失，但桌面停留舊狀態；必須由使用者自行刷新才會恢復。
+  手動記錄限制並不滿足 P03b 已建立的「帳本 append 失敗不得讓 cursor 讀者永久漏讀」。
+- 修正要求：bridge 保留 snapshot 版本並處理缺口／空頁版本前進，確實觸發視窗重讀（避免同一 gap
+  在已涵蓋的 snapshot 上無限觸發）。同時注意 `DiscoveryPanel.tsx:230–235` 的 host 通知只讀 active：
+  run 已終止時 active=null，目前會直接略過；應能重讀當前 runId 的 progress 來解決舊 running 狀態。
+  另須處理 sink.emit 失敗仍推進 cursor 的情形，不能默默略過。
+- Probe：`review_forwarder_must_signal_a_missing_terminal_ledger_event`，輸出：
+  `db=completed, gap={epoch:2,stateVersion:9}, forwarded=[progress,result,progress], lost=0, restored=0`。
+
+### M1（Medium）— service 重啟後，桌面永遠重試舊端點
+
+- 位置：`src-tauri/src/runtime/connect.rs:250–317`。forwarder 捕獲固定 ControlClient，錯誤後只睡眠
+  再對同一 port/token 重試；不重新讀 manifest／核對身分，也不更新 ConnectedHost 的 proxy。
+  `DiscoveryPanel.tsx:228` 卻顯示「重試連線中」。
+- 重現：service epoch 2 正常停止，等 forwarder 發出 lost；在同一 workspace 重啟 service 到 epoch 3。
+  新端點與新 proxy 的 info 正常，舊桌面等 6 秒仍 `restored=0`、`desktop proxy live=false`。
+  新服務已 ready；延長等待也不會改變固定 client 的端點。若 port 被重用但 token 改變，HTTP 401
+  也只會寫 log，並非真正重新連接。
+- 修正要求：失聯後重新發現端點、核對 workspace／instance／協定與 schema，再更新 host proxy 與
+  forwarder；從 snapshot 與持久 cursor 恢復，不能只讓徽章變回可用。補同 workspace 重啟後
+  讀取／命令／事件均恢復的回歸，並拒絕其他 workspace 的替代端點。
+- Probe：`review_forwarder_must_reconnect_after_the_service_restarts`，失敗訊息：
+  `new service is healthy, but restored=0, desktop proxy live=false`。
+
+### 驗證與工作目錄
+
+- 基線 `cargo test --locked`：**243 passed（52 + 189 + 2）**，含真實 service exe 的交接測試與 smoke。
+- `npm.cmd test`：**877 passed**；typecheck／build 通過。`cargo check --locked` 無 warning；
+  `cargo clippy --locked --all-targets` 成功，只有 core 既存 4 項 warning。
+- Playwright 全套首輪 **71 passed／1 failed**：第一個 `code-validation.spec.ts` 在 `page.goto` 等待
+  domcontentloaded 時超過 60 s，尚未執行功能斷言；P04b 三個 host-mode 案例皆過。僅重跑該失敗檔案後
+  **1 passed（44.5 s）**，未修改測試或產品。不能把首輪描述成 72 項一次全綠。
+- 臨時 probes：上述三條各自失敗；全部使用隔離 TEMP workspace，trigger／token 故障均還原，
+  service 正常停止，DB handle 關閉後刪除測試目錄。未碰使用者的 app-data workspace。
+- Probes 已移除，產品程式碼維持受驗 commit；僅本 handoff 修改。未 commit／push。
+- `git diff --check` 通過；臨時 service 程序、aff-host-test 目錄與 E2E 的 5199 listener 均無殘留。
+- 未重跑原生桌面視窗的按鈕操作。原作者已揭露 native smoke 是載入錯誤頁時的 Rust setup 檢查，
+  不把它解讀為 WebView 到真實 service 的完整 UI hand-over 驗證。
+- 下一步修正 H1／H2／M1，再複驗 P04b；目前不應把 P04 標為完整通過或進入 P05。
+
+## Resolution — 驗收 H1／H2／M1 修正與回歸（2026-09-18，Claude Code）
+
+使用者要求修正；沿用 `docs/p00-contract-precheck`，保留上方驗收紀錄。
+
+- **H1 已關閉**：`take_back_from_service` 只在 `service::stop` 成功（或端點已不存在）後才 `stop_following()`；
+  stop 失敗（401、逾時等）時放回 slot 的 `ConnectedHost` 帶著原本仍在跑的 forwarder。新增 `ConnectedHost::is_following`。
+  回歸 `a_failed_take_back_keeps_forwarding_the_services_events`（把 token 檔換成合法格式但不符的 token → stop 401 →
+  `SwitchFailed{now: desktop-connect}`；還原後以原 proxy 啟動 run → sink 收到 Done(completed)；再 take-back 成功）。
+- **H2 已關閉**：`LedgerEventSink` 新增必要方法 `resnapshot_needed(reason, state_version)`（無預設實作）。forwarder 以
+  第一頁的 `stateVersion`／`ledgerGap` 為「視窗已涵蓋」基準，之後：出現**新的** gap 標記、無事件但版本前進、`emit` 失敗
+  （cursor 仍前進但不再靜默）、或重連成功，各通知一次。桌面 sink 發 `runtime://resnapshot`；前端 `parseResnapshotEvent`／
+  `onResnapshotNeeded` 進 seam；`DiscoveryPanel` 的重讀改為「`getActiveRun` → 若 null 且有跟隨中的 runId 則 `progress(runId)`」，
+  host 通知也走同一條。回歸 `a_missing_terminal_ledger_row_makes_the_window_re_read_once`（持久 trigger 拒絕 Done 列 append；
+  DB completed、頁面有 `ledgerGap`、無 Done 轉送、恰一次 resnapshot 且 stateVersion 相符、`progress` 回 completed；再等一個
+  poll 週期不重複通知）；Playwright `a missing terminal event is recovered by re-reading the run`（mock `discoveryDropDone=1`
+  依真實 runner 只以 Done 宣告完成，不發終態 progress；面板經重讀顯示已完成、控制列與 DB 一致）。
+- **M1 已關閉**：`verify_endpoint(data_dir, expected_workspace)` 抽出並由首次連接與每次重新發現共用（manifest → 期望
+  workspaceId → `/v1/info` instanceId／workspaceId → 協定版本 → `db::open_migrated` schema）。forwarder 對任何讀帳本失敗
+  （Io、401、protocol）都進入 lost 並每 1 s 重新發現；成功即替換 `ConnectedHost` 內 `Arc<Mutex<ServiceProxy>>`（命令端
+  `proxy()` 取 clone）、`connection_restored` ＋ `resnapshot_needed("reconnected…")`；cursor 沿用。回歸
+  `a_restarted_service_is_rediscovered_and_another_workspaces_endpoint_is_refused`（service 停止 → lost 一次；另一 workspace
+  的 live manifest／token 複製進來 3 s 內 `restored=0`；移除後同 workspace 重啟 epoch 2 → `restored=1`、proxy 換成新
+  instance、info 可用、有 reconnected 重讀、舊端點不可用；新 proxy `active`／`start` → Done 轉送）。
+- **突變檢查**（各自單獨執行）：H1 把 `stop_following()` 移回 stop 之前 → 回歸紅（`the forwarder must survive a failed
+  take-back`）；H2 停用 gap 分支 → 紅（`timed out waiting for the window to be told to re-read`）；M1 讓重新發現永遠失敗 →
+  紅（`timed out waiting for the restored notification`）；面板停用 `onResnapshotNeeded` → Playwright 紅（`Received
+  string: "mock run #2 · 執行中"`）。還原後全綠。
+- 測試工具：`tests/host.rs` 的 `TempDir` 在 panic 展開中只回報不再 panic（失敗的測試留有 service 執行緒時，第二次 panic 會
+  abort 整個測試 binary 並吞掉第一個訊息）；綠跑不留殘留。
+- **驗證**：`cargo test --locked` **246 passed（52 + 192 + 2）**；`cargo check` 0 warning；clippy 只剩 core 既存 4 項；
+  typecheck／build 通過；`npm.cmd test` **879**；Playwright 全套 **73 passed**（本輪一次全綠；上一輪驗收所見
+  `code-validation.spec.ts` 首次導覽逾時為 dev server 冷啟動，非產品問題，未改測試）。原生桌面視窗操作未重跑。
+- 範圍說明：`ServiceProxy::progress/active` 仍回傳 legacy snapshot 形狀（不含 stateVersion）；版本比對由 bridge 執行並以
+  `runtime://resnapshot` 通知，視窗不需知道版本。嵌入模式的 emit 失敗行為未改（非本次範圍）。
