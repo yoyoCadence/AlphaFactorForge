@@ -22,9 +22,16 @@ fn fresh_dir() -> PathBuf {
 struct TempDir(PathBuf);
 impl Drop for TempDir {
     fn drop(&mut self) {
-        if self.0.exists() {
-            std::fs::remove_dir_all(&self.0)
-                .unwrap_or_else(|error| panic!("temp dir {} not removed: {error}", self.0.display()));
+        if !self.0.exists() {
+            return;
+        }
+        // A failed test may leave a service (and its database) alive in this
+        // process; a second panic here would abort the whole test binary and
+        // hide the first one, so the leftover is reported but not fatal.
+        match std::fs::remove_dir_all(&self.0) {
+            Ok(()) => {}
+            Err(error) if std::thread::panicking() => eprintln!("temp dir {} not removed: {error}", self.0.display()),
+            Err(error) => panic!("temp dir {} not removed: {error}", self.0.display()),
         }
     }
 }
@@ -35,6 +42,7 @@ struct RecordingLedgerSink {
     events: Mutex<Vec<(String, Value)>>,
     lost: AtomicUsize,
     restored: AtomicUsize,
+    resnapshots: Mutex<Vec<(String, i64)>>,
 }
 
 impl RecordingLedgerSink {
@@ -66,6 +74,10 @@ impl LedgerEventSink for RecordingLedgerSink {
 
     fn connection_restored(&self) {
         self.restored.fetch_add(1, Ordering::SeqCst);
+    }
+
+    fn resnapshot_needed(&self, reason: &str, state_version: i64) {
+        self.resnapshots.lock().unwrap().push((reason.to_string(), state_version));
     }
 }
 
@@ -152,10 +164,11 @@ fn the_desktop_owns_a_free_workspace_and_connects_to_a_published_service() {
         Ok(other) => panic!("expected connect mode, got {}", other.kind()),
         Err(error) => panic!("never connected: {error}"),
     };
-    assert_eq!(connected.proxy.manifest.epoch, 2, "the service took the lease after the desktop");
-    assert_eq!(connected.proxy.workspace_id(), workspace_id);
-    assert_eq!(connected.proxy.manifest.holder_kind, "service");
-    assert_eq!(connected.proxy.active().unwrap(), Value::Null);
+    let proxy = connected.proxy();
+    assert_eq!(proxy.manifest.epoch, 2, "the service took the lease after the desktop");
+    assert_eq!(proxy.workspace_id(), workspace_id);
+    assert_eq!(proxy.manifest.holder_kind, "service");
+    assert_eq!(proxy.active().unwrap(), Value::Null);
     // The non-owner's database connection reads the same rows and may not migrate.
     let datasets: i64 = connected.db.lock().unwrap().query_row("SELECT COUNT(*) FROM datasets", [], |r| r.get(0)).unwrap();
     assert_eq!(datasets, 0);
@@ -227,7 +240,7 @@ fn a_hand_over_moves_an_in_flight_run_to_the_service_at_a_checkpoint_and_the_tak
     // The service owns the workspace (epoch 2) and found a PAUSED run — the
     // checkpoint the desktop committed — with one candidate done.
     let proxy = match &*slot.lock().unwrap() {
-        HostMode::Connected(connected) => connected.proxy.clone(),
+        HostMode::Connected(connected) => connected.proxy(),
         other => panic!("{}", other.kind()),
     };
     assert_eq!(proxy.manifest.epoch, 2);
@@ -359,7 +372,7 @@ fn the_executable_launcher_hands_over_to_a_real_service_process_when_the_binary_
     outcome.unwrap_or_else(|error| panic!("{error}"));
     assert_eq!(mode_kind(&slot), host::DESKTOP_CONNECT);
     let (pid, port) = match &*slot.lock().unwrap() {
-        HostMode::Connected(connected) => (connected.proxy.manifest.pid, connected.proxy.manifest.port),
+        HostMode::Connected(connected) => (connected.proxy().manifest.pid, connected.proxy().manifest.port),
         other => panic!("{}", other.kind()),
     };
     assert_ne!(pid, std::process::id(), "a separate process owns the workspace");
@@ -373,4 +386,192 @@ fn the_executable_launcher_hands_over_to_a_real_service_process_when_the_binary_
     let log = std::fs::read_to_string(dir.join(host::SERVICE_LOG_FILE_NAME)).unwrap();
     assert!(log.contains("shutdown requested") && log.contains("stopped"), "{log}");
     drop(std::mem::replace(&mut *slot.lock().unwrap(), HostMode::Switching("test over".into())));
+}
+
+// ---------- 2026-09-18 acceptance regressions (H1, H2, M1) ----------
+
+/// A workspace file with one dataset the service can run, created before
+/// any owner (the desktop or the service) opens it.
+fn seeded_workspace(dir: &std::path::Path) -> (i64, String) {
+    let conn = crate::db::open_at(&dir.join(crate::db::DB_FILE_NAME)).unwrap();
+    let db: SharedDb = Arc::new(Mutex::new(conn));
+    let candles = alternating_candles(240, 1_577_836_800_000);
+    import_dataset(&db, &candles)
+}
+
+/// A desktop connected to an in-process service on `dir`, following it.
+fn connected_and_following(
+    dir: &std::path::Path,
+) -> (JoinHandle<Result<(), ServiceError>>, crate::runtime::connect::ConnectedHost, Arc<RecordingLedgerSink>) {
+    let service_dir = dir.to_path_buf();
+    let service = thread::spawn(move || service::run(&service_dir, fast_service()));
+    wait_for_published(dir);
+    let connected = match host::open_or_connect(dir) {
+        Ok(HostMode::Connected(connected)) => connected,
+        Ok(other) => panic!("expected connect mode, got {}", other.kind()),
+        Err(error) => panic!("never connected: {error}"),
+    };
+    let sink = Arc::new(RecordingLedgerSink::default());
+    connected.follow_events(sink.clone(), connected.ledger_end().unwrap()).unwrap();
+    (service, connected, sink)
+}
+
+fn wait_until(what: &str, mut condition: impl FnMut() -> bool) {
+    let deadline = Instant::now() + Duration::from_secs(30);
+    while !condition() {
+        assert!(Instant::now() < deadline, "timed out waiting for {what}");
+        thread::sleep(Duration::from_millis(50));
+    }
+}
+
+/// H1: a take-back whose `stop` is refused leaves the desktop connected —
+/// and still FOLLOWING. The service keeps working; the window keeps seeing
+/// what it does, including the run's Done.
+#[test]
+fn a_failed_take_back_keeps_forwarding_the_services_events() {
+    let dir = fresh_dir();
+    let _guard = TempDir(dir.clone());
+    let (dataset_id, dataset_hash) = seeded_workspace(&dir);
+    let (service, connected, sink) = connected_and_following(&dir);
+    let slot = Mutex::new(HostMode::Connected(connected));
+    let admission = Admission::default();
+
+    // The take-back's `stop` is refused (401): the token file names a token
+    // the service does not know, while the desktop's own client still holds
+    // the right one.
+    let token_path = crate::runtime::control_api::token_path(&dir);
+    let real_token = std::fs::read_to_string(&token_path).unwrap();
+    std::fs::write(&token_path, "0".repeat(crate::runtime::control_api::TOKEN_HEX_LEN)).unwrap();
+    let error = host::take_back_from_service(&slot, &admission, &dir).unwrap_err();
+    assert!(matches!(error, HostError::SwitchFailed { now: host::DESKTOP_CONNECT, .. }), "{error}");
+    std::fs::write(&token_path, real_token).unwrap();
+    assert_eq!(mode_kind(&slot), host::DESKTOP_CONNECT);
+
+    // Still connected in every sense: commands work AND events arrive.
+    let proxy = match &*slot.lock().unwrap() {
+        HostMode::Connected(connected) => {
+            assert!(connected.is_following(), "the forwarder must survive a failed take-back");
+            connected.proxy()
+        }
+        other => panic!("{}", other.kind()),
+    };
+    let run_id = proxy.start(runner_config(dataset_id, &dataset_hash, 1)).unwrap();
+    let done = sink.wait_for_done();
+    assert_eq!(done["runId"], run_id);
+    assert_eq!(done["status"], "completed", "restored Connected mode must still forward the service's Done event");
+
+    // A take-back that can reach the service succeeds afterwards.
+    host::take_back_from_service(&slot, &admission, &dir).unwrap_or_else(|error| panic!("{error}"));
+    assert_eq!(mode_kind(&slot), host::DESKTOP_EMBEDDED);
+    service.join().unwrap().unwrap();
+    drop(std::mem::replace(&mut *slot.lock().unwrap(), HostMode::Switching("test over".into())));
+}
+
+/// H2: the service completes a run but the ledger refuses the Done row
+/// (contract §3: an append failure records a gap). The rows the window got
+/// cannot show the completion, so the bridge must tell it to re-read —
+/// once for that gap, not on every poll.
+#[test]
+fn a_missing_terminal_ledger_row_makes_the_window_re_read_once() {
+    let dir = fresh_dir();
+    let _guard = TempDir(dir.clone());
+    let (dataset_id, dataset_hash) = seeded_workspace(&dir);
+    let (service, connected, sink) = connected_and_following(&dir);
+    let proxy = connected.proxy();
+    // A persistent trigger: it applies to the service's connection too.
+    connected
+        .db
+        .lock()
+        .unwrap()
+        .execute_batch(
+            "CREATE TRIGGER deny_done BEFORE INSERT ON runtime_events
+             WHEN NEW.channel = 'discovery://done' BEGIN SELECT RAISE(ABORT, 'deny_done'); END;",
+        )
+        .unwrap();
+
+    let run_id = proxy.start(runner_config(dataset_id, &dataset_hash, 1)).unwrap();
+    wait_until("the run to complete in the database", || {
+        proxy.progress(run_id).map(|run| run["status"] == "completed").unwrap_or(false)
+    });
+    wait_until("the window to be told to re-read", || !sink.resnapshots.lock().unwrap().is_empty());
+    let page = proxy.client.events(0, None, Duration::ZERO).unwrap();
+    assert!(page["ledgerGap"].is_object(), "the refused append left a gap marker: {page}");
+    assert!(!sink.channels().iter().any(|c| c == DISCOVERY_DONE_EVENT), "no Done row could be forwarded");
+    let (reason, at) = sink.resnapshots.lock().unwrap()[0].clone();
+    assert!(reason.contains("gap"), "{reason}");
+    assert_eq!(at, page["stateVersion"].as_i64().unwrap());
+    assert_eq!(proxy.progress(run_id).unwrap()["status"], "completed", "what the re-read returns");
+
+    // The same marker is not re-announced on later polls.
+    thread::sleep(crate::runtime::connect::FORWARD_POLL + Duration::from_millis(500));
+    assert_eq!(sink.resnapshots.lock().unwrap().len(), 1, "{:?}", sink.resnapshots.lock().unwrap());
+    assert_eq!(sink.lost.load(Ordering::SeqCst), 0);
+
+    connected.db.lock().unwrap().execute_batch("DROP TRIGGER deny_done;").unwrap();
+    connected.stop_following();
+    assert_eq!(service::stop(&dir, TEST_TIMEOUT).unwrap(), service::StopOutcome::Stopped);
+    service.join().unwrap().unwrap();
+    drop(connected);
+}
+
+/// M1: the service goes away and comes back (a restart, new epoch). The
+/// desktop's forwarder rediscovers THIS workspace's endpoint — refusing a
+/// stale one and another workspace's copied here — replaces the proxy the
+/// commands use, tells the window, and follows the new service's rows.
+#[test]
+fn a_restarted_service_is_rediscovered_and_another_workspaces_endpoint_is_refused() {
+    let dir = fresh_dir();
+    let _guard = TempDir(dir.clone());
+    let (dataset_id, dataset_hash) = seeded_workspace(&dir);
+    let (first_service, connected, sink) = connected_and_following(&dir);
+    let old_proxy = connected.proxy();
+    assert_eq!(old_proxy.manifest.epoch, 1);
+
+    // The service stops (its endpoint withdrawn): lost, once.
+    assert_eq!(service::stop(&dir, TEST_TIMEOUT).unwrap(), service::StopOutcome::Stopped);
+    first_service.join().unwrap().unwrap();
+    wait_until("the lost notification", || sink.lost.load(Ordering::SeqCst) == 1);
+
+    // Another workspace's live endpoint copied into this directory must
+    // not be mistaken for ours.
+    let other_dir = fresh_dir();
+    let _other_guard = TempDir(other_dir.clone());
+    let other_service = {
+        let other = other_dir.clone();
+        thread::spawn(move || service::run(&other, fast_service()))
+    };
+    wait_for_published(&other_dir);
+    for name in [crate::runtime::control_api::MANIFEST_FILE_NAME, crate::runtime::control_api::TOKEN_FILE_NAME] {
+        std::fs::copy(other_dir.join(name), dir.join(name)).unwrap();
+    }
+    thread::sleep(crate::runtime::connect::RECONNECT_PAUSE * 3);
+    assert_eq!(sink.restored.load(Ordering::SeqCst), 0, "another workspace's endpoint was accepted");
+    assert_eq!(service::stop(&other_dir, TEST_TIMEOUT).unwrap(), service::StopOutcome::Stopped);
+    other_service.join().unwrap().unwrap();
+    crate::runtime::control_api::remove_endpoint_files(&dir).unwrap();
+
+    // The workspace's own service restarts (epoch 2): rediscovered.
+    let second_service = {
+        let dir = dir.clone();
+        thread::spawn(move || service::run(&dir, fast_service()))
+    };
+    wait_until("the restored notification", || sink.restored.load(Ordering::SeqCst) == 1);
+    let new_proxy = connected.proxy();
+    assert_eq!(new_proxy.manifest.epoch, 2, "the host's proxy now names the restarted service");
+    assert_ne!(new_proxy.manifest.instance_id, old_proxy.manifest.instance_id);
+    assert!(new_proxy.info().is_ok(), "desktop proxy live");
+    assert!(sink.resnapshots.lock().unwrap().iter().any(|(reason, _)| reason.contains("reconnected")), "the window re-reads after a reconnect");
+    assert!(old_proxy.info().is_err(), "the old endpoint is gone for good");
+
+    // Reads, commands, and events all flow through the new service.
+    assert_eq!(new_proxy.active().unwrap(), Value::Null);
+    let run_id = new_proxy.start(runner_config(dataset_id, &dataset_hash, 1)).unwrap();
+    let done = sink.wait_for_done();
+    assert_eq!(done["runId"], run_id);
+    assert_eq!(done["status"], "completed");
+
+    connected.stop_following();
+    assert_eq!(service::stop(&dir, TEST_TIMEOUT).unwrap(), service::StopOutcome::Stopped);
+    second_service.join().unwrap().unwrap();
+    drop(connected);
 }

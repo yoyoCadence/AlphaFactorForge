@@ -369,6 +369,34 @@ export function onHostChanged(
   return subscribe(RUNTIME_HOST_EVENT, parseHostEvent, onEvent, onInvalid);
 }
 
+/** Must equal `RESNAPSHOT_EVENT` in `desktop/discovery_events.rs`. Posted by
+ *  the connect-mode bridge when the window's view may be behind the
+ *  database (runtime contract §3): the service's ledger has a gap, its
+ *  state version moved without a row, a row could not be delivered, or the
+ *  service was rediscovered after a restart. The window re-reads its run's
+ *  snapshot; the events that follow are trusted again from there. */
+export const RUNTIME_RESNAPSHOT_EVENT = 'runtime://resnapshot';
+
+export interface ResnapshotEvent {
+  reason: string;
+  stateVersion: number;
+}
+
+export function parseResnapshotEvent(payload: unknown): ResnapshotEvent | null {
+  if (typeof payload !== 'object' || payload == null) return null;
+  const record = payload as Record<string, unknown>;
+  if (typeof record.reason !== 'string') return null;
+  if (typeof record.stateVersion !== 'number' || !Number.isFinite(record.stateVersion)) return null;
+  return { reason: record.reason, stateVersion: record.stateVersion };
+}
+
+export function onResnapshotNeeded(
+  onEvent: (event: ResnapshotEvent) => void,
+  onInvalid?: InvalidEventHandler,
+): Promise<UnlistenFn> {
+  return subscribe(RUNTIME_RESNAPSHOT_EVENT, parseResnapshotEvent, onEvent, onInvalid);
+}
+
 // ---------- throttling ----------
 
 export interface Throttled<A extends unknown[]> {

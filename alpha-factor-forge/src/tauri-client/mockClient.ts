@@ -27,9 +27,12 @@ import {
   parseDiscoveryProgressEvent,
   parseDiscoveryResultEvent,
   parseHostEvent,
+  parseResnapshotEvent,
   RUNTIME_HOST_EVENT,
+  RUNTIME_RESNAPSHOT_EVENT,
   type DiscoveryDoneEvent,
   type HostEvent,
+  type ResnapshotEvent,
   type DiscoveryProgressCounts,
   type DiscoveryProgressEvent,
   type DiscoveryResultEvent,
@@ -194,6 +197,16 @@ function mockInitialHostMode(): HostMode {
 
 function mockHostSwitchFails(): boolean {
   return mockSearchParam('hostSwitchFail') === '1';
+}
+
+/**
+ * P04b: `?mock=1&discoveryDropDone=1` withholds the run's Done event and
+ * posts `runtime://resnapshot` instead — what the connect-mode bridge does
+ * when the service's ledger could not store a row (contract §3). The panel
+ * must recover the terminal status by re-reading, not by waiting.
+ */
+function mockDropsDone(): boolean {
+  return mockSearchParam('discoveryDropDone') === '1';
 }
 
 export function makeMockClient() {
@@ -477,6 +490,12 @@ export function makeMockClient() {
 
   function emitDone(run: MockRun): void {
     sequence += 1;
+    if (mockDropsDone()) {
+      // The row never reached the ledger; the bridge reports the gap.
+      const payload: ResnapshotEvent = { reason: `mock: the ledger has a gap (state version ${sequence})`, stateVersion: sequence };
+      for (const handler of resnapshotHandlers) handler(payload);
+      return;
+    }
     const payload: Record<string, unknown> = {
       eventVersion: DISCOVERY_EVENT_VERSION,
       sequence,
@@ -501,7 +520,10 @@ export function makeMockClient() {
     run.timer = null;
     if (run.nextCandidate >= run.total) {
       run.status = 'completed';
-      emitProgress(run, null);
+      // The real runner announces completion with Done alone (no progress
+      // event carries a terminal status); in drop mode the mock is as
+      // silent as the real thing, so only the re-read can reveal the end.
+      if (!mockDropsDone()) emitProgress(run, null);
       emitDone(run);
       return;
     }
@@ -639,6 +661,7 @@ export function makeMockClient() {
   let hostMode: HostMode = mockInitialHostMode();
   let switchFails = mockHostSwitchFails();
   const hostHandlers = new Set<(event: HostEvent) => void>();
+  const resnapshotHandlers = new Set<(event: ResnapshotEvent) => void>();
   const hostStatus = (detail: string | null = null): HostStatus => ({
     hostMode,
     dataDir: 'C:\\mock\\workspace',
@@ -688,6 +711,10 @@ export function makeMockClient() {
       onEvent: (event: HostEvent) => void,
       onInvalid?: InvalidEventHandler,
     ) => subscribeMock(hostHandlers, parseHostEvent, RUNTIME_HOST_EVENT, onEvent, onInvalid),
+    onResnapshotNeeded: async (
+      onEvent: (event: ResnapshotEvent) => void,
+      onInvalid?: InvalidEventHandler,
+    ) => subscribeMock(resnapshotHandlers, parseResnapshotEvent, RUNTIME_RESNAPSHOT_EVENT, onEvent, onInvalid),
   };
 
   if (mockPreexistingDiscoveryRun() === 'paused') {

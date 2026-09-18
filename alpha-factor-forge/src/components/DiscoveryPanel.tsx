@@ -25,7 +25,7 @@
 //      events that arrive before the run id is known, which is the only way the
 //      results of a run that finishes before `start_discovery` returns survive.
 
-import React, { useEffect, useMemo, useReducer, useState } from 'react';
+import React, { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { discovery, discoveryEvents, runtime, runtimeEvents } from '../tauri-client/dataClient';
 import type { HostMode, HostStatus } from '../tauri-client/commands';
 import {
@@ -109,6 +109,10 @@ export function DiscoveryPanel({ liveContext, onMessage }: DiscoveryPanelProps):
   // be switched.
   const [host, setHost] = useState<HostStatus | null>(null);
   const [serviceReachable, setServiceReachable] = useState(true);
+  // The run the panel is following, readable from subscription callbacks
+  // (which are registered once and must not capture a stale `run`).
+  const runIdRef = useRef<number | null>(null);
+  runIdRef.current = run?.runId ?? null;
 
   const combinations = useMemo(() => {
     try {
@@ -207,12 +211,35 @@ export function DiscoveryPanel({ liveContext, onMessage }: DiscoveryPanelProps):
   }, []);
 
   // P04b: the host mode, and the reconnect it implies. A mode change (either
-  // direction) or a service that comes back means the run may have moved
-  // while this window was not following it, so the snapshot is re-read
-  // before any further event is trusted (contract §3: snapshot, then cursor).
+  // direction), a service that comes back, or the bridge saying the view may
+  // be behind (`runtime://resnapshot`: a ledger gap, a version that moved
+  // with no row, an undeliverable row) all mean the run may have moved while
+  // this window was not following it, so the snapshot is re-read before any
+  // further event is trusted (contract §3: snapshot, then cursor). The
+  // active run is read first; when there is none — the followed run has
+  // ENDED, which is exactly the case a missing Done row leaves behind — the
+  // followed run's own snapshot is read instead, so a stale "running" never
+  // outlives the database's "completed".
   useEffect(() => {
     let disposed = false;
-    let unlisten: (() => void) | null = null;
+    const unlisteners: (() => void)[] = [];
+    const resnapshot = async (): Promise<void> => {
+      const active = await discovery.getActiveRun();
+      if (disposed) return;
+      if (active != null) {
+        dispatch({ type: 'snapshot', snapshot: active, adopt: true });
+        return;
+      }
+      const followed = runIdRef.current;
+      if (followed == null) return;
+      const snapshot = await discovery.progress(followed);
+      if (!disposed) dispatch({ type: 'snapshot', snapshot, adopt: false });
+    };
+    const resnapshotReporting = (): void => {
+      resnapshot().catch((error) => {
+        if (!disposed) setErr(String(error));
+      });
+    };
     runtime.hostStatus()
       .then((status) => {
         if (!disposed) setHost(status);
@@ -220,35 +247,38 @@ export function DiscoveryPanel({ liveContext, onMessage }: DiscoveryPanelProps):
       .catch(() => {
         // No host backend (plain Vite without ?mock=1): the badge stays hidden.
       });
-    runtimeEvents.onHostChanged((event) => {
+    const keep = (subscription: Promise<() => void>): void => {
+      subscription
+        .then((stop) => {
+          if (disposed) stop();
+          else unlisteners.push(stop);
+        })
+        .catch(() => {
+          // Same as above: nothing to subscribe to outside Tauri.
+        });
+    };
+    keep(runtimeEvents.onHostChanged((event) => {
       if (disposed) return;
       setHost((previous) => (previous == null ? previous : { ...previous, hostMode: event.hostMode, detail: null }));
       setServiceReachable(event.serviceReachable);
       if (!event.serviceReachable) {
-        setErr(`背景 service 失聯：${event.reason ?? '無回應'}（重試連線中）`);
+        setErr(`背景 service 失聯：${event.reason ?? '無回應'}（重新尋找端點中）`);
         return;
       }
       setErr(null);
-      discovery.getActiveRun()
-        .then((snapshot) => {
-          if (disposed) return;
-          if (snapshot != null) dispatch({ type: 'snapshot', snapshot, adopt: true });
-        })
-        .catch((error) => {
-          if (!disposed) setErr(String(error));
-        });
-    })
-      .then((stop) => {
-        if (disposed) stop();
-        else unlisten = stop;
-      })
-      .catch(() => {
-        // Same as above: nothing to subscribe to outside Tauri.
-      });
+      resnapshotReporting();
+    }));
+    keep(runtimeEvents.onResnapshotNeeded((event) => {
+      if (disposed) return;
+      onMessage(`背景 service 的事件可能有缺口（${event.reason}），已重新讀取進度`);
+      resnapshotReporting();
+    }));
     return () => {
       disposed = true;
-      unlisten?.();
+      for (const stop of unlisteners) stop();
     };
+    // Mount-time subscriptions; onMessage identity must not re-subscribe.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function act(action: PendingAction, work: () => Promise<void>): Promise<void> {

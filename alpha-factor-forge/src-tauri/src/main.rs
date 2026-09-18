@@ -82,7 +82,7 @@ impl AppState {
                 instance_id: workspace.ownership.instance_id.clone(),
                 workspace_id: workspace.workspace_id.clone(),
             }),
-            HostMode::Connected(connected) => Ok(HostSnapshot::Connected(connected.proxy.clone())),
+            HostMode::Connected(connected) => Ok(HostSnapshot::Connected(connected.proxy())),
             HostMode::Switching(reason) => Err(error::AppError::Other(format!("the workspace is not available: {reason}"))),
         }
     }
@@ -135,10 +135,8 @@ fn main() {
                     if let Err(error) = connected.follow_events(sink, after) {
                         eprintln!("cannot follow the background service's events: {error}");
                     }
-                    eprintln!(
-                        "connected to the background service (epoch {}, port {})",
-                        connected.proxy.manifest.epoch, connected.proxy.manifest.port
-                    );
+                    let manifest = connected.proxy().manifest;
+                    eprintln!("connected to the background service (epoch {}, port {})", manifest.epoch, manifest.port);
                 }
                 HostMode::Switching(_) => unreachable!("open_or_connect never yields a switching mode"),
             }

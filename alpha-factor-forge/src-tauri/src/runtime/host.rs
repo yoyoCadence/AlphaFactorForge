@@ -317,17 +317,20 @@ pub fn take_back_from_service(slot: &Mutex<HostMode>, admission: &Admission, dat
             }
         }
     };
-    let stopped = service::stop(data_dir, service::STOP_TIMEOUT);
-    // The shutdown woke the forwarder's poll; stopping it now is quick.
-    connected.stop_following();
-    match stopped {
+    match service::stop(data_dir, service::STOP_TIMEOUT) {
         Ok(StopOutcome::Stopped) | Ok(StopOutcome::NotPublished) | Ok(StopOutcome::Stale(_)) => {}
         Err(error) => {
-            // The service is still there: stay connected.
+            // The service is still there: stay connected, with the forwarder
+            // that was following it left exactly as it was (H1: a failed
+            // take-back must not cost the window its events).
             restore(slot, HostMode::Connected(connected));
             return Err(HostError::SwitchFailed { reason: format!("the service did not stop: {error}"), now: DESKTOP_CONNECT });
         }
     }
+    // The service is gone (its shutdown woke the forwarder's poll, so
+    // stopping the forwarder is quick) and nothing will republish here
+    // until we own the workspace ourselves.
+    connected.stop_following();
     drop(connected);
     match relock(data_dir, RELOCK_TIMEOUT) {
         Ok(workspace) => {

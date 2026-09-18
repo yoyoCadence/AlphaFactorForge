@@ -15,7 +15,7 @@
 //! trait the desktop implements in `desktop::discovery_events`.
 
 use std::fmt;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
@@ -37,14 +37,20 @@ pub const FORWARD_POLL: Duration = Duration::from_secs(5);
 pub const RECONNECT_PAUSE: Duration = Duration::from_secs(1);
 
 /// Where forwarded ledger events go. The desktop posts them on its event bus;
-/// tests record them.
+/// tests record them. Every method is a fact the window must act on, so
+/// none has a default: a sink that ignores one is a bug the compiler sees.
 pub trait LedgerEventSink: Send + Sync {
     /// One ledger row: its channel name and the payload it carried, verbatim.
     fn emit(&self, channel: &str, payload: &Value) -> Result<(), String>;
-    /// The service stopped answering; the forwarder keeps retrying.
-    fn connection_lost(&self, _reason: &str) {}
-    /// The service answers again after `connection_lost`.
-    fn connection_restored(&self) {}
+    /// The service stopped answering; the forwarder is rediscovering it.
+    fn connection_lost(&self, reason: &str);
+    /// The service (the same, or a restarted one for this workspace) answers
+    /// again after `connection_lost`; the window re-reads its snapshot.
+    fn connection_restored(&self);
+    /// The window's view may be behind the database (contract §3): a ledger
+    /// gap appeared, the state version moved without a row, or a row could
+    /// not be handed over. The window re-reads its run's snapshot.
+    fn resnapshot_needed(&self, reason: &str, state_version: i64);
 }
 
 #[derive(Debug)]
@@ -92,20 +98,34 @@ pub struct ServiceProxy {
     pub client: ControlClient,
 }
 
-/// A verified connection to the workspace's owner.
+/// A verified connection to the workspace's owner. The proxy is behind a
+/// lock because the forwarder replaces it when it rediscovers a restarted
+/// service (M1); commands take a clone through `proxy()`.
 pub struct ConnectedHost {
-    pub proxy: ServiceProxy,
+    proxy: Arc<Mutex<ServiceProxy>>,
     /// The workspace database, opened without migrating.
     pub db: SharedDb,
+    data_dir: PathBuf,
     forwarder: Mutex<Option<EventForwarder>>,
 }
 
-/// Verify the published endpoint and open the database. Does not start the
-/// forwarder; `follow_events` does, once the host has a sink.
-pub fn connect(data_dir: &Path) -> Result<ConnectedHost, ConnectError> {
+/// Read the published endpoint and prove it is this workspace's live
+/// service: the manifest's instance answers on the port, for the workspace
+/// the manifest names (and, on a reconnect, the workspace we were connected
+/// to), speaking this build's protocol, over a database this build can use
+/// without migrating. Shared by the first connect and every rediscovery.
+pub fn verify_endpoint(data_dir: &Path, expected_workspace: Option<&str>) -> Result<ServiceProxy, ConnectError> {
     let (manifest, token) = control_api::read_endpoint_files(data_dir)
         .map_err(|error| ConnectError::Other(format!("cannot read the control endpoint: {error}")))?
         .ok_or(ConnectError::NotPublished)?;
+    if let Some(expected) = expected_workspace {
+        if manifest.workspace_id != expected {
+            return Err(ConnectError::IdentityMismatch(format!(
+                "the published endpoint is for workspace {}, not {expected}",
+                manifest.workspace_id
+            )));
+        }
+    }
     let client = ControlClient::new(manifest.port, token);
     let info = match client.info() {
         Ok(info) => info,
@@ -124,20 +144,36 @@ pub fn connect(data_dir: &Path) -> Result<ConnectedHost, ConnectError> {
             info["commandProtocolVersion"]
         )));
     }
+    // The schema check is repeated on every (re)discovery: a restarted
+    // service may be another build.
+    drop(db::open_migrated(&data_dir.join(db::DB_FILE_NAME))?);
+    Ok(ServiceProxy { manifest, client })
+}
+
+/// Verify the published endpoint and open the database. Does not start the
+/// forwarder; `follow_events` does, once the host has a sink.
+pub fn connect(data_dir: &Path) -> Result<ConnectedHost, ConnectError> {
+    let proxy = verify_endpoint(data_dir, None)?;
     let conn = db::open_migrated(&data_dir.join(db::DB_FILE_NAME))?;
     Ok(ConnectedHost {
-        proxy: ServiceProxy { manifest, client },
+        proxy: Arc::new(Mutex::new(proxy)),
         db: Arc::new(Mutex::new(conn)),
+        data_dir: data_dir.to_path_buf(),
         forwarder: Mutex::new(None),
     })
 }
 
 impl ConnectedHost {
+    /// The current proxy (the service last verified).
+    pub fn proxy(&self) -> ServiceProxy {
+        self.proxy.lock().unwrap_or_else(|error| error.into_inner()).clone()
+    }
+
     /// Start forwarding ledger rows after `after` to `sink`. The cursor a
     /// host passes is the ledger's current end at connect time: history
     /// before it belongs to the snapshot the window takes itself.
     pub fn follow_events(&self, sink: Arc<dyn LedgerEventSink>, after: i64) -> std::io::Result<()> {
-        let forwarder = EventForwarder::spawn(self.proxy.client.clone(), sink, after)?;
+        let forwarder = EventForwarder::spawn(self.proxy.clone(), self.data_dir.clone(), sink, after)?;
         if let Ok(mut slot) = self.forwarder.lock() {
             if let Some(previous) = slot.replace(forwarder) {
                 previous.stop();
@@ -146,9 +182,14 @@ impl ConnectedHost {
         Ok(())
     }
 
+    /// True while a forwarder is attached.
+    pub fn is_following(&self) -> bool {
+        self.forwarder.lock().map(|slot| slot.is_some()).unwrap_or(false)
+    }
+
     /// The ledger's current end, for `follow_events`.
     pub fn ledger_end(&self) -> AppResult<i64> {
-        self.proxy.ledger_end()
+        self.proxy().ledger_end()
     }
 
     /// Stop forwarding (the service is being stopped or the desktop is
@@ -160,7 +201,6 @@ impl ConnectedHost {
             }
         }
     }
-
 }
 
 impl ServiceProxy {
@@ -195,7 +235,10 @@ impl ServiceProxy {
         self.call("discovery.cancel", json!({ "runId": run_id })).map(|_| ())
     }
 
-    /// The `discovery-progress-v1` snapshot, as JSON.
+    /// The `discovery-progress-v1` snapshot, as JSON. The state version the
+    /// service attaches stays in the bridge: the window's snapshot shape is
+    /// the mode-agnostic one, and the bridge's forwarder is what compares
+    /// versions (contract §3) and tells the window to re-read.
     pub fn progress(&self, run_id: i64) -> AppResult<Value> {
         self.call("discovery.progress", json!({ "runId": run_id })).map(|result| result["run"].clone())
     }
@@ -246,13 +289,20 @@ pub struct EventForwarder {
 }
 
 impl EventForwarder {
-    pub fn spawn(client: ControlClient, sink: Arc<dyn LedgerEventSink>, after: i64) -> std::io::Result<Self> {
+    /// `proxy` is shared with the host so a rediscovered service replaces
+    /// the one commands use; `data_dir` is where the endpoint is republished.
+    pub fn spawn(
+        proxy: Arc<Mutex<ServiceProxy>>,
+        data_dir: PathBuf,
+        sink: Arc<dyn LedgerEventSink>,
+        after: i64,
+    ) -> std::io::Result<Self> {
         let stop = Arc::new(AtomicBool::new(false));
         let thread = {
             let stop = stop.clone();
             thread::Builder::new()
                 .name("ledger-forwarder".into())
-                .spawn(move || forward_loop(client, sink, after, stop))?
+                .spawn(move || forward_loop(proxy, data_dir, sink, after, stop))?
         };
         Ok(Self { stop, thread: Some(thread) })
     }
@@ -272,21 +322,47 @@ impl Drop for EventForwarder {
     }
 }
 
+/// A ledger gap marker as the page carries it.
+fn gap_marker(page: &Value) -> Option<(i64, i64)> {
+    let gap = page.get("ledgerGap")?;
+    Some((gap["epoch"].as_i64()?, gap["stateVersion"].as_i64()?))
+}
+
 /// Rows are forwarded in ledger order and the cursor only moves forward, so
-/// a row is never emitted twice. A page whose end moved past the rows it
-/// carried is not a gap: the next poll starts after the last row emitted,
-/// and rows the ledger could not store (`ledgerGap`) are the window's to
-/// discover through its snapshot (`stateVersion`), as in embedded mode.
-fn forward_loop(client: ControlClient, sink: Arc<dyn LedgerEventSink>, after: i64, stop: Arc<AtomicBool>) {
+/// a row is never emitted twice. The ledger is durable across service
+/// restarts (event ids are never reused), so the cursor survives a
+/// reconnect. What the rows cannot carry, the page's version does
+/// (contract §3): a NEW gap marker, a state version that moved with no row
+/// to show for it, or a row the window could not be handed all mean the
+/// window's view may be behind the database, and it is told to re-read —
+/// once per such fact, never repeatedly for a marker it has already been
+/// told about. Losing the service (any failure to read the ledger) starts
+/// rediscovery: the endpoint files are re-read and re-verified for THIS
+/// workspace until a service answers, then the host's proxy is replaced.
+fn forward_loop(
+    proxy: Arc<Mutex<ServiceProxy>>,
+    data_dir: PathBuf,
+    sink: Arc<dyn LedgerEventSink>,
+    after: i64,
+    stop: Arc<AtomicBool>,
+) {
+    let snapshot_proxy = || proxy.lock().unwrap_or_else(|error| error.into_inner()).clone();
+    let mut current = snapshot_proxy();
+    let workspace_id = current.manifest.workspace_id.clone();
     let mut cursor = after;
+    // Facts the window is assumed to have: the version and the gap marker of
+    // the first page (its own snapshot is taken around now and covers them).
+    let mut known_version: Option<i64> = None;
+    let mut known_gap: Option<(i64, i64)> = None;
+    let mut primed = false;
     let mut lost = false;
     while !stop.load(Ordering::SeqCst) {
-        match client.events(cursor, None, FORWARD_POLL) {
+        match current.client.events(cursor, None, FORWARD_POLL) {
             Ok(page) => {
-                if lost {
-                    lost = false;
-                    sink.connection_restored();
-                }
+                let version = page["stateVersion"].as_i64().unwrap_or(0);
+                let gap = gap_marker(&page);
+                let mut resnapshot: Option<String> = None;
+                let mut forwarded = 0usize;
                 for event in page["events"].as_array().into_iter().flatten() {
                     let Some(event_id) = event["eventId"].as_i64() else { continue };
                     if event_id <= cursor {
@@ -294,18 +370,54 @@ fn forward_loop(client: ControlClient, sink: Arc<dyn LedgerEventSink>, after: i6
                     }
                     let channel = event["channel"].as_str().unwrap_or("");
                     if let Err(error) = sink.emit(channel, &event["payload"]) {
+                        // The row is not re-emitted (the failure is the
+                        // window's, not the ledger's) but it is not lost
+                        // silently either: the window is told to re-read.
                         eprintln!("ledger forwarder: emit of event {event_id} failed: {error}");
+                        resnapshot.get_or_insert_with(|| format!("event {event_id} could not be delivered: {error}"));
                     }
                     cursor = event_id;
+                    forwarded += 1;
+                }
+                if primed {
+                    if gap.is_some() && gap != known_gap {
+                        let (epoch, at) = gap.unwrap_or_default();
+                        resnapshot.get_or_insert_with(|| format!("the ledger has a gap (epoch {epoch}, state version {at})"));
+                    }
+                    if forwarded == 0 && known_version.is_some_and(|known| version > known) {
+                        resnapshot.get_or_insert_with(|| format!("the workspace changed (state version {version}) without a ledger event"));
+                    }
+                }
+                primed = true;
+                known_version = Some(known_version.map_or(version, |known| known.max(version)));
+                if gap.is_some() {
+                    known_gap = gap;
+                }
+                if let Some(reason) = resnapshot {
+                    sink.resnapshot_needed(&reason, version);
                 }
             }
             Err(error) => {
-                let io = matches!(error, ClientError::Io(_));
-                if io && !lost {
+                if !lost {
                     lost = true;
                     sink.connection_lost(&error.to_string());
-                } else if !io {
-                    eprintln!("ledger forwarder: {error}");
+                }
+                // Rediscover: the same service back, or a restarted one for
+                // this workspace. Anything else (another workspace's endpoint
+                // copied here, a build that cannot use the database) is
+                // refused and the search continues.
+                match verify_endpoint(&data_dir, Some(&workspace_id)) {
+                    Ok(found) => {
+                        *proxy.lock().unwrap_or_else(|error| error.into_inner()) = found.clone();
+                        current = found;
+                        lost = false;
+                        sink.connection_restored();
+                        // A restarted service ran startup recovery (which
+                        // writes no ledger row): the window re-reads.
+                        sink.resnapshot_needed("reconnected to the workspace's service", known_version.unwrap_or(0));
+                        continue;
+                    }
+                    Err(reason) => eprintln!("ledger forwarder: still disconnected: {reason}"),
                 }
                 // Sleep in small steps so `stop` is honoured promptly.
                 let until = Instant::now() + RECONNECT_PAUSE;
