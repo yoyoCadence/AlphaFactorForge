@@ -11,10 +11,13 @@ import type {
   Candle,
   Dataset,
   StrategyDef,
+  BacktestResultDetail,
   BacktestSummary,
   TradeRow,
   ValidationRecordRow,
   DiscoveryProgressSnapshot,
+  HostMode,
+  HostStatus,
 } from './commands';
 import {
   DISCOVERY_EVENTS,
@@ -23,7 +26,13 @@ import {
   parseDiscoveryDoneEvent,
   parseDiscoveryProgressEvent,
   parseDiscoveryResultEvent,
+  parseHostEvent,
+  parseResnapshotEvent,
+  RUNTIME_HOST_EVENT,
+  RUNTIME_RESNAPSHOT_EVENT,
   type DiscoveryDoneEvent,
+  type HostEvent,
+  type ResnapshotEvent,
   type DiscoveryProgressCounts,
   type DiscoveryProgressEvent,
   type DiscoveryResultEvent,
@@ -34,6 +43,73 @@ import { axisValues, type DiscoveryAxis } from '../services/discoveryConfig';
 import { prepareDatasetImport, type ImportCandlesInput } from './dbClient';
 import { assertValidBundle } from '../services/validationRecord';
 import { strategyHashFromDefinitionJson } from '../core/hashing';
+import { seedHistory } from './mockHistorySeed';
+
+/**
+ * `?mock=1&seedHistory=1` pre-fills saved history (P01 Results Explorer).
+ *
+ * The explorer's job is to re-open results that already exist, and the only
+ * product writers of validation records are the backend runner and a future
+ * manual assessment — neither reachable from a browser E2E. The seed is built
+ * by the real composer chain (see `mockHistorySeed.ts`) and written through
+ * the mock's own save paths before the first read resolves.
+ */
+function mockSeedHistory(): boolean {
+  return mockSearchParam('seedHistory') === '1';
+}
+
+/**
+ * P01 acceptance-review controls (`handoffs/2026-09-17-p01-acceptance-review-v1.md`).
+ *
+ * - `?mock=1&detailDelay=<ms>` delays every `getBacktestResultDetail` response,
+ *   which is the only way to have a refresh land while a trade read is in
+ *   flight and prove the late response is dropped (R1, late response).
+ * - `?mock=1&replaceBeforeDetail=1` re-saves the requested summary — same id,
+ *   same trade COUNT, different content — immediately before the first detail
+ *   response, simulating another save landing between the explorer's list read
+ *   and its trade read (R1, same-count replacement).
+ * - `?mock=1&explorerFailOnce=1` rejects the FIRST `getBacktestResults` call
+ *   and serves later ones, so a suite can tell "no automatic retry" from
+ *   "retried and recovered" (R2).
+ * - `?mock=1&explorerRefreshDelay=<ms>` delays subsequent summary-list reads
+ *   while leaving the initial read immediate, exposing detail actions on an
+ *   old screen during refresh (R1, reverse request ordering).
+ */
+function mockDetailDelayMs(): number {
+  const raw = mockSearchParam('detailDelay');
+  const ms = raw == null ? 0 : Number(raw);
+  return Number.isFinite(ms) && ms > 0 ? Math.min(ms, 10_000) : 0;
+}
+
+function mockReplaceBeforeDetail(): boolean {
+  return mockSearchParam('replaceBeforeDetail') === '1';
+}
+
+function mockExplorerFailOnce(): boolean {
+  return mockSearchParam('explorerFailOnce') === '1';
+}
+
+function mockExplorerRefreshDelayMs(): number {
+  const raw = mockSearchParam('explorerRefreshDelay');
+  const ms = raw == null ? 0 : Number(raw);
+  return Number.isFinite(ms) && ms > 0 ? Math.min(ms, 10_000) : 0;
+}
+
+/** Every method of `target` waits for `ready` first; a failed seed therefore
+ *  surfaces on the first read instead of as an empty, plausible workspace. */
+function afterReady<T extends Record<string, (...args: never[]) => Promise<unknown>>>(
+  target: T,
+  ready: Promise<unknown>,
+): T {
+  const gated: Record<string, (...args: never[]) => Promise<unknown>> = {};
+  for (const [name, method] of Object.entries(target)) {
+    gated[name] = async (...args: never[]) => {
+      await ready;
+      return method(...args);
+    };
+  }
+  return gated as T;
+}
 
 /**
  * E2E-only candle-load controls, read from `?mock=1&candleDelay=<ms>` and
@@ -109,6 +185,30 @@ function mockDiscoveryEmitBeforeStart(): boolean {
   return mockSearchParam('discoveryEmitBeforeStart') === '1';
 }
 
+/**
+ * P04b: `?mock=1&hostMode=desktop-connect` starts the mock desktop already
+ * connected to a (simulated) background service; the default is embedded.
+ * `&hostSwitchFail=1` makes the next switch fail the way the backend does —
+ * rejecting, and reporting the mode it fell back to.
+ */
+function mockInitialHostMode(): HostMode {
+  return mockSearchParam('hostMode') === 'desktop-connect' ? 'desktop-connect' : 'desktop-embedded';
+}
+
+function mockHostSwitchFails(): boolean {
+  return mockSearchParam('hostSwitchFail') === '1';
+}
+
+/**
+ * P04b: `?mock=1&discoveryDropDone=1` withholds the run's Done event and
+ * posts `runtime://resnapshot` instead — what the connect-mode bridge does
+ * when the service's ledger could not store a row (contract §3). The panel
+ * must recover the terminal status by re-reading, not by waiting.
+ */
+function mockDropsDone(): boolean {
+  return mockSearchParam('discoveryDropDone') === '1';
+}
+
 export function makeMockClient() {
   const candleDelayMs = mockCandleDelayMs();
   const candleFailureDatasetId = mockCandleFailureDatasetId();
@@ -121,6 +221,11 @@ export function makeMockClient() {
   const tradesBySummaryId = new Map<number, TradeRow[]>();
   const validationRecords: ValidationRecordRow[] = [];
   let nextId = 1;
+  const detailDelayMs = mockDetailDelayMs();
+  let replaceBeforeDetail = mockReplaceBeforeDetail();
+  let failNextResultsRead = mockExplorerFailOnce();
+  const explorerRefreshDelayMs = mockExplorerRefreshDelayMs();
+  let resultsReadCount = 0;
 
   const db = {
     init: async () => 'mock database ready',
@@ -187,14 +292,51 @@ export function makeMockClient() {
       );
       const existingId = existingIndex >= 0 ? summaries[existingIndex].id : undefined;
       const id = existingId ?? nextId++;
-      const stored = { ...summary, id };
+      // SQLite stamps `created_at` on insert only; the upsert keeps the
+      // original stamp, which is what the explorer's newest-first order reads.
+      const created_at = existingIndex >= 0 ? summaries[existingIndex].created_at : new Date().toISOString();
+      const stored = { ...summary, id, created_at };
       if (existingIndex >= 0) summaries[existingIndex] = stored;
       else summaries.push(stored);
       tradesBySummaryId.set(id, trades.map((trade) => ({ ...trade })));
       return id;
     },
-    getBacktestResults: async (strategyId?: number) =>
-      summaries.filter((s) => strategyId == null || s.strategy_id === strategyId),
+    getBacktestResults: async (strategyId?: number) => {
+      if (resultsReadCount++ > 0 && explorerRefreshDelayMs > 0) {
+        await new Promise((resolve) => globalThis.setTimeout(resolve, explorerRefreshDelayMs));
+      }
+      if (failNextResultsRead) {
+        failNextResultsRead = false;
+        throw new Error('mock: backtest_summary read failed once');
+      }
+      return summaries.filter((s) => strategyId == null || s.strategy_id === strategyId);
+    },
+    // P01: the summary and its trades as one detached pair, oldest entry
+    // first, `null` for an unknown id — mirroring
+    // `repositories::get_backtest_result_detail`.
+    getBacktestResultDetail: async (summaryId: number): Promise<BacktestResultDetail | null> => {
+      if (detailDelayMs > 0) await new Promise((resolve) => globalThis.setTimeout(resolve, detailDelayMs));
+      if (replaceBeforeDetail) {
+        replaceBeforeDetail = false;
+        const current = summaries.find((s) => s.id === summaryId);
+        if (current) {
+          const gen2 = (tradesBySummaryId.get(summaryId) ?? []).map((trade) => ({
+            ...trade,
+            pnl: trade.pnl + 1,
+            reason: 'gen2',
+          }));
+          await db.saveBacktestResult({ ...current, net_return: (current.net_return ?? 0) + 0.5 }, gen2);
+        }
+      }
+      const summary = summaries.find((s) => s.id === summaryId);
+      if (!summary) return null;
+      return {
+        summary: { ...summary },
+        trades: (tradesBySummaryId.get(summaryId) ?? [])
+          .map((trade) => ({ ...trade }))
+          .sort((a, b) => a.entry_time - b.entry_time),
+      };
+    },
     // PERSIST-001 parity: runs the SAME shared bundle validator the composer
     // targets (the TS mirror of Rust's validate_validation_bundle), so
     // `?mock=1` rejects exactly the bundles native Tauri rejects, then
@@ -348,6 +490,12 @@ export function makeMockClient() {
 
   function emitDone(run: MockRun): void {
     sequence += 1;
+    if (mockDropsDone()) {
+      // The row never reached the ledger; the bridge reports the gap.
+      const payload: ResnapshotEvent = { reason: `mock: the ledger has a gap (state version ${sequence})`, stateVersion: sequence };
+      for (const handler of resnapshotHandlers) handler(payload);
+      return;
+    }
     const payload: Record<string, unknown> = {
       eventVersion: DISCOVERY_EVENT_VERSION,
       sequence,
@@ -372,7 +520,10 @@ export function makeMockClient() {
     run.timer = null;
     if (run.nextCandidate >= run.total) {
       run.status = 'completed';
-      emitProgress(run, null);
+      // The real runner announces completion with Done alone (no progress
+      // event carries a terminal status); in drop mode the mock is as
+      // silent as the real thing, so only the re-read can reveal the end.
+      if (!mockDropsDone()) emitProgress(run, null);
       emitDone(run);
       return;
     }
@@ -453,8 +604,18 @@ export function makeMockClient() {
       emitDone(run);
     },
     progress: async (runId: number) => snapshot(requireMockRun(runId)),
-    getActiveRun: async () =>
-      mockRun != null && !isTerminalMockStatus(mockRun.status) ? snapshot(mockRun) : null,
+    getActiveRun: async () => {
+      const active = mockRun != null && !isTerminalMockStatus(mockRun.status) ? snapshot(mockRun) : null;
+      if (active != null && startupGap === 'during-snapshot') {
+        startupGap = null;
+        // The read captured a paused run; it completes before that response
+        // reaches the window. Done is absent, and only the gap is announced.
+        mockRun!.status = 'completed';
+        mockRun!.completed = mockRun!.total;
+        announceStartupGap();
+      }
+      return active;
+    },
   };
 
   function requireMockRun(runId: number): MockRun {
@@ -501,6 +662,86 @@ export function makeMockClient() {
     return () => handlers.delete(handler);
   }
 
+  // ---------- P04b: host mode ----------
+  //
+  // The mock runner is the same in both modes (that is the point of connect
+  // mode: the window cannot tell). A switch goes through 'switching' with a
+  // short delay and announces itself on the host channel with the real
+  // payload shape, parsed by the production parser.
+  let hostMode: HostMode = mockInitialHostMode();
+  let switchFails = mockHostSwitchFails();
+  const hostHandlers = new Set<(event: HostEvent) => void>();
+  const resnapshotHandlers = new Set<(event: ResnapshotEvent) => void>();
+  // Deterministic startup races: no timer or further event repairs the view.
+  let startupGap = mockSearchParam('discoveryStartupGap');
+  function announceStartupGap(): void {
+    sequence += 1;
+    const payload: ResnapshotEvent = { reason: 'mock: startup ledger gap', stateVersion: sequence };
+    for (const handler of resnapshotHandlers) handler(payload);
+  }
+  const hostStatus = (detail: string | null = null): HostStatus => ({
+    hostMode,
+    dataDir: 'C:\\mock\\workspace',
+    serviceExecutable: 'C:\\mock\\alpha-factor-forge-service.exe',
+    serviceExecutablePresent: true,
+    detail,
+  });
+  const announceHost = (serviceReachable: boolean, reason: string | null): void => {
+    const payload: HostEvent = { hostMode, serviceReachable, reason };
+    for (const handler of hostHandlers) handler(payload);
+  };
+  const switchHost = async (target: HostMode, from: HostMode): Promise<HostStatus> => {
+    if (hostMode !== from) {
+      throw { code: 'Busy', message: `mock: not in ${from} mode`, retryable: false };
+    }
+    hostMode = 'switching';
+    await new Promise((resolve) => globalThis.setTimeout(resolve, 60));
+    if (switchFails) {
+      switchFails = false;
+      hostMode = from;
+      announceHost(true, null);
+      throw { code: 'Busy', message: `mock: the switch failed (the desktop is now ${from})`, retryable: false };
+    }
+    hostMode = target;
+    announceHost(true, null);
+    return hostStatus();
+  };
+  const runtime = {
+    info: async () => ({
+      workspaceId: 'mock-workspace',
+      epoch: hostMode === 'desktop-connect' ? 2 : 1,
+      holderKind: hostMode === 'desktop-connect' ? 'service' : 'desktop-embedded',
+      instanceId: 'mock-instance',
+      hostMode,
+      commandProtocolVersion: 'research-command-v1',
+      eventProtocolVersion: 'research-event-v1',
+    }),
+    dispatch: async (_envelope: unknown): Promise<unknown> => {
+      throw new Error('mock: dispatch_research_command is not simulated');
+    },
+    hostStatus: async () => hostStatus(),
+    enterBackgroundMode: () => switchHost('desktop-connect', 'desktop-embedded'),
+    exitBackgroundMode: () => switchHost('desktop-embedded', 'desktop-connect'),
+  };
+  const runtimeEvents = {
+    onHostChanged: async (
+      onEvent: (event: HostEvent) => void,
+      onInvalid?: InvalidEventHandler,
+    ) => subscribeMock(hostHandlers, parseHostEvent, RUNTIME_HOST_EVENT, onEvent, onInvalid),
+    onResnapshotNeeded: async (
+      onEvent: (event: ResnapshotEvent) => void,
+      onInvalid?: InvalidEventHandler,
+    ) => {
+      if (mockRun != null && startupGap === 'before-listener') {
+        startupGap = null;
+        mockRun.completed += 1;
+        // Intentionally lost: the WebView has not installed this listener yet.
+        announceStartupGap();
+      }
+      return subscribeMock(resnapshotHandlers, parseResnapshotEvent, RUNTIME_RESNAPSHOT_EVENT, onEvent, onInvalid);
+    },
+  };
+
   if (mockPreexistingDiscoveryRun() === 'paused') {
     const runId = nextId++;
     mockRun = {
@@ -517,7 +758,27 @@ export function makeMockClient() {
     sequence = 3;
   }
 
-  return { db, files, importDataset, isTauri: () => true, discovery, discoveryEvents };
+  if (!mockSeedHistory()) {
+    return { db, files, importDataset, isTauri: () => true, discovery, discoveryEvents, runtime, runtimeEvents };
+  }
+  const seeded = seedHistory(db);
+  // Awaited by every gated method; this handler only marks the rejection as
+  // observed so the browser does not also log it as unhandled.
+  seeded.catch(() => undefined);
+  const importAfterSeed = async (input: ImportCandlesInput): Promise<number> => {
+    await seeded;
+    return importDataset(input);
+  };
+  return {
+    db: afterReady(db, seeded),
+    files,
+    importDataset: importAfterSeed,
+    isTauri: () => true,
+    discovery,
+    discoveryEvents,
+    runtime,
+    runtimeEvents,
+  };
 }
 
 function isTerminalMockStatus(status: RunStatus): boolean {

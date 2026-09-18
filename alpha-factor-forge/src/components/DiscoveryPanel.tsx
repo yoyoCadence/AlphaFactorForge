@@ -25,13 +25,15 @@
 //      events that arrive before the run id is known, which is the only way the
 //      results of a run that finishes before `start_discovery` returns survive.
 
-import React, { useEffect, useMemo, useReducer, useState } from 'react';
-import { discovery, discoveryEvents } from '../tauri-client/dataClient';
+import React, { useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { discovery, discoveryEvents, runtime, runtimeEvents } from '../tauri-client/dataClient';
+import type { HostMode, HostStatus } from '../tauri-client/commands';
 import {
   createThrottle,
   type DiscoveryProgressEvent,
   type RunStatus,
 } from '../tauri-client/events';
+import { isCommandError } from '../services/researchCommand';
 import {
   INITIAL_DISCOVERY_FEED,
   isTerminalStatus,
@@ -70,7 +72,14 @@ const AXIS_LABEL: Record<DiscoveryAxisKey, string> = {
   slPct: '停損%', tpPct: '停利%',
 };
 
-type PendingAction = 'start' | 'pause' | 'resume' | 'cancel' | 'refresh';
+type PendingAction = 'start' | 'pause' | 'resume' | 'cancel' | 'refresh' | 'host';
+
+/** P04b: what the host-mode badge says. */
+const HOST_LABEL: Record<HostMode, string> = {
+  'desktop-embedded': '桌面內建',
+  'desktop-connect': '背景 service',
+  switching: '切換中',
+};
 
 export interface DiscoveryPanelProps {
   /** The workspace's live inputs; null until a dataset's candles are loaded, which
@@ -95,6 +104,15 @@ export function DiscoveryPanel({ liveContext, onMessage }: DiscoveryPanelProps):
   const { run, results, stale } = feed;
   const [pending, setPending] = useState<PendingAction | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  // P04b: which host the desktop is. `null` until the backend answers (and
+  // forever outside Tauri), so nothing about hosts is shown where nothing can
+  // be switched.
+  const [host, setHost] = useState<HostStatus | null>(null);
+  const [serviceReachable, setServiceReachable] = useState(true);
+  // The run the panel is following, readable from subscription callbacks
+  // (which are registered once and must not capture a stale `run`).
+  const runIdRef = useRef<number | null>(null);
+  runIdRef.current = run?.runId ?? null;
 
   const combinations = useMemo(() => {
     try {
@@ -106,50 +124,104 @@ export function DiscoveryPanel({ liveContext, onMessage }: DiscoveryPanelProps):
     }
   }, [axis]);
 
-  // One subscription set for the panel's lifetime. Progress is throttled because
-  // a run emits one per candidate; the throttle is cancelled on unmount so a
-  // queued trailing call cannot fire into a dead component.
+  // Subscribe before reading the initial snapshot: a bridge notification sent
+  // before the WebView was ready is covered by that read. Reads are serialized;
+  // a notification during a read schedules another pass instead of being lost.
   useEffect(() => {
     const applyProgress = createThrottle(
       (event: DiscoveryProgressEvent) => dispatch({ type: 'progress', event }),
       PROGRESS_THROTTLE_MS,
     );
     let disposed = false;
+    let ready = false;
+    let reading = false;
+    let dirty = false;
+    let followedRun: number | null = null;
+    let rereadReason: string | null = null;
+    let initialRead = true;
     const unlisteners: (() => void)[] = [];
-
     const reportDropped = (): void => dispatch({ type: 'dropped' });
 
+    const resnapshot = async (): Promise<void> => {
+      dirty = true;
+      if (!ready || reading || disposed) return;
+      reading = true;
+      try {
+        while (dirty && !disposed) {
+          dirty = false;
+          const active = await discovery.getActiveRun();
+          if (disposed) return;
+          // Remember the run even if a newer notification invalidated this
+          // response: the next active read may be null after it completed.
+          if (active != null) followedRun = active.runId;
+          const followed = runIdRef.current ?? followedRun;
+          const snapshot = active ?? (followed == null ? null : await discovery.progress(followed));
+          if (disposed) return;
+          if (dirty) continue;
+          if (snapshot != null) {
+            dispatch({ type: 'snapshot', snapshot, adopt: active != null || runIdRef.current == null });
+            if (initialRead) onMessage(`已接續既有的探索任務：${snapshot.name}（${STATUS_LABEL[snapshot.status]}）`);
+          }
+          initialRead = false;
+          if (rereadReason != null) {
+            onMessage(`背景 service 的事件可能有缺口（${rereadReason}），已重新讀取進度`);
+            rereadReason = null;
+          }
+        }
+      } catch (error) {
+        if (!disposed) {
+          setErr(String(error));
+          reportDropped();
+        }
+      } finally {
+        reading = false;
+        // A failed read must not consume a notification received in flight.
+        // Retry only for that queued notification, never just for the error.
+        if (dirty && !disposed) void resnapshot();
+      }
+    };
+
+    runtime.hostStatus()
+      .then((status) => { if (!disposed) setHost(status); })
+      .catch(() => {
+        // No host backend (plain Vite without ?mock=1): the badge stays hidden.
+      });
+
     void (async () => {
-      // Registered one at a time, not through Promise.all: a rejection there
-      // discards the unlisten functions of the subscriptions that DID resolve,
-      // leaking them, and surfaces only as an unhandled rejection (PR #102
-      // review). Here every success is recorded before the next attempt, so a
-      // partial failure can still be cleaned up and reported.
+      // Each successful registration is retained for cleanup, including when
+      // a later one fails. All event channels are ready before the first read.
       const register: (() => Promise<() => void>)[] = [
         () => discoveryEvents.onProgress((event) => applyProgress.call(event), reportDropped),
         () => discoveryEvents.onResult((event) => dispatch({ type: 'result', event }), reportDropped),
         () => discoveryEvents.onDone((event) => {
-          // Terminal state is applied immediately: it must never sit behind a
-          // throttle window. Cancelling the throttle drops whatever progress tick
-          // was still queued — including, on a fast run, the FINAL counts — so the
-          // authoritative numbers are then re-read from the database rather than
-          // reconstructed from the events that happened to survive coalescing.
           applyProgress.cancel();
           dispatch({ type: 'done', event });
-          void discovery.progress(event.runId)
-            .then((snapshot) => dispatch({ type: 'snapshot', snapshot, adopt: false }))
-            // The status from the event is already applied; only the counts stay
-            // uncertain, which is exactly what the stale notice tells the user.
-            .catch(() => dispatch({ type: 'dropped' }));
+          followedRun = event.runId;
+          // A Done during the initial read must also invalidate that read.
+          void resnapshot();
         }, reportDropped),
+        () => runtimeEvents.onHostChanged((event) => {
+          if (disposed) return;
+          setHost((previous) => (previous == null ? previous : { ...previous, hostMode: event.hostMode, detail: null }));
+          setServiceReachable(event.serviceReachable);
+          if (!event.serviceReachable) {
+            setErr(`背景 service 失聯：${event.reason ?? '無回應'}（重新尋找端點中）`);
+            return;
+          }
+          setErr(null);
+          void resnapshot();
+        }),
+        () => runtimeEvents.onResnapshotNeeded((event) => {
+          if (disposed) return;
+          rereadReason = event.reason;
+          void resnapshot();
+        }),
       ];
       try {
         for (const subscribe of register) {
           const unlisten = await subscribe();
           if (disposed) {
             unlisten();
-            for (const previous of unlisteners) previous();
-            unlisteners.length = 0;
             return;
           }
           unlisteners.push(unlisten);
@@ -157,11 +229,12 @@ export function DiscoveryPanel({ liveContext, onMessage }: DiscoveryPanelProps):
       } catch (error) {
         for (const unlisten of unlisteners) unlisten();
         unlisteners.length = 0;
-        // A panel with no event feed is not broken, only blind: the database is
-        // still readable, so say so instead of failing silently.
+        if (disposed) return;
         setErr(`事件訂閱失敗：${error instanceof Error ? error.message : String(error)}`);
-        dispatch({ type: 'dropped' });
+        reportDropped();
       }
+      ready = true;
+      await resnapshot();
     })();
 
     return () => {
@@ -169,26 +242,7 @@ export function DiscoveryPanel({ liveContext, onMessage }: DiscoveryPanelProps):
       applyProgress.cancel();
       for (const unlisten of unlisteners) unlisten();
     };
-  }, []);
-
-  // The database is the source of truth: adopt whatever run already exists before
-  // trusting any event. Startup recovery turns an orphaned run into `paused`, and
-  // this is how the panel rediscovers it after a reload.
-  useEffect(() => {
-    let cancelled = false;
-    discovery.getActiveRun()
-      .then((snapshot) => {
-        if (cancelled || snapshot == null) return;
-        dispatch({ type: 'snapshot', snapshot, adopt: true });
-        onMessage(`已接續既有的探索任務：${snapshot.name}（${STATUS_LABEL[snapshot.status]}）`);
-      })
-      .catch((error) => {
-        if (!cancelled) setErr(String(error));
-      });
-    return () => {
-      cancelled = true;
-    };
-    // Adoption is a mount-time read; onMessage identity must not re-trigger it.
+    // Mount-time subscriptions; onMessage identity must not re-subscribe.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -245,9 +299,30 @@ export function DiscoveryPanel({ liveContext, onMessage }: DiscoveryPanelProps):
     dispatch({ type: 'snapshot', snapshot: await discovery.progress(run.runId), adopt: false });
   });
 
+  // P04b: hand the workspace to the background service, or take it back. The
+  // backend rejects with a `CommandError` whose message already names the
+  // mode it fell back to; the status is re-read either way so the badge
+  // never shows a mode the backend is not in.
+  const switchHost = (): Promise<void> => act('host', async () => {
+    if (host == null) return;
+    const entering = host.hostMode === 'desktop-embedded';
+    try {
+      const status = entering ? await runtime.enterBackgroundMode() : await runtime.exitBackgroundMode();
+      setHost(status);
+      onMessage(entering
+        ? '研究已交給背景 service；關閉視窗不會中斷進行中的探索'
+        : '已停止背景 service，研究回到桌面內建模式');
+    } catch (error) {
+      runtime.hostStatus().then(setHost).catch(() => undefined);
+      throw new Error(isCommandError(error) ? error.message : String(error));
+    }
+  });
+
   const active = run != null && !isTerminalStatus(run.status);
   const busy = pending != null;
   const canStart = liveContext != null && !active && !busy;
+  const hostLost = host?.hostMode === 'desktop-connect' && !serviceReachable;
+  const serviceMissing = host?.hostMode === 'desktop-embedded' && !host.serviceExecutablePresent;
 
   return (
     <section style={{ ...S.card, marginTop: 12 }}>
@@ -265,6 +340,35 @@ export function DiscoveryPanel({ liveContext, onMessage }: DiscoveryPanelProps):
           <span data-testid="discovery-status" style={{ fontSize: 11, color: t.color.muted }}>
             {run.name} · {STATUS_LABEL[run.status]}
           </span>
+        )}
+        {host != null && (
+          <span
+            data-testid="host-mode"
+            data-host-mode={host.hostMode}
+            title={host.hostMode === 'desktop-connect'
+              ? '研究在背景 service 程序中執行；關閉本視窗不會中斷'
+              : host.hostMode === 'desktop-embedded'
+                ? '研究在本視窗的程序中執行；關閉視窗會在 checkpoint 停下'
+                : host.detail ?? undefined}
+            style={{ fontSize: 11, color: hostLost ? t.color.danger : t.color.muted, marginLeft: 'auto' }}
+          >
+            宿主：{HOST_LABEL[host.hostMode]}{hostLost ? '（失聯）' : ''}
+          </span>
+        )}
+        {host != null && host.hostMode !== 'switching' && (
+          <button
+            data-testid="host-mode-toggle"
+            style={{ ...S.btnGhost, padding: '3px 10px' }}
+            onClick={switchHost}
+            disabled={busy || serviceMissing}
+            aria-busy={pending === 'host'}
+            title={serviceMissing ? `找不到 service 程式：${host.serviceExecutable}` : undefined}
+          >
+            {pending === 'host' ? '切換中…' : host.hostMode === 'desktop-connect' ? '收回桌面' : '在背景繼續'}
+          </button>
+        )}
+        {host?.hostMode === 'switching' && host.detail != null && (
+          <span data-testid="host-detail" style={{ fontSize: 11, color: t.color.danger }}>{host.detail}</span>
         )}
       </div>
 

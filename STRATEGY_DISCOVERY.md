@@ -133,6 +133,8 @@ AI 與生成器都只輸出這種結構：
 - 前端「AI 設定」面板只負責：觸發 `set_api_key`（值直送 backend 寫入 keychain，前端不留存）、按「測試連接」、顯示連線狀態。**前端永遠不讀回 key。**
 - Rate limit、retry、配額耗盡降級（自動關 AI 線、只跑傳統窮舉）都在 backend 處理。
 
+> **2026-09-16 補充（P00 契約預檢）**：第一個實際接入的 provider 改為 **Codex／ChatGPT 訂閱**，由 Tauri backend／研究服務以 stdio 啟動本機 `codex app-server`，登入憑證由 Codex 自己管理，**不轉成 API key、不複製認證檔**；上面的 keychain 架構保留給日後的 API-key provider。狀態機（`WaitingQuota`／`AuthRequired`／`UnknownOutcome`）、受限生成環境、預算與 Validation／Test 資訊邊界定義於 [`docs/ai-provider-contract.md`](docs/ai-provider-contract.md)；本機能力與阻擋原因見 [`docs/autonomous-research-capability-registry.md`](docs/autonomous-research-capability-registry.md)。AI unattended 模式在生成環境隔離被證明前維持阻擋。
+
 ### 沙箱保證
 即使 AI 被提示注入，它能輸出的最壞情況也只是「一棵不合法的 DSL 樹」→ 編譯器拒絕。沒有任何路徑能讓 AI 文字變成可執行程式碼。
 
@@ -164,6 +166,14 @@ AI 與生成器都只輸出這種結構：
 - **pause / resume**：`invoke('discovery_pause'|'resume'|'cancel', {jobId})`；狀態與進度寫入 SQLite checkpoint，App 重啟亦可續跑。
 - **平行度**：backend 依 CPU 核心數開 worker thread pool 跑回測，與前端完全解耦。
 - **K 線快取**：同（幣種×時間框×區段）只讀一次，backend 內共享，後續策略複用。
+
+### 宿主、所有權與命令契約（P02–P04，2026-09-17／18 補充）
+> 詳細規則見 [`docs/research-runtime-contract.md`](docs/research-runtime-contract.md)；本節只記結論。
+
+- **三種宿主**：桌面嵌入模式（今天的 `main.rs`）、無介面 service（P04a 已交付：`alpha-factor-forge-service run|stop|status [--data-dir]`，同一 Cargo package 的第二個 binary，經 `127.0.0.1` 動態 port 的 loopback 控制介面接受 envelope，manifest 與 token 放在工作區目錄；關 UI 後 run 繼續、重連採同一 run、關閉時 drain 到 Paused checkpoint）、桌面 connect 模式（P04b 已交付：桌面啟動時若 service 持有工作區就核對 manifest／`/v1/info` 後不遷移開庫、把 discovery 命令代理給 service、把 service 的帳本事件轉送到視窗；探索面板的「在背景繼續」＝契約 §1.5 背景切換：關門→checkpoint→釋放鎖→啟動桌面旁的 service exe→連接，「收回桌面」反向；`runtime://host` 通知模式變更與失聯）。開庫、migration、建 runner、孤兒恢復集中在 host-agnostic 的 `runtime::open_workspace`；runner 與 DB 層不引用 Tauri（`runtime::boundary_tests` 守衛）。
+- **誰持有 lease 誰能寫**：啟動順序固定為 OS 排他鎖（`ownership.lock`）→ 開 SQLite → migration → `workspace_ownership` epoch+1 → 孤兒恢復 → 5 秒 heartbeat。第二個宿主拿不到鎖直接被拒；runner 每次寫入在 `BEGIN IMMEDIATE` transaction 內檢查 epoch，舊 worker 回報得到 `StaleOwner`。heartbeat 過期只標「失聯」，不授權搶占。舊 binary 遇到較新 schema 整個拒開。
+- **版本化命令**：跨宿主命令一律走 `research-command-v1` envelope（`protocolVersion`、`workspaceId`、`requestId`、`command`、`payload`），由 `runtime::commands::Dispatcher` 執行：版本必須完全相符、workspace 必須相符、命令白名單（`discovery.*`、`events.read`、`ownership.read`），mutating 命令以 `requestId` 冪等（先預約後執行，重送回放第一次結果；同 id 不同內容 → `DuplicateRequest`；第一次未完成 → `Busy`）。錯誤是結構化的 `{ code, message, retryable }`。
+- **持久事件帳本**：runner 事件 commit 後先寫入 `runtime_events`（跨重啟單調遞增的 `eventId`）再送給宿主；重連順序固定為「先讀 snapshot（`discovery.active`／`progress`，附 `stateVersion`），再 `events.read` 以 `afterEventId` 續接；空頁面但 `stateVersion` 前進或有 `ledgerGap` 就重讀 snapshot」。上面的 Tauri event 協定仍是桌面的即時快路徑，不變。
 
 ---
 

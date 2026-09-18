@@ -143,6 +143,12 @@ pub struct ValidationRecordRow {
     pub record_json: String,
     #[serde(default)]
     pub created_at: Option<String>, // set by DB default; read-only
+    /// The discovery run that produced this assessment (migration 0003), or
+    /// None for a manual save. Read-only like `created_at`: the writer takes
+    /// the run id as its own argument (`insert_validation_record_for_run`), so
+    /// a caller cannot claim a run through the DTO.
+    #[serde(default)]
+    pub discovery_run_id: Option<i64>,
 }
 
 // ---------- datasets ----------
@@ -412,10 +418,12 @@ pub fn insert_verified_strategy(conn: &Connection, strategy: &StrategyDef) -> Ap
 /// its chosen name/source or validation-owned lifecycle.
 pub fn get_or_insert_verified_runner_strategy(
     conn: &Connection,
+    epoch: Option<i64>,
     strategy: &StrategyDef,
 ) -> AppResult<i64> {
     crate::identity::verify_strategy_identity(strategy)?;
-    conn.execute(
+    let tx = super::ownership::write_transaction(conn, epoch)?;
+    tx.execute(
         "INSERT INTO strategy_def
             (name, type, dsl_json, original_definition_json, param_schema_json,
              source, ai_prompt_hash, strategy_hash, lifecycle, parent_strategy_id)
@@ -434,11 +442,12 @@ pub fn get_or_insert_verified_runner_strategy(
             strategy.parent_strategy_id
         ],
     )?;
-    let id = conn.query_row(
+    let id = tx.query_row(
         "SELECT id FROM strategy_def WHERE strategy_hash = ?1",
         [&strategy.strategy_hash],
         |row| row.get(0),
     )?;
+    tx.commit()?;
     Ok(id)
 }
 
@@ -787,74 +796,144 @@ pub fn save_backtest_result(
     Ok(summary_id)
 }
 
-/// List summaries, newest first. Pass `strategy_id` to scope to one strategy.
-pub fn list_backtest_summaries(
-    conn: &Connection,
-    strategy_id: Option<i64>,
-) -> AppResult<Vec<BacktestSummary>> {
-    const COLS: &str = "id, strategy_id, dataset_id, segment, start_time, end_time,
+const SUMMARY_COLS: &str = "id, strategy_id, dataset_id, segment, start_time, end_time,
              net_return, cagr, max_drawdown, sharpe, sortino, calmar, win_rate,
              trade_count, profit_factor, avg_trade_return, median_trade_return,
              exposure, turnover, largest_win, largest_loss, consecutive_losses,
              gate_passed, score, score_breakdown_json, benchmark_result_json, created_at";
 
-    let map_row = |r: &rusqlite::Row| -> rusqlite::Result<BacktestSummary> {
-        Ok(BacktestSummary {
-            id: Some(r.get(0)?),
-            strategy_id: r.get(1)?,
-            dataset_id: r.get(2)?,
-            segment: r.get(3)?,
-            start_time: r.get(4)?,
-            end_time: r.get(5)?,
-            net_return: r.get(6)?,
-            cagr: r.get(7)?,
-            max_drawdown: r.get(8)?,
-            sharpe: r.get(9)?,
-            sortino: r.get(10)?,
-            calmar: r.get(11)?,
-            win_rate: r.get(12)?,
-            trade_count: r.get(13)?,
-            profit_factor: r.get(14)?,
-            avg_trade_return: r.get(15)?,
-            median_trade_return: r.get(16)?,
-            exposure: r.get(17)?,
-            turnover: r.get(18)?,
-            largest_win: r.get(19)?,
-            largest_loss: r.get(20)?,
-            consecutive_losses: r.get(21)?,
-            gate_passed: r.get(22)?,
-            score: r.get(23)?,
-            score_breakdown_json: r.get(24)?,
-            benchmark_result_json: r.get(25)?,
-            created_at: Some(r.get(26)?),
-        })
-    };
+fn map_summary_row(r: &rusqlite::Row) -> rusqlite::Result<BacktestSummary> {
+    Ok(BacktestSummary {
+        id: Some(r.get(0)?),
+        strategy_id: r.get(1)?,
+        dataset_id: r.get(2)?,
+        segment: r.get(3)?,
+        start_time: r.get(4)?,
+        end_time: r.get(5)?,
+        net_return: r.get(6)?,
+        cagr: r.get(7)?,
+        max_drawdown: r.get(8)?,
+        sharpe: r.get(9)?,
+        sortino: r.get(10)?,
+        calmar: r.get(11)?,
+        win_rate: r.get(12)?,
+        trade_count: r.get(13)?,
+        profit_factor: r.get(14)?,
+        avg_trade_return: r.get(15)?,
+        median_trade_return: r.get(16)?,
+        exposure: r.get(17)?,
+        turnover: r.get(18)?,
+        largest_win: r.get(19)?,
+        largest_loss: r.get(20)?,
+        consecutive_losses: r.get(21)?,
+        gate_passed: r.get(22)?,
+        score: r.get(23)?,
+        score_breakdown_json: r.get(24)?,
+        benchmark_result_json: r.get(25)?,
+        created_at: Some(r.get(26)?),
+    })
+}
 
+/// List summaries, newest first. Pass `strategy_id` to scope to one strategy.
+pub fn list_backtest_summaries(
+    conn: &Connection,
+    strategy_id: Option<i64>,
+) -> AppResult<Vec<BacktestSummary>> {
     let rows = match strategy_id {
         Some(sid) => {
             let sql = format!(
-                "SELECT {COLS} FROM backtest_summary
+                "SELECT {SUMMARY_COLS} FROM backtest_summary
                  WHERE strategy_id = ?1 ORDER BY created_at DESC, segment ASC"
             );
             let mut stmt = conn.prepare(&sql)?;
             let rows = stmt
-                .query_map(params![sid], map_row)?
+                .query_map(params![sid], map_summary_row)?
                 .collect::<Result<Vec<_>, _>>()?;
             rows
         }
         None => {
             let sql = format!(
-                "SELECT {COLS} FROM backtest_summary
+                "SELECT {SUMMARY_COLS} FROM backtest_summary
                  ORDER BY created_at DESC, segment ASC"
             );
             let mut stmt = conn.prepare(&sql)?;
             let rows = stmt
-                .query_map([], map_row)?
+                .query_map([], map_summary_row)?
                 .collect::<Result<Vec<_>, _>>()?;
             rows
         }
     };
     Ok(rows)
+}
+
+/// One summary row by id, or None when no such row exists.
+pub fn get_backtest_summary(conn: &Connection, id: i64) -> AppResult<Option<BacktestSummary>> {
+    let sql = format!("SELECT {SUMMARY_COLS} FROM backtest_summary WHERE id = ?1");
+    Ok(conn
+        .query_row(&sql, params![id], map_summary_row)
+        .optional()?)
+}
+
+/// The closed trades stored under one summary, oldest entry first (ties by
+/// insertion order). An unknown summary id yields an empty list; callers that
+/// need to tell "no such summary" from "no trades" use
+/// `get_backtest_result_detail`.
+pub fn list_trades(conn: &Connection, summary_id: i64) -> AppResult<Vec<TradeRow>> {
+    let mut stmt = conn.prepare(
+        "SELECT entry_time, exit_time, side, entry_price, exit_price, pnl, pnl_pct, reason
+         FROM trades WHERE backtest_summary_id = ?1
+         ORDER BY entry_time ASC, id ASC",
+    )?;
+    let rows = stmt
+        .query_map(params![summary_id], |r| {
+            Ok(TradeRow {
+                entry_time: r.get(0)?,
+                exit_time: r.get(1)?,
+                side: r.get(2)?,
+                entry_price: r.get(3)?,
+                exit_price: r.get(4)?,
+                pnl: r.get(5)?,
+                pnl_pct: r.get(6)?,
+                reason: r.get(7)?,
+            })
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(rows)
+}
+
+/// A summary row together with the trades stored under it, read as one unit.
+#[derive(Debug, Serialize)]
+pub struct BacktestResultDetail {
+    pub summary: BacktestSummary,
+    pub trades: Vec<TradeRow>,
+}
+
+/// Read a summary and its trades in ONE transaction, so the pair is exactly
+/// what the database held at one instant (P01 acceptance review R1).
+///
+/// The persistence contract reuses a summary id when the same
+/// strategy/dataset/segment is re-saved and replaces its trades, so a caller
+/// that fetched trades by id alone could attach a newer save's rows to an
+/// older summary it was still displaying. Returning the summary alongside
+/// lets the reader compare it with the row it shows and refuse a mismatch.
+/// `created_at` survives the upsert and is therefore not a generation marker;
+/// the comparison has to be over the whole row. None means no such summary.
+pub fn get_backtest_result_detail(
+    conn: &Connection,
+    summary_id: i64,
+) -> AppResult<Option<BacktestResultDetail>> {
+    let tx = conn.unchecked_transaction()?;
+    let detail = match get_backtest_summary(&tx, summary_id)? {
+        Some(summary) => Some(BacktestResultDetail {
+            trades: list_trades(&tx, summary_id)?,
+            summary,
+        }),
+        None => None,
+    };
+    // Read-only: nothing to commit, and an explicit rollback keeps the
+    // transaction's end obvious.
+    tx.rollback()?;
+    Ok(detail)
 }
 
 // ---------- validation records (PERSIST-001) ----------
@@ -1027,7 +1106,8 @@ pub fn save_validation_bundle(
 }
 
 const VALIDATION_RECORD_COLS: &str =
-    "id, strategy_id, dataset_id, record_version, gate_passed, score, record_json, created_at";
+    "id, strategy_id, dataset_id, record_version, gate_passed, score, record_json, created_at,
+     discovery_run_id";
 
 fn map_validation_record(r: &rusqlite::Row) -> rusqlite::Result<ValidationRecordRow> {
     Ok(ValidationRecordRow {
@@ -1039,6 +1119,7 @@ fn map_validation_record(r: &rusqlite::Row) -> rusqlite::Result<ValidationRecord
         score: r.get(5)?,
         record_json: r.get(6)?,
         created_at: Some(r.get(7)?),
+        discovery_run_id: r.get(8)?,
     })
 }
 
@@ -1635,7 +1716,7 @@ mod tests {
         runner_candidate.name = "generated candidate name".into();
         runner_candidate.source = "traditional".into();
         runner_candidate.lifecycle = "candidate".into();
-        let returned_id = get_or_insert_verified_runner_strategy(&conn, &runner_candidate).unwrap();
+        let returned_id = get_or_insert_verified_runner_strategy(&conn, None, &runner_candidate).unwrap();
 
         assert_eq!(returned_id, existing_id);
         let count: i64 = conn
@@ -1659,12 +1740,26 @@ mod tests {
     }
 
     #[test]
+    fn runner_strategy_insert_is_fenced_by_its_transaction() {
+        use crate::db::ownership::{acquire, HolderKind};
+        let mut conn = mem_db();
+        let strategy = verified_blocks_strategy();
+        let old = acquire(&mut conn, HolderKind::DesktopEmbedded, 1).unwrap();
+        let current = acquire(&mut conn, HolderKind::Service, 2).unwrap();
+        let result = get_or_insert_verified_runner_strategy(&conn, Some(old.epoch), &strategy);
+        assert!(matches!(result, Err(AppError::StaleOwner(_))), "{result:?}");
+        assert!(list_strategies(&conn).unwrap().is_empty());
+        get_or_insert_verified_runner_strategy(&conn, Some(current.epoch), &strategy).unwrap();
+        assert_eq!(list_strategies(&conn).unwrap().len(), 1);
+    }
+
+    #[test]
     fn runner_strategy_insert_still_verifies_the_durable_identity() {
         let conn = mem_db();
         let mut forged = verified_blocks_strategy();
         forged.strategy_hash = "strategy-v2:forged".into();
 
-        assert!(get_or_insert_verified_runner_strategy(&conn, &forged).is_err());
+        assert!(get_or_insert_verified_runner_strategy(&conn, None, &forged).is_err());
         assert_eq!(
             conn.query_row("SELECT COUNT(*) FROM strategy_def", [], |row| row
                 .get::<_, i64>(0))
@@ -1726,6 +1821,69 @@ mod tests {
             )
             .unwrap();
         assert_eq!(net_return, 0.2);
+    }
+
+    /// P01 Results Explorer read path: trades come back oldest entry first
+    /// exactly as stored, an unknown summary is empty (not an error), and a
+    /// re-save shows the replacement rows only — the overwritten history is
+    /// gone and the reader must not pretend otherwise. The detail read returns
+    /// the summary the trades were read with, so a replacement between two
+    /// reads is visible to the caller as a changed summary (review R1).
+    #[test]
+    fn list_trades_reads_stored_rows_in_entry_order_and_reflects_replacement() {
+        let mut conn = mem_db();
+        let (strategy_id, dataset_id) = saved_parent_rows(&conn);
+        let first = with_trade_count(&summary(strategy_id, dataset_id, 0.1), 2);
+        let summary_id = save_backtest_result(
+            &mut conn,
+            &first,
+            // Inserted newest-first on purpose: the reader must sort by entry.
+            &[trade(3, 4, Some("later")), trade(1, 2, None)],
+        )
+        .unwrap();
+
+        let read = list_trades(&conn, summary_id).unwrap();
+        assert_eq!(read.len(), 2);
+        assert_eq!((read[0].entry_time, read[0].exit_time), (1, 2));
+        assert_eq!(read[0].reason, None);
+        assert_eq!((read[1].entry_time, read[1].exit_time), (3, 4));
+        assert_eq!(read[1].reason.as_deref(), Some("later"));
+        assert_eq!(read[1].side, "LONG");
+        assert_eq!(read[1].pnl_pct, 0.1);
+
+        assert!(list_trades(&conn, summary_id + 999).unwrap().is_empty());
+        assert!(get_backtest_result_detail(&conn, summary_id + 999)
+            .unwrap()
+            .is_none());
+
+        let before = get_backtest_result_detail(&conn, summary_id)
+            .unwrap()
+            .expect("stored summary");
+        assert_eq!(before.summary.id, Some(summary_id));
+        assert_eq!(before.summary.net_return, Some(0.1));
+        assert_eq!(before.trades.len(), 2);
+
+        // Same trade COUNT, different content: the summary row is what tells
+        // the two generations apart, never the count (review R1).
+        let replacement = with_trade_count(&summary(strategy_id, dataset_id, 0.2), 2);
+        save_backtest_result(
+            &mut conn,
+            &replacement,
+            &[trade(5, 6, None), trade(7, 8, Some("gen2"))],
+        )
+        .unwrap();
+        let after = get_backtest_result_detail(&conn, summary_id)
+            .unwrap()
+            .expect("still stored under the same id");
+        assert_eq!(after.summary.id, before.summary.id, "the key reuses the id");
+        assert_eq!(
+            after.summary.created_at, before.summary.created_at,
+            "created_at survives the upsert, so it cannot mark a generation"
+        );
+        assert_eq!(after.summary.net_return, Some(0.2));
+        assert_eq!(after.trades.len(), 2);
+        assert_eq!(after.trades[0].entry_time, 5);
+        assert_eq!(after.trades[1].reason.as_deref(), Some("gen2"));
     }
 
     #[test]
@@ -1863,8 +2021,14 @@ mod tests {
         .ok();
         conn.prepare("SELECT discovery_run_id FROM validation_records")
             .expect("0003 adds the run linkage column");
+        conn.prepare("SELECT epoch, heartbeat_seq FROM workspace_ownership")
+            .expect("0004 adds the ownership row");
+        conn.prepare("SELECT event_id FROM runtime_events")
+            .expect("0005 adds the event ledger");
         crate::db::apply_migrations(&conn).expect("re-run must be a no-op");
-        assert_eq!(count(&conn, "schema_migrations"), 3);
+        conn.prepare("SELECT request_id, stage FROM request_outcomes")
+            .expect("0006 adds the request outcomes");
+        assert_eq!(count(&conn, "schema_migrations"), 6);
     }
 
     #[test]
@@ -1893,7 +2057,10 @@ mod tests {
         assert_eq!(count(&conn, "strategy_def"), 1, "existing data survives");
         assert_eq!(count(&conn, "datasets"), 1);
         assert_eq!(count(&conn, "validation_records"), 0, "new table exists");
-        assert_eq!(count(&conn, "schema_migrations"), 3);
+        assert_eq!(count(&conn, "schema_migrations"), 6);
+        assert_eq!(count(&conn, "workspace_ownership"), 1, "0004 seeds the unowned row");
+        assert_eq!(count(&conn, "runtime_state"), 1, "0006 seeds the state version");
+        assert_eq!(count(&conn, "command_requests"), 0, "0005 request ledger exists");
         // The 0001 -> 0003 path must also land 0003's structure, not just 0002.
         conn.prepare("SELECT discovery_run_id FROM validation_records")
             .expect("0003 run linkage column");
@@ -2102,6 +2269,7 @@ mod tests {
         );
         assert!(read.gate_passed);
         assert_eq!(read.score, expected_score);
+        assert_eq!(read.discovery_run_id, None, "a manual save is linked to no run");
 
         // Append-only: a re-run appends a SECOND record while the summaries
         // upsert (latest view) and the trades replace.

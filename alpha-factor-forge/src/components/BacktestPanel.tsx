@@ -29,6 +29,7 @@ import { metricsToBacktestSummary } from '../services/metricsMapper';
 import { tradesToRows } from '../services/tradesMapper';
 import { SweepSection } from './SweepSection';
 import { DiscoveryPanel } from './DiscoveryPanel';
+import { ResultsExplorer } from './ResultsExplorer';
 import { ChartSection } from './ChartSection';
 import { DatasetSection } from './DatasetSection';
 import { ResultsSection } from './ResultsSection';
@@ -511,6 +512,11 @@ export function BacktestPanel(): React.ReactElement {
           unconditionally, unlike the sweep, because it must be able to adopt a
           run that startup recovery left paused even before a dataset is chosen. */}
       <DiscoveryPanel liveContext={liveContext} onMessage={setMsg} />
+
+      {/* P01: re-open saved validation records / summaries / trades. Reads on
+          demand only, so a run finishing in the panel above never swaps out
+          what the user is looking at here. */}
+      <ResultsExplorer />
 
     </div>
   );

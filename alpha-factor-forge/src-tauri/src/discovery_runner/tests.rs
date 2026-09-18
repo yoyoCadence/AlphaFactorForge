@@ -11,6 +11,25 @@ use crate::db::repositories::{self, Candle, Dataset};
 const RUNNER_CONFIG_FIXTURE: &str = include_str!("../../../fixtures/rs-core/runner-config-v1.json");
 const TEST_TIMEOUT: Duration = Duration::from_secs(10);
 
+mod commands;
+mod control_api;
+mod host;
+mod ownership;
+
+thread_local! {
+    // Deterministically hand over between the advisory preflight and the
+    // authoritative store transaction; never compiled into the application.
+    static AFTER_EPOCH_PREFLIGHT: std::cell::RefCell<Option<Box<dyn FnOnce()>>> =
+        std::cell::RefCell::new(None);
+}
+
+pub(super) fn after_epoch_preflight() {
+    AFTER_EPOCH_PREFLIGHT.with(|slot| {
+        let callback = slot.borrow_mut().take();
+        if let Some(callback) = callback { callback(); }
+    });
+}
+
 fn migrated_db() -> SharedDb {
     let conn = Connection::open_in_memory().expect("open in-memory runner db");
     conn.pragma_update(None, "foreign_keys", "ON")

@@ -27,6 +27,63 @@ fn mem_db() -> Connection {
     conn
 }
 
+#[test]
+fn every_run_mutation_is_fenced_and_the_current_epoch_still_succeeds() {
+    use crate::db::ownership::{acquire, HolderKind};
+    use crate::error::AppError;
+
+    fn snapshot(conn: &Connection) -> Vec<Vec<Vec<rusqlite::types::Value>>> {
+        ["discovery_runs", "discovery_jobs", "strategy_def", "backtest_summary",
+         "trades", "validation_records", "workspace_ownership"].iter().map(|table| {
+            let mut stmt = conn.prepare(&format!("SELECT * FROM {table} ORDER BY rowid")).unwrap();
+            let columns = stmt.column_count();
+            stmt.query_map([], |row| (0..columns).map(|i| row.get(i)).collect())
+                .unwrap().collect::<Result<Vec<_>, _>>().unwrap()
+        }).collect()
+    }
+
+    for operation in ["create", "start", "claim", "progress", "transition", "complete", "recover", "cancel", "fail"] {
+        let mut conn = mem_db();
+        let (dataset_id, strategies) = parents(&conn, 1);
+        let run_id = if operation == "start" {
+            create_discovery_run(&conn, None, "idle", "{}").unwrap()
+        } else {
+            started_run(&mut conn, dataset_id, &strategies)
+        };
+        if operation == "complete" {
+            commit(&mut conn, run_id, 0, &bundle(strategies[0], dataset_id, true, 50.0), None).unwrap();
+        }
+        if operation == "recover" {
+            claim_candidate_jobs(&conn, None, run_id, 0).unwrap();
+        }
+        let old = acquire(&mut conn, HolderKind::DesktopEmbedded, 1).unwrap();
+        let current = acquire(&mut conn, HolderKind::Service, 2).unwrap();
+        let before = snapshot(&conn);
+        let apply = |conn: &mut Connection, epoch| -> crate::error::AppResult<()> {
+            match operation {
+                "create" => create_discovery_run(conn, epoch, "new run", "{}").map(|_| ()),
+                "start" => start_discovery_run(conn, epoch, run_id, &[CandidateJobSpec {
+                    candidate_index: 0, strategy_id: strategies[0], dataset_id,
+                }]),
+                "claim" => claim_candidate_jobs(conn, epoch, run_id, 0).map(|_| ()),
+                "progress" => update_discovery_progress(conn, epoch, run_id, RunStatus::Running,
+                    &format!("{{\"version\":\"{DISCOVERY_PROGRESS_VERSION}\"}}")),
+                "transition" => transition_run(conn, epoch, run_id, RunStatus::Paused),
+                "complete" => complete_discovery_run(conn, epoch, run_id).map(|_| ()),
+                "recover" => recover_orphaned_runs(conn, epoch).map(|_| ()),
+                "cancel" => cancel_discovery_run(conn, epoch, run_id).map(|_| ()),
+                "fail" => fail_discovery_run(conn, epoch, run_id, "engine failure").map(|_| ()),
+                _ => unreachable!(),
+            }
+        };
+        let stale = apply(&mut conn, Some(old.epoch));
+        assert!(matches!(stale, Err(AppError::StaleOwner(_))), "{operation}: {stale:?}");
+        assert_eq!(snapshot(&conn), before, "{operation} changed rows under the old epoch");
+        apply(&mut conn, Some(current.epoch)).unwrap_or_else(|error| panic!("{operation}: {error}"));
+        assert_ne!(snapshot(&conn), before, "{operation} must be a real successful mutation");
+    }
+}
+
 /// One dataset plus `count` distinct candidate strategies.
 fn parents(conn: &Connection, count: usize) -> (i64, Vec<i64>) {
     conn.execute(
@@ -127,7 +184,7 @@ fn lifecycle(conn: &Connection, strategy_id: i64) -> String {
 }
 
 fn started_run(conn: &mut Connection, dataset_id: i64, strategies: &[i64]) -> i64 {
-    let run_id = create_discovery_run(conn, "run", "{}").unwrap();
+    let run_id = create_discovery_run(conn, None, "run", "{}").unwrap();
     let specs: Vec<CandidateJobSpec> = strategies
         .iter()
         .enumerate()
@@ -137,7 +194,7 @@ fn started_run(conn: &mut Connection, dataset_id: i64, strategies: &[i64]) -> i6
             dataset_id,
         })
         .collect();
-    start_discovery_run(conn, run_id, &specs).unwrap();
+    start_discovery_run(conn, None, run_id, &specs).unwrap();
     run_id
 }
 
@@ -197,6 +254,7 @@ fn commit(
             validation_trades: &validation_trades,
             record: &bundle.2,
             progress_json,
+            epoch: None,
         },
     )
 }
@@ -234,7 +292,7 @@ fn claiming_a_candidate_moves_its_paired_jobs_together_and_returns_their_ids() {
     let (dataset_id, strategies) = parents(&conn, 2);
     let run_id = started_run(&mut conn, dataset_id, &strategies);
 
-    let claimed = claim_candidate_jobs(&conn, run_id, 0).unwrap();
+    let claimed = claim_candidate_jobs(&conn, None, run_id, 0).unwrap();
     assert_eq!(claimed.run_id, run_id);
     assert_eq!(claimed.candidate_index, 0);
     assert_eq!(claimed.strategy_id, strategies[0]);
@@ -272,7 +330,7 @@ fn a_claim_failure_rolls_back_both_job_updates() {
     )
     .unwrap();
 
-    assert!(claim_candidate_jobs(&conn, run_id, 0).is_err());
+    assert!(claim_candidate_jobs(&conn, None, run_id, 0).is_err());
     assert!(
         list_discovery_jobs(&conn, run_id)
             .unwrap()
@@ -283,7 +341,7 @@ fn a_claim_failure_rolls_back_both_job_updates() {
 
     conn.execute_batch("DROP TRIGGER reject_validation_claim;")
         .unwrap();
-    claim_candidate_jobs(&conn, run_id, 0).unwrap();
+    claim_candidate_jobs(&conn, None, run_id, 0).unwrap();
     assert!(list_discovery_jobs(&conn, run_id)
         .unwrap()
         .iter()
@@ -302,7 +360,7 @@ fn a_claim_rejects_broken_nonqueued_and_nonrunning_pairs() {
         [run_id],
     )
     .unwrap();
-    assert!(claim_candidate_jobs(&conn, run_id, 0).is_err());
+    assert!(claim_candidate_jobs(&conn, None, run_id, 0).is_err());
     let survivor = list_discovery_jobs(&conn, run_id)
         .unwrap()
         .into_iter()
@@ -310,21 +368,21 @@ fn a_claim_rejects_broken_nonqueued_and_nonrunning_pairs() {
         .unwrap();
     assert_eq!(survivor.status, JobStatus::Queued);
 
-    transition_run(&conn, run_id, RunStatus::Paused).unwrap();
+    transition_run(&conn, None, run_id, RunStatus::Paused).unwrap();
     assert!(
-        claim_candidate_jobs(&conn, run_id, 1).is_err(),
+        claim_candidate_jobs(&conn, None, run_id, 1).is_err(),
         "a paused run cannot accept a late claim"
     );
-    transition_run(&conn, run_id, RunStatus::Running).unwrap();
-    claim_candidate_jobs(&conn, run_id, 1).unwrap();
+    transition_run(&conn, None, run_id, RunStatus::Running).unwrap();
+    claim_candidate_jobs(&conn, None, run_id, 1).unwrap();
     assert!(
-        claim_candidate_jobs(&conn, run_id, 1).is_err(),
+        claim_candidate_jobs(&conn, None, run_id, 1).is_err(),
         "an already-running pair cannot be claimed twice"
     );
 
-    cancel_discovery_run(&conn, run_id).unwrap();
+    cancel_discovery_run(&conn, None, run_id).unwrap();
     assert!(
-        claim_candidate_jobs(&conn, run_id, 1).is_err(),
+        claim_candidate_jobs(&conn, None, run_id, 1).is_err(),
         "a terminal run cannot accept a late claim"
     );
 }
@@ -335,7 +393,7 @@ fn progress_updates_require_the_version_and_expected_active_status() {
     let (dataset_id, strategies) = parents(&conn, 1);
     let run_id = started_run(&mut conn, dataset_id, &strategies);
     let running = r#"{"version":"discovery-progress-v1","completedCandidates":0}"#;
-    update_discovery_progress(&conn, run_id, RunStatus::Running, running).unwrap();
+    update_discovery_progress(&conn, None, run_id, RunStatus::Running, running).unwrap();
     assert_eq!(
         get_discovery_run(&conn, run_id)
             .unwrap()
@@ -345,13 +403,13 @@ fn progress_updates_require_the_version_and_expected_active_status() {
     );
 
     assert!(
-        update_discovery_progress(&conn, run_id, RunStatus::Running, r#"{"version":"wrong"}"#)
+        update_discovery_progress(&conn, None, run_id, RunStatus::Running, r#"{"version":"wrong"}"#)
             .is_err()
     );
-    transition_run(&conn, run_id, RunStatus::Paused).unwrap();
+    transition_run(&conn, None, run_id, RunStatus::Paused).unwrap();
     let stale = r#"{"version":"discovery-progress-v1","completedCandidates":1}"#;
     assert!(
-        update_discovery_progress(&conn, run_id, RunStatus::Running, stale).is_err(),
+        update_discovery_progress(&conn, None, run_id, RunStatus::Running, stale).is_err(),
         "a stale running writer cannot overwrite paused progress"
     );
     assert_eq!(
@@ -362,7 +420,7 @@ fn progress_updates_require_the_version_and_expected_active_status() {
         Some(running)
     );
 
-    update_discovery_progress(&conn, run_id, RunStatus::Paused, stale).unwrap();
+    update_discovery_progress(&conn, None, run_id, RunStatus::Paused, stale).unwrap();
     assert_eq!(
         get_discovery_run(&conn, run_id)
             .unwrap()
@@ -371,7 +429,7 @@ fn progress_updates_require_the_version_and_expected_active_status() {
         Some(stale)
     );
     assert!(
-        update_discovery_progress(&conn, run_id, RunStatus::Completed, stale).is_err(),
+        update_discovery_progress(&conn, None, run_id, RunStatus::Completed, stale).is_err(),
         "terminal statuses are not valid progress-writer expectations"
     );
 }
@@ -383,24 +441,24 @@ fn only_one_non_terminal_run_may_exist_globally() {
     let first = started_run(&mut conn, dataset_id, &strategies);
 
     // A second idle draft is fine — idle holds no slot.
-    let second = create_discovery_run(&conn, "second", "{}").unwrap();
+    let second = create_discovery_run(&conn, None, "second", "{}").unwrap();
     let specs = [CandidateJobSpec {
         candidate_index: 0,
         strategy_id: strategies[0],
         dataset_id,
     }];
     assert!(
-        start_discovery_run(&mut conn, second, &specs).is_err(),
+        start_discovery_run(&mut conn, None, second, &specs).is_err(),
         "a second running run must be refused"
     );
 
     // Pausing keeps the slot occupied.
-    transition_run(&conn, first, RunStatus::Paused).unwrap();
-    assert!(start_discovery_run(&mut conn, second, &specs).is_err());
+    transition_run(&conn, None, first, RunStatus::Paused).unwrap();
+    assert!(start_discovery_run(&mut conn, None, second, &specs).is_err());
 
     // Only a terminal first run frees the slot. A paused run cancels too.
-    cancel_discovery_run(&conn, first).unwrap();
-    start_discovery_run(&mut conn, second, &specs).unwrap();
+    cancel_discovery_run(&conn, None, first).unwrap();
+    start_discovery_run(&mut conn, None, second, &specs).unwrap();
     assert_eq!(
         active_discovery_run(&conn).unwrap().map(|r| r.id),
         Some(second)
@@ -412,14 +470,14 @@ fn a_refused_start_leaves_no_partial_job_set() {
     let mut conn = mem_db();
     let (dataset_id, strategies) = parents(&conn, 1);
     started_run(&mut conn, dataset_id, &strategies);
-    let blocked = create_discovery_run(&conn, "blocked", "{}").unwrap();
+    let blocked = create_discovery_run(&conn, None, "blocked", "{}").unwrap();
 
     let specs = [CandidateJobSpec {
         candidate_index: 0,
         strategy_id: strategies[0],
         dataset_id,
     }];
-    assert!(start_discovery_run(&mut conn, blocked, &specs).is_err());
+    assert!(start_discovery_run(&mut conn, None, blocked, &specs).is_err());
     assert_eq!(
         list_discovery_jobs(&conn, blocked).unwrap().len(),
         0,
@@ -440,7 +498,7 @@ fn completion_is_reachable_only_through_the_deriving_path() {
     // `running -> completed` is absent from the transition table, so a caller
     // cannot mark a run complete while skipping the best-strategy derivation.
     assert!(
-        transition_run(&conn, run_id, RunStatus::Completed).is_err(),
+        transition_run(&conn, None, run_id, RunStatus::Completed).is_err(),
         "completion must go through complete_discovery_run"
     );
     assert_eq!(
@@ -464,7 +522,7 @@ fn a_run_with_unfinished_jobs_cannot_be_completed() {
         None,
     )
     .unwrap();
-    let blocked = complete_discovery_run(&mut conn, run_id);
+    let blocked = complete_discovery_run(&mut conn, None, run_id);
     assert!(blocked.is_err(), "a draining queue blocks completion");
     assert_eq!(
         get_discovery_run(&conn, run_id).unwrap().status,
@@ -475,8 +533,8 @@ fn a_run_with_unfinished_jobs_cannot_be_completed() {
     // Cancelling is terminal, so completion is refused — but note this is the
     // STATUS guard talking, not the job-state one. The skipped-job rule is
     // proved separately below, where the run is still running.
-    cancel_discovery_run(&conn, run_id).unwrap();
-    assert!(complete_discovery_run(&mut conn, run_id).is_err());
+    cancel_discovery_run(&conn, None, run_id).unwrap();
+    assert!(complete_discovery_run(&mut conn, None, run_id).is_err());
     assert_eq!(
         get_discovery_run(&conn, run_id).unwrap().status,
         RunStatus::Cancelled,
@@ -518,7 +576,7 @@ fn a_skipped_candidate_does_not_count_as_assessed() {
         RunStatus::Running,
         "the status guard must not be what refuses this"
     );
-    let error = complete_discovery_run(&mut conn, run_id)
+    let error = complete_discovery_run(&mut conn, None, run_id)
         .expect_err("a skipped candidate is not an assessed one");
     assert!(
         error.to_string().contains("skipped"),
@@ -543,7 +601,7 @@ fn completion_requires_every_job_done() {
         .unwrap();
     }
     assert_eq!(
-        complete_discovery_run(&mut conn, run_id).unwrap(),
+        complete_discovery_run(&mut conn, None, run_id).unwrap(),
         Some(strategies[0])
     );
 }
@@ -554,16 +612,16 @@ fn illegal_state_transitions_are_refused() {
     let (dataset_id, strategies) = parents(&conn, 1);
     let run_id = started_run(&mut conn, dataset_id, &strategies);
 
-    assert!(transition_run(&conn, run_id, RunStatus::Idle).is_err());
-    transition_run(&conn, run_id, RunStatus::Paused).unwrap();
+    assert!(transition_run(&conn, None, run_id, RunStatus::Idle).is_err());
+    transition_run(&conn, None, run_id, RunStatus::Paused).unwrap();
     // paused reaches a terminal state only via running or cancel.
-    assert!(transition_run(&conn, run_id, RunStatus::Completed).is_err());
-    assert!(transition_run(&conn, run_id, RunStatus::Failed).is_err());
-    transition_run(&conn, run_id, RunStatus::Running).unwrap();
-    cancel_discovery_run(&conn, run_id).unwrap();
+    assert!(transition_run(&conn, None, run_id, RunStatus::Completed).is_err());
+    assert!(transition_run(&conn, None, run_id, RunStatus::Failed).is_err());
+    transition_run(&conn, None, run_id, RunStatus::Running).unwrap();
+    cancel_discovery_run(&conn, None, run_id).unwrap();
     for target in [RunStatus::Running, RunStatus::Paused, RunStatus::Completed] {
         assert!(
-            transition_run(&conn, run_id, target).is_err(),
+            transition_run(&conn, None, run_id, target).is_err(),
             "a terminal run must not move to {}",
             target.as_str()
         );
@@ -585,10 +643,10 @@ fn duplicate_candidate_segment_jobs_are_impossible() {
     assert!(duplicate.is_err(), "(run, candidate, segment) is unique");
 
     // The same candidate index in a DIFFERENT run stays legal.
-    cancel_discovery_run(&conn, run_id).unwrap();
-    let other = create_discovery_run(&conn, "other", "{}").unwrap();
+    cancel_discovery_run(&conn, None, run_id).unwrap();
+    let other = create_discovery_run(&conn, None, "other", "{}").unwrap();
     start_discovery_run(
-        &mut conn,
+        &mut conn, None,
         other,
         &[CandidateJobSpec {
             candidate_index: 0,
@@ -603,19 +661,65 @@ fn duplicate_candidate_segment_jobs_are_impossible() {
 fn start_rejects_empty_duplicate_or_negative_candidate_indexes() {
     let mut conn = mem_db();
     let (dataset_id, strategies) = parents(&conn, 1);
-    let run_id = create_discovery_run(&conn, "run", "{}").unwrap();
+    let run_id = create_discovery_run(&conn, None, "run", "{}").unwrap();
     let spec = |index: i64| CandidateJobSpec {
         candidate_index: index,
         strategy_id: strategies[0],
         dataset_id,
     };
-    assert!(start_discovery_run(&mut conn, run_id, &[]).is_err());
-    assert!(start_discovery_run(&mut conn, run_id, &[spec(-1)]).is_err());
-    assert!(start_discovery_run(&mut conn, run_id, &[spec(0), spec(0)]).is_err());
+    assert!(start_discovery_run(&mut conn, None, run_id, &[]).is_err());
+    assert!(start_discovery_run(&mut conn, None, run_id, &[spec(-1)]).is_err());
+    assert!(start_discovery_run(&mut conn, None, run_id, &[spec(0), spec(0)]).is_err());
     assert_eq!(list_discovery_jobs(&conn, run_id).unwrap().len(), 0);
 }
 
 // ---------- the atomic candidate commit ----------
+
+/// P03a (contract §1.3): a result produced under an epoch the workspace has
+/// since left is refused INSIDE the commit transaction — no summary, trade,
+/// record, job, or lifecycle write happens — while the current epoch's
+/// identical commit succeeds.
+#[test]
+fn a_candidate_from_a_previous_epoch_is_refused_before_any_write() {
+    use crate::db::ownership::{acquire, HolderKind};
+
+    let mut conn = mem_db();
+    let (dataset_id, strategies) = parents(&conn, 1);
+    let run_id = started_run(&mut conn, dataset_id, &strategies);
+    let b = bundle(strategies[0], dataset_id, true, 1.5);
+    let (train_trades, validation_trades) = fixture_trades();
+
+    let old = acquire(&mut conn, HolderKind::DesktopEmbedded, 1).unwrap();
+    let new = acquire(&mut conn, HolderKind::Service, 2).unwrap();
+    assert_eq!((old.epoch, new.epoch), (1, 2));
+
+    let assessment = |epoch: Option<i64>| CandidateAssessment {
+        run_id,
+        candidate_index: 0,
+        train_summary: &b.0,
+        train_trades: &train_trades,
+        validation_summary: &b.1,
+        validation_trades: &validation_trades,
+        record: &b.2,
+        progress_json: Some("{\"done\":1}"),
+        epoch,
+    };
+
+    let stale = commit_candidate_assessment(&mut conn, &assessment(Some(old.epoch)));
+    assert!(matches!(stale, Err(crate::error::AppError::StaleOwner(_))), "got {stale:?}");
+    assert_eq!(count(&conn, "backtest_summary"), 0, "no summary written");
+    assert_eq!(count(&conn, "trades"), 0, "no trade written");
+    assert_eq!(count(&conn, "validation_records"), 0, "no record written");
+    assert!(
+        list_discovery_jobs(&conn, run_id).unwrap().iter().all(|j| j.status == JobStatus::Queued),
+        "jobs untouched"
+    );
+    assert_eq!(lifecycle(&conn, strategies[0]), "candidate", "no promotion");
+
+    commit_candidate_assessment(&mut conn, &assessment(Some(new.epoch)))
+        .expect("the current epoch commits the same assessment");
+    assert_eq!(count(&conn, "validation_records"), 1);
+}
 
 #[test]
 fn committing_a_candidate_writes_the_whole_assessment() {
@@ -646,6 +750,10 @@ fn committing_a_candidate_writes_the_whole_assessment() {
         )
         .unwrap();
     assert_eq!(linked, run_id);
+    // P01: the typed read path exposes the same link, so the Results Explorer
+    // can label a runner assessment with its work id without a raw query.
+    let read = crate::db::repositories::get_validation_record(&conn, record_id).unwrap();
+    assert_eq!(read.discovery_run_id, Some(run_id));
     assert_eq!(lifecycle(&conn, strategies[0]), "validated");
     assert_eq!(
         get_discovery_run(&conn, run_id).unwrap().progress_json,
@@ -714,6 +822,7 @@ fn re_committing_a_done_candidate_is_rejected_before_any_write() {
             validation_trades: &first_validation_trades,
             record: &first.2,
             progress_json: Some("{\"done\":1}"),
+            epoch: None,
         },
     )
     .unwrap();
@@ -736,6 +845,7 @@ fn re_committing_a_done_candidate_is_rejected_before_any_write() {
             validation_trades: &second_validation_trades,
             record: &second.2,
             progress_json: Some("{\"done\":2}"),
+            epoch: None,
         },
     );
     assert!(outcome.is_err(), "the second assessment must be refused");
@@ -865,7 +975,7 @@ fn commits_are_refused_outside_a_running_run_or_for_a_foreign_candidate() {
     assert!(commit(&mut conn, run_id, 99, &own, None).is_err());
 
     // A paused run must not absorb results.
-    transition_run(&conn, run_id, RunStatus::Paused).unwrap();
+    transition_run(&conn, None, run_id, RunStatus::Paused).unwrap();
     assert!(commit(&mut conn, run_id, 0, &own, None).is_err());
     assert_eq!(count(&conn, "validation_records"), 0);
 }
@@ -887,10 +997,10 @@ fn lifecycle_follows_the_gate_and_never_demotes_a_validated_strategy() {
     assert_eq!(lifecycle(&conn, strategies[0]), "validated");
 
     // A later FAILING assessment in another run must not demote it (D6).
-    cancel_discovery_run(&conn, run_id).unwrap();
-    let second = create_discovery_run(&conn, "second", "{}").unwrap();
+    cancel_discovery_run(&conn, None, run_id).unwrap();
+    let second = create_discovery_run(&conn, None, "second", "{}").unwrap();
     start_discovery_run(
-        &mut conn,
+        &mut conn, None,
         second,
         &[CandidateJobSpec {
             candidate_index: 0,
@@ -923,10 +1033,10 @@ fn a_rejected_strategy_is_promoted_when_it_later_passes() {
     .unwrap();
     assert_eq!(lifecycle(&conn, strategies[0]), "rejected");
 
-    cancel_discovery_run(&conn, first).unwrap();
-    let second = create_discovery_run(&conn, "second", "{}").unwrap();
+    cancel_discovery_run(&conn, None, first).unwrap();
+    let second = create_discovery_run(&conn, None, "second", "{}").unwrap();
     start_discovery_run(
-        &mut conn,
+        &mut conn, None,
         second,
         &[CandidateJobSpec {
             candidate_index: 0,
@@ -960,7 +1070,7 @@ fn completion_picks_the_highest_scoring_gate_passer() {
         commit(&mut conn, run_id, index as i64, &b, None).unwrap();
     }
 
-    let best = complete_discovery_run(&mut conn, run_id).unwrap();
+    let best = complete_discovery_run(&mut conn, None, run_id).unwrap();
     assert_eq!(best, Some(strategies[2]), "highest finite score wins");
     let run = get_discovery_run(&conn, run_id).unwrap();
     assert_eq!(run.status, RunStatus::Completed);
@@ -978,7 +1088,7 @@ fn completion_breaks_score_ties_by_candidate_index() {
         commit(&mut conn, run_id, index as i64, &b, None).unwrap();
     }
     assert_eq!(
-        complete_discovery_run(&mut conn, run_id).unwrap(),
+        complete_discovery_run(&mut conn, None, run_id).unwrap(),
         Some(strategies[0]),
         "an equal score resolves to the lower candidate index"
     );
@@ -1047,7 +1157,7 @@ fn a_run_containing_failed_jobs_cannot_be_completed() {
     fail_candidate_jobs(&conn, run_id, 1, "engine crash").unwrap();
 
     assert!(
-        complete_discovery_run(&mut conn, run_id).is_err(),
+        complete_discovery_run(&mut conn, None, run_id).is_err(),
         "a run carrying failure evidence must not be marked completed"
     );
     assert_eq!(
@@ -1056,7 +1166,7 @@ fn a_run_containing_failed_jobs_cannot_be_completed() {
     );
     // The honest terminal state for it is `failed`, and failing the run
     // stamps its reason onto the still-unfinished jobs in one transaction.
-    fail_discovery_run(&conn, run_id, "engine crash").unwrap();
+    fail_discovery_run(&conn, None, run_id, "engine crash").unwrap();
     assert_eq!(
         get_discovery_run(&conn, run_id).unwrap().status,
         RunStatus::Failed
@@ -1076,7 +1186,7 @@ fn completion_records_no_winner_when_nothing_passes() {
         None,
     )
     .unwrap();
-    assert_eq!(complete_discovery_run(&mut conn, run_id).unwrap(), None);
+    assert_eq!(complete_discovery_run(&mut conn, None, run_id).unwrap(), None);
     assert_eq!(
         get_discovery_run(&conn, run_id).unwrap().best_strategy_id,
         None
@@ -1107,7 +1217,7 @@ fn recovery_pauses_orphaned_runs_and_requeues_only_in_flight_jobs() {
     )
     .unwrap();
 
-    let report = recover_orphaned_runs(&mut conn).unwrap();
+    let report = recover_orphaned_runs(&mut conn, None).unwrap();
     assert_eq!(report.runs_paused, 1);
     assert_eq!(
         report.jobs_requeued, 2,
@@ -1131,7 +1241,7 @@ fn recovery_pauses_orphaned_runs_and_requeues_only_in_flight_jobs() {
 
     // Idempotent: a second pass finds nothing to do.
     assert_eq!(
-        recover_orphaned_runs(&mut conn).unwrap(),
+        recover_orphaned_runs(&mut conn, None).unwrap(),
         RecoveryReport::default()
     );
 }
@@ -1141,10 +1251,10 @@ fn recovery_leaves_paused_and_terminal_runs_alone() {
     let mut conn = mem_db();
     let (dataset_id, strategies) = parents(&conn, 1);
     let paused = started_run(&mut conn, dataset_id, &strategies);
-    transition_run(&conn, paused, RunStatus::Paused).unwrap();
+    transition_run(&conn, None, paused, RunStatus::Paused).unwrap();
 
     assert_eq!(
-        recover_orphaned_runs(&mut conn).unwrap(),
+        recover_orphaned_runs(&mut conn, None).unwrap(),
         RecoveryReport::default(),
         "an already-paused run is not an orphan"
     );
@@ -1170,7 +1280,7 @@ fn skipping_and_failing_never_rewrite_a_done_checkpoint() {
     )
     .unwrap();
 
-    assert_eq!(cancel_discovery_run(&conn, run_id).unwrap(), 2);
+    assert_eq!(cancel_discovery_run(&conn, None, run_id).unwrap(), 2);
     let jobs = list_discovery_jobs(&conn, run_id).unwrap();
     assert!(jobs
         .iter()
@@ -1236,7 +1346,7 @@ fn a_terminal_job_is_never_resurrected_or_stripped_of_its_evidence() {
         .all(|j| j.error_message.as_deref() == Some("engine crash")));
 
     // Skipped is terminal too.
-    cancel_discovery_run(&conn, run_id).unwrap();
+    cancel_discovery_run(&conn, None, run_id).unwrap();
     let skipped = bundle(strategies[0], dataset_id, true, 1.5);
     assert!(
         commit(&mut conn, run_id, 0, &skipped, None).is_err(),
@@ -1248,7 +1358,7 @@ fn a_terminal_job_is_never_resurrected_or_stripped_of_its_evidence() {
 fn two_candidates_may_not_share_one_strategy_and_dataset() {
     let mut conn = mem_db();
     let (dataset_id, strategies) = parents(&conn, 1);
-    let run_id = create_discovery_run(&conn, "run", "{}").unwrap();
+    let run_id = create_discovery_run(&conn, None, "run", "{}").unwrap();
 
     // Enumeration deduplicates by strategy hash, so this can only come from a
     // caller building the queue wrong. It must fail at enqueue, not after the
@@ -1265,7 +1375,7 @@ fn two_candidates_may_not_share_one_strategy_and_dataset() {
             dataset_id,
         },
     ];
-    assert!(start_discovery_run(&mut conn, run_id, &duplicated).is_err());
+    assert!(start_discovery_run(&mut conn, None, run_id, &duplicated).is_err());
     assert_eq!(list_discovery_jobs(&conn, run_id).unwrap().len(), 0);
 }
 
@@ -1408,7 +1518,7 @@ fn cancelling_moves_the_run_and_its_jobs_together() {
     )
     .unwrap();
 
-    assert_eq!(cancel_discovery_run(&conn, run_id).unwrap(), 2);
+    assert_eq!(cancel_discovery_run(&conn, None, run_id).unwrap(), 2);
     assert_eq!(
         get_discovery_run(&conn, run_id).unwrap().status,
         RunStatus::Cancelled
@@ -1438,7 +1548,7 @@ fn failing_a_run_records_evidence_in_the_same_commit() {
     let run_id = started_run(&mut conn, dataset_id, &strategies);
 
     assert!(
-        fail_discovery_run(&conn, run_id, "   ").is_err(),
+        fail_discovery_run(&conn, None, run_id, "   ").is_err(),
         "a failed run must record why it failed"
     );
     assert_eq!(
@@ -1448,7 +1558,7 @@ fn failing_a_run_records_evidence_in_the_same_commit() {
     );
 
     assert_eq!(
-        fail_discovery_run(&conn, run_id, "engine crash").unwrap(),
+        fail_discovery_run(&conn, None, run_id, "engine crash").unwrap(),
         4
     );
     assert_eq!(
@@ -1475,7 +1585,7 @@ fn terminal_states_are_unreachable_through_transition_run() {
         RunStatus::Failed,
     ] {
         assert!(
-            transition_run(&conn, run_id, target).is_err(),
+            transition_run(&conn, None, run_id, target).is_err(),
             "{} must go through its own transactional function",
             target.as_str()
         );
@@ -1546,10 +1656,10 @@ fn upgrading_to_0003_preserves_an_existing_manual_validation_record() {
 #[test]
 fn a_run_cannot_be_started_through_the_generic_transition() {
     let mut conn = mem_db();
-    let run_id = create_discovery_run(&conn, "run", "{}").unwrap();
+    let run_id = create_discovery_run(&conn, None, "run", "{}").unwrap();
 
     assert!(
-        transition_run(&conn, run_id, RunStatus::Running).is_err(),
+        transition_run(&conn, None, run_id, RunStatus::Running).is_err(),
         "idle -> running belongs to start_discovery_run"
     );
     assert_eq!(
@@ -1559,7 +1669,7 @@ fn a_run_cannot_be_started_through_the_generic_transition() {
     );
     assert_eq!(list_discovery_jobs(&conn, run_id).unwrap().len(), 0);
     // And the bypass's payoff is gone: it can no longer reach completion.
-    assert!(complete_discovery_run(&mut conn, run_id).is_err());
+    assert!(complete_discovery_run(&mut conn, None, run_id).is_err());
 }
 
 /// A run whose jobs are ALL done has no unfinished row to stamp, so job-level
@@ -1579,7 +1689,7 @@ fn failing_a_run_persists_its_reason_even_with_no_unfinished_jobs() {
     .unwrap();
 
     // Zero jobs updated — the old job-only evidence would have vanished here.
-    assert_eq!(fail_discovery_run(&conn, run_id, "disk full").unwrap(), 0);
+    assert_eq!(fail_discovery_run(&conn, None, run_id, "disk full").unwrap(), 0);
     let run = get_discovery_run(&conn, run_id).unwrap();
     assert_eq!(run.status, RunStatus::Failed);
     assert_eq!(
@@ -1595,9 +1705,9 @@ fn a_paused_run_cannot_be_failed() {
     let mut conn = mem_db();
     let (dataset_id, strategies) = parents(&conn, 1);
     let run_id = started_run(&mut conn, dataset_id, &strategies);
-    transition_run(&conn, run_id, RunStatus::Paused).unwrap();
+    transition_run(&conn, None, run_id, RunStatus::Paused).unwrap();
 
-    assert!(fail_discovery_run(&conn, run_id, "engine crash").is_err());
+    assert!(fail_discovery_run(&conn, None, run_id, "engine crash").is_err());
     let run = get_discovery_run(&conn, run_id).unwrap();
     assert_eq!(run.status, RunStatus::Paused, "the run is untouched");
     assert_eq!(run.error_message, None);
@@ -1606,7 +1716,7 @@ fn a_paused_run_cannot_be_failed() {
         .iter()
         .all(|j| j.status == JobStatus::Queued && j.error_message.is_none()));
     // Cancelling a paused run remains legal.
-    cancel_discovery_run(&conn, run_id).unwrap();
+    cancel_discovery_run(&conn, None, run_id).unwrap();
 }
 
 /// Cancel writes the jobs first and the run status last, so aborting ON the
@@ -1624,7 +1734,7 @@ fn cancel_rolls_back_its_job_updates_when_the_status_write_fails() {
     )
     .unwrap();
 
-    assert!(cancel_discovery_run(&conn, run_id).is_err());
+    assert!(cancel_discovery_run(&conn, None, run_id).is_err());
     assert_eq!(
         get_discovery_run(&conn, run_id).unwrap().status,
         RunStatus::Running
@@ -1639,7 +1749,7 @@ fn cancel_rolls_back_its_job_updates_when_the_status_write_fails() {
 
     // Proof the input WOULD have skipped them, so the assertion is not vacuous.
     conn.execute_batch("DROP TRIGGER boom_cancel;").unwrap();
-    assert_eq!(cancel_discovery_run(&conn, run_id).unwrap(), 4);
+    assert_eq!(cancel_discovery_run(&conn, None, run_id).unwrap(), 4);
 }
 
 /// The same proof for failure, whose evidence write must be atomic too.
@@ -1655,7 +1765,7 @@ fn failing_rolls_back_its_job_evidence_when_the_status_write_fails() {
     )
     .unwrap();
 
-    assert!(fail_discovery_run(&conn, run_id, "engine crash").is_err());
+    assert!(fail_discovery_run(&conn, None, run_id, "engine crash").is_err());
     assert_eq!(
         get_discovery_run(&conn, run_id).unwrap().status,
         RunStatus::Running
@@ -1670,7 +1780,7 @@ fn failing_rolls_back_its_job_evidence_when_the_status_write_fails() {
 
     conn.execute_batch("DROP TRIGGER boom_fail;").unwrap();
     assert_eq!(
-        fail_discovery_run(&conn, run_id, "engine crash").unwrap(),
+        fail_discovery_run(&conn, None, run_id, "engine crash").unwrap(),
         4
     );
 }

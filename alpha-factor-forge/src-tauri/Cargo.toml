@@ -4,7 +4,21 @@ version = "0.1.0"
 description = "AlphaFactorForge - Automated Indicator Discovery Workstation"
 authors = ["AlphaFactorForge"]
 edition = "2021"
-rust-version = "1.77.2"
+# 1.89 for std file locks (`File::try_lock`, P03a workspace lease); CI builds on stable.
+rust-version = "1.89"
+# Two binaries share this package (P04a): the desktop (`src/main.rs`, the
+# auto-discovered default) and the headless service below. `cargo run` and
+# the Tauri CLI keep targeting the desktop.
+default-run = "alpha-factor-forge"
+
+# The headless research service (plan §3.1, contract §4). It compiles the
+# same orchestration modules as the desktop and never names `tauri`. Its
+# unit-test target is off so the shared modules' tests run once, in the
+# desktop target; the binary itself is exercised by `tests/service_smoke.rs`.
+[[bin]]
+name = "alpha-factor-forge-service"
+path = "src/service_main.rs"
+test = false
 
 # SKELETON - compilable scaffold. Some command bodies are minimal / todo!().
 # Verify locally with: cd src-tauri && cargo check
@@ -21,6 +35,12 @@ thiserror = "1"
 sha2 = "0.10"
 hex = "0.4"
 chrono = { version = "0.4", features = ["serde"] }
+# P04a loopback control API. Both are already in Cargo.lock as direct
+# dependencies of `tauri` 2.11 (dirs 6.0.0, getrandom 0.3.4): `dirs` is what
+# tauri's `app_data_dir` uses, so the service resolves the SAME workspace
+# directory as the desktop; `getrandom` is the OS CSPRNG for the control token.
+dirs = "6"
+getrandom = "0.3"
 
 # Phase C (AI) - uncomment when implementing AI commands locally:
 # reqwest = { version = "0.12", features = ["json", "rustls-tls"] }

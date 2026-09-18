@@ -27,6 +27,7 @@
 // to bump the version string, which IS rejected here.
 
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+import { HOST_MODES, type HostMode } from './commands';
 
 /** Must equal `DISCOVERY_EVENT_VERSION` in `discovery_runner/mod.rs`. */
 export const DISCOVERY_EVENT_VERSION = 'discovery-event-v1';
@@ -334,6 +335,66 @@ export function onDiscoveryDone(
   onInvalid?: InvalidEventHandler,
 ): Promise<UnlistenFn> {
   return subscribe(DISCOVERY_EVENTS.done, parseDiscoveryDoneEvent, onEvent, onInvalid);
+}
+
+// ---------- P04b: host mode ----------
+
+/** Must equal `HOST_EVENT` in `desktop/discovery_events.rs`. Posted when the
+ *  desktop's host mode changes (a hand-over finished, either way) and when
+ *  the background service stops or resumes answering. The window's response
+ *  is the contract's reconnect (§3): re-read the active run snapshot. */
+export const RUNTIME_HOST_EVENT = 'runtime://host';
+
+export interface HostEvent {
+  hostMode: HostMode;
+  serviceReachable: boolean;
+  reason: string | null;
+}
+
+export function parseHostEvent(payload: unknown): HostEvent | null {
+  if (typeof payload !== 'object' || payload == null) return null;
+  const record = payload as Record<string, unknown>;
+  const hostMode = record.hostMode;
+  if (typeof hostMode !== 'string' || !(HOST_MODES as readonly string[]).includes(hostMode)) return null;
+  if (typeof record.serviceReachable !== 'boolean') return null;
+  const reason = record.reason;
+  if (reason != null && typeof reason !== 'string') return null;
+  return { hostMode: hostMode as HostMode, serviceReachable: record.serviceReachable, reason: reason ?? null };
+}
+
+export function onHostChanged(
+  onEvent: (event: HostEvent) => void,
+  onInvalid?: InvalidEventHandler,
+): Promise<UnlistenFn> {
+  return subscribe(RUNTIME_HOST_EVENT, parseHostEvent, onEvent, onInvalid);
+}
+
+/** Must equal `RESNAPSHOT_EVENT` in `desktop/discovery_events.rs`. Posted by
+ *  the connect-mode bridge when the window's view may be behind the
+ *  database (runtime contract §3): the service's ledger has a gap, its
+ *  state version moved without a row, a row could not be delivered, or the
+ *  service was rediscovered after a restart. The window re-reads its run's
+ *  snapshot; the events that follow are trusted again from there. */
+export const RUNTIME_RESNAPSHOT_EVENT = 'runtime://resnapshot';
+
+export interface ResnapshotEvent {
+  reason: string;
+  stateVersion: number;
+}
+
+export function parseResnapshotEvent(payload: unknown): ResnapshotEvent | null {
+  if (typeof payload !== 'object' || payload == null) return null;
+  const record = payload as Record<string, unknown>;
+  if (typeof record.reason !== 'string') return null;
+  if (typeof record.stateVersion !== 'number' || !Number.isFinite(record.stateVersion)) return null;
+  return { reason: record.reason, stateVersion: record.stateVersion };
+}
+
+export function onResnapshotNeeded(
+  onEvent: (event: ResnapshotEvent) => void,
+  onInvalid?: InvalidEventHandler,
+): Promise<UnlistenFn> {
+  return subscribe(RUNTIME_RESNAPSHOT_EVENT, parseResnapshotEvent, onEvent, onInvalid);
 }
 
 // ---------- throttling ----------

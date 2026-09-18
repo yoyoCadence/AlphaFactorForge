@@ -2,8 +2,13 @@
 //!
 //! The pure computation stays in `execution`; this module owns the fixed CPU
 //! worker pool, cooperative controls, the single SQLite coordinator/writer,
-//! checkpointed progress, and post-commit Tauri events. Compute workers only
+//! checkpointed progress, and post-commit events. Compute workers only
 //! receive immutable owned/`Arc` data and never receive a database handle.
+//!
+//! P02 (docs/research-runtime-contract.md §0): this module is host-agnostic.
+//! Events leave through the `DiscoveryEventSink` trait only; the desktop's
+//! Tauri implementation lives in `crate::desktop::discovery_events`, and
+//! `runtime::boundary_tests` asserts no `tauri` symbol re-enters here.
 
 pub(crate) mod execution;
 /// RUNNER-UI-001a: asserts the emitted `discovery-event-v1` JSON against the
@@ -26,11 +31,11 @@ use alpha_factor_forge::discovery_core::market_data;
 use alpha_factor_forge::discovery_core::types::Candle as CoreCandle;
 use serde::Serialize;
 use serde_json::{json, Value};
-use tauri::{AppHandle, Emitter};
 
 use crate::db::discovery::{
     self, CandidateAssessment, CandidateJobSpec, ClaimedCandidateJobs, DiscoveryJobRow,
-    DiscoveryRunRow, JobStatus, RecoveryReport, RunStatus, Segment, DISCOVERY_PROGRESS_VERSION,
+    DiscoveryRunRow, JobStatus, RecoveryReport, RequestOutcome, RunStatus, Segment,
+    DISCOVERY_PROGRESS_VERSION,
 };
 use crate::db::repositories::{self, StrategyDef};
 use crate::error::{AppError, AppResult};
@@ -45,6 +50,24 @@ pub const DISCOVERY_RESULT_EVENT: &str = "discovery://result";
 pub const DISCOVERY_DONE_EVENT: &str = "discovery://done";
 
 type SharedDb = Arc<Mutex<rusqlite::Connection>>;
+
+/// The command names the runner records outcomes under (P03b R1). They are
+/// the dispatcher's whitelist names; the runner only needs them as labels.
+const START_COMMAND: &str = "discovery.start";
+const RESUME_COMMAND: &str = "discovery.resume";
+const PAUSE_COMMAND: &str = "discovery.pause";
+const CANCEL_COMMAND: &str = "discovery.cancel";
+
+/// What `pause` answers when the coordinator failed / was cancelled while
+/// draining. One definition, because the coordinator records the same text
+/// as the request's outcome BEFORE `pause` returns it.
+fn pause_failed_message(run_id: i64) -> String {
+    format!("discovery run {run_id} failed while draining for pause")
+}
+
+fn pause_cancelled_message(run_id: i64) -> String {
+    format!("discovery run {run_id} was cancelled while draining for pause")
+}
 
 fn other(message: impl Into<String>) -> AppError {
     AppError::Other(message.into())
@@ -133,42 +156,13 @@ pub enum DiscoveryEvent {
     Done(DiscoveryDoneEvent),
 }
 
-/// Event boundary used by production Tauri and by coordinator tests.
+/// Event boundary used by the desktop host (`desktop::discovery_events`) and
+/// by coordinator tests.
 ///
 /// Emission errors never roll back or fail already-committed work. The
 /// database is the source of truth and the frontend can re-query progress.
 pub trait DiscoveryEventSink: Send + Sync {
     fn emit(&self, event: &DiscoveryEvent) -> Result<(), String>;
-}
-
-#[derive(Clone)]
-pub struct TauriDiscoveryEventSink {
-    app: AppHandle,
-}
-
-impl TauriDiscoveryEventSink {
-    pub fn new(app: AppHandle) -> Self {
-        Self { app }
-    }
-}
-
-impl DiscoveryEventSink for TauriDiscoveryEventSink {
-    fn emit(&self, event: &DiscoveryEvent) -> Result<(), String> {
-        match event {
-            DiscoveryEvent::Progress(payload) => self
-                .app
-                .emit_to("main", DISCOVERY_PROGRESS_EVENT, payload)
-                .map_err(|error| error.to_string()),
-            DiscoveryEvent::Result(payload) => self
-                .app
-                .emit_to("main", DISCOVERY_RESULT_EVENT, payload)
-                .map_err(|error| error.to_string()),
-            DiscoveryEvent::Done(payload) => self
-                .app
-                .emit_to("main", DISCOVERY_DONE_EVENT, payload)
-                .map_err(|error| error.to_string()),
-        }
-    }
 }
 
 fn emit_after_commit(sink: &dyn DiscoveryEventSink, event: DiscoveryEvent) {
@@ -205,6 +199,15 @@ enum ControlPhase {
 struct ControlState {
     phase: ControlPhase,
     last_sequence: u64,
+    /// P03a: the lease epoch this coordinator runs under; every write the
+    /// coordinator makes is checked inside its store transaction.
+    epoch: Option<i64>,
+    /// P03b R1: the command request that asked for the pending pause. The
+    /// coordinator records its outcome in whichever transaction resolves the
+    /// pause — the Paused transition (accepted), completion winning the race
+    /// (accepted), a run failure (rejected), or a cancel (rejected) — BEFORE
+    /// the phase changes and `pause` wakes up to answer the same thing.
+    pause_request_id: Option<String>,
 }
 
 impl ControlState {
@@ -228,11 +231,13 @@ struct RunControl {
 }
 
 impl RunControl {
-    fn new(last_sequence: u64) -> Self {
+    fn new(last_sequence: u64, epoch: Option<i64>) -> Self {
         Self {
             state: Mutex::new(ControlState {
                 phase: ControlPhase::Running,
                 last_sequence,
+                epoch,
+                pause_request_id: None,
             }),
             changed: Condvar::new(),
         }
@@ -310,6 +315,10 @@ impl CandidateExecutor for ProductionExecutor {
 pub struct DiscoveryRunner {
     controls: Arc<Mutex<HashMap<i64, Arc<RunControl>>>>,
     executor: Arc<dyn CandidateExecutor>,
+    /// P03a: the workspace ownership epoch this runner writes under, handed
+    /// over by `runtime::open_workspace`. `None` means "no lease" and is
+    /// only for tests and pre-lease callers; production always sets it.
+    epoch: Option<i64>,
 }
 
 impl Default for DiscoveryRunner {
@@ -317,14 +326,29 @@ impl Default for DiscoveryRunner {
         Self {
             controls: Arc::new(Mutex::new(HashMap::new())),
             executor: Arc::new(ProductionExecutor),
+            epoch: None,
         }
     }
 }
 
 impl DiscoveryRunner {
+    /// A runner that writes under `epoch` and refuses to write once the
+    /// workspace has moved to another epoch (contract §1.3).
+    pub fn with_epoch(epoch: i64) -> Self {
+        Self {
+            epoch: Some(epoch),
+            ..Self::default()
+        }
+    }
+
+    pub fn epoch(&self) -> Option<i64> {
+        self.epoch
+    }
+
     pub fn recover_orphans(&self, db: &SharedDb) -> AppResult<RecoveryReport> {
         let mut conn = lock(db, "db")?;
-        discovery::recover_orphaned_runs(&mut conn)
+        discovery::assert_owner(&conn, self.epoch)?;
+        discovery::recover_orphaned_runs(&mut conn, self.epoch)
     }
 
     pub fn start(
@@ -333,6 +357,25 @@ impl DiscoveryRunner {
         sink: Arc<dyn DiscoveryEventSink>,
         raw_config: Value,
     ) -> AppResult<i64> {
+        self.start_for_request(db, sink, raw_config, None)
+    }
+
+    /// `start` on behalf of a command request (P03b R1). The request's
+    /// outcome is recorded with the store writes that decide it: `begun` with
+    /// the run row, `accepted` with the initial checkpoint, `rejected` with
+    /// the failure in between. A coordinator that fails to spawn AFTER the
+    /// checkpoint is a failure of the (accepted) run, reported through its
+    /// status and Done event, not a different answer to the command.
+    pub fn start_for_request(
+        &self,
+        db: SharedDb,
+        sink: Arc<dyn DiscoveryEventSink>,
+        raw_config: Value,
+        request_id: Option<&str>,
+    ) -> AppResult<i64> {
+        let begun: Vec<RequestOutcome<'_>> = request_id
+            .map(|request_id| vec![RequestOutcome::begun(request_id, START_COMMAND)])
+            .unwrap_or_default();
         let logical_cores = logical_cores();
         let config = Arc::new(
             parse_discovery_config(&raw_config, logical_cores as f64)
@@ -343,6 +386,7 @@ impl DiscoveryRunner {
 
         let (run_id, prepared) = {
             let mut conn = lock(&db, "db")?;
+            discovery::assert_owner(&conn, self.epoch)?;
             if let Some(active) = discovery::active_discovery_run(&conn)? {
                 return Err(other(format!(
                     "discovery run {} is already {}",
@@ -373,7 +417,7 @@ impl DiscoveryRunner {
                     parent_strategy_id: None,
                 };
                 let strategy_id =
-                    repositories::get_or_insert_verified_runner_strategy(&conn, &strategy)?;
+                    repositories::get_or_insert_verified_runner_strategy(&conn, self.epoch, &strategy)?;
                 scheduled.push(ScheduledCandidate {
                     candidate: candidate.clone(),
                     strategy_id,
@@ -386,16 +430,47 @@ impl DiscoveryRunner {
             }
 
             let name = discovery_run_name(dataset.id, &dataset.content_hash)?;
-            let run_id = discovery::create_discovery_run(&conn, &name, &raw_config_json)?;
-            discovery::start_discovery_run(&mut conn, run_id, &specs)?;
+            let run_id = discovery::create_discovery_run_with_outcomes(
+                &conn,
+                self.epoch,
+                &name,
+                &raw_config_json,
+                &begun,
+            )?;
+            if let Err(error) = discovery::start_discovery_run(&mut conn, self.epoch, run_id, &specs) {
+                if matches!(error, AppError::StaleOwner(_)) {
+                    return Err(error);
+                }
+                // The run row exists (idle) but was never queued. Record the
+                // rejection on its own; if even that fails, the `begun` row
+                // still proves the start never completed.
+                let message = error.to_string();
+                if let Some(request_id) = request_id {
+                    let _ = discovery::record_request_rejection(
+                        &conn, self.epoch, request_id, START_COMMAND, run_id, &message,
+                    );
+                }
+                return Err(other(message));
+            }
             let initial_sequence = 1;
             let progress =
                 stored_progress_json(plan.counts, plan.counts.final_unique, 0, initial_sequence)?;
-            if let Err(error) =
-                discovery::update_discovery_progress(&conn, run_id, RunStatus::Running, &progress)
-            {
+            let accepted: Vec<RequestOutcome<'_>> = request_id
+                .map(|request_id| vec![RequestOutcome::accepted(request_id, START_COMMAND, run_id)])
+                .unwrap_or_default();
+            if let Err(error) = discovery::update_discovery_progress_with_outcomes(
+                &conn, self.epoch, run_id, RunStatus::Running, &progress, &accepted,
+            ) {
+                if matches!(error, AppError::StaleOwner(_)) {
+                    return Err(error);
+                }
                 let message = format!("failed to initialize discovery progress: {error}");
-                let _ = discovery::fail_discovery_run(&conn, run_id, &message);
+                let rejected: Vec<RequestOutcome<'_>> = request_id
+                    .map(|request_id| vec![RequestOutcome::rejected(request_id, START_COMMAND, &message)])
+                    .unwrap_or_default();
+                let _ = discovery::fail_discovery_run_with_outcomes(
+                    &conn, self.epoch, run_id, &message, &rejected,
+                );
                 return Err(other(message));
             }
 
@@ -418,7 +493,7 @@ impl DiscoveryRunner {
             )
         };
 
-        let control = Arc::new(RunControl::new(1));
+        let control = Arc::new(RunControl::new(1, self.epoch));
         self.insert_control(run_id, control.clone())?;
         emit_after_commit(
             sink.as_ref(),
@@ -439,6 +514,9 @@ impl DiscoveryRunner {
         if let Err(error) =
             self.spawn_coordinator(db.clone(), sink.clone(), run_id, control.clone(), prepared)
         {
+            // The run was accepted (durably) a moment ago; losing its
+            // coordinator is the run's failure, reported through its status
+            // and Done event exactly like a failure one candidate later.
             self.remove_control(run_id, &control);
             let mut state = lock(&control.state, "discovery control")?;
             let message = format!("failed to spawn discovery coordinator: {error}");
@@ -450,7 +528,6 @@ impl DiscoveryRunner {
                 &control.changed,
                 &message,
             );
-            return Err(other(message));
         }
         Ok(run_id)
     }
@@ -461,6 +538,23 @@ impl DiscoveryRunner {
         sink: Arc<dyn DiscoveryEventSink>,
         run_id: i64,
     ) -> AppResult<()> {
+        self.resume_for_request(db, sink, run_id, None)
+    }
+
+    /// `resume` on behalf of a command request (P03b R1): `begun` with the
+    /// Paused → Running transition, `accepted` with the resumed checkpoint,
+    /// `rejected` if that checkpoint fails. As for `start`, a coordinator that
+    /// fails to spawn afterwards fails the accepted run rather than the command.
+    pub fn resume_for_request(
+        &self,
+        db: SharedDb,
+        sink: Arc<dyn DiscoveryEventSink>,
+        run_id: i64,
+        request_id: Option<&str>,
+    ) -> AppResult<()> {
+        let begun: Vec<RequestOutcome<'_>> = request_id
+            .map(|request_id| vec![RequestOutcome::begun(request_id, RESUME_COMMAND)])
+            .unwrap_or_default();
         if let Some(control) = self.control(run_id)? {
             let phase = lock(&control.state, "discovery control")?.phase;
             if phase == ControlPhase::Paused {
@@ -515,23 +609,35 @@ impl DiscoveryRunner {
             .ok_or_else(|| other("discovery event sequence overflow"))?;
         {
             let conn = lock(&db, "db")?;
-            discovery::transition_run(&conn, run_id, RunStatus::Running)?;
+            discovery::assert_owner(&conn, self.epoch)?;
+            discovery::transition_run_with_outcomes(&conn, self.epoch, run_id, RunStatus::Running, &begun)?;
             let progress = stored_progress_json(
                 prepared.enumeration,
                 prepared.total_candidates,
                 prepared.completed_candidates,
                 resume_sequence,
             )?;
-            if let Err(error) =
-                discovery::update_discovery_progress(&conn, run_id, RunStatus::Running, &progress)
-            {
+            let accepted: Vec<RequestOutcome<'_>> = request_id
+                .map(|request_id| vec![RequestOutcome::accepted(request_id, RESUME_COMMAND, run_id)])
+                .unwrap_or_default();
+            if let Err(error) = discovery::update_discovery_progress_with_outcomes(
+                &conn, self.epoch, run_id, RunStatus::Running, &progress, &accepted,
+            ) {
+                if matches!(error, AppError::StaleOwner(_)) {
+                    return Err(error);
+                }
                 let message = format!("failed to checkpoint resumed discovery: {error}");
-                let _ = discovery::fail_discovery_run(&conn, run_id, &message);
+                let rejected: Vec<RequestOutcome<'_>> = request_id
+                    .map(|request_id| vec![RequestOutcome::rejected(request_id, RESUME_COMMAND, &message)])
+                    .unwrap_or_default();
+                let _ = discovery::fail_discovery_run_with_outcomes(
+                    &conn, self.epoch, run_id, &message, &rejected,
+                );
                 return Err(other(message));
             }
         }
 
-        let control = Arc::new(RunControl::new(resume_sequence));
+        let control = Arc::new(RunControl::new(resume_sequence, self.epoch));
         self.insert_control(run_id, control.clone())?;
         emit_after_commit(
             sink.as_ref(),
@@ -553,6 +659,7 @@ impl DiscoveryRunner {
         if let Err(error) =
             self.spawn_coordinator(db.clone(), sink.clone(), run_id, control.clone(), prepared)
         {
+            // Accepted a moment ago; see `start_for_request`.
             self.remove_control(run_id, &control);
             let mut state = lock(&control.state, "discovery control")?;
             let message = format!("failed to spawn discovery coordinator: {error}");
@@ -564,12 +671,36 @@ impl DiscoveryRunner {
                 &control.changed,
                 &message,
             );
-            return Err(other(message));
         }
         Ok(())
     }
 
     pub fn pause(&self, db: &SharedDb, run_id: i64) -> AppResult<()> {
+        self.pause_for_request(db, run_id, None)
+    }
+
+    /// Shutdown requests a checkpoint without waiting for a worker. The
+    /// host polls coordinator exit under its own deadline. A user pause
+    /// already in flight keeps its request id and receives its own outcome.
+    pub(crate) fn request_pause_for_shutdown(&self, run_id: i64) -> AppResult<()> {
+        let Some(control) = self.control(run_id)? else { return Ok(()) };
+        match control.state.try_lock() {
+            Ok(mut state) => {
+                if state.phase == ControlPhase::Running {
+                    state.phase = ControlPhase::PauseRequested;
+                }
+            }
+            Err(std::sync::TryLockError::WouldBlock) => {} // Retry next poll.
+            Err(std::sync::TryLockError::Poisoned(_)) => return Err(other("discovery control lock poisoned during shutdown")),
+        }
+        Ok(())
+    }
+
+    /// `pause` on behalf of a command request. The Paused transition happens
+    /// in the coordinator after the in-flight candidate drains, so the request
+    /// id rides on the control state and is recorded by that transition's
+    /// transaction (P03b R1).
+    pub fn pause_for_request(&self, db: &SharedDb, run_id: i64, request_id: Option<&str>) -> AppResult<()> {
         let control = self
             .control(run_id)?
             .ok_or_else(|| other(format!("discovery run {run_id} has no active coordinator")))?;
@@ -588,6 +719,7 @@ impl DiscoveryRunner {
             }
         }
         state.phase = ControlPhase::PauseRequested;
+        state.pause_request_id = request_id.map(str::to_owned);
         while state.phase == ControlPhase::PauseRequested {
             state = control
                 .changed
@@ -596,12 +728,8 @@ impl DiscoveryRunner {
         }
         match state.phase {
             ControlPhase::Paused | ControlPhase::Completed => Ok(()),
-            ControlPhase::Failed => Err(other(format!(
-                "discovery run {run_id} failed while draining for pause"
-            ))),
-            ControlPhase::CancelRequested => Err(other(format!(
-                "discovery run {run_id} was cancelled while draining for pause"
-            ))),
+            ControlPhase::Failed => Err(other(pause_failed_message(run_id))),
+            ControlPhase::CancelRequested => Err(other(pause_cancelled_message(run_id))),
             ControlPhase::Running | ControlPhase::PauseRequested => Err(other(
                 "discovery pause acknowledgement entered an invalid state",
             )),
@@ -614,6 +742,21 @@ impl DiscoveryRunner {
         sink: Arc<dyn DiscoveryEventSink>,
         run_id: i64,
     ) -> AppResult<()> {
+        self.cancel_for_request(db, sink, run_id, None)
+    }
+
+    /// `cancel` on behalf of a command request (effect recorded with the
+    /// cancel transaction, P03b R1).
+    pub fn cancel_for_request(
+        &self,
+        db: &SharedDb,
+        sink: Arc<dyn DiscoveryEventSink>,
+        run_id: i64,
+        request_id: Option<&str>,
+    ) -> AppResult<()> {
+        let own: Vec<RequestOutcome<'_>> = request_id
+            .map(|request_id| vec![RequestOutcome::accepted(request_id, CANCEL_COMMAND, run_id)])
+            .unwrap_or_default();
         if let Some(control) = self.control(run_id)? {
             let mut state = lock(&control.state, "discovery control")?;
             if !matches!(
@@ -625,11 +768,27 @@ impl DiscoveryRunner {
                 )));
             }
             let sequence = state.reserve_sequences(1)?;
+            // A pause still draining loses to this cancel: its request is
+            // rejected in the same transaction, with the words `pause` will
+            // answer once it wakes up.
+            // H2: the pause request stays on the control state until the
+            // transaction that answers it has COMMITTED. A cancel that rolls
+            // back leaves the pause waiting, and whatever resolves it later
+            // (completion, the drain, a failure, another cancel) still finds
+            // its id and records its outcome.
+            let pause_request_id = state.pause_request_id.clone();
+            let cancelled_pause_message = pause_cancelled_message(run_id);
+            let mut outcomes = own.clone();
+            if let Some(pause_request_id) = pause_request_id.as_deref() {
+                outcomes.push(RequestOutcome::rejected(pause_request_id, PAUSE_COMMAND, &cancelled_pause_message));
+            }
             let run = {
                 let conn = lock(db, "db")?;
-                discovery::cancel_discovery_run(&conn, run_id)?;
+                discovery::assert_owner(&conn, self.epoch)?;
+                discovery::cancel_discovery_run_with_outcomes(&conn, self.epoch, run_id, &outcomes)?;
                 discovery::get_discovery_run(&conn, run_id)?
             };
+            state.pause_request_id = None;
             state.phase = ControlPhase::CancelRequested;
             control.changed.notify_all();
             emit_after_commit(
@@ -643,6 +802,9 @@ impl DiscoveryRunner {
         // control. It is still cancellable directly from its persisted state.
         let (run, sequence) = {
             let conn = lock(db, "db")?;
+            discovery::assert_owner(&conn, self.epoch)?;
+            #[cfg(test)]
+            tests::after_epoch_preflight();
             let before = discovery::get_discovery_run(&conn, run_id)?;
             if before.status != RunStatus::Paused {
                 return Err(other(format!(
@@ -653,7 +815,7 @@ impl DiscoveryRunner {
             let sequence = last_event_sequence(before.progress_json.as_deref())
                 .checked_add(1)
                 .ok_or_else(|| other("discovery event sequence overflow"))?;
-            discovery::cancel_discovery_run(&conn, run_id)?;
+            discovery::cancel_discovery_run_with_outcomes(&conn, self.epoch, run_id, &own)?;
             (discovery::get_discovery_run(&conn, run_id)?, sequence)
         };
         emit_after_commit(
@@ -665,17 +827,29 @@ impl DiscoveryRunner {
 
     pub fn progress(&self, db: &SharedDb, run_id: i64) -> AppResult<DiscoveryProgressSnapshot> {
         let conn = lock(db, "db")?;
-        let run = discovery::get_discovery_run(&conn, run_id)?;
-        let jobs = discovery::list_discovery_jobs(&conn, run_id)?;
+        self.progress_on(&conn, run_id)
+    }
+
+    /// `progress` on a connection the caller already holds, so it can be
+    /// read in the same critical section as other state (P03b: the state
+    /// version a snapshot is labelled with).
+    pub fn progress_on(&self, conn: &rusqlite::Connection, run_id: i64) -> AppResult<DiscoveryProgressSnapshot> {
+        let run = discovery::get_discovery_run(conn, run_id)?;
+        let jobs = discovery::list_discovery_jobs(conn, run_id)?;
         progress_snapshot(&run, &jobs)
     }
 
     pub fn active_progress(&self, db: &SharedDb) -> AppResult<Option<DiscoveryProgressSnapshot>> {
         let conn = lock(db, "db")?;
-        let Some(run) = discovery::active_discovery_run(&conn)? else {
+        self.active_progress_on(&conn)
+    }
+
+    /// `active_progress` on a connection the caller already holds.
+    pub fn active_progress_on(&self, conn: &rusqlite::Connection) -> AppResult<Option<DiscoveryProgressSnapshot>> {
+        let Some(run) = discovery::active_discovery_run(conn)? else {
             return Ok(None);
         };
-        let jobs = discovery::list_discovery_jobs(&conn, run.id)?;
+        let jobs = discovery::list_discovery_jobs(conn, run.id)?;
         progress_snapshot(&run, &jobs).map(Some)
     }
 
@@ -698,6 +872,16 @@ impl DiscoveryRunner {
         Ok(lock(&self.controls, "discovery controls")?
             .get(&run_id)
             .cloned())
+    }
+
+    /// The runs whose coordinator is alive in this process right now. P04a:
+    /// a host that is shutting down pauses each of these and waits for the
+    /// list to empty before it releases the workspace, so the last
+    /// checkpoint is committed by this epoch and not repaired by the next.
+    pub fn active_coordinator_run_ids(&self) -> AppResult<Vec<i64>> {
+        let mut ids: Vec<i64> = lock(&self.controls, "discovery controls")?.keys().copied().collect();
+        ids.sort_unstable();
+        Ok(ids)
     }
 
     fn remove_control(&self, run_id: i64, expected: &Arc<RunControl>) {
@@ -780,6 +964,7 @@ impl DiscoveryRunner {
                         let claimed = match lock(&db, "db").and_then(|conn| {
                             discovery::claim_candidate_jobs(
                                 &conn,
+                                state.epoch,
                                 run_id,
                                 scheduled.candidate.index,
                             )
@@ -1007,6 +1192,7 @@ impl DiscoveryRunner {
                     validation_trades: &output.validation_trades,
                     record: &output.record,
                     progress_json: Some(&progress_json),
+                    epoch: state.epoch,
                 };
                 match discovery::commit_candidate_assessment(&mut conn, &assessment) {
                     Ok(record_id) => record_id,
@@ -1356,12 +1542,20 @@ fn pause_run_after_drain(
     )?;
     {
         let conn = lock(db, "db")?;
+        discovery::assert_owner(&conn, state.epoch)?;
         // Persist the next sequence while the run is still running, then move
         // to paused. A crash between these commits can create a harmless
         // sequence gap, but can never repeat an emitted sequence.
-        discovery::update_discovery_progress(&conn, run_id, RunStatus::Running, &progress)?;
-        discovery::transition_run(&conn, run_id, RunStatus::Paused)?;
+        discovery::update_discovery_progress(&conn, state.epoch, run_id, RunStatus::Running, &progress)?;
+        let pause_request_id = state.pause_request_id.clone();
+        let accepted: Vec<RequestOutcome<'_>> = pause_request_id
+            .as_deref()
+            .map(|request_id| vec![RequestOutcome::accepted(request_id, PAUSE_COMMAND, run_id)])
+            .unwrap_or_default();
+        discovery::transition_run_with_outcomes(&conn, state.epoch, run_id, RunStatus::Paused, &accepted)?;
     }
+    // Committed: only now is the pause request answered (H2).
+    state.pause_request_id = None;
     state.phase = ControlPhase::Paused;
     changed.notify_all();
     emit_after_commit(
@@ -1392,11 +1586,22 @@ fn complete_run_after_commit(
     changed: &Condvar,
 ) -> AppResult<()> {
     let sequence = state.reserve_sequences(1)?;
+    // A pause still draining when the last candidate completes is answered
+    // "paused" — `pause` treats Completed as success — so its acceptance is
+    // recorded with the completion.
+    let pause_request_id = state.pause_request_id.clone();
+    let accepted: Vec<RequestOutcome<'_>> = pause_request_id
+        .as_deref()
+        .map(|request_id| vec![RequestOutcome::accepted(request_id, PAUSE_COMMAND, run_id)])
+        .unwrap_or_default();
     let run = {
         let mut conn = lock(db, "db")?;
-        discovery::complete_discovery_run(&mut conn, run_id)?;
+        discovery::assert_owner(&conn, state.epoch)?;
+        discovery::complete_discovery_run_with_outcomes(&mut conn, state.epoch, run_id, &accepted)?;
         discovery::get_discovery_run(&conn, run_id)?
     };
+    // Committed: only now is the pause request answered (H2).
+    state.pause_request_id = None;
     state.phase = ControlPhase::Completed;
     changed.notify_all();
     emit_after_commit(sink, DiscoveryEvent::Done(done_event(sequence, &run)));
@@ -1417,13 +1622,24 @@ fn fail_run_after_commit(
     ) {
         return;
     }
+    // A pause still draining is answered with the failure; record that
+    // answer in the failure's own transaction.
+    let pause_request_id = state.pause_request_id.clone();
+    let failed_pause_message = pause_failed_message(run_id);
+    let rejected: Vec<RequestOutcome<'_>> = pause_request_id
+        .as_deref()
+        .map(|request_id| vec![RequestOutcome::rejected(request_id, PAUSE_COMMAND, &failed_pause_message)])
+        .unwrap_or_default();
     let committed = (|| -> AppResult<DiscoveryRunRow> {
         let conn = lock(db, "db")?;
-        discovery::fail_discovery_run(&conn, run_id, message)?;
+        discovery::assert_owner(&conn, state.epoch)?;
+        discovery::fail_discovery_run_with_outcomes(&conn, state.epoch, run_id, message, &rejected)?;
         discovery::get_discovery_run(&conn, run_id)
     })();
     match committed {
         Ok(run) => {
+            // Committed: only now is the pause request answered (H2).
+            state.pause_request_id = None;
             if let Ok(sequence) = state.reserve_sequences(1) {
                 state.phase = ControlPhase::Failed;
                 changed.notify_all();

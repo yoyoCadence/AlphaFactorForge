@@ -80,6 +80,13 @@ export interface BacktestSummary {
   created_at?: string;
 }
 
+/** `get_backtest_result_detail` result: the pair the database held at one
+ *  instant (mirrors Rust `BacktestResultDetail`). */
+export interface BacktestResultDetail {
+  summary: BacktestSummary;
+  trades: TradeRow[];
+}
+
 // One validation_records row (PERSIST-001): an append-only immutable decision
 // audit snapshot. `record_json` is a self-contained versioned envelope;
 // v1 rows remain readable legacy evidence and new writes use v2.
@@ -93,6 +100,9 @@ export interface ValidationRecordRow {
   score?: number | null;
   record_json: string;
   created_at?: string;
+  /** The discovery run that produced this assessment (migration 0003), or
+   *  null for a manual save. Read-only: the backend ignores it on writes. */
+  discovery_run_id?: number | null;
 }
 
 // One closed trade written under a backtest_summary row. `bars` is not part of
@@ -123,6 +133,14 @@ export const db = {
     invoke<number>('save_backtest_result', { summary, trades }),
   getBacktestResults: (strategyId?: number) =>
     invoke<BacktestSummary[]>('get_backtest_results', { strategyId }),
+  /** P01 Results Explorer: one summary row and its stored trades, read in one
+   *  backend transaction. The reader compares `summary` with the row it is
+   *  displaying before it shows `trades`, because a re-save of the same
+   *  strategy/dataset/segment reuses the id and replaces the rows (the
+   *  `created_at` stamp survives the upsert, so only the whole row tells the
+   *  two saves apart). `null` when the summary no longer exists. */
+  getBacktestResultDetail: (summaryId: number) =>
+    invoke<BacktestResultDetail | null>('get_backtest_result_detail', { summaryId }),
   /** PERSIST-001: atomically save Train + Validation summaries/trades and the
    *  immutable validation record in ONE backend transaction. */
   saveValidationRecord: (
@@ -201,4 +219,128 @@ export const discovery = {
    *  relying on a run id remembered by a window that has since reloaded. */
   getActiveRun: () =>
     invoke<DiscoveryProgressSnapshot | null>('get_active_discovery_run'),
+};
+
+// ---- Versioned command envelope (P03b, research-command-v1) ----
+
+/** `research-command-v1` (docs/research-runtime-contract.md §2). Built by
+ *  `services/researchCommand.ts`; the backend rejects any other shape. */
+export interface CommandEnvelope {
+  protocolVersion: 'research-command-v1';
+  workspaceId: string;
+  requestId: string;
+  command: string;
+  payload: unknown;
+}
+
+/** Contract §2 error codes, exactly as the backend serializes them. */
+export type CommandErrorCode =
+  | 'UnsupportedProtocol'
+  | 'WorkspaceMismatch'
+  | 'Unauthorized'
+  | 'NotOwner'
+  | 'StaleOwner'
+  | 'DuplicateRequest'
+  | 'Validation'
+  | 'NotFound'
+  | 'Busy';
+
+/** What `dispatch_research_command` rejects with: structured, never a bare
+ *  string, so a caller can act on `code`. `retryable` means "the SAME
+ *  requestId may be sent again and can still make progress": true only while
+ *  the request is pending (its first attempt is executing or died before
+ *  recording anything). A recorded failure is final for its requestId and is
+ *  never marked retryable — start a new request instead. */
+export interface CommandError {
+  code: CommandErrorCode;
+  message: string;
+  retryable: boolean;
+}
+
+/** `research-event-v1` (contract §3): one persistent ledger row. `eventId`
+ *  is the reconnect cursor; `payload` is the inner `eventVersion` contract
+ *  (today always `discovery-event-v1`). */
+export interface EventEnvelope {
+  protocolVersion: 'research-event-v1';
+  eventId: number;
+  epoch: number;
+  entity: { kind: string; id: string };
+  eventVersion: string;
+  channel: string;
+  committedAt: string;
+  payload: unknown;
+}
+
+export interface EventsPage {
+  events: EventEnvelope[];
+  /** The highest event id ever issued; equals the cursor when nothing follows. */
+  lastEventId: number;
+  /** The workspace's state version: bumped by every committed change to a
+   *  run/job/result (never by ledger rows, receipts, or heartbeats). A reader
+   *  that took a snapshot at version `s` and then reads an EMPTY page whose
+   *  `stateVersion > s` has missed something the ledger does not hold (an
+   *  append that failed) and must take a fresh snapshot. */
+  stateVersion: number;
+  /** A durable marker that at least one event could not be appended, or null. */
+  ledgerGap: { epoch: number; stateVersion: number } | null;
+  /** True once this host's ledger sink has failed an append in this process. */
+  ledgerDegraded: boolean;
+}
+
+/** `discovery.active` / `discovery.progress`: the snapshot and the state
+ *  version it is at least as new as. Keep `stateVersion` beside the cursor
+ *  you read events from (see `EventsPage.stateVersion`). */
+export interface SnapshotResponse<T> {
+  run: T;
+  stateVersion: number;
+}
+
+/** P04b: which host the desktop is (`runtime::host` in Rust).
+ *  `desktop-embedded`: the desktop owns the workspace and runs research in
+ *  its own process (closing it stops the work). `desktop-connect`: a
+ *  background service owns the workspace; the desktop proxies commands and
+ *  forwards the service's events, so closing the desktop changes nothing.
+ *  `switching`: a hand-over is in progress (or failed and left nothing
+ *  usable — `HostStatus.detail` says why). */
+export type HostMode = 'desktop-embedded' | 'desktop-connect' | 'switching';
+export const HOST_MODES: readonly HostMode[] = ['desktop-embedded', 'desktop-connect', 'switching'];
+
+/** What a caller needs before its first envelope. `holderKind` names whoever
+ *  holds the lease (the desktop itself, or the service it proxies);
+ *  `hostMode` is the desktop's own mode. */
+export interface WorkspaceInfo {
+  workspaceId: string;
+  epoch: number;
+  holderKind: string;
+  instanceId: string;
+  hostMode: HostMode;
+  commandProtocolVersion: string;
+  eventProtocolVersion: string;
+}
+
+/** `get_host_status` / the two switches (mirrors Rust `HostStatus`). */
+export interface HostStatus {
+  hostMode: HostMode;
+  dataDir: string;
+  serviceExecutable: string;
+  serviceExecutablePresent: boolean;
+  detail: string | null;
+}
+
+export const runtime = {
+  info: () => invoke<WorkspaceInfo>('get_workspace_info'),
+  /** Rejects with a `CommandError` object (see `isCommandError` in
+   *  `services/researchCommand.ts`). */
+  dispatch: (envelope: CommandEnvelope) =>
+    invoke<unknown>('dispatch_research_command', { envelope }),
+  hostStatus: () => invoke<HostStatus>('get_host_status'),
+  /** Plan §3.1 background mode: the desktop stops taking new work, lets the
+   *  running discovery reach a checkpoint, releases the workspace, starts
+   *  the service binary beside it, and connects. Resolves with the new
+   *  status; rejects with a `CommandError` and the desktop back in whatever
+   *  mode it could reach (usually embedded again). */
+  enterBackgroundMode: () => invoke<HostStatus>('enter_background_mode'),
+  /** The reverse: the service drains to a checkpoint and exits, the desktop
+   *  owns the workspace again. */
+  exitBackgroundMode: () => invoke<HostStatus>('exit_background_mode'),
 };
