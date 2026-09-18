@@ -679,6 +679,23 @@ impl DiscoveryRunner {
         self.pause_for_request(db, run_id, None)
     }
 
+    /// Shutdown requests a checkpoint without waiting for a worker. The
+    /// host polls coordinator exit under its own deadline. A user pause
+    /// already in flight keeps its request id and receives its own outcome.
+    pub(crate) fn request_pause_for_shutdown(&self, run_id: i64) -> AppResult<()> {
+        let Some(control) = self.control(run_id)? else { return Ok(()) };
+        match control.state.try_lock() {
+            Ok(mut state) => {
+                if state.phase == ControlPhase::Running {
+                    state.phase = ControlPhase::PauseRequested;
+                }
+            }
+            Err(std::sync::TryLockError::WouldBlock) => {} // Retry next poll.
+            Err(std::sync::TryLockError::Poisoned(_)) => return Err(other("discovery control lock poisoned during shutdown")),
+        }
+        Ok(())
+    }
+
     /// `pause` on behalf of a command request. The Paused transition happens
     /// in the coordinator after the in-flight candidate drains, so the request
     /// id rides on the control state and is recorded by that transition's

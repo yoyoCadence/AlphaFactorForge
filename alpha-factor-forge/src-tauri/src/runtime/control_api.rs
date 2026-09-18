@@ -277,14 +277,20 @@ struct Shared {
     /// `POST /v1/shutdown` was accepted: mutating commands are refused from
     /// now on and the host is expected to drain and stop.
     shutdown_requested: AtomicBool,
+    /// Admission and shutdown share this lock; accepted mutations remain
+    /// counted through dispatch (including waiting on a request-id claim).
+    mutations: Mutex<usize>,
     shutdown_signal: (Mutex<bool>, Condvar),
     /// `stop()` was called: the accept loop exits.
     stopping: AtomicBool,
     connections: AtomicUsize,
+    #[cfg(test)]
+    after_admission: Mutex<Option<Box<dyn FnOnce() + Send>>>,
 }
 
 impl Shared {
     fn request_shutdown(&self) {
+        let _admission = self.mutations.lock().unwrap_or_else(|error| error.into_inner());
         self.shutdown_requested.store(true, Ordering::SeqCst);
         if let Ok(mut flag) = self.shutdown_signal.0.lock() {
             *flag = true;
@@ -297,6 +303,21 @@ impl Shared {
 
     fn shutdown_requested(&self) -> bool {
         self.shutdown_requested.load(Ordering::SeqCst)
+    }
+
+    fn admit_mutation(&self) -> Option<MutationGuard<'_>> {
+        let mut count = self.mutations.lock().unwrap_or_else(|error| error.into_inner());
+        if self.shutdown_requested() { return None; }
+        *count += 1;
+        Some(MutationGuard(self))
+    }
+}
+
+struct MutationGuard<'a>(&'a Shared);
+
+impl Drop for MutationGuard<'_> {
+    fn drop(&mut self) {
+        *self.0.mutations.lock().unwrap_or_else(|error| error.into_inner()) -= 1;
     }
 }
 
@@ -324,9 +345,12 @@ impl ControlServer {
             notifier,
             port,
             shutdown_requested: AtomicBool::new(false),
+            mutations: Mutex::new(0),
             shutdown_signal: (Mutex::new(false), Condvar::new()),
             stopping: AtomicBool::new(false),
             connections: AtomicUsize::new(0),
+            #[cfg(test)]
+            after_admission: Mutex::new(None),
         });
         let accept_thread = {
             let shared = shared.clone();
@@ -341,8 +365,17 @@ impl ControlServer {
         self.shared.port
     }
 
+    #[cfg(test)]
+    pub(crate) fn after_admission(&self, hook: impl FnOnce() + Send + 'static) {
+        *self.shared.after_admission.lock().unwrap() = Some(Box::new(hook));
+    }
+
     pub fn shutdown_requested(&self) -> bool {
         self.shared.shutdown_requested()
+    }
+
+    pub(crate) fn active_mutations(&self) -> usize {
+        *self.shared.mutations.lock().unwrap_or_else(|error| error.into_inner())
     }
 
     /// Wait up to `timeout` for a `POST /v1/shutdown`; true once one arrived.
@@ -366,6 +399,7 @@ impl ControlServer {
     }
 
     fn stop_accepting(&mut self) {
+        self.request_shutdown();
         if self.shared.stopping.swap(true, Ordering::SeqCst) {
             return;
         }
@@ -515,11 +549,14 @@ fn write_response(stream: &mut TcpStream, response: &Response) -> io::Result<()>
 }
 
 /// Read and parse one request. Every refusal is a complete response.
-fn read_request(stream: &mut TcpStream) -> Result<Request, Response> {
+fn read_request(stream: &mut impl Read) -> Result<Request, Response> {
     let mut buffer = Vec::with_capacity(1024);
     let mut chunk = [0u8; 2048];
     let head_end = loop {
         if let Some(end) = find_head_end(&buffer) {
+            if end + 4 > MAX_HEAD_BYTES {
+                return Err(error_response(431, ErrorCode::Validation, "request head exceeds 16 KiB", false));
+            }
             break end;
         }
         if buffer.len() >= MAX_HEAD_BYTES {
@@ -713,9 +750,19 @@ fn commands(request: &Request, shared: &Shared) -> Response {
         .get("command")
         .and_then(Value::as_str)
         .is_some_and(|command| READ_COMMANDS.contains(&command));
-    if shared.shutdown_requested() && !is_read {
-        // Never reserved, so the same requestId can be sent to the next owner.
-        return error_response(503, ErrorCode::Busy, "the service is shutting down; retry against the next owner", true);
+    let _admission = if is_read {
+        None
+    } else {
+        match shared.admit_mutation() {
+            Some(guard) => Some(guard),
+            // Never reserved, so the same requestId can go to the next owner.
+            None => return error_response(503, ErrorCode::Busy, "the service is shutting down; retry against the next owner", true),
+        }
+    };
+    #[cfg(test)]
+    if !is_read {
+        let hook = shared.after_admission.lock().unwrap().take();
+        if let Some(hook) = hook { hook(); }
     }
     match shared.dispatcher.dispatch(envelope) {
         Ok(result) => json_response(200, &json!({ "result": result })),
@@ -1093,6 +1140,23 @@ mod tests {
         let head = format!("GET /v1/info HTTP/1.1\r\n{auth}X-Pad: {}\r\n\r\n", "p".repeat(MAX_HEAD_BYTES));
         let (status, _) = server.raw(head);
         assert_eq!(status, 431);
+    }
+
+    #[test]
+    fn review_head_limit_holds_when_the_terminator_arrives_in_the_last_read() {
+        struct Fragmented<'a> { bytes: &'a [u8], chunk: usize }
+        impl Read for Fragmented<'_> {
+            fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+                let len = buf.len().min(self.chunk);
+                self.bytes.read(&mut buf[..len])
+            }
+        }
+        let prefix = "GET /v1/info HTTP/1.1\r\nHost: localhost\r\nX-Pad: ";
+        let head = format!("{prefix}{}\r\n\r\n", "a".repeat(MAX_HEAD_BYTES + 10 - prefix.len() - 4));
+        for chunk in [1, 2047, 2048] {
+            let mut reader = Fragmented { bytes: head.as_bytes(), chunk };
+            assert_eq!(read_request(&mut reader).err().map(|r| r.status), Some(431), "chunk size {chunk}");
+        }
     }
 
     #[test]
