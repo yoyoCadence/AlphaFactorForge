@@ -3,8 +3,8 @@
 Date: 2026-09-18
 Repo: yoyoCadence/AlphaFactorForge
 Branch: `docs/p00-contract-precheck`（P04a 驗收修正 `757b9f5` 之後續做；本機 git，GitHub 仍鎖）
-PR: 尚未建立
-Status: H1／M1 已關閉；H2 首頁競態已修正並驗證（2026-09-19，見最後 Resolution）；修正未 commit／push，P05 尚未開始
+PR: https://github.com/yoyoCadence/AlphaFactorForge/pull/106 (draft)
+Status: H1／M1／H2 已修正並驗證；已 commit／push 至 PR #106（2026-09-19），P05 尚未開始
 
 ## Summary
 
@@ -316,3 +316,10 @@ P04a 四項修正已在 `757b9f5` 提交；本次檢查 P04b 桌面接線、切�
   **75 項皆取得通過結果**，不是宣稱全套一次全綠。沒有修改該項測試或放寬 timeout。
 - 文件同步：契約 §1.5、`tasks.md`、`CHANGELOG.md`。本次不變更 wire protocol／schema，採保守初始化同步；
   原生 Tauri 視窗操作未重跑。修改尚未 commit／push。
+
+## Resolution — GitHub 發布（2026-09-19，Codex）
+
+使用者確認 GitHub 解鎖並要求保存所有本機 Git 成果。H2 修正已 commit，整合最新 main 後為 `9af8a21`，
+並推送到 draft PR #106；rebase 前的 `d34b767` 保存在 `archive/local-before-github-sync-2026-09-19`。
+整合後 Rust 250／Vitest 879／build／check 通過，host-mode 6 項通過；詳細分支保存、認證處理與 export
+重跑紀錄見 `2026-09-19-github-sync-v1.md`。PR 尚未合併。
