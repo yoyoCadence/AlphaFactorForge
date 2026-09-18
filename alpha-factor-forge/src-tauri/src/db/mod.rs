@@ -79,6 +79,65 @@ pub fn open_at(db_path: &Path) -> AppResult<Connection> {
     Ok(conn)
 }
 
+/// P04b: open the workspace database WITHOUT migrating — for a host that
+/// does not own the workspace (the desktop in connect mode, contract §1.1)
+/// and therefore may not run migrations or recovery. The same pragmas as
+/// `open_at`; the schema must be exactly what this build knows: a version
+/// this build does not know is `SchemaTooNew`, a known migration not yet
+/// applied is `SchemaPending` (the owner runs an older build and must be
+/// stopped so a current build can migrate). The file must already exist:
+/// creating an empty workspace is the owner's job.
+pub fn open_migrated(db_path: &Path) -> AppResult<Connection> {
+    if !db_path.is_file() {
+        return Err(crate::error::AppError::Other(format!(
+            "no workspace database at {}; the owner has not created it",
+            db_path.display()
+        )));
+    }
+    let conn = Connection::open(db_path)?;
+    conn.pragma_update(None, "journal_mode", "WAL")?;
+    conn.pragma_update(None, "foreign_keys", "ON")?;
+    conn.busy_timeout(BUSY_TIMEOUT)?;
+    let has_table: bool = conn
+        .query_row(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'schema_migrations'",
+            [],
+            |_| Ok(true),
+        )
+        .unwrap_or(false);
+    let applied: Vec<String> = if has_table {
+        let mut stmt = conn.prepare("SELECT version FROM schema_migrations ORDER BY version")?;
+        let rows = stmt.query_map([], |r| r.get::<_, String>(0))?.collect::<Result<Vec<_>, _>>()?;
+        rows
+    } else {
+        Vec::new()
+    };
+    let unknown: Vec<&str> = applied
+        .iter()
+        .map(String::as_str)
+        .filter(|version| !MIGRATIONS.iter().any(|(known, _)| known == version))
+        .collect();
+    if !unknown.is_empty() {
+        return Err(crate::error::AppError::SchemaTooNew(format!(
+            "this build knows migrations up to {}, but the database already has {}",
+            MIGRATIONS.last().map(|(v, _)| *v).unwrap_or("none"),
+            unknown.join(", ")
+        )));
+    }
+    let pending: Vec<&str> = MIGRATIONS
+        .iter()
+        .map(|(version, _)| *version)
+        .filter(|version| !applied.iter().any(|a| a == version))
+        .collect();
+    if !pending.is_empty() {
+        return Err(crate::error::AppError::SchemaPending(format!(
+            "the database still needs {}; only the workspace owner may migrate it",
+            pending.join(", ")
+        )));
+    }
+    Ok(conn)
+}
+
 /// Apply ONE migration and record its version in the SAME transaction.
 ///
 /// SQLite DDL is transactional, but the version record used to be a separate

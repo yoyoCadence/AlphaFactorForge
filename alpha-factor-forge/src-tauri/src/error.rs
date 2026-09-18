@@ -21,6 +21,10 @@ pub enum AppError {
     /// The database was written by a newer build than this one.
     #[error("schema newer than this build: {0}")]
     SchemaTooNew(String),
+    /// P04b: a non-owner opened a database that still needs migrations
+    /// this build knows; only the lease holder may apply them.
+    #[error("schema behind this build: {0}")]
+    SchemaPending(String),
     #[error("{0}")]
     Other(String),
 }

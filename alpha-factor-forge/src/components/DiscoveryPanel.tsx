@@ -26,12 +26,14 @@
 //      results of a run that finishes before `start_discovery` returns survive.
 
 import React, { useEffect, useMemo, useReducer, useState } from 'react';
-import { discovery, discoveryEvents } from '../tauri-client/dataClient';
+import { discovery, discoveryEvents, runtime, runtimeEvents } from '../tauri-client/dataClient';
+import type { HostMode, HostStatus } from '../tauri-client/commands';
 import {
   createThrottle,
   type DiscoveryProgressEvent,
   type RunStatus,
 } from '../tauri-client/events';
+import { isCommandError } from '../services/researchCommand';
 import {
   INITIAL_DISCOVERY_FEED,
   isTerminalStatus,
@@ -70,7 +72,14 @@ const AXIS_LABEL: Record<DiscoveryAxisKey, string> = {
   slPct: '停損%', tpPct: '停利%',
 };
 
-type PendingAction = 'start' | 'pause' | 'resume' | 'cancel' | 'refresh';
+type PendingAction = 'start' | 'pause' | 'resume' | 'cancel' | 'refresh' | 'host';
+
+/** P04b: what the host-mode badge says. */
+const HOST_LABEL: Record<HostMode, string> = {
+  'desktop-embedded': '桌面內建',
+  'desktop-connect': '背景 service',
+  switching: '切換中',
+};
 
 export interface DiscoveryPanelProps {
   /** The workspace's live inputs; null until a dataset's candles are loaded, which
@@ -95,6 +104,11 @@ export function DiscoveryPanel({ liveContext, onMessage }: DiscoveryPanelProps):
   const { run, results, stale } = feed;
   const [pending, setPending] = useState<PendingAction | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  // P04b: which host the desktop is. `null` until the backend answers (and
+  // forever outside Tauri), so nothing about hosts is shown where nothing can
+  // be switched.
+  const [host, setHost] = useState<HostStatus | null>(null);
+  const [serviceReachable, setServiceReachable] = useState(true);
 
   const combinations = useMemo(() => {
     try {
@@ -192,6 +206,51 @@ export function DiscoveryPanel({ liveContext, onMessage }: DiscoveryPanelProps):
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // P04b: the host mode, and the reconnect it implies. A mode change (either
+  // direction) or a service that comes back means the run may have moved
+  // while this window was not following it, so the snapshot is re-read
+  // before any further event is trusted (contract §3: snapshot, then cursor).
+  useEffect(() => {
+    let disposed = false;
+    let unlisten: (() => void) | null = null;
+    runtime.hostStatus()
+      .then((status) => {
+        if (!disposed) setHost(status);
+      })
+      .catch(() => {
+        // No host backend (plain Vite without ?mock=1): the badge stays hidden.
+      });
+    runtimeEvents.onHostChanged((event) => {
+      if (disposed) return;
+      setHost((previous) => (previous == null ? previous : { ...previous, hostMode: event.hostMode, detail: null }));
+      setServiceReachable(event.serviceReachable);
+      if (!event.serviceReachable) {
+        setErr(`背景 service 失聯：${event.reason ?? '無回應'}（重試連線中）`);
+        return;
+      }
+      setErr(null);
+      discovery.getActiveRun()
+        .then((snapshot) => {
+          if (disposed) return;
+          if (snapshot != null) dispatch({ type: 'snapshot', snapshot, adopt: true });
+        })
+        .catch((error) => {
+          if (!disposed) setErr(String(error));
+        });
+    })
+      .then((stop) => {
+        if (disposed) stop();
+        else unlisten = stop;
+      })
+      .catch(() => {
+        // Same as above: nothing to subscribe to outside Tauri.
+      });
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
+  }, []);
+
   async function act(action: PendingAction, work: () => Promise<void>): Promise<void> {
     setPending(action);
     setErr(null);
@@ -245,9 +304,30 @@ export function DiscoveryPanel({ liveContext, onMessage }: DiscoveryPanelProps):
     dispatch({ type: 'snapshot', snapshot: await discovery.progress(run.runId), adopt: false });
   });
 
+  // P04b: hand the workspace to the background service, or take it back. The
+  // backend rejects with a `CommandError` whose message already names the
+  // mode it fell back to; the status is re-read either way so the badge
+  // never shows a mode the backend is not in.
+  const switchHost = (): Promise<void> => act('host', async () => {
+    if (host == null) return;
+    const entering = host.hostMode === 'desktop-embedded';
+    try {
+      const status = entering ? await runtime.enterBackgroundMode() : await runtime.exitBackgroundMode();
+      setHost(status);
+      onMessage(entering
+        ? '研究已交給背景 service；關閉視窗不會中斷進行中的探索'
+        : '已停止背景 service，研究回到桌面內建模式');
+    } catch (error) {
+      runtime.hostStatus().then(setHost).catch(() => undefined);
+      throw new Error(isCommandError(error) ? error.message : String(error));
+    }
+  });
+
   const active = run != null && !isTerminalStatus(run.status);
   const busy = pending != null;
   const canStart = liveContext != null && !active && !busy;
+  const hostLost = host?.hostMode === 'desktop-connect' && !serviceReachable;
+  const serviceMissing = host?.hostMode === 'desktop-embedded' && !host.serviceExecutablePresent;
 
   return (
     <section style={{ ...S.card, marginTop: 12 }}>
@@ -265,6 +345,35 @@ export function DiscoveryPanel({ liveContext, onMessage }: DiscoveryPanelProps):
           <span data-testid="discovery-status" style={{ fontSize: 11, color: t.color.muted }}>
             {run.name} · {STATUS_LABEL[run.status]}
           </span>
+        )}
+        {host != null && (
+          <span
+            data-testid="host-mode"
+            data-host-mode={host.hostMode}
+            title={host.hostMode === 'desktop-connect'
+              ? '研究在背景 service 程序中執行；關閉本視窗不會中斷'
+              : host.hostMode === 'desktop-embedded'
+                ? '研究在本視窗的程序中執行；關閉視窗會在 checkpoint 停下'
+                : host.detail ?? undefined}
+            style={{ fontSize: 11, color: hostLost ? t.color.danger : t.color.muted, marginLeft: 'auto' }}
+          >
+            宿主：{HOST_LABEL[host.hostMode]}{hostLost ? '（失聯）' : ''}
+          </span>
+        )}
+        {host != null && host.hostMode !== 'switching' && (
+          <button
+            data-testid="host-mode-toggle"
+            style={{ ...S.btnGhost, padding: '3px 10px' }}
+            onClick={switchHost}
+            disabled={busy || serviceMissing}
+            aria-busy={pending === 'host'}
+            title={serviceMissing ? `找不到 service 程式：${host.serviceExecutable}` : undefined}
+          >
+            {pending === 'host' ? '切換中…' : host.hostMode === 'desktop-connect' ? '收回桌面' : '在背景繼續'}
+          </button>
+        )}
+        {host?.hostMode === 'switching' && host.detail != null && (
+          <span data-testid="host-detail" style={{ fontSize: 11, color: t.color.danger }}>{host.detail}</span>
         )}
       </div>
 

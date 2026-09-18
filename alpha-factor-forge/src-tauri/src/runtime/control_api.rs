@@ -79,9 +79,7 @@ pub struct ControlToken(String);
 impl ControlToken {
     /// 32 bytes from the OS CSPRNG (`getrandom`), as lowercase hex.
     pub fn generate() -> io::Result<Self> {
-        let mut bytes = [0u8; TOKEN_HEX_LEN / 2];
-        getrandom::fill(&mut bytes).map_err(|error| io::Error::other(format!("os randomness: {error}")))?;
-        Ok(Self(hex::encode(bytes)))
+        Ok(Self(random_hex(TOKEN_HEX_LEN / 2)?))
     }
 
     /// Accept exactly what `generate` produces (after trimming whitespace).
@@ -106,6 +104,14 @@ impl fmt::Debug for ControlToken {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("ControlToken(<redacted>)")
     }
+}
+
+/// `bytes` bytes from the OS CSPRNG (`getrandom`) as lowercase hex: the
+/// control token, and the request ids a proxying desktop mints (P04b).
+pub fn random_hex(bytes: usize) -> io::Result<String> {
+    let mut buffer = vec![0u8; bytes];
+    getrandom::fill(&mut buffer).map_err(|error| io::Error::other(format!("os randomness: {error}")))?;
+    Ok(hex::encode(buffer))
 }
 
 /// Byte-wise comparison whose duration does not depend on where the inputs
