@@ -100,6 +100,12 @@ connect 模式的 bridge（`runtime/connect.rs` forwarder）自己執行 §3 的
 若無活躍 run（跟隨中的 run 已終止，正是 Done 列缺失時的情況）改讀該 run 的 `discovery.progress`。失聯時
 forwarder 持續重新讀取 manifest 並以 §4 規則核對（同 workspaceId、instanceId、協定版本、schema），拒絕其他
 workspace 的端點；成功後替換桌面的 proxy 並通知重讀；帳本 eventId 跨 service 重啟不重用，cursor 沿用。
+
+初始化不得把第一頁帳本的版本當成視窗已讀取的版本：bridge 在第一頁保守要求一次重讀，該頁若有 gap
+同樣必須通知。視窗先完成 discovery／host／resnapshot 的訂閱，再讀初始 snapshot，涵蓋 listener 就緒前
+已發出的通知。重讀依序執行；讀取途中收到缺口或 Done 通知時，丟棄過時回應並再讀一次，若 active 已空則
+以剛讀到或已跟隨的 runId 讀 progress。bridge 記錄的是已觀察／通知的 marker，並非 UI 的版本確認；
+同一 marker 後續不重複通知，視窗讀取失敗須顯示錯誤與資料可能過時的提示。
 take-back 的 `stop` 失敗時桌面維持 connect 且 forwarder 不中斷。
 
 ---

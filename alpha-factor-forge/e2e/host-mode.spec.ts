@@ -1,5 +1,22 @@
 import { test, expect } from '@playwright/test';
 
+test('the initial read covers a gap announced before the window listener existed', async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.goto('/?mock=1&hostMode=desktop-connect&discoveryRun=paused&discoveryStartupGap=before-listener', { waitUntil: 'domcontentloaded' });
+  await page.getByTestId('discovery-toggle').click();
+  await expect(page.getByTestId('discovery-status')).toContainText('已暫停');
+  await expect(page.getByTestId('discovery-progress')).toContainText('完成 2/4');
+});
+
+test('a gap during the initial snapshot triggers another read and recovers the missing Done', async ({ page }) => {
+  await page.goto('/?mock=1&hostMode=desktop-connect&discoveryRun=paused&discoveryStartupGap=during-snapshot', { waitUntil: 'domcontentloaded' });
+  await page.getByTestId('discovery-toggle').click();
+  await expect(page.getByTestId('discovery-status')).toContainText('已完成');
+  await expect(page.getByTestId('discovery-progress')).toContainText('完成 4/4');
+  await expect(page.getByTestId('discovery-cancel')).toBeDisabled();
+  await expect(page.getByText('已重新讀取進度')).toBeVisible();
+});
+
 // P04b — the host-mode badge and the two switches in the discovery panel,
 // driven by the DEV-only mock host. The mock goes through 'switching' with a
 // delay, announces the change on `runtime://host` with the real payload shape
