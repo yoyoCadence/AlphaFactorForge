@@ -161,7 +161,7 @@ OS 鎖的程序。** 搶占的唯一途徑是原程序釋放或作業系統回�
 ### 4.1 service 宿主生命週期（`runtime/service.rs`）
 
 1. `run`：以 §1.2 順序取得 lease（host kind `service`）→ 建 §2 dispatcher（host sink 只喚醒 long-poll 讀者）→ 綁定 port → 發布 manifest 與 token → 服務。
-2. `POST /v1/shutdown`（或 `stop` 子命令）：立即拒絕 mutating 命令（503 `Busy`、`retryable=true`，因為從未預約，同 requestId 可交給下一個 owner），讀取命令照常；對每個活著的 coordinator 發 pause，等待其在**本 epoch** 提交 Paused checkpoint 並退出（上限 60 s）；停止監聽；**先撤下 manifest／token、再釋放 lease**（避免刪到下一個 owner 剛發布的檔案）。
+2. `POST /v1/shutdown`（或 `stop` 子命令）：shutdown 與 mutating 命令 admission 共用鎖，停止接納後回 503 `Busy`、`retryable=true`（未預約，同 requestId 可交給下一個 owner），讀取命令照常。已接納的命令計數涵蓋完整 dispatch（含等待 requestId claim），不能只檢查當下已有的 coordinator。持續掃描 coordinator，以不等待 worker 的方式請求 pause，等它們在**本 epoch** 提交 checkpoint 並退出，且已接納命令數歸零，才停止監聽；**先撤下 manifest／token、再釋放 lease**（避免刪到下一個 owner 剛發布的檔案）。每輪 drain 的期限 60 s，逾時回報未完成並保留 lease／端點繼續等待，不能把逾時當作安全交接；`stop` 等待 90 s 仍未完成會回錯誤，不宣稱已停止。明確終止程序仍屬下一點的崩潰恢復路徑。
 3. 沒有 signal handler：Ctrl+C／kill 等同崩潰，由下一個 owner 的啟動 recovery 處理（run 變 paused）；留下的 manifest 因 `/v1/info` 不回應或 `instanceId` 不符而被 `stop`／`status` 判為過期，不會被誤用。
 4. 預設資料目錄 = `dirs::data_dir()/com.alphafactorforge.desktop`（與 tauri `app_data_dir` 同一解析），`--data-dir` 可覆寫（隔離工作區、測試）。
 

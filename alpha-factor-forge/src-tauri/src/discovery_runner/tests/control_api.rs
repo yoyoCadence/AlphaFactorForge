@@ -12,7 +12,7 @@ use crate::runtime::control_client::ControlClient;
 use crate::runtime::service;
 
 struct Served {
-    server: ControlServer,
+    server: Arc<ControlServer>,
     token: ControlToken,
     runner: DiscoveryRunner,
     workspace: String,
@@ -69,7 +69,7 @@ fn served_gated_runner(db: &SharedDb) -> Served {
         pid: std::process::id(),
     };
     let server = ControlServer::bind(dispatcher, token.clone(), identity, notifier).unwrap();
-    Served { server, token, runner, workspace, gate, started_rx }
+    Served { server: Arc::new(server), token, runner, workspace, gate, started_rx }
 }
 
 fn event_channels(page: &Value) -> Vec<(&str, i64)> {
@@ -79,6 +79,80 @@ fn event_channels(page: &Value) -> Vec<(&str, i64)> {
         .iter()
         .map(|event| (event["channel"].as_str().unwrap(), event["eventId"].as_i64().unwrap()))
         .collect()
+}
+
+#[test]
+fn review_drain_deadline_includes_the_pause_wait() {
+    let db = migrated_db();
+    let (dataset_id, hash) = import_dataset(&db, &alternating_candles(240, 1_577_836_800_000));
+    let served = served_gated_runner(&db);
+    let run = served.client().dispatch(&served.envelope("start", "discovery.start", runner_config(dataset_id, &hash, 2)))
+        .unwrap().unwrap()["runId"].as_i64().unwrap();
+    served.started_rx.recv_timeout(TEST_TIMEOUT).unwrap();
+    served.server.request_shutdown();
+    let (tx, rx) = mpsc::channel();
+    let runner = served.runner.clone();
+    let server = served.server.clone();
+    let drainer = thread::spawn(move || {
+        let drained = service::drain(&runner, &server, Duration::from_millis(100));
+        tx.send(drained).unwrap();
+    });
+    wait_for_phase(&served.runner, run, ControlPhase::PauseRequested);
+    let before_worker = rx.recv_timeout(Duration::from_secs(1));
+    // Clean up even when testing the broken implementation.
+    served.gate.release();
+    drainer.join().unwrap();
+    wait_for_coordinator_exit(&served.runner, run);
+    assert_eq!(before_worker, Ok(false), "drain deadline includes the pause wait and reports incomplete work");
+}
+
+#[test]
+fn review_shutdown_waits_for_an_admitted_start_before_draining_its_coordinator() {
+    let db = migrated_db();
+    let (dataset_id, hash) = import_dataset(&db, &alternating_candles(240, 1_577_836_800_000));
+    let served = served_gated_runner(&db);
+    let (admitted_tx, admitted_rx) = mpsc::channel();
+    let (go_tx, go_rx) = mpsc::channel();
+    served.server.after_admission(move || {
+        admitted_tx.send(()).unwrap();
+        go_rx.recv_timeout(TEST_TIMEOUT).unwrap();
+    });
+    let client = served.client();
+    let envelope = served.envelope("start", "discovery.start", runner_config(dataset_id, &hash, 2));
+    let starter = thread::spawn(move || client.dispatch(&envelope).unwrap().unwrap());
+    admitted_rx.recv_timeout(TEST_TIMEOUT).unwrap();
+    served.server.request_shutdown();
+    let (tx, rx) = mpsc::channel();
+    let runner = served.runner.clone();
+    let server = served.server.clone();
+    let drainer = thread::spawn(move || {
+        let drained = service::drain(&runner, &server, TEST_TIMEOUT);
+        tx.send(drained).unwrap();
+    });
+    let returned_before_start = rx.recv_timeout(Duration::from_millis(300)).is_ok();
+    go_tx.send(()).unwrap();
+    let run = starter.join().unwrap()["runId"].as_i64().unwrap();
+    // Broken drain has returned already; request a pause solely for cleanup.
+    let cleanup = if returned_before_start {
+        let runner = served.runner.clone();
+        let db = db.clone();
+        Some(thread::spawn(move || runner.pause(&db, run)))
+    } else { None };
+    let deadline = Instant::now() + TEST_TIMEOUT;
+    loop {
+        let phase = served.runner.control(run).unwrap().map(|c| c.state.lock().unwrap().phase);
+        if matches!(phase, Some(ControlPhase::PauseRequested | ControlPhase::Paused))
+            || served.runner.progress(&db, run).unwrap().status == RunStatus::Paused { break; }
+        assert!(Instant::now() < deadline, "shutdown must discover and pause the admitted start");
+        thread::sleep(Duration::from_millis(5));
+    }
+    served.gate.release();
+    if let Some(cleanup) = cleanup { cleanup.join().unwrap().unwrap(); }
+    drainer.join().unwrap();
+    wait_for_coordinator_exit(&served.runner, run);
+    assert!(!returned_before_start, "an admitted request must not create a coordinator after drain has returned");
+    assert!(rx.recv_timeout(TEST_TIMEOUT).unwrap(), "both the admitted command and coordinator drained");
+    assert_eq!(served.runner.progress(&db, run).unwrap().status, RunStatus::Paused);
 }
 
 /// P04 acceptance, "關 UI 工作持續；重連採用同一 run": the client that started
@@ -194,9 +268,9 @@ fn a_draining_service_pauses_the_run_at_a_checkpoint_the_next_owner_resumes() {
     let (drained_tx, drained_rx) = mpsc::channel();
     let drainer = {
         let runner = served.runner.clone();
-        let db = db.clone();
+        let server = served.server.clone();
         thread::spawn(move || {
-            service::drain(&runner, &db, TEST_TIMEOUT);
+            assert!(service::drain(&runner, &server, TEST_TIMEOUT));
             let _ = drained_tx.send(());
         })
     };
@@ -213,7 +287,7 @@ fn a_draining_service_pauses_the_run_at_a_checkpoint_the_next_owner_resumes() {
     assert_eq!(served.runner.progress(&db, run_id).unwrap().status, RunStatus::Paused);
     assert_eq!(served.runner.progress(&db, run_id).unwrap().counts.completed_candidates, 1);
     let Served { server, .. } = served;
-    server.stop();
+    Arc::try_unwrap(server).ok().expect("no other server handles").stop();
 
     // The next owner: a fresh epoch, and no orphan to repair.
     let epoch = acquire(&mut db.lock().unwrap(), HolderKind::DesktopEmbedded, 1).unwrap().epoch;

@@ -4,7 +4,7 @@ Date: 2026-09-17
 Repo: yoyoCadence/AlphaFactorForge
 Branch: `docs/p00-contract-precheck`（P03b 第四次驗收通過 `1030e2f` 之後續做；本機 git，GitHub 仍鎖）
 PR: 尚未建立
-Status: 實作完成、本機驗證通過（Rust 232／Vitest 874），待 Codex 驗收；P04b（桌面 connect 模式）另行授權
+Status: Codex 驗收發現 4 項並依使用者授權直接修正；修正後本機驗證通過（2026-09-18，Rust 236／Vitest 874），未 commit／push；P04b 尚未開始
 
 ## Summary
 
@@ -154,3 +154,57 @@ UI 端證明屬 P04b。
 ## Resolution (added when acted on)
 
 （待補：Codex 驗收結果、push／PR 編號。）
+
+## Resolution — P04a 驗收與直接修正（2026-09-18，Codex）
+
+受驗 commit `06dace8`，沿用 `docs/p00-contract-precheck`；開始時 worktree 乾淨。
+使用者要求「有問題請直接修正，沒問題請繼續下個任務」。本次發現以下四項，故執行修正分支，
+P04b 維持 Next eligible。原始 232 項 Rust 測試全過，但新增回歸在各自未修版本上失敗。
+
+### H1 — shutdown 漏掉已接納、尚未建立 coordinator 的命令
+
+- `control_api::commands` 原先單獨檢查 AtomicBool，隨後直接 dispatch；`service::drain` 只掃描既有
+  coordinator。把 start 停在通過檢查、執行前，再送 shutdown，drain 會立即返回；start 放行後仍建立 run。
+  實際 service 因而可能撤下端點並釋放 lease 時，舊命令仍在執行。
+- 修正：shutdown 與 admission 使用同一個 mutex，RAII guard 計數涵蓋整段 mutating dispatch；
+  drain 先讀已接納命令數、再掃 coordinator，持續請求後來出現的 coordinator 暫停，兩者都清空才完成。
+  reads 不占 admission；拒絕的新命令不產生 reservation。stop/drop server 也先關閉 admission。
+- 回歸 `review_shutdown_waits_for_an_admitted_start_before_draining_its_coordinator`：server-local
+  `#[cfg(test)]` hook 確定性地停在 admission 之後；修正前 drain 提早返回，修正後等待 start 與其 checkpoint。
+
+### H2 — drain 期限不包含 pause 等待
+
+- 原實作先呼叫同步 `runner.pause`，等 worker 完成才開始計算 60 s；worker 未返回時期限完全無效。
+- 修正：新增非阻塞的 `request_pause_for_shutdown`，只提出 PauseRequested，不等待 worker；
+  若 control 暫時被鎖住則下一輪重試，既有使用者 pause 的 requestId 保留。drain 從開始即計算期限，
+  到期回 `false` 表示未完成。service 保留 ownership 與 endpoint 繼續 drain；避免把仍可能寫入的
+  命令／coordinator 留在已釋放的工作區。`stop` 在自己的期限到期後仍會如實報錯。
+- 回歸 `review_drain_deadline_includes_the_pause_wait`：gated worker 不放行，100 ms 的 drain
+  必須在 1 s 內回未完成；未修版本必須放行 worker 才能返回。測試釋放 worker 並清理 coordinator。
+- **取代上方原交付的「超過 60 s 就釋放」說明**：60 s 是每輪 drain 的期限，不是強制交出 lease 的期限；
+  契約 §4.1 已同步修正。正常 stop 仍等 checkpoint、撤端點、再釋放；強制終止仍為崩潰恢復路徑。
+
+### M1 — 分段 HTTP head 可越過 16 KiB 上限
+
+- 原 parser 找到 terminator 就離開讀取迴圈，未檢查該次讀取後的 head 大小。
+  16 KiB + 10 bytes、每段 2047 bytes 的輸入可成功解析。
+- 修正在接受 terminator 前檢查完整 head 長度（含 terminator）。回歸
+  `review_head_limit_holds_when_the_terminator_arrives_in_the_last_read` 用固定 1／2047／2048-byte
+  分段驗證全部回 431；不依賴 TCP 分段時序。
+
+### M2 — status 把身分不符的端點當成 live
+
+- `stop` 有比對身分，`status` 卻直接使用 info。真實 service 上將 manifest 的 instanceId 或
+  workspaceId 改成其他值，未修版本仍回 live。
+- 修正 `status` 同時核對 instanceId／workspaceId，不符則 live=null 並附 reason；CLI 因而回 exit 4。
+  `review_status_rejects_a_live_endpoint_with_a_different_identity` 逐一替換兩欄，清理 service 後斷言。
+
+### 修正後驗證與交接
+
+- `cargo test --locked`：**236 passed（52 + 182 + 2）**，包含真實 service binary smoke。
+- `cargo check --locked`：0 warning；`cargo clippy --locked --all-targets` 成功，只有 core 既存 4 項 warning。
+- `npm.cmd test`：**874 passed**；typecheck／build 通過；`git diff --check` 通過。
+- 未新增依賴或 migration；測試使用 memory DB／隔離暫存 workspace，未操作使用者的 app-data DB。
+- 本次未跑 Playwright／原生 Tauri 桌面，也未測舊 migration 0006 workspace 升級。原交付揭露的
+  Windows 繼承 ACL、無 signal handler、service 未包進安裝包等限制維持；不把本次測試當成其驗證。
+- 四項修正與回歸已留在工作目錄，未 commit／push；桌面 connect／背景切換／native smoke 仍屬 P04b。

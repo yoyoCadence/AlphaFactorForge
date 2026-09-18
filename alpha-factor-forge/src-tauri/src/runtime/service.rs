@@ -36,7 +36,7 @@ use super::control_api::{
     MANIFEST_VERSION, SERVICE_VERSION,
 };
 use super::control_client::{ClientError, ControlClient};
-use super::{open_workspace_with, SharedDb};
+use super::open_workspace_with;
 use crate::discovery_runner::DiscoveryRunner;
 use crate::db::ownership::{HolderKind, HEARTBEAT_PERIOD};
 use crate::db::{self, discovery::RecoveryReport};
@@ -58,8 +58,8 @@ pub const EXIT_SCHEMA_TOO_NEW: i32 = 3;
 pub const EXIT_NO_SERVICE: i32 = 4;
 pub const EXIT_USAGE: i32 = 64;
 
-/// How long `run` waits for paused coordinators to exit before it releases
-/// the workspace anyway (the next owner's recovery then pauses them).
+/// One drain attempt's deadline. A timeout is not permission to release
+/// ownership while admitted commands or coordinators are still alive.
 pub const DRAIN_TIMEOUT: Duration = Duration::from_secs(60);
 /// How long `stop` waits for the service to go away after it accepted.
 pub const STOP_TIMEOUT: Duration = Duration::from_secs(90);
@@ -267,7 +267,9 @@ pub fn run(data_dir: &Path, options: RunOptions) -> Result<(), ServiceError> {
         }
     }
 
-    drain(&workspace.discovery, &workspace.db, options.drain_timeout);
+    while !drain(&workspace.discovery, &server, options.drain_timeout) {
+        log("drain deadline elapsed; retaining ownership until admitted work exits");
+    }
     // Withdraw the endpoint BEFORE the lock is released: the moment it is
     // free the next owner may publish its own manifest, which must not be
     // the one removed here.
@@ -280,33 +282,32 @@ pub fn run(data_dir: &Path, options: RunOptions) -> Result<(), ServiceError> {
     Ok(())
 }
 
-/// Ask every live coordinator to pause and wait for them to exit. A
-/// coordinator that cannot be paused (already pausing or cancelling, or a
-/// stale epoch) exits on its own; one still alive at the deadline is left
-/// to the next owner's startup recovery, which pauses it.
-pub(crate) fn drain(runner: &DiscoveryRunner, db: &SharedDb, timeout: Duration) {
-    match runner.active_coordinator_run_ids() {
-        Ok(run_ids) => {
-            for run_id in run_ids {
-                match runner.pause(db, run_id) {
-                    Ok(()) => log(format!("pausing run {run_id}")),
-                    Err(error) => log(format!("run {run_id} not paused ({error}); waiting for its coordinator")),
-                }
-            }
-        }
-        Err(error) => log(format!("cannot list coordinators: {error}")),
-    }
+/// Stop admission, request checkpoints without blocking on a worker, and
+/// wait for BOTH admitted commands and their coordinators. A command may
+/// still be preparing a start/resume when shutdown arrives, so rescan on
+/// every poll. False means timed out: the caller must retain ownership.
+pub(crate) fn drain(runner: &DiscoveryRunner, server: &ControlServer, timeout: Duration) -> bool {
+    server.request_shutdown();
     let deadline = Instant::now() + timeout;
     loop {
-        let remaining = runner.active_coordinator_run_ids().unwrap_or_default();
-        if remaining.is_empty() {
-            return;
+        // Sample admissions first: once zero after shutdown, no command
+        // can subsequently register another coordinator.
+        let mutations = server.active_mutations();
+        match runner.active_coordinator_run_ids() {
+            Ok(remaining) => {
+                if mutations == 0 && remaining.is_empty() { return true; }
+                for run_id in remaining {
+                    if let Err(error) = runner.request_pause_for_shutdown(run_id) {
+                        log(format!("run {run_id} not paused ({error}); retaining ownership"));
+                    }
+                }
+            }
+            Err(error) => log(format!("cannot list coordinators: {error}")),
         }
         if Instant::now() >= deadline {
-            log(format!("coordinators {remaining:?} still active after {timeout:?}; releasing the workspace anyway"));
-            return;
+            return false;
         }
-        thread::sleep(Duration::from_millis(50));
+        thread::sleep(Duration::from_millis(50).min(deadline.saturating_duration_since(Instant::now())));
     }
 }
 
@@ -362,7 +363,10 @@ pub fn status(data_dir: &Path) -> Result<Option<Value>, ServiceError> {
     let live = ControlClient::new(manifest.port, token).info();
     let mut status = json!({ "manifest": manifest, "live": Value::Null });
     match live {
-        Ok(info) => status["live"] = info,
+        Ok(info) if info["instanceId"] == manifest.instance_id && info["workspaceId"] == manifest.workspace_id => {
+            status["live"] = info;
+        }
+        Ok(_) => status["reason"] = json!("the endpoint answers for another instance or workspace"),
         Err(error) => status["reason"] = json!(error.to_string()),
     }
     Ok(Some(status))
@@ -554,6 +558,28 @@ mod tests {
         assert!(status["live"].is_null());
         assert!(status["reason"].as_str().unwrap().contains("connection"));
         assert!(control_api::read_endpoint_files(&dir).unwrap().is_some(), "stop does not delete what it did not verify");
+    }
+
+    #[test]
+    fn review_status_rejects_a_live_endpoint_with_a_different_identity() {
+        let dir = fresh_dir();
+        let _guard = TempDir(dir.clone());
+        let service_dir = dir.clone();
+        let service = thread::spawn(move || run(&service_dir, fast_options()));
+        let (manifest, token) = wait_for_manifest(&dir);
+        let mut rejected = Vec::new();
+        for field in ["instance", "workspace"] {
+            let mut stale = manifest.clone();
+            if field == "instance" { stale.instance_id = "stale-instance".into(); }
+            else { stale.workspace_id = "stale-workspace".into(); }
+            control_api::write_endpoint_files(&dir, &stale, &token).unwrap();
+            let observed = status(&dir).unwrap().unwrap();
+            rejected.push(observed["live"].is_null() && observed["reason"].as_str().is_some());
+        }
+        control_api::write_endpoint_files(&dir, &manifest, &token).unwrap();
+        assert_eq!(stop(&dir, TEST_TIMEOUT).unwrap(), StopOutcome::Stopped);
+        service.join().unwrap().unwrap();
+        assert_eq!(rejected, vec![true, true], "a responsive endpoint is not proof of the published identity");
     }
 
     #[test]
