@@ -417,3 +417,38 @@ Base：`c5832be`；分支 `docs/p00-contract-precheck`，開始時 worktree clea
   migration 0006 workspace 升級驗證。Playwright／原生 Tauri 未執行。上述結果不延伸為這些範圍的通過證明。
 - **交接**：P03b 本次複驗通過；P04 仍待使用者另行授權。本次只更新本 handoff，保留先前驗收歷史，
   未修改產品程式碼，未 commit／push。
+
+## Resolution — 複驗 R1／M1 修正與回歸（2026-09-17，Claude Code）
+
+使用者要求修正；沿用 ，保留上方兩次驗收紀錄。
+
+- **R1 已關閉（第一次結果不可變重播）**： 改為 （migration 0006 於本分支
+  未 push 前直接改寫；註明於此），每列記錄命令的**不可變第一次結果**：（開始改狀態）→ 
+  （）／（錯誤訊息），只有  可被覆蓋。寫入時機＝決定該結果的 store transaction：
+  - ：run row 建立 → ；初始 checkpoint（）→ ；
+     失敗 → 獨立 ；checkpoint 失敗 →  內 。
+  - ：Paused→Running → ；checkpoint → ；checkpoint 失敗 → fail tx 內 。
+  - ：request id 掛在 ，由**解決它的那個 transaction** 記錄：drain 的 Paused 轉換或
+    completion 勝出 → ；run failure → （）；cancel 搶先 → 
+    （）。訊息由同一組函式產生， 醒來後回答的就是被記錄的那句。
+  - ：cancel tx 內 。
+  - coordinator 在 acceptance 之後 spawn 失敗：改為 **run 失敗**（status＋Done 事件）而非命令 Err，避免與已記錄的
+     矛盾（thread spawn 失敗僅在 OS 資源耗盡時發生）。
+  ：執行中 → pending；有列 →  逐字重播（accepted→Ok、rejected→同一
+   對映＋、begun→「never completed its admission」終局錯誤）並補回條；無列 → 首次執行。
+  無 domain 變更的失敗若回條也寫不進去 → 回覆  並註明「could not be recorded」（-only 不算已記錄）。
+- **M1 已關閉**： 改為 gap 版本 **嚴格大於** snapshot 版本才要求重讀；補完整循環測試
+  （發現 gap → 以該版本重讀 snapshot → 同頁不再要求；更新的 gap 仍觸發）。
+- **回歸（）**：（拒絕回條；
+  worker 失敗使 run Failed；重送仍 Ok、run 數 1、回條修為 succeeded）、
+  （拒絕 jobs INSERT＋回條；第一次 Err；重送逐字同一 Err、run 仍 idle 無 jobs）、
+  （再拒絕 request_outcomes UPDATE；第一次為未記錄的 retryable 錯誤；重送得「never completed its admission」、不建第二個 run）、
+  （單 candidate；PauseRequested 後放行→completion 勝出→pause Ok；重送 Ok）、
+  （ 拒絕 checkpoint；第一次 Err；重送同一 Err、不再 resume）。
+  突變檢查：accepted 列改為推斷失敗 → case 1 紅；不記錄 partial-start rejection → case 2 紅；completion 不記錄 pause → case 3 紅；
+  還原後全綠。
+- 其餘只給測試用的無結果 wrapper（／）改 ，一般 build 0 warning。
+- **驗證**： **201 passed（52 + 149）**； **874**；typecheck／build 通過；clippy 新模組無 warning；
+  暫存目錄無殘留。Playwright 未重跑（無 UI 變更）；原生 Tauri 未執行。
+- 殘餘限制（如實記錄）：coordinator 的 fail／complete／cancel transaction 本身失敗時， 仍依 phase 回答但沒有持久列
+  （DB 層故障）；帳本 append 仍在 runner commit 之後、非同一 transaction，由 ／ 補救。
