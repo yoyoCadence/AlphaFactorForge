@@ -4,7 +4,7 @@ Date: 2026-09-18
 Repo: yoyoCadence/AlphaFactorForge
 Branch: `docs/p00-contract-precheck`（P04a 驗收修正 `757b9f5` 之後續做；本機 git，GitHub 仍鎖）
 PR: 尚未建立
-Status: 驗收 H1／H2／M1 已修正並有確定性回歸（2026-09-18，Rust 246／Vitest 879／Playwright 73）；待複驗後再進 P05
+Status: H1／M1 已關閉；H2 首頁競態已修正並驗證（2026-09-19，見最後 Resolution）；修正未 commit／push，P05 尚未開始
 
 ## Summary
 
@@ -241,3 +241,78 @@ P04a 四項修正已在 `757b9f5` 提交；本次檢查 P04b 桌面接線、切�
   `code-validation.spec.ts` 首次導覽逾時為 dev server 冷啟動，非產品問題，未改測試）。原生桌面視窗操作未重跑。
 - 範圍說明：`ServiceProxy::progress/active` 仍回傳 legacy snapshot 形狀（不含 stateVersion）；版本比對由 bridge 執行並以
   `runtime://resnapshot` 通知，視窗不需知道版本。嵌入模式的 emit 失敗行為未改（非本次範圍）。
+
+## Review — 第二次驗收：H1／M1 通過，H2 尚未關閉（2026-09-18，Codex）
+
+受驗 commit `ea9fa2b`，分支 `docs/p00-contract-precheck`，開始時 worktree 乾淨。
+
+- **H1 關閉**：stop 失敗分支在停止 forwarder 前即回復 Connected，原轉送器仍運作。
+  `a_failed_take_back_keeps_forwarding_the_services_events` 實跑通過，含失敗後新的 run 完成與 Done 轉送。
+- **M1 關閉**：重新發現使用預期 workspaceId 驗證 manifest／info／協定／schema，成功後替換
+  命令端共用的 proxy，沿用持久 cursor；另一 workspace 的端點會被拒絕。
+  `a_restarted_service_is_rediscovered_and_another_workspaces_endpoint_is_refused` 實跑通過，
+  包含重啟後的讀取、命令與 Done 轉送。
+
+### H2（High，仍開啟）— 第一頁不等於視窗已涵蓋的 snapshot
+
+- 位置：`alpha-factor-forge/src-tauri/src/runtime/connect.rs:353–395`。`known_version/known_gap`
+  初始為 None，第一頁在 `primed=false` 時跳過所有 gap／版本檢查，然後把該頁版本與 gap 記成已知。
+  程式註解假設視窗「around now」的 snapshot 已包含它們，但兩者沒有順序或版本交握。
+- 視窗可先讀到 running，接著 coordinator 完成且 Done append 失敗；forwarder 第一頁才讀到該缺口。
+  由於第一頁被當成已涵蓋，後續同一 gap／版本也不再通知，視窗仍可永久停在 running。
+  這是前次 H2 的首頁時序變體，並非新增其他 phase 的需求。
+- **確定性重現**（真實 runner、Dispatcher、HTTP、gated executor；無產品路徑修改）：
+  1. 啟動單 candidate run，worker 暫停；讀取真實 `discovery.active` 得 running、stateVersion=5，保存 cursor。
+  2. SQLite TEMP TRIGGER 只拒絕 Done 帳本列；放行 worker，DB completed，gap={epoch:1,stateVersion:7}。
+  3. 讓 forwarder 以保存的 cursor 讀第一頁，代表其背景執行緒第一次讀取晚於視窗 snapshot。
+     它轉送 result／progress，但沒有 Done；再等超過一個 5 s poll，仍沒有重讀通知。
+  4. `review_first_page_gap_after_the_window_snapshot_must_not_be_assumed_covered` 失敗：
+
+     ```text
+     snapshotVersion=5, gap={"epoch":1,"stateVersion":7}, rereads=[]
+     a gap newer than the real window snapshot must request reconciliation even on the first page
+     ```
+
+- **修正要求**：不能由第一次 events page 推斷視窗已涵蓋的版本。建立初始化的 snapshot／事件訂閱交握，
+  或在無法證明涵蓋時保守要求重讀（須確保視窗已能收到通知）；以實際 snapshot 涵蓋的版本決定 gap
+  是否已解決，再做同一 marker 的去重。保留既有「後續同一 gap 不無限重讀」回歸，另補本次首頁時序。
+  請勿只靠延長 sleep 讓第一頁先回來，使測試避開競態。
+
+### 本次驗證與工作目錄
+
+- 基線 `cargo test --locked` **246 passed（52 + 192 + 2）**；原作者三條修正回歸皆過，
+  但上述新增首頁 probe 失敗。probe 的 worker／forwarder 已停止、trigger 已移除，臨時測試已移除。
+- `npm.cmd test` **879 passed**；typecheck／build 通過；`cargo check --locked` 0 warning；
+  `cargo clippy --locked --all-targets` 成功，僅 core 既存 4 項 warning。
+- Playwright 聚焦 `e2e/host-mode.spec.ts` **4 passed**，含缺失 Done 後的視窗重讀；本次沒有重跑其餘 69 項。
+- 產品程式碼回到受驗 commit；僅本 handoff 修改，未 commit／push。原生 Tauri 視窗操作未重跑。
+- 下一步只需處理仍開啟的 H2 並複驗；本次不重開已通過的 H1／M1，P05 尚未開始。
+
+## Resolution — H2 首頁競態與初始化訂閱順序（2026-09-19，Codex）
+
+依使用者「請你修正」處理本輪唯一未關閉的 H2。H1／M1 的修正保留；P05 未開始。
+
+- **bridge**：移除第一頁 `primed=false` 跳過 gap 檢查的假設。第一頁若有缺口同樣通知，沒有缺口也因不知
+  視窗涵蓋範圍而保守要求一次同步。`known_version/known_gap` 僅表示已觀察／通知的帳本資訊，並非視窗
+  已讀取的版本；同一 marker 後續不重複通知。
+- **視窗**：合併探索事件與 runtime 事件的初始化，全部訂閱完成後才讀初始 snapshot。因此早於 listener
+  的通知由初始讀取涵蓋，之後的通知會排入重讀。重讀依序執行；讀取途中收到新通知時不採用過時回應，
+  再讀一次。保留剛讀到的 runId，即使第二次 active 已為空，也能讀該 run 的 progress，取回 terminal 狀態。
+  Done 同樣排入此流程，仍立即取消節流並更新終態；只有讀取完成才顯示「已重新讀取進度」。失敗顯示錯誤
+  與資料可能過時提示，僅有排隊中的新通知才再讀，不因失敗自行重試。
+- **Rust 回歸**：`a_first_page_gap_after_the_window_snapshot_requests_reconciliation` 使用真實 Dispatcher／
+  HTTP／runner 與 gated executor：先讀 running snapshot，TEMP TRIGGER 拒絕 Done append，完成後才啟動
+  forwarder。第一頁即要求重讀。原有後續相同 gap 不重複通知測試保留，允許獨立的一次初始同步。
+- **UI 回歸**：DEV mock `discoveryStartupGap=before-listener|during-snapshot` 固定注入兩種時序，沒有 timer
+  或後續事件替畫面補救。前者通知在 listener 安裝前遺失，畫面仍讀到完成數 **2/4**；後者先捕捉 paused
+  snapshot，再完成 run 並只通知缺口，畫面最後讀到 **completed、4/4**，而非停在 paused。
+- **突變檢查**：只還原 bridge → 新 Rust 回歸紅（通知數 **0 != 1**）；只還原面板 → 兩條新 Playwright
+  分別紅於 **1/4 != 2/4**、**已暫停 != 已完成**。UI 首次突變執行的第一條曾開頁逾時，未將逾時算作
+  證據；單獨重跑後取得上述實際狀態斷言失敗。所有突變均以 finally 還原修正。
+- **驗證**：`cargo test --locked` **247 passed（52 + 193 + 2）**；`cargo check --locked` 0 warning；
+  `cargo clippy --locked --all-targets` 僅既有 core 4 項；Vitest **879 passed**；typecheck／build 通過。
+  聚焦 host-mode Playwright **6 passed**；修正版全套 **74 passed + 1 開頁逾時**（`code-validation.spec.ts`
+  的首次 `page.goto`，尚未到產品斷言），使用同一已就緒 dev server 單獨重跑該項 **1 passed**，合計
+  **75 項皆取得通過結果**，不是宣稱全套一次全綠。沒有修改該項測試或放寬 timeout。
+- 文件同步：契約 §1.5、`tasks.md`、`CHANGELOG.md`。本次不變更 wire protocol／schema，採保守初始化同步；
+  原生 Tauri 視窗操作未重跑。修改尚未 commit／push。

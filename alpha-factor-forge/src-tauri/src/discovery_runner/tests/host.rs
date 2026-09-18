@@ -493,18 +493,22 @@ fn a_missing_terminal_ledger_row_makes_the_window_re_read_once() {
     wait_until("the run to complete in the database", || {
         proxy.progress(run_id).map(|run| run["status"] == "completed").unwrap_or(false)
     });
-    wait_until("the window to be told to re-read", || !sink.resnapshots.lock().unwrap().is_empty());
+    wait_until("the window to be told to re-read the gap", || {
+        sink.resnapshots.lock().unwrap().iter().any(|(reason, _)| reason.contains("gap"))
+    });
     let page = proxy.client.events(0, None, Duration::ZERO).unwrap();
     assert!(page["ledgerGap"].is_object(), "the refused append left a gap marker: {page}");
     assert!(!sink.channels().iter().any(|c| c == DISCOVERY_DONE_EVENT), "no Done row could be forwarded");
-    let (reason, at) = sink.resnapshots.lock().unwrap()[0].clone();
+    let (reason, at) = sink.resnapshots.lock().unwrap().iter().find(|(reason, _)| reason.contains("gap")).unwrap().clone();
     assert!(reason.contains("gap"), "{reason}");
     assert_eq!(at, page["stateVersion"].as_i64().unwrap());
     assert_eq!(proxy.progress(run_id).unwrap()["status"], "completed", "what the re-read returns");
 
     // The same marker is not re-announced on later polls.
     thread::sleep(crate::runtime::connect::FORWARD_POLL + Duration::from_millis(500));
-    assert_eq!(sink.resnapshots.lock().unwrap().len(), 1, "{:?}", sink.resnapshots.lock().unwrap());
+    let notifications = sink.resnapshots.lock().unwrap().clone();
+    assert_eq!(notifications.iter().filter(|(reason, _)| reason.contains("gap")).count(), 1, "{notifications:?}");
+    assert!(notifications.len() <= 2, "at most one initial sync plus one gap notification: {notifications:?}");
     assert_eq!(sink.lost.load(Ordering::SeqCst), 0);
 
     connected.db.lock().unwrap().execute_batch("DROP TRIGGER deny_done;").unwrap();

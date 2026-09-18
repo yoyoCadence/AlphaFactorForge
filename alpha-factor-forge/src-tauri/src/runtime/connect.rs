@@ -350,11 +350,11 @@ fn forward_loop(
     let mut current = snapshot_proxy();
     let workspace_id = current.manifest.workspace_id.clone();
     let mut cursor = after;
-    // Facts the window is assumed to have: the version and the gap marker of
-    // the first page (its own snapshot is taken around now and covers them).
+    // Observed ledger metadata, NOT proof of what the window has read. The
+    // first page always requests reconciliation. The window subscribes before
+    // its initial snapshot, covering notifications sent before it was ready.
     let mut known_version: Option<i64> = None;
     let mut known_gap: Option<(i64, i64)> = None;
-    let mut primed = false;
     let mut lost = false;
     while !stop.load(Ordering::SeqCst) {
         match current.client.events(cursor, None, FORWARD_POLL) {
@@ -379,16 +379,16 @@ fn forward_loop(
                     cursor = event_id;
                     forwarded += 1;
                 }
-                if primed {
-                    if gap.is_some() && gap != known_gap {
-                        let (epoch, at) = gap.unwrap_or_default();
-                        resnapshot.get_or_insert_with(|| format!("the ledger has a gap (epoch {epoch}, state version {at})"));
-                    }
-                    if forwarded == 0 && known_version.is_some_and(|known| version > known) {
-                        resnapshot.get_or_insert_with(|| format!("the workspace changed (state version {version}) without a ledger event"));
-                    }
+                if gap.is_some() && gap != known_gap {
+                    let (epoch, at) = gap.unwrap_or_default();
+                    resnapshot.get_or_insert_with(|| format!("the ledger has a gap (epoch {epoch}, state version {at})"));
                 }
-                primed = true;
+                if forwarded == 0 && known_version.is_some_and(|known| version > known) {
+                    resnapshot.get_or_insert_with(|| format!("the workspace changed (state version {version}) without a ledger event"));
+                }
+                if known_version.is_none() {
+                    resnapshot.get_or_insert_with(|| "initial ledger page: window snapshot coverage is unknown".into());
+                }
                 known_version = Some(known_version.map_or(version, |known| known.max(version)));
                 if gap.is_some() {
                     known_gap = gap;

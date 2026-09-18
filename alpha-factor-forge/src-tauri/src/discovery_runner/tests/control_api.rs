@@ -398,7 +398,79 @@ fn the_forwarder_replays_the_ledger_after_its_cursor_in_order_and_exactly_once()
     // Everything the ledger holds after the cursor was forwarded, no more.
     let ledger = client.events(cursor, None, Duration::ZERO).unwrap();
     assert_eq!(ledger["events"].as_array().unwrap().len(), forwarded.len());
-    // Every row was delivered and no gap appeared, so the window was never
-    // told to re-read; nor was the service ever lost.
-    assert_eq!(*recorder.1.lock().unwrap(), Vec::<String>::new());
+    // The bridge does not know the window's snapshot coverage, so it asks
+    // for one initial read. No subsequent gap or disconnection occurred.
+    let notifications = recorder.1.lock().unwrap();
+    assert_eq!(notifications.len(), 1, "{notifications:?}");
+    assert!(notifications[0].contains("initial ledger page"));
+}
+
+/// The window read Running, then the run completed with a missing Done row,
+/// all BEFORE the forwarder's first page. That page cannot prove the window
+/// saw the completion: even the first gap must request reconciliation.
+#[test]
+fn a_first_page_gap_after_the_window_snapshot_requests_reconciliation() {
+    use crate::runtime::connect::{EventForwarder, LedgerEventSink, ServiceProxy};
+    use crate::runtime::control_api::{EndpointManifest, MANIFEST_VERSION, SERVICE_VERSION};
+
+    #[derive(Default)]
+    struct Recorder(Mutex<Vec<(String, i64)>>);
+    impl LedgerEventSink for Recorder {
+        fn emit(&self, _channel: &str, _payload: &Value) -> Result<(), String> { Ok(()) }
+        fn connection_lost(&self, _reason: &str) {}
+        fn connection_restored(&self) {}
+        fn resnapshot_needed(&self, reason: &str, version: i64) {
+            self.0.lock().unwrap().push((reason.into(), version));
+        }
+    }
+
+    let db = migrated_db();
+    let (dataset_id, hash) = import_dataset(&db, &alternating_candles(240, 1_577_836_800_000));
+    let served = served_gated_runner(&db);
+    let client = served.client();
+    let run = client.dispatch(&served.envelope("start", "discovery.start", runner_config(dataset_id, &hash, 1)))
+        .unwrap().unwrap()["runId"].as_i64().unwrap();
+    served.started_rx.recv_timeout(TEST_TIMEOUT).unwrap();
+    let snapshot = client.dispatch(&served.envelope("snapshot", "discovery.active", json!({}))).unwrap().unwrap();
+    assert_eq!(snapshot["run"]["status"], "running");
+    let cursor = client.events(0, None, Duration::ZERO).unwrap()["lastEventId"].as_i64().unwrap();
+
+    db.lock().unwrap().execute_batch(
+        "CREATE TEMP TRIGGER deny_done BEFORE INSERT ON runtime_events
+         WHEN NEW.channel = 'discovery://done' BEGIN SELECT RAISE(ABORT, 'deny_done'); END;",
+    ).unwrap();
+    served.gate.release();
+    wait_for_status(&served.runner, &db, run, RunStatus::Completed);
+    wait_for_coordinator_exit(&served.runner, run);
+    let page = client.events(cursor, None, Duration::ZERO).unwrap();
+    let gap_version = page["ledgerGap"]["stateVersion"].as_i64().unwrap();
+    assert!(gap_version > snapshot["stateVersion"].as_i64().unwrap());
+    assert!(!event_channels(&page).iter().any(|(channel, _)| *channel == DISCOVERY_DONE_EVENT));
+
+    let proxy = Arc::new(Mutex::new(ServiceProxy {
+        manifest: EndpointManifest {
+            manifest_version: MANIFEST_VERSION.into(),
+            port: served.server.port(),
+            workspace_id: served.workspace.clone(),
+            epoch: 1,
+            holder_kind: "service".into(),
+            instance_id: "in-process".into(),
+            pid: std::process::id(),
+            service_version: SERVICE_VERSION.into(),
+            started_at: "2026-09-18T00:00:00Z".into(),
+        },
+        client,
+    }));
+    let recorder = Arc::new(Recorder::default());
+    let forwarder = EventForwarder::spawn(proxy, std::env::temp_dir(), recorder.clone(), cursor).unwrap();
+    let deadline = Instant::now() + TEST_TIMEOUT;
+    while recorder.0.lock().unwrap().is_empty() && Instant::now() < deadline {
+        thread::sleep(Duration::from_millis(10));
+    }
+    forwarder.stop();
+    db.lock().unwrap().execute_batch("DROP TRIGGER deny_done;").unwrap();
+    let notifications = recorder.0.lock().unwrap();
+    assert_eq!(notifications.len(), 1, "a first-page gap newer than the window snapshot must request reconciliation");
+    assert!(notifications[0].0.contains("gap"));
+    assert_eq!(notifications[0].1, gap_version);
 }

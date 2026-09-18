@@ -604,8 +604,18 @@ export function makeMockClient() {
       emitDone(run);
     },
     progress: async (runId: number) => snapshot(requireMockRun(runId)),
-    getActiveRun: async () =>
-      mockRun != null && !isTerminalMockStatus(mockRun.status) ? snapshot(mockRun) : null,
+    getActiveRun: async () => {
+      const active = mockRun != null && !isTerminalMockStatus(mockRun.status) ? snapshot(mockRun) : null;
+      if (active != null && startupGap === 'during-snapshot') {
+        startupGap = null;
+        // The read captured a paused run; it completes before that response
+        // reaches the window. Done is absent, and only the gap is announced.
+        mockRun!.status = 'completed';
+        mockRun!.completed = mockRun!.total;
+        announceStartupGap();
+      }
+      return active;
+    },
   };
 
   function requireMockRun(runId: number): MockRun {
@@ -662,6 +672,13 @@ export function makeMockClient() {
   let switchFails = mockHostSwitchFails();
   const hostHandlers = new Set<(event: HostEvent) => void>();
   const resnapshotHandlers = new Set<(event: ResnapshotEvent) => void>();
+  // Deterministic startup races: no timer or further event repairs the view.
+  let startupGap = mockSearchParam('discoveryStartupGap');
+  function announceStartupGap(): void {
+    sequence += 1;
+    const payload: ResnapshotEvent = { reason: 'mock: startup ledger gap', stateVersion: sequence };
+    for (const handler of resnapshotHandlers) handler(payload);
+  }
   const hostStatus = (detail: string | null = null): HostStatus => ({
     hostMode,
     dataDir: 'C:\\mock\\workspace',
@@ -714,7 +731,15 @@ export function makeMockClient() {
     onResnapshotNeeded: async (
       onEvent: (event: ResnapshotEvent) => void,
       onInvalid?: InvalidEventHandler,
-    ) => subscribeMock(resnapshotHandlers, parseResnapshotEvent, RUNTIME_RESNAPSHOT_EVENT, onEvent, onInvalid),
+    ) => {
+      if (mockRun != null && startupGap === 'before-listener') {
+        startupGap = null;
+        mockRun.completed += 1;
+        // Intentionally lost: the WebView has not installed this listener yet.
+        announceStartupGap();
+      }
+      return subscribeMock(resnapshotHandlers, parseResnapshotEvent, RUNTIME_RESNAPSHOT_EVENT, onEvent, onInvalid);
+    },
   };
 
   if (mockPreexistingDiscoveryRun() === 'paused') {

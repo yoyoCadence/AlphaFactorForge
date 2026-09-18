@@ -124,50 +124,104 @@ export function DiscoveryPanel({ liveContext, onMessage }: DiscoveryPanelProps):
     }
   }, [axis]);
 
-  // One subscription set for the panel's lifetime. Progress is throttled because
-  // a run emits one per candidate; the throttle is cancelled on unmount so a
-  // queued trailing call cannot fire into a dead component.
+  // Subscribe before reading the initial snapshot: a bridge notification sent
+  // before the WebView was ready is covered by that read. Reads are serialized;
+  // a notification during a read schedules another pass instead of being lost.
   useEffect(() => {
     const applyProgress = createThrottle(
       (event: DiscoveryProgressEvent) => dispatch({ type: 'progress', event }),
       PROGRESS_THROTTLE_MS,
     );
     let disposed = false;
+    let ready = false;
+    let reading = false;
+    let dirty = false;
+    let followedRun: number | null = null;
+    let rereadReason: string | null = null;
+    let initialRead = true;
     const unlisteners: (() => void)[] = [];
-
     const reportDropped = (): void => dispatch({ type: 'dropped' });
 
+    const resnapshot = async (): Promise<void> => {
+      dirty = true;
+      if (!ready || reading || disposed) return;
+      reading = true;
+      try {
+        while (dirty && !disposed) {
+          dirty = false;
+          const active = await discovery.getActiveRun();
+          if (disposed) return;
+          // Remember the run even if a newer notification invalidated this
+          // response: the next active read may be null after it completed.
+          if (active != null) followedRun = active.runId;
+          const followed = runIdRef.current ?? followedRun;
+          const snapshot = active ?? (followed == null ? null : await discovery.progress(followed));
+          if (disposed) return;
+          if (dirty) continue;
+          if (snapshot != null) {
+            dispatch({ type: 'snapshot', snapshot, adopt: active != null || runIdRef.current == null });
+            if (initialRead) onMessage(`已接續既有的探索任務：${snapshot.name}（${STATUS_LABEL[snapshot.status]}）`);
+          }
+          initialRead = false;
+          if (rereadReason != null) {
+            onMessage(`背景 service 的事件可能有缺口（${rereadReason}），已重新讀取進度`);
+            rereadReason = null;
+          }
+        }
+      } catch (error) {
+        if (!disposed) {
+          setErr(String(error));
+          reportDropped();
+        }
+      } finally {
+        reading = false;
+        // A failed read must not consume a notification received in flight.
+        // Retry only for that queued notification, never just for the error.
+        if (dirty && !disposed) void resnapshot();
+      }
+    };
+
+    runtime.hostStatus()
+      .then((status) => { if (!disposed) setHost(status); })
+      .catch(() => {
+        // No host backend (plain Vite without ?mock=1): the badge stays hidden.
+      });
+
     void (async () => {
-      // Registered one at a time, not through Promise.all: a rejection there
-      // discards the unlisten functions of the subscriptions that DID resolve,
-      // leaking them, and surfaces only as an unhandled rejection (PR #102
-      // review). Here every success is recorded before the next attempt, so a
-      // partial failure can still be cleaned up and reported.
+      // Each successful registration is retained for cleanup, including when
+      // a later one fails. All event channels are ready before the first read.
       const register: (() => Promise<() => void>)[] = [
         () => discoveryEvents.onProgress((event) => applyProgress.call(event), reportDropped),
         () => discoveryEvents.onResult((event) => dispatch({ type: 'result', event }), reportDropped),
         () => discoveryEvents.onDone((event) => {
-          // Terminal state is applied immediately: it must never sit behind a
-          // throttle window. Cancelling the throttle drops whatever progress tick
-          // was still queued — including, on a fast run, the FINAL counts — so the
-          // authoritative numbers are then re-read from the database rather than
-          // reconstructed from the events that happened to survive coalescing.
           applyProgress.cancel();
           dispatch({ type: 'done', event });
-          void discovery.progress(event.runId)
-            .then((snapshot) => dispatch({ type: 'snapshot', snapshot, adopt: false }))
-            // The status from the event is already applied; only the counts stay
-            // uncertain, which is exactly what the stale notice tells the user.
-            .catch(() => dispatch({ type: 'dropped' }));
+          followedRun = event.runId;
+          // A Done during the initial read must also invalidate that read.
+          void resnapshot();
         }, reportDropped),
+        () => runtimeEvents.onHostChanged((event) => {
+          if (disposed) return;
+          setHost((previous) => (previous == null ? previous : { ...previous, hostMode: event.hostMode, detail: null }));
+          setServiceReachable(event.serviceReachable);
+          if (!event.serviceReachable) {
+            setErr(`背景 service 失聯：${event.reason ?? '無回應'}（重新尋找端點中）`);
+            return;
+          }
+          setErr(null);
+          void resnapshot();
+        }),
+        () => runtimeEvents.onResnapshotNeeded((event) => {
+          if (disposed) return;
+          rereadReason = event.reason;
+          void resnapshot();
+        }),
       ];
       try {
         for (const subscribe of register) {
           const unlisten = await subscribe();
           if (disposed) {
             unlisten();
-            for (const previous of unlisteners) previous();
-            unlisteners.length = 0;
             return;
           }
           unlisteners.push(unlisten);
@@ -175,107 +229,18 @@ export function DiscoveryPanel({ liveContext, onMessage }: DiscoveryPanelProps):
       } catch (error) {
         for (const unlisten of unlisteners) unlisten();
         unlisteners.length = 0;
-        // A panel with no event feed is not broken, only blind: the database is
-        // still readable, so say so instead of failing silently.
+        if (disposed) return;
         setErr(`事件訂閱失敗：${error instanceof Error ? error.message : String(error)}`);
-        dispatch({ type: 'dropped' });
+        reportDropped();
       }
+      ready = true;
+      await resnapshot();
     })();
 
     return () => {
       disposed = true;
       applyProgress.cancel();
       for (const unlisten of unlisteners) unlisten();
-    };
-  }, []);
-
-  // The database is the source of truth: adopt whatever run already exists before
-  // trusting any event. Startup recovery turns an orphaned run into `paused`, and
-  // this is how the panel rediscovers it after a reload.
-  useEffect(() => {
-    let cancelled = false;
-    discovery.getActiveRun()
-      .then((snapshot) => {
-        if (cancelled || snapshot == null) return;
-        dispatch({ type: 'snapshot', snapshot, adopt: true });
-        onMessage(`已接續既有的探索任務：${snapshot.name}（${STATUS_LABEL[snapshot.status]}）`);
-      })
-      .catch((error) => {
-        if (!cancelled) setErr(String(error));
-      });
-    return () => {
-      cancelled = true;
-    };
-    // Adoption is a mount-time read; onMessage identity must not re-trigger it.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // P04b: the host mode, and the reconnect it implies. A mode change (either
-  // direction), a service that comes back, or the bridge saying the view may
-  // be behind (`runtime://resnapshot`: a ledger gap, a version that moved
-  // with no row, an undeliverable row) all mean the run may have moved while
-  // this window was not following it, so the snapshot is re-read before any
-  // further event is trusted (contract §3: snapshot, then cursor). The
-  // active run is read first; when there is none — the followed run has
-  // ENDED, which is exactly the case a missing Done row leaves behind — the
-  // followed run's own snapshot is read instead, so a stale "running" never
-  // outlives the database's "completed".
-  useEffect(() => {
-    let disposed = false;
-    const unlisteners: (() => void)[] = [];
-    const resnapshot = async (): Promise<void> => {
-      const active = await discovery.getActiveRun();
-      if (disposed) return;
-      if (active != null) {
-        dispatch({ type: 'snapshot', snapshot: active, adopt: true });
-        return;
-      }
-      const followed = runIdRef.current;
-      if (followed == null) return;
-      const snapshot = await discovery.progress(followed);
-      if (!disposed) dispatch({ type: 'snapshot', snapshot, adopt: false });
-    };
-    const resnapshotReporting = (): void => {
-      resnapshot().catch((error) => {
-        if (!disposed) setErr(String(error));
-      });
-    };
-    runtime.hostStatus()
-      .then((status) => {
-        if (!disposed) setHost(status);
-      })
-      .catch(() => {
-        // No host backend (plain Vite without ?mock=1): the badge stays hidden.
-      });
-    const keep = (subscription: Promise<() => void>): void => {
-      subscription
-        .then((stop) => {
-          if (disposed) stop();
-          else unlisteners.push(stop);
-        })
-        .catch(() => {
-          // Same as above: nothing to subscribe to outside Tauri.
-        });
-    };
-    keep(runtimeEvents.onHostChanged((event) => {
-      if (disposed) return;
-      setHost((previous) => (previous == null ? previous : { ...previous, hostMode: event.hostMode, detail: null }));
-      setServiceReachable(event.serviceReachable);
-      if (!event.serviceReachable) {
-        setErr(`背景 service 失聯：${event.reason ?? '無回應'}（重新尋找端點中）`);
-        return;
-      }
-      setErr(null);
-      resnapshotReporting();
-    }));
-    keep(runtimeEvents.onResnapshotNeeded((event) => {
-      if (disposed) return;
-      onMessage(`背景 service 的事件可能有缺口（${event.reason}），已重新讀取進度`);
-      resnapshotReporting();
-    }));
-    return () => {
-      disposed = true;
-      for (const stop of unlisteners) stop();
     };
     // Mount-time subscriptions; onMessage identity must not re-subscribe.
     // eslint-disable-next-line react-hooks/exhaustive-deps
