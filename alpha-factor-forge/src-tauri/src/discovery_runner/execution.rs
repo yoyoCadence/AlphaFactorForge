@@ -49,6 +49,25 @@ use crate::db::{
 };
 const JS_MAX_SAFE_INTEGER: i64 = 9_007_199_254_740_991;
 
+/// P05: everything about the ENGINE a candidate ran on, frozen into its
+/// research attempt: this package's version and every contract version the
+/// run's config declared plus the ones this binary implements. Two attempts
+/// with equal input fingerprints but different engine fingerprints are
+/// different experiments.
+pub fn engine_fingerprint(config: &ResolvedDiscoveryConfig) -> Value {
+    serde_json::json!({
+        "package": env!("CARGO_PKG_VERSION"),
+        "configContracts": config.contracts,
+        "execution": EXECUTION_CONTRACT_VERSION,
+        "metrics": METRICS_CONTRACT_VERSION,
+        "benchmarks": BENCHMARK_CONTRACT_VERSION,
+        "gate": GATE_CONTRACT_VERSION,
+        "score": SCORE_FORMULA_VERSION,
+        "validationRecord": VALIDATION_RECORD_VERSION,
+        "benchmarkRecord": BENCHMARK_RECORD_VERSION,
+    })
+}
+
 /// Durable dataset metadata already revalidated by the coordinator at start.
 ///
 /// It is repeated here so a candidate cannot accidentally be composed against

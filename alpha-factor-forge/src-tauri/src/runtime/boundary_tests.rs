@@ -28,6 +28,9 @@ const HOST_AGNOSTIC_SOURCES: &[(&str, &str)] = &[
     ("discovery_runner/mod.rs", include_str!("../discovery_runner/mod.rs")),
     ("discovery_runner/execution.rs", include_str!("../discovery_runner/execution.rs")),
     ("identity.rs", include_str!("../identity.rs")),
+    ("research/mod.rs", include_str!("../research/mod.rs")),
+    ("research/history.rs", include_str!("../research/history.rs")),
+    ("research/artifacts.rs", include_str!("../research/artifacts.rs")),
     ("error.rs", include_str!("../error.rs")),
 ];
 

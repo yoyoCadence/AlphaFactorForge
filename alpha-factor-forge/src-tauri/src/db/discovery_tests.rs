@@ -761,6 +761,53 @@ fn committing_a_candidate_writes_the_whole_assessment() {
     );
 }
 
+/// P05 acceptance follow-up: the production commit path may never turn jobs
+/// into a durable checkpoint when the corresponding attempt is missing. The
+/// artifact row is inserted before the history update, so this also proves the
+/// entire transaction rolls back at that final audit-integrity guard.
+#[test]
+fn a_production_commit_without_an_attempt_rolls_back_every_write() {
+    let mut conn = mem_db();
+    let (dataset_id, strategies) = parents(&conn, 1);
+    let run_id = started_run(&mut conn, dataset_id, &strategies);
+    let bundle = bundle(strategies[0], dataset_id, true, 1.5);
+    let (train_trades, validation_trades) = fixture_trades();
+    let artifact = crate::research::artifacts::ArtifactRef {
+        kind: crate::research::CANDIDATE_RESULT_VERSION.into(),
+        sha256: "a".repeat(64),
+        byte_len: 2,
+        relative_path: format!("aa/{}.json", "a".repeat(64)),
+    };
+
+    let error = commit_candidate_assessment_with_artifact(
+        &mut conn,
+        &CandidateAssessment {
+            run_id,
+            candidate_index: 0,
+            train_summary: &bundle.0,
+            train_trades: &train_trades,
+            validation_summary: &bundle.1,
+            validation_trades: &validation_trades,
+            record: &bundle.2,
+            progress_json: Some("{\"done\":1}"),
+            epoch: None,
+        },
+        Some(&artifact),
+    )
+    .expect_err("a missing research attempt must fail the production commit");
+
+    assert!(error.to_string().contains("no unfinished research attempt"), "{error}");
+    assert_eq!(count(&conn, "backtest_summary"), 0);
+    assert_eq!(count(&conn, "trades"), 0);
+    assert_eq!(count(&conn, "validation_records"), 0);
+    assert_eq!(count(&conn, "research_artifacts"), 0);
+    assert!(list_discovery_jobs(&conn, run_id)
+        .unwrap()
+        .iter()
+        .all(|job| job.status == JobStatus::Queued && job.result_id.is_none()));
+    assert_eq!(lifecycle(&conn, strategies[0]), "candidate");
+}
+
 #[test]
 fn a_broken_job_pair_is_rejected_before_anything_is_written() {
     let mut conn = mem_db();
