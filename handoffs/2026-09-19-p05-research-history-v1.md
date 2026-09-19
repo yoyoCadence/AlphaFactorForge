@@ -3,7 +3,7 @@
 Date: 2026-09-19
 Repo: yoyoCadence/AlphaFactorForge
 Branch: `feat/p05-research-history`（自 main `fcd6905`＝PR #106 merge 之後建立）
-PR: 待建立（本 handoff commit 後開 PR，不 merge）
+PR: https://github.com/yoyoCadence/AlphaFactorForge/pull/107（未 merge）
 Status: 實作完成、本機驗證通過（Rust 253／Vitest 879／Playwright 77），待 Codex 驗收；P06 另行授權
 
 ## Summary
