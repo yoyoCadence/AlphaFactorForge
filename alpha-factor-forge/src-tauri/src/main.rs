@@ -9,6 +9,7 @@ mod desktop;
 mod discovery_runner;
 mod error;
 mod identity;
+mod research;
 mod runtime;
 mod single_instance;
 
@@ -192,6 +193,11 @@ fn main() {
             // --- Versioned command envelope (P03b, research-command-v1) ---
             commands::runtime_commands::get_workspace_info,
             commands::runtime_commands::dispatch_research_command,
+            // --- Research history (P05) ---
+            commands::research_commands::list_research_attempts,
+            commands::research_commands::list_hypotheses,
+            commands::research_commands::get_research_attempt,
+            commands::research_commands::list_unreferenced_artifacts,
             // --- Host mode (P04b: background service hand-over) ---
             commands::runtime_commands::get_host_status,
             commands::runtime_commands::enter_background_mode,

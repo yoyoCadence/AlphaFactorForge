@@ -11,6 +11,7 @@ import {
   discovery as realDiscovery,
   files as realFiles,
   isTauri as realIsTauri,
+  research as realResearch,
   runtime as realRuntime,
 } from './commands';
 import {
@@ -50,6 +51,7 @@ type Client = {
   discoveryEvents: typeof realDiscoveryEvents;
   runtime: typeof realRuntime;
   runtimeEvents: typeof realRuntimeEvents;
+  research: typeof realResearch;
 };
 
 function pick(): Client {
@@ -68,6 +70,7 @@ function pick(): Client {
     discoveryEvents: realDiscoveryEvents,
     runtime: realRuntime,
     runtimeEvents: realRuntimeEvents,
+    research: realResearch,
   };
 }
 
@@ -81,3 +84,4 @@ export const discovery = client.discovery;
 export const discoveryEvents = client.discoveryEvents;
 export const runtime = client.runtime;
 export const runtimeEvents = client.runtimeEvents;
+export const research = client.research;

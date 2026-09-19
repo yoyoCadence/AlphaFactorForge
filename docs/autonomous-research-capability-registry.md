@@ -22,6 +22,7 @@
 | SQLite `busy_timeout` | 可用 | P02：`db::open_at` 設 `BUSY_TIMEOUT = 5 s`，runtime 測試斷言 `PRAGMA busy_timeout = 5000` | — |
 | 舊 binary 拒絕較新 schema | 可用 | P03a：`apply_migrations` 遇未知 `schema_migrations` 版本回 `SchemaTooNew`，整個開啟失敗（含讀取，比契約「拒絕寫入」更嚴） | — |
 | 冪等命令／持久事件 ledger | 可用 | P03b（2026-09-17）：`research-command-v1` dispatcher（reserve-then-complete by requestId）、`runtime_events` 帳本（AUTOINCREMENT eventId，跨重啟不重用）、`events.read` cursor；桌面命令 `dispatch_research_command`／`get_workspace_info`。UI 尚未改走 envelope（P04） | — |
+| 完整研究歷史（假說凍結、每候選 attempt、不可變結果 artifact） | 可用 | P05（2026-09-19）：migration 0007、`research/history.rs`（狀態與 job 同 transaction）、`research/artifacts.rs`（content-addressed、staging→rename→參照、讀取校驗、不刪除）；重跑不覆寫舊明細、失敗可追溯、新舊投影一致皆有 Rust 測試（`tests/history.rs`）；桌面「研究歷史」面板。discovery 自動登記的假說 failure modes 為「未陳述」，有陳述的假說待 P15 | — |
 | loopback 控制介面 | 可用 | P04a：`runtime/control_api.rs` std-only HTTP/1.1（未採 hyper／tokio）；`127.0.0.1` 動態 port、manifest `control-endpoint.json`＋`control-token`（`getrandom` CSPRNG、constant-time 比對）、Host／Origin 檢查、body／head 上限、`/v1/info`／`/v1/commands`／`/v1/events` long-poll／`/v1/shutdown`；curl 實測 401／200／403／long-poll。`dirs`、`getrandom` 由 tauri 既有鎖定版本升為直接依賴，無新 crate | — |
 | 桌面 connect 模式（另一宿主持有工作區時桌面只做代理） | 可用 | P04b：`host::open_or_connect`（`NotOwner` → manifest → `/v1/info` 核對 → `db::open_migrated`）；discovery 命令與 envelope 經 `ServiceProxy` 代理；帳本事件由 forwarder 轉送到視窗（`LedgerEventSink`）；`runtime://host` 通知模式變更／失聯；失聯後持續重新發現並核對同 workspace 的端點（service 重啟、換 port／token 皆可恢復，其他 workspace 的端點被拒）；`runtime://resnapshot` 讓視窗在帳本缺口／無事件的版本前進／無法交付／重連時重讀（契約 §3）；`get_workspace_info.hostMode`。持有鎖但未發布端點的宿主仍拒絕啟動並說明 | — |
 | 背景模式切換（桌面 ⇄ service，契約 §1.5） | 可用 | P04b：`enter_background_mode`／`exit_background_mode`（Admission 關門→checkpoint→釋放→啟動 detached service→連接；反向 stop→重取鎖）；失敗回滾為嵌入。service 由桌面 binary 旁的同名 exe 啟動（`service.log` 在工作區）；未包進安裝包、無 Windows ACL 呼叫、Ctrl+C 仍為崩潰路徑 | 包裝／ACL：P22 |
@@ -109,7 +110,7 @@
 
 ## 8. P00 結論
 
-- 不依賴 AI 的 phase（P04–P14、P18–P19）依賴皆已到位，可依序規劃；P01、P02、P03a、P03b、P04a、P04b 已完成。
+- 不依賴 AI 的 phase（P04–P14、P18–P19）依賴皆已到位，可依序規劃；P01、P02、P03a、P03b、P04a、P04b、P05 已完成。
 - **AI unattended 功能標為阻擋**，原因：生成環境隔離尚未驗證、模型清單與設定不一致、
   Codex 子命令為 experimental。P15 以一次有界真實生成解除或維持阻擋；不得改為付費
   API 或 GUI 點擊自動化。

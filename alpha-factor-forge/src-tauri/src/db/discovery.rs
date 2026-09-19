@@ -394,6 +394,8 @@ pub fn claim_candidate_jobs(
             "expected exactly two queued jobs for candidate {candidate_index}, updated {updated}"
         )));
     }
+    // P05: the attempt follows its jobs (0 rows on the legacy path).
+    crate::research::history::mark_candidate_running(&tx, run_id, candidate_index)?;
 
     let claimed = ClaimedCandidateJobs {
         run_id,
@@ -625,11 +627,28 @@ fn current_status(conn: &Connection, run_id: i64) -> AppResult<RunStatus> {
 /// The global single-active rule is enforced by migration 0003's partial
 /// unique index, so a concurrent second start fails at the database rather
 /// than relying on a check-then-act race here.
+/// Test convenience (no research history): production enqueues through
+/// `start_discovery_run_with_lineage`.
+#[cfg(test)]
 pub fn start_discovery_run(
     conn: &mut Connection,
     epoch: Option<i64>,
     run_id: i64,
     candidates: &[CandidateJobSpec],
+) -> AppResult<()> {
+    start_discovery_run_with_lineage(conn, epoch, run_id, candidates, None)
+}
+
+/// `start_discovery_run` plus the P05 research history: the run's frozen
+/// hypothesis and one `submitted` attempt per candidate land in the SAME
+/// transaction as the job rows (ABC-05: hypothesis and enqueue are atomic).
+/// `None` is the legacy/test path with no history rows.
+pub fn start_discovery_run_with_lineage(
+    conn: &mut Connection,
+    epoch: Option<i64>,
+    run_id: i64,
+    candidates: &[CandidateJobSpec],
+    lineage: Option<&crate::research::history::RunLineage>,
 ) -> AppResult<()> {
     if candidates.is_empty() {
         return Err(AppError::Other(
@@ -699,6 +718,17 @@ pub fn start_discovery_run(
                 ],
             )?;
         }
+    }
+
+    if let Some(lineage) = lineage {
+        if lineage.len() != candidates.len() {
+            return Err(AppError::Other(format!(
+                "run lineage lists {} attempts for {} candidates",
+                lineage.len(),
+                candidates.len()
+            )));
+        }
+        crate::research::history::register_run_lineage(&tx, lineage)?;
     }
 
     tx.execute(
@@ -942,6 +972,9 @@ pub fn complete_discovery_run_with_outcomes(
 /// because they mean a complete atomic assessment already exists.
 pub fn recover_orphaned_runs(conn: &mut Connection, epoch: Option<i64>) -> AppResult<RecoveryReport> {
     let tx = super::ownership::write_transaction(conn, epoch)?;
+    // P05: interrupted attempts are requeued with their jobs, before the
+    // runs they belong to stop being `running`.
+    crate::research::history::requeue_running_in_running_runs(&tx)?;
     let jobs_requeued = tx.execute(
         "UPDATE discovery_jobs
          SET status = 'queued', updated_at = datetime('now')
@@ -970,9 +1003,25 @@ pub fn recover_orphaned_runs(conn: &mut Connection, epoch: Option<i64>) -> AppRe
 /// job always implies a complete assessment.
 ///
 /// Returns the new validation record id.
+/// Test convenience (no artifact): production commits through
+/// `commit_candidate_assessment_with_artifact`.
+#[cfg(test)]
 pub fn commit_candidate_assessment(
     conn: &mut Connection,
     assessment: &CandidateAssessment<'_>,
+) -> AppResult<i64> {
+    commit_candidate_assessment_with_artifact(conn, assessment, None)
+}
+
+/// `commit_candidate_assessment` plus the P05 history: the artifact
+/// reference (the file already exists and was verified) and the attempt's
+/// completion land in the same transaction as the projection rows, so the
+/// projection and the immutable record can never disagree about which
+/// attempt produced them.
+pub fn commit_candidate_assessment_with_artifact(
+    conn: &mut Connection,
+    assessment: &CandidateAssessment<'_>,
+    artifact: Option<&crate::research::artifacts::ArtifactRef>,
 ) -> AppResult<i64> {
     validate_validation_bundle(
         assessment.train_summary,
@@ -1101,6 +1150,27 @@ pub fn commit_candidate_assessment(
         )?;
     }
 
+    // P05: the immutable record of THIS attempt. A history row exists for
+    // every production candidate; the legacy/test path has none (0 rows).
+    let artifact_id = match artifact {
+        Some(reference) => Some(crate::research::history::insert_artifact(&tx, reference)?),
+        None => None,
+    };
+    let outcome = serde_json::json!({
+        "recordId": record_id,
+        "trainSummaryId": train_id,
+        "validationSummaryId": validation_id,
+        "gatePassed": assessment.record.gate_passed,
+        "score": assessment.record.score,
+    });
+    crate::research::history::complete_candidate(
+        &tx,
+        assessment.run_id,
+        assessment.candidate_index,
+        artifact_id,
+        &outcome,
+    )?;
+
     tx.commit()?;
     Ok(record_id)
 }
@@ -1112,6 +1182,7 @@ pub fn commit_candidate_assessment(
 /// exposing it separately is what allowed a status write and a job write to
 /// land as two commits. Use `cancel_discovery_run`.
 fn skip_unfinished_jobs(conn: &Connection, run_id: i64) -> AppResult<usize> {
+    crate::research::history::skip_unfinished(conn, run_id, "run cancelled before this candidate ran")?;
     Ok(conn.execute(
         "UPDATE discovery_jobs
          SET status = 'skipped', updated_at = datetime('now')
@@ -1218,6 +1289,8 @@ pub fn fail_discovery_run_with_outcomes(
          WHERE discovery_run_id = ?1 AND status IN ('queued','running')",
         params![run_id, error_message],
     )?;
+    // ...and so do their attempts (P05: a failure is traceable per attempt).
+    crate::research::history::fail_unfinished(&tx, run_id, error_message)?;
     // ...but the RUN keeps its own copy regardless. Relying on the job rows
     // alone silently dropped the reason whenever every job was already `done`,
     // leaving a terminal run that records no evidence at all.
@@ -1256,6 +1329,7 @@ pub(super) fn fail_candidate_jobs(
     // Only unfinished work can fail. `done`, `skipped`, and an earlier
     // `failed` are all terminal: overwriting them would rewrite a checkpoint
     // or replace the original failure evidence with a later one.
+    crate::research::history::fail_candidate(conn, run_id, candidate_index, error_message)?;
     Ok(conn.execute(
         "UPDATE discovery_jobs
          SET status = 'failed', error_message = ?3, updated_at = datetime('now')

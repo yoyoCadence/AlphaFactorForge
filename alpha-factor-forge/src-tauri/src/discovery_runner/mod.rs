@@ -39,6 +39,9 @@ use crate::db::discovery::{
 };
 use crate::db::repositories::{self, StrategyDef};
 use crate::error::{AppError, AppResult};
+use crate::research::artifacts::{ArtifactRef, ArtifactStore};
+use crate::research::history::{self as history, AttemptDraft, HypothesisDraft};
+use crate::research::{canonical_json, sha256_hex, CANDIDATE_RESULT_VERSION};
 
 use self::execution::{
     execute_candidate, CandidateExecutionOutput, ExecuteCandidateArgs, ExecutionDataset,
@@ -319,6 +322,11 @@ pub struct DiscoveryRunner {
     /// over by `runtime::open_workspace`. `None` means "no lease" and is
     /// only for tests and pre-lease callers; production always sets it.
     epoch: Option<i64>,
+    /// P05: where a completed candidate's immutable result artifact is
+    /// written before its attempt is completed. `None` (tests, in-memory
+    /// workspaces) records the attempt without a file; production always
+    /// sets it (`runtime::open_workspace`).
+    artifact_store: Option<Arc<ArtifactStore>>,
 }
 
 impl Default for DiscoveryRunner {
@@ -327,6 +335,7 @@ impl Default for DiscoveryRunner {
             controls: Arc::new(Mutex::new(HashMap::new())),
             executor: Arc::new(ProductionExecutor),
             epoch: None,
+            artifact_store: None,
         }
     }
 }
@@ -343,6 +352,16 @@ impl DiscoveryRunner {
 
     pub fn epoch(&self) -> Option<i64> {
         self.epoch
+    }
+
+    /// P05: keep every completed candidate's full result in `store`.
+    pub fn with_artifact_store(mut self, store: ArtifactStore) -> Self {
+        self.artifact_store = Some(Arc::new(store));
+        self
+    }
+
+    pub fn artifact_store(&self) -> Option<&ArtifactStore> {
+        self.artifact_store.as_deref()
     }
 
     pub fn recover_orphans(&self, db: &SharedDb) -> AppResult<RecoveryReport> {
@@ -437,7 +456,12 @@ impl DiscoveryRunner {
                 &raw_config_json,
                 &begun,
             )?;
-            if let Err(error) = discovery::start_discovery_run(&mut conn, self.epoch, run_id, &specs) {
+            // P05: what each candidate is an attempt at, frozen with the
+            // enqueue (ABC-05). Same transaction as the job rows.
+            let lineage = run_lineage(&config, &raw_config, run_id, &dataset, &scheduled, self.epoch)?;
+            if let Err(error) =
+                discovery::start_discovery_run_with_lineage(&mut conn, self.epoch, run_id, &specs, Some(&lineage))
+            {
                 if matches!(error, AppError::StaleOwner(_)) {
                     return Err(error);
                 }
@@ -1194,7 +1218,33 @@ impl DiscoveryRunner {
                     progress_json: Some(&progress_json),
                     epoch: state.epoch,
                 };
-                match discovery::commit_candidate_assessment(&mut conn, &assessment) {
+                // P05: the complete result goes to the immutable store FIRST
+                // (staged, hashed, renamed); the reference is committed with
+                // the projection. A result that cannot be kept immutably is
+                // not committed at all.
+                let artifact = match self.artifact_store.as_deref() {
+                    Some(store) => match store_candidate_artifact(store, run_id, &outcome.work, &output) {
+                        Ok(reference) => Some(reference),
+                        Err(error) => {
+                            drop(conn);
+                            fail_run_after_commit(
+                                &db,
+                                sink.as_ref(),
+                                run_id,
+                                &mut state,
+                                &control.changed,
+                                &format!(
+                                    "candidate {} result artifact could not be stored: {error}",
+                                    outcome.work.candidate.index
+                                ),
+                            );
+                            stop = true;
+                            continue;
+                        }
+                    },
+                    None => None,
+                };
+                match discovery::commit_candidate_assessment_with_artifact(&mut conn, &assessment, artifact.as_ref()) {
                     Ok(record_id) => record_id,
                     Err(error) => {
                         drop(conn);
@@ -1499,6 +1549,110 @@ fn progress_snapshot(
         error_message: run.error_message.clone(),
         last_event_sequence: last_event_sequence(run.progress_json.as_deref()),
     })
+}
+
+/// P05: the run's research lineage — one frozen hypothesis per base
+/// strategy (the mechanism its candidates vary) and one attempt per
+/// candidate with the exact inputs and engine.
+fn run_lineage(
+    config: &ResolvedDiscoveryConfig,
+    raw_config: &Value,
+    run_id: i64,
+    dataset: &VerifiedDataset,
+    scheduled: &[ScheduledCandidate],
+    epoch: Option<i64>,
+) -> AppResult<Vec<(HypothesisDraft, AttemptDraft)>> {
+    let config_hash = sha256_hex(&canonical_json(raw_config)?);
+    let engine = execution::engine_fingerprint(config);
+    let mut lineage = Vec::with_capacity(scheduled.len());
+    for entry in scheduled {
+        let candidate = &entry.candidate;
+        let base = config
+            .bases
+            .iter()
+            .find(|base| base.id == candidate.base_id)
+            .ok_or_else(|| other(format!("candidate {} names unknown base {}", candidate.index, candidate.base_id)))?;
+        let axes: Vec<Value> = base.axes.iter().map(|axis| serde_json::to_value(axis.key).unwrap_or(Value::Null)).collect();
+        let axis_names: Vec<String> = axes.iter().filter_map(|a| a.as_str().map(str::to_string)).collect();
+        let signal = |key: &str| base.strategy.get(key).and_then(Value::as_str).unwrap_or("?").to_string();
+        let hypothesis = HypothesisDraft {
+            source: "discovery".into(),
+            mechanism: format!(
+                "preset {} base {}: entry on {}, exit on {}; the parameter sweep asks whether the mechanism survives neighbouring {}",
+                base.preset_version,
+                base.id,
+                signal("entrySig"),
+                signal("exitSig"),
+                if axis_names.is_empty() { "parameters (none varied)".to_string() } else { axis_names.join(", ") },
+            ),
+            applicability: json!({
+                "datasetId": dataset.id,
+                "datasetHash": dataset.content_hash,
+                "interval": dataset.interval,
+                "split": config.contracts.split,
+                "embargo": config.contracts.embargo,
+                "axes": axes,
+            }),
+            failure_modes: "Not stated: a mechanical parameter sweep of a preset strategy. Treated as unexplained until a hypothesis with stated failure modes replaces it (P15).".into(),
+            strategy_hash: format!("strategy-doc-v1:{}", sha256_hex(&canonical_json(&base.strategy)?)),
+            strategy_id: None,
+            parent_strategy_id: None,
+            variation_kind: Some(if axis_names.is_empty() {
+                "param-sweep:none".to_string()
+            } else {
+                format!("param-sweep:{}", axis_names.join(","))
+            }),
+        };
+        let attempt = AttemptDraft {
+            attempt_key: history::candidate_attempt_key(run_id, candidate.index),
+            hypothesis_id: 0,
+            strategy_id: entry.strategy_id,
+            dataset_id: dataset.id,
+            discovery_run_id: Some(run_id),
+            candidate_index: Some(candidate.index),
+            input_fingerprint: json!({
+                "envelopeVersion": config.envelope_version,
+                "configHash": config_hash,
+                "rootSeed": config.root_seed,
+                "datasetId": dataset.id,
+                "datasetHash": dataset.content_hash,
+                "interval": dataset.interval,
+                "strategyId": entry.strategy_id,
+                "strategyHash": candidate.strategy_hash,
+                "baseId": candidate.base_id,
+                "candidateIndex": candidate.index,
+                "appliedAxes": candidate.applied_axes,
+                "seeds": candidate.seeds,
+            }),
+            engine_fingerprint: engine.clone(),
+            epoch,
+        };
+        lineage.push((hypothesis, attempt));
+    }
+    Ok(lineage)
+}
+
+/// P05: the complete, immutable result of one candidate as a
+/// `candidate-result-v1` document, stored content-addressed.
+fn store_candidate_artifact(
+    store: &ArtifactStore,
+    run_id: i64,
+    work: &CandidateWork,
+    output: &CandidateExecutionOutput,
+) -> AppResult<ArtifactRef> {
+    let document = json!({
+        "version": CANDIDATE_RESULT_VERSION,
+        "attemptKey": history::candidate_attempt_key(run_id, work.candidate.index),
+        "runId": run_id,
+        "candidateIndex": work.candidate.index,
+        "strategy": { "id": work.strategy_id, "hash": work.candidate.strategy_hash, "definition": work.candidate.strategy },
+        "dataset": { "id": work.dataset.id, "hash": work.dataset.content_hash, "interval": work.dataset.interval },
+        "train": { "summary": output.train_summary, "trades": output.train_trades },
+        "validation": { "summary": output.validation_summary, "trades": output.validation_trades },
+        "record": output.record,
+        "digest": { "gatePassed": output.digest.gate_passed, "score": output.digest.score },
+    });
+    store.put(CANDIDATE_RESULT_VERSION, &canonical_json(&document)?)
 }
 
 fn digest(work: &CandidateWork) -> DiscoveryCandidateDigest {
