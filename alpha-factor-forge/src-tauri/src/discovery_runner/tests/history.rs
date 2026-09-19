@@ -329,3 +329,79 @@ fn recovery_requeues_an_interrupted_attempt_as_the_same_attempt() {
     assert_eq!(attempt.input_fingerprint, json!({ "k": 1 }), "the same attempt, fingerprints intact");
     assert_eq!(history::list_attempts(&conn, &AttemptFilter::default()).unwrap().len(), 1, "no second attempt");
 }
+
+/// A database upgraded from 0006 can contain a paused run and queued jobs but
+/// no P05 rows. It must not execute invisibly: a direct production claim
+/// fails closed, while resume freezes the reconstructible queued lineage in
+/// the same transaction that makes the run claimable.
+#[test]
+fn a_pre_0007_paused_run_gets_lineage_before_resume_and_cannot_bypass_it() {
+    let dir = fresh_dir();
+    let _guard = TempDir(dir.clone());
+    let candles = alternating_candles(240, 1_577_836_800_000);
+    let db = migrated_db();
+    let (dataset_id, dataset_hash) = import_dataset(&db, &candles);
+    let runner = owned_runner(&db, &dir, Arc::new(ProductionExecutor));
+    let epoch = runner.epoch();
+    let raw = runner_config(dataset_id, &dataset_hash, 2);
+    let config = parse_discovery_config(&raw, logical_cores() as f64).unwrap();
+    let plan = enumerate_candidates(&config).unwrap();
+
+    let run_id = {
+        let mut conn = db.lock().unwrap();
+        let mut specs = Vec::new();
+        for candidate in &plan.candidates {
+            let strategy = StrategyDef {
+                id: None,
+                name: format!("legacy candidate {}", candidate.index),
+                kind: "params".into(),
+                dsl_json: None,
+                original_definition_json: serde_json::to_string(&candidate.strategy).unwrap(),
+                param_schema_json: None,
+                source: "sweep".into(),
+                ai_prompt_hash: None,
+                strategy_hash: candidate.strategy_hash.clone(),
+                lifecycle: "candidate".into(),
+                parent_strategy_id: None,
+            };
+            let strategy_id = repositories::get_or_insert_verified_runner_strategy(&conn, epoch, &strategy).unwrap();
+            specs.push(CandidateJobSpec { candidate_index: candidate.index, strategy_id, dataset_id });
+        }
+        let run_id = discovery::create_discovery_run(
+            &conn,
+            epoch,
+            "pre-0007 paused run",
+            &serde_json::to_string(&raw).unwrap(),
+        )
+        .unwrap();
+        discovery::start_discovery_run(&mut conn, epoch, run_id, &specs).unwrap();
+        assert!(history::list_attempts(&conn, &AttemptFilter::default()).unwrap().is_empty());
+
+        let error = discovery::claim_candidate_jobs_with_attempt(&conn, epoch, run_id, 0)
+            .expect_err("production claim without an attempt must roll back");
+        assert!(error.to_string().contains("no submitted research attempt"), "{error}");
+        assert!(discovery::list_discovery_jobs(&conn, run_id)
+            .unwrap()
+            .iter()
+            .all(|job| job.status == JobStatus::Queued));
+
+        discovery::transition_run(&conn, epoch, run_id, RunStatus::Paused).unwrap();
+        run_id
+    };
+
+    runner
+        .resume(db.clone(), Arc::new(RecordingSink::new(db.clone())), run_id)
+        .expect("resume backfills queued lineage before executing");
+    wait_for_status(&runner, &db, run_id, RunStatus::Completed);
+    wait_for_coordinator_exit(&runner, run_id);
+
+    let attempts = attempts_of(&db, run_id);
+    assert_eq!(attempts.len(), 2);
+    assert!(attempts.iter().all(|attempt| {
+        attempt.status == AttemptStatus::Completed && attempt.result_artifact.is_some()
+    }));
+    let store = runner.artifact_store().unwrap();
+    let referenced = history::referenced_artifact_paths(&db.lock().unwrap()).unwrap();
+    assert_eq!(referenced.len(), 2);
+    assert_eq!(store.unreferenced(&referenced).unwrap(), Vec::<String>::new());
+}

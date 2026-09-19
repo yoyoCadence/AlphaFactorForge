@@ -78,6 +78,9 @@ function mockSeedHistory(): boolean {
  * - `?mock=1&explorerRefreshDelay=<ms>` delays subsequent summary-list reads
  *   while leaving the initial read immediate, exposing detail actions on an
  *   old screen during refresh (R1, reverse request ordering).
+ * - `?mock=1&researchDetailDelayId=<id>&researchDetailDelay=<ms>` delays one
+ *   research-attempt detail, proving an older artifact read cannot replace a
+ *   newer selection when responses arrive in reverse order.
  */
 function mockDetailDelayMs(): number {
   const raw = mockSearchParam('detailDelay');
@@ -97,6 +100,17 @@ function mockExplorerRefreshDelayMs(): number {
   const raw = mockSearchParam('explorerRefreshDelay');
   const ms = raw == null ? 0 : Number(raw);
   return Number.isFinite(ms) && ms > 0 ? Math.min(ms, 10_000) : 0;
+}
+
+function mockResearchDetailDelay(): { id: number | null; ms: number } {
+  const rawId = mockSearchParam('researchDetailDelayId');
+  const rawMs = mockSearchParam('researchDetailDelay');
+  const id = rawId == null ? NaN : Number(rawId);
+  const ms = rawMs == null ? 0 : Number(rawMs);
+  return {
+    id: Number.isSafeInteger(id) && id > 0 ? id : null,
+    ms: Number.isFinite(ms) && ms > 0 ? Math.min(ms, 10_000) : 0,
+  };
 }
 
 /** Every method of `target` waits for `ready` first; a failed seed therefore
@@ -229,6 +243,7 @@ export function makeMockClient() {
   let replaceBeforeDetail = mockReplaceBeforeDetail();
   let failNextResultsRead = mockExplorerFailOnce();
   const explorerRefreshDelayMs = mockExplorerRefreshDelayMs();
+  const researchDetailDelay = mockResearchDetailDelay();
   let resultsReadCount = 0;
 
   const db = {
@@ -555,6 +570,9 @@ export function makeMockClient() {
         .map((a) => ({ ...a }));
     },
     getAttempt: async (id: number): Promise<ResearchAttemptDetail | null> => {
+      if (id === researchDetailDelay.id && researchDetailDelay.ms > 0) {
+        await new Promise((resolve) => globalThis.setTimeout(resolve, researchDetailDelay.ms));
+      }
       const attempt = attempts.find((a) => a.id === id);
       if (attempt == null) return null;
       const hypothesis = hypotheses.find((h) => h.id === attempt.hypothesisId) ?? null;

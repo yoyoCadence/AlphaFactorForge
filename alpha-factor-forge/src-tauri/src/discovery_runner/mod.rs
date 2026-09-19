@@ -590,7 +590,7 @@ impl DiscoveryRunner {
             }
         }
         let logical_cores = logical_cores();
-        let (prepared, prior_sequence) = {
+        let (prepared, prior_sequence, resume_lineage) = {
             let conn = lock(&db, "db")?;
             let run = discovery::get_discovery_run(&conn, run_id)?;
             if run.status != RunStatus::Paused {
@@ -609,6 +609,19 @@ impl DiscoveryRunner {
             let jobs = discovery::list_discovery_jobs(&conn, run_id)?;
             let strategies = repositories::list_strategies(&conn)?;
             let (scheduled, completed) = resume_candidates(&plan, &jobs, &strategies, dataset.id)?;
+            // P05 acceptance follow-up: a run created before migration 0007
+            // has queued jobs but no attempts. Reconstruct only those queued
+            // candidates from the persisted config and freeze them in the
+            // paused -> running transaction below. Existing P05 rows are
+            // verified against this same lineage instead of rewritten.
+            let resume_lineage = run_lineage(
+                &config,
+                &raw,
+                run_id,
+                &dataset,
+                &scheduled,
+                self.epoch,
+            )?;
             (
                 PreparedRun {
                     config,
@@ -625,6 +638,7 @@ impl DiscoveryRunner {
                     completed_candidates: completed,
                 },
                 last_event_sequence(run.progress_json.as_deref()),
+                resume_lineage,
             )
         };
 
@@ -634,7 +648,13 @@ impl DiscoveryRunner {
         {
             let conn = lock(&db, "db")?;
             discovery::assert_owner(&conn, self.epoch)?;
-            discovery::transition_run_with_outcomes(&conn, self.epoch, run_id, RunStatus::Running, &begun)?;
+            discovery::resume_discovery_run_with_lineage(
+                &conn,
+                self.epoch,
+                run_id,
+                &begun,
+                &resume_lineage,
+            )?;
             let progress = stored_progress_json(
                 prepared.enumeration,
                 prepared.total_candidates,
@@ -986,7 +1006,7 @@ impl DiscoveryRunner {
                         }
                         let scheduled = prepared.candidates[next].clone();
                         let claimed = match lock(&db, "db").and_then(|conn| {
-                            discovery::claim_candidate_jobs(
+                            discovery::claim_candidate_jobs_with_attempt(
                                 &conn,
                                 state.epoch,
                                 run_id,

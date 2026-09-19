@@ -66,3 +66,25 @@ test('a cancelled run leaves its unfinished attempts skipped with the reason', a
   const skipped = page.locator('[data-testid^="research-history-attempt-"][data-status="skipped"]');
   await expect(skipped.first()).toContainText('run cancelled before this candidate ran');
 });
+
+test('a slow older artifact read cannot replace the latest selected attempt', async ({ page }) => {
+  await page.goto('/?mock=1&discoveryStep=20&researchDetailDelayId=1&researchDetailDelay=500', { waitUntil: 'domcontentloaded' });
+  await page.getByTestId('discovery-toggle').click();
+  await page.getByTestId('load-sample').click();
+  const start = page.getByTestId('discovery-start');
+  await expect(start).toBeEnabled({ timeout: 20_000 });
+  await start.click();
+  await expect(page.getByTestId('discovery-status')).toContainText('已完成', { timeout: 30_000 });
+
+  await page.getByTestId('research-history-toggle').click();
+  await expect(page.getByTestId('research-history-count')).toHaveText('嘗試 3');
+  await page.getByTestId('research-history-attempt-1').click();
+  await page.getByTestId('research-history-attempt-2').click();
+
+  const detail = page.getByTestId('research-history-detail');
+  await expect(detail).toContainText('嘗試 #2');
+  await expect(detail).toContainText('candidate:1');
+  await page.waitForTimeout(600);
+  await expect(detail).toContainText('嘗試 #2');
+  await expect(detail).not.toContainText('candidate:0');
+});

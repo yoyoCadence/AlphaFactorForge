@@ -64,6 +64,9 @@ P15 AI 提案、P16 MCP、P21 UX）必須遵守的資料形狀與不變量；偏
 | `fail_discovery_run_with_outcomes` | failed（含未跑的） | `failed`（同一原因） |
 | `cancel_discovery_run` | skipped | `skipped`（`run cancelled before this candidate ran`） |
 | `recover_orphaned_runs` | running → queued | `running` → `submitted` |
+| resume pre-0007 run | queued（paused → running） | 由既有 config／strategy／dataset 重建並凍結缺少的 `submitted`；已有 attempt 則驗證 identity、input 與 engine fingerprint，皆在同一 transaction |
+
+Production claim 與 commit 都要求**恰好一筆**對應 attempt 隨 job 前進；缺少或狀態不符即讓整個 transaction rollback。只有 store 層的 `#[cfg(test)]` legacy wrappers 可刻意不建立 history。
 
 ### 1.3 `research_artifacts` — content-addressed，永不刪除
 
@@ -138,6 +141,7 @@ P15 AI 提案、P16 MCP、P21 UX）必須遵守的資料形狀與不變量；偏
 | 新舊投影一致 | 第二次跑完後投影欄位（net_return／trade_count／score）＝第二個 artifact 的 train summary；第一個 artifact ＝ 第一次跑完時的投影 — 同上測試 |
 | 假說先於執行、不可改寫、重複不新增 | 首個候選被 claim 時假說與全部 attempt 已存在；同內容再登記回同 id；UPDATE／DELETE 被觸發器拒絕 — `a_run_freezes_its_hypothesis_…`、`a_hypothesis_registers_once_per_content_…` |
 | 崩潰恢復不產生新嘗試 | `recovery_requeues_an_interrupted_attempt_as_the_same_attempt` |
+| 舊 schema 未完成 run 不繞過歷史 | pre-0007 queued jobs 直接 production claim 會 rollback；resume 先在 paused → running transaction 補齊 lineage，完成後每個候選皆有 artifact — `a_pre_0007_paused_run_gets_lineage_before_resume_and_cannot_bypass_it`；production commit 缺 attempt 時 artifact／projection／job 全 rollback — `a_production_commit_without_an_attempt_rolls_back_every_write` |
 | artifact 完整性 | 被改動／截斷的檔案讀取被拒；未參照檔可列出、不被刪 — `research::artifacts::tests` |
 
 ---
@@ -147,3 +151,4 @@ P15 AI 提案、P16 MCP、P21 UX）必須遵守的資料形狀與不變量；偏
 - discovery 自動登記的假說 `failure_modes` 為明示「未陳述」；有陳述失效情境的假說由 P15（AI 提案）／手動登記提供。
 - 嘗試以候選為單位；未來 attempt 之間的父子血緣（`parent_strategy_id`）由 P11／P15 填入。
 - 未提供匯出／備份（P14）；未提供全文索引（plan §4.3 經驗庫，P17）。
+- P05 之前已完成、且明細已被投影覆寫的候選仍不可恢復；升級補建只適用於尚未執行的 queued 候選。若既有 attempt 的 engine fingerprint 與目前 build 不同，resume 拒絕並要求開新 run，不會把新引擎結果寫進舊 attempt。

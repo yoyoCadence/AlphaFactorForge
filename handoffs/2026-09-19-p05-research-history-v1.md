@@ -4,7 +4,7 @@ Date: 2026-09-19
 Repo: yoyoCadence/AlphaFactorForge
 Branch: `feat/p05-research-history`（自 main `fcd6905`＝PR #106 merge 之後建立）
 PR: https://github.com/yoyoCadence/AlphaFactorForge/pull/107（未 merge）
-Status: 實作完成、本機驗證通過（Rust 253／Vitest 879／Playwright 77），待 Codex 驗收；P06 另行授權
+Status: 實作與 Codex 驗收修正完成，本機驗證通過（Rust 261／Vitest 879／Playwright 78）；PR #107 待 merge，P06 另行授權
 
 ## Summary
 
@@ -114,4 +114,9 @@ P05 驗收「重跑不覆寫舊明細；失敗可追溯；新舊投影一致」�
 
 ## Resolution (added when acted on)
 
-（待補：Codex 驗收結果、PR 編號。）
+Codex 於 2026-09-20 驗收 PR #107，提出兩項 finding，均已在同一分支修正：
+
+1. **High（closed）— pre-0007 未完成 run 可無 attempt 繼續。** Resume 現在由 persisted config／strategy／dataset 重建仍 queued 候選的 lineage，並在 `paused → running` 同一 transaction 內以 `ensure_resumable_lineage` 補建缺少的 attempt；既有 P05 attempt 則驗證 candidate identity、input fingerprint、engine fingerprint 與 resumable 狀態，任何差異 fail closed。Production claim／commit 各要求恰好一筆 attempt 同步前進；缺 attempt 時 jobs、projection、validation record、artifact row 全部 rollback。回歸：`a_pre_0007_paused_run_gets_lineage_before_resume_and_cannot_bypass_it`、`a_production_commit_without_an_attempt_rolls_back_every_write`。
+2. **Medium（closed）— detail 反序回應。** `ResearchHistory` 使用單調 request generation；較舊的大 artifact 即使較晚回來，也不能覆寫最新選取。DEV mock 新增單筆 detail 延遲控制，Playwright `a slow older artifact read cannot replace the latest selected attempt` 反序重現並鎖定修正。
+
+最終驗證：`cargo test --locked` **261**（52＋207＋2）、`cargo check --locked` 無 warning、Vitest **879**、typecheck、build、Playwright **78/78**。P05 原始交接的 Rust 253／Playwright 77 計數已由本 Resolution 取代；沒有宣稱恢復 P05 前已完成且曾被覆寫的明細。

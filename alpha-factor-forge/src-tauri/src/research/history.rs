@@ -206,6 +206,65 @@ pub fn register_run_lineage(conn: &Connection, lineage: &RunLineage) -> AppResul
     Ok(ids)
 }
 
+/// Ensure that every queued candidate about to be resumed has its frozen
+/// attempt. Normal P05 runs already have these rows and are only verified;
+/// this inserts rows solely for pre-0007 runs whose queued jobs survived the
+/// schema upgrade. The caller owns the paused -> running transaction, so no
+/// candidate can be claimed between this check and the transition.
+pub fn ensure_resumable_lineage(conn: &Connection, lineage: &RunLineage) -> AppResult<usize> {
+    let mut inserted = 0usize;
+    for (hypothesis, expected) in lineage {
+        let existing = conn
+            .query_row(
+                &format!("SELECT {ATTEMPT_COLUMNS} FROM {ATTEMPT_FROM} WHERE a.attempt_key = ?1"),
+                [&expected.attempt_key],
+                attempt_from_row,
+            )
+            .optional()?;
+        let Some(existing) = existing else {
+            let (hypothesis_id, _) = register_hypothesis(conn, hypothesis)?;
+            let draft = AttemptDraft { hypothesis_id, ..expected.clone() };
+            register_attempt(conn, &draft)?;
+            inserted += 1;
+            continue;
+        };
+
+        let identity_matches = existing.strategy_id == expected.strategy_id
+            && existing.dataset_id == expected.dataset_id
+            && existing.discovery_run_id == expected.discovery_run_id
+            && existing.candidate_index == expected.candidate_index;
+        if !identity_matches {
+            return Err(AppError::Other(format!(
+                "research attempt {:?} does not match its queued candidate identity",
+                expected.attempt_key
+            )));
+        }
+        if existing.input_fingerprint != expected.input_fingerprint {
+            return Err(AppError::Other(format!(
+                "research attempt {:?} input fingerprint changed before resume",
+                expected.attempt_key
+            )));
+        }
+        if existing.engine_fingerprint != expected.engine_fingerprint {
+            return Err(AppError::Other(format!(
+                "research attempt {:?} engine fingerprint changed before resume; start a new run",
+                expected.attempt_key
+            )));
+        }
+        if existing.status != AttemptStatus::Submitted
+            || existing.outcome.is_some()
+            || existing.result_artifact.is_some()
+            || existing.finished_at.is_some()
+        {
+            return Err(AppError::Other(format!(
+                "research attempt {:?} is not a resumable submitted attempt",
+                expected.attempt_key
+            )));
+        }
+    }
+    Ok(inserted)
+}
+
 /// Queue one attempt (`submitted`). A repeated key is an error: the caller
 /// that wants "the same attempt" looks it up instead.
 pub fn register_attempt(conn: &Connection, draft: &AttemptDraft) -> AppResult<i64> {

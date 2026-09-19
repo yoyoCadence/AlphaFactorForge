@@ -322,11 +322,34 @@ pub fn list_discovery_jobs(conn: &Connection, run_id: i64) -> AppResult<Vec<Disc
 /// The run-status check, pair validation, and both status updates share one
 /// transaction. A broken/mismatched/non-queued pair is rejected without
 /// moving either row, and a late claim cannot enter a paused or terminal run.
+#[cfg(test)]
 pub fn claim_candidate_jobs(
     conn: &Connection,
     epoch: Option<i64>,
     run_id: i64,
     candidate_index: i64,
+) -> AppResult<ClaimedCandidateJobs> {
+    claim_candidate_jobs_inner(conn, epoch, run_id, candidate_index, false)
+}
+
+/// Production claim: the paired jobs and their P05 attempt must move to
+/// running together. A missing attempt is an audit-integrity failure, never a
+/// legacy success path.
+pub fn claim_candidate_jobs_with_attempt(
+    conn: &Connection,
+    epoch: Option<i64>,
+    run_id: i64,
+    candidate_index: i64,
+) -> AppResult<ClaimedCandidateJobs> {
+    claim_candidate_jobs_inner(conn, epoch, run_id, candidate_index, true)
+}
+
+fn claim_candidate_jobs_inner(
+    conn: &Connection,
+    epoch: Option<i64>,
+    run_id: i64,
+    candidate_index: i64,
+    require_attempt: bool,
 ) -> AppResult<ClaimedCandidateJobs> {
     let tx = super::ownership::write_transaction(conn, epoch)?;
     let run_status = current_status(&tx, run_id)?;
@@ -394,8 +417,14 @@ pub fn claim_candidate_jobs(
             "expected exactly two queued jobs for candidate {candidate_index}, updated {updated}"
         )));
     }
-    // P05: the attempt follows its jobs (0 rows on the legacy path).
-    crate::research::history::mark_candidate_running(&tx, run_id, candidate_index)?;
+    // P05: the attempt follows its jobs. Only the test-only legacy wrapper
+    // permits no history; every production claim must move exactly one row.
+    let attempts_updated = crate::research::history::mark_candidate_running(&tx, run_id, candidate_index)?;
+    if require_attempt && attempts_updated != 1 {
+        return Err(AppError::Other(format!(
+            "candidate {candidate_index} in run {run_id} has no submitted research attempt"
+        )));
+    }
 
     let claimed = ClaimedCandidateJobs {
         run_id,
@@ -860,6 +889,37 @@ pub fn transition_run_with_outcomes(
     Ok(())
 }
 
+/// Resume a paused run and make its P05 lineage complete in the SAME
+/// transaction. Existing P05 attempts are verified; queued candidates from a
+/// pre-0007 run receive their first frozen attempt before the run can become
+/// claimable.
+pub fn resume_discovery_run_with_lineage(
+    conn: &Connection,
+    epoch: Option<i64>,
+    run_id: i64,
+    outcomes: &[RequestOutcome<'_>],
+    lineage: &crate::research::history::RunLineage,
+) -> AppResult<usize> {
+    let tx = super::ownership::write_transaction(conn, epoch)?;
+    let from = current_status(&tx, run_id)?;
+    if from != RunStatus::Paused {
+        return Err(AppError::Other(format!(
+            "illegal run transition {} -> running",
+            from.as_str()
+        )));
+    }
+    let inserted = crate::research::history::ensure_resumable_lineage(&tx, lineage)?;
+    tx.execute(
+        "UPDATE discovery_runs
+         SET status = 'running', updated_at = datetime('now')
+         WHERE id = ?1",
+        [run_id],
+    )?;
+    record_request_outcomes(&tx, epoch, outcomes, run_id)?;
+    tx.commit()?;
+    Ok(inserted)
+}
+
 /// D6: the best candidate is the highest FINITE-score gate passer of this run,
 /// ties resolved by candidate index then strategy hash. Null when nothing
 /// passed. Reads only this run's own assessments.
@@ -1010,7 +1070,7 @@ pub fn commit_candidate_assessment(
     conn: &mut Connection,
     assessment: &CandidateAssessment<'_>,
 ) -> AppResult<i64> {
-    commit_candidate_assessment_with_artifact(conn, assessment, None)
+    commit_candidate_assessment_inner(conn, assessment, None, false)
 }
 
 /// `commit_candidate_assessment` plus the P05 history: the artifact
@@ -1022,6 +1082,15 @@ pub fn commit_candidate_assessment_with_artifact(
     conn: &mut Connection,
     assessment: &CandidateAssessment<'_>,
     artifact: Option<&crate::research::artifacts::ArtifactRef>,
+) -> AppResult<i64> {
+    commit_candidate_assessment_inner(conn, assessment, artifact, true)
+}
+
+fn commit_candidate_assessment_inner(
+    conn: &mut Connection,
+    assessment: &CandidateAssessment<'_>,
+    artifact: Option<&crate::research::artifacts::ArtifactRef>,
+    require_attempt: bool,
 ) -> AppResult<i64> {
     validate_validation_bundle(
         assessment.train_summary,
@@ -1163,13 +1232,19 @@ pub fn commit_candidate_assessment_with_artifact(
         "gatePassed": assessment.record.gate_passed,
         "score": assessment.record.score,
     });
-    crate::research::history::complete_candidate(
+    let attempts_updated = crate::research::history::complete_candidate(
         &tx,
         assessment.run_id,
         assessment.candidate_index,
         artifact_id,
         &outcome,
     )?;
+    if require_attempt && attempts_updated != 1 {
+        return Err(AppError::Other(format!(
+            "candidate {} in run {} has no unfinished research attempt",
+            assessment.candidate_index, assessment.run_id
+        )));
+    }
 
     tx.commit()?;
     Ok(record_id)

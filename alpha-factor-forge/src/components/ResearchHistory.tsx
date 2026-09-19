@@ -6,7 +6,7 @@
 // Results Explorer above shows the LATEST projection; this shows the history
 // that produced it.
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { research } from '../tauri-client/dataClient';
 import type { ResearchAttempt, ResearchAttemptDetail, ResearchAttemptStatus } from '../tauri-client/commands';
 import { DASH, fmtNum, fmtPct, shortHash } from '../services/resultsExplorer';
@@ -64,6 +64,9 @@ export function ResearchHistory(): React.ReactElement {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [detail, setDetail] = useState<ResearchAttemptDetail | null>(null);
   const [detailErr, setDetailErr] = useState<string | null>(null);
+  // A large artifact can finish loading after a later, smaller selection.
+  // Only the newest request may replace the detail beside the highlighted row.
+  const detailRequest = useRef(0);
 
   const load = useCallback(async () => {
     setState('loading');
@@ -85,17 +88,20 @@ export function ResearchHistory(): React.ReactElement {
   }, [open, state, load]);
 
   async function select(id: number): Promise<void> {
+    const request = ++detailRequest.current;
     setSelectedId(id);
     setDetail(null);
     setDetailErr(null);
     try {
       const loaded = await research.getAttempt(id);
+      if (request !== detailRequest.current) return;
       if (loaded == null) {
         setDetailErr(`嘗試 #${id} 已不存在`);
         return;
       }
       setDetail(loaded);
     } catch (error) {
+      if (request !== detailRequest.current) return;
       setDetailErr(error instanceof Error ? error.message : String(error));
     }
   }
