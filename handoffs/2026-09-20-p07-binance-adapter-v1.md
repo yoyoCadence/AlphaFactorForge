@@ -140,3 +140,6 @@ PR #109 第一次 CI：`typecheck` / `test` / `build` / `e2e` / `native-smoke` �
 提交後**機械驗證**：以 `git cat-file -p :<path>` 取出 staged blob 計算 SHA-256，四個皆與 Binance 公布的
 `.CHECKSUM` 完全相符（`e6fbeb74…`、`070dd77b…`、`94a8a961…`、`f796443a…`），且 git 以 `Bin` 處理、
 未做任何換行轉換。
+
+修正後 CI（run 35494697549）**六項全綠**：typecheck、test、build、cargo-check（6m2s，Ubuntu 實際編譯並跑完
+328 個 Rust 測試）、e2e、native-smoke。
