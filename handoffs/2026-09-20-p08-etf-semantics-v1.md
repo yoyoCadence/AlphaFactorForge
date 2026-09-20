@@ -3,7 +3,8 @@
 Date: 2026-09-20
 Repo: yoyoCadence/AlphaFactorForge
 Branch: feat/p08-etf-market-semantics
-Status: Implementation and local validation complete; publication recorded below
+PR: https://github.com/yoyoCadence/AlphaFactorForge/pull/110
+Status: Published as draft PR #110; not merged
 
 ## Scope and preflight
 
@@ -101,3 +102,20 @@ The only configured remote is GitHub. The user was offered the choice of the
 existing GitHub draft PR or a supplied GitLab URL; no GitLab remote is available.
 Use a Chinese draft PR on the existing remote, never merge. Final commit/PR
 verification is appended after publication.
+
+## Resolution — publication (2026-09-20)
+
+- Implementation commit: `6b7147e5bba66554a528613f14d285aab69b6e7c`.
+- Re-fetched origin; main remained `bfb4216`. Rebase was a no-op. Post-rebase
+  typecheck, 72 relevant TS parity tests, all 71 Rust core tests and all-targets
+  check passed. The full suite results above remain applicable.
+- Pushed `feat/p08-etf-market-semantics`; created and verified Chinese **draft
+  PR #110**, base `main`, head `feat/p08-etf-market-semantics`. Not merged.
+- The environment's GitHub token was invalid even without proxies. No connector
+  was installed. Chrome verified no existing same-head PR; push succeeded using
+  the existing OS-keyring CLI login with environment token overrides omitted
+  for that process only. The now-working CLI created the PR; Chrome retains
+  its page as the deliverable. No global auth/settings changes or secret output.
+- Remote CI is separate from local verification and may still be pending;
+  consult the PR checks for the latest result. This documentation follow-up
+  records the published result and introduces no runtime changes.
