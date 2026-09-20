@@ -5,6 +5,8 @@ pub mod benchmarks;
 pub mod config;
 pub mod embargo;
 pub mod enumerate;
+pub mod etf;
+pub mod etf_metrics;
 pub mod gate;
 pub mod identity;
 pub mod indicators;
@@ -25,6 +27,8 @@ mod backtest_parity_tests;
 mod benchmark_parity_tests;
 #[cfg(test)]
 mod gate_score_parity_tests;
+#[cfg(test)]
+mod etf_parity_tests;
 #[cfg(test)]
 mod indicator_parity_tests;
 #[cfg(test)]

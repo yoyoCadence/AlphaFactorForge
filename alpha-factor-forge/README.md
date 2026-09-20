@@ -4,6 +4,10 @@
 
 > 架構定案見 `../STRATEGY_DISCOVERY.md`（v3, Tauri）。本 repo 為其實作。
 
+> 2026-09-20：P08 新增純 `core/market-data/etf.ts`／`core/metrics/etf.ts` 與 Rust 對應模組。
+> 使用方式與範圍見 [ETF 日線語意](../docs/etf-semantics-v1.md)；這是後續 ETF adapters／成交核心的介面，
+> 不會切換現有 UI 回測的計算契約。專案目前狀態以 [tasks.md](../tasks.md) 為準，下方保留初始 scaffold 說明。
+
 ---
 
 ## ⚠️ 本交付物的狀態（請先讀）

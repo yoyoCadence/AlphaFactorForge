@@ -1,5 +1,10 @@
 # AlphaFactorForge：持續 AI 研究、跨市場驗證與模擬交易整合計畫
 
+> 實作紀錄（2026-09-20）：P00–P07 已完成；本輪依 §5 一次一個 phase 完成 **P08 ETF 日線市場語意**。
+> 純計算契約與限制見 [`../etf-semantics-v1.md`](../etf-semantics-v1.md)，驗證／交接見
+> [`../../handoffs/2026-09-20-p08-etf-semantics-v1.md`](../../handoffs/2026-09-20-p08-etf-semantics-v1.md)。
+> 下文保留原始規劃基準；P09 及後續功能未在本輪啟動，整體最終 Acceptance Criteria 尚未全部完成。
+
 ## 1. 目標、基準與交付限制
 
 ### 產品目標

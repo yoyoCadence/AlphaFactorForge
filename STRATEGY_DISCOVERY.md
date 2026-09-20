@@ -167,7 +167,9 @@ AI 與生成器都只輸出這種結構：
 - **平行度**：backend 依 CPU 核心數開 worker thread pool 跑回測，與前端完全解耦。
 - **K 線快取**：同（幣種×時間框×區段）只讀一次，backend 內共享，後續策略複用。
 
-### 宿主、所有權與命令契約（P02–P07，2026-09-17／18／19／20 補充）
+### 宿主、所有權與命令契約（P02–P08，2026-09-17／18／19／20 補充）
+
+- **ETF 日線語意（P08）**：新增純 TS／Rust `etf-semantics-v1`、`etf-metrics-v1`；沿用 P06 calendar，拒絕超出日曆涵蓋範圍；股息除息日記應收、付款日才轉現金，分割同步調整股數及未成交訂單。訊號只使用已生效且已觀測的分割；成本與公司事件未確認維持 degraded。新 CAGR 依實際時間、風險指標依明示交易日頻率，舊 `metrics-v2` 不變。詳見 [`docs/etf-semantics-v1.md`](docs/etf-semantics-v1.md)。這是 P09／P10、P18 的共用計算原語，未接入舊 runner、UI 或 paper。
 > 詳細規則見 [`docs/research-runtime-contract.md`](docs/research-runtime-contract.md)；本節只記結論。
 
 - **三種宿主**：桌面嵌入模式（今天的 `main.rs`）、無介面 service（P04a 已交付：`alpha-factor-forge-service run|stop|status [--data-dir]`，同一 Cargo package 的第二個 binary，經 `127.0.0.1` 動態 port 的 loopback 控制介面接受 envelope，manifest 與 token 放在工作區目錄；關 UI 後 run 繼續、重連採同一 run、關閉時 drain 到 Paused checkpoint）、桌面 connect 模式（P04b 已交付：桌面啟動時若 service 持有工作區就核對 manifest／`/v1/info` 後不遷移開庫、把 discovery 命令代理給 service、把 service 的帳本事件轉送到視窗；探索面板的「在背景繼續」＝契約 §1.5 背景切換：關門→checkpoint→釋放鎖→啟動桌面旁的 service exe→連接，「收回桌面」反向；`runtime://host` 通知模式變更與失聯）。開庫、migration、建 runner、孤兒恢復集中在 host-agnostic 的 `runtime::open_workspace`；runner 與 DB 層不引用 Tauri（`runtime::boundary_tests` 守衛）。

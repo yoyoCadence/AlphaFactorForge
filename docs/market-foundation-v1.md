@@ -24,7 +24,7 @@ adapters、P12 試驗帳本、P19／P20 paper、P21 UX）必須遵守的資料�
 | `datasets`／`candles`（0001） | **不改**。欄位與語意不變；匯入、回測、discovery 全部照舊 |
 | `market-data-quality-v1`（`src/core/market-data/quality.ts`／`discovery_core/market_data.rs`） | **不改**。它是每根 K 線的合理性閘門；本契約在其**之上**，處理序列與 instrument／calendar／來源的關係。時間單位的區間邊界**直接沿用**它的 `MIN`／`MAX_EXCLUSIVE`，兩者不可能漂移 |
 | `dataset-content-v2` hash | **不改**。同一組 candles 的 hash 不變；snapshot 以自己的內容雜湊識別 |
-| `barsPerYear`（`backtestRunner.ts`／`benchmarks.rs`，含 `1d` = 365 與未知 interval 回退） | **不改**。本契約新增的是**節奏**（`market-interval-v1`，嚴格、無回退），與年化是不同問題；ETF 交易日年化仍屬 P08 |
+| `barsPerYear`（`backtestRunner.ts`／`benchmarks.rs`，含 `1d` = 365 與未知 interval 回退） | **不改**。本契約新增的是**節奏**（`market-interval-v1`，嚴格、無回退），與年化是不同問題；ETF 交易日年化已由 P08 `etf-metrics-v1` 另行提供 |
 | 沒有 snapshot 的 dataset | 一律 **legacy**：照常匯入、照常回測，但**不能自動取得新資格**（`market-contract.md` §0） |
 
 ---
@@ -84,7 +84,7 @@ symbol 保留來源拼法：**`USDT` 永不改寫成 `USD`**，大小寫不折�
 
 **為何不引入時區資料庫**：v1 的日線 bar 時間戳定義為「交易日的 UTC 午夜」，交易日由 calendar 的
 weekday＋holiday 資料直接列舉，因此不需要 tz 資料庫，兩個語言的日期運算逐位元相同。ETF 盤中 session
-與當地時間邊界屬 P08。
+與當地時間邊界不屬第一版日線範圍；P08 仍使用交易日標籤，見 `etf-semantics-v1.md`。
 
 ### 1.5 預期範圍
 
@@ -280,7 +280,7 @@ forward-observed 快照的 get／list／dataset-status 讀取套用，拒絕回�
 | --- | --- |
 | ~~任何網路下載、CHECKSUM 校驗、分段重試、快取~~ → **Crypto 已完成（P07）** | P09（Tiingo）／P10（FinMind＋TWSE） |
 | `nyse-v1`／`twse-v1` 等真實休市資料 | P09／P10（P06 只建立註冊與阻擋機制） |
-| ETF 盤中 session、當地時間邊界、配息應收／付款、分割調整、交易日年化、原幣帳務 | P08 |
+| ETF 配息應收／付款、分割調整、交易日年化、原幣成本 | P08 已完成純函式；成交接線 P18。盤中 session／當地時間邊界未納入第一版日線範圍 |
 | instrument 的 lotSize／priceStep／minNotional（目前一律未知＝不可 paper） | 由來源回報，P07／P09／P10 以新修訂寫入 |
 | Tauri 命令與 UI（資料來源畫面、阻擋範圍呈現） | P16（MCP）／P21（整合 UX）；P06 不開命令面，避免留下無人呼叫、未受測的邊界 |
 | campaign 凍結 instrument 清單 | P12 |

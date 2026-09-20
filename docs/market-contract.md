@@ -7,7 +7,7 @@
 > （`dataset-content-v2`）。本機驗證證據：
 > [`autonomous-research-capability-registry.md`](autonomous-research-capability-registry.md) §3。
 
-**狀態：契約已定案；§1–§3、§6、§7 由 P06 實作（2026-09-20）。** 這是 P06（資料基礎契約）、
+**狀態：契約已定案；§1–§3、§6、§7 由 P06 實作，§5 日線市場語意由 P08 實作（2026-09-20）。** 這是 P06（資料基礎契約）、
 P07（Crypto adapter）、P08（ETF 市場語意）、P09／P10（ETF adapters）的共同輸入；P00 不匯入任何正式
 資料、不改 hash preimage、不改 `barsPerYear`。
 
@@ -15,7 +15,7 @@ P07（Crypto adapter）、P08（ETF 市場語意）、P09／P10（ETF adapters�
 > [`market-foundation-v1.md`](market-foundation-v1.md)（migration 0008、`src-tauri/src/market/`、
 > 雙語純契約 `market-foundation-v1` 與 `fixtures/rs-core/market-foundation-v1.json`）。
 > P06 **未連網、未下載任何資料**：§4 的來源矩陣仍是規劃決策，權限與涵蓋率由 P07／P09／P10 逐一核對；
-> §5 的 ETF 語意仍屬 P08。`crypto-24x7-v1` 是唯一可由本契約自身定義而內建的 calendar，
+> §5 的 P08 純函式與新版本 metrics 見 [`etf-semantics-v1.md`](etf-semantics-v1.md)，尚未接入 P18 成交引擎。`crypto-24x7-v1` 是唯一可由本契約自身定義而內建的 calendar，
 > `nyse-v1`／`twse-v1` 需要真實休市資料，未取得前相關 instrument 無法註冊（誠實阻擋，不捏造）。
 
 ---
@@ -114,6 +114,10 @@ P07（Crypto adapter）、P08（ETF 市場語意）、P09／P10（ETF adapters�
 ---
 
 ## 5. ETF 必要語意（P08 實作，TS／Rust parity）
+
+P08 已提供日線純計算契約及 55 個雙語共用案例，詳見 [`etf-semantics-v1.md`](etf-semantics-v1.md)。
+§5.1–7 的計算原語已完成；第 8 點的實際訂單／排程接線仍屬 P18／P20。舊回測仍用舊契約，
+真實 calendar／公司事件與來源授權仍待 P09／P10，未因此自動取得 ETF 研究資格。
 
 1. 交易日與時區來自版本化 calendar。
 2. 保留原始成交價；調整價只按明確用途。

@@ -1,0 +1,2553 @@
+{
+  "schemaVersion": "rs-core-parity-fixture-v1",
+  "fixtureVersion": "etf-semantics-parity-v1",
+  "source": "Synthetic hand-authored specification examples; no live calendar, prices, tax rates or qualification evidence. Numeric expectations calculated independently of production code.",
+  "numericPolicy": {
+    "absolute": 1e-12,
+    "relative": 1e-10
+  },
+  "cases": [
+    {
+      "id": "holiday_weekend_early_close",
+      "op": "sessions",
+      "input": {
+        "market": {
+          "instrumentId": "us-etf:nyse-arca:SPY",
+          "currency": "USD",
+          "calendar": {
+            "calendarId": "fixture-nyse-v1",
+            "kind": "trading-days",
+            "timezone": "America/New_York",
+            "tradingWeekdays": [
+              1,
+              2,
+              3,
+              4,
+              5
+            ],
+            "holidays": [
+              "2025-01-01"
+            ],
+            "earlyCloses": [
+              "2025-01-03"
+            ]
+          },
+          "calendarFrom": "2024-01-01",
+          "calendarToExclusive": "2027-01-01",
+          "sessionsPerYear": 252
+        },
+        "from": "2025-01-01",
+        "toExclusive": "2025-01-07",
+        "suspensions": []
+      },
+      "expected": [
+        1735776000000,
+        1735862400000,
+        1736121600000
+      ]
+    },
+    {
+      "id": "suspension_is_not_a_gap",
+      "op": "sessions",
+      "input": {
+        "market": {
+          "instrumentId": "us-etf:nyse-arca:SPY",
+          "currency": "USD",
+          "calendar": {
+            "calendarId": "fixture-nyse-v1",
+            "kind": "trading-days",
+            "timezone": "America/New_York",
+            "tradingWeekdays": [
+              1,
+              2,
+              3,
+              4,
+              5
+            ],
+            "holidays": [
+              "2025-01-01"
+            ],
+            "earlyCloses": [
+              "2025-01-03"
+            ]
+          },
+          "calendarFrom": "2024-01-01",
+          "calendarToExclusive": "2027-01-01",
+          "sessionsPerYear": 252
+        },
+        "from": "2025-01-01",
+        "toExclusive": "2025-01-07",
+        "suspensions": [
+          {
+            "fromMs": 1735862400000,
+            "toMsExclusive": 1735948800000
+          }
+        ]
+      },
+      "expected": [
+        1735776000000,
+        1736121600000
+      ]
+    },
+    {
+      "id": "calendar_not_extrapolated",
+      "op": "sessions",
+      "input": {
+        "market": {
+          "instrumentId": "us-etf:nyse-arca:SPY",
+          "currency": "USD",
+          "calendar": {
+            "calendarId": "fixture-nyse-v1",
+            "kind": "trading-days",
+            "timezone": "America/New_York",
+            "tradingWeekdays": [
+              1,
+              2,
+              3,
+              4,
+              5
+            ],
+            "holidays": [
+              "2025-01-01"
+            ],
+            "earlyCloses": [
+              "2025-01-03"
+            ]
+          },
+          "calendarFrom": "2024-01-01",
+          "calendarToExclusive": "2027-01-01",
+          "sessionsPerYear": 252
+        },
+        "from": "2023-12-31",
+        "toExclusive": "2025-01-07",
+        "suspensions": []
+      },
+      "error": "calendar_out_of_range"
+    },
+    {
+      "id": "timezone_mismatch",
+      "op": "sessions",
+      "input": {
+        "market": {
+          "instrumentId": "us-etf:nyse-arca:SPY",
+          "currency": "USD",
+          "calendar": {
+            "calendarId": "fixture-nyse-v1",
+            "kind": "trading-days",
+            "timezone": "UTC",
+            "tradingWeekdays": [
+              1,
+              2,
+              3,
+              4,
+              5
+            ],
+            "holidays": [
+              "2025-01-01"
+            ],
+            "earlyCloses": [
+              "2025-01-03"
+            ]
+          },
+          "calendarFrom": "2024-01-01",
+          "calendarToExclusive": "2027-01-01",
+          "sessionsPerYear": 252
+        },
+        "from": "2025-01-01",
+        "toExclusive": "2025-01-07",
+        "suspensions": []
+      },
+      "error": "timezone_mismatch"
+    },
+    {
+      "id": "usdt_is_not_usd",
+      "op": "sessions",
+      "input": {
+        "market": {
+          "instrumentId": "us-etf:nyse-arca:SPY",
+          "currency": "USDT",
+          "calendar": {
+            "calendarId": "fixture-nyse-v1",
+            "kind": "trading-days",
+            "timezone": "America/New_York",
+            "tradingWeekdays": [
+              1,
+              2,
+              3,
+              4,
+              5
+            ],
+            "holidays": [
+              "2025-01-01"
+            ],
+            "earlyCloses": [
+              "2025-01-03"
+            ]
+          },
+          "calendarFrom": "2024-01-01",
+          "calendarToExclusive": "2027-01-01",
+          "sessionsPerYear": 252
+        },
+        "from": "2025-01-01",
+        "toExclusive": "2025-01-07",
+        "suspensions": []
+      },
+      "error": "currency_mismatch"
+    },
+    {
+      "id": "unknown_market",
+      "op": "sessions",
+      "input": {
+        "market": {
+          "instrumentId": "crypto:binance:BTCUSDT",
+          "currency": "USD",
+          "calendar": {
+            "calendarId": "fixture-nyse-v1",
+            "kind": "trading-days",
+            "timezone": "America/New_York",
+            "tradingWeekdays": [
+              1,
+              2,
+              3,
+              4,
+              5
+            ],
+            "holidays": [
+              "2025-01-01"
+            ],
+            "earlyCloses": [
+              "2025-01-03"
+            ]
+          },
+          "calendarFrom": "2024-01-01",
+          "calendarToExclusive": "2027-01-01",
+          "sessionsPerYear": 252
+        },
+        "from": "2025-01-01",
+        "toExclusive": "2025-01-07",
+        "suspensions": []
+      },
+      "error": "invalid_etf_instrument"
+    },
+    {
+      "id": "taiwan_session_dates",
+      "op": "sessions",
+      "input": {
+        "market": {
+          "instrumentId": "tw-etf:twse:0050",
+          "currency": "TWD",
+          "calendar": {
+            "calendarId": "fixture-twse-v1",
+            "kind": "trading-days",
+            "timezone": "Asia/Taipei",
+            "tradingWeekdays": [
+              1,
+              2,
+              3,
+              4,
+              5
+            ],
+            "holidays": [
+              "2025-01-01"
+            ],
+            "earlyCloses": [
+              "2025-01-03"
+            ]
+          },
+          "calendarFrom": "2024-01-01",
+          "calendarToExclusive": "2027-01-01",
+          "sessionsPerYear": 252
+        },
+        "from": "2025-01-01",
+        "toExclusive": "2025-01-07",
+        "suspensions": []
+      },
+      "expected": [
+        1735776000000,
+        1735862400000,
+        1736121600000
+      ]
+    },
+    {
+      "id": "invalid_annualization",
+      "op": "sessions",
+      "input": {
+        "market": {
+          "instrumentId": "us-etf:nyse-arca:SPY",
+          "currency": "USD",
+          "calendar": {
+            "calendarId": "fixture-nyse-v1",
+            "kind": "trading-days",
+            "timezone": "America/New_York",
+            "tradingWeekdays": [
+              1,
+              2,
+              3,
+              4,
+              5
+            ],
+            "holidays": [
+              "2025-01-01"
+            ],
+            "earlyCloses": [
+              "2025-01-03"
+            ]
+          },
+          "calendarFrom": "2024-01-01",
+          "calendarToExclusive": "2027-01-01",
+          "sessionsPerYear": 0
+        },
+        "from": "2025-01-01",
+        "toExclusive": "2025-01-07",
+        "suspensions": []
+      },
+      "error": "invalid_annualization"
+    },
+    {
+      "id": "buy_costs",
+      "op": "costs",
+      "input": {
+        "costs": {
+          "version": "fixture-cost-v1",
+          "currency": "USD",
+          "confirmed": true,
+          "commissionRate": 0.001,
+          "minimumCommission": 1,
+          "slippageRate": 0.01,
+          "buyTaxRate": 0,
+          "sellTaxRate": 0.002
+        },
+        "currency": "USD",
+        "side": "buy",
+        "quantity": 10,
+        "rawPrice": 100
+      },
+      "expected": {
+        "version": "etf-semantics-v1",
+        "currency": "USD",
+        "executionPrice": 101,
+        "commission": 1.01,
+        "transactionTax": 0,
+        "slippage": 10,
+        "cashDelta": -1011.01,
+        "personalIncomeTaxIncluded": false
+      }
+    },
+    {
+      "id": "sell_costs",
+      "op": "costs",
+      "input": {
+        "costs": {
+          "version": "fixture-cost-v1",
+          "currency": "USD",
+          "confirmed": true,
+          "commissionRate": 0.001,
+          "minimumCommission": 1,
+          "slippageRate": 0.01,
+          "buyTaxRate": 0,
+          "sellTaxRate": 0.002
+        },
+        "currency": "USD",
+        "side": "sell",
+        "quantity": 10,
+        "rawPrice": 100
+      },
+      "expected": {
+        "version": "etf-semantics-v1",
+        "currency": "USD",
+        "executionPrice": 99,
+        "commission": 1,
+        "transactionTax": 1.98,
+        "slippage": 10,
+        "cashDelta": 987.02,
+        "personalIncomeTaxIncluded": false
+      }
+    },
+    {
+      "id": "no_currency_conversion",
+      "op": "costs",
+      "input": {
+        "costs": {
+          "version": "fixture-cost-v1",
+          "currency": "USD",
+          "confirmed": true,
+          "commissionRate": 0.001,
+          "minimumCommission": 1,
+          "slippageRate": 0.01,
+          "buyTaxRate": 0,
+          "sellTaxRate": 0.002
+        },
+        "currency": "TWD",
+        "side": "buy",
+        "quantity": 10,
+        "rawPrice": 100
+      },
+      "error": "currency_mismatch"
+    },
+    {
+      "id": "negative_cost_refused",
+      "op": "costs",
+      "input": {
+        "costs": {
+          "version": "fixture-cost-v1",
+          "currency": "USD",
+          "confirmed": true,
+          "commissionRate": -0.1,
+          "minimumCommission": 1,
+          "slippageRate": 0.01,
+          "buyTaxRate": 0,
+          "sellTaxRate": 0.002
+        },
+        "currency": "USD",
+        "side": "buy",
+        "quantity": 10,
+        "rawPrice": 100
+      },
+      "error": "invalid_cost"
+    },
+    {
+      "id": "cost_overflow",
+      "op": "costs",
+      "input": {
+        "costs": {
+          "version": "fixture-cost-v1",
+          "currency": "USD",
+          "confirmed": true,
+          "commissionRate": 0.001,
+          "minimumCommission": 1,
+          "slippageRate": 0.01,
+          "buyTaxRate": 0,
+          "sellTaxRate": 0.002
+        },
+        "currency": "USD",
+        "side": "buy",
+        "quantity": 1e+308,
+        "rawPrice": 100
+      },
+      "error": "numeric_overflow"
+    },
+    {
+      "id": "ex_date_creates_receivable_only",
+      "op": "accrue",
+      "input": {
+        "state": {
+          "instrumentId": "us-etf:nyse-arca:SPY",
+          "currency": "USD",
+          "cash": 1000,
+          "quantity": 10,
+          "costBasis": 1000,
+          "orders": [
+            {
+              "id": "limit",
+              "quantity": 2,
+              "limitPrice": 120,
+              "stopPrice": null
+            },
+            {
+              "id": "stop",
+              "quantity": 3,
+              "limitPrice": null,
+              "stopPrice": 90
+            }
+          ],
+          "receivables": [],
+          "appliedActionIds": [],
+          "lastEventDate": "2025-01-01"
+        },
+        "action": {
+          "id": "d1",
+          "instrumentId": "us-etf:nyse-arca:SPY",
+          "currency": "USD",
+          "exDate": "2025-01-02",
+          "paymentDate": "2025-01-10",
+          "amountPerShare": 2
+        }
+      },
+      "expected": {
+        "instrumentId": "us-etf:nyse-arca:SPY",
+        "currency": "USD",
+        "cash": 1000,
+        "quantity": 10,
+        "costBasis": 1000,
+        "orders": [
+          {
+            "id": "limit",
+            "quantity": 2,
+            "limitPrice": 120,
+            "stopPrice": null
+          },
+          {
+            "id": "stop",
+            "quantity": 3,
+            "limitPrice": null,
+            "stopPrice": 90
+          }
+        ],
+        "receivables": [
+          {
+            "actionId": "d1",
+            "exDate": "2025-01-02",
+            "paymentDate": "2025-01-10",
+            "amount": 20
+          }
+        ],
+        "appliedActionIds": [
+          "d1"
+        ],
+        "lastEventDate": "2025-01-02"
+      }
+    },
+    {
+      "id": "unknown_payment_keeps_receivable",
+      "op": "accrue",
+      "input": {
+        "state": {
+          "instrumentId": "us-etf:nyse-arca:SPY",
+          "currency": "USD",
+          "cash": 1000,
+          "quantity": 10,
+          "costBasis": 1000,
+          "orders": [
+            {
+              "id": "limit",
+              "quantity": 2,
+              "limitPrice": 120,
+              "stopPrice": null
+            },
+            {
+              "id": "stop",
+              "quantity": 3,
+              "limitPrice": null,
+              "stopPrice": 90
+            }
+          ],
+          "receivables": [],
+          "appliedActionIds": [],
+          "lastEventDate": "2025-01-01"
+        },
+        "action": {
+          "id": "d1",
+          "instrumentId": "us-etf:nyse-arca:SPY",
+          "currency": "USD",
+          "exDate": "2025-01-02",
+          "paymentDate": null,
+          "amountPerShare": 2
+        }
+      },
+      "expected": {
+        "instrumentId": "us-etf:nyse-arca:SPY",
+        "currency": "USD",
+        "cash": 1000,
+        "quantity": 10,
+        "costBasis": 1000,
+        "orders": [
+          {
+            "id": "limit",
+            "quantity": 2,
+            "limitPrice": 120,
+            "stopPrice": null
+          },
+          {
+            "id": "stop",
+            "quantity": 3,
+            "limitPrice": null,
+            "stopPrice": 90
+          }
+        ],
+        "receivables": [
+          {
+            "actionId": "d1",
+            "exDate": "2025-01-02",
+            "paymentDate": null,
+            "amount": 20
+          }
+        ],
+        "appliedActionIds": [
+          "d1"
+        ],
+        "lastEventDate": "2025-01-02"
+      }
+    },
+    {
+      "id": "payment_after_sale_uses_original_entitlement",
+      "op": "pay",
+      "input": {
+        "state": {
+          "instrumentId": "us-etf:nyse-arca:SPY",
+          "currency": "USD",
+          "cash": 1000,
+          "quantity": 0,
+          "costBasis": 0,
+          "orders": [
+            {
+              "id": "limit",
+              "quantity": 2,
+              "limitPrice": 120,
+              "stopPrice": null
+            },
+            {
+              "id": "stop",
+              "quantity": 3,
+              "limitPrice": null,
+              "stopPrice": 90
+            }
+          ],
+          "receivables": [
+            {
+              "actionId": "d1",
+              "exDate": "2025-01-02",
+              "paymentDate": "2025-01-10",
+              "amount": 20
+            }
+          ],
+          "appliedActionIds": [
+            "d1"
+          ],
+          "lastEventDate": "2025-01-02"
+        },
+        "actionId": "d1",
+        "paymentDate": "2025-01-10"
+      },
+      "expected": {
+        "instrumentId": "us-etf:nyse-arca:SPY",
+        "currency": "USD",
+        "cash": 1020,
+        "quantity": 0,
+        "costBasis": 0,
+        "orders": [
+          {
+            "id": "limit",
+            "quantity": 2,
+            "limitPrice": 120,
+            "stopPrice": null
+          },
+          {
+            "id": "stop",
+            "quantity": 3,
+            "limitPrice": null,
+            "stopPrice": 90
+          }
+        ],
+        "receivables": [],
+        "appliedActionIds": [
+          "d1"
+        ],
+        "lastEventDate": "2025-01-10"
+      }
+    },
+    {
+      "id": "cannot_spend_before_payment",
+      "op": "pay",
+      "input": {
+        "state": {
+          "instrumentId": "us-etf:nyse-arca:SPY",
+          "currency": "USD",
+          "cash": 1000,
+          "quantity": 10,
+          "costBasis": 1000,
+          "orders": [
+            {
+              "id": "limit",
+              "quantity": 2,
+              "limitPrice": 120,
+              "stopPrice": null
+            },
+            {
+              "id": "stop",
+              "quantity": 3,
+              "limitPrice": null,
+              "stopPrice": 90
+            }
+          ],
+          "receivables": [
+            {
+              "actionId": "d1",
+              "exDate": "2025-01-02",
+              "paymentDate": "2025-01-10",
+              "amount": 20
+            }
+          ],
+          "appliedActionIds": [
+            "d1"
+          ],
+          "lastEventDate": "2025-01-02"
+        },
+        "actionId": "d1",
+        "paymentDate": "2025-01-09"
+      },
+      "error": "invalid_payment_date"
+    },
+    {
+      "id": "unknown_date_never_implies_payment",
+      "op": "pay",
+      "input": {
+        "state": {
+          "instrumentId": "us-etf:nyse-arca:SPY",
+          "currency": "USD",
+          "cash": 1000,
+          "quantity": 10,
+          "costBasis": 1000,
+          "orders": [
+            {
+              "id": "limit",
+              "quantity": 2,
+              "limitPrice": 120,
+              "stopPrice": null
+            },
+            {
+              "id": "stop",
+              "quantity": 3,
+              "limitPrice": null,
+              "stopPrice": 90
+            }
+          ],
+          "receivables": [
+            {
+              "actionId": "d1",
+              "exDate": "2025-01-02",
+              "paymentDate": null,
+              "amount": 20
+            }
+          ],
+          "appliedActionIds": [
+            "d1"
+          ],
+          "lastEventDate": "2025-01-02"
+        },
+        "actionId": "d1",
+        "paymentDate": "2025-01-10"
+      },
+      "error": "unknown_payment_date"
+    },
+    {
+      "id": "duplicate_payment_refused",
+      "op": "pay",
+      "input": {
+        "state": {
+          "instrumentId": "us-etf:nyse-arca:SPY",
+          "currency": "USD",
+          "cash": 1020,
+          "quantity": 10,
+          "costBasis": 1000,
+          "orders": [
+            {
+              "id": "limit",
+              "quantity": 2,
+              "limitPrice": 120,
+              "stopPrice": null
+            },
+            {
+              "id": "stop",
+              "quantity": 3,
+              "limitPrice": null,
+              "stopPrice": 90
+            }
+          ],
+          "receivables": [],
+          "appliedActionIds": [
+            "d1"
+          ],
+          "lastEventDate": "2025-01-10"
+        },
+        "actionId": "d1",
+        "paymentDate": "2025-01-10"
+      },
+      "error": "missing_receivable"
+    },
+    {
+      "id": "duplicate_accrual_refused",
+      "op": "accrue",
+      "input": {
+        "state": {
+          "instrumentId": "us-etf:nyse-arca:SPY",
+          "currency": "USD",
+          "cash": 1000,
+          "quantity": 10,
+          "costBasis": 1000,
+          "orders": [
+            {
+              "id": "limit",
+              "quantity": 2,
+              "limitPrice": 120,
+              "stopPrice": null
+            },
+            {
+              "id": "stop",
+              "quantity": 3,
+              "limitPrice": null,
+              "stopPrice": 90
+            }
+          ],
+          "receivables": [
+            {
+              "actionId": "d1",
+              "exDate": "2025-01-02",
+              "paymentDate": "2025-01-10",
+              "amount": 20
+            }
+          ],
+          "appliedActionIds": [
+            "d1"
+          ],
+          "lastEventDate": "2025-01-02"
+        },
+        "action": {
+          "id": "d1",
+          "instrumentId": "us-etf:nyse-arca:SPY",
+          "currency": "USD",
+          "exDate": "2025-01-02",
+          "paymentDate": "2025-01-10",
+          "amountPerShare": 2
+        }
+      },
+      "error": "duplicate_action"
+    },
+    {
+      "id": "backdated_action_refused",
+      "op": "accrue",
+      "input": {
+        "state": {
+          "instrumentId": "us-etf:nyse-arca:SPY",
+          "currency": "USD",
+          "cash": 1000,
+          "quantity": 10,
+          "costBasis": 1000,
+          "orders": [
+            {
+              "id": "limit",
+              "quantity": 2,
+              "limitPrice": 120,
+              "stopPrice": null
+            },
+            {
+              "id": "stop",
+              "quantity": 3,
+              "limitPrice": null,
+              "stopPrice": 90
+            }
+          ],
+          "receivables": [],
+          "appliedActionIds": [],
+          "lastEventDate": "2025-02-01"
+        },
+        "action": {
+          "id": "d1",
+          "instrumentId": "us-etf:nyse-arca:SPY",
+          "currency": "USD",
+          "exDate": "2025-01-02",
+          "paymentDate": "2025-01-10",
+          "amountPerShare": 2
+        }
+      },
+      "error": "out_of_order_action"
+    },
+    {
+      "id": "payment_before_ex_date",
+      "op": "accrue",
+      "input": {
+        "state": {
+          "instrumentId": "us-etf:nyse-arca:SPY",
+          "currency": "USD",
+          "cash": 1000,
+          "quantity": 10,
+          "costBasis": 1000,
+          "orders": [
+            {
+              "id": "limit",
+              "quantity": 2,
+              "limitPrice": 120,
+              "stopPrice": null
+            },
+            {
+              "id": "stop",
+              "quantity": 3,
+              "limitPrice": null,
+              "stopPrice": 90
+            }
+          ],
+          "receivables": [],
+          "appliedActionIds": [],
+          "lastEventDate": "2025-01-01"
+        },
+        "action": {
+          "id": "d1",
+          "instrumentId": "us-etf:nyse-arca:SPY",
+          "currency": "USD",
+          "exDate": "2025-01-02",
+          "paymentDate": "2025-01-01",
+          "amountPerShare": 2
+        }
+      },
+      "error": "invalid_payment_date"
+    },
+    {
+      "id": "dividend_wrong_instrument",
+      "op": "accrue",
+      "input": {
+        "state": {
+          "instrumentId": "us-etf:nyse-arca:SPY",
+          "currency": "USD",
+          "cash": 1000,
+          "quantity": 10,
+          "costBasis": 1000,
+          "orders": [
+            {
+              "id": "limit",
+              "quantity": 2,
+              "limitPrice": 120,
+              "stopPrice": null
+            },
+            {
+              "id": "stop",
+              "quantity": 3,
+              "limitPrice": null,
+              "stopPrice": 90
+            }
+          ],
+          "receivables": [],
+          "appliedActionIds": [],
+          "lastEventDate": "2025-01-01"
+        },
+        "action": {
+          "id": "d1",
+          "instrumentId": "us-etf:nyse-arca:QQQ",
+          "currency": "USD",
+          "exDate": "2025-01-02",
+          "paymentDate": "2025-01-10",
+          "amountPerShare": 2
+        }
+      },
+      "error": "currency_or_instrument_mismatch"
+    },
+    {
+      "id": "split_adjusts_shares_orders_not_cash_basis_receivable",
+      "op": "split",
+      "input": {
+        "state": {
+          "instrumentId": "us-etf:nyse-arca:SPY",
+          "currency": "USD",
+          "cash": 1000,
+          "quantity": 10,
+          "costBasis": 1000,
+          "orders": [
+            {
+              "id": "limit",
+              "quantity": 2,
+              "limitPrice": 120,
+              "stopPrice": null
+            },
+            {
+              "id": "stop",
+              "quantity": 3,
+              "limitPrice": null,
+              "stopPrice": 90
+            }
+          ],
+          "receivables": [
+            {
+              "actionId": "d1",
+              "exDate": "2025-01-02",
+              "paymentDate": "2025-01-10",
+              "amount": 20
+            }
+          ],
+          "appliedActionIds": [
+            "d1"
+          ],
+          "lastEventDate": "2025-01-02"
+        },
+        "action": {
+          "id": "s1",
+          "instrumentId": "us-etf:nyse-arca:SPY",
+          "currency": "USD",
+          "effectiveDate": "2025-01-06",
+          "ratio": 2,
+          "availableAtMs": 1735862400000
+        }
+      },
+      "expected": {
+        "instrumentId": "us-etf:nyse-arca:SPY",
+        "currency": "USD",
+        "cash": 1000,
+        "quantity": 20,
+        "costBasis": 1000,
+        "orders": [
+          {
+            "id": "limit",
+            "quantity": 4,
+            "limitPrice": 60,
+            "stopPrice": null
+          },
+          {
+            "id": "stop",
+            "quantity": 6,
+            "limitPrice": null,
+            "stopPrice": 45
+          }
+        ],
+        "receivables": [
+          {
+            "actionId": "d1",
+            "exDate": "2025-01-02",
+            "paymentDate": "2025-01-10",
+            "amount": 20
+          }
+        ],
+        "appliedActionIds": [
+          "d1",
+          "s1"
+        ],
+        "lastEventDate": "2025-01-06"
+      }
+    },
+    {
+      "id": "reverse_split_preserves_fractional_entitlement",
+      "op": "split",
+      "input": {
+        "state": {
+          "instrumentId": "us-etf:nyse-arca:SPY",
+          "currency": "USD",
+          "cash": 1000,
+          "quantity": 10,
+          "costBasis": 1000,
+          "orders": [
+            {
+              "id": "limit",
+              "quantity": 2,
+              "limitPrice": 120,
+              "stopPrice": null
+            },
+            {
+              "id": "stop",
+              "quantity": 3,
+              "limitPrice": null,
+              "stopPrice": 90
+            }
+          ],
+          "receivables": [],
+          "appliedActionIds": [],
+          "lastEventDate": "2025-01-01"
+        },
+        "action": {
+          "id": "s1",
+          "instrumentId": "us-etf:nyse-arca:SPY",
+          "currency": "USD",
+          "effectiveDate": "2025-01-06",
+          "ratio": 0.25,
+          "availableAtMs": 1735862400000
+        }
+      },
+      "expected": {
+        "instrumentId": "us-etf:nyse-arca:SPY",
+        "currency": "USD",
+        "cash": 1000,
+        "quantity": 2.5,
+        "costBasis": 1000,
+        "orders": [
+          {
+            "id": "limit",
+            "quantity": 0.5,
+            "limitPrice": 480,
+            "stopPrice": null
+          },
+          {
+            "id": "stop",
+            "quantity": 0.75,
+            "limitPrice": null,
+            "stopPrice": 360
+          }
+        ],
+        "receivables": [],
+        "appliedActionIds": [
+          "s1"
+        ],
+        "lastEventDate": "2025-01-06"
+      }
+    },
+    {
+      "id": "split_duplicate_refused",
+      "op": "split",
+      "input": {
+        "state": {
+          "instrumentId": "us-etf:nyse-arca:SPY",
+          "currency": "USD",
+          "cash": 1000,
+          "quantity": 20,
+          "costBasis": 1000,
+          "orders": [
+            {
+              "id": "limit",
+              "quantity": 4,
+              "limitPrice": 60,
+              "stopPrice": null
+            },
+            {
+              "id": "stop",
+              "quantity": 6,
+              "limitPrice": null,
+              "stopPrice": 45
+            }
+          ],
+          "receivables": [
+            {
+              "actionId": "d1",
+              "exDate": "2025-01-02",
+              "paymentDate": "2025-01-10",
+              "amount": 20
+            }
+          ],
+          "appliedActionIds": [
+            "d1",
+            "s1"
+          ],
+          "lastEventDate": "2025-01-06"
+        },
+        "action": {
+          "id": "s1",
+          "instrumentId": "us-etf:nyse-arca:SPY",
+          "currency": "USD",
+          "effectiveDate": "2025-01-06",
+          "ratio": 2,
+          "availableAtMs": 1735862400000
+        }
+      },
+      "error": "duplicate_action"
+    },
+    {
+      "id": "zero_split_refused",
+      "op": "split",
+      "input": {
+        "state": {
+          "instrumentId": "us-etf:nyse-arca:SPY",
+          "currency": "USD",
+          "cash": 1000,
+          "quantity": 10,
+          "costBasis": 1000,
+          "orders": [
+            {
+              "id": "limit",
+              "quantity": 2,
+              "limitPrice": 120,
+              "stopPrice": null
+            },
+            {
+              "id": "stop",
+              "quantity": 3,
+              "limitPrice": null,
+              "stopPrice": 90
+            }
+          ],
+          "receivables": [],
+          "appliedActionIds": [],
+          "lastEventDate": "2025-01-01"
+        },
+        "action": {
+          "id": "s1",
+          "instrumentId": "us-etf:nyse-arca:SPY",
+          "currency": "USD",
+          "effectiveDate": "2025-01-06",
+          "ratio": 0,
+          "availableAtMs": 1735862400000
+        }
+      },
+      "error": "invalid_split"
+    },
+    {
+      "id": "split_overflow_refused",
+      "op": "split",
+      "input": {
+        "state": {
+          "instrumentId": "us-etf:nyse-arca:SPY",
+          "currency": "USD",
+          "cash": 1000,
+          "quantity": 10,
+          "costBasis": 1000,
+          "orders": [
+            {
+              "id": "limit",
+              "quantity": 2,
+              "limitPrice": 120,
+              "stopPrice": null
+            },
+            {
+              "id": "stop",
+              "quantity": 3,
+              "limitPrice": null,
+              "stopPrice": 90
+            }
+          ],
+          "receivables": [],
+          "appliedActionIds": [],
+          "lastEventDate": "2025-01-01"
+        },
+        "action": {
+          "id": "s1",
+          "instrumentId": "us-etf:nyse-arca:SPY",
+          "currency": "USD",
+          "effectiveDate": "2025-01-06",
+          "ratio": 1e+308,
+          "availableAtMs": 1735862400000
+        }
+      },
+      "error": "invalid_position"
+    },
+    {
+      "id": "point_in_time_split_adjustment",
+      "op": "signals",
+      "input": {
+        "raw": [
+          {
+            "timestamp": 1735776000000,
+            "open": 100,
+            "high": 120,
+            "low": 90,
+            "close": 110,
+            "volume": 10
+          }
+        ],
+        "instrumentId": "us-etf:nyse-arca:SPY",
+        "splits": [
+          {
+            "id": "s1",
+            "instrumentId": "us-etf:nyse-arca:SPY",
+            "currency": "USD",
+            "effectiveDate": "2025-01-06",
+            "ratio": 2,
+            "availableAtMs": 1735862400000
+          }
+        ],
+        "asOfMs": 1736121600000
+      },
+      "expected": [
+        {
+          "timestamp": 1735776000000,
+          "open": 50,
+          "high": 60,
+          "low": 45,
+          "close": 55,
+          "volume": 20
+        }
+      ]
+    },
+    {
+      "id": "announced_future_split_not_used",
+      "op": "signals",
+      "input": {
+        "raw": [
+          {
+            "timestamp": 1735776000000,
+            "open": 100,
+            "high": 120,
+            "low": 90,
+            "close": 110,
+            "volume": 10
+          }
+        ],
+        "instrumentId": "us-etf:nyse-arca:SPY",
+        "splits": [
+          {
+            "id": "s1",
+            "instrumentId": "us-etf:nyse-arca:SPY",
+            "currency": "USD",
+            "effectiveDate": "2025-01-06",
+            "ratio": 2,
+            "availableAtMs": 1735862400000
+          }
+        ],
+        "asOfMs": 1735948800000
+      },
+      "expected": [
+        {
+          "timestamp": 1735776000000,
+          "open": 100,
+          "high": 120,
+          "low": 90,
+          "close": 110,
+          "volume": 10
+        }
+      ]
+    },
+    {
+      "id": "unobserved_split_not_used",
+      "op": "signals",
+      "input": {
+        "raw": [
+          {
+            "timestamp": 1735776000000,
+            "open": 100,
+            "high": 120,
+            "low": 90,
+            "close": 110,
+            "volume": 10
+          }
+        ],
+        "instrumentId": "us-etf:nyse-arca:SPY",
+        "splits": [
+          {
+            "id": "s1",
+            "instrumentId": "us-etf:nyse-arca:SPY",
+            "currency": "USD",
+            "effectiveDate": "2025-01-06",
+            "ratio": 2,
+            "availableAtMs": 1736208000000
+          }
+        ],
+        "asOfMs": 1736121600000
+      },
+      "expected": [
+        {
+          "timestamp": 1735776000000,
+          "open": 100,
+          "high": 120,
+          "low": 90,
+          "close": 110,
+          "volume": 10
+        }
+      ]
+    },
+    {
+      "id": "effective_date_raw_bar_not_adjusted",
+      "op": "signals",
+      "input": {
+        "raw": [
+          {
+            "timestamp": 1736121600000,
+            "open": 100,
+            "high": 120,
+            "low": 90,
+            "close": 110,
+            "volume": 10
+          }
+        ],
+        "instrumentId": "us-etf:nyse-arca:SPY",
+        "splits": [
+          {
+            "id": "s1",
+            "instrumentId": "us-etf:nyse-arca:SPY",
+            "currency": "USD",
+            "effectiveDate": "2025-01-06",
+            "ratio": 2,
+            "availableAtMs": 1735862400000
+          }
+        ],
+        "asOfMs": 1736121600000
+      },
+      "expected": [
+        {
+          "timestamp": 1736121600000,
+          "open": 100,
+          "high": 120,
+          "low": 90,
+          "close": 110,
+          "volume": 10
+        }
+      ]
+    },
+    {
+      "id": "future_raw_bar_refused",
+      "op": "signals",
+      "input": {
+        "raw": [
+          {
+            "timestamp": 1735776000000,
+            "open": 100,
+            "high": 120,
+            "low": 90,
+            "close": 110,
+            "volume": 10
+          }
+        ],
+        "instrumentId": "us-etf:nyse-arca:SPY",
+        "splits": [
+          {
+            "id": "s1",
+            "instrumentId": "us-etf:nyse-arca:SPY",
+            "currency": "USD",
+            "effectiveDate": "2025-01-06",
+            "ratio": 2,
+            "availableAtMs": 1735862400000
+          }
+        ],
+        "asOfMs": 1735689600000
+      },
+      "error": "invalid_raw_bar"
+    },
+    {
+      "id": "duplicate_raw_bar_refused",
+      "op": "signals",
+      "input": {
+        "raw": [
+          {
+            "timestamp": 1735776000000,
+            "open": 100,
+            "high": 120,
+            "low": 90,
+            "close": 110,
+            "volume": 10
+          },
+          {
+            "timestamp": 1735776000000,
+            "open": 100,
+            "high": 120,
+            "low": 90,
+            "close": 110,
+            "volume": 10
+          }
+        ],
+        "instrumentId": "us-etf:nyse-arca:SPY",
+        "splits": [
+          {
+            "id": "s1",
+            "instrumentId": "us-etf:nyse-arca:SPY",
+            "currency": "USD",
+            "effectiveDate": "2025-01-06",
+            "ratio": 2,
+            "availableAtMs": 1735862400000
+          }
+        ],
+        "asOfMs": 1736121600000
+      },
+      "error": "invalid_raw_bar"
+    },
+    {
+      "id": "duplicate_split_catalog_refused",
+      "op": "signals",
+      "input": {
+        "raw": [
+          {
+            "timestamp": 1735776000000,
+            "open": 100,
+            "high": 120,
+            "low": 90,
+            "close": 110,
+            "volume": 10
+          }
+        ],
+        "instrumentId": "us-etf:nyse-arca:SPY",
+        "splits": [
+          {
+            "id": "s1",
+            "instrumentId": "us-etf:nyse-arca:SPY",
+            "currency": "USD",
+            "effectiveDate": "2025-01-06",
+            "ratio": 2,
+            "availableAtMs": 1735862400000
+          },
+          {
+            "id": "s1",
+            "instrumentId": "us-etf:nyse-arca:SPY",
+            "currency": "USD",
+            "effectiveDate": "2025-01-06",
+            "ratio": 2,
+            "availableAtMs": 1735862400000
+          }
+        ],
+        "asOfMs": 1736121600000
+      },
+      "error": "duplicate_action"
+    },
+    {
+      "id": "confirmed_semantics_not_strategy_promotion",
+      "op": "assess",
+      "input": {
+        "market": {
+          "instrumentId": "us-etf:nyse-arca:SPY",
+          "currency": "USD",
+          "calendar": {
+            "calendarId": "fixture-nyse-v1",
+            "kind": "trading-days",
+            "timezone": "America/New_York",
+            "tradingWeekdays": [
+              1,
+              2,
+              3,
+              4,
+              5
+            ],
+            "holidays": [
+              "2025-01-01"
+            ],
+            "earlyCloses": [
+              "2025-01-03"
+            ]
+          },
+          "calendarFrom": "2024-01-01",
+          "calendarToExclusive": "2027-01-01",
+          "sessionsPerYear": 252
+        },
+        "costs": {
+          "version": "fixture-cost-v1",
+          "currency": "USD",
+          "confirmed": true,
+          "commissionRate": 0.001,
+          "minimumCommission": 1,
+          "slippageRate": 0.01,
+          "buyTaxRate": 0,
+          "sellTaxRate": 0.002
+        },
+        "evidence": {
+          "version": "fixture-actions-v1",
+          "complete": true,
+          "from": "2025-01-01",
+          "toExclusive": "2026-01-01",
+          "dividends": [
+            {
+              "id": "d1",
+              "instrumentId": "us-etf:nyse-arca:SPY",
+              "currency": "USD",
+              "exDate": "2025-01-02",
+              "paymentDate": "2025-01-10",
+              "amountPerShare": 2
+            }
+          ]
+        },
+        "from": "2025-01-01",
+        "toExclusive": "2026-01-01"
+      },
+      "expected": {
+        "version": "etf-semantics-v1",
+        "status": "OK",
+        "semanticsEligible": true,
+        "reasons": []
+      }
+    },
+    {
+      "id": "incomplete_actions_degrade",
+      "op": "assess",
+      "input": {
+        "market": {
+          "instrumentId": "us-etf:nyse-arca:SPY",
+          "currency": "USD",
+          "calendar": {
+            "calendarId": "fixture-nyse-v1",
+            "kind": "trading-days",
+            "timezone": "America/New_York",
+            "tradingWeekdays": [
+              1,
+              2,
+              3,
+              4,
+              5
+            ],
+            "holidays": [
+              "2025-01-01"
+            ],
+            "earlyCloses": [
+              "2025-01-03"
+            ]
+          },
+          "calendarFrom": "2024-01-01",
+          "calendarToExclusive": "2027-01-01",
+          "sessionsPerYear": 252
+        },
+        "costs": {
+          "version": "fixture-cost-v1",
+          "currency": "USD",
+          "confirmed": true,
+          "commissionRate": 0.001,
+          "minimumCommission": 1,
+          "slippageRate": 0.01,
+          "buyTaxRate": 0,
+          "sellTaxRate": 0.002
+        },
+        "evidence": {
+          "version": "fixture-actions-v1",
+          "complete": false,
+          "from": "2025-01-01",
+          "toExclusive": "2026-01-01",
+          "dividends": [
+            {
+              "id": "d1",
+              "instrumentId": "us-etf:nyse-arca:SPY",
+              "currency": "USD",
+              "exDate": "2025-01-02",
+              "paymentDate": "2025-01-10",
+              "amountPerShare": 2
+            }
+          ]
+        },
+        "from": "2025-01-01",
+        "toExclusive": "2026-01-01"
+      },
+      "expected": {
+        "version": "etf-semantics-v1",
+        "status": "DEGRADED",
+        "semanticsEligible": false,
+        "reasons": [
+          "corporate_actions_unconfirmed"
+        ]
+      }
+    },
+    {
+      "id": "unknown_payment_and_costs_degrade",
+      "op": "assess",
+      "input": {
+        "market": {
+          "instrumentId": "us-etf:nyse-arca:SPY",
+          "currency": "USD",
+          "calendar": {
+            "calendarId": "fixture-nyse-v1",
+            "kind": "trading-days",
+            "timezone": "America/New_York",
+            "tradingWeekdays": [
+              1,
+              2,
+              3,
+              4,
+              5
+            ],
+            "holidays": [
+              "2025-01-01"
+            ],
+            "earlyCloses": [
+              "2025-01-03"
+            ]
+          },
+          "calendarFrom": "2024-01-01",
+          "calendarToExclusive": "2027-01-01",
+          "sessionsPerYear": 252
+        },
+        "costs": {
+          "version": "fixture-cost-v1",
+          "currency": "USD",
+          "confirmed": false,
+          "commissionRate": 0.001,
+          "minimumCommission": 1,
+          "slippageRate": 0.01,
+          "buyTaxRate": 0,
+          "sellTaxRate": 0.002
+        },
+        "evidence": {
+          "version": "fixture-actions-v1",
+          "complete": true,
+          "from": "2025-01-01",
+          "toExclusive": "2026-01-01",
+          "dividends": [
+            {
+              "id": "d1",
+              "instrumentId": "us-etf:nyse-arca:SPY",
+              "currency": "USD",
+              "exDate": "2025-01-02",
+              "paymentDate": null,
+              "amountPerShare": 2
+            }
+          ]
+        },
+        "from": "2025-01-01",
+        "toExclusive": "2026-01-01"
+      },
+      "expected": {
+        "version": "etf-semantics-v1",
+        "status": "DEGRADED",
+        "semanticsEligible": false,
+        "reasons": [
+          "unknown_payment_date",
+          "costs_unconfirmed"
+        ]
+      }
+    },
+    {
+      "id": "short_action_coverage_degrades",
+      "op": "assess",
+      "input": {
+        "market": {
+          "instrumentId": "us-etf:nyse-arca:SPY",
+          "currency": "USD",
+          "calendar": {
+            "calendarId": "fixture-nyse-v1",
+            "kind": "trading-days",
+            "timezone": "America/New_York",
+            "tradingWeekdays": [
+              1,
+              2,
+              3,
+              4,
+              5
+            ],
+            "holidays": [
+              "2025-01-01"
+            ],
+            "earlyCloses": [
+              "2025-01-03"
+            ]
+          },
+          "calendarFrom": "2024-01-01",
+          "calendarToExclusive": "2027-01-01",
+          "sessionsPerYear": 252
+        },
+        "costs": {
+          "version": "fixture-cost-v1",
+          "currency": "USD",
+          "confirmed": true,
+          "commissionRate": 0.001,
+          "minimumCommission": 1,
+          "slippageRate": 0.01,
+          "buyTaxRate": 0,
+          "sellTaxRate": 0.002
+        },
+        "evidence": {
+          "version": "fixture-actions-v1",
+          "complete": true,
+          "from": "2025-01-01",
+          "toExclusive": "2025-06-01",
+          "dividends": [
+            {
+              "id": "d1",
+              "instrumentId": "us-etf:nyse-arca:SPY",
+              "currency": "USD",
+              "exDate": "2025-01-02",
+              "paymentDate": "2025-01-10",
+              "amountPerShare": 2
+            }
+          ]
+        },
+        "from": "2025-01-01",
+        "toExclusive": "2026-01-01"
+      },
+      "expected": {
+        "version": "etf-semantics-v1",
+        "status": "DEGRADED",
+        "semanticsEligible": false,
+        "reasons": [
+          "corporate_actions_unconfirmed"
+        ]
+      }
+    },
+    {
+      "id": "elapsed_year_cagr_daily_volatility",
+      "op": "metrics",
+      "input": {
+        "market": {
+          "instrumentId": "us-etf:nyse-arca:SPY",
+          "currency": "USD",
+          "calendar": {
+            "calendarId": "fixture-nyse-v1",
+            "kind": "trading-days",
+            "timezone": "America/New_York",
+            "tradingWeekdays": [
+              1,
+              2,
+              3,
+              4,
+              5
+            ],
+            "holidays": [
+              "2025-01-01"
+            ],
+            "earlyCloses": [
+              "2025-01-03"
+            ]
+          },
+          "calendarFrom": "2024-01-01",
+          "calendarToExclusive": "2027-01-01",
+          "sessionsPerYear": 252
+        },
+        "startEquity": 100,
+        "periodStartMs": 1704067200000,
+        "periodEndMs": 1735624800000,
+        "totalBars": 2,
+        "equity": [
+          {
+            "time": 1704153600000,
+            "equity": 110
+          },
+          {
+            "time": 1735624800000,
+            "equity": 99
+          }
+        ],
+        "trades": [],
+        "riskFreePerBar": 0
+      },
+      "expected": {
+        "version": "etf-metrics-v1",
+        "currency": "USD",
+        "calendarId": "fixture-nyse-v1",
+        "sessionsPerYear": 252,
+        "elapsedYears": 1,
+        "annualizedVolatility": 1.5874507866387544,
+        "netReturn": -0.01,
+        "cagr": -0.01,
+        "maxDrawdown": 0.1,
+        "calmar": -0.1,
+        "sharpe": 0
+      }
+    },
+    {
+      "id": "elapsed_two_years_not_bar_count",
+      "op": "metrics",
+      "input": {
+        "market": {
+          "instrumentId": "us-etf:nyse-arca:SPY",
+          "currency": "USD",
+          "calendar": {
+            "calendarId": "fixture-nyse-v1",
+            "kind": "trading-days",
+            "timezone": "America/New_York",
+            "tradingWeekdays": [
+              1,
+              2,
+              3,
+              4,
+              5
+            ],
+            "holidays": [
+              "2025-01-01"
+            ],
+            "earlyCloses": [
+              "2025-01-03"
+            ]
+          },
+          "calendarFrom": "2024-01-01",
+          "calendarToExclusive": "2027-01-01",
+          "sessionsPerYear": 252
+        },
+        "startEquity": 100,
+        "periodStartMs": 1704067200000,
+        "periodEndMs": 1767182400000,
+        "totalBars": 2,
+        "equity": [
+          {
+            "time": 1704153600000,
+            "equity": 110
+          },
+          {
+            "time": 1767182400000,
+            "equity": 99
+          }
+        ],
+        "trades": [],
+        "riskFreePerBar": 0
+      },
+      "expected": {
+        "version": "etf-metrics-v1",
+        "currency": "USD",
+        "calendarId": "fixture-nyse-v1",
+        "sessionsPerYear": 252,
+        "elapsedYears": 2,
+        "annualizedVolatility": 1.5874507866387544,
+        "netReturn": -0.01,
+        "cagr": -0.005012562893380035,
+        "maxDrawdown": 0.1,
+        "calmar": -0.05012562893380035,
+        "sharpe": 0
+      }
+    },
+    {
+      "id": "total_loss_is_minus_one",
+      "op": "metrics",
+      "input": {
+        "market": {
+          "instrumentId": "us-etf:nyse-arca:SPY",
+          "currency": "USD",
+          "calendar": {
+            "calendarId": "fixture-nyse-v1",
+            "kind": "trading-days",
+            "timezone": "America/New_York",
+            "tradingWeekdays": [
+              1,
+              2,
+              3,
+              4,
+              5
+            ],
+            "holidays": [
+              "2025-01-01"
+            ],
+            "earlyCloses": [
+              "2025-01-03"
+            ]
+          },
+          "calendarFrom": "2024-01-01",
+          "calendarToExclusive": "2027-01-01",
+          "sessionsPerYear": 252
+        },
+        "startEquity": 100,
+        "periodStartMs": 1704067200000,
+        "periodEndMs": 1735624800000,
+        "totalBars": 1,
+        "equity": [
+          {
+            "time": 1735624800000,
+            "equity": 0
+          }
+        ],
+        "trades": [],
+        "riskFreePerBar": 0
+      },
+      "expected": {
+        "version": "etf-metrics-v1",
+        "currency": "USD",
+        "calendarId": "fixture-nyse-v1",
+        "sessionsPerYear": 252,
+        "elapsedYears": 1,
+        "annualizedVolatility": 0,
+        "netReturn": -1,
+        "cagr": -1,
+        "maxDrawdown": 1,
+        "calmar": -1,
+        "sharpe": 0
+      }
+    },
+    {
+      "id": "zero_duration_refused",
+      "op": "metrics",
+      "input": {
+        "market": {
+          "instrumentId": "us-etf:nyse-arca:SPY",
+          "currency": "USD",
+          "calendar": {
+            "calendarId": "fixture-nyse-v1",
+            "kind": "trading-days",
+            "timezone": "America/New_York",
+            "tradingWeekdays": [
+              1,
+              2,
+              3,
+              4,
+              5
+            ],
+            "holidays": [
+              "2025-01-01"
+            ],
+            "earlyCloses": [
+              "2025-01-03"
+            ]
+          },
+          "calendarFrom": "2024-01-01",
+          "calendarToExclusive": "2027-01-01",
+          "sessionsPerYear": 252
+        },
+        "startEquity": 100,
+        "periodStartMs": 1704067200000,
+        "periodEndMs": 1704067200000,
+        "totalBars": 2,
+        "equity": [
+          {
+            "time": 1704153600000,
+            "equity": 110
+          },
+          {
+            "time": 1735624800000,
+            "equity": 99
+          }
+        ],
+        "trades": [],
+        "riskFreePerBar": 0
+      },
+      "error": "invalid_metrics_input"
+    },
+    {
+      "id": "empty_metrics_refused",
+      "op": "metrics",
+      "input": {
+        "market": {
+          "instrumentId": "us-etf:nyse-arca:SPY",
+          "currency": "USD",
+          "calendar": {
+            "calendarId": "fixture-nyse-v1",
+            "kind": "trading-days",
+            "timezone": "America/New_York",
+            "tradingWeekdays": [
+              1,
+              2,
+              3,
+              4,
+              5
+            ],
+            "holidays": [
+              "2025-01-01"
+            ],
+            "earlyCloses": [
+              "2025-01-03"
+            ]
+          },
+          "calendarFrom": "2024-01-01",
+          "calendarToExclusive": "2027-01-01",
+          "sessionsPerYear": 252
+        },
+        "startEquity": 100,
+        "periodStartMs": 1704067200000,
+        "periodEndMs": 1735624800000,
+        "totalBars": 0,
+        "equity": [],
+        "trades": [],
+        "riskFreePerBar": 0
+      },
+      "error": "invalid_metrics_input"
+    },
+    {
+      "id": "stale_final_valuation_refused",
+      "op": "metrics",
+      "input": {
+        "market": {
+          "instrumentId": "us-etf:nyse-arca:SPY",
+          "currency": "USD",
+          "calendar": {
+            "calendarId": "fixture-nyse-v1",
+            "kind": "trading-days",
+            "timezone": "America/New_York",
+            "tradingWeekdays": [
+              1,
+              2,
+              3,
+              4,
+              5
+            ],
+            "holidays": [
+              "2025-01-01"
+            ],
+            "earlyCloses": [
+              "2025-01-03"
+            ]
+          },
+          "calendarFrom": "2024-01-01",
+          "calendarToExclusive": "2027-01-01",
+          "sessionsPerYear": 252
+        },
+        "startEquity": 100,
+        "periodStartMs": 1704067200000,
+        "periodEndMs": 1735624800000,
+        "totalBars": 2,
+        "equity": [
+          {
+            "time": 1704153600000,
+            "equity": 110
+          },
+          {
+            "time": 1735624799999,
+            "equity": 99
+          }
+        ],
+        "trades": [],
+        "riskFreePerBar": 0
+      },
+      "error": "missing_final_valuation"
+    },
+    {
+      "id": "unsorted_equity_refused",
+      "op": "metrics",
+      "input": {
+        "market": {
+          "instrumentId": "us-etf:nyse-arca:SPY",
+          "currency": "USD",
+          "calendar": {
+            "calendarId": "fixture-nyse-v1",
+            "kind": "trading-days",
+            "timezone": "America/New_York",
+            "tradingWeekdays": [
+              1,
+              2,
+              3,
+              4,
+              5
+            ],
+            "holidays": [
+              "2025-01-01"
+            ],
+            "earlyCloses": [
+              "2025-01-03"
+            ]
+          },
+          "calendarFrom": "2024-01-01",
+          "calendarToExclusive": "2027-01-01",
+          "sessionsPerYear": 252
+        },
+        "startEquity": 100,
+        "periodStartMs": 1704067200000,
+        "periodEndMs": 1735624800000,
+        "totalBars": 2,
+        "equity": [
+          {
+            "time": 1735624800000,
+            "equity": 99
+          },
+          {
+            "time": 1704153600000,
+            "equity": 110
+          }
+        ],
+        "trades": [],
+        "riskFreePerBar": 0
+      },
+      "error": "invalid_equity"
+    },
+    {
+      "id": "zero_initial_equity_refused",
+      "op": "metrics",
+      "input": {
+        "market": {
+          "instrumentId": "us-etf:nyse-arca:SPY",
+          "currency": "USD",
+          "calendar": {
+            "calendarId": "fixture-nyse-v1",
+            "kind": "trading-days",
+            "timezone": "America/New_York",
+            "tradingWeekdays": [
+              1,
+              2,
+              3,
+              4,
+              5
+            ],
+            "holidays": [
+              "2025-01-01"
+            ],
+            "earlyCloses": [
+              "2025-01-03"
+            ]
+          },
+          "calendarFrom": "2024-01-01",
+          "calendarToExclusive": "2027-01-01",
+          "sessionsPerYear": 252
+        },
+        "startEquity": 0,
+        "periodStartMs": 1704067200000,
+        "periodEndMs": 1735624800000,
+        "totalBars": 2,
+        "equity": [
+          {
+            "time": 1704153600000,
+            "equity": 110
+          },
+          {
+            "time": 1735624800000,
+            "equity": 99
+          }
+        ],
+        "trades": [],
+        "riskFreePerBar": 0
+      },
+      "error": "invalid_metrics_input"
+    },
+    {
+      "id": "bankruptcy_then_recovery_refused",
+      "op": "metrics",
+      "input": {
+        "market": {
+          "instrumentId": "us-etf:nyse-arca:SPY",
+          "currency": "USD",
+          "calendar": {
+            "calendarId": "fixture-nyse-v1",
+            "kind": "trading-days",
+            "timezone": "America/New_York",
+            "tradingWeekdays": [
+              1,
+              2,
+              3,
+              4,
+              5
+            ],
+            "holidays": [
+              "2025-01-01"
+            ],
+            "earlyCloses": [
+              "2025-01-03"
+            ]
+          },
+          "calendarFrom": "2024-01-01",
+          "calendarToExclusive": "2027-01-01",
+          "sessionsPerYear": 252
+        },
+        "startEquity": 100,
+        "periodStartMs": 1704067200000,
+        "periodEndMs": 1735624800000,
+        "totalBars": 2,
+        "equity": [
+          {
+            "time": 1704153600000,
+            "equity": 0
+          },
+          {
+            "time": 1735624800000,
+            "equity": 99
+          }
+        ],
+        "trades": [],
+        "riskFreePerBar": 0
+      },
+      "error": "invalid_equity"
+    },
+    {
+      "id": "equity_before_ex",
+      "op": "value",
+      "input": {
+        "state": {
+          "instrumentId": "us-etf:nyse-arca:SPY",
+          "currency": "USD",
+          "cash": 1000,
+          "quantity": 10,
+          "costBasis": 1000,
+          "orders": [
+            {
+              "id": "limit",
+              "quantity": 2,
+              "limitPrice": 120,
+              "stopPrice": null
+            },
+            {
+              "id": "stop",
+              "quantity": 3,
+              "limitPrice": null,
+              "stopPrice": 90
+            }
+          ],
+          "receivables": [],
+          "appliedActionIds": [],
+          "lastEventDate": "2025-01-01"
+        },
+        "rawPrice": 100
+      },
+      "expected": {
+        "currency": "USD",
+        "cash": 1000,
+        "marketValue": 1000,
+        "receivables": 0,
+        "equity": 2000
+      }
+    },
+    {
+      "id": "ex_drop_offset_by_receivable",
+      "op": "value",
+      "input": {
+        "state": {
+          "instrumentId": "us-etf:nyse-arca:SPY",
+          "currency": "USD",
+          "cash": 1000,
+          "quantity": 10,
+          "costBasis": 1000,
+          "orders": [
+            {
+              "id": "limit",
+              "quantity": 2,
+              "limitPrice": 120,
+              "stopPrice": null
+            },
+            {
+              "id": "stop",
+              "quantity": 3,
+              "limitPrice": null,
+              "stopPrice": 90
+            }
+          ],
+          "receivables": [
+            {
+              "actionId": "d1",
+              "exDate": "2025-01-02",
+              "paymentDate": "2025-01-10",
+              "amount": 20
+            }
+          ],
+          "appliedActionIds": [
+            "d1"
+          ],
+          "lastEventDate": "2025-01-02"
+        },
+        "rawPrice": 98
+      },
+      "expected": {
+        "currency": "USD",
+        "cash": 1000,
+        "marketValue": 980,
+        "receivables": 20,
+        "equity": 2000
+      }
+    },
+    {
+      "id": "split_never_mints_equity",
+      "op": "value",
+      "input": {
+        "state": {
+          "instrumentId": "us-etf:nyse-arca:SPY",
+          "currency": "USD",
+          "cash": 1000,
+          "quantity": 20,
+          "costBasis": 1000,
+          "orders": [
+            {
+              "id": "limit",
+              "quantity": 4,
+              "limitPrice": 60,
+              "stopPrice": null
+            },
+            {
+              "id": "stop",
+              "quantity": 6,
+              "limitPrice": null,
+              "stopPrice": 45
+            }
+          ],
+          "receivables": [
+            {
+              "actionId": "d1",
+              "exDate": "2025-01-02",
+              "paymentDate": "2025-01-10",
+              "amount": 20
+            }
+          ],
+          "appliedActionIds": [
+            "d1",
+            "s1"
+          ],
+          "lastEventDate": "2025-01-06"
+        },
+        "rawPrice": 49
+      },
+      "expected": {
+        "currency": "USD",
+        "cash": 1000,
+        "marketValue": 980,
+        "receivables": 20,
+        "equity": 2000
+      }
+    },
+    {
+      "id": "long_trade_metrics",
+      "op": "metrics",
+      "input": {
+        "market": {
+          "instrumentId": "us-etf:nyse-arca:SPY",
+          "currency": "USD",
+          "calendar": {
+            "calendarId": "fixture-nyse-v1",
+            "kind": "trading-days",
+            "timezone": "America/New_York",
+            "tradingWeekdays": [
+              1,
+              2,
+              3,
+              4,
+              5
+            ],
+            "holidays": [
+              "2025-01-01"
+            ],
+            "earlyCloses": [
+              "2025-01-03"
+            ]
+          },
+          "calendarFrom": "2024-01-01",
+          "calendarToExclusive": "2027-01-01",
+          "sessionsPerYear": 252
+        },
+        "startEquity": 100,
+        "periodStartMs": 1704067200000,
+        "periodEndMs": 1735624800000,
+        "totalBars": 2,
+        "equity": [
+          {
+            "time": 1704153600000,
+            "equity": 110
+          },
+          {
+            "time": 1735624800000,
+            "equity": 99
+          }
+        ],
+        "trades": [
+          {
+            "entryTime": 1704067200000,
+            "exitTime": 1735624800000,
+            "side": "LONG",
+            "entryPrice": 100,
+            "exitPrice": 99,
+            "pnl": -1,
+            "pnlPct": -0.01,
+            "bars": 2
+          }
+        ],
+        "riskFreePerBar": 0
+      },
+      "expected": {
+        "version": "etf-metrics-v1",
+        "currency": "USD",
+        "calendarId": "fixture-nyse-v1",
+        "sessionsPerYear": 252,
+        "elapsedYears": 1,
+        "annualizedVolatility": 1.5874507866387544,
+        "netReturn": -0.01,
+        "cagr": -0.01,
+        "maxDrawdown": 0.1,
+        "calmar": -0.1,
+        "sharpe": 0
+      }
+    },
+    {
+      "id": "short_etf_trade_refused",
+      "op": "metrics",
+      "input": {
+        "market": {
+          "instrumentId": "us-etf:nyse-arca:SPY",
+          "currency": "USD",
+          "calendar": {
+            "calendarId": "fixture-nyse-v1",
+            "kind": "trading-days",
+            "timezone": "America/New_York",
+            "tradingWeekdays": [
+              1,
+              2,
+              3,
+              4,
+              5
+            ],
+            "holidays": [
+              "2025-01-01"
+            ],
+            "earlyCloses": [
+              "2025-01-03"
+            ]
+          },
+          "calendarFrom": "2024-01-01",
+          "calendarToExclusive": "2027-01-01",
+          "sessionsPerYear": 252
+        },
+        "startEquity": 100,
+        "periodStartMs": 1704067200000,
+        "periodEndMs": 1735624800000,
+        "totalBars": 2,
+        "equity": [
+          {
+            "time": 1704153600000,
+            "equity": 110
+          },
+          {
+            "time": 1735624800000,
+            "equity": 99
+          }
+        ],
+        "trades": [
+          {
+            "entryTime": 1704067200000,
+            "exitTime": 1735624800000,
+            "side": "SHORT",
+            "entryPrice": 100,
+            "exitPrice": 99,
+            "pnl": -1,
+            "pnlPct": -0.01,
+            "bars": 2
+          }
+        ],
+        "riskFreePerBar": 0
+      },
+      "error": "invalid_trade"
+    },
+    {
+      "id": "invalid_trade_range",
+      "op": "metrics",
+      "input": {
+        "market": {
+          "instrumentId": "us-etf:nyse-arca:SPY",
+          "currency": "USD",
+          "calendar": {
+            "calendarId": "fixture-nyse-v1",
+            "kind": "trading-days",
+            "timezone": "America/New_York",
+            "tradingWeekdays": [
+              1,
+              2,
+              3,
+              4,
+              5
+            ],
+            "holidays": [
+              "2025-01-01"
+            ],
+            "earlyCloses": [
+              "2025-01-03"
+            ]
+          },
+          "calendarFrom": "2024-01-01",
+          "calendarToExclusive": "2027-01-01",
+          "sessionsPerYear": 252
+        },
+        "startEquity": 100,
+        "periodStartMs": 1704067200000,
+        "periodEndMs": 1735624800000,
+        "totalBars": 2,
+        "equity": [
+          {
+            "time": 1704153600000,
+            "equity": 110
+          },
+          {
+            "time": 1735624800000,
+            "equity": 99
+          }
+        ],
+        "trades": [
+          {
+            "entryTime": 1704067200000,
+            "exitTime": 1735624800001,
+            "side": "LONG",
+            "entryPrice": 100,
+            "exitPrice": 99,
+            "pnl": -1,
+            "pnlPct": -0.01,
+            "bars": 2
+          }
+        ],
+        "riskFreePerBar": 0
+      },
+      "error": "invalid_trade"
+    },
+    {
+      "id": "invalid_trade_price",
+      "op": "metrics",
+      "input": {
+        "market": {
+          "instrumentId": "us-etf:nyse-arca:SPY",
+          "currency": "USD",
+          "calendar": {
+            "calendarId": "fixture-nyse-v1",
+            "kind": "trading-days",
+            "timezone": "America/New_York",
+            "tradingWeekdays": [
+              1,
+              2,
+              3,
+              4,
+              5
+            ],
+            "holidays": [
+              "2025-01-01"
+            ],
+            "earlyCloses": [
+              "2025-01-03"
+            ]
+          },
+          "calendarFrom": "2024-01-01",
+          "calendarToExclusive": "2027-01-01",
+          "sessionsPerYear": 252
+        },
+        "startEquity": 100,
+        "periodStartMs": 1704067200000,
+        "periodEndMs": 1735624800000,
+        "totalBars": 2,
+        "equity": [
+          {
+            "time": 1704153600000,
+            "equity": 110
+          },
+          {
+            "time": 1735624800000,
+            "equity": 99
+          }
+        ],
+        "trades": [
+          {
+            "entryTime": 1704067200000,
+            "exitTime": 1735624800000,
+            "side": "LONG",
+            "entryPrice": 0,
+            "exitPrice": 99,
+            "pnl": -1,
+            "pnlPct": -0.01,
+            "bars": 2
+          }
+        ],
+        "riskFreePerBar": 0
+      },
+      "error": "invalid_trade"
+    }
+  ]
+}

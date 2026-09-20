@@ -4,6 +4,12 @@ Status: RS-CORE-001 through RS-CORE-005 plus RUNNER-CONFIG-001 implemented.
 TypeScript remains the reference implementation; Rust remains a pure
 computation library.
 
+P08 adds opt-in `etf-semantics-v1` / `etf-metrics-v1` (2026-09-20), checked
+against 55 independently authored cases in `fixtures/rs-core/etf-semantics-v1.json`.
+See [ETF semantics](etf-semantics-v1.md). Legacy fixtures and metric contracts
+are unchanged; `etf_parity_tests.rs` and `etfSemanticsFixture.test.ts` consume
+the same matrix, including invalid inputs and financial conservation examples.
+
 ## Contract and ownership
 
 - `alpha-factor-forge/src/core/indicators/index.ts` is the indicator semantic
