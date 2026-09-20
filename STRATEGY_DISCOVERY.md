@@ -167,13 +167,14 @@ AI 與生成器都只輸出這種結構：
 - **平行度**：backend 依 CPU 核心數開 worker thread pool 跑回測，與前端完全解耦。
 - **K 線快取**：同（幣種×時間框×區段）只讀一次，backend 內共享，後續策略複用。
 
-### 宿主、所有權與命令契約（P02–P05，2026-09-17／18／19 補充）
+### 宿主、所有權與命令契約（P02–P06，2026-09-17／18／19／20 補充）
 > 詳細規則見 [`docs/research-runtime-contract.md`](docs/research-runtime-contract.md)；本節只記結論。
 
 - **三種宿主**：桌面嵌入模式（今天的 `main.rs`）、無介面 service（P04a 已交付：`alpha-factor-forge-service run|stop|status [--data-dir]`，同一 Cargo package 的第二個 binary，經 `127.0.0.1` 動態 port 的 loopback 控制介面接受 envelope，manifest 與 token 放在工作區目錄；關 UI 後 run 繼續、重連採同一 run、關閉時 drain 到 Paused checkpoint）、桌面 connect 模式（P04b 已交付：桌面啟動時若 service 持有工作區就核對 manifest／`/v1/info` 後不遷移開庫、把 discovery 命令代理給 service、把 service 的帳本事件轉送到視窗；探索面板的「在背景繼續」＝契約 §1.5 背景切換：關門→checkpoint→釋放鎖→啟動桌面旁的 service exe→連接，「收回桌面」反向；`runtime://host` 通知模式變更與失聯）。開庫、migration、建 runner、孤兒恢復集中在 host-agnostic 的 `runtime::open_workspace`；runner 與 DB 層不引用 Tauri（`runtime::boundary_tests` 守衛）。
 - **誰持有 lease 誰能寫**：啟動順序固定為 OS 排他鎖（`ownership.lock`）→ 開 SQLite → migration → `workspace_ownership` epoch+1 → 孤兒恢復 → 5 秒 heartbeat。第二個宿主拿不到鎖直接被拒；runner 每次寫入在 `BEGIN IMMEDIATE` transaction 內檢查 epoch，舊 worker 回報得到 `StaleOwner`。heartbeat 過期只標「失聯」，不授權搶占。舊 binary 遇到較新 schema 整個拒開。
 - **版本化命令**：跨宿主命令一律走 `research-command-v1` envelope（`protocolVersion`、`workspaceId`、`requestId`、`command`、`payload`），由 `runtime::commands::Dispatcher` 執行：版本必須完全相符、workspace 必須相符、命令白名單（`discovery.*`、`events.read`、`ownership.read`），mutating 命令以 `requestId` 冪等（先預約後執行，重送回放第一次結果；同 id 不同內容 → `DuplicateRequest`；第一次未完成 → `Busy`）。錯誤是結構化的 `{ code, message, retryable }`。
 - **完整研究歷史（P05）**：每個候選＝一筆 `research_attempts`，與入隊同一 transaction 凍結其假說（`hypotheses`，內容 hash 去重、觸發器拒改拒刪）、輸入指紋（資料集／策略／config hash、seed）與引擎指紋（package 與全部契約版本）；claim→running、commit→completed＋不可變 `candidate-result-v1` artifact（`<workspace>/artifacts`，staging→校驗→原子更名→才提交參照，讀取時校驗 sha）、run 失敗→failed 帶原因、取消→skipped 帶原因。既有 `backtest_summary`／`backtest_trades` 仍是最新投影（重跑會覆寫），舊明細以 attempt 的 artifact 保存；詳見 [`docs/research-history-v1.md`](docs/research-history-v1.md)。
+- **市場資料基礎（P06）**：新增 `market_calendars`／`market_instruments`／`market_provenance`／`market_snapshots`／`market_snapshot_sources`／`market_quality_events`（migration 0008，全部 append-only 且有拒改拒刪觸發器）。calendar 的版本寫在 id 裡、內容不可編輯；instrument 是內容雜湊的修訂鏈；每次取得（含**被拒絕的**）保存原件 sha 與路徑，修訂只新增不覆蓋且不分叉。Snapshot 只在 coverage 稽核無 blocking 時產生，並凍結 instrument 修訂、calendar 版本、price basis 與來源；未確認公司事件或成本 → `degraded`（不得晉級），demo 永不晉級。**沒有 snapshot 的 dataset 是 legacy：一切既有匯入與回測照舊**，只是不能自動取得資格。純規則（interval 節奏、instrument id、時間單位偵測、預期範圍、coverage、來源可否合併）在 `src/core/market-data/foundation.ts` 與 `discovery_core/market_foundation.rs` 雙語鏡像，由 `fixtures/rs-core/market-foundation-v1.json` 綁定；詳見 [`docs/market-foundation-v1.md`](docs/market-foundation-v1.md)。本階段**不連網**，資料下載屬 P07／P09／P10。
 - **持久事件帳本**：runner 事件 commit 後先寫入 `runtime_events`（跨重啟單調遞增的 `eventId`）再送給宿主；重連順序固定為「先讀 snapshot（`discovery.active`／`progress`，附 `stateVersion`），再 `events.read` 以 `afterEventId` 續接；空頁面但 `stateVersion` 前進或有 `ledgerGap` 就重讀 snapshot」。上面的 Tauri event 協定仍是桌面的即時快路徑，不變。
 
 ---

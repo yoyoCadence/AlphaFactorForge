@@ -195,6 +195,11 @@ pub fn open_workspace_with(
     let mut conn = db::open_at(db_path)?;
     // 4. Record ourselves and bump the epoch.
     let acquired = ownership::acquire(&mut conn, kind, std::process::id())?;
+    // 4b. P06: the calendars this build defines from the contract alone
+    //     (`crypto-24x7-v1`). Idempotent and owner-only, like the migration
+    //     it follows; calendars that need external holiday data are
+    //     registered by the adapter that has it, not invented here.
+    crate::market::registry::ensure_builtin_calendars(&conn)?;
     let db: SharedDb = Arc::new(Mutex::new(conn));
     // 5. Orphan recovery, as the holder of the new epoch. P05: the runner
     //    keeps every completed candidate's full result beside the database.
@@ -296,7 +301,7 @@ mod tests {
         let applied: i64 = conn
             .query_row("SELECT COUNT(*) FROM schema_migrations", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(applied, 7, "0001–0007 applied on first open");
+        assert_eq!(applied, 8, "0001–0008 applied on first open");
         assert_eq!(workspace.workspace_id.len(), 32, "0005 minted the workspace id");
         drop(conn);
         drop(workspace);
@@ -321,7 +326,7 @@ mod tests {
         let applied: i64 = conn
             .query_row("SELECT COUNT(*) FROM schema_migrations", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(applied, 7, "no migration is re-applied");
+        assert_eq!(applied, 8, "no migration is re-applied");
         assert_eq!(second.workspace_id, first_workspace_id, "the id survives a reopen");
         let value: String = conn
             .query_row("SELECT value_json FROM app_settings WHERE key = 'p02'", [], |r| r.get(0))
@@ -488,17 +493,17 @@ mod tests {
             assert_eq!(pragma::<i64>(&conn, "foreign_keys"), 1);
             assert_eq!(pragma::<i64>(&conn, "busy_timeout"), db::BUSY_TIMEOUT.as_millis() as i64);
             let applied: i64 = conn.query_row("SELECT COUNT(*) FROM schema_migrations", [], |r| r.get(0)).unwrap();
-            assert_eq!(applied, 7, "nothing applied by the non-owner");
+            assert_eq!(applied, 8, "nothing applied by the non-owner");
         }
         // Behind: the owner's build is older than this one.
-        owner.db.lock().unwrap().execute("DELETE FROM schema_migrations WHERE version = '0007_research_history'", []).unwrap();
+        owner.db.lock().unwrap().execute("DELETE FROM schema_migrations WHERE version = '0008_market_foundation'", []).unwrap();
         let behind = db::open_migrated(&path).expect_err("pending migration");
         assert!(matches!(behind, AppError::SchemaPending(_)), "{behind:?}");
-        assert!(behind.to_string().contains("0007_research_history"));
+        assert!(behind.to_string().contains("0008_market_foundation"));
         let still: i64 = owner.db.lock().unwrap().query_row("SELECT COUNT(*) FROM schema_migrations", [], |r| r.get(0)).unwrap();
-        assert_eq!(still, 6, "the non-owner did not migrate");
+        assert_eq!(still, 7, "the non-owner did not migrate");
         // Ahead: the owner's build is newer than this one.
-        owner.db.lock().unwrap().execute_batch("INSERT INTO schema_migrations (version) VALUES ('0007_research_history'), ('0099_from_the_future')").unwrap();
+        owner.db.lock().unwrap().execute_batch("INSERT INTO schema_migrations (version) VALUES ('0008_market_foundation'), ('0099_from_the_future')").unwrap();
         let ahead = db::open_migrated(&path).expect_err("unknown migration");
         assert!(matches!(ahead, AppError::SchemaTooNew(_)), "{ahead:?}");
         drop(owner);
@@ -519,7 +524,7 @@ mod tests {
         let error = refused.err().expect("a newer schema must refuse the open");
         assert!(matches!(error, AppError::SchemaTooNew(_)), "got {error:?}");
         assert!(error.to_string().contains("0099_from_the_future"));
-        assert!(error.to_string().contains("0007_research_history"), "names what this build knows");
+        assert!(error.to_string().contains("0008_market_foundation"), "names what this build knows");
 
         // Refused BEFORE ownership: the row is still unowned, and the lock was
         // released with the failed attempt so a matching build could open it.

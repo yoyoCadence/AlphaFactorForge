@@ -53,9 +53,31 @@ impl ArtifactStore {
     /// the same content twice yields the same reference and leaves the
     /// existing file untouched.
     pub fn put(&self, kind: &str, bytes: &[u8]) -> AppResult<ArtifactRef> {
+        self.put_with_extension(kind, FILE_EXTENSION, bytes)
+    }
+
+    /// `put` for content that is not JSON — P06 keeps raw market responses
+    /// (CSV, ZIP, JSON bodies) byte for byte, and a file named `.json` that
+    /// holds a ZIP would lie to whoever opens the store. The extension is
+    /// part of the path, never part of the identity: the name is still the
+    /// checksum.
+    pub fn put_with_extension(
+        &self,
+        kind: &str,
+        extension: &str,
+        bytes: &[u8],
+    ) -> AppResult<ArtifactRef> {
+        if extension.is_empty()
+            || extension.len() > 8
+            || !extension.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit())
+        {
+            return Err(AppError::Other(format!(
+                "artifact extension {extension:?} is not a short lowercase alphanumeric suffix"
+            )));
+        }
         let sha256 = sha256_hex(bytes);
-        let relative_path = format!("{}/{sha256}.{FILE_EXTENSION}", &sha256[..2]);
-        let final_path = self.root.join(&sha256[..2]).join(format!("{sha256}.{FILE_EXTENSION}"));
+        let relative_path = format!("{}/{sha256}.{extension}", &sha256[..2]);
+        let final_path = self.root.join(&sha256[..2]).join(format!("{sha256}.{extension}"));
         if final_path.is_file() {
             // Already stored: verify rather than trust the name.
             let existing = fs::read(&final_path)?;
@@ -199,6 +221,30 @@ mod tests {
         let staging: Vec<_> = fs::read_dir(store.root().join(STAGING_DIR_NAME)).unwrap().collect();
         assert!(staging.is_empty(), "staging is empty after every put");
         assert_eq!(store.read(&first).unwrap(), br#"{"a":1}"#);
+    }
+
+    /// P06: raw market responses are not JSON, and the file name must not
+    /// claim they are. The extension changes the path, never the identity.
+    #[test]
+    fn a_raw_artifact_keeps_its_own_extension_and_a_bad_one_is_refused() {
+        let data_dir = fresh_root();
+        let _guard = TempDir(data_dir.clone());
+        let store = ArtifactStore::in_data_dir(&data_dir);
+        let csv = store
+            .put_with_extension("market-raw-v1", "csv", b"open,high,low,close\n1,2,0.5,1.5\n")
+            .unwrap();
+        assert!(csv.relative_path.ends_with(".csv"));
+        assert_eq!(csv.relative_path, format!("{}/{}.csv", &csv.sha256[..2], csv.sha256));
+        assert!(store.path_of(&csv.relative_path).unwrap().is_file());
+        assert_eq!(store.read(&csv).unwrap(), b"open,high,low,close\n1,2,0.5,1.5\n");
+        // The same bytes under the default extension are a different path and
+        // the same checksum: the extension is not part of the identity.
+        let as_json = store.put("market-raw-v1", b"open,high,low,close\n1,2,0.5,1.5\n").unwrap();
+        assert_eq!(as_json.sha256, csv.sha256);
+        assert_ne!(as_json.relative_path, csv.relative_path);
+        for bad in ["", "JSON", "tar.gz", "with space", "verylongextension", "j/s"] {
+            assert!(store.put_with_extension("market-raw-v1", bad, b"x").is_err(), "{bad:?}");
+        }
     }
 
     #[test]

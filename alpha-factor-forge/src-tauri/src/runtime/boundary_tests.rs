@@ -31,6 +31,10 @@ const HOST_AGNOSTIC_SOURCES: &[(&str, &str)] = &[
     ("research/mod.rs", include_str!("../research/mod.rs")),
     ("research/history.rs", include_str!("../research/history.rs")),
     ("research/artifacts.rs", include_str!("../research/artifacts.rs")),
+    ("market/mod.rs", include_str!("../market/mod.rs")),
+    ("market/registry.rs", include_str!("../market/registry.rs")),
+    ("market/provenance.rs", include_str!("../market/provenance.rs")),
+    ("market/snapshot.rs", include_str!("../market/snapshot.rs")),
     ("error.rs", include_str!("../error.rs")),
 ];
 

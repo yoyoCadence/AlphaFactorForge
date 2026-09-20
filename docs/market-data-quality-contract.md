@@ -135,5 +135,12 @@ admission is a classification rather than a computation.
 
 - **Interval cadence and gap/continuity validation, and the unknown-interval
   fallback** — that is `INTERVAL-CONTRACT-001`, still an open separate decision.
+  P06 (2026-09-20) settled the **cadence** half for market-foundation use only:
+  `market-interval-v1` maps the seven known intervals to milliseconds and is
+  strict — an unknown interval has no cadence instead of falling back to daily
+  (`docs/market-foundation-v1.md` §1.1). Gap and continuity validation now
+  happens there too, against a versioned calendar. **Nothing in this contract
+  changed**, and neither did `barsPerYear`, which keeps its `1d` = 365 and its
+  unknown-interval fallback; annualisation is still the open half.
 - Summary/trade bundle invariants — `PERSIST-INVARIANT-001`.
 - Any schema, migration, or dependency change.

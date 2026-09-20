@@ -9,6 +9,7 @@ mod desktop;
 mod discovery_runner;
 mod error;
 mod identity;
+mod market;
 mod research;
 mod runtime;
 mod single_instance;
