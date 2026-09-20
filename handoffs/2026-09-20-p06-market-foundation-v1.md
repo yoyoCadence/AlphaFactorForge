@@ -103,8 +103,11 @@ Plan §5 P06（ABC-04 的契約＋儲存半邊）。在既有 `datasets`／`cand
 - `npm.cmd test`：**909 passed**（P05 為 879；新增 21 單元＋9 parity）。
 - `npx playwright test --workers=1`（`E2E_PORT=5207`）：**78 passed**，與 P05 相同——本次未改任何前端執行
   路徑（只新增 `src/core` 純模組與 parity 測試）。
-- 原生 Tauri 未執行：啟動路徑僅新增 owner-only 的內建 calendar 註冊，該路徑由 `runtime` Rust 測試覆蓋
+- 原生 Tauri 本機未執行：啟動路徑僅新增 owner-only 的內建 calendar 註冊，該路徑由 `runtime` Rust 測試覆蓋
   （`open_workspace` 全套測試通過，含 migration 計數 8、connect 模式的 `SchemaPending`／`SchemaTooNew`）。
+  **PR #108 的 CI 六項全綠**（typecheck／test／build／cargo-check／e2e／native-smoke，run 35482277130）；
+  其中 `native-smoke` 會建置並啟動原生桌面 binary，因此新的啟動路徑（migration 0008＋內建 calendar 註冊）
+  已在 CI 上以原生執行檔實際走過一次。
 - 暫存：`aff-market-test-*`／`aff-snapshot-test-*`／`aff-artifacts-test-*` 皆由 guard 清除；無殘留。
 - **未執行且不宣稱**：任何真實來源下載、CHECKSUM 校驗、長期涵蓋率報告。P06 不連網。
 
