@@ -3,7 +3,7 @@
 Date: 2026-09-20
 Repo: yoyoCadence/AlphaFactorForge
 Branch: `feat/p06-market-foundation`（自 main `a0f738e` ＝ PR #107 merge 之後建立）
-PR: 待建立（本機驗證完成後推送）
+PR: https://github.com/yoyoCadence/AlphaFactorForge/pull/108（draft，未 merge）
 Status: 實作與驗證完成；P07 另行授權
 
 ## Summary
