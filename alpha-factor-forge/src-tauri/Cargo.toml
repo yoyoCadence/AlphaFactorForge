@@ -41,6 +41,15 @@ chrono = { version = "0.4", features = ["serde"] }
 # directory as the desktop; `getrandom` is the OS CSPRNG for the control token.
 dirs = "6"
 getrandom = "0.3"
+# P07 crypto adapter: the archive is HTTPS-only and the locked `reqwest`
+# carries no TLS backend, so a TLS stack has to enter here. `ureq` is a
+# blocking client with no async runtime (default features: rustls with the
+# ring provider and the bundled webpki roots, so nothing depends on a system
+# TLS library or trust store). `flate2` was already in the lock as an
+# indirect dependency; the Binance archive is a single-entry ZIP whose
+# payload is a raw deflate stream, which is all we read.
+ureq = "3.4.2"
+flate2 = "1.1"
 
 # Phase C (AI) - uncomment when implementing AI commands locally:
 # reqwest = { version = "0.12", features = ["json", "rustls-tls"] }

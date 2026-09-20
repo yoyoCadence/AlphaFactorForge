@@ -19,6 +19,8 @@ import {
   intervalMs,
   parseInstrumentId,
   seriesConflicts,
+  sourceOrigin,
+  sourcesShareOrigin,
   validateCalendar,
   type SeriesIdentity,
   type SessionCalendar,
@@ -78,6 +80,12 @@ const cases = fixture.cases as unknown as {
       matchedCount: number;
       issue: string | null;
     };
+  }[];
+  sourceOrigins: {
+    id: string;
+    a: string;
+    b: string;
+    expected: { origin: string; shareOrigin: boolean };
   }[];
   seriesCombination: {
     id: string;
@@ -185,6 +193,15 @@ describe('P06 market-foundation parity fixture', () => {
         version: MARKET_FOUNDATION_VERSION,
         ...entry.expectedReport,
       });
+    }
+  });
+
+  it('tells two endpoints of one publisher from two publishers', () => {
+    for (const entry of cases.sourceOrigins) {
+      expect(sourceOrigin(entry.a), `${entry.id}: origin`).toBe(entry.expected.origin);
+      expect(sourcesShareOrigin(entry.a, entry.b), `${entry.id}: shared`).toBe(
+        entry.expected.shareOrigin,
+      );
     }
   });
 

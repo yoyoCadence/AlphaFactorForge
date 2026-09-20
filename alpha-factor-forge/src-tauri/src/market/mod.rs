@@ -16,16 +16,22 @@
 //!
 //! Like `research`, nothing here names a host or a framework.
 
-// P06 is a foundation: its writers are called by the market adapters
-// (P07/P09/P10) and its readers by the work centre (P16/P21). Until those
-// phases land, the only callers the compiler can see are this module's own
-// tests, and that is expected rather than a warning to chase. It is also
-// why no command surface is exposed yet — a command nothing calls would be
-// an untested boundary, not a feature.
+// A foundation with more shape than callers, on purpose. P07 gave the
+// writers a real caller (`ingest`, reached from `service fetch`), but the
+// readers — listing instruments, walking a revision chain, listing
+// snapshots — are for the ETF sources (P09/P10) and the work centre
+// (P16/P21). Until those land the compiler cannot see a caller outside this
+// module's own tests, and that is expected rather than a warning to chase.
+// It is also why no Tauri command surface is exposed yet: a command nothing
+// calls would be an untested boundary, not a feature.
 #![allow(dead_code)]
 
+pub mod http;
+pub mod fetch;
+pub mod ingest;
 pub mod provenance;
 pub mod registry;
+pub mod sources;
 pub mod snapshot;
 
 use serde_json::Value;

@@ -37,6 +37,7 @@ use super::control_api::{
 };
 use super::control_client::{ClientError, ControlClient};
 use super::open_workspace_with;
+use crate::market::fetch::FetchOptions;
 use crate::discovery_runner::DiscoveryRunner;
 use crate::db::ownership::{HolderKind, HEARTBEAT_PERIOD};
 use crate::db::{self, discovery::RecoveryReport};
@@ -56,6 +57,10 @@ pub const EXIT_NOT_OWNER: i32 = 2;
 pub const EXIT_SCHEMA_TOO_NEW: i32 = 3;
 /// `stop`/`status`: no live service is published for this workspace.
 pub const EXIT_NO_SERVICE: i32 = 4;
+/// `fetch`: the retrieval ran, but the range is not usable for research —
+/// a gap, a refused source, or nothing published. Distinct from a failure
+/// so a caller can tell "the source has nothing" from "this broke".
+pub const EXIT_RANGE_UNUSABLE: i32 = 5;
 pub const EXIT_USAGE: i32 = 64;
 
 /// One drain attempt's deadline. A timeout is not permission to release
@@ -71,45 +76,111 @@ USAGE:
   alpha-factor-forge-service [run]    [--data-dir <dir>]
   alpha-factor-forge-service stop     [--data-dir <dir>]
   alpha-factor-forge-service status   [--data-dir <dir>]
+  alpha-factor-forge-service fetch    --instrument <id> --interval <interval>
+                                      --from <YYYY-MM-DD> --to <YYYY-MM-DD>
+                                      [--no-rest] [--cost-profile <version>]
+                                      [--json] [--data-dir <dir>]
   alpha-factor-forge-service --help
 
   run     Own the workspace and serve the loopback control API until stopped.
   stop    Ask the running service to drain and exit; waits until it has.
   status  Print the published endpoint and whether it answers.
+  fetch   Retrieve one instrument's range from its exchange, record what came
+          back, and report the coverage. Owns the workspace while it runs, so
+          it is refused (exit 2) while a service holds it.
 
-  --data-dir  The workspace directory (database, lock, endpoint files).
-              Default: the desktop's app data directory.
+  --instrument    e.g. crypto:binance:BTCUSDT (must be registered)
+  --interval      e.g. 1h
+  --from / --to   UTC days; --from is inclusive and --to is exclusive
+  --no-rest       Archive files only; do not ask the REST source for the tail
+  --cost-profile  The confirmed cost model; without it a snapshot is degraded
+  --json          Print the full report as JSON instead of a summary
+  --data-dir      The workspace directory (database, lock, endpoint files).
+                  Default: the desktop's app data directory.
 
 EXIT CODES:
   0 ok   1 failure   2 another host owns the workspace
-  3 database is newer than this build   4 no live service   64 usage";
+  3 database is newer than this build   4 no live service
+  5 retrieved, but the range is not usable   64 usage";
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Cli {
     Run { data_dir: Option<PathBuf> },
     Stop { data_dir: Option<PathBuf> },
     Status { data_dir: Option<PathBuf> },
+    /// P07: one bounded retrieval, then release the workspace.
+    Fetch { data_dir: Option<PathBuf>, options: FetchOptions, json: bool },
     Help,
 }
 
-/// `[subcommand] [--data-dir <dir> | --data-dir=<dir>] | --help`.
+/// `[subcommand] [--data-dir <dir> | --data-dir=<dir>] | --help`, plus the
+/// options `fetch` needs. Every flag accepts both `--flag value` and
+/// `--flag=value`, and an option that belongs to another subcommand is an
+/// error rather than something silently ignored.
 pub fn parse_args<S: AsRef<str>>(args: &[S]) -> Result<Cli, String> {
-    let mut args = args.iter().map(AsRef::as_ref);
+    let args: Vec<&str> = args.iter().map(AsRef::as_ref).collect();
     let mut subcommand: Option<&str> = None;
     let mut data_dir: Option<PathBuf> = None;
-    while let Some(arg) = args.next() {
-        match arg {
+    let mut instrument: Option<String> = None;
+    let mut interval: Option<String> = None;
+    let mut from: Option<String> = None;
+    let mut to: Option<String> = None;
+    let mut cost_profile: Option<String> = None;
+    let mut allow_rest = true;
+    let mut json = false;
+
+    let mut index = 0;
+    while index < args.len() {
+        let arg = args[index];
+        index += 1;
+        // `--flag=value` and `--flag value` are the same flag.
+        let (flag, inline) = match arg.split_once('=') {
+            Some((flag, value)) if flag.starts_with("--") => (flag, Some(value.to_string())),
+            _ => (arg, None),
+        };
+        let mut value = |name: &str, noun: &str| -> Result<String, String> {
+            if let Some(value) = inline.clone() {
+                return Ok(value);
+            }
+            let value = args.get(index).ok_or_else(|| format!("{name} needs {noun}"))?;
+            index += 1;
+            Ok((*value).to_string())
+        };
+        match flag {
             "--help" | "-h" | "help" => return Ok(Cli::Help),
-            "--data-dir" => {
-                let value = args.next().ok_or("--data-dir needs a directory")?;
-                data_dir = Some(PathBuf::from(value));
-            }
-            _ if arg.starts_with("--data-dir=") => {
-                data_dir = Some(PathBuf::from(&arg["--data-dir=".len()..]));
-            }
-            "run" | "stop" | "status" if subcommand.is_none() => subcommand = Some(arg),
+            "--data-dir" => data_dir = Some(PathBuf::from(value("--data-dir", "a directory")?)),
+            "--instrument" => instrument = Some(value("--instrument", "an instrument id")?),
+            "--interval" => interval = Some(value("--interval", "an interval")?),
+            "--from" => from = Some(value("--from", "a date")?),
+            "--to" => to = Some(value("--to", "a date")?),
+            "--cost-profile" => cost_profile = Some(value("--cost-profile", "a version")?),
+            "--no-rest" => allow_rest = false,
+            "--json" => json = true,
+            "run" | "stop" | "status" | "fetch" if subcommand.is_none() => subcommand = Some(arg),
             _ => return Err(format!("unexpected argument: {arg}")),
         }
+    }
+
+    let fetch_only = instrument.is_some()
+        || interval.is_some()
+        || from.is_some()
+        || to.is_some()
+        || cost_profile.is_some()
+        || !allow_rest
+        || json;
+    if subcommand != Some("fetch") && fetch_only {
+        return Err("--instrument/--interval/--from/--to/--no-rest/--cost-profile/--json belong to `fetch`".into());
+    }
+    if subcommand == Some("fetch") {
+        let options = FetchOptions {
+            instrument_id: instrument.ok_or("fetch needs --instrument")?,
+            interval: interval.ok_or("fetch needs --interval")?,
+            from: crate::market::fetch::parse_date(&from.ok_or("fetch needs --from")?)?,
+            to_exclusive: crate::market::fetch::parse_date(&to.ok_or("fetch needs --to")?)?,
+            allow_rest,
+            cost_profile_version: cost_profile,
+        };
+        return Ok(Cli::Fetch { data_dir, options, json });
     }
     Ok(match subcommand.unwrap_or("run") {
         "stop" => Cli::Stop { data_dir },
@@ -382,6 +453,56 @@ pub fn status(data_dir: &Path) -> Result<Option<Value>, ServiceError> {
 }
 
 /// The binary's entry point: parse, run, print, and return the exit code.
+/// The operator's summary of one retrieval: what was asked for, what each
+/// unit did, and whether the range is usable.
+fn print_fetch_report(report: &crate::market::ingest::IngestReport) {
+    use crate::market::fetch::format_instant;
+    println!(
+        "{} {} {} → {} (as of {})",
+        report.instrument_id,
+        report.interval,
+        format_instant(report.requested_from_ms),
+        format_instant(report.requested_to_ms_exclusive),
+        format_instant(report.as_of_ms)
+    );
+    for unit in &report.units {
+        println!("  {:<22} {}", unit.unit, describe_unit(&unit.status));
+    }
+    if report.unclosed_dropped > 0 {
+        println!("  {} bar(s) had not closed at the cut and were not imported", report.unclosed_dropped);
+    }
+    let coverage = &report.range_coverage;
+    if !coverage.is_null() {
+        println!(
+            "  range: {} of {} expected bar(s) present, {} not due yet",
+            coverage["matchedCount"], coverage["expectedCount"], coverage["notDueCount"]
+        );
+        for event in coverage["events"].as_array().into_iter().flatten() {
+            println!(
+                "  missing: {} → {} ({} bar(s)) — {}",
+                format_instant(event["rangeStart"].as_i64().unwrap_or_default()),
+                format_instant(event["rangeEnd"].as_i64().unwrap_or_default()),
+                event["count"],
+                event["action"].as_str().unwrap_or_default()
+            );
+        }
+    }
+    println!("  {}", report.headline());
+}
+
+fn describe_unit(status: &crate::market::ingest::UnitStatus) -> String {
+    use crate::market::ingest::UnitStatus;
+    match status {
+        UnitStatus::Fetched { bars, source_time_unit, converted_to_milliseconds, .. } => format!(
+            "fetched {bars} bar(s) in {source_time_unit}{}",
+            if *converted_to_milliseconds { ", converted to milliseconds" } else { "" }
+        ),
+        UnitStatus::Cached { bars, .. } => format!("reused {bars} stored bar(s)"),
+        UnitStatus::NotPublished => "not published".to_string(),
+        UnitStatus::Rejected { code, detail, .. } => format!("REFUSED {code}: {detail}"),
+    }
+}
+
 pub fn main(args: Vec<String>) -> i32 {
     let cli = match parse_args(&args) {
         Ok(cli) => cli,
@@ -410,6 +531,22 @@ pub fn main(args: Vec<String>) -> i32 {
                 Ok(EXIT_NO_SERVICE)
             }
         }),
+        Cli::Fetch { data_dir, options, json } => {
+            resolve_data_dir(data_dir).and_then(|dir| match crate::market::fetch::fetch(&dir, &options) {
+                Ok(report) => {
+                    if json {
+                        println!("{}", serde_json::to_string_pretty(&report).unwrap_or_default());
+                    } else {
+                        print_fetch_report(&report);
+                    }
+                    Ok(match report.outcome {
+                        crate::market::ingest::IngestOutcome::Snapshot(_) => EXIT_OK,
+                        _ => EXIT_RANGE_UNUSABLE,
+                    })
+                }
+                Err(error) => Err(ServiceError::from(error)),
+            })
+        }
         Cli::Status { data_dir } => resolve_data_dir(data_dir).and_then(|dir| match status(&dir)? {
             Some(status) => {
                 println!("{}", serde_json::to_string_pretty(&status).unwrap_or_default());
@@ -455,6 +592,75 @@ mod tests {
         assert!(parse(&["--data-dir"]).unwrap_err().contains("needs a directory"));
         assert!(parse(&["serve"]).unwrap_err().contains("unexpected"));
         assert!(parse(&["run", "stop"]).unwrap_err().contains("unexpected"), "one subcommand");
+    }
+
+    /// P07: `fetch` states what it retrieves, and an option that belongs to
+    /// it cannot be smuggled into another subcommand.
+    #[test]
+    fn fetch_states_its_instrument_interval_and_utc_range() {
+        use chrono::NaiveDate;
+        let parsed = parse(&[
+            "fetch",
+            "--instrument",
+            "crypto:binance:BTCUSDT",
+            "--interval=1h",
+            "--from",
+            "2024-12-30",
+            "--to=2025-01-03",
+            "--cost-profile",
+            "cost-profile-v1",
+            "--data-dir",
+            "w",
+        ])
+        .unwrap();
+        assert_eq!(
+            parsed,
+            Cli::Fetch {
+                data_dir: Some("w".into()),
+                options: FetchOptions {
+                    instrument_id: "crypto:binance:BTCUSDT".into(),
+                    interval: "1h".into(),
+                    from: NaiveDate::from_ymd_opt(2024, 12, 30).unwrap(),
+                    to_exclusive: NaiveDate::from_ymd_opt(2025, 1, 3).unwrap(),
+                    // The REST tail is on unless it is turned off.
+                    allow_rest: true,
+                    cost_profile_version: Some("cost-profile-v1".into()),
+                },
+                json: false,
+            }
+        );
+
+        let Cli::Fetch { options, json, .. } = parse(&[
+            "fetch",
+            "--instrument=crypto:binance:ETHUSDT",
+            "--interval=1h",
+            "--from=2024-07-15",
+            "--to=2024-07-16",
+            "--no-rest",
+            "--json",
+        ])
+        .unwrap() else {
+            panic!("fetch")
+        };
+        assert!(!options.allow_rest && json && options.cost_profile_version.is_none());
+
+        for (args, expected) in [
+            (vec!["fetch", "--interval=1h", "--from=2024-07-15", "--to=2024-07-16"], "needs --instrument"),
+            (vec!["fetch", "--instrument=x", "--from=2024-07-15", "--to=2024-07-16"], "needs --interval"),
+            (vec!["fetch", "--instrument=x", "--interval=1h", "--to=2024-07-16"], "needs --from"),
+            (vec!["fetch", "--instrument=x", "--interval=1h", "--from=2024-07-15"], "needs --to"),
+            (
+                vec!["fetch", "--instrument=x", "--interval=1h", "--from=15/07/2024", "--to=2024-07-16"],
+                "not a YYYY-MM-DD date",
+            ),
+            (vec!["fetch", "--instrument"], "needs an instrument id"),
+            // A retrieval option without `fetch` is a mistake worth naming.
+            (vec!["run", "--instrument=x"], "belong to `fetch`"),
+            (vec!["status", "--json"], "belong to `fetch`"),
+        ] {
+            let error = parse(&args).unwrap_err();
+            assert!(error.contains(expected), "{args:?}: {error}");
+        }
     }
 
     // The identifier itself is pinned to the desktop's config in

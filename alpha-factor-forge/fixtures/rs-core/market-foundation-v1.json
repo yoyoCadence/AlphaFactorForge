@@ -12,7 +12,7 @@
     "referenceRuntime": "typescript",
     "sourceHashEncoding": "utf8-lf-v1",
     "sourceHashes": {
-      "generator": "sha256:601e046483f32a39e1a6891ccca19b07f4bd6ad50b1437939815e8b07ef680a8"
+      "generator": "sha256:0f55498cf6075afff23dcf55a3854e40b1938a565fc7f71b656f4521e720404e"
     }
   },
   "numericEncoding": {
@@ -1324,6 +1324,62 @@
           "conflicts": [
             "invalid_instrument_id"
           ]
+        }
+      }
+    ],
+    "sourceOrigins": [
+      {
+        "id": "two-endpoints-of-one-exchange",
+        "a": "binance-archive",
+        "b": "binance-rest",
+        "expected": {
+          "origin": "binance",
+          "shareOrigin": true
+        }
+      },
+      {
+        "id": "two-exchanges-are-never-one-publisher",
+        "a": "binance-archive",
+        "b": "coinbase-rest",
+        "expected": {
+          "origin": "binance",
+          "shareOrigin": false
+        }
+      },
+      {
+        "id": "an-origin-without-an-endpoint",
+        "a": "tiingo",
+        "b": "tiingo",
+        "expected": {
+          "origin": "tiingo",
+          "shareOrigin": true
+        }
+      },
+      {
+        "id": "an-origin-matches-its-own-endpointed-form",
+        "a": "binance",
+        "b": "binance-archive",
+        "expected": {
+          "origin": "binance",
+          "shareOrigin": true
+        }
+      },
+      {
+        "id": "an-empty-source-is-nobody",
+        "a": "",
+        "b": "",
+        "expected": {
+          "origin": "",
+          "shareOrigin": false
+        }
+      },
+      {
+        "id": "a-leading-separator-is-nobody",
+        "a": "-rest",
+        "b": "-archive",
+        "expected": {
+          "origin": "",
+          "shareOrigin": false
         }
       }
     ]

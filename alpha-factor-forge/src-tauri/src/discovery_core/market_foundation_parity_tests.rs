@@ -12,7 +12,8 @@ use serde_json::Value;
 
 use super::market_foundation::{
     audit_coverage, detect_time_unit, expected_bar_starts, interval_ms, parse_instrument_id,
-    series_conflicts, validate_calendar, CoverageRequest, ExpectedRangeRequest, SeriesIdentity,
+    series_conflicts, source_origin, sources_share_origin, validate_calendar, CoverageRequest,
+    ExpectedRangeRequest, SeriesIdentity,
     SessionCalendar, Suspension, ACTION_CODES, CALENDAR_RULE_IDS, COVERAGE_CODES,
     EXPECTED_RANGE_ISSUE_IDS, INSTRUMENT_ID_RULE_IDS, INTERVAL_MS, MARKET_FOUNDATION_VERSION,
     MAX_EXPECTED_BARS, SERIES_CONFLICT_CODES, TIME_UNIT_IDS, TIME_UNIT_ISSUE_IDS,
@@ -347,6 +348,30 @@ fn every_coverage_case_is_audited_exactly_as_specified() {
             );
             assert_eq!(event.action, expected_event["action"], "{at}: action");
         }
+    }
+}
+
+#[test]
+fn two_endpoints_of_one_publisher_are_told_from_two_publishers() {
+    let fixture = fixture();
+    let cases = fixture["cases"]["sourceOrigins"]
+        .as_array()
+        .expect("sourceOrigins array");
+    assert!(!cases.is_empty());
+    for case in cases {
+        let id = case["id"].as_str().expect("case id");
+        let a = case["a"].as_str().expect("a");
+        let b = case["b"].as_str().expect("b");
+        assert_eq!(
+            source_origin(a),
+            case["expected"]["origin"].as_str().expect("origin"),
+            "{id}: origin"
+        );
+        assert_eq!(
+            sources_share_origin(a, b),
+            case["expected"]["shareOrigin"].as_bool().expect("shareOrigin"),
+            "{id}: shared"
+        );
     }
 }
 

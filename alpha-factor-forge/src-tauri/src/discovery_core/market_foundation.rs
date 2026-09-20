@@ -273,10 +273,36 @@ pub const SERIES_CONFLICT_CODES: [&str; 9] = [
     "venue_mismatch",
 ];
 
+/// The publisher a source id belongs to: `<origin>[-<endpoint>]`.
+///
+/// `binance-archive` and `binance-rest` are two endpoints of ONE exchange
+/// publishing its own market; `coinbase-rest` is a different exchange. The
+/// distinction is what lets the contract say "the archive's gap may be
+/// filled from the same exchange's REST endpoint" (`docs/market-contract.md`
+/// §4, plan §5 P07) while still refusing to splice two exchanges together.
+pub fn source_origin(source: &str) -> &str {
+    match source.find('-') {
+        Some(separator) => &source[..separator],
+        None => source,
+    }
+}
+
+/// Whether two source ids are the same publisher. Empty is never a match.
+pub fn sources_share_origin(a: &str, b: &str) -> bool {
+    let origin = source_origin(a);
+    !origin.is_empty() && origin == source_origin(b)
+}
+
 /// Why two series may not be combined into one tradable series — empty means
 /// they may (`docs/market-contract.md` §6: never splice different venues or
 /// quote currencies together, and a second source produces comparison
 /// evidence rather than backfill).
+///
+/// `source_mismatch` is reported for any two different source ids, including
+/// two endpoints of the same publisher. It is a fact about the retrieval,
+/// and whoever composes a series decides what to do with it: the snapshot
+/// builder tolerates it when `sources_share_origin` holds, and never
+/// otherwise.
 pub fn series_conflicts(a: &SeriesIdentity, b: &SeriesIdentity) -> Vec<&'static str> {
     let mut found: Vec<&'static str> = Vec::new();
     let mut add = |code: &'static str| {
@@ -1203,6 +1229,20 @@ mod tests {
             series_conflicts(&binance, &broken),
             vec!["invalid_instrument_id"]
         );
+
+        // Two endpoints of one publisher: the mismatch is still REPORTED —
+        // it is a fact about the retrieval — and `sources_share_origin` is
+        // how a composition decides it may be tolerated.
+        let rest = SeriesIdentity {
+            source: "binance-rest".into(),
+            ..binance.clone()
+        };
+        assert_eq!(series_conflicts(&binance, &rest), vec!["source_mismatch"]);
+        assert!(sources_share_origin("binance-archive", "binance-rest"));
+        assert!(!sources_share_origin("binance-archive", "coinbase-rest"));
+        assert_eq!(source_origin("binance-archive"), "binance");
+        assert_eq!(source_origin("tiingo"), "tiingo");
+        assert!(!sources_share_origin("", ""));
     }
 
     #[test]

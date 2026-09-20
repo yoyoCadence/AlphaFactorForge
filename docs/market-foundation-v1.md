@@ -126,6 +126,17 @@ forward-fill**：
 
 **第二來源（`comparison`）永遠只是比對證據**，不能成為 snapshot 的組成，也不回填第一來源的缺漏。
 
+#### 來源出處（`sourceOrigin` / `sourcesShareOrigin`，P07 追加）
+
+source id 的形狀是 `<origin>[-<endpoint>]`：`binance-archive` 與 `binance-rest` 是**同一個發布者的
+兩個端點**，`coinbase-rest` 是另一個發布者。
+
+`seriesConflicts` **仍然**會回報 `source_mismatch`——那是關於取得方式的事實；**要不要因此拒絕組成，
+由組成者決定**：snapshot 在兩個組成 `sourcesShareOrigin` 為真時容許它（§5 步驟 3），跨發布者則永遠
+拒絕。這條規則由 P07 的真實執行催生：當月資料必須由「日封存＋同交易所 REST 尾端」組成，而原本的
+規則會把計畫明文要求的「同交易所補查」判成來源混淆。詳見
+[`market-source-binance-v1.md`](market-source-binance-v1.md) §1、§5。
+
 ---
 
 ## 2. 資料表（migration `0008_market_foundation`）
@@ -206,6 +217,12 @@ canonical JSON 與 sha256 直接沿用 `research::canonical_json`／`sha256_hex`
 毫秒區間以外的值。它保留為縱深防禦（成本是一趟掃描，擋下的是一條無聲錯誤的序列），與該契約 §5 對
 不可達規則的處理方式一致。同理，`out_of_order` 對 DB 讀出的 candles 不可達（`ORDER BY timestamp`）。
 
+P07 驗收修正：Binance 封存的期間終點不代表發布證據。`binance-archive` 只有帶有
+`availabilityBasis: observed-at-retrieval` 且 `availableAt` 與 `retrievedAt` 為同一實際時間的紀錄，
+才具有已知 availability；舊版本的期間推測值視為 `availability_unknown`。此規則也在既有
+forward-observed 快照的 get／list／dataset-status 讀取套用，拒絕回傳未經證明的舊資格。
+原件與快照列維持不可變，historical 不受此隔離限制；重新取證方式見 `market-source-binance-v1.md` §2.1。
+
 ---
 
 ## 5. Snapshot 生成與 legacy
@@ -220,7 +237,9 @@ canonical JSON 與 sha256 直接沿用 `research::canonical_json`／`sha256_hex`
    （`datasets.exchange` 是使用者自由輸入，instrument 的 venue 已正規化）；symbol **完全比對**。
 3. 組成：至少一筆 provenance，每筆必須 accepted、`primary`、同序列、未被修訂；
    forward-observed 另需可解析且不晚於 `asOf` 的 `availableAt`，以實際時間比較（接受時區偏移）。
-   兩兩之間也必須可合併（這正是擋下 Binance 與 Coinbase 拼接的地方）。
+   兩兩之間也必須可合併（這正是擋下 Binance 與 Coinbase 拼接的地方）。**例外只有一個**：
+   兩個組成 `sourcesShareOrigin` 為真時，其 `source_mismatch` 被容許——同一交易所的封存與 REST
+   是同一個來源的兩個端點（§1.7）。跨發布者的 `source_mismatch` 永遠 blocking。
 4. 時間單位縱深防禦 → §4。
 5. Coverage：以 instrument 的上市期間與停牌、calendar 版本推導預期範圍，與 dataset 實際 candles 比對。
 6. 語意預設：ETF 未確認公司事件 → `degraded`；成本未確認 → `degraded`。
@@ -252,9 +271,14 @@ canonical JSON 與 sha256 直接沿用 `research::canonical_json`／`sha256_hex`
 
 ## 7. 尚未做的事（交接點）
 
+> **P07 追加的一個重要澄清**：snapshot 的 coverage 回答的是「**這個 dataset 在它自己的起訖之間**
+> 是否完整」，不是「我要求的區間是否拿到」。少抓了尾端的資料集仍可能是合格 snapshot。要求區間層的
+> 稽核由取得端負責（`IngestReport.rangeCoverage`，事件帶 `scope: "requested-range"`），
+> 見 [`market-source-binance-v1.md`](market-source-binance-v1.md) §5。
+
 | 項目 | 屬於 |
 | --- | --- |
-| 任何網路下載、CHECKSUM 校驗、分段重試、快取 | P07（Binance）／P09（Tiingo）／P10（FinMind＋TWSE） |
+| ~~任何網路下載、CHECKSUM 校驗、分段重試、快取~~ → **Crypto 已完成（P07）** | P09（Tiingo）／P10（FinMind＋TWSE） |
 | `nyse-v1`／`twse-v1` 等真實休市資料 | P09／P10（P06 只建立註冊與阻擋機制） |
 | ETF 盤中 session、當地時間邊界、配息應收／付款、分割調整、交易日年化、原幣帳務 | P08 |
 | instrument 的 lotSize／priceStep／minNotional（目前一律未知＝不可 paper） | 由來源回報，P07／P09／P10 以新修訂寫入 |

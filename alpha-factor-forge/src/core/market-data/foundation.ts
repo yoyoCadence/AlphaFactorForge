@@ -150,10 +150,35 @@ export const SERIES_CONFLICT_CODES = [
 export type SeriesConflictCode = (typeof SERIES_CONFLICT_CODES)[number];
 
 /**
+ * The publisher a source id belongs to: `<origin>[-<endpoint>]`.
+ *
+ * `binance-archive` and `binance-rest` are two endpoints of ONE exchange
+ * publishing its own market; `coinbase-rest` is a different exchange. The
+ * distinction is what lets the contract say "the archive's gap may be
+ * filled from the same exchange's REST endpoint" (docs/market-contract.md
+ * §4, plan §5 P07) while still refusing to splice two exchanges together.
+ */
+export function sourceOrigin(source: string): string {
+  const separator = source.indexOf('-');
+  return separator < 0 ? source : source.slice(0, separator);
+}
+
+/** Whether two source ids are the same publisher. Empty is never a match. */
+export function sourcesShareOrigin(a: string, b: string): boolean {
+  const origin = sourceOrigin(a);
+  return origin.length > 0 && origin === sourceOrigin(b);
+}
+
+/**
  * Why two series may not be combined into one tradable series — empty means
  * they may (docs/market-contract.md §6: never splice different venues or
  * quote currencies together, and a second source produces comparison
  * evidence rather than backfill).
+ *
+ * `source_mismatch` is reported for any two different source ids, including
+ * two endpoints of the same publisher. It is a fact about the retrieval,
+ * and whoever composes a series decides what to do with it: the snapshot
+ * builder tolerates it when `sourcesShareOrigin` holds, and never otherwise.
  */
 export function seriesConflicts(a: SeriesIdentity, b: SeriesIdentity): SeriesConflictCode[] {
   const found = new Set<SeriesConflictCode>();

@@ -1,0 +1,78 @@
+--- a/alpha-factor-forge/src-tauri/src/market/ingest.rs
++++ b/alpha-factor-forge/src-tauri/src/market/ingest.rs
+@@ -1340,3 +1340,75 @@
+         format!("[{}]", rows.join(","))
+     }
+ }
++
++#[cfg(test)]
++mod acceptance_review {
++    use super::*;
++    use crate::market::http::testing::FakeFetcher;
++    use crate::market::registry::{default_crypto_instruments, ensure_builtin_calendars, register_instrument};
++    use crate::db;
++
++    #[test]
++    fn review_redownloaded_archive_cannot_claim_old_forward_observation() {
++        let mut conn = Connection::open_in_memory().unwrap();
++        conn.pragma_update(None, "foreign_keys", "ON").unwrap();
++        db::apply_migrations(&conn).unwrap();
++        ensure_builtin_calendars(&conn).unwrap();
++        for draft in default_crypto_instruments() { register_instrument(&conn, &draft).unwrap(); }
++        let dir = std::env::temp_dir().join(format!("aff-p07-review-forward-{}", std::process::id()));
++        let store = ArtifactStore::in_data_dir(&dir);
++        let day = 1_721_001_600_000i64;
++        let url = binance::daily_url("BTCUSDT", "1h", NaiveDate::from_ymd_opt(2024, 7, 15).unwrap());
++        let fetcher = FakeFetcher::new()
++            .with(&url, include_bytes!("../../../fixtures/binance/BTCUSDT-1h-2024-07-15.zip"))
++            .with(&binance::checksum_url(&url), include_bytes!("../../../fixtures/binance/BTCUSDT-1h-2024-07-15.zip.CHECKSUM"));
++        let request = IngestRequest {
++            instrument_id: "crypto:binance:BTCUSDT".into(), interval: "1h".into(),
++            from_ms: day, to_ms_exclusive: day + 86_400_000,
++            as_of_ms: Utc::now().timestamp_millis(),
++            cost_profile_version: Some("cost-profile-v1".into()), allow_rest: false,
++        };
++        let report = ingest(&mut conn, &store, &fetcher, &request).unwrap();
++        let sources = provenance::list_provenance(&conn, &request.instrument_id, &request.interval).unwrap();
++        eprintln!("retrieved={}, available={:?}", sources[0].retrieved_at, sources[0].available_at);
++        let forward = snapshot::build_snapshot(&mut conn, &SnapshotRequest {
++            instrument_id: request.instrument_id, interval: request.interval,
++            dataset_id: report.dataset_id.unwrap(), price_basis: PriceBasis::Raw,
++            corporate_action_version: None, cost_profile_version: request.cost_profile_version,
++            kind: SnapshotKind::ForwardObserved,
++            provenance_ids: sources.iter().map(|row| row.id).collect(),
++            as_of_ms: day + 86_400_000,
++        }).unwrap();
++        assert!(matches!(forward, SnapshotOutcome::Blocked { .. }),
++            "archive fetched today must not establish forward-observed evidence at 2024-07-16: {forward:?}");
++    }
++    #[test]
++    fn review_original_checksum_response_is_kept_for_replay() {
++        let mut conn = Connection::open_in_memory().unwrap();
++        conn.pragma_update(None, "foreign_keys", "ON").unwrap();
++        db::apply_migrations(&conn).unwrap();
++        ensure_builtin_calendars(&conn).unwrap();
++        for draft in default_crypto_instruments() { register_instrument(&conn, &draft).unwrap(); }
++        let dir = std::env::temp_dir().join(format!("aff-p07-review-forward-{}", std::process::id()));
++        let store = ArtifactStore::in_data_dir(&dir);
++        let day = 1_721_001_600_000i64;
++        let url = binance::daily_url("BTCUSDT", "1h", NaiveDate::from_ymd_opt(2024, 7, 15).unwrap());
++        let fetcher = FakeFetcher::new()
++            .with(&url, include_bytes!("../../../fixtures/binance/BTCUSDT-1h-2024-07-15.zip"))
++            .with(&binance::checksum_url(&url), include_bytes!("../../../fixtures/binance/BTCUSDT-1h-2024-07-15.zip.CHECKSUM"));
++        let request = IngestRequest {
++            instrument_id: "crypto:binance:BTCUSDT".into(), interval: "1h".into(),
++            from_ms: day, to_ms_exclusive: day + 86_400_000,
++            as_of_ms: Utc::now().timestamp_millis(),
++            cost_profile_version: Some("cost-profile-v1".into()), allow_rest: false,
++        };
++        let _report = ingest(&mut conn, &store, &fetcher, &request).unwrap();
++        let sources = provenance::list_provenance(&conn, &request.instrument_id, &request.interval).unwrap();
++        let checksum = include_bytes!("../../../fixtures/binance/BTCUSDT-1h-2024-07-15.zip.CHECKSUM");
++        let mut kept = false;
++        for entry in store.unreferenced(&[]).unwrap() {
++            if std::fs::read(store.path_of(&entry).unwrap()).unwrap() == checksum { kept = true; }
++        }
++        assert!(kept, "published CHECKSUM response was discarded; {} provenance record(s), all raw evidence is ZIP", sources.len());
++    }
++}

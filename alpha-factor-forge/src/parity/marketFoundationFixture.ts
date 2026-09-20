@@ -691,6 +691,60 @@ function coverageCases(): CoverageCase[] {
   ];
 }
 
+export interface SourceOriginCase {
+  id: string;
+  a: string;
+  b: string;
+  expected: { origin: string; shareOrigin: boolean };
+}
+
+/**
+ * `<origin>[-<endpoint>]`: two endpoints of one exchange are one publisher,
+ * two exchanges are not. This is what allows the archive's tail to be
+ * filled from the same exchange's REST endpoint without allowing a second
+ * exchange to be spliced in (plan §5 P07, docs/market-contract.md §4).
+ */
+function sourceOriginCases(): SourceOriginCase[] {
+  return [
+    {
+      id: 'two-endpoints-of-one-exchange',
+      a: 'binance-archive',
+      b: 'binance-rest',
+      expected: { origin: 'binance', shareOrigin: true },
+    },
+    {
+      id: 'two-exchanges-are-never-one-publisher',
+      a: 'binance-archive',
+      b: 'coinbase-rest',
+      expected: { origin: 'binance', shareOrigin: false },
+    },
+    {
+      id: 'an-origin-without-an-endpoint',
+      a: 'tiingo',
+      b: 'tiingo',
+      expected: { origin: 'tiingo', shareOrigin: true },
+    },
+    {
+      id: 'an-origin-matches-its-own-endpointed-form',
+      a: 'binance',
+      b: 'binance-archive',
+      expected: { origin: 'binance', shareOrigin: true },
+    },
+    {
+      id: 'an-empty-source-is-nobody',
+      a: '',
+      b: '',
+      expected: { origin: '', shareOrigin: false },
+    },
+    {
+      id: 'a-leading-separator-is-nobody',
+      a: '-rest',
+      b: '-archive',
+      expected: { origin: '', shareOrigin: false },
+    },
+  ];
+}
+
 export interface SeriesCombinationCase {
   id: string;
   a: FixtureSeriesIdentity;
@@ -794,6 +848,7 @@ function assertMatrixCoverage(cases: {
   expectedRanges: ExpectedRangeCase[];
   coverage: CoverageCase[];
   seriesCombination: SeriesCombinationCase[];
+  sourceOrigins: SourceOriginCase[];
 }): void {
   uniqueIds(cases.instrumentIds.map((entry) => entry.id), 'instrumentIds');
   uniqueIds(cases.timeUnits.map((entry) => entry.id), 'timeUnits');
@@ -861,6 +916,13 @@ function assertMatrixCoverage(cases: {
   if (!cases.seriesCombination.some((entry) => entry.expected.conflicts.length === 0)) {
     missing('combinable series', 'any');
   }
+  uniqueIds(cases.sourceOrigins.map((entry) => entry.id), 'sourceOrigins');
+  if (!cases.sourceOrigins.some((entry) => entry.expected.shareOrigin)) {
+    missing('shared-origin', 'any');
+  }
+  if (!cases.sourceOrigins.some((entry) => !entry.expected.shareOrigin)) {
+    missing('distinct-origin', 'any');
+  }
 
   // Every expected report is internally consistent, independently of any
   // implementation: sorted events, sane counts, and blocking iff an event is.
@@ -918,6 +980,7 @@ export function buildMarketFoundationParityFixture(sourceHashes: FixtureSourceHa
     expectedRanges: expectedRangeCases(),
     coverage: coverageCases(),
     seriesCombination: seriesCombinationCases(),
+    sourceOrigins: sourceOriginCases(),
   };
   assertMatrixCoverage(cases);
   return {

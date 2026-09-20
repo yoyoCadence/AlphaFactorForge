@@ -218,8 +218,16 @@ pub fn normalize_dataset_candles(candles: &[Candle]) -> AppResult<Vec<Candle>> {
     Ok(normalized)
 }
 
-#[cfg(test)]
-pub fn dataset_content_hash(dataset: &Dataset, candles: &[Candle]) -> AppResult<String> {
+/// The content hash of a dataset this process assembled.
+///
+/// Was test-only while every dataset arrived from the frontend already
+/// identified and the backend only ever *verified* (`verify_dataset_identity`,
+/// which is still what the write path calls). P07 made the backend a
+/// producer as well: the market adapters assemble candles from an exchange's
+/// own files, so they need the same preimage rather than a second one. The
+/// hash and its preimage are unchanged; `import_dataset_with_candles` still
+/// re-verifies, so nothing is trusted because it was computed here.
+pub(crate) fn dataset_content_hash(dataset: &Dataset, candles: &[Candle]) -> AppResult<String> {
     let normalized = normalize_dataset_candles(candles)?;
     dataset_content_hash_normalized(dataset, &normalized)
 }
