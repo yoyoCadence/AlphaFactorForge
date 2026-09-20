@@ -1,0 +1,1331 @@
+{
+  "schemaVersion": "rs-core-parity-fixture-v1",
+  "fixtureVersion": "market-foundation-parity-v1",
+  "contracts": {
+    "marketFoundation": "market-foundation-v1",
+    "marketInstrument": "market-instrument-v1",
+    "sessionCalendar": "session-calendar-v1",
+    "marketDataQuality": "market-data-quality-v1"
+  },
+  "generator": {
+    "command": "npm run fixtures:market-foundation",
+    "referenceRuntime": "typescript",
+    "sourceHashEncoding": "utf8-lf-v1",
+    "sourceHashes": {
+      "generator": "sha256:601e046483f32a39e1a6891ccca19b07f4bd6ad50b1437939815e8b07ef680a8"
+    }
+  },
+  "numericEncoding": {
+    "specialInputNumbers": "explicit-numeric-status-v1",
+    "expectedNumericPolicy": "exact-v1"
+  },
+  "constants": {
+    "minTimestampMs": 946684800000,
+    "maxTimestampMsExclusive": 4102444800000,
+    "maxExpectedBars": 1000000
+  },
+  "intervals": [
+    {
+      "interval": "1m",
+      "ms": 60000
+    },
+    {
+      "interval": "3m",
+      "ms": 180000
+    },
+    {
+      "interval": "5m",
+      "ms": 300000
+    },
+    {
+      "interval": "15m",
+      "ms": 900000
+    },
+    {
+      "interval": "1h",
+      "ms": 3600000
+    },
+    {
+      "interval": "4h",
+      "ms": 14400000
+    },
+    {
+      "interval": "1d",
+      "ms": 86400000
+    }
+  ],
+  "inventories": {
+    "markets": [
+      "crypto",
+      "us-etf",
+      "tw-etf"
+    ],
+    "assetTypes": [
+      "spot-crypto",
+      "etf"
+    ],
+    "priceBases": [
+      "raw",
+      "adjusted-split",
+      "adjusted-total-return"
+    ],
+    "calendarKinds": [
+      "continuous",
+      "trading-days"
+    ],
+    "severities": [
+      "blocking",
+      "degraded",
+      "info"
+    ],
+    "instrumentIdRuleIds": [
+      "instrument_id_shape",
+      "unknown_market",
+      "venue_not_normalized",
+      "symbol_not_supported"
+    ],
+    "calendarRuleIds": [
+      "calendar_id_shape",
+      "unknown_kind",
+      "empty_timezone",
+      "continuous_carries_trading_days",
+      "trading_days_without_weekdays",
+      "weekday_out_of_range",
+      "weekdays_not_sorted",
+      "invalid_date",
+      "dates_not_sorted"
+    ],
+    "runtimeSpecificCalendarRuleIds": [
+      "unknown_kind"
+    ],
+    "timeUnitIds": [
+      "seconds",
+      "milliseconds",
+      "microseconds",
+      "nanoseconds"
+    ],
+    "timeUnitIssueIds": [
+      "no_timestamps",
+      "time_unit_mixed",
+      "time_unit_unknown"
+    ],
+    "expectedRangeIssueIds": [
+      "unknown_interval",
+      "invalid_calendar",
+      "unsupported_interval_for_calendar",
+      "invalid_range",
+      "invalid_suspension",
+      "range_too_large"
+    ],
+    "coverageCodes": [
+      "out_of_order",
+      "duplicate_timestamp",
+      "unaligned_timestamp",
+      "unexpected_bar",
+      "missing_bar",
+      "unclosed_bar"
+    ],
+    "actionCodes": [
+      "refetch_range",
+      "deduplicate_source",
+      "resort_source",
+      "verify_time_unit",
+      "wait_for_close",
+      "review_calendar",
+      "separate_sources",
+      "confirm_costs",
+      "verify_corporate_actions",
+      "rebuild_from_revision",
+      "record_availability"
+    ],
+    "storageOnlyActionCodes": [
+      "separate_sources",
+      "confirm_costs",
+      "verify_corporate_actions",
+      "rebuild_from_revision",
+      "record_availability"
+    ],
+    "seriesConflictCodes": [
+      "comparison_role_not_combinable",
+      "interval_mismatch",
+      "invalid_instrument_id",
+      "market_mismatch",
+      "price_basis_mismatch",
+      "quote_mismatch",
+      "source_mismatch",
+      "symbol_mismatch",
+      "venue_mismatch"
+    ]
+  },
+  "calendars": [
+    {
+      "calendarId": "crypto-24x7-v1",
+      "kind": "continuous",
+      "timezone": "UTC",
+      "tradingWeekdays": [],
+      "holidays": [],
+      "earlyCloses": []
+    },
+    {
+      "calendarId": "fixture-weekdays-v1",
+      "kind": "trading-days",
+      "timezone": "America/New_York",
+      "tradingWeekdays": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "holidays": [
+        "2024-07-18"
+      ],
+      "earlyCloses": [
+        "2024-07-19"
+      ]
+    },
+    {
+      "calendarId": "crypto-24x7",
+      "kind": "continuous",
+      "timezone": "UTC",
+      "tradingWeekdays": [],
+      "holidays": [],
+      "earlyCloses": []
+    }
+  ],
+  "tolerance": {
+    "policy": "exact-v1",
+    "exact": [
+      "schema, fixture, and contract versions",
+      "case ids and inventory order",
+      "instrument-id parses and rule ids",
+      "time-unit verdicts and the index a batch changes unit at",
+      "calendar rule ids",
+      "expected bar timestamps, refusal issues, and their emptiness",
+      "coverage event codes, severities, ranges, counts, actions, and order",
+      "series conflict codes and their sorted order"
+    ]
+  },
+  "cases": {
+    "instrumentIds": [
+      {
+        "id": "crypto-binance-btcusdt",
+        "value": "crypto:binance:BTCUSDT",
+        "expected": {
+          "parsed": {
+            "market": "crypto",
+            "venue": "binance",
+            "symbol": "BTCUSDT"
+          },
+          "rule": null
+        }
+      },
+      {
+        "id": "crypto-binance-ethusdt",
+        "value": "crypto:binance:ETHUSDT",
+        "expected": {
+          "parsed": {
+            "market": "crypto",
+            "venue": "binance",
+            "symbol": "ETHUSDT"
+          },
+          "rule": null
+        }
+      },
+      {
+        "id": "us-etf-nyse-arca-spy",
+        "value": "us-etf:nyse-arca:SPY",
+        "expected": {
+          "parsed": {
+            "market": "us-etf",
+            "venue": "nyse-arca",
+            "symbol": "SPY"
+          },
+          "rule": null
+        }
+      },
+      {
+        "id": "tw-etf-twse-0050",
+        "value": "tw-etf:twse:0050",
+        "expected": {
+          "parsed": {
+            "market": "tw-etf",
+            "venue": "twse",
+            "symbol": "0050"
+          },
+          "rule": null
+        }
+      },
+      {
+        "id": "crypto-coinbase-btc-usd",
+        "value": "crypto:coinbase:BTC-USD",
+        "expected": {
+          "parsed": {
+            "market": "crypto",
+            "venue": "coinbase",
+            "symbol": "BTC-USD"
+          },
+          "rule": null
+        }
+      },
+      {
+        "id": "two-fields-rejected",
+        "value": "crypto:binance",
+        "expected": {
+          "parsed": null,
+          "rule": "instrument_id_shape"
+        }
+      },
+      {
+        "id": "empty-venue-rejected",
+        "value": "crypto::BTCUSDT",
+        "expected": {
+          "parsed": null,
+          "rule": "instrument_id_shape"
+        }
+      },
+      {
+        "id": "four-fields-rejected",
+        "value": "crypto:binance:BTC:USDT",
+        "expected": {
+          "parsed": null,
+          "rule": "instrument_id_shape"
+        }
+      },
+      {
+        "id": "unknown-market-rejected",
+        "value": "fx:oanda:EURUSD",
+        "expected": {
+          "parsed": null,
+          "rule": "unknown_market"
+        }
+      },
+      {
+        "id": "uppercase-venue-rejected",
+        "value": "crypto:Binance:BTCUSDT",
+        "expected": {
+          "parsed": null,
+          "rule": "venue_not_normalized"
+        }
+      },
+      {
+        "id": "symbol-with-space-rejected",
+        "value": "crypto:binance:BTC USDT",
+        "expected": {
+          "parsed": null,
+          "rule": "symbol_not_supported"
+        }
+      }
+    ],
+    "timeUnits": [
+      {
+        "id": "milliseconds-batch",
+        "timestamps": [
+          1721001600000,
+          1721005200000,
+          1721008800000
+        ],
+        "expected": {
+          "unit": "milliseconds",
+          "issue": null,
+          "index": null
+        }
+      },
+      {
+        "id": "seconds-batch",
+        "timestamps": [
+          1721001600,
+          1721005200
+        ],
+        "expected": {
+          "unit": "seconds",
+          "issue": null,
+          "index": null
+        }
+      },
+      {
+        "id": "microseconds-batch",
+        "timestamps": [
+          1721001600000000
+        ],
+        "expected": {
+          "unit": "microseconds",
+          "issue": null,
+          "index": null
+        }
+      },
+      {
+        "id": "nanoseconds-batch",
+        "timestamps": [
+          1721001600000000000
+        ],
+        "expected": {
+          "unit": "nanoseconds",
+          "issue": null,
+          "index": null
+        }
+      },
+      {
+        "id": "archive-switches-to-microseconds-mid-batch",
+        "timestamps": [
+          1721001600000,
+          1721005200000,
+          1721008800000000
+        ],
+        "expected": {
+          "unit": null,
+          "issue": "time_unit_mixed",
+          "index": 2
+        }
+      },
+      {
+        "id": "epoch-zero-is-in-no-band",
+        "timestamps": [
+          0
+        ],
+        "expected": {
+          "unit": null,
+          "issue": "time_unit_unknown",
+          "index": 0
+        }
+      },
+      {
+        "id": "non-finite-is-in-no-band",
+        "timestamps": [
+          1721001600000,
+          "nan"
+        ],
+        "expected": {
+          "unit": null,
+          "issue": "time_unit_unknown",
+          "index": 1
+        }
+      },
+      {
+        "id": "empty-batch",
+        "timestamps": [],
+        "expected": {
+          "unit": null,
+          "issue": "no_timestamps",
+          "index": null
+        }
+      }
+    ],
+    "calendarValidation": [
+      {
+        "id": "continuous-accepted",
+        "calendar": {
+          "calendarId": "crypto-24x7-v1",
+          "kind": "continuous",
+          "timezone": "UTC",
+          "tradingWeekdays": [],
+          "holidays": [],
+          "earlyCloses": []
+        },
+        "expected": {
+          "rule": null
+        }
+      },
+      {
+        "id": "trading-days-accepted",
+        "calendar": {
+          "calendarId": "fixture-weekdays-v1",
+          "kind": "trading-days",
+          "timezone": "America/New_York",
+          "tradingWeekdays": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "holidays": [
+            "2024-07-18"
+          ],
+          "earlyCloses": [
+            "2024-07-19"
+          ]
+        },
+        "expected": {
+          "rule": null
+        }
+      },
+      {
+        "id": "id-without-a-version-rejected",
+        "calendar": {
+          "calendarId": "crypto-24x7",
+          "kind": "continuous",
+          "timezone": "UTC",
+          "tradingWeekdays": [],
+          "holidays": [],
+          "earlyCloses": []
+        },
+        "expected": {
+          "rule": "calendar_id_shape"
+        }
+      },
+      {
+        "id": "blank-timezone-rejected",
+        "calendar": {
+          "calendarId": "crypto-24x7-v1",
+          "kind": "continuous",
+          "timezone": " ",
+          "tradingWeekdays": [],
+          "holidays": [],
+          "earlyCloses": []
+        },
+        "expected": {
+          "rule": "empty_timezone"
+        }
+      },
+      {
+        "id": "continuous-with-holidays-rejected",
+        "calendar": {
+          "calendarId": "crypto-24x7-v1",
+          "kind": "continuous",
+          "timezone": "UTC",
+          "tradingWeekdays": [],
+          "holidays": [
+            "2024-07-18"
+          ],
+          "earlyCloses": []
+        },
+        "expected": {
+          "rule": "continuous_carries_trading_days"
+        }
+      },
+      {
+        "id": "trading-days-without-weekdays-rejected",
+        "calendar": {
+          "calendarId": "fixture-weekdays-v1",
+          "kind": "trading-days",
+          "timezone": "America/New_York",
+          "tradingWeekdays": [],
+          "holidays": [
+            "2024-07-18"
+          ],
+          "earlyCloses": [
+            "2024-07-19"
+          ]
+        },
+        "expected": {
+          "rule": "trading_days_without_weekdays"
+        }
+      },
+      {
+        "id": "weekday-zero-rejected",
+        "calendar": {
+          "calendarId": "fixture-weekdays-v1",
+          "kind": "trading-days",
+          "timezone": "America/New_York",
+          "tradingWeekdays": [
+            0,
+            1,
+            2
+          ],
+          "holidays": [
+            "2024-07-18"
+          ],
+          "earlyCloses": [
+            "2024-07-19"
+          ]
+        },
+        "expected": {
+          "rule": "weekday_out_of_range"
+        }
+      },
+      {
+        "id": "weekdays-unsorted-rejected",
+        "calendar": {
+          "calendarId": "fixture-weekdays-v1",
+          "kind": "trading-days",
+          "timezone": "America/New_York",
+          "tradingWeekdays": [
+            2,
+            1
+          ],
+          "holidays": [
+            "2024-07-18"
+          ],
+          "earlyCloses": [
+            "2024-07-19"
+          ]
+        },
+        "expected": {
+          "rule": "weekdays_not_sorted"
+        }
+      },
+      {
+        "id": "impossible-date-rejected",
+        "calendar": {
+          "calendarId": "fixture-weekdays-v1",
+          "kind": "trading-days",
+          "timezone": "America/New_York",
+          "tradingWeekdays": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "holidays": [
+            "2024-02-30"
+          ],
+          "earlyCloses": [
+            "2024-07-19"
+          ]
+        },
+        "expected": {
+          "rule": "invalid_date"
+        }
+      },
+      {
+        "id": "holidays-unsorted-rejected",
+        "calendar": {
+          "calendarId": "fixture-weekdays-v1",
+          "kind": "trading-days",
+          "timezone": "America/New_York",
+          "tradingWeekdays": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "holidays": [
+            "2024-07-19",
+            "2024-07-18"
+          ],
+          "earlyCloses": [
+            "2024-07-19"
+          ]
+        },
+        "expected": {
+          "rule": "dates_not_sorted"
+        }
+      }
+    ],
+    "expectedRanges": [
+      {
+        "calendarId": "crypto-24x7-v1",
+        "interval": "1h",
+        "fromMs": 1721001600000,
+        "toMsExclusive": 1721012400000,
+        "listedFromMs": null,
+        "delistedAtMs": null,
+        "suspensions": [],
+        "id": "crypto-hourly-three-bars",
+        "expected": {
+          "timestamps": [
+            1721001600000,
+            1721005200000,
+            1721008800000
+          ],
+          "issue": null
+        }
+      },
+      {
+        "calendarId": "crypto-24x7-v1",
+        "interval": "1h",
+        "fromMs": 1721001600001,
+        "toMsExclusive": 1721008800000,
+        "listedFromMs": null,
+        "delistedAtMs": null,
+        "suspensions": [],
+        "id": "crypto-hourly-range-starts-mid-bar",
+        "expected": {
+          "timestamps": [
+            1721005200000
+          ],
+          "issue": null
+        }
+      },
+      {
+        "calendarId": "fixture-weekdays-v1",
+        "interval": "1d",
+        "fromMs": 1721001600000,
+        "toMsExclusive": 1721606400000,
+        "listedFromMs": null,
+        "delistedAtMs": null,
+        "suspensions": [
+          {
+            "fromMs": 1721088000000,
+            "toMsExclusive": 1721174400000
+          }
+        ],
+        "id": "weekdays-skip-weekend-holiday-and-halt",
+        "expected": {
+          "timestamps": [
+            1721001600000,
+            1721174400000,
+            1721347200000
+          ],
+          "issue": null
+        }
+      },
+      {
+        "calendarId": "fixture-weekdays-v1",
+        "interval": "1d",
+        "fromMs": 1721001600000,
+        "toMsExclusive": 1721606400000,
+        "listedFromMs": 1721174400000,
+        "delistedAtMs": 1721347200000,
+        "suspensions": [],
+        "id": "listing-window-clamps-the-range",
+        "expected": {
+          "timestamps": [
+            1721174400000
+          ],
+          "issue": null
+        }
+      },
+      {
+        "calendarId": "crypto-24x7-v1",
+        "interval": "1h",
+        "fromMs": 1721001600000,
+        "toMsExclusive": 1721012400000,
+        "listedFromMs": 1721865600000,
+        "delistedAtMs": null,
+        "suspensions": [],
+        "id": "a-listing-after-the-range-is-empty-without-a-defect",
+        "expected": {
+          "timestamps": [],
+          "issue": null
+        }
+      },
+      {
+        "calendarId": "crypto-24x7-v1",
+        "interval": "2h",
+        "fromMs": 1721001600000,
+        "toMsExclusive": 1721012400000,
+        "listedFromMs": null,
+        "delistedAtMs": null,
+        "suspensions": [],
+        "id": "unknown-interval-refused",
+        "expected": {
+          "timestamps": [],
+          "issue": "unknown_interval"
+        }
+      },
+      {
+        "calendarId": "crypto-24x7",
+        "interval": "1h",
+        "fromMs": 1721001600000,
+        "toMsExclusive": 1721012400000,
+        "listedFromMs": null,
+        "delistedAtMs": null,
+        "suspensions": [],
+        "id": "invalid-calendar-refused",
+        "expected": {
+          "timestamps": [],
+          "issue": "invalid_calendar"
+        }
+      },
+      {
+        "calendarId": "fixture-weekdays-v1",
+        "interval": "1h",
+        "fromMs": 1721001600000,
+        "toMsExclusive": 1721012400000,
+        "listedFromMs": null,
+        "delistedAtMs": null,
+        "suspensions": [],
+        "id": "intraday-on-a-trading-days-calendar-refused",
+        "expected": {
+          "timestamps": [],
+          "issue": "unsupported_interval_for_calendar"
+        }
+      },
+      {
+        "calendarId": "crypto-24x7-v1",
+        "interval": "1h",
+        "fromMs": 1721001600000,
+        "toMsExclusive": 1721001600000,
+        "listedFromMs": null,
+        "delistedAtMs": null,
+        "suspensions": [],
+        "id": "empty-range-refused",
+        "expected": {
+          "timestamps": [],
+          "issue": "invalid_range"
+        }
+      },
+      {
+        "calendarId": "crypto-24x7-v1",
+        "interval": "1h",
+        "fromMs": 1721001600000,
+        "toMsExclusive": 1721012400000,
+        "listedFromMs": null,
+        "delistedAtMs": null,
+        "suspensions": [
+          {
+            "fromMs": 1721088000000,
+            "toMsExclusive": 1721001600000
+          }
+        ],
+        "id": "backwards-suspension-refused",
+        "expected": {
+          "timestamps": [],
+          "issue": "invalid_suspension"
+        }
+      },
+      {
+        "calendarId": "crypto-24x7-v1",
+        "interval": "1m",
+        "fromMs": 1721001600000,
+        "toMsExclusive": 1781001660000,
+        "listedFromMs": null,
+        "delistedAtMs": null,
+        "suspensions": [],
+        "id": "oversized-range-refused",
+        "expected": {
+          "timestamps": [],
+          "issue": "range_too_large"
+        }
+      }
+    ],
+    "coverage": [
+      {
+        "id": "complete-series",
+        "interval": "1h",
+        "expected": [
+          1721001600000,
+          1721005200000,
+          1721008800000,
+          1721012400000
+        ],
+        "observed": [
+          1721001600000,
+          1721005200000,
+          1721008800000,
+          1721012400000
+        ],
+        "asOfMs": 1721016000000,
+        "expectedReport": {
+          "events": [],
+          "blocking": false,
+          "expectedCount": 4,
+          "notDueCount": 0,
+          "observedCount": 4,
+          "matchedCount": 4,
+          "issue": null
+        }
+      },
+      {
+        "id": "one-missing-bar",
+        "interval": "1h",
+        "expected": [
+          1721001600000,
+          1721005200000,
+          1721008800000,
+          1721012400000
+        ],
+        "observed": [
+          1721001600000,
+          1721005200000,
+          1721012400000
+        ],
+        "asOfMs": 1721016000000,
+        "expectedReport": {
+          "events": [
+            {
+              "code": "missing_bar",
+              "severity": "blocking",
+              "rangeStart": 1721008800000,
+              "rangeEnd": 1721008800000,
+              "count": 1,
+              "action": "refetch_range"
+            }
+          ],
+          "blocking": true,
+          "expectedCount": 4,
+          "notDueCount": 0,
+          "observedCount": 3,
+          "matchedCount": 3,
+          "issue": null
+        }
+      },
+      {
+        "id": "contiguous-gap-is-one-actionable-range",
+        "interval": "1h",
+        "expected": [
+          1721001600000,
+          1721005200000,
+          1721008800000,
+          1721012400000
+        ],
+        "observed": [
+          1721001600000,
+          1721012400000
+        ],
+        "asOfMs": 1721016000000,
+        "expectedReport": {
+          "events": [
+            {
+              "code": "missing_bar",
+              "severity": "blocking",
+              "rangeStart": 1721005200000,
+              "rangeEnd": 1721008800000,
+              "count": 2,
+              "action": "refetch_range"
+            }
+          ],
+          "blocking": true,
+          "expectedCount": 4,
+          "notDueCount": 0,
+          "observedCount": 2,
+          "matchedCount": 2,
+          "issue": null
+        }
+      },
+      {
+        "id": "a-weekend-inside-a-gap-does-not-split-it",
+        "interval": "1d",
+        "expected": [
+          1721347200000,
+          1721606400000,
+          1721692800000
+        ],
+        "observed": [
+          1721692800000
+        ],
+        "asOfMs": 1721779200000,
+        "expectedReport": {
+          "events": [
+            {
+              "code": "missing_bar",
+              "severity": "blocking",
+              "rangeStart": 1721347200000,
+              "rangeEnd": 1721606400000,
+              "count": 2,
+              "action": "refetch_range"
+            }
+          ],
+          "blocking": true,
+          "expectedCount": 3,
+          "notDueCount": 0,
+          "observedCount": 1,
+          "matchedCount": 1,
+          "issue": null
+        }
+      },
+      {
+        "id": "duplicate-timestamp",
+        "interval": "1h",
+        "expected": [
+          1721001600000,
+          1721005200000,
+          1721008800000,
+          1721012400000
+        ],
+        "observed": [
+          1721001600000,
+          1721005200000,
+          1721005200000,
+          1721008800000,
+          1721012400000
+        ],
+        "asOfMs": 1721016000000,
+        "expectedReport": {
+          "events": [
+            {
+              "code": "duplicate_timestamp",
+              "severity": "blocking",
+              "rangeStart": 1721005200000,
+              "rangeEnd": 1721005200000,
+              "count": 2,
+              "action": "deduplicate_source"
+            }
+          ],
+          "blocking": true,
+          "expectedCount": 4,
+          "notDueCount": 0,
+          "observedCount": 5,
+          "matchedCount": 4,
+          "issue": null
+        }
+      },
+      {
+        "id": "unaligned-timestamp-leaves-its-bar-missing",
+        "interval": "1h",
+        "expected": [
+          1721001600000,
+          1721005200000,
+          1721008800000,
+          1721012400000
+        ],
+        "observed": [
+          1721001600000,
+          1721005200000,
+          1721008800000,
+          1721012400001
+        ],
+        "asOfMs": 1721016000000,
+        "expectedReport": {
+          "events": [
+            {
+              "code": "missing_bar",
+              "severity": "blocking",
+              "rangeStart": 1721012400000,
+              "rangeEnd": 1721012400000,
+              "count": 1,
+              "action": "refetch_range"
+            },
+            {
+              "code": "unaligned_timestamp",
+              "severity": "blocking",
+              "rangeStart": 1721012400001,
+              "rangeEnd": 1721012400001,
+              "count": 1,
+              "action": "verify_time_unit"
+            }
+          ],
+          "blocking": true,
+          "expectedCount": 4,
+          "notDueCount": 0,
+          "observedCount": 4,
+          "matchedCount": 3,
+          "issue": null
+        }
+      },
+      {
+        "id": "a-bar-on-a-non-trading-day-is-unexpected",
+        "interval": "1d",
+        "expected": [
+          1721001600000,
+          1721174400000
+        ],
+        "observed": [
+          1721001600000,
+          1721088000000,
+          1721174400000
+        ],
+        "asOfMs": 1721260800000,
+        "expectedReport": {
+          "events": [
+            {
+              "code": "unexpected_bar",
+              "severity": "blocking",
+              "rangeStart": 1721088000000,
+              "rangeEnd": 1721088000000,
+              "count": 1,
+              "action": "review_calendar"
+            }
+          ],
+          "blocking": true,
+          "expectedCount": 2,
+          "notDueCount": 0,
+          "observedCount": 3,
+          "matchedCount": 2,
+          "issue": null
+        }
+      },
+      {
+        "id": "out-of-order-and-duplicate-at-the-same-bar",
+        "interval": "1h",
+        "expected": [
+          1721001600000,
+          1721005200000,
+          1721008800000,
+          1721012400000
+        ],
+        "observed": [
+          1721005200000,
+          1721001600000,
+          1721001600000,
+          1721008800000,
+          1721012400000
+        ],
+        "asOfMs": 1721016000000,
+        "expectedReport": {
+          "events": [
+            {
+              "code": "out_of_order",
+              "severity": "blocking",
+              "rangeStart": 1721001600000,
+              "rangeEnd": 1721012400000,
+              "count": 5,
+              "action": "resort_source"
+            },
+            {
+              "code": "duplicate_timestamp",
+              "severity": "blocking",
+              "rangeStart": 1721001600000,
+              "rangeEnd": 1721001600000,
+              "count": 2,
+              "action": "deduplicate_source"
+            }
+          ],
+          "blocking": true,
+          "expectedCount": 4,
+          "notDueCount": 0,
+          "observedCount": 5,
+          "matchedCount": 4,
+          "issue": null
+        }
+      },
+      {
+        "id": "a-bar-that-has-not-closed-yet-is-reported-not-matched-away",
+        "interval": "1h",
+        "expected": [
+          1721001600000,
+          1721005200000,
+          1721008800000,
+          1721012400000
+        ],
+        "observed": [
+          1721001600000,
+          1721005200000,
+          1721008800000,
+          1721012400000
+        ],
+        "asOfMs": 1721012400001,
+        "expectedReport": {
+          "events": [
+            {
+              "code": "unclosed_bar",
+              "severity": "blocking",
+              "rangeStart": 1721012400000,
+              "rangeEnd": 1721012400000,
+              "count": 1,
+              "action": "wait_for_close"
+            }
+          ],
+          "blocking": true,
+          "expectedCount": 4,
+          "notDueCount": 1,
+          "observedCount": 4,
+          "matchedCount": 4,
+          "issue": null
+        }
+      },
+      {
+        "id": "a-bar-that-is-not-due-yet-is-never-missing",
+        "interval": "1h",
+        "expected": [
+          1721001600000,
+          1721005200000,
+          1721008800000,
+          1721012400000
+        ],
+        "observed": [
+          1721001600000,
+          1721005200000,
+          1721008800000
+        ],
+        "asOfMs": 1721012400001,
+        "expectedReport": {
+          "events": [],
+          "blocking": false,
+          "expectedCount": 4,
+          "notDueCount": 1,
+          "observedCount": 3,
+          "matchedCount": 3,
+          "issue": null
+        }
+      },
+      {
+        "id": "an-interval-the-contract-cannot-measure-blocks",
+        "interval": "2h",
+        "expected": [
+          1721001600000,
+          1721005200000,
+          1721008800000,
+          1721012400000
+        ],
+        "observed": [
+          1721001600000,
+          1721005200000,
+          1721008800000,
+          1721012400000
+        ],
+        "asOfMs": 1721016000000,
+        "expectedReport": {
+          "events": [],
+          "blocking": true,
+          "expectedCount": 4,
+          "notDueCount": 0,
+          "observedCount": 4,
+          "matchedCount": 0,
+          "issue": "unknown_interval"
+        }
+      }
+    ],
+    "seriesCombination": [
+      {
+        "id": "same-primary-source-combinable",
+        "a": {
+          "instrumentId": "crypto:binance:BTCUSDT",
+          "quote": "USDT",
+          "interval": "1h",
+          "source": "binance-archive",
+          "role": "primary",
+          "priceBasis": "raw"
+        },
+        "b": {
+          "instrumentId": "crypto:binance:BTCUSDT",
+          "quote": "USDT",
+          "interval": "1h",
+          "source": "binance-archive",
+          "role": "primary",
+          "priceBasis": "raw"
+        },
+        "expected": {
+          "conflicts": []
+        }
+      },
+      {
+        "id": "binance-and-coinbase-are-never-one-series",
+        "a": {
+          "instrumentId": "crypto:binance:BTCUSDT",
+          "quote": "USDT",
+          "interval": "1h",
+          "source": "binance-archive",
+          "role": "primary",
+          "priceBasis": "raw"
+        },
+        "b": {
+          "instrumentId": "crypto:coinbase:BTC-USD",
+          "quote": "USD",
+          "interval": "1h",
+          "source": "coinbase-rest",
+          "role": "primary",
+          "priceBasis": "raw"
+        },
+        "expected": {
+          "conflicts": [
+            "quote_mismatch",
+            "source_mismatch",
+            "symbol_mismatch",
+            "venue_mismatch"
+          ]
+        }
+      },
+      {
+        "id": "a-different-market-conflicts-on-every-axis",
+        "a": {
+          "instrumentId": "crypto:binance:BTCUSDT",
+          "quote": "USDT",
+          "interval": "1h",
+          "source": "binance-archive",
+          "role": "primary",
+          "priceBasis": "raw"
+        },
+        "b": {
+          "instrumentId": "us-etf:nyse-arca:SPY",
+          "quote": "USD",
+          "interval": "1d",
+          "source": "tiingo",
+          "role": "primary",
+          "priceBasis": "adjusted-split"
+        },
+        "expected": {
+          "conflicts": [
+            "interval_mismatch",
+            "market_mismatch",
+            "price_basis_mismatch",
+            "quote_mismatch",
+            "source_mismatch",
+            "symbol_mismatch",
+            "venue_mismatch"
+          ]
+        }
+      },
+      {
+        "id": "two-intervals-are-two-series",
+        "a": {
+          "instrumentId": "crypto:binance:BTCUSDT",
+          "quote": "USDT",
+          "interval": "1h",
+          "source": "binance-archive",
+          "role": "primary",
+          "priceBasis": "raw"
+        },
+        "b": {
+          "instrumentId": "crypto:binance:BTCUSDT",
+          "quote": "USDT",
+          "interval": "1d",
+          "source": "binance-archive",
+          "role": "primary",
+          "priceBasis": "raw"
+        },
+        "expected": {
+          "conflicts": [
+            "interval_mismatch"
+          ]
+        }
+      },
+      {
+        "id": "raw-and-adjusted-are-two-series",
+        "a": {
+          "instrumentId": "crypto:binance:BTCUSDT",
+          "quote": "USDT",
+          "interval": "1h",
+          "source": "binance-archive",
+          "role": "primary",
+          "priceBasis": "raw"
+        },
+        "b": {
+          "instrumentId": "crypto:binance:BTCUSDT",
+          "quote": "USDT",
+          "interval": "1h",
+          "source": "binance-archive",
+          "role": "primary",
+          "priceBasis": "adjusted-total-return"
+        },
+        "expected": {
+          "conflicts": [
+            "price_basis_mismatch"
+          ]
+        }
+      },
+      {
+        "id": "a-comparison-source-is-evidence-not-a-component",
+        "a": {
+          "instrumentId": "crypto:binance:BTCUSDT",
+          "quote": "USDT",
+          "interval": "1h",
+          "source": "binance-archive",
+          "role": "primary",
+          "priceBasis": "raw"
+        },
+        "b": {
+          "instrumentId": "crypto:binance:BTCUSDT",
+          "quote": "USDT",
+          "interval": "1h",
+          "source": "binance-archive",
+          "role": "comparison",
+          "priceBasis": "raw"
+        },
+        "expected": {
+          "conflicts": [
+            "comparison_role_not_combinable"
+          ]
+        }
+      },
+      {
+        "id": "an-unparsable-id-is-refused-not-guessed",
+        "a": {
+          "instrumentId": "crypto:binance:BTCUSDT",
+          "quote": "USDT",
+          "interval": "1h",
+          "source": "binance-archive",
+          "role": "primary",
+          "priceBasis": "raw"
+        },
+        "b": {
+          "instrumentId": "binance-BTCUSDT",
+          "quote": "USDT",
+          "interval": "1h",
+          "source": "binance-archive",
+          "role": "primary",
+          "priceBasis": "raw"
+        },
+        "expected": {
+          "conflicts": [
+            "invalid_instrument_id"
+          ]
+        }
+      }
+    ]
+  }
+}
