@@ -351,6 +351,18 @@ fn identity_events(
     )]
 }
 
+/// Legacy archive period guesses are unknown availability, regardless of
+/// whether the stored RFC 3339 value itself parses.
+fn component_availability(component: &ProvenanceRow) -> Option<DateTime<chrono::FixedOffset>> {
+    if component.source == super::sources::binance::SOURCE_ARCHIVE
+        && !component.has_observed_archive_availability()
+    {
+        return None;
+    }
+    component.available_at.as_deref()
+        .and_then(|value| DateTime::parse_from_rfc3339(value).ok())
+}
+
 /// A component must be an accepted, current, primary record of exactly this
 /// series. Anything else is kept as evidence and refused as a component.
 fn component_events(
@@ -437,8 +449,7 @@ fn component_events(
             );
         }
         if let Some(cut) = cut {
-            let available = component.available_at.as_deref()
-                .and_then(|value| DateTime::parse_from_rfc3339(value).ok());
+            let available = component_availability(component);
             let code = match available {
                 Some(moment) if moment <= cut => None,
                 Some(_) => Some("availability_after_cut"),
@@ -667,24 +678,46 @@ fn snapshot_from_row(row: &Row<'_>) -> rusqlite::Result<SnapshotRow> {
     })
 }
 
+/// Refuse old forward snapshots that relied on the archive period guess.
+/// Rows remain immutable and available for raw audit; public readers must
+/// not hand a previously minted, invalid qualification to their callers.
+fn validate_observed_snapshot(conn: &Connection, row: SnapshotRow) -> AppResult<SnapshotRow> {
+    if row.kind == SnapshotKind::ForwardObserved {
+        let cut = DateTime::<Utc>::from_timestamp_millis(row.as_of);
+        let components = snapshot_sources(conn, row.id)?;
+        let valid = !components.is_empty() && components.iter().all(|component| {
+            matches!((component_availability(component), cut), (Some(available), Some(cut)) if available <= cut)
+        });
+        if !valid {
+            return Err(AppError::Other(format!(
+                "snapshot {} has unverified forward-observed availability; retrieve evidence and rebuild",
+                row.snapshot_id
+            )));
+        }
+    }
+    Ok(row)
+}
+
 pub fn get_snapshot(conn: &Connection, row_id: i64) -> AppResult<Option<SnapshotRow>> {
-    Ok(conn
+    conn
         .query_row(
             &format!("SELECT {SNAPSHOT_COLUMNS} FROM market_snapshots WHERE id = ?1"),
             [row_id],
             snapshot_from_row,
         )
-        .optional()?)
+        .optional()?
+        .map(|row| validate_observed_snapshot(conn, row)).transpose()
 }
 
 pub fn get_snapshot_by_id(conn: &Connection, snapshot_id: &str) -> AppResult<Option<SnapshotRow>> {
-    Ok(conn
+    conn
         .query_row(
             &format!("SELECT {SNAPSHOT_COLUMNS} FROM market_snapshots WHERE snapshot_id = ?1"),
             [snapshot_id],
             snapshot_from_row,
         )
-        .optional()?)
+        .optional()?
+        .map(|row| validate_observed_snapshot(conn, row)).transpose()
 }
 
 pub fn list_snapshots(conn: &Connection, limit: usize) -> AppResult<Vec<SnapshotRow>> {
@@ -694,7 +727,7 @@ pub fn list_snapshots(conn: &Connection, limit: usize) -> AppResult<Vec<Snapshot
     let rows = stmt
         .query_map([limit as i64], snapshot_from_row)?
         .collect::<Result<Vec<_>, _>>()?;
-    Ok(rows)
+    rows.into_iter().map(|row| validate_observed_snapshot(conn, row)).collect()
 }
 
 /// The provenance a snapshot was built from, oldest first.
@@ -729,7 +762,7 @@ pub fn dataset_market_status(conn: &Connection, dataset_id: i64) -> AppResult<Da
         )
         .optional()?;
     Ok(match row {
-        Some(snapshot) => DatasetMarketStatus::Registered(Box::new(snapshot)),
+        Some(snapshot) => DatasetMarketStatus::Registered(Box::new(validate_observed_snapshot(conn, snapshot)?)),
         None => DatasetMarketStatus::Legacy,
     })
 }
@@ -892,6 +925,9 @@ mod tests {
             let mut conn = memory_db();
             let (store, _guard) = fresh_store();
             let raw = record(&conn, &store, &RawObservation {
+                // Exercise the general availability rule; archive records
+                // additionally require actual observation evidence.
+                source: "binance-rest".into(),
                 available_at: available.map(str::to_string),
                 ..observation()
             }, b"bars");

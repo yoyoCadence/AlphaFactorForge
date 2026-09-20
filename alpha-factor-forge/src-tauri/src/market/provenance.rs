@@ -97,6 +97,19 @@ pub struct ProvenanceRow {
 }
 
 impl ProvenanceRow {
+    /// The original P07 adapter guessed availability from the archive's
+    /// period. Keep those immutable rows for audit, but do not trust them
+    /// for cache reuse or forward-observed admission.
+    pub fn has_observed_archive_availability(&self) -> bool {
+        if self.request_scope["availabilityBasis"] != super::sources::binance::AVAILABILITY_BASIS {
+            return false;
+        }
+        let available = self.available_at.as_deref()
+            .and_then(|value| DateTime::parse_from_rfc3339(value).ok());
+        let retrieved = DateTime::parse_from_rfc3339(&self.retrieved_at).ok();
+        matches!((available, retrieved), (Some(a), Some(r)) if a == r)
+    }
+
     /// The reference needed to read the raw bytes back and prove they are
     /// the ones that were recorded.
     pub fn artifact_ref(&self) -> ArtifactRef {

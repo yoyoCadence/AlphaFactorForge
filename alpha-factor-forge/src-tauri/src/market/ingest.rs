@@ -315,120 +315,88 @@ fn retrieve_archive_unit(
         };
     }
 
-    let mut last_rejection: Option<SourceError> = None;
-    // The bytes that failed are what gets kept, so the rejection can be
-    // replayed against the same input that produced it.
-    let mut last_bytes: Vec<u8> = Vec::new();
-    let mut retrieved: Option<(Vec<u8>, String)> = None;
-    for _ in 0..CHECKSUM_ATTEMPTS {
-        let digest_bytes = match fetcher.get(&binance::checksum_url(&url)) {
+    let checksum_url = binance::checksum_url(&url);
+    for attempt in 1..=CHECKSUM_ATTEMPTS {
+        let digest_bytes = match fetcher.get(&checksum_url) {
             Ok(bytes) => bytes,
             Err(FetchError::NotFound(_)) => return Ok((outcome(UnitStatus::NotPublished), None)),
             Err(error) => return Err(error.into()),
         };
-        let digest = match binance::parse_checksum(&digest_bytes, &file_name) {
+        // Observe each response after it arrives, including retries. Request
+        // start time cannot prove that either response was available yet.
+        let checksum_time = Utc::now().to_rfc3339();
+        let parsed = binance::parse_checksum(&digest_bytes, &file_name);
+        let checksum_scope = json!({
+            "unit": unit.label(),
+            "url": checksum_url,
+            "fileName": format!("{file_name}.CHECKSUM"),
+            "vouchesFor": file_name,
+            "interval": request.interval,
+            "kind": "checksum",
+            "availabilityBasis": binance::AVAILABILITY_BASIS,
+            "periodEndsAt": unit_period_end(unit),
+        });
+        // Preserve the publisher's original response, not just its parsed
+        // digest. Every ZIP attempt below links to this exact observation.
+        let checksum_id = record_observation(
+            conn, store, request, binance::SOURCE_ARCHIVE, checksum_scope,
+            &checksum_time, Some(checksum_time.clone()),
+            parsed.as_ref().map(|_| ()), &digest_bytes, "text/plain",
+        )?;
+        let digest = match parsed {
             Ok(digest) => digest,
-            Err(error) => {
-                last_rejection = Some(error);
-                last_bytes = digest_bytes;
-                break;
-            }
+            Err(error) => return Ok((
+                outcome(UnitStatus::Rejected {
+                    code: error.code.to_string(), detail: error.detail,
+                    provenance_id: Some(checksum_id),
+                }),
+                None,
+            )),
         };
         let bytes = match fetcher.get(&url) {
             Ok(bytes) => bytes,
             Err(FetchError::NotFound(_)) => return Ok((outcome(UnitStatus::NotPublished), None)),
             Err(error) => return Err(error.into()),
         };
-        match binance::verify_checksum(&bytes, &digest) {
-            Ok(()) => {
-                retrieved = Some((bytes, digest));
-                break;
-            }
-            Err(error) => {
-                last_rejection = Some(error);
-                last_bytes = bytes;
-            }
-        }
-    }
-
-    let now = Utc::now().to_rfc3339();
-    let Some((bytes, digest)) = retrieved else {
-        let error = last_rejection.expect("a failed retrieval has a reason");
-        // The bytes that failed are kept: a rejection that cannot be
-        // replayed cannot be argued with.
-        let provenance_id = record_observation(
-            conn,
-            store,
-            request,
-            binance::SOURCE_ARCHIVE,
-            scope.clone(),
-            &now,
-            Some(unit_available_at(unit)),
-            Err(&error),
-            &last_bytes,
-            "application/zip",
-        )?;
-        return Ok((
-            outcome(UnitStatus::Rejected {
-                code: error.code.to_string(),
-                detail: error.detail,
-                provenance_id: Some(provenance_id),
-            }),
-            None,
-        ));
-    };
-
-    match parse_archive_bytes(&bytes) {
-        Ok(parsed) => {
-            let mut scope = scope;
-            scope["publishedSha256"] = json!(digest);
+        let archive_time = Utc::now().to_rfc3339();
+        let mut scope = scope.clone();
+        scope["availabilityBasis"] = json!(binance::AVAILABILITY_BASIS);
+        scope["periodEndsAt"] = json!(unit_period_end(unit));
+        scope["checksumProvenanceId"] = json!(checksum_id);
+        scope["publishedSha256"] = json!(digest);
+        let parsed = binance::verify_checksum(&bytes, &digest)
+            .and_then(|()| parse_archive_bytes(&bytes));
+        if let Ok(parsed) = &parsed {
             scope["sourceTimeUnit"] = json!(parsed.unit.as_str());
             scope["convertedToMilliseconds"] = json!(parsed.converted);
-            let provenance_id = record_observation(
-                conn,
-                store,
-                request,
-                binance::SOURCE_ARCHIVE,
-                scope,
-                &now,
-                Some(unit_available_at(unit)),
-                Ok(()),
-                &bytes,
-                "application/zip",
-            )?;
-            Ok((
+        }
+        // Store failures before retrying: a successful second attempt must
+        // not erase the first response or the checksum it was tested against.
+        let provenance_id = record_observation(
+            conn, store, request, binance::SOURCE_ARCHIVE, scope,
+            &archive_time, Some(archive_time.clone()),
+            parsed.as_ref().map(|_| ()), &bytes, "application/zip",
+        )?;
+        match parsed {
+            Ok(parsed) => return Ok((
                 outcome(UnitStatus::Fetched {
-                    bars: parsed.rows.len(),
-                    provenance_id,
+                    bars: parsed.rows.len(), provenance_id,
                     source_time_unit: parsed.unit.as_str().to_string(),
                     converted_to_milliseconds: parsed.converted,
                 }),
                 Some(Accepted { provenance_id, rows: parsed.rows }),
-            ))
-        }
-        Err(error) => {
-            let provenance_id = record_observation(
-                conn,
-                store,
-                request,
-                binance::SOURCE_ARCHIVE,
-                scope,
-                &now,
-                Some(unit_available_at(unit)),
-                Err(&error),
-                &bytes,
-                "application/zip",
-            )?;
-            Ok((
+            )),
+            Err(error) if error.code == "checksum_mismatch" && attempt < CHECKSUM_ATTEMPTS => continue,
+            Err(error) => return Ok((
                 outcome(UnitStatus::Rejected {
-                    code: error.code.to_string(),
-                    detail: error.detail,
+                    code: error.code.to_string(), detail: error.detail,
                     provenance_id: Some(provenance_id),
                 }),
                 None,
-            ))
+            )),
         }
     }
+    unreachable!("at least one checksum attempt is configured")
 }
 
 struct ParsedUnit {
@@ -447,11 +415,10 @@ fn parse_archive_bytes(bytes: &[u8]) -> Result<ParsedUnit, SourceError> {
     })
 }
 
-/// When an archive unit could first have been observed: not before the last
-/// bar it contains has closed. The publisher's own release time is later
-/// still, so this is the earliest defensible instant, and it is what keeps
-/// a re-downloaded month from being passed off as point-in-time evidence.
-fn unit_available_at(unit: &Unit) -> String {
+/// End of the archive period, retained as descriptive metadata only.
+/// Publication/observation may be later, and a historical re-download may
+/// include subsequent revisions. This is never an availability claim.
+fn unit_period_end(unit: &Unit) -> String {
     let end = match unit {
         Unit::Monthly { year, month } => {
             let (next_year, next_month_number) = next_month(*year, *month);
@@ -563,10 +530,6 @@ fn record_observation(
     bytes: &[u8],
     media_type: &str,
 ) -> AppResult<i64> {
-    // Availability can never be later than the retrieval that produced it
-    // (`market-provenance-v1`): a unit whose own window ends in the future
-    // is recorded as observed when it was actually fetched.
-    let available_at = available_at.filter(|instant| instant.as_str() <= retrieved_at);
     let observation = RawObservation {
         instrument_id: request.instrument_id.clone(),
         interval: request.interval.clone(),
@@ -592,20 +555,56 @@ fn cached_bytes(
     url: &str,
 ) -> AppResult<Option<(ProvenanceRow, Vec<u8>)>> {
     let rows = provenance::list_provenance(conn, instrument_id, interval)?;
-    // The newest accepted retrieval of that URL wins; a revision of it is a
-    // later row by construction.
-    let Some(row) = rows
-        .into_iter()
-        .rfind(|row| row.accepted && row.request_scope["url"] == url)
-    else {
+    // Do not fall back to an older record when the newest evidence is
+    // incomplete or superseded. Legacy records remain immutable history;
+    // a fresh retrieval supplies evidence the old adapter never retained.
+    let Some(row) = rows.into_iter().rfind(|row| {
+        row.accepted && row.source == binance::SOURCE_ARCHIVE && row.request_scope["url"] == url
+    }) else {
         return Ok(None);
     };
-    match provenance::read_raw(store, &row) {
-        Ok(bytes) => Ok(Some((row, bytes))),
-        // The row is evidence that it was retrieved; if the bytes are gone
-        // or altered, fetch again rather than trust the row alone.
-        Err(_) => Ok(None),
+    if row.raw_media_type != "application/zip"
+        || !row.has_observed_archive_availability()
+        || provenance::revised_by(conn, row.id)?.is_some()
+    {
+        return Ok(None);
     }
+    let Some(checksum_id) = row.request_scope["checksumProvenanceId"].as_i64() else {
+        return Ok(None);
+    };
+    let Some(checksum) = provenance::get_provenance(conn, checksum_id)? else {
+        return Ok(None);
+    };
+    let Some(file_name) = row.request_scope["fileName"].as_str() else {
+        return Ok(None);
+    };
+    if !checksum.accepted
+        || checksum.source != row.source
+        || checksum.instrument_id != row.instrument_id
+        || checksum.interval != row.interval
+        || checksum.raw_media_type != "text/plain"
+        || checksum.request_scope["kind"] != "checksum"
+        || checksum.request_scope["url"] != binance::checksum_url(url)
+        || checksum.request_scope["vouchesFor"] != file_name
+        || !checksum.has_observed_archive_availability()
+        || provenance::revised_by(conn, checksum.id)?.is_some()
+    {
+        return Ok(None);
+    }
+    let (Ok(bytes), Ok(digest_bytes)) = (
+        provenance::read_raw(store, &row), provenance::read_raw(store, &checksum),
+    ) else {
+        return Ok(None);
+    };
+    let Ok(digest) = binance::parse_checksum(&digest_bytes, file_name) else {
+        return Ok(None);
+    };
+    if row.request_scope["publishedSha256"] != digest
+        || binance::verify_checksum(&bytes, &digest).is_err()
+    {
+        return Ok(None);
+    }
+    Ok(Some((row, bytes)))
 }
 
 // -------------------------------------------------------------- assembly
@@ -1108,6 +1107,307 @@ mod tests {
         assert_eq!(stored.len(), 24);
         assert_eq!(stored[0].timestamp, MICRO_DAY, "in milliseconds, on the hourly grid");
         assert_eq!(stored[23].timestamp, MICRO_DAY + 23 * HOUR);
+    }
+
+    /// The P07 acceptance review's first finding. An archive file downloaded
+    /// today says nothing about when it first became obtainable, so it must
+    /// never support a snapshot that claims to be point-in-time evidence
+    /// from back then — which is what recording the archive PERIOD's end as
+    /// the availability used to allow.
+    #[test]
+    fn a_history_download_can_never_become_forward_observed_evidence_for_its_own_period() {
+        let mut conn = workspace();
+        let (store, _guard) = fresh_store();
+        let fetcher = fixture_day_fetcher();
+        let report = ingest(&mut conn, &store, &fetcher, &request(FIXTURE_DAY, FIXTURE_DAY + DAY, FIXTURE_DAY + DAY))
+            .unwrap();
+        let UnitStatus::Fetched { provenance_id, .. } = report.units[1].status else {
+            panic!("the day must be fetched: {:?}", report.units[1])
+        };
+
+        // Availability is the observation we really made — now — and the
+        // period's end is recorded beside it as information, not as a claim.
+        let row = provenance::get_provenance(&conn, provenance_id).unwrap().unwrap();
+        assert_eq!(row.available_at.as_deref(), Some(row.retrieved_at.as_str()));
+        assert_eq!(row.request_scope["availabilityBasis"], json!("observed-at-retrieval"));
+        let period_end = chrono::DateTime::parse_from_rfc3339(
+            row.request_scope["periodEndsAt"].as_str().expect("the period end is recorded"),
+        )
+        .unwrap()
+        .timestamp_millis();
+        let available = chrono::DateTime::parse_from_rfc3339(row.available_at.as_deref().unwrap())
+            .unwrap()
+            .timestamp_millis();
+        assert_eq!(period_end, FIXTURE_DAY + DAY, "the day's last bar closed then");
+        assert!(available > period_end, "but that is not when we could observe it");
+
+        // The repro: ask for a forward-observed snapshot as of the end of
+        // the period the file covers. It must be refused.
+        let forward = snapshot::build_snapshot(
+            &mut conn,
+            &SnapshotRequest {
+                instrument_id: "crypto:binance:BTCUSDT".into(),
+                interval: "1h".into(),
+                dataset_id: report.dataset_id.unwrap(),
+                price_basis: PriceBasis::Raw,
+                corporate_action_version: None,
+                cost_profile_version: Some("cost-profile-v1".into()),
+                kind: SnapshotKind::ForwardObserved,
+                provenance_ids: vec![provenance_id],
+                as_of_ms: FIXTURE_DAY + DAY,
+            },
+        )
+        .unwrap();
+        let SnapshotOutcome::Blocked { events } = forward else {
+            panic!("a history download must not be forward-observed evidence: {forward:?}")
+        };
+        assert_eq!(
+            events.iter().map(|row| row.event.code.as_str()).collect::<Vec<_>>(),
+            vec!["availability_after_cut"]
+        );
+        assert_eq!(events[0].event.action, "record_availability");
+
+        // Actual observation can support a later cut. The safety rule must
+        // not disable forward evidence once the response has arrived.
+        let admitted = snapshot::build_snapshot(&mut conn, &SnapshotRequest {
+            instrument_id: "crypto:binance:BTCUSDT".into(), interval: "1h".into(),
+            dataset_id: report.dataset_id.unwrap(), price_basis: PriceBasis::Raw,
+            corporate_action_version: None, cost_profile_version: Some("cost-profile-v1".into()),
+            kind: SnapshotKind::ForwardObserved, provenance_ids: vec![provenance_id],
+            as_of_ms: available + 1,
+        }).unwrap();
+        let SnapshotOutcome::Created(snapshot) = admitted else { panic!("observed response must be admitted") };
+        assert!(snapshot::get_snapshot(&conn, snapshot.id).unwrap().unwrap().qualification_eligible());
+    }
+
+    /// The review's second finding: keeping only the digest we parsed leaves
+    /// "the checksum named this file, in this format" unreplayable.
+    #[test]
+    fn the_checksum_file_is_kept_as_its_own_retrieval_so_the_verification_can_be_replayed() {
+        let mut conn = workspace();
+        let (store, _guard) = fresh_store();
+        let fetcher = fixture_day_fetcher();
+        let report = ingest(&mut conn, &store, &fetcher, &request(FIXTURE_DAY, FIXTURE_DAY + DAY, FIXTURE_DAY + DAY))
+            .unwrap();
+        let UnitStatus::Fetched { provenance_id, .. } = report.units[1].status else {
+            panic!("the day must be fetched: {:?}", report.units[1])
+        };
+
+        let archive = provenance::get_provenance(&conn, provenance_id).unwrap().unwrap();
+        let checksum_id = archive.request_scope["checksumProvenanceId"].as_i64().expect("the checksum row");
+        let checksum = provenance::get_provenance(&conn, checksum_id).unwrap().unwrap();
+        assert_eq!(checksum.raw_media_type, "text/plain", "a checksum file is not a zip");
+        assert_eq!(checksum.request_scope["kind"], json!("checksum"));
+        assert_eq!(checksum.request_scope["vouchesFor"], json!("BTCUSDT-1h-2024-07-15.zip"));
+        assert!(checksum.accepted);
+
+        // Replay the whole verification from what was stored, with nothing
+        // taken on trust: the checksum file's own bytes, then the archive's.
+        let stored_checksum = provenance::read_raw(&store, &checksum).unwrap();
+        assert_eq!(stored_checksum, BTC_MS_CHECKSUM);
+        let digest = binance::parse_checksum(&stored_checksum, "BTCUSDT-1h-2024-07-15.zip").unwrap();
+        assert_eq!(digest, archive.request_scope["publishedSha256"].as_str().unwrap());
+        let stored_archive = provenance::read_raw(&store, &archive).unwrap();
+        assert!(binance::verify_checksum(&stored_archive, &digest).is_ok());
+        // And the stored checksum still refuses to vouch for another file.
+        assert_eq!(
+            binance::parse_checksum(&stored_checksum, "BTCUSDT-1h-2024-07-16.zip").unwrap_err().code,
+            "checksum_file_name_mismatch"
+        );
+    }
+
+    #[test]
+    fn a_malformed_checksum_file_is_the_rejection_record_and_is_not_filed_as_an_archive() {
+        let mut conn = workspace();
+        let (store, _guard) = fresh_store();
+        let url = daily("2024-07-15");
+        let fetcher = FakeFetcher::new()
+            .with(&url, BTC_MS_ZIP)
+            .with(&format!("{url}.CHECKSUM"), b"this is not a checksum line");
+        let report = ingest(&mut conn, &store, &fetcher, &request(FIXTURE_DAY, FIXTURE_DAY + DAY, FIXTURE_DAY + DAY))
+            .unwrap();
+
+        let UnitStatus::Rejected { ref code, provenance_id, .. } = report.units[1].status else {
+            panic!("a malformed checksum must be refused: {:?}", report.units[1])
+        };
+        assert_eq!(code, "checksum_malformed");
+        let row = provenance::get_provenance(&conn, provenance_id.unwrap()).unwrap().unwrap();
+        assert!(!row.accepted);
+        assert_eq!(row.raw_media_type, "text/plain");
+        assert_eq!(provenance::read_raw(&store, &row).unwrap(), b"this is not a checksum line");
+        // Exactly one record: the checksum file's. The archive was never
+        // asked for, so there is nothing else to file.
+        assert_eq!(provenance::list_provenance(&conn, "crypto:binance:BTCUSDT", "1h").unwrap().len(), 1);
+        assert!(!fetcher.requested().contains(&url), "{:?}", fetcher.requested());
+        assert_eq!(report.bars, 0);
+    }
+
+    #[test]
+    fn legacy_archive_evidence_is_refetched_and_old_forward_snapshots_are_quarantined() {
+        let mut conn = workspace();
+        let (store, _guard) = fresh_store();
+        let req = request(FIXTURE_DAY, FIXTURE_DAY + DAY, FIXTURE_DAY + DAY);
+        let old = RawObservation {
+            instrument_id: req.instrument_id.clone(), interval: req.interval.clone(),
+            source: binance::SOURCE_ARCHIVE.into(), role: SeriesRole::Primary,
+            request_scope: json!({
+                "url": daily("2024-07-15"), "unit": "daily:2024-07-15",
+                "fileName": "BTCUSDT-1h-2024-07-15.zip", "interval": "1h",
+                "publishedSha256": super::super::sha256_hex(BTC_MS_ZIP),
+            }),
+            retrieved_at: Utc::now().to_rfc3339(),
+            available_at: Some("2024-07-16T00:00:00Z".into()),
+            accepted: true, rejection_reason: None, revision_of: None,
+            media_type: "application/zip".into(),
+        };
+        let old_id = provenance::record_raw(&conn, &store, &old, BTC_MS_ZIP).unwrap().0;
+        let before = provenance::get_provenance(&conn, old_id).unwrap().unwrap();
+        let fetcher = fixture_day_fetcher();
+        let report = ingest(&mut conn, &store, &fetcher, &req).unwrap();
+        assert!(matches!(report.units[1].status, UnitStatus::Fetched { .. }), "old cache must not be reused");
+        assert!(fetcher.requested().contains(&daily("2024-07-15")));
+        assert_eq!(provenance::get_provenance(&conn, old_id).unwrap().unwrap(), before);
+
+        let candidate = SnapshotRequest {
+            instrument_id: req.instrument_id.clone(), interval: req.interval.clone(),
+            dataset_id: report.dataset_id.unwrap(), price_basis: PriceBasis::Raw,
+            corporate_action_version: None, cost_profile_version: req.cost_profile_version,
+            kind: SnapshotKind::Historical, provenance_ids: vec![old_id], as_of_ms: req.as_of_ms,
+        };
+        // Old historical evidence stays readable for audit, without being
+        // upgraded into known availability or silently rewriting its rows.
+        let SnapshotOutcome::Created(historical) = snapshot::build_snapshot(&mut conn, &candidate).unwrap() else {
+            panic!("historical evidence remains valid");
+        };
+        let forward = SnapshotRequest { kind: SnapshotKind::ForwardObserved, ..candidate };
+        let SnapshotOutcome::Blocked { events } = snapshot::build_snapshot(&mut conn, &forward).unwrap() else {
+            panic!("legacy availability must be quarantined");
+        };
+        assert_eq!(events[0].event.code, "availability_unknown");
+
+        // Simulate the immutable forward row the unfixed build could mint.
+        conn.execute(
+            "INSERT INTO market_snapshots
+             (snapshot_id, version, instrument_row_id, instrument_id, interval, dataset_id,
+              dataset_hash, price_basis, calendar_id, corporate_action_version, cost_profile_version,
+              kind, status, as_of, coverage_json, content_json)
+             SELECT 'legacy-forward-fixture', version, instrument_row_id, instrument_id, interval, dataset_id,
+                    dataset_hash, price_basis, calendar_id, corporate_action_version, cost_profile_version,
+                    'forward-observed', status, as_of, coverage_json, content_json
+             FROM market_snapshots WHERE id = ?1", [historical.id],
+        ).unwrap();
+        let stale_id = conn.last_insert_rowid();
+        conn.execute("INSERT INTO market_snapshot_sources (snapshot_row_id, provenance_id) VALUES (?1, ?2)",
+            rusqlite::params![stale_id, old_id]).unwrap();
+        assert!(snapshot::get_snapshot(&conn, stale_id).unwrap_err().to_string().contains("unverified forward-observed"));
+        assert!(snapshot::get_snapshot_by_id(&conn, "legacy-forward-fixture").is_err());
+        assert!(snapshot::list_snapshots(&conn, 100).is_err());
+        assert!(snapshot::dataset_market_status(&conn, forward.dataset_id).is_err());
+        // Admission still refuses instead of returning an Existing row.
+        assert!(matches!(snapshot::build_snapshot(&mut conn, &forward).unwrap(), SnapshotOutcome::Blocked { .. }));
+        assert!(snapshot::get_snapshot(&conn, historical.id).unwrap().is_some());
+        assert_eq!(conn.query_row("SELECT status FROM market_snapshots WHERE id=?1", [stale_id],
+            |row| row.get::<_, String>(0)).unwrap(), "ok", "audit row was not rewritten");
+    }
+
+    #[test]
+    fn retry_keeps_each_failed_zip_and_records_observation_after_the_response() {
+        use std::sync::{Mutex, atomic::AtomicUsize};
+        struct RetryFetcher {
+            zip_requests: AtomicUsize,
+            completed: Mutex<Option<chrono::DateTime<Utc>>>,
+            bad: Vec<u8>,
+        }
+        impl HttpFetcher for RetryFetcher {
+            fn get(&self, url: &str) -> Result<Vec<u8>, FetchError> {
+                let body = if url == daily("2024-07-15") {
+                    if self.zip_requests.fetch_add(1, Ordering::SeqCst) == 0 {
+                        self.bad.clone()
+                    } else { BTC_MS_ZIP.to_vec() }
+                } else if url == format!("{}.CHECKSUM", daily("2024-07-15")) {
+                    BTC_MS_CHECKSUM.to_vec()
+                } else { return Err(FetchError::NotFound(url.into())); };
+                *self.completed.lock().unwrap() = Some(Utc::now());
+                Ok(body)
+            }
+        }
+        let mut conn = workspace();
+        let (store, _guard) = fresh_store();
+        let mut bad = BTC_MS_ZIP.to_vec();
+        bad[600] ^= 1;
+        let fetcher = RetryFetcher { zip_requests: AtomicUsize::new(0), completed: Mutex::new(None), bad };
+        let report = ingest(&mut conn, &store, &fetcher,
+            &request(FIXTURE_DAY, FIXTURE_DAY + DAY, FIXTURE_DAY + DAY)).unwrap();
+        assert!(matches!(report.outcome, IngestOutcome::Snapshot(_)));
+        let rows = provenance::list_provenance(&conn, "crypto:binance:BTCUSDT", "1h").unwrap();
+        assert_eq!(rows.len(), 4, "each checksum and each ZIP response is retained");
+        let zips: Vec<_> = rows.iter().filter(|row| row.raw_media_type == "application/zip").collect();
+        assert!(!zips[0].accepted);
+        assert!(zips[0].rejection_reason.as_ref().unwrap().contains("checksum_mismatch"));
+        assert_eq!(provenance::read_raw(&store, zips[0]).unwrap(), fetcher.bad);
+        assert!(zips[1].accepted);
+        for zip in &zips {
+            let checksum_id = zip.request_scope["checksumProvenanceId"].as_i64().unwrap();
+            let checksum = provenance::get_provenance(&conn, checksum_id).unwrap().unwrap();
+            let digest = binance::parse_checksum(&provenance::read_raw(&store, &checksum).unwrap(),
+                "BTCUSDT-1h-2024-07-15.zip").unwrap();
+            assert_eq!(binance::verify_checksum(&provenance::read_raw(&store, zip).unwrap(), &digest).is_ok(), zip.accepted);
+        }
+        let completed = fetcher.completed.lock().unwrap().unwrap();
+        let observed = chrono::DateTime::parse_from_rfc3339(&zips[1].retrieved_at).unwrap();
+        assert!(observed >= completed, "request start is not an observation of the response");
+        assert_eq!(zips[1].available_at.as_deref(), Some(zips[1].retrieved_at.as_str()));
+    }
+
+    #[test]
+    fn a_zip_parse_rejection_retains_its_published_checksum_for_offline_replay() {
+        let mut conn = workspace();
+        let (store, _guard) = fresh_store();
+        let body = b"not a ZIP";
+        let checksum_bytes = format!("{}  BTCUSDT-1h-2024-07-15.zip\n", super::super::sha256_hex(body));
+        let url = daily("2024-07-15");
+        let fetcher = FakeFetcher::new().with(&url, body)
+            .with(&binance::checksum_url(&url), checksum_bytes.as_bytes());
+        let report = ingest(&mut conn, &store, &fetcher,
+            &request(FIXTURE_DAY, FIXTURE_DAY + DAY, FIXTURE_DAY + DAY)).unwrap();
+        let UnitStatus::Rejected { code, provenance_id, .. } = &report.units[1].status else {
+            panic!("bad ZIP must be rejected");
+        };
+        assert_eq!(code, "zip_not_an_archive");
+        let zip = provenance::get_provenance(&conn, provenance_id.unwrap()).unwrap().unwrap();
+        let checksum = provenance::get_provenance(&conn, zip.request_scope["checksumProvenanceId"].as_i64().unwrap())
+            .unwrap().unwrap();
+        assert_eq!(provenance::read_raw(&store, &checksum).unwrap(), checksum_bytes.as_bytes());
+        let digest = binance::parse_checksum(&provenance::read_raw(&store, &checksum).unwrap(),
+            "BTCUSDT-1h-2024-07-15.zip").unwrap();
+        assert_eq!(zip.request_scope["publishedSha256"], digest);
+        let original = provenance::read_raw(&store, &zip).unwrap();
+        binance::verify_checksum(&original, &digest).unwrap();
+        assert_eq!(parse_archive_bytes(&original).err().unwrap().code, code);
+        assert_eq!(report.dataset_id, None);
+    }
+
+    #[test]
+    fn cached_zip_requires_the_checksum_original_and_refetches_missing_evidence() {
+        let mut conn = workspace();
+        let (store, _guard) = fresh_store();
+        let fetcher = fixture_day_fetcher();
+        let req = request(FIXTURE_DAY, FIXTURE_DAY + DAY, FIXTURE_DAY + DAY);
+        let first = ingest(&mut conn, &store, &fetcher, &req).unwrap();
+        let UnitStatus::Fetched { provenance_id: first_id, .. } = first.units[1].status else { panic!("fetched") };
+        let zip = provenance::get_provenance(&conn, first_id).unwrap().unwrap();
+        let checksum = provenance::get_provenance(&conn, zip.request_scope["checksumProvenanceId"].as_i64().unwrap())
+            .unwrap().unwrap();
+        std::fs::remove_file(store.path_of(&checksum.raw_artifact_path).unwrap()).unwrap();
+        let again = ingest(&mut conn, &store, &fetcher, &req).unwrap();
+        let UnitStatus::Fetched { provenance_id: next_id, .. } = again.units[1].status else {
+            panic!("ZIP alone is insufficient for a cache hit");
+        };
+        assert_ne!(first_id, next_id);
+        assert_eq!(again.dataset_id, first.dataset_id);
+        assert_eq!(provenance::read_raw(&store, &checksum).unwrap(), BTC_MS_CHECKSUM);
+        let cached = ingest(&mut conn, &store, &fetcher, &req).unwrap();
+        assert!(matches!(cached.units[1].status, UnitStatus::Cached { provenance_id, .. } if provenance_id == next_id));
     }
 
     #[test]

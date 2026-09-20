@@ -217,6 +217,12 @@ canonical JSON 與 sha256 直接沿用 `research::canonical_json`／`sha256_hex`
 毫秒區間以外的值。它保留為縱深防禦（成本是一趟掃描，擋下的是一條無聲錯誤的序列），與該契約 §5 對
 不可達規則的處理方式一致。同理，`out_of_order` 對 DB 讀出的 candles 不可達（`ORDER BY timestamp`）。
 
+P07 驗收修正：Binance 封存的期間終點不代表發布證據。`binance-archive` 只有帶有
+`availabilityBasis: observed-at-retrieval` 且 `availableAt` 與 `retrievedAt` 為同一實際時間的紀錄，
+才具有已知 availability；舊版本的期間推測值視為 `availability_unknown`。此規則也在既有
+forward-observed 快照的 get／list／dataset-status 讀取套用，拒絕回傳未經證明的舊資格。
+原件與快照列維持不可變，historical 不受此隔離限制；重新取證方式見 `market-source-binance-v1.md` §2.1。
+
 ---
 
 ## 5. Snapshot 生成與 legacy

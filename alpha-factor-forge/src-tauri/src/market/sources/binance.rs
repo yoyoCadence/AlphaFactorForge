@@ -34,6 +34,9 @@ use std::io::Read;
 /// The two source ids this adapter records in provenance.
 pub const SOURCE_ARCHIVE: &str = "binance-archive";
 pub const SOURCE_REST: &str = "binance-rest";
+/// Availability is the instant the response finished arriving, never the
+/// archive period's end or an inferred publication date.
+pub const AVAILABILITY_BASIS: &str = "observed-at-retrieval";
 /// The venue half of every instrument id this adapter serves.
 pub const VENUE: &str = "binance";
 

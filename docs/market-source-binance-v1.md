@@ -49,15 +49,33 @@ trait，所以 ingest 全程可離線測試，只有傳輸層需要真實網路�
 每個封存 unit 的處理：
 
 ```
-取 .CHECKSUM → 解析（必須指名同一個檔名）→ 取 .zip → 比對 SHA-256
-  → 不符：重取一次（上限 2 次）→ 仍不符：以 accepted=false 記錄 provenance，**保留失敗的 bytes**
+取 .CHECKSUM → 保存原文與解析結果（必須指名同一個檔名）→ 取 .zip → 比對 SHA-256
+  → 不符：先以 accepted=false 保存本次 ZIP，再重取一次（上限 2 次）；成功重試也不刪掉前次失敗證據
   → 相符：讀取 ZIP 的單一 entry → 解析 CSV → 記錄 accepted provenance（含原件 bytes）
 ```
 
-**快取**：同一 URL 若已有 accepted 的 provenance 且其原件仍可校驗通過，就直接重用，不再向來源要。
-原件被改動或遺失時重新下載（列仍然是取得過的證據）。
+每份 CHECKSUM 回應各有 `text/plain` provenance，保留 URL、檔名、`kind: checksum` 與 `vouchesFor`。
+ZIP 的 `requestScope.checksumProvenanceId` 指向實際驗證它的那份回應，`publishedSha256` 保留解析結果；
+SHA-256 不符或 ZIP／CSV 解析失敗的原件也有同樣關聯。CHECKSUM 本身格式錯誤時只保存該份拒絕紀錄，
+不把文字存成 ZIP，也不再要求 ZIP。
 
-### 2.1 ZIP 讀取
+**快取**：同一 URL 最新 accepted 的 ZIP 須具有下述觀測證據、未被修訂，且所連結的 CHECKSUM
+與商品、週期、URL、檔名相符且未被修訂；重新讀取兩份原件並重播檔名與 SHA-256 校驗後才能重用。
+缺少 CHECKSUM 原件或僅有舊版本 metadata 時重新抓取，不沿用舊的 availability。遺失的原件可以補回；
+若既有內容定址檔案已損壞，artifact store 會明確拒絕覆寫，需保留損壞證據後另行處理。
+
+### 2.1 觀測時間與舊資料隔離
+
+CHECKSUM 與 ZIP 分別在各自**回應完整收到後**記錄 `retrievedAt`，`availableAt` 使用同一實際觀測時間，
+並標記 `requestScope.availabilityBasis: observed-at-retrieval`。`periodEndsAt` 僅描述封存期間終點，
+不能代表發布時間，也不能讓今天下載的歷史資料取得過去 cut 的 forward-observed 資格。
+
+修正前的不可變 provenance 不覆寫：缺少這個觀測標記或 `availableAt` 與 `retrievedAt` 不同的
+`binance-archive` 資料，在 forward-observed admission 視為 `availability_unknown`；historical 仍可讀。
+已由舊版建立的 forward-observed 快照也會在 get／list／dataset-status 讀取時重新檢查；若無法證明在
+其原始 cut 前取得，回傳明確錯誤，不繼續回傳合格狀態。舊列保留作稽核，新的取得與快照另行新增。
+
+### 2.2 ZIP 讀取
 
 Binance 封存是「一個 entry 的 ZIP」。本 adapter 自己讀 local file header（stored 或 deflate），並且：
 
