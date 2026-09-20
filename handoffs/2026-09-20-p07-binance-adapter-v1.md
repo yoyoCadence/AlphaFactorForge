@@ -3,7 +3,7 @@
 Date: 2026-09-20
 Repo: yoyoCadence/AlphaFactorForge
 Branch: `feat/p07-binance-adapter`（自 main `503fc99` ＝ PR #108 merge 之後建立）
-PR: 待建立
+PR: https://github.com/yoyoCadence/AlphaFactorForge/pull/109（draft，未 merge）
 Status: 實作與真實執行驗證完成；P08 另行授權
 
 ## Summary
