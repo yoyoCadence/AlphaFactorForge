@@ -105,6 +105,12 @@ P07（Crypto adapter）、P08（ETF 市場語意）、P09／P10（ETF adapters�
 
 上述可達性只是 HTTP 回應碼，**不代表已證明任何商品的長期資料完整性**。
 
+> **P07 實測（2026-09-20，Crypto 一列）**：封存的時間單位變更已由真實檔案確認——
+> `BTCUSDT-1h-2024-12` 為毫秒、`BTCUSDT-1h-2025-01` 為微秒，即**自 2025-01 起改用微秒**。
+> adapter 的處理（整檔判定、混用即拒、精確換算、單位寫入 provenance）、CHECKSUM 校驗、日封存與同交易所
+> REST 尾端、以及實際涵蓋率結果見 [`market-source-binance-v1.md`](market-source-binance-v1.md)。
+> Coinbase 的獨立比對來源仍未實作。US／TW ETF 兩列的狀態不變。
+
 ---
 
 ## 5. ETF 必要語意（P08 實作，TS／Rust parity）

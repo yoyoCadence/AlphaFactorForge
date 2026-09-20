@@ -22,7 +22,8 @@ use serde_json::{json, Value};
 
 use crate::db::repositories;
 use alpha_factor_forge::discovery_core::market_foundation::{
-    audit_coverage, detect_time_unit, expected_bar_starts, series_conflicts, CoverageRequest,
+    audit_coverage, detect_time_unit, expected_bar_starts, series_conflicts, sources_share_origin,
+    CoverageRequest,
     ExpectedRangeRequest, PriceBasis, SeriesIdentity, SeriesRole, Severity, TimeUnit, AssetType,
     MARKET_SNAPSHOT_VERSION,
 };
@@ -465,12 +466,23 @@ fn component_events(
     // Two components must be one series with each other, not just with the
     // request: that is what stops a Binance month and a Coinbase month from
     // being spliced together.
+    //
+    // Two ENDPOINTS of one publisher are not that: an archive file and the
+    // same exchange's REST answer for the bars it has not published yet are
+    // the same market from the same source, which is the gap-filling the
+    // contract asks for (`docs/market-contract.md` §4, plan §5 P07). So a
+    // `source_mismatch` between components that share an origin is dropped,
+    // and every other conflict — including a source mismatch ACROSS
+    // publishers — still blocks.
     for (index, left) in components.iter().enumerate() {
         for right in components.iter().skip(index + 1) {
-            let conflicts = series_conflicts(
+            let mut conflicts = series_conflicts(
                 &snapshot_identity(&left.source, left.role),
                 &snapshot_identity(&right.source, right.role),
             );
+            if sources_share_origin(&left.source, &right.source) {
+                conflicts.retain(|code| *code != "source_mismatch");
+            }
             if !conflicts.is_empty() {
                 events.push(event(
                     request,
@@ -1134,6 +1146,49 @@ mod tests {
         // Built from the revision, the same data is admissible.
         let outcome = build_snapshot(&mut conn, &request(dataset_id, vec![revised])).unwrap();
         assert!(matches!(outcome, SnapshotOutcome::Created(_)), "{outcome:?}");
+    }
+
+    /// P07 found this against the real archive: the same exchange publishes
+    /// closed months as files and the newest bars over REST, and a range
+    /// that needs both was refused as a source conflict. Two ENDPOINTS of
+    /// one publisher are one source; two publishers are not.
+    #[test]
+    fn two_endpoints_of_one_exchange_compose_but_two_exchanges_never_do() {
+        let mut conn = memory_db();
+        let (store, _guard) = fresh_store();
+        let archive = record(&conn, &store, &observation(), b"archive");
+        let rest = record(
+            &conn,
+            &store,
+            &RawObservation { source: "binance-rest".into(), ..observation() },
+            b"rest",
+        );
+        let outcome = build_snapshot(&mut conn, &request(1, vec![archive, rest])).unwrap();
+        let SnapshotOutcome::Created(snapshot) = outcome else {
+            panic!("one exchange's archive and REST are one series: {outcome:?}")
+        };
+        assert_eq!(snapshot_sources(&conn, snapshot.id).unwrap().len(), 2);
+
+        // Same instrument, same interval, another exchange's endpoint: the
+        // source axis alone still blocks.
+        let mut conn = memory_db();
+        let (store, _guard) = fresh_store();
+        let archive = record(&conn, &store, &observation(), b"archive");
+        let elsewhere = record(
+            &conn,
+            &store,
+            &RawObservation { source: "coinbase-rest".into(), ..observation() },
+            b"elsewhere",
+        );
+        let outcome = build_snapshot(&mut conn, &request(1, vec![archive, elsewhere])).unwrap();
+        let SnapshotOutcome::Blocked { events } = outcome else {
+            panic!("two exchanges must never be one series: {outcome:?}")
+        };
+        assert_eq!(codes(&events), vec!["source_conflict"]);
+        assert_eq!(
+            events[0].event.detail["conflicts"].as_array().unwrap(),
+            &vec![json!("source_mismatch")]
+        );
     }
 
     #[test]

@@ -10,6 +10,8 @@ import {
   isoWeekdayOfUtcMs,
   parseInstrumentId,
   seriesConflicts,
+  sourceOrigin,
+  sourcesShareOrigin,
   utcDateToMs,
   validateCalendar,
   type SeriesIdentity,
@@ -106,6 +108,19 @@ describe('series combination', () => {
     expect(seriesConflicts(binance, { ...binance, role: 'comparison' })).toEqual([
       'comparison_role_not_combinable',
     ]);
+  });
+
+  it('reports a source mismatch even between two endpoints of one publisher', () => {
+    // The fact is reported; whether it disqualifies a composition is the
+    // caller's decision, and `sourcesShareOrigin` is how it decides.
+    expect(seriesConflicts(binance, { ...binance, source: 'binance-rest' })).toEqual([
+      'source_mismatch',
+    ]);
+    expect(sourcesShareOrigin('binance-archive', 'binance-rest')).toBe(true);
+    expect(sourcesShareOrigin('binance-archive', 'coinbase-rest')).toBe(false);
+    expect(sourceOrigin('binance-archive')).toBe('binance');
+    expect(sourceOrigin('tiingo')).toBe('tiingo');
+    expect(sourcesShareOrigin('', '')).toBe(false);
   });
 
   it('refuses an unparsable id without guessing what was meant', () => {

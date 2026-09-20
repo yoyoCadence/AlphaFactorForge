@@ -60,12 +60,12 @@
 | --- | --- | --- | --- |
 | candles plausibility gate | 可用 | `market-data-quality-v1` | — |
 | instrument／venue／calendar／provenance／snapshot 語意 | 可用 | P06（2026-09-20）：migration 0008＋`src-tauri/src/market/`＋雙語純契約 `market-foundation-v1`（`fixtures/rs-core/market-foundation-v1.json`）。instrument 修訂鏈、calendar 版本不可編輯、原件（含被拒絕者）與修訂鏈、coverage 稽核與 snapshot 生成皆有測試；0001 `datasets` 未改，沒有 snapshot 的 dataset 為 `legacy` 且不能自動取得資格。形狀與不變量：[`market-foundation-v1.md`](market-foundation-v1.md)。**未連網、未匯入任何正式資料** | — |
-| Binance 封存與 REST | 可規劃 | `data.binance.vision` 封存索引 200、`api/v3/ping` 200（只探查，未下載） | P07 |
+| Binance 封存與 REST | 可用 | P07（2026-09-20）：`market/sources/binance.rs`（CHECKSUM、單一 entry ZIP、kline CSV／REST JSON、整檔時間單位判定與精確換算）、`market/http.rs`（HTTPS＋主機白名單＋拒 redirect＋大小上限＋有界重試）、`market/ingest.rs`（月→日→REST 單位計畫、快取、拒絕留證、合併衝突即拒、匯入、snapshot、區間涵蓋率）、`service fetch` 指令。**真實執行**：BTC／ETH 2025 全年各 8760／8760 根、當月日封存＋REST 尾端 462／463、2017 上市前缺口 1132 根被拒（exit 5）。詳見 [`market-source-binance-v1.md`](market-source-binance-v1.md) | — |
 | Tiingo US ETF | **阻擋（無帳戶）** | host 可達（301）；無 token，免費權限、dividend／split 欄位未驗證 | P09（使用者先開通） |
 | FinMind TW ETF | 未驗證權限 | API host 可達（422 空查詢）；配息／分割事件涵蓋未驗證 | P10 |
 | 版本化 calendar（NYSE／TWSE） | 阻擋（資料缺失） | P06 已建立 calendar 註冊、版本不可編輯與「未註冊 calendar 即不得註冊該 instrument」的阻擋；`crypto-24x7-v1` 為唯一可由契約本身定義而內建者。`nyse-v1`／`twse-v1` 需要真實休市資料，**未取得、未捏造** | P09／P10 提供資料，P08 定義盤中 session |
 | ETF 交易日年化／配息／分割語意 | 阻擋（語意缺失） | `barsPerYear('1d') = 365`（`backtestRunner.ts`）；metrics 無 dividend／split 概念 | P08（新版本 metrics 契約） |
-| 多年 BTC／ETH 完整性 | 未驗證 | 只探查端點；AlphaBTC 歷史限制（缺 13 根、45 天）必須成為回歸案例 | P07 |
+| 多年 BTC／ETH 完整性 | **部分已驗證（僅實測區間）** | P07 實測：BTC／ETH 1h **2025 全年各 8760／8760 根**、BTC 2026-09-01→21 **462／463**（1 根未到期）。**未宣稱多年完整**：2017-07→09 的實測顯示上市前 1132 根被如實報為缺漏並拒絕區間。AlphaBTC 的精度反例仍待 P12 | 更長區間：逐次執行並看 `rangeCoverage` |
 
 ## 4. 研究紀律、DSL 與驗證
 
@@ -98,6 +98,7 @@
 | Tauri CLI | 2.11.3 |
 | crates.io | 可達（`cargo search`）；候選：`fs4 1.1.0`（OS 檔案鎖）、`keyring 4.2.0`（保留） |
 | 已在 `Cargo.lock`（間接） | `tokio 1.52.3`、`reqwest 0.13.4`、`hyper 1.10.1`、`uuid 1.23.4`、`windows-sys 0.45.0` |
+| 已加入（P07） | `ureq 3.4.2`（rustls＋ring＋webpki-roots，無系統 TLS 相依）、`flate2 1.1`（鎖檔既有，僅用於封存的 deflate）。鎖檔新增 13 個 crate |
 | 尚未加入 | `fs4`／`fd-lock`、`keyring`、`chrono-tz`、`axum`／`tiny_http` — 於所屬 phase 集中加入並鎖版。P06 未加入任何套件：日線以「交易日的 UTC 午夜」定義、交易日由版本化 calendar 資料列舉，因此不需要 `chrono-tz`（盤中 session 屬 P08，屆時再評估） |
 | GitHub | `git fetch` 與 `gh` 皆 401（`GITHUB_TOKEN` 失效）；本機分析不受影響，push／PR 待恢復 |
 
@@ -110,7 +111,7 @@
 
 ## 8. P00 結論
 
-- 不依賴 AI 的 phase（P04–P14、P18–P19）依賴皆已到位，可依序規劃；P01、P02、P03a、P03b、P04a、P04b、P05、P06 已完成。
+- 不依賴 AI 的 phase（P04–P14、P18–P19）依賴皆已到位，可依序規劃；P01、P02、P03a、P03b、P04a、P04b、P05、P06、P07 已完成。
 - **AI unattended 功能標為阻擋**，原因：生成環境隔離尚未驗證、模型清單與設定不一致、
   Codex 子命令為 experimental。P15 以一次有界真實生成解除或維持阻擋；不得改為付費
   API 或 GUI 點擊自動化。
