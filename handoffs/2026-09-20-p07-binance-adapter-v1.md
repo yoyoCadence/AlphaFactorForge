@@ -127,3 +127,16 @@ bar），逐檔以**官方公布的 SHA-256** 校驗、讀取封存內唯一 ent
 ## Resolution (added when acted on)
 
 （待 review／merge 後補）
+
+## CI 首次失敗與修正（2026-09-20）
+
+PR #109 第一次 CI：`typecheck` / `test` / `build` / `e2e` / `native-smoke` 全過，**`cargo-check` 失敗**
+——`include_bytes!` 找不到 `fixtures/binance/*.zip`。
+
+原因：根目錄 `.gitignore` 有 `*.zip`（給設計稿用的），所以四個 fixture 封存**從未被提交**；
+本機因為檔案在磁碟上，測試一路綠燈，看不出來。這是「本機通過 ≠ 已提交」的典型失誤。
+
+修正：`.gitignore` 加上 `!alpha-factor-forge/fixtures/binance/*.zip` 例外並提交四個檔案（共約 6 KB）。
+提交後**機械驗證**：以 `git cat-file -p :<path>` 取出 staged blob 計算 SHA-256，四個皆與 Binance 公布的
+`.CHECKSUM` 完全相符（`e6fbeb74…`、`070dd77b…`、`94a8a961…`、`f796443a…`），且 git 以 `Bin` 處理、
+未做任何換行轉換。

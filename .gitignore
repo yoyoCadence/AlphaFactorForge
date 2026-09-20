@@ -11,6 +11,10 @@ Thumbs.db
 *.log
 *.cache
 *.zip
+# …except the market source fixtures: P07's tests read the archive files
+# Binance actually publishes, byte for byte, with their published CHECKSUMs
+# beside them. Four days of hourly bars, ~6 KB in total.
+!alpha-factor-forge/fixtures/binance/*.zip
 
 # ── 環境變數 / 金鑰（絕對不能上傳）──────
 .env
