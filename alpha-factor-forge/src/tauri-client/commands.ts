@@ -221,6 +221,89 @@ export const discovery = {
     invoke<DiscoveryProgressSnapshot | null>('get_active_discovery_run'),
 };
 
+// ---- Research history (P05) ----
+
+/** `research_attempts.status` (Rust `AttemptStatus`). Forward-only; the three
+ *  terminal states never change again. */
+export type ResearchAttemptStatus = 'submitted' | 'running' | 'completed' | 'failed' | 'skipped';
+
+/** The immutable artifact behind a completed attempt (Rust `StoredArtifact`). */
+export interface ResearchArtifactRef {
+  id: number;
+  kind: string;
+  sha256: string;
+  byteLen: number;
+  relativePath: string;
+  createdAt: string;
+}
+
+/** One research attempt (Rust `AttemptRow`): what was submitted, against
+ *  what, on which engine, and what became of it. Frozen once terminal. */
+export interface ResearchAttempt {
+  id: number;
+  attemptKey: string;
+  hypothesisId: number;
+  strategyId: number;
+  datasetId: number;
+  discoveryRunId: number | null;
+  candidateIndex: number | null;
+  status: ResearchAttemptStatus;
+  inputFingerprint: Record<string, unknown>;
+  engineFingerprint: Record<string, unknown>;
+  /** `{recordId, gatePassed, score, ...}` when completed, `{error}` when
+   *  failed, `{reason}` when skipped, `null` while pending. */
+  outcome: Record<string, unknown> | null;
+  resultArtifact: ResearchArtifactRef | null;
+  epoch: number | null;
+  submittedAt: string;
+  finishedAt: string | null;
+}
+
+/** A hypothesis frozen before execution (Rust `HypothesisRow`). */
+export interface Hypothesis {
+  id: number;
+  hypothesisHash: string;
+  version: string;
+  source: 'manual' | 'discovery' | 'ai' | string;
+  mechanism: string;
+  applicability: Record<string, unknown>;
+  failureModes: string;
+  strategyHash: string;
+  strategyId: number | null;
+  parentStrategyId: number | null;
+  variationKind: string | null;
+  createdAt: string;
+}
+
+/** `get_research_attempt`: the attempt, its hypothesis, and — when it
+ *  completed with an artifact — the complete `candidate-result-v1` document,
+ *  checksum-verified on read. `resultError` is set instead of `result` when
+ *  the file is missing or altered: the row is the evidence, the file is not. */
+export interface ResearchAttemptDetail {
+  attempt: ResearchAttempt;
+  hypothesis: Hypothesis | null;
+  result: Record<string, unknown> | null;
+  resultError: string | null;
+}
+
+export interface ResearchAttemptFilter {
+  discoveryRunId?: number;
+  strategyId?: number;
+  datasetId?: number;
+  hypothesisId?: number;
+  limit?: number;
+}
+
+export const research = {
+  listAttempts: (filter?: ResearchAttemptFilter) =>
+    invoke<ResearchAttempt[]>('list_research_attempts', { filter: filter ?? null }),
+  getAttempt: (id: number) => invoke<ResearchAttemptDetail | null>('get_research_attempt', { id }),
+  listHypotheses: (limit?: number) => invoke<Hypothesis[]>('list_hypotheses', { limit: limit ?? null }),
+  /** Artifact files no row references (a crash between storing and
+   *  committing). Identification only; nothing deletes them. */
+  listUnreferencedArtifacts: () => invoke<string[]>('list_unreferenced_artifacts'),
+};
+
 // ---- Versioned command envelope (P03b, research-command-v1) ----
 
 /** `research-command-v1` (docs/research-runtime-contract.md §2). Built by

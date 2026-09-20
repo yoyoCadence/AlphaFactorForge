@@ -13,6 +13,7 @@ const TEST_TIMEOUT: Duration = Duration::from_secs(10);
 
 mod commands;
 mod control_api;
+mod history;
 mod host;
 mod ownership;
 

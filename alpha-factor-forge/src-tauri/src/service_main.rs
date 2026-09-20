@@ -17,6 +17,7 @@ mod db;
 mod discovery_runner;
 mod error;
 mod identity;
+mod research;
 mod runtime;
 
 fn main() {

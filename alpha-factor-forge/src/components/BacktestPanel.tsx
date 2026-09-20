@@ -30,6 +30,7 @@ import { tradesToRows } from '../services/tradesMapper';
 import { SweepSection } from './SweepSection';
 import { DiscoveryPanel } from './DiscoveryPanel';
 import { ResultsExplorer } from './ResultsExplorer';
+import { ResearchHistory } from './ResearchHistory';
 import { ChartSection } from './ChartSection';
 import { DatasetSection } from './DatasetSection';
 import { ResultsSection } from './ResultsSection';
@@ -517,6 +518,7 @@ export function BacktestPanel(): React.ReactElement {
           demand only, so a run finishing in the panel above never swaps out
           what the user is looking at here. */}
       <ResultsExplorer />
+      <ResearchHistory />
 
     </div>
   );

@@ -4,5 +4,6 @@ pub mod db_commands;
 pub mod discovery_commands;
 pub mod runtime_commands;
 pub mod file_commands;
+pub mod research_commands;
 pub mod secret_commands;
 pub mod window_commands;

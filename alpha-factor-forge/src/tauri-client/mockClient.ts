@@ -18,6 +18,10 @@ import type {
   DiscoveryProgressSnapshot,
   HostMode,
   HostStatus,
+  Hypothesis,
+  ResearchAttempt,
+  ResearchAttemptDetail,
+  ResearchAttemptFilter,
 } from './commands';
 import {
   DISCOVERY_EVENTS,
@@ -74,6 +78,9 @@ function mockSeedHistory(): boolean {
  * - `?mock=1&explorerRefreshDelay=<ms>` delays subsequent summary-list reads
  *   while leaving the initial read immediate, exposing detail actions on an
  *   old screen during refresh (R1, reverse request ordering).
+ * - `?mock=1&researchDetailDelayId=<id>&researchDetailDelay=<ms>` delays one
+ *   research-attempt detail, proving an older artifact read cannot replace a
+ *   newer selection when responses arrive in reverse order.
  */
 function mockDetailDelayMs(): number {
   const raw = mockSearchParam('detailDelay');
@@ -93,6 +100,17 @@ function mockExplorerRefreshDelayMs(): number {
   const raw = mockSearchParam('explorerRefreshDelay');
   const ms = raw == null ? 0 : Number(raw);
   return Number.isFinite(ms) && ms > 0 ? Math.min(ms, 10_000) : 0;
+}
+
+function mockResearchDetailDelay(): { id: number | null; ms: number } {
+  const rawId = mockSearchParam('researchDetailDelayId');
+  const rawMs = mockSearchParam('researchDetailDelay');
+  const id = rawId == null ? NaN : Number(rawId);
+  const ms = rawMs == null ? 0 : Number(rawMs);
+  return {
+    id: Number.isSafeInteger(id) && id > 0 ? id : null,
+    ms: Number.isFinite(ms) && ms > 0 ? Math.min(ms, 10_000) : 0,
+  };
 }
 
 /** Every method of `target` waits for `ready` first; a failed seed therefore
@@ -225,6 +243,7 @@ export function makeMockClient() {
   let replaceBeforeDetail = mockReplaceBeforeDetail();
   let failNextResultsRead = mockExplorerFailOnce();
   const explorerRefreshDelayMs = mockExplorerRefreshDelayMs();
+  const researchDetailDelay = mockResearchDetailDelay();
   let resultsReadCount = 0;
 
   const db = {
@@ -466,6 +485,110 @@ export function makeMockClient() {
     for (const handler of progressHandlers) handler(payload as unknown as DiscoveryProgressEvent);
   }
 
+  // ---------- P05: research history ----------
+  //
+  // The mock keeps the same rows the runner writes: one hypothesis per run
+  // configuration (deduplicated by content), one attempt per candidate,
+  // frozen with the enqueue and moved forward with the candidate. A re-run
+  // adds attempts and never touches earlier ones.
+  const hypotheses: Hypothesis[] = [];
+  const attempts: ResearchAttempt[] = [];
+  let nextAttemptId = 1;
+  function mockHypothesis(): Hypothesis {
+    if (hypotheses.length === 0) {
+      hypotheses.push({
+        id: 1,
+        hypothesisHash: 'h'.repeat(64),
+        version: 'hypothesis-v1',
+        source: 'discovery',
+        mechanism: 'preset params-v1 base base-0: entry on priceAboveSlow, exit on priceBelowSlow; the parameter sweep asks whether the mechanism survives neighbouring fastMA',
+        applicability: { datasetId: 1, interval: '1h', axes: ['fastMA'] },
+        failureModes: 'Not stated: a mechanical parameter sweep of a preset strategy.',
+        strategyHash: 'strategy-doc-v1:' + 'b'.repeat(64),
+        strategyId: null,
+        parentStrategyId: null,
+        variationKind: 'param-sweep:fastMA',
+        createdAt: new Date().toISOString(),
+      });
+    }
+    return hypotheses[0];
+  }
+  function enqueueAttempts(run: MockRun): void {
+    const hypothesis = mockHypothesis();
+    for (let candidateIndex = 0; candidateIndex < run.total; candidateIndex += 1) {
+      attempts.push({
+        id: nextAttemptId++,
+        attemptKey: `run:${run.runId}:candidate:${candidateIndex}`,
+        hypothesisId: hypothesis.id,
+        strategyId: 1000 + candidateIndex,
+        datasetId: 1,
+        discoveryRunId: run.runId,
+        candidateIndex,
+        status: 'submitted',
+        inputFingerprint: { datasetHash: 'dataset-content-v2:' + 'd'.repeat(64), strategyHash: `strategy-v2:${String(candidateIndex).padStart(64, '0')}`, candidateIndex },
+        engineFingerprint: { package: '0.1.0', gate: 'gate-v1', score: 'score-v1' },
+        outcome: null,
+        resultArtifact: null,
+        epoch: 1,
+        submittedAt: new Date().toISOString(),
+        finishedAt: null,
+      });
+    }
+  }
+  function attemptOf(run: MockRun, candidateIndex: number): ResearchAttempt | undefined {
+    return attempts.find((a) => a.discoveryRunId === run.runId && a.candidateIndex === candidateIndex);
+  }
+  function completeAttempt(run: MockRun, candidateIndex: number, gatePassed: boolean, score: number | null): void {
+    const attempt = attemptOf(run, candidateIndex);
+    if (attempt == null || attempt.status !== 'submitted') return;
+    const sha = String(attempt.id).padStart(64, 'a');
+    attempt.status = 'completed';
+    attempt.outcome = { recordId: 500 + candidateIndex, gatePassed, score };
+    attempt.resultArtifact = { id: attempt.id, kind: 'candidate-result-v1', sha256: sha, byteLen: 1234, relativePath: `${sha.slice(0, 2)}/${sha}.json`, createdAt: new Date().toISOString() };
+    attempt.finishedAt = new Date().toISOString();
+  }
+  function skipAttempts(run: MockRun): void {
+    for (const attempt of attempts) {
+      if (attempt.discoveryRunId === run.runId && (attempt.status === 'submitted' || attempt.status === 'running')) {
+        attempt.status = 'skipped';
+        attempt.outcome = { reason: 'run cancelled before this candidate ran' };
+        attempt.finishedAt = new Date().toISOString();
+      }
+    }
+  }
+  const research = {
+    listAttempts: async (filter?: ResearchAttemptFilter): Promise<ResearchAttempt[]> => {
+      const limit = Math.max(1, Math.min(filter?.limit ?? 100, 500));
+      return attempts
+        .filter((a) => (filter?.discoveryRunId == null || a.discoveryRunId === filter.discoveryRunId)
+          && (filter?.strategyId == null || a.strategyId === filter.strategyId)
+          && (filter?.datasetId == null || a.datasetId === filter.datasetId)
+          && (filter?.hypothesisId == null || a.hypothesisId === filter.hypothesisId))
+        .slice()
+        .sort((x, y) => y.id - x.id)
+        .slice(0, limit)
+        .map((a) => ({ ...a }));
+    },
+    getAttempt: async (id: number): Promise<ResearchAttemptDetail | null> => {
+      if (id === researchDetailDelay.id && researchDetailDelay.ms > 0) {
+        await new Promise((resolve) => globalThis.setTimeout(resolve, researchDetailDelay.ms));
+      }
+      const attempt = attempts.find((a) => a.id === id);
+      if (attempt == null) return null;
+      const hypothesis = hypotheses.find((h) => h.id === attempt.hypothesisId) ?? null;
+      const result = attempt.resultArtifact == null ? null : {
+        version: 'candidate-result-v1',
+        attemptKey: attempt.attemptKey,
+        train: { summary: { net_return: 0.12 + (attempt.candidateIndex ?? 0) / 100, trade_count: 40 + (attempt.candidateIndex ?? 0) } },
+        validation: { summary: { net_return: 0.05, trade_count: 12 } },
+        digest: attempt.outcome,
+      };
+      return { attempt: { ...attempt }, hypothesis, result, resultError: null };
+    },
+    listHypotheses: async (limit?: number): Promise<Hypothesis[]> => hypotheses.slice(0, limit ?? 100),
+    listUnreferencedArtifacts: async (): Promise<string[]> => [],
+  };
+
   function emitResult(run: MockRun, candidateIndex: number): void {
     sequence += 1;
     // Every other candidate fails the Gate, so the E2E sees both a scored row
@@ -485,6 +608,7 @@ export function makeMockClient() {
       score: gatePassed ? Number((0.5 + candidateIndex / 100).toFixed(4)) : null,
     };
     if (gatePassed) run.bestStrategyId = payload.strategyId;
+    completeAttempt(run, candidateIndex, gatePassed, payload.score);
     for (const handler of resultHandlers) handler(payload as unknown as DiscoveryResultEvent);
   }
 
@@ -565,6 +689,7 @@ export function makeMockClient() {
         nextCandidate: 0,
         timer: null,
       };
+      enqueueAttempts(mockRun);
       emitProgress(mockRun, null);
       if (emitBeforeStart) {
         // Everything happens before the caller learns the run id, exactly as the
@@ -600,6 +725,7 @@ export function makeMockClient() {
       const run = requireMockRun(runId);
       stopTimer(run);
       run.status = 'cancelled';
+      skipAttempts(run);
       emitProgress(run, null);
       emitDone(run);
     },
@@ -759,7 +885,7 @@ export function makeMockClient() {
   }
 
   if (!mockSeedHistory()) {
-    return { db, files, importDataset, isTauri: () => true, discovery, discoveryEvents, runtime, runtimeEvents };
+    return { db, files, importDataset, isTauri: () => true, discovery, discoveryEvents, runtime, runtimeEvents, research };
   }
   const seeded = seedHistory(db);
   // Awaited by every gated method; this handler only marks the rejection as
@@ -778,6 +904,7 @@ export function makeMockClient() {
     discoveryEvents,
     runtime,
     runtimeEvents,
+    research,
   };
 }
 
