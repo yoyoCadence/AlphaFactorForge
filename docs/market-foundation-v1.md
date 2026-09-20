@@ -159,6 +159,8 @@ forward-fill**：
   snapshot**（重新下載歷史不會變成 point-in-time）。
 - 修訂只能指向**同 instrument／interval／source** 的既有列，且**一列只能被修訂一次**（不分叉）；
   鏈頭＝沒有其他列指向它的那一列。
+- 相同 observation 與原件的重送回傳原 id（包括已被後續修訂取代的紀錄）；先辨識冪等重送，
+  再拒絕不同內容對同一 target 的第二筆修訂。重送仍驗證原件儲存。
 - media type 白名單：`application/json`、`text/csv`、`application/zip`、`text/plain`；未列者拒絕，
   不以錯誤副檔名存放（P07／P09／P10 依實際來源擴充）。
 
@@ -183,7 +185,7 @@ canonical JSON 與 sha256 直接沿用 `research::canonical_json`／`sha256_hex`
 
 ## 4. 事件詞彙
 
-`market_quality_events.code` 只接受 §1.6 的 coverage codes 加上 storage 端的八個：
+`market_quality_events.code` 只接受 §1.6 的 coverage codes 加上 storage 端的十個：
 
 | code | severity | action | 何時 |
 | --- | --- | --- | --- |
@@ -192,7 +194,9 @@ canonical JSON 與 sha256 直接沿用 `research::canonical_json`／`sha256_hex`
 | `source_conflict` | blocking | `separate_sources` | 組成之間或與請求衝突、或組成是被拒絕的取得 |
 | `superseded_source` | blocking | `rebuild_from_revision` | 組成已被修訂取代 |
 | `time_unit_mismatch` | blocking | `verify_time_unit` | 儲存的時間戳不是毫秒（縱深防禦，見下） |
-| `availability_unknown` | blocking | `record_availability` | forward-observed 但組成沒有 `availableAt` |
+| `availability_unknown` | blocking | `record_availability` | forward-observed 但組成沒有可解析的 `availableAt` |
+| `availability_after_cut` | blocking | `record_availability` | forward-observed 的 `availableAt > asOf`；相等可接受，保留來源小數秒精度比較 |
+| `missing_source` | blocking | `refetch_range` | provenance 清單為空，無法追溯任何原件；所有 kind 均阻擋 |
 | `corporate_actions_unverified` | degraded | `verify_corporate_actions` | ETF 且未確認配息／分割完整性 |
 | `cost_profile_unconfirmed` | degraded | `confirm_costs` | 使用者尚未確認成本設定 |
 
@@ -206,13 +210,17 @@ canonical JSON 與 sha256 直接沿用 `research::canonical_json`／`sha256_hex`
 
 ## 5. Snapshot 生成與 legacy
 
-`build_snapshot` 一個 transaction 內完成：
+`build_snapshot` 先驗證，所有寫入在一個 transaction 內完成：
 
 1. 取得 instrument 最新修訂與其 calendar（不存在＝`Err`，不是事件——連序列都指不出來）。
+   讀取 dataset 的**全部 OHLCV**（包含宣告期間以外的列），依序重驗
+   `verify_dataset_identity` 與 `market-data-quality-v1`。雜湊、數量、起迄或 candle 合理性不符
+   → `Err` 且不寫入；不修補、不重新雜湊。回傳 `Existing` 前也必須通過。
 2. 身分：dataset 的 interval／symbol／venue 必須是該 instrument 的序列。venue 比對**忽略大小寫**
    （`datasets.exchange` 是使用者自由輸入，instrument 的 venue 已正規化）；symbol **完全比對**。
-3. 組成：每一筆 provenance 必須 accepted、`primary`、同序列、未被修訂；forward-observed 另需
-   `availableAt`。兩兩之間也必須可合併（這正是擋下 Binance 與 Coinbase 拼接的地方）。
+3. 組成：至少一筆 provenance，每筆必須 accepted、`primary`、同序列、未被修訂；
+   forward-observed 另需可解析且不晚於 `asOf` 的 `availableAt`，以實際時間比較（接受時區偏移）。
+   兩兩之間也必須可合併（這正是擋下 Binance 與 Coinbase 拼接的地方）。
 4. 時間單位縱深防禦 → §4。
 5. Coverage：以 instrument 的上市期間與停牌、calendar 版本推導預期範圍，與 dataset 實際 candles 比對。
 6. 語意預設：ETF 未確認公司事件 → `degraded`；成本未確認 → `degraded`。

@@ -44,7 +44,7 @@ pub const MARKET_RAW_ARTIFACT_KIND: &str = "market-raw-v1";
 /// Event codes the storage half adds to the pure contract's
 /// `COVERAGE_CODES`. They are about a snapshot's composition rather than a
 /// series' shape, so they cannot come out of a coverage audit.
-pub const SNAPSHOT_EVENT_CODES: [&str; 8] = [
+pub const SNAPSHOT_EVENT_CODES: [&str; 10] = [
     "dataset_instrument_mismatch",
     "expected_range_unavailable",
     "source_conflict",
@@ -53,6 +53,8 @@ pub const SNAPSHOT_EVENT_CODES: [&str; 8] = [
     "availability_unknown",
     "corporate_actions_unverified",
     "cost_profile_unconfirmed",
+    "missing_source",
+    "availability_after_cut",
 ];
 
 /// One row of `market_quality_events`: structured, append-only evidence.

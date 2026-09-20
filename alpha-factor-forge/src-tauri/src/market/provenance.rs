@@ -115,7 +115,7 @@ fn utc_instant(name: &str, value: &str) -> AppResult<i64> {
         .map_err(|error| AppError::Other(format!("{name} is not an RFC 3339 instant: {error}")))
 }
 
-fn record_hash(observation: &RawObservation, raw: &ArtifactRef) -> AppResult<String> {
+fn record_hash(observation: &RawObservation, raw_sha256: &str, raw_byte_len: i64) -> AppResult<String> {
     let content = json!({
         "version": MARKET_PROVENANCE_VERSION,
         "instrumentId": observation.instrument_id,
@@ -123,8 +123,8 @@ fn record_hash(observation: &RawObservation, raw: &ArtifactRef) -> AppResult<Str
         "source": observation.source,
         "role": observation.role,
         "requestScope": observation.request_scope,
-        "rawSha256": raw.sha256,
-        "rawByteLen": raw.byte_len,
+        "rawSha256": raw_sha256,
+        "rawByteLen": raw_byte_len,
         "mediaType": observation.media_type,
         "retrievedAt": observation.retrieved_at,
         "availableAt": observation.available_at,
@@ -175,6 +175,21 @@ pub fn record_raw(
         }
     }
     let extension = extension_for(&observation.media_type)?;
+    let hash = record_hash(observation, &sha256_hex(bytes), bytes.len() as i64)?;
+    // An exact retry is not a second child of the revision target. Resolve
+    // it before checking for a fork, even if this revision was later revised.
+    if let Some(id) = conn
+        .query_row(
+            "SELECT id FROM market_provenance WHERE record_hash = ?1",
+            [&hash],
+            |row| row.get::<_, i64>(0),
+        )
+        .optional()?
+    {
+        // Preserve artifact verification/recovery on retries.
+        store.put_with_extension(MARKET_RAW_ARTIFACT_KIND, extension, bytes)?;
+        return Ok((id, false));
+    }
 
     if let Some(target) = observation.revision_of {
         let previous = get_provenance(conn, target)?.ok_or_else(|| {
@@ -204,17 +219,6 @@ pub fn record_raw(
     }
 
     let raw = store.put_with_extension(MARKET_RAW_ARTIFACT_KIND, extension, bytes)?;
-    let hash = record_hash(observation, &raw)?;
-    if let Some(id) = conn
-        .query_row(
-            "SELECT id FROM market_provenance WHERE record_hash = ?1",
-            [&hash],
-            |row| row.get::<_, i64>(0),
-        )
-        .optional()?
-    {
-        return Ok((id, false));
-    }
     conn.execute(
         "INSERT INTO market_provenance
             (record_hash, version, instrument_id, interval, source, role, request_scope_json,
@@ -532,6 +536,42 @@ mod tests {
             .unwrap_err()
             .to_string()
             .contains("states its reason"));
+    }
+
+    #[test]
+    fn revision_retries_are_idempotent_but_different_children_remain_forks() {
+        let conn = memory_db();
+        let (store, _guard) = fresh_store();
+        let (first, _) = record_raw(&conn, &store, &observation(), b"first").unwrap();
+        let revision = RawObservation {
+            retrieved_at: "2024-08-05T00:00:00Z".into(),
+            revision_of: Some(first),
+            ..observation()
+        };
+        let (second, created) = record_raw(&conn, &store, &revision, b"revised").unwrap();
+        assert!(created);
+        assert_eq!(record_raw(&conn, &store, &revision, b"revised").unwrap(), (second, false));
+        assert_eq!(list_provenance(&conn, &revision.instrument_id, "1h").unwrap().len(), 2);
+        for (candidate, bytes) in [
+            (revision.clone(), b"different".as_slice()),
+            (RawObservation { retrieved_at: "2024-08-06T00:00:00Z".into(), ..revision.clone() },
+                b"revised".as_slice()),
+        ] {
+            let error = record_raw(&conn, &store, &candidate, bytes).unwrap_err().to_string();
+            assert!(error.contains("already revised"), "{error}");
+        }
+        assert_eq!(list_provenance(&conn, &revision.instrument_id, "1h").unwrap().len(), 2);
+        let third = RawObservation {
+            retrieved_at: "2024-08-07T00:00:00Z".into(),
+            revision_of: Some(second),
+            ..observation()
+        };
+        let (third_id, _) = record_raw(&conn, &store, &third, b"third").unwrap();
+        // A late retry of an old revision must not change the head or history.
+        assert_eq!(record_raw(&conn, &store, &revision, b"revised").unwrap(), (second, false));
+        assert_eq!(revision_chain(&conn, first).unwrap().iter().map(|row| row.id).collect::<Vec<_>>(),
+            vec![first, second, third_id]);
+        assert_eq!(read_raw(&store, &get_provenance(&conn, second).unwrap().unwrap()).unwrap(), b"revised");
     }
 
     #[test]

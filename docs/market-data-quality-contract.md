@@ -65,7 +65,7 @@ parity row. Each language unit-tests the predicate directly instead.
 
 ## 3. Mount points
 
-One rule set, four call sites. No mount point re-implements or partially applies
+One rule set, five call sites. No mount point re-implements or partially applies
 the rules.
 
 | # | Site | Behaviour |
@@ -74,9 +74,10 @@ the rules.
 | 2 | `BacktestPanel.tsx` candle-load effect | On failure `setLoadedCandles` is not called, so `candles` stays `NO_CANDLES` and `liveContext` stays `null`; Run/Save/Export remain disabled through the **existing** guard. A zh-TW message names the failing candle and asks the user to re-import. No second disabling mechanism was added. |
 | 3 | `repositories.rs` `import_dataset_with_candles` | Validates **before** `conn.transaction()`. That ordering is what makes atomicity provable rather than incidental. |
 | 4 | `discovery_runner/mod.rs` `load_verified_dataset` | Validates **after** `verify_dataset_identity`, so a tampered payload still reports the identity mismatch first and the two failure classes stay distinguishable. |
+| 5 | `market/snapshot.rs` `build_snapshot` (P06 acceptance fix) | Reads all stored OHLCV, verifies identity and then plausibility **before any write or Existing return**. Invalid payloads return an error without inserting a snapshot, sources, or events. |
 
 The reported index refers to **normalized (timestamp-sorted)** order at mount
-points 1, 3, and 4, because identity normalization runs first there.
+points 1, 3, 4, and 5, because identity normalization runs first there.
 
 ## 4. Fail-closed behaviour for data stored before this contract
 

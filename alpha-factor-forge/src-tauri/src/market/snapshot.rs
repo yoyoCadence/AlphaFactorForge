@@ -15,6 +15,7 @@
 //! backtestable exactly as before, and simply unable to acquire new
 //! qualification on its own (`docs/market-contract.md` §0).
 
+use chrono::{DateTime, Utc};
 use rusqlite::{params, Connection, OptionalExtension, Row};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -189,13 +190,22 @@ pub fn build_snapshot(conn: &mut Connection, request: &SnapshotRequest) -> AppRe
         ))
     })?;
     let dataset = repositories::get_dataset_by_id(conn, request.dataset_id)?;
+    // Stored metadata is not proof of the current payload. Read all rows,
+    // including any outside the declared bounds, and fail before any write
+    // or Existing return if identity or candle plausibility has changed.
+    let candles = repositories::get_candles(conn, request.dataset_id, i64::MIN, i64::MAX)?;
+    let normalized = crate::identity::verify_dataset_identity(&dataset, &candles)?;
+    alpha_factor_forge::discovery_core::market_data::ensure_admissible(
+        normalized.iter().map(repositories::db_candle_fields),
+    )
+    .map_err(|error| AppError::Other(error.0))?;
     let components = load_components(conn, request)?;
 
     let mut events: Vec<QualityEvent> = Vec::new();
     events.extend(identity_events(request, &instrument, &dataset));
     events.extend(component_events(conn, request, &instrument, &components)?);
 
-    let timestamps = candle_timestamps(conn, request.dataset_id)?;
+    let timestamps: Vec<i64> = normalized.iter().map(|candle| candle.timestamp).collect();
     events.extend(time_unit_events(request, &timestamps));
     events.extend(coverage_events(request, &instrument, &calendar, &dataset, &timestamps));
     events.extend(semantics_events(request, &instrument));
@@ -349,6 +359,22 @@ fn component_events(
     components: &[ProvenanceRow],
 ) -> AppResult<Vec<QualityEvent>> {
     let mut events = Vec::new();
+    if components.is_empty() {
+        events.push(event(
+            request,
+            "missing_source",
+            Severity::Blocking,
+            "refetch_range",
+            json!({ "reason": "a snapshot requires at least one primary provenance record" }),
+        ));
+    }
+    let cut = if request.kind == SnapshotKind::ForwardObserved {
+        Some(DateTime::<Utc>::from_timestamp_millis(request.as_of_ms).ok_or_else(|| {
+            AppError::Other("snapshot asOf is not a representable instant".into())
+        })?)
+    } else {
+        None
+    };
     let snapshot_identity = |source: &str, role: SeriesRole| SeriesIdentity {
         instrument_id: request.instrument_id.clone(),
         quote: instrument.quote.clone(),
@@ -409,20 +435,31 @@ fn component_events(
                 .for_provenance(component.id),
             );
         }
-        if request.kind == SnapshotKind::ForwardObserved && component.available_at.is_none() {
-            events.push(
-                event(
-                    request,
-                    "availability_unknown",
-                    Severity::Blocking,
-                    "record_availability",
-                    json!({
-                        "provenanceId": component.id,
-                        "reason": "a forward-observed snapshot needs the time each bar was first observable",
-                    }),
-                )
-                .for_provenance(component.id),
-            );
+        if let Some(cut) = cut {
+            let available = component.available_at.as_deref()
+                .and_then(|value| DateTime::parse_from_rfc3339(value).ok());
+            let code = match available {
+                Some(moment) if moment <= cut => None,
+                Some(_) => Some("availability_after_cut"),
+                None => Some("availability_unknown"),
+            };
+            if let Some(code) = code {
+                events.push(
+                    event(
+                        request,
+                        code,
+                        Severity::Blocking,
+                        "record_availability",
+                        json!({
+                            "provenanceId": component.id,
+                            "availableAt": component.available_at,
+                            "asOfMs": request.as_of_ms,
+                            "reason": "forward-observed evidence must have known availability at or before the cut",
+                        }),
+                    )
+                    .for_provenance(component.id),
+                );
+            }
         }
     }
     // Two components must be one series with each other, not just with the
@@ -578,6 +615,7 @@ fn coverage_report_value(
     serde_json::to_value(&report).unwrap_or(Value::Null)
 }
 
+#[cfg(test)]
 fn candle_timestamps(conn: &Connection, dataset_id: i64) -> AppResult<Vec<i64>> {
     let mut stmt =
         conn.prepare("SELECT timestamp FROM candles WHERE dataset_id = ?1 ORDER BY timestamp ASC")?;
@@ -810,6 +848,132 @@ mod tests {
 
     fn codes(events: &[QualityEventRow]) -> Vec<&str> {
         events.iter().map(|row| row.event.code.as_str()).collect()
+    }
+
+    #[test]
+    fn every_snapshot_kind_requires_source_evidence() {
+        for kind in [SnapshotKind::Historical, SnapshotKind::ForwardObserved, SnapshotKind::Demo] {
+            let mut conn = memory_db();
+            let candidate = SnapshotRequest { kind, ..request(1, vec![]) };
+            let outcome = build_snapshot(&mut conn, &candidate).unwrap();
+            let SnapshotOutcome::Blocked { events } = outcome else {
+                panic!("missing provenance must block: {outcome:?}");
+            };
+            assert_eq!(codes(&events), vec!["missing_source"]);
+            assert_eq!(events[0].event.action, "refetch_range");
+            assert_eq!(events, provenance::dataset_quality_events(&conn, 1).unwrap());
+            assert_eq!(snapshot_storage_counts(&conn), (0, 0, 1));
+            assert_eq!(dataset_market_status(&conn, 1).unwrap(), DatasetMarketStatus::Legacy);
+        }
+    }
+
+    #[test]
+    fn forward_observed_availability_must_not_exceed_the_cut() {
+        for (available, expected_code) in [
+            (None, Some("availability_unknown")),
+            (Some("2024-07-15T03:59:59.999Z"), None),
+            (Some("2024-07-15T04:00:00Z"), None),
+            (Some("2024-07-15T12:00:00+08:00"), None),
+            (Some("2024-07-15T04:00:00.000001Z"), Some("availability_after_cut")),
+            (Some("2024-07-31T23:00:00Z"), Some("availability_after_cut")),
+        ] {
+            let mut conn = memory_db();
+            let (store, _guard) = fresh_store();
+            let raw = record(&conn, &store, &RawObservation {
+                available_at: available.map(str::to_string),
+                ..observation()
+            }, b"bars");
+            let candidate = SnapshotRequest {
+                kind: SnapshotKind::ForwardObserved,
+                ..request(1, vec![raw])
+            };
+            let outcome = build_snapshot(&mut conn, &candidate).unwrap();
+            if let Some(expected_code) = expected_code {
+                let SnapshotOutcome::Blocked { events } = outcome else {
+                    panic!("{available:?} must block: {outcome:?}");
+                };
+                assert_eq!(codes(&events), vec![expected_code]);
+                assert_eq!(events[0].event.provenance_id, Some(raw));
+                assert_eq!(events[0].event.detail["asOfMs"], json!(candidate.as_of_ms));
+                assert_eq!(events, provenance::dataset_quality_events(&conn, 1).unwrap());
+                assert_eq!(snapshot_storage_counts(&conn), (0, 0, 1));
+            } else {
+                let SnapshotOutcome::Created(snapshot) = outcome else {
+                    panic!("{available:?} should be admissible: {outcome:?}");
+                };
+                assert!(snapshot.qualification_eligible());
+                assert_eq!(build_snapshot(&mut conn, &candidate).unwrap(),
+                    SnapshotOutcome::Existing(snapshot));
+                // Existing identity cannot bypass an earlier availability cut.
+                let earlier = SnapshotRequest {
+                    as_of_ms: T0 + 4 * HOUR - 2,
+                    ..candidate
+                };
+                let outcome = build_snapshot(&mut conn, &earlier).unwrap();
+                let SnapshotOutcome::Blocked { events } = outcome else {
+                    panic!("earlier cut must revalidate: {outcome:?}");
+                };
+                assert!(codes(&events).contains(&"availability_after_cut"));
+            }
+        }
+    }
+
+    fn snapshot_storage_counts(conn: &Connection) -> (i64, i64, i64) {
+        conn.query_row(
+            "SELECT (SELECT COUNT(*) FROM market_snapshots),
+                    (SELECT COUNT(*) FROM market_snapshot_sources),
+                    (SELECT COUNT(*) FROM market_quality_events)",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        ).unwrap()
+    }
+
+    #[test]
+    fn changed_payload_or_metadata_is_rejected_before_create_or_existing() {
+        for already_created in [false, true] {
+            for (mutation, expected_error) in [
+                ("UPDATE candles SET close = 100.25 WHERE dataset_id = 1", "identity mismatch"),
+                ("UPDATE candles SET close = 0 WHERE dataset_id = 1", "identity mismatch"),
+                ("UPDATE datasets SET candle_count = 99 WHERE id = 1", "count or time bounds"),
+                ("UPDATE datasets SET start_time = start_time + 3600000 WHERE id = 1", "count or time bounds"),
+                ("UPDATE datasets SET end_time = end_time - 3600000 WHERE id = 1", "count or time bounds"),
+                ("INSERT INTO candles (dataset_id, timestamp, open, high, low, close, volume)
+                  SELECT dataset_id, MAX(timestamp) + 3600000, 100, 101, 99, 100.5, 10
+                  FROM candles WHERE dataset_id = 1", "count or time bounds"),
+            ] {
+                let mut conn = memory_db();
+                let (store, _guard) = fresh_store();
+                let raw = record(&conn, &store, &observation(), b"bars");
+                let candidate = request(1, vec![raw]);
+                if already_created {
+                    assert!(matches!(build_snapshot(&mut conn, &candidate).unwrap(),
+                        SnapshotOutcome::Created(_)));
+                }
+                let before = snapshot_storage_counts(&conn);
+                conn.execute(mutation, []).unwrap();
+                let error = build_snapshot(&mut conn, &candidate).unwrap_err().to_string();
+                assert!(error.contains(expected_error), "{mutation}: {error}");
+                assert_eq!(snapshot_storage_counts(&conn), before, "no admission writes");
+            }
+        }
+    }
+
+    #[test]
+    fn matching_hash_does_not_admit_an_invalid_stored_candle() {
+        let mut conn = memory_db();
+        let (store, _guard) = fresh_store();
+        let raw = record(&conn, &store, &observation(), b"bars");
+        // Simulate data stored before the plausibility gate: identity matches
+        // these bytes, but a negative volume still cannot support a snapshot.
+        conn.execute("UPDATE candles SET volume = -1 WHERE dataset_id = 1", []).unwrap();
+        let dataset = repositories::get_dataset_by_id(&conn, 1).unwrap();
+        let candles = repositories::get_candles(&conn, 1, i64::MIN, i64::MAX).unwrap();
+        let hash = crate::identity::dataset_content_hash(&dataset, &candles).unwrap();
+        conn.execute("UPDATE datasets SET dataset_hash = ?1 WHERE id = 1", [hash]).unwrap();
+        let error = build_snapshot(&mut conn, &request(1, vec![raw])).unwrap_err().to_string();
+        assert!(error.contains("volume_negative"), "{error}");
+        assert_eq!(snapshot_storage_counts(&conn), (0, 0, 0));
+        assert_eq!(repositories::get_candles(&conn, 1, i64::MIN, i64::MAX).unwrap()[0].volume, -1.0);
     }
 
     #[test]
