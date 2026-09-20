@@ -417,8 +417,8 @@ export const MAX_EXPECTED_BARS = 1_000_000;
  *
  * v1 supports intraday cadences on a `continuous` calendar and `1d` on a
  * `trading-days` calendar. A daily bar's timestamp is UTC midnight of the
- * trading date; intraday ETF sessions (and therefore local-time session
- * boundaries) are P08, which is why no timezone database is consulted here.
+ * trading date; intraday ETF sessions and local-time boundaries remain outside
+ * the first daily-only ETF release (P08), so no timezone database is consulted here.
  */
 export function expectedBarStarts(request: ExpectedRangeRequest): ExpectedRangeResult {
   const none = (issue: ExpectedRangeIssue): ExpectedRangeResult => ({ timestamps: [], issue });

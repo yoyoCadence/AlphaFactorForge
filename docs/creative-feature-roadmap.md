@@ -4,6 +4,10 @@
 > 原則：**只提案強化「可信驗證」核心目標的功能**；酷但偏軸的點子集中在第 6 節（Tempting Traps）。
 > 本文件為評估與規劃，未經 maintainer 挑選前，任何功能不得逕行實作。
 
+> 2026-09-20 交付更新：持續研究主線依 [`plans/active-plan.md`](plans/active-plan.md)，狀態以 `../tasks.md` 為準。
+> **P08 ETF 日線市場語意已完成**：版本化年化、配息應收／付款、分割、原幣與成本純契約及 TS／Rust parity；
+> 詳見 [`etf-semantics-v1.md`](etf-semantics-v1.md)。真實 ETF adapters（P09／P10）及成交／paper（P18+）仍未交付。
+
 ---
 
 ## 1. Product Goal Restatement
