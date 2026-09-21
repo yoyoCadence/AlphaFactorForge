@@ -278,8 +278,8 @@ forward-observed 快照的 get／list／dataset-status 讀取套用，拒絕回�
 
 | 項目 | 屬於 |
 | --- | --- |
-| ~~任何網路下載、CHECKSUM 校驗、分段重試、快取~~ → **Crypto 已完成（P07）** | P09 Tiingo adapter 已實作，認證下載驗收待 token（`market-source-tiingo-v1.md`）；P10 待實作 |
-| `nyse-v1`／`twse-v1` 等真實休市資料 | P09／P10（P06 只建立註冊與阻擋機制） |
+| ~~任何網路下載、CHECKSUM 校驗、分段重試、快取~~ → **Crypto（P07）與 TW ETF（P10）已完成；P09 程式完成** | P09 認證下載驗收待 token（`market-source-tiingo-v1.md`）；P10 真實公開來源有界 smoke 見 `market-source-tw-etf-v1.md` |
+| `nyse-v1`／`twse-v1` 等真實休市資料 | P09 提供 US 2026 範例；P10 提供 TWSE 2025 範例。兩者都只在明示有效期內使用，不外推 |
 | ETF 配息應收／付款、分割調整、交易日年化、原幣成本 | P08 已完成純函式；成交接線 P18。盤中 session／當地時間邊界未納入第一版日線範圍 |
 | instrument 的 lotSize／priceStep／minNotional（目前一律未知＝不可 paper） | 由來源回報，P07／P09／P10 以新修訂寫入 |
 | Tauri 命令與 UI（資料來源畫面、阻擋範圍呈現） | P16（MCP）／P21（整合 UX）；P06 不開命令面，避免留下無人呼叫、未受測的邊界 |

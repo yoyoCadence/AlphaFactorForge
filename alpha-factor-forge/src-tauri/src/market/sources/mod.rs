@@ -5,4 +5,6 @@
 //! tested) as a description of what that publisher actually sends.
 
 pub mod binance;
+pub mod finmind;
 pub mod tiingo;
+pub mod twse;

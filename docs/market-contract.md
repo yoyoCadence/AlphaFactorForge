@@ -20,7 +20,11 @@ P07（Crypto adapter）、P08（ETF 市場語意）、P09／P10（ETF adapters�
 
 > **P09（2026-09-21）**：Tiingo US ETF adapter 已實作，使用明示的 NYSE Arca／Nasdaq 2026 calendar 範本與既有契約；
 > 原件／付款日核對、來源權限與原幣成本阻擋見 [`market-source-tiingo-v1.md`](market-source-tiingo-v1.md)。
-> 真實帳戶下載驗收待本機 token；TWSE 來源仍待 P10。既有 hash 與 schema 不變。
+> 真實帳戶下載驗收待本機 token；TWSE 來源的完成狀態見下列 P10 登記。既有 hash 與 schema 不變。
+
+> **P10（2026-09-21）**：FinMind／TWSE 台灣 ETF adapter 已實作。FinMind raw 為 primary，TWSE 月行情為不可補值的 comparison；
+> 2025 TWSE calendar、配息付款、分割與停牌證據都進入設定及 action hash。五檔真實小範圍 smoke 通過，成本未確認而 degraded；
+> 詳見 [`market-source-tw-etf-v1.md`](market-source-tw-etf-v1.md)。既有 hash 與 schema 不變。
 
 ---
 
@@ -104,7 +108,7 @@ P07（Crypto adapter）、P08（ETF 市場語意）、P09／P10（ETF adapters�
 | --- | --- | --- | --- |
 | Crypto | Binance 公開月／日封存（`data.binance.vision`）＋同交易所 REST | 校驗 CHECKSUM、時間單位（封存曾由毫秒改微秒）與修訂；Coinbase 為獨立比對來源 | 封存索引與 `api/v3/ping` 皆 HTTP 200 |
 | US ETF | Tiingo EOD 免費帳戶 | 保存 raw、adjusted、dividend、split 欄位；免費方案權限與速率須在設定時驗證，不假設即時行情 | host 可達（301 導向）；**尚無帳戶／token，未驗證權限** |
-| TW ETF | FinMind `TaiwanStockPrice` 原始日線 | TWSE 月行情核對；不依賴付費還原價接口；民國日期、成交量單位（股／張）於 P10 處理 | API host 可達（空查詢回 422）；**未驗證配息／分割事件涵蓋** |
+| TW ETF | FinMind `TaiwanStockPrice` 原始日線 | TWSE 月行情逐列核對；不依賴付費還原價接口；民國日期轉 ISO，`Trading_Volume` 固定為股數；comparison 不補缺口 | **P10 已完成**：五檔真實公開來源 smoke、2025 calendar／配息／分割／停牌事件核對通過；範例成本未確認故 snapshot degraded |
 | Calendar／事件 | TWSE、NYSE、ETF 發行商 | 休市、臨時停市、分割、除息、付款日 | TWSE 首頁可達（302）；**尚無版本化 calendar 資料** |
 
 上述可達性只是 HTTP 回應碼，**不代表已證明任何商品的長期資料完整性**。
@@ -113,7 +117,7 @@ P07（Crypto adapter）、P08（ETF 市場語意）、P09／P10（ETF adapters�
 > `BTCUSDT-1h-2024-12` 為毫秒、`BTCUSDT-1h-2025-01` 為微秒，即**自 2025-01 起改用微秒**。
 > adapter 的處理（整檔判定、混用即拒、精確換算、單位寫入 provenance）、CHECKSUM 校驗、日封存與同交易所
 > REST 尾端、以及實際涵蓋率結果見 [`market-source-binance-v1.md`](market-source-binance-v1.md)。
-> Coinbase 的獨立比對來源仍未實作。US／TW ETF 兩列的狀態不變。
+> Coinbase 的獨立比對來源仍未實作。US ETF 的認證驗收仍待 token；TW ETF 已完成 P10 的公開來源有界驗證。
 
 ---
 
@@ -121,7 +125,7 @@ P07（Crypto adapter）、P08（ETF 市場語意）、P09／P10（ETF adapters�
 
 P08 已提供日線純計算契約及 55 個雙語共用案例，詳見 [`etf-semantics-v1.md`](etf-semantics-v1.md)。
 §5.1–7 的計算原語已完成；第 8 點的實際訂單／排程接線仍屬 P18／P20。舊回測仍用舊契約，
-真實 calendar／公司事件與來源授權仍待 P09／P10，未因此自動取得 ETF 研究資格。
+US calendar／公司事件的認證來源驗收仍待 P09 token；TWSE 2025 calendar／公司事件已由 P10 核對。成本未確認時仍不得自動取得 ETF 研究資格。
 
 1. 交易日與時區來自版本化 calendar。
 2. 保留原始成交價；調整價只按明確用途。

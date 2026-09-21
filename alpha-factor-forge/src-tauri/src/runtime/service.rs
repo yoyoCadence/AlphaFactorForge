@@ -80,6 +80,9 @@ USAGE:
   alpha-factor-forge-service fetch-tiingo --settings <json-file>
                                       --from <YYYY-MM-DD> --to <YYYY-MM-DD>
                                       [--data-dir <dir>]
+  alpha-factor-forge-service fetch-tw-etf --settings <json-file>
+                                      --from <YYYY-MM-DD> --to <YYYY-MM-DD>
+                                      [--data-dir <dir>]
   alpha-factor-forge-service fetch    --instrument <id> --interval <interval>
                                       --from <YYYY-MM-DD> --to <YYYY-MM-DD>
                                       [--no-rest] [--cost-profile <version>]
@@ -102,6 +105,10 @@ USAGE:
   fetch-tiingo    Report SPY/QQQ/VTI/TLT/GLD individually as JSON; bounded to
                   366 completed daily dates. Uses Windows Credential Manager.
                   See docs/market-source-tiingo-v1.md for source settings.
+  fetch-tw-etf    Report 0050/006208/0056/00878/00713 individually as JSON;
+                  bounded to 31 completed daily dates. FinMind raw prices are
+                  reconciled against TWSE monthly quotes and never cross-filled.
+                  See docs/market-source-tw-etf-v1.md for source settings.
   tiingo-status   Report credential availability only (never its value).
   --data-dir      The workspace directory (database, lock, endpoint files).
                   Default: the desktop's app data directory.
@@ -115,6 +122,7 @@ EXIT CODES:
 pub enum Cli {
     TiingoStatus,
     FetchTiingo(crate::market::tiingo_ingest::Options),
+    FetchTwEtf(crate::market::tw_etf_ingest::Options),
     Run { data_dir: Option<PathBuf> },
     Stop { data_dir: Option<PathBuf> },
     Status { data_dir: Option<PathBuf> },
@@ -130,6 +138,9 @@ pub enum Cli {
 pub fn parse_args<S: AsRef<str>>(args: &[S]) -> Result<Cli, String> {
     if args.first().is_some_and(|a| a.as_ref() == "fetch-tiingo") {
         return crate::market::tiingo_ingest::parse_args(&args[1..]).map(Cli::FetchTiingo);
+    }
+    if args.first().is_some_and(|a| a.as_ref() == "fetch-tw-etf") {
+        return crate::market::tw_etf_ingest::parse_args(&args[1..]).map(Cli::FetchTwEtf);
     }
     if args.len() == 1 && args[0].as_ref() == "tiingo-status" { return Ok(Cli::TiingoStatus); }
     let args: Vec<&str> = args.iter().map(AsRef::as_ref).collect();
@@ -537,6 +548,11 @@ pub fn main(args: Vec<String>) -> i32 {
             println!("{}",serde_json::to_string_pretty(&reports).map_err(|_| ServiceError::Other("report encoding failed".into()))?);
             Ok(if reports.iter().all(|r| r.qualification_eligible) { EXIT_OK } else { EXIT_RANGE_UNUSABLE })
         }),
+        Cli::FetchTwEtf(options) => resolve_data_dir(options.data_dir.clone()).and_then(|dir| {
+            let reports = crate::market::tw_etf_ingest::run(&dir,&options).map_err(ServiceError::from)?;
+            println!("{}",serde_json::to_string_pretty(&reports).map_err(|_| ServiceError::Other("report encoding failed".into()))?);
+            Ok(if reports.iter().all(|r| r.qualification_eligible) { EXIT_OK } else { EXIT_RANGE_UNUSABLE })
+        }),
         Cli::Help => {
             println!("{USAGE}");
             Ok(EXIT_OK)
@@ -617,6 +633,27 @@ mod tests {
         assert!(parse(&["--data-dir"]).unwrap_err().contains("needs a directory"));
         assert!(parse(&["serve"]).unwrap_err().contains("unexpected"));
         assert!(parse(&["run", "stop"]).unwrap_err().contains("unexpected"), "one subcommand");
+    }
+
+    #[test]
+    fn tw_etf_fetch_is_wired_to_the_strict_bounded_options() {
+        let Cli::FetchTwEtf(options) = parse(&[
+            "fetch-tw-etf",
+            "--settings=tw.json",
+            "--from",
+            "2025-06-09",
+            "--to=2025-06-21",
+            "--data-dir",
+            "w",
+        ])
+        .unwrap()
+        else {
+            panic!("fetch-tw-etf")
+        };
+        assert_eq!(options.settings, PathBuf::from("tw.json"));
+        assert_eq!(options.data_dir, Some(PathBuf::from("w")));
+        assert_eq!(options.from, chrono::NaiveDate::from_ymd_opt(2025, 6, 9).unwrap());
+        assert_eq!(options.to, chrono::NaiveDate::from_ymd_opt(2025, 6, 21).unwrap());
     }
 
     /// P07: `fetch` states what it retrieves, and an option that belongs to
