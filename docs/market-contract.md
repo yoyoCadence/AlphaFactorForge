@@ -18,6 +18,10 @@ P07（Crypto adapter）、P08（ETF 市場語意）、P09／P10（ETF adapters�
 > §5 的 P08 純函式與新版本 metrics 見 [`etf-semantics-v1.md`](etf-semantics-v1.md)，尚未接入 P18 成交引擎。`crypto-24x7-v1` 是唯一可由本契約自身定義而內建的 calendar，
 > `nyse-v1`／`twse-v1` 需要真實休市資料，未取得前相關 instrument 無法註冊（誠實阻擋，不捏造）。
 
+> **P09（2026-09-21）**：Tiingo US ETF adapter 已實作，使用明示的 NYSE Arca／Nasdaq 2026 calendar 範本與既有契約；
+> 原件／付款日核對、來源權限與原幣成本阻擋見 [`market-source-tiingo-v1.md`](market-source-tiingo-v1.md)。
+> 真實帳戶下載驗收待本機 token；TWSE 來源仍待 P10。既有 hash 與 schema 不變。
+
 ---
 
 ## 0. 不變的既有契約

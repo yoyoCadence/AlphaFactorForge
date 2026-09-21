@@ -6,7 +6,11 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Current Snapshot
 
-- P08 publication: Chinese draft [PR #110](https://github.com/yoyoCadence/AlphaFactorForge/pull/110), implementation commit `6b7147e` on `feat/p08-etf-market-semantics`; pushed, not merged. Latest main confirmed before push; post-rebase relevant checks pass. Remote CI status is shown on the PR.
+- P09 publication: implementation commit `8ed8f80` pushed to `feat/p09-tiingo-etf-adapter`; Chinese draft [PR #111](https://github.com/yoyoCadence/AlphaFactorForge/pull/111), base `main` (`4e48343`), verified open/draft/unmerged. Live acceptance still pending token; CI status belongs to the PR.
+
+- **P09 implementation and local validation completed (2026-09-21)**: Tiingo EOD/distribution adapter, Windows Credential Manager, bounded `fetch-tiingo` CLI, five-symbol eligibility, immutable raw/revision/report storage, full-range audit and P08 payment/cost gates. **969 Vitest / 353 Rust (71 + 280 + 2) / 78 Playwright**, typecheck/build/check pass; clippy has only the 5 existing warnings. Native CLI records five explicit `credential_missing` blockers in an isolated workspace. **P09 authenticated external acceptance remains In Progress pending the operator's token**; no live coverage/entitlement claim. [Contract](docs/market-source-tiingo-v1.md), [handoff](handoffs/2026-09-21-p09-tiingo-v1.md). P10+ not started.
+
+- P08 publication: [PR #110](https://github.com/yoyoCadence/AlphaFactorForge/pull/110) merged as `4e48343`, verified by fetch at P09 start (2026-09-21).
 
 - **P08 ETF daily semantics completed (2026-09-20)** on `feat/p08-etf-market-semantics`: **969 Vitest**, **337 Rust** (71＋264＋2), **78/78 Playwright**, typecheck/frontend build and `cargo check --locked --all-targets` pass. Clippy has only the same 5 existing warnings. Adds opt-in `etf-semantics-v1` / `etf-metrics-v1`, with 55 shared specification cases for calendars, dividends/payments, splits/orders, causal signal prices, native currency/costs and elapsed-time CAGR. No schema/dependency or legacy-engine change. No native desktop UI smoke in this pure-core phase; native service smoke and existing browser regression pass. [Contract](docs/etf-semantics-v1.md), [handoff](handoffs/2026-09-20-p08-etf-semantics-v1.md). Real ETF adapters and shared execution integration remain P09/P10/P18; P09 still needs a Tiingo account.
 
@@ -36,7 +40,7 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## In Progress
 
-- None.
+- **P09 authenticated external acceptance** (2026-09-21): implementation/local verification Done (below), but live Tiingo download, free entitlement and payment coverage still require the operator's token in Windows Credential Manager. User intends to register; native status currently `credential_missing`. Re-run the documented bounded range after setup and append evidence to the P09 handoff. No P10+ work is authorized by this session.
 
 ## Backlog
 
@@ -83,7 +87,7 @@ The maintainer-approved implementation plan sequences the ABC specifications (pl
 | P06 | Market foundation: instrument, calendar, raw, revision, snapshot | P03 | ABC-04 | **Done** (2026-09-20, see Done section) |
 | P07 | Crypto adapter (Binance archive/REST) | P06 | ABC-04 | **Done** (2026-09-20, see Done section) |
 | P08 | ETF market semantics (calendar, annualization, split, dividend, native currency, cost) | P06 | new | **Done** (2026-09-20; pure daily contracts, see Done) |
-| P09 | US ETF adapter (Tiingo) — **blocked until a Tiingo account exists** | P08 | new | Backlog |
+| P09 | US ETF adapter (Tiingo); authenticated acceptance needs the operator's account | P08 | new | **In Progress** — implementation/local validation Done (2026-09-21); authenticated external acceptance pending |
 | P10 | TW ETF adapter (FinMind + TWSE) | P08 | new | Backlog |
 | P11 | Executable DSL (TS + Rust evaluators, whitelist intersection) | P05 | Phase C "DSL validator" | Backlog |
 | P12 | Research feasibility & trial ledger | P05, P06, P11 | ABC-06 | Backlog |
@@ -220,6 +224,8 @@ These were named inside the UI port entry and must not be buried by closing it. 
 - [ ] Full closed-loop AI automation. (Specification: ABC-14.)
 
 ## Done
+
+- [x] **P09 implementation and local validation** (2026-09-21, `feat/p09-tiingo-etf-adapter` from main `4e48343`): service CLI, strict non-secret settings, OS credential reader, raw/adjusted EOD and company-event originals, immutable revisions, per-symbol eligibility and missing permission/payment/cost blockers. 16 added Rust tests cover normal/rejection/revision and all five defaults; total 353 Rust / 969 Vitest / 78 Playwright, typecheck/build/check pass. No migration, no core changes; only direct-pins already-locked Windows credential API dependency. README/roadmap/technical contracts/changelog/active-plan synced. **This completes code/local validation, not P09 live acceptance**; that remains In Progress above. [Evidence, limitations and next acceptance steps](handoffs/2026-09-21-p09-tiingo-v1.md).
 
 - [x] **P08 — ETF daily market semantics** (2026-09-20): followed active-plan's one-phase limit and verified its prerequisites on current main `bfb4216`. Reuses P06 session calendars and existing metrics through new opt-in TS/Rust contracts. Dividends accrue without spendable cash until payment; splits preserve total basis/equity and adjust pending quantities/prices; raw prices stay unchanged while point-in-time signal views reject future/unobserved events. Explicit native currency and cost confirmation, bounded calendar/action evidence, degraded missing payment/completeness, elapsed-time CAGR and frozen session-frequency volatility. Shared 55-case parity matrix, non-finite regressions, legacy CAGR lock; 969 Vitest / 337 Rust / 78 Playwright pass. No migration or dependency. Updated plan execution note, roadmaps/status, README, market/architecture/parity docs and changelog. [Acceptance evidence and remaining integration boundaries](handoffs/2026-09-20-p08-etf-semantics-v1.md). P09/P10 and P18 not started.
 

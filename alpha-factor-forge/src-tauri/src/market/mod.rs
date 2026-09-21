@@ -33,6 +33,8 @@ pub mod provenance;
 pub mod registry;
 pub mod sources;
 pub mod snapshot;
+pub mod tiingo_ingest;
+pub mod tiingo_credentials;
 
 use serde_json::Value;
 

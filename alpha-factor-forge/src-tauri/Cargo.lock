@@ -62,6 +62,7 @@ dependencies = [
  "tauri-plugin-single-instance",
  "thiserror 1.0.69",
  "ureq",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

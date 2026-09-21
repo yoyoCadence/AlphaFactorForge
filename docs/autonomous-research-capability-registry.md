@@ -61,9 +61,9 @@
 | candles plausibility gate | 可用 | `market-data-quality-v1` | — |
 | instrument／venue／calendar／provenance／snapshot 語意 | 可用 | P06（2026-09-20）：migration 0008＋`src-tauri/src/market/`＋雙語純契約 `market-foundation-v1`（`fixtures/rs-core/market-foundation-v1.json`）。instrument 修訂鏈、calendar 版本不可編輯、原件（含被拒絕者）與修訂鏈、coverage 稽核與 snapshot 生成皆有測試；0001 `datasets` 未改，沒有 snapshot 的 dataset 為 `legacy` 且不能自動取得資格。形狀與不變量：[`market-foundation-v1.md`](market-foundation-v1.md)。**未連網、未匯入任何正式資料** | — |
 | Binance 封存與 REST | 可用 | P07（2026-09-20）：`market/sources/binance.rs`（CHECKSUM、單一 entry ZIP、kline CSV／REST JSON、整檔時間單位判定與精確換算）、`market/http.rs`（HTTPS＋主機白名單＋拒 redirect＋大小上限＋有界重試）、`market/ingest.rs`（月→日→REST 單位計畫、快取、拒絕留證、合併衝突即拒、匯入、snapshot、區間涵蓋率）、`service fetch` 指令。**真實執行**：BTC／ETH 2025 全年各 8760／8760 根、當月日封存＋REST 尾端 462／463、2017 上市前缺口 1132 根被拒（exit 5）。詳見 [`market-source-binance-v1.md`](market-source-binance-v1.md) | — |
-| Tiingo US ETF | **阻擋（無帳戶）** | host 可達（301）；無 token，免費權限、dividend／split 欄位未驗證 | P09（使用者先開通） |
+| Tiingo US ETF | **P09 已實作；真實認證下載未驗證** | `fetch-tiingo`／Windows Credential Manager、EOD 原件／修訂、distribution 雙向核對及五檔資格報告；353 Rust／969 Vitest／78 Playwright 通過。native CLI 實測五檔 `credential_missing`，未配置 token，未宣稱免費權限或資料完整性 | 帳戶配置後依 `market-source-tiingo-v1.md` 做有界認證驗收 |
 | FinMind TW ETF | 未驗證權限 | API host 可達（422 空查詢）；配息／分割事件涵蓋未驗證 | P10 |
-| 版本化 calendar（NYSE／TWSE） | 阻擋（資料缺失） | P06 已建立 calendar 註冊、版本不可編輯與「未註冊 calendar 即不得註冊該 instrument」的阻擋；`crypto-24x7-v1` 為唯一可由契約本身定義而內建者。`nyse-v1`／`twse-v1` 需要真實休市資料，**未取得、未捏造** | P09／P10 提供真實資料；P08 已完成日線契約，未提供盤中 session |
+| 版本化 calendar（NYSE／Nasdaq／TWSE） | US 2026 範本已提供；TWSE 待 P10 | P09 `config/tiingo-2026.example.json` 依 NYSE／Nasdaq 官方 2026 holiday/early-close 表，附來源與有效期間；超界拒絕、不自動註冊、不外推歷年。P06 不可變 calendar 與 P08 日線契約沿用 | 臨時停市須更新證據及版本；P10 提供 TWSE；未提供盤中 session |
 | ETF 交易日年化／配息／分割語意 | 已實作（P08 純核心） | `etf-semantics-v1`／`etf-metrics-v1`：應收／付款、分割、因果訊號調整、原幣成本及實際期間 CAGR，55 個共用案例。舊 `barsPerYear('1d') = 365` 保留 | 真實來源 P09／P10、成交接線 P18；見 `etf-semantics-v1.md` |
 | 多年 BTC／ETH 完整性 | **部分已驗證（僅實測區間）** | P07 實測：BTC／ETH 1h **2025 全年各 8760／8760 根**、BTC 2026-09-01→21 **462／463**（1 根未到期）。**未宣稱多年完整**：2017-07→09 的實測顯示上市前 1132 根被如實報為缺漏並拒絕區間。AlphaBTC 的精度反例仍待 P12 | 更長區間：逐次執行並看 `rangeCoverage` |
 
@@ -99,6 +99,7 @@
 | crates.io | 可達（`cargo search`）；候選：`fs4 1.1.0`（OS 檔案鎖）、`keyring 4.2.0`（保留） |
 | 已在 `Cargo.lock`（間接） | `tokio 1.52.3`、`reqwest 0.13.4`、`hyper 1.10.1`、`uuid 1.23.4`、`windows-sys 0.45.0` |
 | 已加入（P07） | `ureq 3.4.2`（rustls＋ring＋webpki-roots，無系統 TLS 相依）、`flate2 1.1`（鎖檔既有，僅用於封存的 deflate）。鎖檔新增 13 個 crate |
+| 已加入直接依賴（P09） | `windows-sys =0.61.2`（原已間接鎖定），僅 Windows 啟用 Credentials／Foundation 以讀取 Tiingo 一般認證；無新增 crate／版本升級 |
 | 尚未加入 | `fs4`／`fd-lock`、`keyring`、`chrono-tz`、`axum`／`tiny_http` — 於所屬 phase 集中加入並鎖版。P06 未加入任何套件：日線以「交易日的 UTC 午夜」定義、交易日由版本化 calendar 資料列舉，因此不需要 `chrono-tz`（P08 同樣限定日線，不加入盤中 session 或時區依賴） |
 | GitHub | `git fetch` 與 `gh` 皆 401（`GITHUB_TOKEN` 失效）；本機分析不受影響，push／PR 待恢復 |
 
@@ -115,5 +116,5 @@
 - **AI unattended 功能標為阻擋**，原因：生成環境隔離尚未驗證、模型清單與設定不一致、
   Codex 子命令為 experimental。P15 以一次有界真實生成解除或維持阻擋；不得改為付費
   API 或 GUI 點擊自動化。
-- US ETF 接線（P09）在使用者開通 Tiingo 帳戶前為阻擋。
+- US ETF 接線（P09）已實作；真實下載／免費權限／付款日驗收在使用者配置 Tiingo OS 認證前仍為阻擋，不以 fixtures 取代。
 - 本次未啟動研究、未匯入正式資料、未新增程式／migration／依賴。
