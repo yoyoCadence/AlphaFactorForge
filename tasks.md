@@ -6,6 +6,8 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Current Snapshot
 
+- P09 publication: implementation commit `8ed8f80` pushed to `feat/p09-tiingo-etf-adapter`; Chinese draft [PR #111](https://github.com/yoyoCadence/AlphaFactorForge/pull/111), base `main` (`4e48343`), verified open/draft/unmerged. Live acceptance still pending token; CI status belongs to the PR.
+
 - **P09 implementation and local validation completed (2026-09-21)**: Tiingo EOD/distribution adapter, Windows Credential Manager, bounded `fetch-tiingo` CLI, five-symbol eligibility, immutable raw/revision/report storage, full-range audit and P08 payment/cost gates. **969 Vitest / 353 Rust (71 + 280 + 2) / 78 Playwright**, typecheck/build/check pass; clippy has only the 5 existing warnings. Native CLI records five explicit `credential_missing` blockers in an isolated workspace. **P09 authenticated external acceptance remains In Progress pending the operator's token**; no live coverage/entitlement claim. [Contract](docs/market-source-tiingo-v1.md), [handoff](handoffs/2026-09-21-p09-tiingo-v1.md). P10+ not started.
 
 - P08 publication: [PR #110](https://github.com/yoyoCadence/AlphaFactorForge/pull/110) merged as `4e48343`, verified by fetch at P09 start (2026-09-21).
