@@ -169,6 +169,21 @@ impl UreqFetcher {
         fetcher
     }
 
+    /// P10 public endpoints. One attempt keeps a quota/availability failure
+    /// visible and bounds the five-instrument batch; neither host needs a
+    /// credential or receives one.
+    pub fn for_tw_etf() -> Self {
+        Self::new(
+            FetchLimits {
+                timeout: Duration::from_secs(30),
+                max_bytes: 8 * 1024 * 1024,
+                attempts: 1,
+                backoff: Duration::ZERO,
+            },
+            vec!["api.finmindtrade.com".into(), "www.twse.com.tw".into()],
+        )
+    }
+
     fn attempt(&self, url: &str) -> Result<Vec<u8>, FetchError> {
         let request = self.agent.get(url);
         let request = if let Some(token) = &self.tiingo_token {

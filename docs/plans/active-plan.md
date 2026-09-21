@@ -1,12 +1,12 @@
 # AlphaFactorForge：持續 AI 研究、跨市場驗證與模擬交易整合計畫
 
-> 實作紀錄（2026-09-21）：P00–P08 已完成；本輪依 §5 一次一個 phase 實作 **P09 Tiingo US ETF adapter**。
-> 程式、fixture／回歸與缺憑證原生驗證完成；**真實認證下載驗收仍待本機 token，不宣稱全部 P09 外部驗證已完成**。
+> 實作紀錄（2026-09-21）：P00–P08 已完成；P09 程式／本機驗證已完成而認證來源驗收仍待 token；本輪依 §5 一次一個 phase 完成 **P10 FinMind／TWSE 台灣 ETF adapter**。
+> P10 已以五檔真實公開來源做有界 smoke，FinMind raw 與 TWSE 月行情逐列一致；0050 分割／停牌及 00713 配息案例通過。範例成本未確認，五檔 snapshot 均誠實維持 degraded。
 > 使用契約見 [`../market-source-tiingo-v1.md`](../market-source-tiingo-v1.md)，交接見
 > [`../../handoffs/2026-09-21-p09-tiingo-v1.md`](../../handoffs/2026-09-21-p09-tiingo-v1.md)。
 > 純計算契約與限制見 [`../etf-semantics-v1.md`](../etf-semantics-v1.md)，驗證／交接見
 > [`../../handoffs/2026-09-20-p08-etf-semantics-v1.md`](../../handoffs/2026-09-20-p08-etf-semantics-v1.md)。
-> 下文保留原始規劃基準；P10 及後續功能未在本輪啟動，整體最終 Acceptance Criteria 尚未全部完成。
+> 下文保留原始規劃基準；P11 及後續功能未在本輪啟動，整體最終 Acceptance Criteria 尚未全部完成。
 
 ## 1. 目標、基準與交付限制
 

@@ -35,6 +35,7 @@ pub mod sources;
 pub mod snapshot;
 pub mod tiingo_ingest;
 pub mod tiingo_credentials;
+pub mod tw_etf_ingest;
 
 use serde_json::Value;
 

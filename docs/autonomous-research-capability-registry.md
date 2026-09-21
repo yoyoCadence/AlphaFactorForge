@@ -62,8 +62,8 @@
 | instrument／venue／calendar／provenance／snapshot 語意 | 可用 | P06（2026-09-20）：migration 0008＋`src-tauri/src/market/`＋雙語純契約 `market-foundation-v1`（`fixtures/rs-core/market-foundation-v1.json`）。instrument 修訂鏈、calendar 版本不可編輯、原件（含被拒絕者）與修訂鏈、coverage 稽核與 snapshot 生成皆有測試；0001 `datasets` 未改，沒有 snapshot 的 dataset 為 `legacy` 且不能自動取得資格。形狀與不變量：[`market-foundation-v1.md`](market-foundation-v1.md)。**未連網、未匯入任何正式資料** | — |
 | Binance 封存與 REST | 可用 | P07（2026-09-20）：`market/sources/binance.rs`（CHECKSUM、單一 entry ZIP、kline CSV／REST JSON、整檔時間單位判定與精確換算）、`market/http.rs`（HTTPS＋主機白名單＋拒 redirect＋大小上限＋有界重試）、`market/ingest.rs`（月→日→REST 單位計畫、快取、拒絕留證、合併衝突即拒、匯入、snapshot、區間涵蓋率）、`service fetch` 指令。**真實執行**：BTC／ETH 2025 全年各 8760／8760 根、當月日封存＋REST 尾端 462／463、2017 上市前缺口 1132 根被拒（exit 5）。詳見 [`market-source-binance-v1.md`](market-source-binance-v1.md) | — |
 | Tiingo US ETF | **P09 已實作；真實認證下載未驗證** | `fetch-tiingo`／Windows Credential Manager、EOD 原件／修訂、distribution 雙向核對及五檔資格報告；353 Rust／969 Vitest／78 Playwright 通過。native CLI 實測五檔 `credential_missing`，未配置 token，未宣稱免費權限或資料完整性 | 帳戶配置後依 `market-source-tiingo-v1.md` 做有界認證驗收 |
-| FinMind TW ETF | 未驗證權限 | API host 可達（422 空查詢）；配息／分割事件涵蓋未驗證 | P10 |
-| 版本化 calendar（NYSE／Nasdaq／TWSE） | US 2026 範本已提供；TWSE 待 P10 | P09 `config/tiingo-2026.example.json` 依 NYSE／Nasdaq 官方 2026 holiday/early-close 表，附來源與有效期間；超界拒絕、不自動註冊、不外推歷年。P06 不可變 calendar 與 P08 日線契約沿用 | 臨時停市須更新證據及版本；P10 提供 TWSE；未提供盤中 session |
+| FinMind／TWSE TW ETF | **P10 已實作並完成公開來源有界驗證** | `fetch-tw-etf`、FinMind raw OHLCV／交易日／事件、TWSE 月行情逐列核對、原件／修訂及五檔資格報告。真實 2025-06-09..21：0050 5/5（4:1 分割及停牌）、其餘 10/10；00713 配息付款通過。範例成本未確認，五檔均 degraded | 年度 calendar／事件設定須維護；不宣稱全年／多年完整、paper-ready 或自動排程；見 `market-source-tw-etf-v1.md` |
+| 版本化 calendar（NYSE／Nasdaq／TWSE） | US 2026 與 TWSE 2025 範本已提供 | P09 `config/tiingo-2026.example.json` 與 P10 `config/tw-etf-2025.example.json` 均附來源及有效期間；超界拒絕、不外推歷年。P06 不可變 calendar 與 P08 日線契約沿用；0050 停牌另以 instrument suspension 保存 | 臨時休市須更新證據並建立新版本；未提供盤中 session |
 | ETF 交易日年化／配息／分割語意 | 已實作（P08 純核心） | `etf-semantics-v1`／`etf-metrics-v1`：應收／付款、分割、因果訊號調整、原幣成本及實際期間 CAGR，55 個共用案例。舊 `barsPerYear('1d') = 365` 保留 | 真實來源 P09／P10、成交接線 P18；見 `etf-semantics-v1.md` |
 | 多年 BTC／ETH 完整性 | **部分已驗證（僅實測區間）** | P07 實測：BTC／ETH 1h **2025 全年各 8760／8760 根**、BTC 2026-09-01→21 **462／463**（1 根未到期）。**未宣稱多年完整**：2017-07→09 的實測顯示上市前 1132 根被如實報為缺漏並拒絕區間。AlphaBTC 的精度反例仍待 P12 | 更長區間：逐次執行並看 `rangeCoverage` |
 
@@ -117,4 +117,5 @@
   Codex 子命令為 experimental。P15 以一次有界真實生成解除或維持阻擋；不得改為付費
   API 或 GUI 點擊自動化。
 - US ETF 接線（P09）已實作；真實下載／免費權限／付款日驗收在使用者配置 Tiingo OS 認證前仍為阻擋，不以 fixtures 取代。
+- TW ETF 接線（P10）已完成真實公開來源小範圍驗證；成本設定仍待 operator 依實際券商確認，且本次不代表全年／多年完整。
 - 本次未啟動研究、未匯入正式資料、未新增程式／migration／依賴。

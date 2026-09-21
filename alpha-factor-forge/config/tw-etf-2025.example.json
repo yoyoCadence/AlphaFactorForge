@@ -1,0 +1,207 @@
+{
+  "version": "tw-etf-settings-v1",
+  "instruments": [
+    {
+      "market": {
+        "instrumentId": "tw-etf:twse:0050",
+        "currency": "TWD",
+        "calendar":{"calendarId":"twse-2025-v1","kind":"trading-days","timezone":"Asia/Taipei","tradingWeekdays":[1,2,3,4,5],"holidays":["2025-01-01","2025-01-23","2025-01-24","2025-01-27","2025-01-28","2025-01-29","2025-01-30","2025-01-31","2025-02-28","2025-04-03","2025-04-04","2025-05-01","2025-05-30","2025-09-29","2025-10-06","2025-10-10","2025-10-24","2025-12-25"],"earlyCloses":[]},
+        "calendarFrom": "2025-01-01",
+        "calendarToExclusive": "2026-01-01",
+        "sessionsPerYear": 243
+      },
+      "listedFrom": "2003-06-30",
+      "listingEvidence": "https://isin.twse.com.tw/isin/e_single_main.jsp (TWSE ISIN listing table; checked 2026-09-21)",
+      "calendarEvidence": "https://www.twse.com.tw/rwd/zh/holidaySchedule/holidaySchedule?response=json&date=2025 (checked 2026-09-21)",
+      "suspensions": [
+        {
+          "from": "2025-06-11",
+          "toExclusive": "2025-06-18",
+          "evidence": "https://www.twse.com.tw/zh/ETFortune/announcement?company=A00005&date=20250612&fund=0050&seq=3&type=all"
+        }
+      ],
+      "confirmedDividends": [
+        {
+          "exDate": "2025-01-17",
+          "paymentDate": "2025-02-20",
+          "amountPerShare": 2.7,
+          "evidence": "https://www.twse.com.tw/zh/ETFortune-institute/dividendList?startDate=2025&endDate=2025&stkNo=0050"
+        },
+        {
+          "exDate": "2025-07-21",
+          "paymentDate": "2025-08-08",
+          "amountPerShare": 0.36,
+          "evidence": "https://www.twse.com.tw/zh/ETFortune-institute/dividendList?startDate=2025&endDate=2025&stkNo=0050"
+        }
+      ],
+      "confirmedSplits": [
+        {
+          "effectiveDate": "2025-06-18",
+          "ratio": 4,
+          "evidence": "https://www.twse.com.tw/zh/ETFortune/announcement?company=A00005&date=20250612&fund=0050&seq=3&type=all"
+        }
+      ],
+      "corporateActionsConfirmed": true,
+      "actionEvidence": "https://www.twse.com.tw/zh/ETFortune-institute/dividendList?startDate=2025&endDate=2025&stkNo=0050 (2025; checked 2026-09-21)",
+      "costs": null
+    },
+    {
+      "market": {
+        "instrumentId": "tw-etf:twse:006208",
+        "currency": "TWD",
+        "calendar":{"calendarId":"twse-2025-v1","kind":"trading-days","timezone":"Asia/Taipei","tradingWeekdays":[1,2,3,4,5],"holidays":["2025-01-01","2025-01-23","2025-01-24","2025-01-27","2025-01-28","2025-01-29","2025-01-30","2025-01-31","2025-02-28","2025-04-03","2025-04-04","2025-05-01","2025-05-30","2025-09-29","2025-10-06","2025-10-10","2025-10-24","2025-12-25"],"earlyCloses":[]},
+        "calendarFrom": "2025-01-01",
+        "calendarToExclusive": "2026-01-01",
+        "sessionsPerYear": 243
+      },
+      "listedFrom": "2012-07-17",
+      "listingEvidence": "https://isin.twse.com.tw/isin/e_single_main.jsp (TWSE ISIN listing table; checked 2026-09-21)",
+      "calendarEvidence": "https://www.twse.com.tw/rwd/zh/holidaySchedule/holidaySchedule?response=json&date=2025 (checked 2026-09-21)",
+      "suspensions": [],
+      "confirmedDividends": [
+        {
+          "exDate": "2025-07-16",
+          "paymentDate": "2025-08-08",
+          "amountPerShare": 0.989,
+          "evidence": "https://www.twse.com.tw/zh/ETFortune-institute/dividendList?startDate=2025&endDate=2025&stkNo=006208"
+        },
+        {
+          "exDate": "2025-11-18",
+          "paymentDate": "2025-12-11",
+          "amountPerShare": 3.448,
+          "evidence": "https://www.twse.com.tw/zh/ETFortune-institute/dividendList?startDate=2025&endDate=2025&stkNo=006208"
+        }
+      ],
+      "confirmedSplits": [],
+      "corporateActionsConfirmed": true,
+      "actionEvidence": "https://www.twse.com.tw/zh/ETFortune-institute/dividendList?startDate=2025&endDate=2025&stkNo=006208 (2025; checked 2026-09-21)",
+      "costs": null
+    },
+    {
+      "market": {
+        "instrumentId": "tw-etf:twse:0056",
+        "currency": "TWD",
+        "calendar":{"calendarId":"twse-2025-v1","kind":"trading-days","timezone":"Asia/Taipei","tradingWeekdays":[1,2,3,4,5],"holidays":["2025-01-01","2025-01-23","2025-01-24","2025-01-27","2025-01-28","2025-01-29","2025-01-30","2025-01-31","2025-02-28","2025-04-03","2025-04-04","2025-05-01","2025-05-30","2025-09-29","2025-10-06","2025-10-10","2025-10-24","2025-12-25"],"earlyCloses":[]},
+        "calendarFrom": "2025-01-01",
+        "calendarToExclusive": "2026-01-01",
+        "sessionsPerYear": 243
+      },
+      "listedFrom": "2007-12-26",
+      "listingEvidence": "https://isin.twse.com.tw/isin/e_single_main.jsp (TWSE ISIN listing table; checked 2026-09-21)",
+      "calendarEvidence": "https://www.twse.com.tw/rwd/zh/holidaySchedule/holidaySchedule?response=json&date=2025 (checked 2026-09-21)",
+      "suspensions": [],
+      "confirmedDividends": [
+        {
+          "exDate": "2025-04-23",
+          "paymentDate": "2025-05-14",
+          "amountPerShare": 1.07,
+          "evidence": "https://www.twse.com.tw/zh/ETFortune-institute/dividendList?startDate=2025&endDate=2025&stkNo=0056"
+        },
+        {
+          "exDate": "2025-07-21",
+          "paymentDate": "2025-08-08",
+          "amountPerShare": 0.866,
+          "evidence": "https://www.twse.com.tw/zh/ETFortune-institute/dividendList?startDate=2025&endDate=2025&stkNo=0056"
+        },
+        {
+          "exDate": "2025-10-23",
+          "paymentDate": "2025-11-14",
+          "amountPerShare": 0.866,
+          "evidence": "https://www.twse.com.tw/zh/ETFortune-institute/dividendList?startDate=2025&endDate=2025&stkNo=0056"
+        }
+      ],
+      "confirmedSplits": [],
+      "corporateActionsConfirmed": true,
+      "actionEvidence": "https://www.twse.com.tw/zh/ETFortune-institute/dividendList?startDate=2025&endDate=2025&stkNo=0056 (2025; checked 2026-09-21)",
+      "costs": null
+    },
+    {
+      "market": {
+        "instrumentId": "tw-etf:twse:00878",
+        "currency": "TWD",
+        "calendar":{"calendarId":"twse-2025-v1","kind":"trading-days","timezone":"Asia/Taipei","tradingWeekdays":[1,2,3,4,5],"holidays":["2025-01-01","2025-01-23","2025-01-24","2025-01-27","2025-01-28","2025-01-29","2025-01-30","2025-01-31","2025-02-28","2025-04-03","2025-04-04","2025-05-01","2025-05-30","2025-09-29","2025-10-06","2025-10-10","2025-10-24","2025-12-25"],"earlyCloses":[]},
+        "calendarFrom": "2025-01-01",
+        "calendarToExclusive": "2026-01-01",
+        "sessionsPerYear": 243
+      },
+      "listedFrom": "2020-07-20",
+      "listingEvidence": "https://isin.twse.com.tw/isin/e_single_main.jsp (TWSE ISIN listing table; checked 2026-09-21)",
+      "calendarEvidence": "https://www.twse.com.tw/rwd/zh/holidaySchedule/holidaySchedule?response=json&date=2025 (checked 2026-09-21)",
+      "suspensions": [],
+      "confirmedDividends": [
+        {
+          "exDate": "2025-02-20",
+          "paymentDate": "2025-03-18",
+          "amountPerShare": 0.5,
+          "evidence": "https://www.twse.com.tw/zh/ETFortune-institute/dividendList?startDate=2025&endDate=2025&stkNo=00878"
+        },
+        {
+          "exDate": "2025-05-19",
+          "paymentDate": "2025-06-13",
+          "amountPerShare": 0.47,
+          "evidence": "https://www.twse.com.tw/zh/ETFortune-institute/dividendList?startDate=2025&endDate=2025&stkNo=00878"
+        },
+        {
+          "exDate": "2025-08-18",
+          "paymentDate": "2025-09-11",
+          "amountPerShare": 0.4,
+          "evidence": "https://www.twse.com.tw/zh/ETFortune-institute/dividendList?startDate=2025&endDate=2025&stkNo=00878"
+        },
+        {
+          "exDate": "2025-11-18",
+          "paymentDate": "2025-12-12",
+          "amountPerShare": 0.4,
+          "evidence": "https://www.twse.com.tw/zh/ETFortune-institute/dividendList?startDate=2025&endDate=2025&stkNo=00878"
+        }
+      ],
+      "confirmedSplits": [],
+      "corporateActionsConfirmed": true,
+      "actionEvidence": "https://www.twse.com.tw/zh/ETFortune-institute/dividendList?startDate=2025&endDate=2025&stkNo=00878 (2025; checked 2026-09-21)",
+      "costs": null
+    },
+    {
+      "market": {
+        "instrumentId": "tw-etf:twse:00713",
+        "currency": "TWD",
+        "calendar":{"calendarId":"twse-2025-v1","kind":"trading-days","timezone":"Asia/Taipei","tradingWeekdays":[1,2,3,4,5],"holidays":["2025-01-01","2025-01-23","2025-01-24","2025-01-27","2025-01-28","2025-01-29","2025-01-30","2025-01-31","2025-02-28","2025-04-03","2025-04-04","2025-05-01","2025-05-30","2025-09-29","2025-10-06","2025-10-10","2025-10-24","2025-12-25"],"earlyCloses":[]},
+        "calendarFrom": "2025-01-01",
+        "calendarToExclusive": "2026-01-01",
+        "sessionsPerYear": 243
+      },
+      "listedFrom": "2017-09-27",
+      "listingEvidence": "https://isin.twse.com.tw/isin/e_single_main.jsp (TWSE ISIN listing table; checked 2026-09-21)",
+      "calendarEvidence": "https://www.twse.com.tw/rwd/zh/holidaySchedule/holidaySchedule?response=json&date=2025 (checked 2026-09-21)",
+      "suspensions": [],
+      "confirmedDividends": [
+        {
+          "exDate": "2025-03-21",
+          "paymentDate": "2025-04-15",
+          "amountPerShare": 1.4,
+          "evidence": "https://www.twse.com.tw/zh/ETFortune-institute/dividendList?startDate=2025&endDate=2025&stkNo=00713"
+        },
+        {
+          "exDate": "2025-06-20",
+          "paymentDate": "2025-07-11",
+          "amountPerShare": 1.1,
+          "evidence": "https://www.twse.com.tw/zh/ETFortune-institute/dividendList?startDate=2025&endDate=2025&stkNo=00713"
+        },
+        {
+          "exDate": "2025-09-19",
+          "paymentDate": "2025-10-15",
+          "amountPerShare": 0.78,
+          "evidence": "https://www.twse.com.tw/zh/ETFortune-institute/dividendList?startDate=2025&endDate=2025&stkNo=00713"
+        },
+        {
+          "exDate": "2025-12-19",
+          "paymentDate": "2026-01-12",
+          "amountPerShare": 0.78,
+          "evidence": "https://www.twse.com.tw/zh/ETFortune-institute/dividendList?startDate=2025&endDate=2025&stkNo=00713"
+        }
+      ],
+      "confirmedSplits": [],
+      "corporateActionsConfirmed": true,
+      "actionEvidence": "https://www.twse.com.tw/zh/ETFortune-institute/dividendList?startDate=2025&endDate=2025&stkNo=00713 (2025; checked 2026-09-21)",
+      "costs": null
+    }
+  ]
+}

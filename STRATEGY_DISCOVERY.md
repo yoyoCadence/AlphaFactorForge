@@ -167,9 +167,11 @@ AI 與生成器都只輸出這種結構：
 - **平行度**：backend 依 CPU 核心數開 worker thread pool 跑回測，與前端完全解耦。
 - **K 線快取**：同（幣種×時間框×區段）只讀一次，backend 內共享，後續策略複用。
 
-### 宿主、所有權與命令契約（P02–P09，2026-09-17／18／19／20／21 補充）
+### 宿主、所有權與命令契約（P02–P10，2026-09-17／18／19／20／21 補充）
 
 - **US ETF adapter（P09）**：`market/sources/tiingo.rs` 解析 metadata、原始／調整日線及 distribution；`market/tiingo_ingest.rs` 沿用 ownership、P06 原件／修訂／snapshot 與 P08 配息／成本判定。CLI `fetch-tiingo` 使用非秘密來源設定與 Windows Credential Manager，逐檔報告來源權限、完整請求涵蓋、公司事件核對及付款日期，原始價才進 dataset。沒有新 schema、前端秘密、排程或引擎切換。設定範本限 2026 calendar、預設不確認成本／事件完整性；真實帳戶驗收仍待 token。詳見 [`docs/market-source-tiingo-v1.md`](docs/market-source-tiingo-v1.md)。
+
+- **台灣 ETF adapter（P10）**：`market/sources/finmind.rs` 僅接受 FinMind `TaiwanStockPrice` raw 日線；`market/sources/twse.rs` 把 TWSE 月行情民國日期轉為 ISO 日期，逐欄核對 OHLC、漲跌、成交股數／金額／筆數，但 comparison 絕不補 primary。`market/tw_etf_ingest.rs` 透過 `fetch-tw-etf` 核對交易日、停牌、配息付款及分割，保留原件／修訂並建立 TWD raw snapshot。2025 範例覆蓋五檔；真實 smoke 驗證 0050 4:1 分割／停牌與 00713 配息，成本未確認所以五檔維持 degraded。無新 schema、依賴、UI、scheduler 或引擎切換。詳見 [`docs/market-source-tw-etf-v1.md`](docs/market-source-tw-etf-v1.md)。
 
 - **ETF 日線語意（P08）**：新增純 TS／Rust `etf-semantics-v1`、`etf-metrics-v1`；沿用 P06 calendar，拒絕超出日曆涵蓋範圍；股息除息日記應收、付款日才轉現金，分割同步調整股數及未成交訂單。訊號只使用已生效且已觀測的分割；成本與公司事件未確認維持 degraded。新 CAGR 依實際時間、風險指標依明示交易日頻率，舊 `metrics-v2` 不變。詳見 [`docs/etf-semantics-v1.md`](docs/etf-semantics-v1.md)。這是 P09／P10、P18 的共用計算原語，未接入舊 runner、UI 或 paper。
 > 詳細規則見 [`docs/research-runtime-contract.md`](docs/research-runtime-contract.md)；本節只記結論。

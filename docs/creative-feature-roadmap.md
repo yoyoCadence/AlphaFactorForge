@@ -9,7 +9,9 @@
 > 詳見 [`etf-semantics-v1.md`](etf-semantics-v1.md)。
 > 2026-09-21：**P09 Tiingo US ETF adapter 已實作**，來源設定、原件／修訂、五檔資格報告與阻擋測試已具備；
 > 真實認證下載驗收待帳戶 token，不能宣稱多年資料完整。見 [`market-source-tiingo-v1.md`](market-source-tiingo-v1.md)。
-> P10 台股來源與成交／paper（P18+）仍未交付；本次不啟動後續 phase。
+> 2026-09-21：**P10 FinMind／TWSE 台灣 ETF adapter 已完成**；五檔 raw 日線、TWSE 月行情核對、
+> 2025 calendar、配息／付款、0050 分割與停牌均有可重現證據。真實 12 日 smoke 全部完成，僅成本未確認而 degraded；
+> 見 [`market-source-tw-etf-v1.md`](market-source-tw-etf-v1.md)。成交／paper（P18+）仍未交付；本次不啟動 P11+。
 
 ---
 
