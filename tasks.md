@@ -6,6 +6,8 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Current Snapshot
 
+- P10 publication: implementation commit `9cbf0ee` was pushed to `feat/p10-finmind-tw-etf-adapter` and published as Chinese draft [PR #113](https://github.com/yoyoCadence/AlphaFactorForge/pull/113) on 2026-09-21. Base/head and Draft/Not ready state were verified; six CI lanes started at creation. The PR remains unmerged for reviewer/owner action.
+
 - **P10 FinMind/TWSE TW ETF adapter completed locally (2026-09-21)**: bounded `fetch-tw-etf` CLI for 0050/006208/0056/00878/00713, FinMind raw OHLCV primary, independent TWSE monthly-quote comparison, 2025 trading calendar, dividends/payment dates, 0050 4:1 split and suspension evidence, immutable originals/revisions/reports and P06 snapshots. Real public-source smoke for 2025-06-09..21 produced complete requested coverage for all five symbols (0050 5/5; the others 10/10); all snapshots intentionally remain degraded only because operator costs are unconfirmed. **969 Vitest / 366 Rust (71 + 293 + 2) / 78 Playwright**, typecheck/build/check pass; clippy has only the 5 existing warnings. No schema, dependency, engine or UI change. [Contract](docs/market-source-tw-etf-v1.md), [handoff](handoffs/2026-09-21-p10-tw-etf-v1.md).
 
 - P09 publication: implementation commit `8ed8f80` and review record `1d1ca34` were merged through Chinese [PR #111](https://github.com/yoyoCadence/AlphaFactorForge/pull/111) as `396ee56` on 2026-09-21; all six CI lanes passed. This remote merge does not complete the separate authenticated-source acceptance: live Tiingo entitlement, coverage and payment-date evidence still await the operator token.
