@@ -6,7 +6,8 @@ Reviewed: PR [#111](https://github.com/yoyoCadence/AlphaFactorForge/pull/111)，
 implementation head `8ed8f80`（base main `4e48343`）
 Reviewer: Claude Code（獨立驗收，未修改產品程式碼）
 Status: **程式與本機驗收通過**。無 P1／P2 defect；四項為觀察事項，不阻擋合併。
-**維持 draft、不 merge**：P09 的真實帳戶外部驗收仍未完成（見「尚未證明的部分」）。
+審查當時建議**維持 draft、不 merge**；PR #111 其後已由維護者合併為 `396ee56`（見文末 Resolution）。
+P09 的真實帳戶外部驗收仍未完成，於 `tasks.md` 維持 In Progress。
 
 ## 結論
 
@@ -125,3 +126,6 @@ tasks.md／roadmap／README／CHANGELOG／market-contract／active-plan 皆已�
 - 合併 revision 的 GitHub CI 六項皆成功：typecheck、test、build、cargo-check、native-smoke、e2e。
 - 合併後再次執行原生 `tiingo-status` 仍為 `credential_missing`（exit 5）。所以本文件原列的
   真實帳戶、免費權限、付款日與涵蓋率限制仍然成立；P09 外部驗收維持 In Progress，P10 未啟動。
+- PR [#112](https://github.com/yoyoCadence/AlphaFactorForge/pull/112)（docs-only 同步）驗收：上列合併時間、merge commit、六項 CI 與
+  合併後 `tiingo-status` 皆經獨立複核相符；依 `handoffs/README.md` 生命週期一併更新本文件的 Status 行，
+  原審查結論與內文不變。
