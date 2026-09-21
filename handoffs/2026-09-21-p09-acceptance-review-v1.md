@@ -117,3 +117,11 @@ tasks.md／roadmap／README／CHANGELOG／market-contract／active-plan 皆已�
 3. 403 或缺付款日是**誠實的 degraded 結果**，不是升級方案或把 `corporateActionsConfirmed`
    改成 true 的理由。
 4. 外部驗收完成後才把 P09 移到 Done，並由使用者決定 PR #111 的合併時機。P10 未獲授權。
+
+## Resolution：遠端後續狀態（2026-09-21）
+
+- 後續 fetch 證實 PR #111 已由外部操作於 `2026-09-21T11:35:08Z` 合併，merge commit 為
+  `396ee568d88af3516d7bb73c6f30658165ea0488`；記錄此 Resolution 的 agent 未執行 merge。
+- 合併 revision 的 GitHub CI 六項皆成功：typecheck、test、build、cargo-check、native-smoke、e2e。
+- 合併後再次執行原生 `tiingo-status` 仍為 `credential_missing`（exit 5）。所以本文件原列的
+  真實帳戶、免費權限、付款日與涵蓋率限制仍然成立；P09 外部驗收維持 In Progress，P10 未啟動。
