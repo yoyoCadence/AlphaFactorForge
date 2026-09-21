@@ -133,6 +133,7 @@ pub struct UreqFetcher {
     agent: ureq::Agent,
     limits: FetchLimits,
     allowed_hosts: Vec<String>,
+    tiingo_token: Option<super::tiingo_credentials::TiingoToken>,
 }
 
 impl UreqFetcher {
@@ -146,7 +147,7 @@ impl UreqFetcher {
             .user_agent(USER_AGENT)
             .build()
             .new_agent();
-        Self { agent, limits, allowed_hosts }
+        Self { agent, limits, allowed_hosts, tiingo_token: None }
     }
 
     /// The default limits, for the two Binance hosts.
@@ -157,8 +158,23 @@ impl UreqFetcher {
         )
     }
 
+    pub fn for_tiingo(token: super::tiingo_credentials::TiingoToken) -> Self {
+        let mut fetcher = Self::new(FetchLimits {
+            timeout: Duration::from_secs(30), max_bytes: 8 * 1024 * 1024,
+            // An entitlement or quota failure must be visible, not multiplied
+            // across the five-symbol batch. Operator may retry later.
+            attempts: 1, backoff: Duration::ZERO,
+        }, vec!["api.tiingo.com".into()]);
+        fetcher.tiingo_token = Some(token);
+        fetcher
+    }
+
     fn attempt(&self, url: &str) -> Result<Vec<u8>, FetchError> {
-        match self.agent.get(url).call() {
+        let request = self.agent.get(url);
+        let request = if let Some(token) = &self.tiingo_token {
+            request.header("Authorization", token.header())
+        } else { request };
+        match request.call() {
             Ok(mut response) => response
                 .body_mut()
                 .with_config()
@@ -171,7 +187,7 @@ impl UreqFetcher {
                     other => FetchError::Transport {
                         url: url.to_string(),
                         attempts: 1,
-                        message: other.to_string(),
+                        message: if self.tiingo_token.is_some() { "authenticated response read failed".into() } else { other.to_string() },
                     },
                 }),
             Err(ureq::Error::StatusCode(404)) => Err(FetchError::NotFound(url.to_string())),
@@ -185,7 +201,7 @@ impl UreqFetcher {
             Err(other) => Err(FetchError::Transport {
                 url: url.to_string(),
                 attempts: 1,
-                message: other.to_string(),
+                message: if self.tiingo_token.is_some() { "authenticated transport failed".into() } else { other.to_string() },
             }),
         }
     }

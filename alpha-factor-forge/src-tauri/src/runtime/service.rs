@@ -76,6 +76,10 @@ USAGE:
   alpha-factor-forge-service [run]    [--data-dir <dir>]
   alpha-factor-forge-service stop     [--data-dir <dir>]
   alpha-factor-forge-service status   [--data-dir <dir>]
+  alpha-factor-forge-service tiingo-status
+  alpha-factor-forge-service fetch-tiingo --settings <json-file>
+                                      --from <YYYY-MM-DD> --to <YYYY-MM-DD>
+                                      [--data-dir <dir>]
   alpha-factor-forge-service fetch    --instrument <id> --interval <interval>
                                       --from <YYYY-MM-DD> --to <YYYY-MM-DD>
                                       [--no-rest] [--cost-profile <version>]
@@ -95,6 +99,10 @@ USAGE:
   --no-rest       Archive files only; do not ask the REST source for the tail
   --cost-profile  The confirmed cost model; without it a snapshot is degraded
   --json          Print the full report as JSON instead of a summary
+  fetch-tiingo    Report SPY/QQQ/VTI/TLT/GLD individually as JSON; bounded to
+                  366 completed daily dates. Uses Windows Credential Manager.
+                  See docs/market-source-tiingo-v1.md for source settings.
+  tiingo-status   Report credential availability only (never its value).
   --data-dir      The workspace directory (database, lock, endpoint files).
                   Default: the desktop's app data directory.
 
@@ -105,6 +113,8 @@ EXIT CODES:
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Cli {
+    TiingoStatus,
+    FetchTiingo(crate::market::tiingo_ingest::Options),
     Run { data_dir: Option<PathBuf> },
     Stop { data_dir: Option<PathBuf> },
     Status { data_dir: Option<PathBuf> },
@@ -118,6 +128,10 @@ pub enum Cli {
 /// `--flag=value`, and an option that belongs to another subcommand is an
 /// error rather than something silently ignored.
 pub fn parse_args<S: AsRef<str>>(args: &[S]) -> Result<Cli, String> {
+    if args.first().is_some_and(|a| a.as_ref() == "fetch-tiingo") {
+        return crate::market::tiingo_ingest::parse_args(&args[1..]).map(Cli::FetchTiingo);
+    }
+    if args.len() == 1 && args[0].as_ref() == "tiingo-status" { return Ok(Cli::TiingoStatus); }
     let args: Vec<&str> = args.iter().map(AsRef::as_ref).collect();
     let mut subcommand: Option<&str> = None;
     let mut data_dir: Option<PathBuf> = None;
@@ -512,6 +526,17 @@ pub fn main(args: Vec<String>) -> i32 {
         }
     };
     let outcome: Result<i32, ServiceError> = match cli {
+        Cli::TiingoStatus => {
+            match crate::market::tiingo_credentials::read() {
+                Ok(_) => { println!("{{\"configured\":true}}"); Ok(EXIT_OK) },
+                Err(code) => { println!("{}",json!({"configured":false,"reason":code})); Ok(EXIT_RANGE_UNUSABLE) },
+            }
+        }
+        Cli::FetchTiingo(options) => resolve_data_dir(options.data_dir.clone()).and_then(|dir| {
+            let reports = crate::market::tiingo_ingest::run(&dir,&options).map_err(ServiceError::from)?;
+            println!("{}",serde_json::to_string_pretty(&reports).map_err(|_| ServiceError::Other("report encoding failed".into()))?);
+            Ok(if reports.iter().all(|r| r.qualification_eligible) { EXIT_OK } else { EXIT_RANGE_UNUSABLE })
+        }),
         Cli::Help => {
             println!("{USAGE}");
             Ok(EXIT_OK)

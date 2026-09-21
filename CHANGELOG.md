@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added P09 Tiingo US ETF source ingestion: Windows Credential Manager authentication, bounded daily CLI retrieval, per-symbol eligibility for SPY/QQQ/VTI/TLT/GLD, immutable raw/adjusted/company-event originals and revisions, complete-range audits and payment-date reconciliation. Missing entitlements, payment dates or confirmed costs cannot qualify. Reuses P06/P08 without a migration or legacy engine change. Authenticated live acceptance awaits the operator's token; see `docs/market-source-tiingo-v1.md`.
+
 - Added P08 opt-in daily ETF semantics in both pure cores: bounded session calendars, native-currency cost estimates, dividend receivables/payment, split-adjusted positions/orders and causal signal views, plus elapsed-time CAGR with explicit session-frequency annualization (`etf-metrics-v1`). Unknown company events/payment dates and unconfirmed costs remain degraded. Fifty-five shared specification cases cover normal/rejection flows and equity conservation. Legacy backtests, metrics, database and dependencies are unchanged; real ETF providers and execution integration remain later phases. See `docs/etf-semantics-v1.md`.
 
 - Fixed P07 acceptance findings: Binance archive availability now uses the actual completed response time, and legacy period-based guesses cannot qualify forward-observed snapshots, including through existing-snapshot readers. Original CHECKSUM responses are stored and linked to accepted/rejected ZIP attempts; successful retries preserve earlier failures, and cache reuse replays checksum verification. Old incomplete evidence triggers a fresh retrieval while immutable historical records remain intact.

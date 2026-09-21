@@ -6,7 +6,10 @@
 
 > 2026-09-20 交付更新：持續研究主線依 [`plans/active-plan.md`](plans/active-plan.md)，狀態以 `../tasks.md` 為準。
 > **P08 ETF 日線市場語意已完成**：版本化年化、配息應收／付款、分割、原幣與成本純契約及 TS／Rust parity；
-> 詳見 [`etf-semantics-v1.md`](etf-semantics-v1.md)。真實 ETF adapters（P09／P10）及成交／paper（P18+）仍未交付。
+> 詳見 [`etf-semantics-v1.md`](etf-semantics-v1.md)。
+> 2026-09-21：**P09 Tiingo US ETF adapter 已實作**，來源設定、原件／修訂、五檔資格報告與阻擋測試已具備；
+> 真實認證下載驗收待帳戶 token，不能宣稱多年資料完整。見 [`market-source-tiingo-v1.md`](market-source-tiingo-v1.md)。
+> P10 台股來源與成交／paper（P18+）仍未交付；本次不啟動後續 phase。
 
 ---
 

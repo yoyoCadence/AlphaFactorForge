@@ -60,5 +60,10 @@ flate2 = "1.1"
 # by default Tauri uses custom-protocol on release builds
 custom-protocol = ["tauri/custom-protocol"]
 
+# P09: read the operator's Tiingo generic credential from Windows Credential
+# Manager. Already locked transitively; no plaintext credential file or DB.
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "=0.61.2", features = ["Win32_Security_Credentials", "Win32_Foundation"] }
+
 [target.'cfg(any(target_os = "macos", windows, target_os = "linux"))'.dependencies]
 tauri-plugin-single-instance = "2.4.3"

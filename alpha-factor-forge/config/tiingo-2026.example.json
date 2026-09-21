@@ -1,0 +1,220 @@
+{
+  "version": "tiingo-settings-v1",
+  "instruments": [
+    {
+      "market": {
+        "instrumentId": "us-etf:nyse-arca:SPY",
+        "currency": "USD",
+        "calendar": {
+          "calendarId": "nyse-arca-2026-v1",
+          "kind": "trading-days",
+          "timezone": "America/New_York",
+          "tradingWeekdays": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "holidays": [
+            "2026-01-01",
+            "2026-01-19",
+            "2026-02-16",
+            "2026-04-03",
+            "2026-05-25",
+            "2026-06-19",
+            "2026-07-03",
+            "2026-09-07",
+            "2026-11-26",
+            "2026-12-25"
+          ],
+          "earlyCloses": [
+            "2026-11-27",
+            "2026-12-24"
+          ]
+        },
+        "calendarFrom": "2026-01-01",
+        "calendarToExclusive": "2027-01-01",
+        "sessionsPerYear": 252
+      },
+      "exchangeCode": "NYSE ARCA",
+      "listedFrom": "1993-01-22",
+      "listingEvidence": "https://www.ssga.com/us/en/institutional/etfs/state-street-spdr-sp-500-etf-trust-spy",
+      "calendarEvidence": "https://www.nyse.com/trade/hours-calendars (2026; checked 2026-09-21)",
+      "corporateActionsConfirmed": false,
+      "costs": null
+    },
+    {
+      "market": {
+        "instrumentId": "us-etf:nasdaq:QQQ",
+        "currency": "USD",
+        "calendar": {
+          "calendarId": "nasdaq-2026-v1",
+          "kind": "trading-days",
+          "timezone": "America/New_York",
+          "tradingWeekdays": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "holidays": [
+            "2026-01-01",
+            "2026-01-19",
+            "2026-02-16",
+            "2026-04-03",
+            "2026-05-25",
+            "2026-06-19",
+            "2026-07-03",
+            "2026-09-07",
+            "2026-11-26",
+            "2026-12-25"
+          ],
+          "earlyCloses": [
+            "2026-11-27",
+            "2026-12-24"
+          ]
+        },
+        "calendarFrom": "2026-01-01",
+        "calendarToExclusive": "2027-01-01",
+        "sessionsPerYear": 252
+      },
+      "exchangeCode": "NASDAQ",
+      "listedFrom": "1999-03-10",
+      "listingEvidence": "https://www.invesco.com/us/financial-products/etfs/product-detail?productId=QQQ&ticker=QQQ",
+      "calendarEvidence": "https://www.nasdaqtrader.com/Trader.aspx?id=Calendar (2026; checked 2026-09-21)",
+      "corporateActionsConfirmed": false,
+      "costs": null
+    },
+    {
+      "market": {
+        "instrumentId": "us-etf:nyse-arca:VTI",
+        "currency": "USD",
+        "calendar": {
+          "calendarId": "nyse-arca-2026-v1",
+          "kind": "trading-days",
+          "timezone": "America/New_York",
+          "tradingWeekdays": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "holidays": [
+            "2026-01-01",
+            "2026-01-19",
+            "2026-02-16",
+            "2026-04-03",
+            "2026-05-25",
+            "2026-06-19",
+            "2026-07-03",
+            "2026-09-07",
+            "2026-11-26",
+            "2026-12-25"
+          ],
+          "earlyCloses": [
+            "2026-11-27",
+            "2026-12-24"
+          ]
+        },
+        "calendarFrom": "2026-01-01",
+        "calendarToExclusive": "2027-01-01",
+        "sessionsPerYear": 252
+      },
+      "exchangeCode": "NYSE ARCA",
+      "listedFrom": "2001-05-24",
+      "listingEvidence": "https://advisors.vanguard.com/investments/products/vti/vanguard-total-stock-market-etf",
+      "calendarEvidence": "https://www.nyse.com/trade/hours-calendars (2026; checked 2026-09-21)",
+      "corporateActionsConfirmed": false,
+      "costs": null
+    },
+    {
+      "market": {
+        "instrumentId": "us-etf:nasdaq:TLT",
+        "currency": "USD",
+        "calendar": {
+          "calendarId": "nasdaq-2026-v1",
+          "kind": "trading-days",
+          "timezone": "America/New_York",
+          "tradingWeekdays": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "holidays": [
+            "2026-01-01",
+            "2026-01-19",
+            "2026-02-16",
+            "2026-04-03",
+            "2026-05-25",
+            "2026-06-19",
+            "2026-07-03",
+            "2026-09-07",
+            "2026-11-26",
+            "2026-12-25"
+          ],
+          "earlyCloses": [
+            "2026-11-27",
+            "2026-12-24"
+          ]
+        },
+        "calendarFrom": "2026-01-01",
+        "calendarToExclusive": "2027-01-01",
+        "sessionsPerYear": 252
+      },
+      "exchangeCode": "NASDAQ",
+      "listedFrom": "2002-07-22",
+      "listingEvidence": "https://www.ishares.com/us/products/239454/ishares-20-year-treasury-bond-etf",
+      "calendarEvidence": "https://www.nasdaqtrader.com/Trader.aspx?id=Calendar (2026; checked 2026-09-21)",
+      "corporateActionsConfirmed": false,
+      "costs": null
+    },
+    {
+      "market": {
+        "instrumentId": "us-etf:nyse-arca:GLD",
+        "currency": "USD",
+        "calendar": {
+          "calendarId": "nyse-arca-2026-v1",
+          "kind": "trading-days",
+          "timezone": "America/New_York",
+          "tradingWeekdays": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "holidays": [
+            "2026-01-01",
+            "2026-01-19",
+            "2026-02-16",
+            "2026-04-03",
+            "2026-05-25",
+            "2026-06-19",
+            "2026-07-03",
+            "2026-09-07",
+            "2026-11-26",
+            "2026-12-25"
+          ],
+          "earlyCloses": [
+            "2026-11-27",
+            "2026-12-24"
+          ]
+        },
+        "calendarFrom": "2026-01-01",
+        "calendarToExclusive": "2027-01-01",
+        "sessionsPerYear": 252
+      },
+      "exchangeCode": "NYSE ARCA",
+      "listedFrom": "2004-11-18",
+      "listingEvidence": "https://www.ssga.com/us/en/institutional/etfs/spdr-gold-shares-gld",
+      "calendarEvidence": "https://www.nyse.com/trade/hours-calendars (2026; checked 2026-09-21)",
+      "corporateActionsConfirmed": false,
+      "costs": null
+    }
+  ]
+}
