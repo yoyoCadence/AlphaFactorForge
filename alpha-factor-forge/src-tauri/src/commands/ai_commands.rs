@@ -19,10 +19,10 @@ pub fn generate_strategy_dsl(_prompt_context: serde_json::Value) -> AppResult<se
 }
 
 /// Server-side re-validation of a DSL using the SAME whitelist rules as the
-/// frontend core validator (defense in depth). Phase C.
+/// frontend core validator. This command does not persist or queue anything;
+/// the runner independently repeats the same validation at admission.
 #[tauri::command]
-pub fn validate_strategy_dsl(_dsl: serde_json::Value) -> AppResult<serde_json::Value> {
-    Err(AppError::NotImplemented(
-        "validate_strategy_dsl: Phase C. Mirror src/core/strategy-dsl/validator.ts (TODO.md).",
-    ))
+pub fn validate_strategy_dsl(dsl: serde_json::Value) -> AppResult<serde_json::Value> {
+    serde_json::to_value(alpha_factor_forge::discovery_core::dsl::validate_strategy_dsl(&dsl))
+        .map_err(AppError::from)
 }

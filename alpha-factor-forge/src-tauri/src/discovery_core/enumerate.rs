@@ -13,9 +13,7 @@ use std::collections::BTreeMap;
 use serde::Serialize;
 use serde_json::{Map, Number, Value};
 
-use super::config::{
-    axis_values, ConfigError, DiscoveryBase, ResolvedDiscoveryConfig, DISCOVERY_ENUMERATION_VERSION,
-};
+use super::config::{axis_values, ConfigError, DiscoveryBase, ResolvedDiscoveryConfig};
 use super::identity::strategy_hash;
 use super::seed::{derive_discovery_seed, DeriveSeedArgs};
 
@@ -98,6 +96,9 @@ fn number_field(strategy: &Value, key: &str) -> f64 {
 /// for NaN and would admit such a combination as a valid hypothesis.
 #[allow(clippy::neg_cmp_op_on_partial_ord)]
 pub fn candidate_validity(strategy: &Value) -> Option<&'static str> {
+    if strategy.get("mode").and_then(Value::as_str) == Some("dsl") {
+        return None;
+    }
     if !(number_field(strategy, "fastMA") < number_field(strategy, "slowMA")) {
         return Some(DISCOVERY_VALIDITY_RULE_IDS[0]);
     }
@@ -249,7 +250,7 @@ pub fn enumerate_candidates(
     }
 
     Ok(CandidatePlan {
-        contract_version: DISCOVERY_ENUMERATION_VERSION.to_string(),
+        contract_version: config.contracts.enumeration.clone(),
         dataset_content_hash: config.dataset.content_hash.clone(),
         root_seed: config.root_seed,
         counts: EnumerationCounts {

@@ -1,8 +1,9 @@
 # Discovery run configuration and candidate enumeration (RUNNER-CONFIG-001)
 
-Status: implemented as pure TypeScript reference + pure Rust port, locked by
-`fixtures/rs-core/runner-config-v1.json`. No SQLite, threads, Tauri events, UI,
-or Test-segment execution exists in this slice.
+Status: v1 is implemented as a pure TypeScript reference + pure Rust port,
+locked by `fixtures/rs-core/runner-config-v1.json`. P11 adds the compatible
+`discovery-config-v2` fixed-DSL admission described in §1.1; v1 remains
+params-only and unchanged.
 
 Authority: the PR #66 handoff Resolution
 (`handoffs/2026-07-19-runner-001-design-proposal-v1.md`), sections D2 and D4.
@@ -62,6 +63,26 @@ validated is ever returned.
   "maxConcurrency": null
 }
 ```
+
+### 1.1 `discovery-config-v2` fixed DSL extension
+
+P11 adds a second envelope version without reinterpreting a recorded v1 run.
+Its contract object changes only these entries:
+
+```json
+{
+  "enumeration": "discovery-enumeration-v2",
+  "strategyDsl": "strategy-dsl-v1"
+}
+```
+
+A v2 envelope may carry existing params bases or a DSL base with
+`presetVersion: discovery-dsl-preset-v1`. The DSL strategy wrapper and its
+security/causality rules are specified in
+[`strategy-dsl-contract.md`](strategy-dsl-contract.md). DSL bases are fixed:
+`axes` must be empty, while costs, risk, sizing, fill mode, and direction stay
+outside the DSL. Both TypeScript and Rust config parsers reject an invalid DSL
+before enumeration; the Rust execution boundary validates it again.
 
 Rules that hold at every level:
 

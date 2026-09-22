@@ -73,7 +73,7 @@
 | --- | --- | --- | --- |
 | Train／Validation／Test＋embargo、Gate、Score、benchmarks、validation records | 可用 | tasks.md Current Snapshot；854 vitest＋155 Rust＋62 e2e（P00 未重跑） | — |
 | params-only discovery runner（暫停／恢復／取消／孤兒恢復） | 可用 | RUNNER-EXEC/STORE/CONFIG-001 | — |
-| JSON DSL 執行 | **阻擋** | validator 無 runtime 消費者；24 個白名單指標中僅 11 個＋價格來源在兩核心實作（[`ai-provider-contract.md`](ai-provider-contract.md) §8） | P11 |
+| JSON DSL 執行 | **可用（P11）** | `strategy-dsl-v1` 具 TS／Rust validator＋evaluator、共享 parity fixture 與 fail-closed `discovery-config-v2` runner admission；只開放兩核心已有的明確單序列交集，多輸出／未雙端實作指標仍拒絕。AI provider／approve 仍屬 P15（[`strategy-dsl-contract.md`](strategy-dsl-contract.md)） | — |
 | hypothesis／attempt／lineage 完整歷史 | 阻擋（覆寫語意） | `backtest_summary` 依 strategy＋dataset＋segment upsert；trades 為最新結果 | P05 |
 | 試驗帳本、統計精度預檢、block-bootstrap／Holm | 可規劃 | AlphaBTC 精度反例（`146/1001≈0.145854`）為必備回歸案例 | P12 |
 | 一次性 Test 消耗 registry | 可規劃 | 現有 Test 從未執行（split contract）；尚無消耗紀錄 | P13 |

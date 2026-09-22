@@ -621,6 +621,17 @@ pub fn complexity_units(
 // ---------- scoring ----------
 
 pub fn score_candidate(args: &ScoreCandidateArgs<'_>) -> Result<ScoreBreakdown, ScoreError> {
+    let complexity = complexity_units(args.strategy)?;
+    score_candidate_with_complexity(args, complexity)
+}
+
+/// Apply the unchanged score-v1 formula with complexity supplied by another
+/// admitted strategy representation. P11 uses this for DSL node/parameter
+/// counts while params candidates keep using `complexity_units` above.
+pub fn score_candidate_with_complexity(
+    args: &ScoreCandidateArgs<'_>,
+    complexity: ComplexityUnits,
+) -> Result<ScoreBreakdown, ScoreError> {
     let config = resolve_config(args.config);
     validate_config(&config)?;
     let n = tested_combinations(args.tested_combinations)?;
@@ -669,7 +680,6 @@ pub fn score_candidate(args: &ScoreCandidateArgs<'_>) -> Result<ScoreBreakdown, 
         ),
     ];
 
-    let complexity = complexity_units(args.strategy)?;
     let complexity_normalized = clamp01(complexity.units as f64 / caps.complexity_units);
     let complexity_entry = ScoreEntry {
         id: ScorePenaltyId::Complexity,

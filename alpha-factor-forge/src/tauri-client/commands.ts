@@ -5,6 +5,7 @@
 // browser for component dev), `isTauri()` is false and callers should guard.
 
 import { invoke, isTauri } from '@tauri-apps/api/core';
+import type { ValidationResult as DslValidationResult } from '../core/strategy-dsl/validator';
 // Type-only: the runner's status/count vocabulary is defined once, next to the
 // event payloads that share it.
 import type { DiscoveryProgressCounts, RunStatus } from './events';
@@ -180,7 +181,7 @@ export const secrets = {
 export const ai = {
   generateDSL: (promptContext: unknown) =>
     invoke<unknown>('generate_strategy_dsl', { promptContext }),
-  validateDSL: (dsl: unknown) => invoke<unknown>('validate_strategy_dsl', { dsl }),
+  validateDSL: (dsl: unknown) => invoke<DslValidationResult>('validate_strategy_dsl', { dsl }),
 };
 
 // ---- Discovery (Phase B) ----

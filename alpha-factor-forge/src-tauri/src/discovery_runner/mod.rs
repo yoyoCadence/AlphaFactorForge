@@ -418,18 +418,25 @@ impl DiscoveryRunner {
             let mut specs = Vec::with_capacity(plan.candidates.len());
             for candidate in &plan.candidates {
                 let definition_json = serde_json::to_string(&candidate.strategy)?;
+                let dsl = candidate.strategy.get("dsl").filter(|_| {
+                    candidate.strategy.get("mode").and_then(Value::as_str) == Some("dsl")
+                });
+                let dsl_name = dsl.and_then(|dsl| dsl.get("name")).and_then(Value::as_str);
                 let strategy = StrategyDef {
                     id: None,
-                    name: format!(
+                    name: dsl_name.map(str::to_string).unwrap_or_else(|| format!(
                         "Discovery {} #{:04}",
                         candidate.base_id,
                         candidate.index + 1
-                    ),
-                    kind: "params".into(),
-                    dsl_json: None,
+                    )),
+                    kind: if dsl.is_some() { "dsl" } else { "params" }.into(),
+                    dsl_json: dsl.map(serde_json::to_string).transpose()?,
                     original_definition_json: definition_json,
-                    param_schema_json: None,
-                    source: "sweep".into(),
+                    param_schema_json: dsl
+                        .and_then(|dsl| dsl.get("params"))
+                        .map(serde_json::to_string)
+                        .transpose()?,
+                    source: if dsl.is_some() { "traditional" } else { "sweep" }.into(),
                     ai_prompt_hash: None,
                     strategy_hash: candidate.strategy_hash.clone(),
                     lifecycle: "candidate".into(),
@@ -1595,9 +1602,18 @@ fn run_lineage(
         let axes: Vec<Value> = base.axes.iter().map(|axis| serde_json::to_value(axis.key).unwrap_or(Value::Null)).collect();
         let axis_names: Vec<String> = axes.iter().filter_map(|a| a.as_str().map(str::to_string)).collect();
         let signal = |key: &str| base.strategy.get(key).and_then(Value::as_str).unwrap_or("?").to_string();
-        let hypothesis = HypothesisDraft {
-            source: "discovery".into(),
-            mechanism: format!(
+        let dsl = base
+            .strategy
+            .get("dsl")
+            .filter(|_| base.strategy.get("mode").and_then(Value::as_str) == Some("dsl"));
+        let mechanism = match dsl {
+            Some(dsl) => format!(
+                "{} base {}: fixed executable DSL \"{}\"; entry/exit expression trees are frozen before queue admission",
+                base.preset_version,
+                base.id,
+                dsl.get("name").and_then(Value::as_str).unwrap_or("unnamed")
+            ),
+            None => format!(
                 "preset {} base {}: entry on {}, exit on {}; the parameter sweep asks whether the mechanism survives neighbouring {}",
                 base.preset_version,
                 base.id,
@@ -1605,6 +1621,10 @@ fn run_lineage(
                 signal("exitSig"),
                 if axis_names.is_empty() { "parameters (none varied)".to_string() } else { axis_names.join(", ") },
             ),
+        };
+        let hypothesis = HypothesisDraft {
+            source: "discovery".into(),
+            mechanism,
             applicability: json!({
                 "datasetId": dataset.id,
                 "datasetHash": dataset.content_hash,
@@ -1613,11 +1633,17 @@ fn run_lineage(
                 "embargo": config.contracts.embargo,
                 "axes": axes,
             }),
-            failure_modes: "Not stated: a mechanical parameter sweep of a preset strategy. Treated as unexplained until a hypothesis with stated failure modes replaces it (P15).".into(),
-            strategy_hash: format!("strategy-doc-v1:{}", sha256_hex(&canonical_json(&base.strategy)?)),
+            failure_modes: if dsl.is_some() {
+                "Authored DSL candidate: fails if the frozen expression has no trades, loses after costs, or does not pass the existing validation gates. AI rationale/failure-mode generation remains P15.".into()
+            } else {
+                "Not stated: a mechanical parameter sweep of a preset strategy. Treated as unexplained until a hypothesis with stated failure modes replaces it (P15).".into()
+            },
+            strategy_hash: format!("strategy-doc-v1:{}", sha256_hex(&canonical_json(dsl.unwrap_or(&base.strategy))?)),
             strategy_id: None,
             parent_strategy_id: None,
-            variation_kind: Some(if axis_names.is_empty() {
+            variation_kind: Some(if dsl.is_some() {
+                "dsl-fixed".to_string()
+            } else if axis_names.is_empty() {
                 "param-sweep:none".to_string()
             } else {
                 format!("param-sweep:{}", axis_names.join(","))

@@ -13,11 +13,15 @@
 import { strategyHash } from '../core/hashing';
 import {
   DISCOVERY_ENUMERATION_VERSION,
+  DISCOVERY_ENUMERATION_VERSION_V2,
   axisValues,
   deepCloneJson,
+  type AnyDiscoveryBase,
+  type AnyResolvedDiscoveryConfig,
   type DiscoveryAxisKey,
-  type DiscoveryBase,
+  type DiscoveryStrategy,
   type ResolvedDiscoveryConfig,
+  type ResolvedDiscoveryConfigV2,
 } from './discoveryConfig';
 import { deriveDiscoverySeed } from './discoverySeed';
 import { candidateValidity } from './strategyValidation';
@@ -45,7 +49,7 @@ export interface EnumerationCounts {
   finalUnique: number;
 }
 
-export interface EnumeratedCandidate {
+export interface EnumeratedCandidate<TStrategy extends DiscoveryStrategy = ParamsStrategy> {
   /** Stable index assigned AFTER sorting by strategy hash. */
   index: number;
   strategyHash: string;
@@ -53,31 +57,31 @@ export interface EnumeratedCandidate {
   baseId: string;
   /** Axis values applied on top of that base preset. */
   appliedAxes: Partial<Record<DiscoveryAxisKey, number>>;
-  strategy: ParamsStrategy;
+  strategy: TStrategy;
   /** Deterministic per-candidate sub-seeds (`seed-v1`). */
   seeds: { randomEntry: number };
 }
 
-export interface CandidatePlan {
-  contractVersion: typeof DISCOVERY_ENUMERATION_VERSION;
+export interface CandidatePlan<TStrategy extends DiscoveryStrategy = ParamsStrategy> {
+  contractVersion: typeof DISCOVERY_ENUMERATION_VERSION | typeof DISCOVERY_ENUMERATION_VERSION_V2;
   datasetContentHash: string;
   rootSeed: number;
   counts: EnumerationCounts;
-  candidates: EnumeratedCandidate[];
+  candidates: EnumeratedCandidate<TStrategy>[];
   /** Resolution D2/D5: N is derived here, never accepted from the config. */
   testedCombinations: { n: number; basis: 'lineage-final-unique' };
 }
 
-interface Combination {
+interface Combination<TStrategy extends DiscoveryStrategy = DiscoveryStrategy> {
   baseId: string;
   appliedAxes: Partial<Record<DiscoveryAxisKey, number>>;
-  strategy: ParamsStrategy;
+  strategy: TStrategy;
 }
 
 /** Row-major odometer over the base's declared axes: the LAST axis varies
  *  fastest. Order does not affect the plan (candidates are hash-sorted) but is
  *  fixed so generated fixtures stay reproducible. */
-function combinationsForBase(base: DiscoveryBase): Combination[] {
+function combinationsForBase(base: AnyDiscoveryBase): Combination[] {
   const grids = base.axes.map((axis) => ({ key: axis.key, values: axisValues(axis) }));
   // Every combination gets its OWN deep copy. A shallow spread would leave all
   // candidates aliasing one `entryRules`/`exitRules` array, so mutating a
@@ -108,7 +112,7 @@ function combinationsForBase(base: DiscoveryBase): Combination[] {
  * safe-integer guard so an over-cap grid can never overflow into a small
  * number and slip past the cap check.
  */
-export function rawCombinationCount(bases: readonly DiscoveryBase[]): number {
+export function rawCombinationCount(bases: readonly AnyDiscoveryBase[]): number {
   let total = 0;
   for (const base of bases) {
     let product = 1;
@@ -143,9 +147,15 @@ function compareHash(left: string, right: string): number {
  * cap (checked BEFORE any candidate is built, so no jobs can be created for an
  * over-budget run) or when nothing survives pruning.
  */
-export async function enumerateCandidates(
+export function enumerateCandidates(
   config: ResolvedDiscoveryConfig,
-): Promise<CandidatePlan> {
+): Promise<CandidatePlan<ParamsStrategy>>;
+export function enumerateCandidates(
+  config: ResolvedDiscoveryConfigV2,
+): Promise<CandidatePlan<DiscoveryStrategy>>;
+export async function enumerateCandidates(
+  config: AnyResolvedDiscoveryConfig,
+): Promise<CandidatePlan<DiscoveryStrategy>> {
   const raw = rawCombinationCount(config.bases);
   if (raw > config.caps.candidates) {
     throw new RangeError(
@@ -159,7 +169,8 @@ export async function enumerateCandidates(
 
   for (const base of config.bases) {
     for (const combination of combinationsForBase(base)) {
-      if (candidateValidity(combination.strategy) !== null) {
+      if (combination.strategy.mode === 'params'
+        && candidateValidity(combination.strategy as ParamsStrategy) !== null) {
         prunedInvalid++;
         continue;
       }
@@ -180,7 +191,7 @@ export async function enumerateCandidates(
     throw new RangeError('enumeration produced no valid candidates');
   }
 
-  const candidates: EnumeratedCandidate[] = [];
+  const candidates: EnumeratedCandidate<DiscoveryStrategy>[] = [];
   for (let index = 0; index < survivors.length; index++) {
     const [hash, combination] = survivors[index];
     candidates.push({
@@ -208,7 +219,7 @@ export async function enumerateCandidates(
   }
 
   return {
-    contractVersion: DISCOVERY_ENUMERATION_VERSION,
+    contractVersion: config.contracts.enumeration,
     datasetContentHash: config.dataset.contentHash,
     rootSeed: config.rootSeed,
     counts: { raw, prunedInvalid, duplicates, finalUnique },

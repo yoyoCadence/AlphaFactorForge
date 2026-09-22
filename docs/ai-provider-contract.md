@@ -123,12 +123,16 @@ token／時間用量、最終狀態（§4）、Codex 版本。原始輸出不可
 
 ## 8. DSL 可執行子集（P11 的輸入）
 
-`INDICATOR_WHITELIST` 有 24 個名稱，但**兩個核心都已實作**的只有：
-`SMA`、`EMA`、`WMA`、`RSI`、`MACD`、`ATR`、`BBANDS`、`STDDEV`、`HIGHEST`、`LOWEST`、
-`ROC`，加上價格來源 `CLOSE`／`OPEN`／`HIGH`／`LOW`／`HLC3`。
+P11 已將歷史設計白名單縮成版本化的**可執行交集**：
+`SMA`、`EMA`、`WMA`、`RSI`、`ATR`、`STDDEV`、`HIGHEST`、`LOWEST`、`ROC`，
+加上價格來源 `CLOSE`／`OPEN`／`HIGH`／`LOW`／`HLC3`。
+`MACD`、`BBANDS` 雖然兩個指標核心都有實作，但 JSON DSL 尚無多輸出 selector，
+所以 v1 明確拒絕，不能以模糊預設值冒充 parity。
 `ADX`、`STOCH`、`CCI`、`MOM`、`KELTNER`、`OBV`、`VOL_SMA`、`MFI` 目前兩邊都沒有實作。
-JSON DSL 目前**沒有任何 runtime 消費者**（validator 只在單元測試中被呼叫；
-`exprInterpreter.ts` 是 code mode 的字串運算式，不是 JSON DSL）。
+`strategy-dsl-v1` 已有 TS／Rust validator＋evaluator、共享 authored fixture、backend
+`validate_strategy_dsl`，以及 `discovery-config-v2` 的 runner admission；詳見
+[`strategy-dsl-contract.md`](strategy-dsl-contract.md)。
 
-因此 AI 白名單初版 = 上述交集；每個新增指標須先完成 TS／Rust parity 才加入。
-深度 8／節點 64 的既有限制保留（`src/core/strategy-dsl/schema.ts`）。
+AI 白名單初版 = 上述已版本化交集；每個新增指標須先完成 TS／Rust parity 才加入。
+深度 8／節點 64 的限制保留。AI provider、prompt、approve／queue orchestration 仍待 P15，
+所以「DSL 可執行」不代表 unattended AI 已解除阻擋。

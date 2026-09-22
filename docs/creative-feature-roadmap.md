@@ -11,7 +11,10 @@
 > 真實認證下載驗收待帳戶 token，不能宣稱多年資料完整。見 [`market-source-tiingo-v1.md`](market-source-tiingo-v1.md)。
 > 2026-09-21：**P10 FinMind／TWSE 台灣 ETF adapter 已完成**；五檔 raw 日線、TWSE 月行情核對、
 > 2025 calendar、配息／付款、0050 分割與停牌均有可重現證據。真實 12 日 smoke 全部完成，僅成本未確認而 degraded；
-> 見 [`market-source-tw-etf-v1.md`](market-source-tw-etf-v1.md)。成交／paper（P18+）仍未交付；本次不啟動 P11+。
+> 見 [`market-source-tw-etf-v1.md`](market-source-tw-etf-v1.md)。
+> 2026-09-22：**P11 可執行 DSL 已完成**；`strategy-dsl-v1` 在 TS／Rust 具相同白名單、型別／arity／因果驗證與 evaluator，
+> `discovery-config-v2` 只允許已驗證、固定成本／風控且無 axes 的 DSL 候選進 runner，並在入隊時保存 DSL 與 P05 lineage。
+> 見 [`strategy-dsl-contract.md`](strategy-dsl-contract.md)。AI provider／自動 approve（P15）與成交／paper（P18+）仍未交付。
 
 ---
 
@@ -23,7 +26,7 @@
 
 換句話說，AlphaFactorForge 的產品本體是一台**信任度製造機**（trust engine）：
 
-- 輸入：策略假說（手動參數／積木／程式碼，未來加 AI 生成 DSL）＋ frozen dataset。
+- 輸入：策略假說（手動參數／積木／程式碼／已驗證的可執行 DSL；AI 生成仍待 P15）＋ frozen dataset。
 - 輸出：**有紀律背書的結論**——不只是報酬數字，而是「這個數字經過了哪些檢驗、沒經過哪些」。
 - 護城河：determinism、hash 去重、train/val/test 紀律、白名單 DSL——這些別的散戶工具沒有，而這裡已經在 schema 與 core 層打好地基。
 
