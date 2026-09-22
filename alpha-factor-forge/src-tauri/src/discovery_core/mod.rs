@@ -3,6 +3,7 @@
 pub mod backtest;
 pub mod benchmarks;
 pub mod config;
+pub mod dsl;
 pub mod embargo;
 pub mod enumerate;
 pub mod etf;
@@ -26,9 +27,9 @@ mod backtest_parity_tests;
 #[cfg(test)]
 mod benchmark_parity_tests;
 #[cfg(test)]
-mod gate_score_parity_tests;
-#[cfg(test)]
 mod etf_parity_tests;
+#[cfg(test)]
+mod gate_score_parity_tests;
 #[cfg(test)]
 mod indicator_parity_tests;
 #[cfg(test)]

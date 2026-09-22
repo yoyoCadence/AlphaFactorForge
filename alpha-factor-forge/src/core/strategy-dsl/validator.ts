@@ -1,22 +1,15 @@
-// FULL — whitelist compiler / validator for the Strategy DSL.
-// Rejects anything not explicitly allowed. This is the security boundary for
-// AI-generated strategies: a hostile AI can at worst produce an INVALID tree,
-// never executable code. Mirror this logic in the Rust validate_strategy_dsl
-// command for defense in depth.
+// Pure structural + semantic admission gate for `strategy-dsl-v1`.
+// The Rust runner mirrors this contract and re-validates every DSL before it
+// can be enumerated, persisted, or executed.
 
 import {
-  ALLOWED_IND_FIELDS,
-  ALLOWED_OP_FIELDS,
-  BOOLEAN_OPS,
   DEFAULT_LIMITS,
   INDICATOR_WHITELIST,
   OPERATOR_WHITELIST,
   PRICE_SOURCES,
-  type ExprNode,
-  type IndicatorNode,
-  type OperatorNode,
+  STRATEGY_DSL_VERSION,
+  type ExpressionType,
   type ParamSpec,
-  type StrategyDSL,
   type ValidatorLimits,
 } from './schema';
 
@@ -25,14 +18,24 @@ export interface ValidationResult {
   errors: string[];
   nodeCount: number;
   depth: number;
+  maxLookbackBars: number;
+  parameterCount: number;
 }
 
-const IND = new Set<string>(INDICATOR_WHITELIST);
-const OP = new Set<string>(OPERATOR_WHITELIST);
-const SRC = new Set<string>(PRICE_SOURCES);
+interface Analysis {
+  type: ExpressionType;
+  lookback: number;
+}
 
-// Substrings that must never appear anywhere in the serialized DSL — defense
-// against attempts to smuggle code through string fields.
+const INDICATORS = new Set<string>(INDICATOR_WHITELIST);
+const OPERATORS = new Set<string>(OPERATOR_WHITELIST);
+const SOURCES = new Set<string>(PRICE_SOURCES);
+const PARAM_NAME = /^[A-Za-z][A-Za-z0-9_]{0,63}$/;
+const ROOT_KEYS = ['version', 'name', 'params', 'entry', 'exit'] as const;
+const PARAM_SPEC_KEYS = ['type', 'min', 'max', 'default'] as const;
+const RAW_INDICATORS = new Set(['CLOSE', 'OPEN', 'HIGH', 'LOW', 'HLC3']);
+const SOURCE_INDICATORS = new Set(['EMA', 'SMA', 'WMA', 'RSI', 'ROC', 'STDDEV', 'HIGHEST', 'LOWEST']);
+
 const SUSPICIOUS = [
   'eval', 'function', 'new function', 'import', 'require', 'fetch', 'xmlhttp',
   'process', 'child_process', 'fs.', 'readfile', 'writefile', 'localstorage',
@@ -40,155 +43,234 @@ const SUSPICIOUS = [
   'constructor', '__proto__', 'prototype', 'settimeout', 'setinterval', '`',
 ];
 
-function isPlainObject(v: unknown): v is Record<string, unknown> {
-  return !!v && typeof v === 'object' && !Array.isArray(v);
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
-/** Validate a complete DSL. Pure; never throws on bad input. */
+function exactFields(
+  object: Record<string, unknown>,
+  fields: readonly string[],
+  path: string,
+  errors: string[],
+): void {
+  for (const key of Object.keys(object).sort()) {
+    if (!fields.includes(key)) errors.push(`${path}: unknown field "${key}"`);
+  }
+  for (const field of fields) {
+    if (!(field in object)) errors.push(`${path}: missing field "${field}"`);
+  }
+}
+
+/** Validate a complete DSL. Pure and total: malformed input never throws. */
 export function validateDSL(
   input: unknown,
   limits: ValidatorLimits = DEFAULT_LIMITS,
 ): ValidationResult {
   const errors: string[] = [];
+  let nodeCount = 0;
+  let maxDepth = 0;
+  let maxLookbackBars = 0;
+  const params = new Map<string, number>();
+  const result = (): ValidationResult => ({
+    ok: errors.length === 0,
+    errors,
+    nodeCount,
+    depth: maxDepth,
+    maxLookbackBars,
+    parameterCount: params.size,
+  });
 
-  // 0. suspicious-string scan over the WHOLE payload (cheap, catches smuggling)
   try {
-    const raw = JSON.stringify(input).toLowerCase();
-    for (const bad of SUSPICIOUS) {
-      if (raw.includes(bad)) errors.push(`suspicious token in payload: "${bad}"`);
+    const encoded = JSON.stringify(input);
+    if (encoded === undefined) throw new TypeError('not serializable');
+    const raw = encoded.toLowerCase();
+    for (const token of SUSPICIOUS) {
+      if (raw.includes(token)) errors.push(`suspicious token in payload: "${token}"`);
     }
   } catch {
     errors.push('payload is not JSON-serializable');
-    return { ok: false, errors, nodeCount: 0, depth: 0 };
+    return result();
   }
 
   if (!isPlainObject(input)) {
     errors.push('DSL must be an object');
-    return { ok: false, errors, nodeCount: 0, depth: 0 };
+    return result();
   }
-  const dsl = input as Partial<StrategyDSL>;
+  exactFields(input, ROOT_KEYS, 'DSL', errors);
+  if (input.version !== STRATEGY_DSL_VERSION) {
+    errors.push(`DSL.version must be "${STRATEGY_DSL_VERSION}"`);
+  }
+  if (typeof input.name !== 'string' || input.name.trim().length === 0) errors.push('missing name');
 
-  if (typeof dsl.name !== 'string' || !dsl.name.trim()) errors.push('missing name');
-  if (!isPlainObject(dsl.params)) errors.push('missing params object');
-  if (!dsl.entry) errors.push('missing entry expression');
-  if (!dsl.exit) errors.push('missing exit expression');
-
-  // 1. param specs
-  const paramNames = new Set<string>();
-  if (isPlainObject(dsl.params)) {
-    for (const [k, spec] of Object.entries(dsl.params)) {
-      paramNames.add(k);
-      if (typeof spec === 'number') continue; // fixed literal param
-      const s = spec as ParamSpec;
-      if (!isPlainObject(spec) || (s.type !== 'int' && s.type !== 'float')) {
-        errors.push(`param ${k}: type must be int|float`);
+  if (!isPlainObject(input.params)) {
+    errors.push('missing params object');
+  } else {
+    for (const [name, rawSpec] of Object.entries(input.params)) {
+      if (!PARAM_NAME.test(name)) errors.push(`param ${name}: invalid name`);
+      if (typeof rawSpec === 'number') {
+        if (!Number.isFinite(rawSpec)) errors.push(`param ${name}: fixed value must be finite`);
+        else params.set(name, rawSpec);
         continue;
       }
-      if (!Number.isFinite(s.min) || !Number.isFinite(s.max) || s.min > s.max) {
-        errors.push(`param ${k}: invalid min/max`);
+      if (!isPlainObject(rawSpec)) {
+        errors.push(`param ${name}: type must be int|float`);
+        continue;
       }
-      if (!Number.isFinite(s.default) || s.default < s.min || s.default > s.max) {
-        errors.push(`param ${k}: default out of range`);
+      exactFields(rawSpec, PARAM_SPEC_KEYS, `param ${name}`, errors);
+      const spec = rawSpec as unknown as ParamSpec;
+      if (spec.type !== 'int' && spec.type !== 'float') {
+        errors.push(`param ${name}: type must be int|float`);
+        continue;
       }
+      if (!Number.isFinite(spec.min) || !Number.isFinite(spec.max) || spec.min > spec.max) {
+        errors.push(`param ${name}: invalid min/max`);
+      }
+      if (!Number.isFinite(spec.default) || spec.default < spec.min || spec.default > spec.max) {
+        errors.push(`param ${name}: default out of range`);
+      }
+      if (spec.type === 'int' && ![spec.min, spec.max, spec.default].every(Number.isSafeInteger)) {
+        errors.push(`param ${name}: int bounds/default must be safe integers`);
+      }
+      if (Number.isFinite(spec.default)) params.set(name, spec.default);
     }
   }
 
-  let nodeCount = 0;
-  let maxDepth = 0;
-
-  const refParam = (val: number | string | undefined, label: string): void => {
-    if (typeof val === 'string') {
-      if (!val.startsWith('$')) errors.push(`${label}: string must be a $param ref`);
-      else if (!paramNames.has(val.slice(1))) errors.push(`${label}: unknown param ${val}`);
+  const scalar = (
+    value: unknown,
+    path: string,
+    constraint: 'number' | 'period',
+  ): number | undefined => {
+    let resolved: number | undefined;
+    if (typeof value === 'number') resolved = value;
+    else if (typeof value === 'string' && value.startsWith('$')) {
+      const name = value.slice(1);
+      if (!params.has(name)) errors.push(`${path}: unknown param ${value}`);
+      else resolved = params.get(name);
+    } else if (typeof value === 'string') {
+      errors.push(`${path}: string must be a $param ref`);
+    } else {
+      errors.push(`${path}: must be a number or $param ref`);
     }
+    if (resolved === undefined) return undefined;
+    if (!Number.isFinite(resolved)) {
+      errors.push(`${path}: value must be finite`);
+      return undefined;
+    }
+    if (constraint === 'period'
+      && (!Number.isSafeInteger(resolved) || resolved < limits.minLen || resolved > limits.maxLen)) {
+      errors.push(`${path}: lookback must be int in [${limits.minLen}, ${limits.maxLen}]`);
+      return undefined;
+    }
+    if (constraint === 'number' && Math.abs(resolved) > limits.maxConstAbs) {
+      errors.push(`${path}: value must have |v| <= ${limits.maxConstAbs}`);
+      return undefined;
+    }
+    return resolved;
   };
 
-  const checkLen = (val: number | string | undefined, label: string): void => {
-    if (val === undefined) return;
-    if (typeof val === 'string') return refParam(val, label);
-    if (!Number.isInteger(val) || val < limits.minLen || val > limits.maxLen) {
-      errors.push(`${label}: len must be int in [${limits.minLen}, ${limits.maxLen}]`);
-    }
-  };
-
-  const walk = (node: unknown, depth: number, path: string): void => {
+  const walk = (node: unknown, currentDepth: number, path: string): Analysis | undefined => {
     nodeCount += 1;
-    maxDepth = Math.max(maxDepth, depth);
-    if (depth > limits.maxDepth) {
+    maxDepth = Math.max(maxDepth, currentDepth);
+    if (currentDepth > limits.maxDepth) {
       errors.push(`${path}: exceeds max depth ${limits.maxDepth}`);
-      return;
+      return undefined;
     }
     if (nodeCount > limits.maxNodes) {
       errors.push(`exceeds max node count ${limits.maxNodes}`);
-      return;
+      return undefined;
     }
     if (!isPlainObject(node)) {
       errors.push(`${path}: node must be an object`);
-      return;
+      return undefined;
     }
-
     const hasInd = 'ind' in node;
     const hasOp = 'op' in node;
     if (hasInd === hasOp) {
       errors.push(`${path}: node must have exactly one of "ind" | "op"`);
-      return;
+      return undefined;
     }
 
     if (hasInd) {
-      const n = node as IndicatorNode;
-      for (const f of Object.keys(n)) {
-        if (!ALLOWED_IND_FIELDS.has(f)) errors.push(`${path}: unknown field "${f}"`);
+      if (typeof node.ind !== 'string' || !INDICATORS.has(node.ind)) {
+        errors.push(`${path}: indicator "${String(node.ind)}" not executable in ${STRATEGY_DSL_VERSION}`);
+        return undefined;
       }
-      if (!IND.has(n.ind)) errors.push(`${path}: indicator "${n.ind}" not in whitelist`);
-      if (n.src !== undefined && !SRC.has(n.src)) errors.push(`${path}: bad src "${n.src}"`);
-      checkLen(n.len, `${path}.len`);
-      for (const f of ['fast', 'slow', 'signal', 'mult', 'k', 'd'] as const) {
-        if (n[f] !== undefined) {
-          if (typeof n[f] === 'string') refParam(n[f] as string, `${path}.${f}`);
-          else if (!Number.isFinite(n[f] as number)) errors.push(`${path}.${f}: not finite`);
+      if (RAW_INDICATORS.has(node.ind)) {
+        exactFields(node, ['ind'], path, errors);
+        maxLookbackBars = Math.max(maxLookbackBars, 1);
+        return { type: 'number', lookback: 1 };
+      }
+      if (node.ind === 'ATR') {
+        exactFields(node, ['ind', 'len'], path, errors);
+      } else if (SOURCE_INDICATORS.has(node.ind)) {
+        exactFields(node, ['ind', 'src', 'len'], path, errors);
+        if (typeof node.src !== 'string' || !SOURCES.has(node.src)) {
+          errors.push(`${path}.src: unsupported price source "${String(node.src)}"`);
         }
       }
-      return; // indicator nodes are leaves
+      const period = scalar(node.len, `${path}.len`, 'period');
+      const lookback = period === undefined ? 1 : period + (node.ind === 'RSI' || node.ind === 'ROC' ? 1 : 0);
+      maxLookbackBars = Math.max(maxLookbackBars, lookback);
+      return { type: 'number', lookback };
     }
 
-    // operator node
-    const n = node as unknown as OperatorNode;
-    for (const f of Object.keys(n)) {
-      if (!ALLOWED_OP_FIELDS.has(f)) errors.push(`${path}: unknown field "${f}"`);
+    if (typeof node.op !== 'string' || !OPERATORS.has(node.op)) {
+      errors.push(`${path}: operator "${String(node.op)}" not in whitelist`);
+      return undefined;
     }
-    if (!OP.has(n.op)) {
-      errors.push(`${path}: operator "${n.op}" not in whitelist`);
-      return;
+    const op = node.op;
+    if (op === 'CONST') {
+      exactFields(node, ['op', 'v'], path, errors);
+      scalar(node.v, `${path}.v`, 'number');
+      maxLookbackBars = Math.max(maxLookbackBars, 1);
+      return { type: 'number', lookback: 1 };
     }
-    if (n.op === 'CONST') {
-      if (typeof n.v === 'string') refParam(n.v, `${path}.v`);
-      else if (!Number.isFinite(n.v) || Math.abs(n.v as number) > limits.maxConstAbs) {
-        errors.push(`${path}.v: CONST must be finite and |v| <= ${limits.maxConstAbs}`);
-      }
-      return;
+
+    const temporal = op === 'SHIFT' || op === 'RISING' || op === 'FALLING';
+    exactFields(node, temporal ? ['op', 'args', 'n'] : ['op', 'args'], path, errors);
+    const expectedArity = op === 'ABS' || op === 'NOT' || temporal ? 1 : op === 'CLAMP' ? 3 : 2;
+    if (!Array.isArray(node.args) || node.args.length !== expectedArity) {
+      errors.push(`${path}: operator "${op}" requires exactly ${expectedArity} args`);
+      return undefined;
     }
-    if (n.op === 'SHIFT' || n.op === 'RISING' || n.op === 'FALLING') {
-      checkLen(n.n, `${path}.n`);
+    const children = node.args.map((child, index) => walk(child, currentDepth + 1, `${path}.args[${index}]`));
+    const lookback = Math.max(1, ...children.map((child) => child?.lookback ?? 1));
+    const requireType = (expected: ExpressionType): void => {
+      children.forEach((child, index) => {
+        if (child && child.type !== expected) {
+          errors.push(`${path}.args[${index}]: expected ${expected}, received ${child.type}`);
+        }
+      });
+    };
+
+    let analysis: Analysis;
+    if (op === 'AND' || op === 'OR' || op === 'NOT') {
+      requireType('boolean');
+      analysis = { type: 'boolean', lookback };
+    } else if (['GT', 'LT', 'GTE', 'LTE'].includes(op)) {
+      requireType('number');
+      analysis = { type: 'boolean', lookback };
+    } else if (op === 'CROSS_UP' || op === 'CROSS_DOWN') {
+      requireType('number');
+      analysis = { type: 'boolean', lookback: lookback + 1 };
+    } else if (op === 'SHIFT') {
+      const offset = scalar(node.n, `${path}.n`, 'period') ?? 0;
+      analysis = { type: children[0]?.type ?? 'number', lookback: lookback + offset };
+    } else if (op === 'RISING' || op === 'FALLING') {
+      requireType('number');
+      const periods = scalar(node.n, `${path}.n`, 'period') ?? 0;
+      analysis = { type: 'boolean', lookback: lookback + periods };
+    } else {
+      requireType('number');
+      analysis = { type: 'number', lookback };
     }
-    if (!Array.isArray(n.args) || n.args.length === 0) {
-      errors.push(`${path}: operator "${n.op}" requires args[]`);
-      return;
-    }
-    n.args.forEach((a: ExprNode, i: number) => walk(a, depth + 1, `${path}.args[${i}]`));
+    maxLookbackBars = Math.max(maxLookbackBars, analysis.lookback);
+    return analysis;
   };
 
-  if (dsl.entry) walk(dsl.entry, 1, 'entry');
-  if (dsl.exit) walk(dsl.exit, 1, 'exit');
-
-  // 2. entry/exit roots should be boolean-returning
-  for (const [k, root] of [['entry', dsl.entry], ['exit', dsl.exit]] as const) {
-    if (root && isPlainObject(root) && 'op' in root) {
-      const op = (root as unknown as OperatorNode).op;
-      if (!BOOLEAN_OPS.has(op)) errors.push(`${k}: root op "${op}" is not boolean-returning`);
-    } else if (root) {
-      errors.push(`${k}: root must be a boolean operator node`);
-    }
-  }
-
-  return { ok: errors.length === 0, errors, nodeCount, depth: maxDepth };
+  const entry = walk(input.entry, 1, 'entry');
+  const exit = walk(input.exit, 1, 'exit');
+  if (entry && entry.type !== 'boolean') errors.push('entry: root must return boolean');
+  if (exit && exit.type !== 'boolean') errors.push('exit: root must return boolean');
+  return result();
 }

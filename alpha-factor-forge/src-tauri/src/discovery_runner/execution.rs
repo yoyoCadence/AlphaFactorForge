@@ -19,6 +19,7 @@ use alpha_factor_forge::discovery_core::{
         RunBenchmarksArgs, BENCHMARK_CONTRACT_VERSION, DETERMINISTIC_BENCHMARK_IDS,
     },
     config::ResolvedDiscoveryConfig,
+    dsl::{build_dsl_signals, validate_strategy_dsl, DslValidationReport},
     embargo::{derive_embargo_bars, EmbargoDerivation},
     enumerate::EnumeratedCandidate,
     gate::{
@@ -31,9 +32,10 @@ use alpha_factor_forge::discovery_core::{
         run_random_entry_benchmark, RandomEntryArgs, RandomEntryBenchmark, RandomEntryCandidate,
     },
     score::{
-        score_candidate, ParamsStrategyProjection, ScoreBreakdown, ScoreCandidateArgs,
-        ScoreCandidateView, ScoreCapsOverride, ScoreConfig, ScoreConfigOverride,
-        ScoreWeightsOverride, SCORE_FORMULA_VERSION,
+        score_candidate, score_candidate_with_complexity, ComplexityUnits,
+        ParamsStrategyProjection, ScoreBreakdown, ScoreCandidateArgs, ScoreCandidateView,
+        ScoreCapsOverride, ScoreConfig, ScoreConfigOverride, ScoreWeightsOverride,
+        SCORE_FORMULA_VERSION,
     },
     signals::{build_params_signals, ParamsSignalConfig},
     split::{plan_validation_split, ValidationSplitPlan},
@@ -152,8 +154,17 @@ fn validate_timestamps(candles: &[Candle]) -> Result<(), CandidateExecutionError
 }
 
 #[derive(Clone, Debug)]
+enum CandidateSignals {
+    Params(ParamsSignalConfig),
+    Dsl {
+        dsl: Value,
+        validation: DslValidationReport,
+    },
+}
+
+#[derive(Clone, Debug)]
 struct CandidateStrategy {
-    signal: ParamsSignalConfig,
+    signals: CandidateSignals,
     sl_pct: f64,
     tp_pct: f64,
     fee_pct: f64,
@@ -169,26 +180,40 @@ impl CandidateStrategy {
             CandidateExecutionError("candidate strategy must be an object".into())
         })?;
         let mode = string_field(object, "mode")?;
-        if mode != "params" {
-            return fail(format!(
-                "candidate strategy mode must be params (received {mode})"
-            ));
-        }
-
-        let signal = ParamsSignalConfig {
-            fast_ma: period_field(object, "fastMA")?,
-            slow_ma: period_field(object, "slowMA")?,
-            ema_period: period_field(object, "emaPeriod")?,
-            rsi_period: period_field(object, "rsiPeriod")?,
-            rsi_buy: number_field(object, "rsiBuy")?,
-            rsi_sell: number_field(object, "rsiSell")?,
-            macd_fast: period_field(object, "macdFast")?,
-            macd_slow: period_field(object, "macdSlow")?,
-            macd_signal: period_field(object, "macdSignal")?,
-            bb_period: period_field(object, "bbPeriod")?,
-            bb_mult: number_field(object, "bbMult")?,
-            entry_sig: string_field(object, "entrySig")?.to_string(),
-            exit_sig: string_field(object, "exitSig")?.to_string(),
+        let signals = match mode {
+            "params" => CandidateSignals::Params(ParamsSignalConfig {
+                fast_ma: period_field(object, "fastMA")?,
+                slow_ma: period_field(object, "slowMA")?,
+                ema_period: period_field(object, "emaPeriod")?,
+                rsi_period: period_field(object, "rsiPeriod")?,
+                rsi_buy: number_field(object, "rsiBuy")?,
+                rsi_sell: number_field(object, "rsiSell")?,
+                macd_fast: period_field(object, "macdFast")?,
+                macd_slow: period_field(object, "macdSlow")?,
+                macd_signal: period_field(object, "macdSignal")?,
+                bb_period: period_field(object, "bbPeriod")?,
+                bb_mult: number_field(object, "bbMult")?,
+                entry_sig: string_field(object, "entrySig")?.to_string(),
+                exit_sig: string_field(object, "exitSig")?.to_string(),
+            }),
+            "dsl" => {
+                let dsl = object.get("dsl").cloned().ok_or_else(|| {
+                    CandidateExecutionError("candidate strategy.dsl is required".into())
+                })?;
+                let validation = validate_strategy_dsl(&dsl);
+                if !validation.ok {
+                    return fail(format!(
+                        "candidate strategy.dsl is invalid: {}",
+                        validation.errors.join("; ")
+                    ));
+                }
+                CandidateSignals::Dsl { dsl, validation }
+            }
+            other => {
+                return fail(format!(
+                    "candidate strategy mode must be params or dsl (received {other})"
+                ))
+            }
         };
 
         let fill_mode = match string_field(object, "fillMode")? {
@@ -204,7 +229,7 @@ impl CandidateStrategy {
         };
 
         Ok(Self {
-            signal,
+            signals,
             sl_pct: number_field(object, "slPct")?,
             tp_pct: number_field(object, "tpPct")?,
             fee_pct: number_field(object, "feePct")?,
@@ -244,12 +269,73 @@ impl CandidateStrategy {
     }
 
     fn score_projection(&self) -> ParamsStrategyProjection {
+        let (entry_sig, exit_sig) = match &self.signals {
+            CandidateSignals::Params(signal) => (signal.entry_sig.clone(), signal.exit_sig.clone()),
+            // `score_candidate_with_complexity` ignores this legacy projection;
+            // it remains in the args shape so score-v1 params callers do not
+            // change. Both ids are valid if an invariant regresses.
+            CandidateSignals::Dsl { .. } => ("priceAboveSlow".into(), "priceBelowSlow".into()),
+        };
         ParamsStrategyProjection {
-            entry_sig: self.signal.entry_sig.clone(),
-            exit_sig: self.signal.exit_sig.clone(),
+            entry_sig,
+            exit_sig,
             sl_pct: self.sl_pct,
             tp_pct: self.tp_pct,
         }
+    }
+
+    fn embargo(
+        &self,
+        holding_allowance_bars: i64,
+    ) -> Result<EmbargoDerivation, CandidateExecutionError> {
+        match &self.signals {
+            CandidateSignals::Params(signal) => derive_embargo_bars(signal, holding_allowance_bars)
+                .map_err(|error| context(error, "derive embargo")),
+            CandidateSignals::Dsl { validation, .. } => {
+                let embargo_bars = validation
+                    .max_lookback_bars
+                    .checked_add(holding_allowance_bars)
+                    .ok_or_else(|| {
+                        CandidateExecutionError(
+                            "derived embargoBars exceeds the safe integer range".into(),
+                        )
+                    })?;
+                if embargo_bars > JS_MAX_SAFE_INTEGER {
+                    return fail("derived embargoBars exceeds the safe integer range");
+                }
+                Ok(EmbargoDerivation {
+                    embargo_bars,
+                    max_signal_lookback_bars: validation.max_lookback_bars,
+                    holding_allowance_bars,
+                })
+            }
+        }
+    }
+
+    fn build_signals(
+        &self,
+        candles: &[Candle],
+    ) -> Result<alpha_factor_forge::discovery_core::backtest::Signals, CandidateExecutionError>
+    {
+        match &self.signals {
+            CandidateSignals::Params(signal) => build_params_signals(candles, signal)
+                .map_err(|error| context(error, "build candidate signals")),
+            CandidateSignals::Dsl { dsl, .. } => build_dsl_signals(candles, dsl)
+                .map_err(|error| context(error, "build candidate DSL signals")),
+        }
+    }
+
+    fn dsl_complexity(&self) -> Option<ComplexityUnits> {
+        let CandidateSignals::Dsl { validation, .. } = &self.signals else {
+            return None;
+        };
+        let risk_rules = usize::from(self.sl_pct > 0.0) + usize::from(self.tp_pct > 0.0);
+        Some(ComplexityUnits {
+            units: validation.node_count + validation.parameter_count + risk_rules,
+            decision_nodes: validation.node_count,
+            indicator_params: validation.parameter_count,
+            risk_rules,
+        })
     }
 }
 
@@ -746,8 +832,7 @@ pub fn execute_candidate(
         return fail("candidate strategy content does not match its strategy_hash");
     }
 
-    let embargo = derive_embargo_bars(&strategy.signal, args.config.embargo.holding_allowance_bars)
-        .map_err(|error| context(error, "derive embargo"))?;
+    let embargo = strategy.embargo(args.config.embargo.holding_allowance_bars)?;
     let plan = plan_validation_split(total_bars, embargo.embargo_bars)
         .map_err(|error| context(error, "plan validation split"))?;
     let evaluation_len = usize::try_from(plan.validation.to)
@@ -765,8 +850,7 @@ pub fn execute_candidate(
     // This MUST precede every evaluated path that can reach compute_metrics.
     // The hidden Test suffix is neither scanned nor passed to compute.
     validate_timestamps(evaluation_candles)?;
-    let signals = build_params_signals(evaluation_candles, &strategy.signal)
-        .map_err(|error| context(error, "build candidate signals"))?;
+    let signals = strategy.build_signals(evaluation_candles)?;
 
     let run_segment = |from: i64, to: i64| {
         run_backtest(
@@ -829,15 +913,19 @@ pub fn execute_candidate(
     let score_config = score_overrides(args.config.score_config);
     let score_projection = strategy.score_projection();
     let score = if gate.pass {
-        Some(
-            score_candidate(&ScoreCandidateArgs {
+        Some({
+            let score_args = ScoreCandidateArgs {
                 candidate: ScoreCandidateView::from(&validation),
                 strategy: &score_projection,
                 tested_combinations: args.tested_combinations as f64,
                 config: Some(&score_config),
-            })
-            .map_err(|error| context(error, "score candidate"))?,
-        )
+            };
+            match strategy.dsl_complexity() {
+                Some(complexity) => score_candidate_with_complexity(&score_args, complexity),
+                None => score_candidate(&score_args),
+            }
+            .map_err(|error| context(error, "score candidate"))?
+        })
     } else {
         None
     };
@@ -956,6 +1044,53 @@ pub(crate) mod tests {
             .collect()
     }
 
+    fn dsl_config_and_candidate() -> (ResolvedDiscoveryConfig, EnumeratedCandidate, i64) {
+        let fixture: Value = serde_json::from_str(RUNNER_CONFIG_FIXTURE).unwrap();
+        let mut input = fixture["enumerationCases"][0]["input"].clone();
+        input["envelopeVersion"] = json!("discovery-config-v2");
+        input["contracts"]["enumeration"] = json!("discovery-enumeration-v2");
+        input["contracts"]["strategyDsl"] = json!("strategy-dsl-v1");
+        input["embargo"]["holdingAllowanceBars"] = json!(0);
+        input["randomEntry"]["runs"] = json!(5);
+        input["gateConfig"]["maxMonthlyContribution"] = json!(1);
+        input["bases"] = json!([{
+            "id": "dsl-cross",
+            "presetVersion": "discovery-dsl-preset-v1",
+            "strategy": {
+                "mode": "dsl",
+                "dsl": {
+                    "version": "strategy-dsl-v1",
+                    "name": "Fixed SMA cross",
+                    "params": {"fast": 2, "slow": 3},
+                    "entry": {"op":"CROSS_UP","args":[
+                        {"ind":"SMA","src":"CLOSE","len":"$fast"},
+                        {"ind":"SMA","src":"CLOSE","len":"$slow"}
+                    ]},
+                    "exit": {"op":"CROSS_DOWN","args":[
+                        {"ind":"SMA","src":"CLOSE","len":"$fast"},
+                        {"ind":"SMA","src":"CLOSE","len":"$slow"}
+                    ]}
+                },
+                "slPct": 2,
+                "tpPct": 4,
+                "feePct": 0.05,
+                "slipPct": 0.02,
+                "sizePct": 100,
+                "fillMode": "nextOpen",
+                "direction": "long"
+            },
+            "axes": []
+        }]);
+        let config = parse_discovery_config(&input, 4.0).expect("admit DSL config");
+        let plan = enumerate_candidates(&config).expect("enumerate DSL candidate");
+        assert_eq!(plan.candidates.len(), 1);
+        (
+            config,
+            plan.candidates[0].clone(),
+            plan.tested_combinations.n,
+        )
+    }
+
     pub(crate) fn representative_output() -> CandidateExecutionOutput {
         let (config, candidate, tested_combinations) = test_config_and_candidate();
         let candles = alternating_candles(600);
@@ -972,6 +1107,30 @@ pub(crate) mod tests {
             candles: &candles,
         })
         .expect("execute representative candidate")
+    }
+
+    #[test]
+    fn executable_dsl_candidate_runs_through_the_existing_pipeline() {
+        let (config, candidate, tested_combinations) = dsl_config_and_candidate();
+        let output = execute_candidate(&ExecuteCandidateArgs {
+            config: &config,
+            candidate: &candidate,
+            tested_combinations,
+            strategy_id: 12,
+            dataset: ExecutionDataset {
+                id: config.dataset.id,
+                content_hash: &config.dataset.content_hash,
+                interval: "1d",
+            },
+            candles: &alternating_candles(600),
+        })
+        .expect("execute DSL candidate");
+        let record: Value = serde_json::from_str(&output.record.record_json).unwrap();
+        assert_eq!(record["embargo"]["maxSignalLookbackBars"], 4);
+        assert_eq!(
+            config.contracts.strategy_dsl.as_deref(),
+            Some("strategy-dsl-v1")
+        );
     }
 
     #[test]

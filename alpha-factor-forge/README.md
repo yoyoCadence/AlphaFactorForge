@@ -4,6 +4,11 @@
 
 > 架構定案見 `../STRATEGY_DISCOVERY.md`（v3, Tauri）。本 repo 為其實作。
 
+> 2026-09-22：P11 新增可執行 `strategy-dsl-v1`：TypeScript／Rust evaluator、共享 parity fixture、
+> 嚴格白名單／型別／arity／lookback／因果驗證，以及 `discovery-config-v2` backend runner admission。
+> DSL、參數 schema 與 P05 lineage 會在執行前保存；AI provider／approve 仍待 P15。
+> 見 [DSL 契約](../docs/strategy-dsl-contract.md)。
+
 > 2026-09-21：P09 新增 service CLI `fetch-tiingo`／`tiingo-status`、Windows 認證管理員讀取、
 > 五檔 US ETF 資格報告與不可變原件。見 [Tiingo 使用說明](../docs/market-source-tiingo-v1.md)。
 > 真實認證下載驗收待本機 token 配置；fixtures 不代表真實來源涵蓋率。
@@ -18,7 +23,7 @@
 
 這是 **Phase A scaffold**。它是**可交接、可逐步驗證**的起點，**不是**完成品。
 
-- ✅ **完整且正確**（純邏輯，無需原生環境即可測）：`src/core/*`（indicators / backtest / metrics / hashing / strategy-dsl schema + validator）。
+- ✅ **完整且正確**（純邏輯，無需原生環境即可測）：`src/core/*`（indicators / backtest / metrics / hashing / strategy-dsl schema + validator + evaluator）。
 - 🟡 **可編譯骨架**（結構正確，部分函式為 `todo!()` 或最小實作，需本機補完）：`src-tauri/*`（Rust commands / db / repositories）。
 - 🟡 **最小可跑前端**：`src/main.tsx` 是一個驗證 command bridge 的薄殼，**現有 AlphaFactorForge 圖表 UI 尚未移植進來**（見 TODO.md）。
 
@@ -83,7 +88,7 @@ alpha-factor-forge/
       backtest/                 回測引擎（deterministic）
       metrics/                  績效指標
       scoring/                  Gate + Score（Phase B）
-      strategy-dsl/             DSL schema + whitelist validator
+      strategy-dsl/             DSL schema + whitelist validator + evaluator
       validation/               Train/Val/Test split（Phase B）
       benchmarks/               benchmark（Phase B）
       hashing/                  strategy_hash / dataset_hash

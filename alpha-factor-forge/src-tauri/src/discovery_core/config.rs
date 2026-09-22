@@ -14,6 +14,7 @@ use serde_json::{Map, Value};
 
 use super::backtest::EXECUTION_CONTRACT_VERSION;
 use super::benchmarks::BENCHMARK_CONTRACT_VERSION;
+use super::dsl::{validate_strategy_dsl, STRATEGY_DSL_VERSION};
 use super::embargo::EMBARGO_CONTRACT_VERSION;
 use super::gate::{resolve_gate_config, GateConfig, GateConfigOverrides};
 use super::identity::{DATASET_HASH_VERSION, STRATEGY_HASH_VERSION};
@@ -24,8 +25,11 @@ use super::seed::DISCOVERY_SEED_VERSION;
 use super::split::SPLIT_CONTRACT_VERSION;
 
 pub const DISCOVERY_CONFIG_VERSION: &str = "discovery-config-v1";
+pub const DISCOVERY_CONFIG_VERSION_V2: &str = "discovery-config-v2";
 pub const DISCOVERY_PRESET_VERSION: &str = "discovery-preset-v1";
+pub const DISCOVERY_DSL_PRESET_VERSION: &str = "discovery-dsl-preset-v1";
 pub const DISCOVERY_ENUMERATION_VERSION: &str = "discovery-enumeration-v1";
+pub const DISCOVERY_ENUMERATION_VERSION_V2: &str = "discovery-enumeration-v2";
 
 pub const DISCOVERY_DEFAULT_CANDIDATE_CAP: i64 = 256;
 pub const DISCOVERY_HARD_CANDIDATE_CAP: i64 = 4096;
@@ -223,6 +227,18 @@ const STRATEGY_KEYS: [&str; 25] = [
     "direction",
 ];
 
+const DSL_STRATEGY_KEYS: [&str; 9] = [
+    "mode",
+    "dsl",
+    "slPct",
+    "tpPct",
+    "feePct",
+    "slipPct",
+    "sizePct",
+    "fillMode",
+    "direction",
+];
+
 const GATE_KEYS: [&str; 8] = [
     "minTrades",
     "minAvgTradeReturn",
@@ -290,9 +306,16 @@ pub struct DiscoveryContractVersions {
     pub score: String,
     pub seed: String,
     pub enumeration: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub strategy_dsl: Option<String>,
 }
 
 pub fn discovery_contract_versions() -> DiscoveryContractVersions {
+    discovery_contract_versions_for(DISCOVERY_CONFIG_VERSION)
+}
+
+fn discovery_contract_versions_for(envelope_version: &str) -> DiscoveryContractVersions {
+    let dsl = envelope_version == DISCOVERY_CONFIG_VERSION_V2;
     DiscoveryContractVersions {
         strategy_hash: STRATEGY_HASH_VERSION.into(),
         dataset_hash: DATASET_HASH_VERSION.into(),
@@ -305,7 +328,13 @@ pub fn discovery_contract_versions() -> DiscoveryContractVersions {
         gate: super::gate::GATE_CONTRACT_VERSION.into(),
         score: SCORE_FORMULA_VERSION.into(),
         seed: DISCOVERY_SEED_VERSION.into(),
-        enumeration: DISCOVERY_ENUMERATION_VERSION.into(),
+        enumeration: if dsl {
+            DISCOVERY_ENUMERATION_VERSION_V2
+        } else {
+            DISCOVERY_ENUMERATION_VERSION
+        }
+        .into(),
+        strategy_dsl: dsl.then(|| STRATEGY_DSL_VERSION.into()),
     }
 }
 
@@ -325,6 +354,9 @@ fn contract_entries(versions: &DiscoveryContractVersions) -> Vec<(&'static str, 
         ("split", versions.split.as_str()),
         ("strategyHash", versions.strategy_hash.as_str()),
     ];
+    if let Some(strategy_dsl) = versions.strategy_dsl.as_deref() {
+        entries.push(("strategyDsl", strategy_dsl));
+    }
     entries.sort_by(|left, right| left.0.cmp(right.0));
     entries
 }
@@ -564,7 +596,7 @@ pub fn check_numeric_param(key: &str, value: f64) -> Option<String> {
 
 // ---------- strategy preset ----------
 
-fn parse_strategy(value: &Value, path: &str) -> Result<Value, ConfigError> {
+fn parse_params_strategy(value: &Value, path: &str) -> Result<Value, ConfigError> {
     let object = require_object(value, path)?;
     require_exact_keys(object, path, &STRATEGY_KEYS)?;
 
@@ -596,6 +628,38 @@ fn parse_strategy(value: &Value, path: &str) -> Result<Value, ConfigError> {
     require_string(object, path, "entryCode")?;
     require_string(object, path, "exitCode")?;
 
+    Ok(value.clone())
+}
+
+/// P11 fixed DSL candidate envelope. Risk, costs, sizing, and execution stay
+/// outside the expression tree so they cannot be proposed as DSL parameters
+/// or discovery axes.
+fn parse_dsl_strategy(value: &Value, path: &str) -> Result<Value, ConfigError> {
+    let object = require_object(value, path)?;
+    require_exact_keys(object, path, &DSL_STRATEGY_KEYS)?;
+    if require_string(object, path, "mode")? != "dsl" {
+        return fail(format!("{path}.mode must be \"dsl\""));
+    }
+    let dsl = object.get("dsl").unwrap_or(&Value::Null);
+    let report = validate_strategy_dsl(dsl);
+    if !report.ok {
+        return fail(format!(
+            "{path}.dsl is invalid: {}",
+            report
+                .errors
+                .first()
+                .map(String::as_str)
+                .unwrap_or("unknown error")
+        ));
+    }
+    for key in ["slPct", "tpPct", "feePct", "slipPct", "sizePct"] {
+        let parsed = require_number(object, path, key)?;
+        if let Some(problem) = check_numeric_param(key, parsed) {
+            return fail(format!("{path}.{problem}"));
+        }
+    }
+    require_literal(object, path, "fillMode", &FILL_MODES)?;
+    require_literal(object, path, "direction", &DIRECTIONS)?;
     Ok(value.clone())
 }
 
@@ -673,7 +737,11 @@ fn is_valid_base_id(id: &str) -> bool {
     })
 }
 
-fn parse_base(value: &Value, path: &str) -> Result<DiscoveryBase, ConfigError> {
+fn parse_base(
+    value: &Value,
+    path: &str,
+    envelope_version: &str,
+) -> Result<DiscoveryBase, ConfigError> {
     let object = require_object(value, path)?;
     require_exact_keys(object, path, &["id", "presetVersion", "strategy", "axes"])?;
     let id = require_string(object, path, "id")?;
@@ -681,15 +749,39 @@ fn parse_base(value: &Value, path: &str) -> Result<DiscoveryBase, ConfigError> {
         return fail(format!("{path}.id must match {BASE_ID_PATTERN}"));
     }
     let preset_version = require_string(object, path, "presetVersion")?;
-    if preset_version != DISCOVERY_PRESET_VERSION {
+    let raw_strategy = object.get("strategy").unwrap_or(&Value::Null);
+    let strategy_path = format!("{path}.strategy");
+    let mode = require_object(raw_strategy, &strategy_path)?
+        .get("mode")
+        .and_then(Value::as_str)
+        .ok_or_else(|| ConfigError(format!("{strategy_path}.mode must be a string")))?;
+    let (strategy, expected_preset) = if envelope_version == DISCOVERY_CONFIG_VERSION {
+        (
+            parse_params_strategy(raw_strategy, &strategy_path)?,
+            DISCOVERY_PRESET_VERSION,
+        )
+    } else {
+        match mode {
+            "params" => (
+                parse_params_strategy(raw_strategy, &strategy_path)?,
+                DISCOVERY_PRESET_VERSION,
+            ),
+            "dsl" => (
+                parse_dsl_strategy(raw_strategy, &strategy_path)?,
+                DISCOVERY_DSL_PRESET_VERSION,
+            ),
+            other => {
+                return fail(format!(
+                    "{strategy_path}.mode must be one of params, dsl (received {other})"
+                ))
+            }
+        }
+    };
+    if preset_version != expected_preset {
         return fail(format!(
-            "{path}.presetVersion must be \"{DISCOVERY_PRESET_VERSION}\""
+            "{path}.presetVersion must be \"{expected_preset}\""
         ));
     }
-    let strategy = parse_strategy(
-        object.get("strategy").unwrap_or(&Value::Null),
-        &format!("{path}.strategy"),
-    )?;
 
     let raw_axes = require_array(object, path, "axes")?;
     let mut axes: Vec<DiscoveryAxis> = Vec::new();
@@ -709,10 +801,15 @@ fn parse_base(value: &Value, path: &str) -> Result<DiscoveryBase, ConfigError> {
         }
         axes.push(axis);
     }
+    if mode == "dsl" && !axes.is_empty() {
+        return fail(format!(
+            "{path}.axes must be empty for a fixed DSL candidate"
+        ));
+    }
 
     Ok(DiscoveryBase {
         id: id.to_string(),
-        preset_version: DISCOVERY_PRESET_VERSION.to_string(),
+        preset_version: expected_preset.to_string(),
         strategy,
         axes,
     })
@@ -829,7 +926,8 @@ pub fn resolve_concurrency(requested: Option<f64>, logical_cores: f64) -> Result
 
 // ---------- envelope ----------
 
-/// Parse and resolve one `discovery-config-v1` envelope.
+/// Parse and resolve a discovery envelope. v1 remains params-only; v2 adds
+/// fixed, already-versioned DSL candidates without changing v1 semantics.
 pub fn parse_discovery_config(
     value: &Value,
     logical_cores: f64,
@@ -839,13 +937,15 @@ pub fn parse_discovery_config(
     require_exact_keys(object, path, &ENVELOPE_KEYS)?;
 
     let envelope_version = require_string(object, path, "envelopeVersion")?;
-    if envelope_version != DISCOVERY_CONFIG_VERSION {
+    if envelope_version != DISCOVERY_CONFIG_VERSION
+        && envelope_version != DISCOVERY_CONFIG_VERSION_V2
+    {
         return fail(format!(
-            "{path}.envelopeVersion must be \"{DISCOVERY_CONFIG_VERSION}\""
+            "{path}.envelopeVersion must be one of {DISCOVERY_CONFIG_VERSION}, {DISCOVERY_CONFIG_VERSION_V2}"
         ));
     }
 
-    let contracts = discovery_contract_versions();
+    let contracts = discovery_contract_versions_for(envelope_version);
     let contracts_path = format!("{path}.contracts");
     let contracts_object = require_object(
         object.get("contracts").unwrap_or(&Value::Null),
@@ -889,7 +989,7 @@ pub fn parse_discovery_config(
     let mut bases: Vec<DiscoveryBase> = Vec::new();
     for (index, raw_base) in raw_bases.iter().enumerate() {
         let base_path = format!("{path}.bases[{index}]");
-        let base = parse_base(raw_base, &base_path)?;
+        let base = parse_base(raw_base, &base_path, envelope_version)?;
         if bases.iter().any(|seen| seen.id == base.id) {
             return fail(format!("{base_path} repeats base id \"{}\"", base.id));
         }
@@ -1000,7 +1100,7 @@ pub fn parse_discovery_config(
     let resolved = resolve_concurrency(requested_concurrency, logical_cores)?;
 
     Ok(ResolvedDiscoveryConfig {
-        envelope_version: DISCOVERY_CONFIG_VERSION.to_string(),
+        envelope_version: envelope_version.to_string(),
         contracts,
         dataset: DatasetRef {
             id: dataset_id,
@@ -1056,5 +1156,67 @@ mod tests {
         assert!(!is_valid_base_id("-lead"));
         assert!(!is_valid_base_id("MA-cross"));
         assert!(!is_valid_base_id("ma cross"));
+    }
+
+    fn dsl_config() -> Value {
+        let fixture: Value = serde_json::from_str(include_str!(
+            "../../../fixtures/rs-core/runner-config-v1.json"
+        ))
+        .unwrap();
+        let mut config = fixture["configCases"][0]["input"].clone();
+        config["envelopeVersion"] = Value::String(DISCOVERY_CONFIG_VERSION_V2.into());
+        config["contracts"]["enumeration"] = Value::String(DISCOVERY_ENUMERATION_VERSION_V2.into());
+        config["contracts"]["strategyDsl"] = Value::String(STRATEGY_DSL_VERSION.into());
+        config["bases"] = serde_json::json!([{
+            "id": "dsl-cross",
+            "presetVersion": DISCOVERY_DSL_PRESET_VERSION,
+            "strategy": {
+                "mode": "dsl",
+                "dsl": {
+                    "version": STRATEGY_DSL_VERSION,
+                    "name": "Fixed SMA cross",
+                    "params": {"fast": 2, "slow": 3},
+                    "entry": {"op": "CROSS_UP", "args": [
+                        {"ind": "SMA", "src": "CLOSE", "len": "$fast"},
+                        {"ind": "SMA", "src": "CLOSE", "len": "$slow"}
+                    ]},
+                    "exit": {"op": "CROSS_DOWN", "args": [
+                        {"ind": "SMA", "src": "CLOSE", "len": "$fast"},
+                        {"ind": "SMA", "src": "CLOSE", "len": "$slow"}
+                    ]}
+                },
+                "slPct": 2,
+                "tpPct": 4,
+                "feePct": 0.05,
+                "slipPct": 0.02,
+                "sizePct": 100,
+                "fillMode": "nextOpen",
+                "direction": "long"
+            },
+            "axes": []
+        }]);
+        config
+    }
+
+    #[test]
+    fn v2_admits_valid_fixed_dsl_and_rejects_invalid_before_enumeration() {
+        let config = dsl_config();
+        let resolved = parse_discovery_config(&config, 8.0).unwrap();
+        assert_eq!(resolved.envelope_version, DISCOVERY_CONFIG_VERSION_V2);
+        assert_eq!(
+            resolved.contracts.strategy_dsl.as_deref(),
+            Some(STRATEGY_DSL_VERSION)
+        );
+
+        let mut invalid = config.clone();
+        invalid["bases"][0]["strategy"]["dsl"]["entry"] =
+            serde_json::json!({"op": "EXEC", "args": []});
+        let error = parse_discovery_config(&invalid, 8.0).unwrap_err();
+        assert!(error.to_string().contains("dsl is invalid"));
+
+        let mut swept = config;
+        swept["bases"][0]["axes"] = serde_json::json!([{"key":"slPct","min":1,"max":2,"step":1}]);
+        let error = parse_discovery_config(&swept, 8.0).unwrap_err();
+        assert!(error.to_string().contains("axes must be empty"));
     }
 }

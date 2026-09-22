@@ -11,6 +11,8 @@
 // See docs/discovery-config-contract.md for the recorded conventions.
 
 import { DATASET_HASH_VERSION, STRATEGY_HASH_VERSION } from '../core/hashing';
+import { STRATEGY_DSL_VERSION, type StrategyDSL } from '../core/strategy-dsl/schema';
+import { validateDSL } from '../core/strategy-dsl/validator';
 import { DEFAULT_GATE_CONFIG, GATE_CONTRACT_VERSION, type GateConfig } from './gate';
 import { DEFAULT_SCORE_CONFIG, SCORE_FORMULA_VERSION, type ScoreConfig } from './score';
 import { MAX_RANDOM_ENTRY_RUNS } from './randomEntry';
@@ -24,8 +26,11 @@ import type { Direction, FillMode } from '../core/backtest';
 import type { ParamsStrategy, SignalId } from './strategy';
 
 export const DISCOVERY_CONFIG_VERSION = 'discovery-config-v1';
+export const DISCOVERY_CONFIG_VERSION_V2 = 'discovery-config-v2';
 export const DISCOVERY_PRESET_VERSION = 'discovery-preset-v1';
+export const DISCOVERY_DSL_PRESET_VERSION = 'discovery-dsl-preset-v1';
 export const DISCOVERY_ENUMERATION_VERSION = 'discovery-enumeration-v1';
+export const DISCOVERY_ENUMERATION_VERSION_V2 = 'discovery-enumeration-v2';
 
 /** Every contract this input envelope is pinned to. A run whose recorded
  *  versions differ from the build's is rejected rather than reinterpreted. */
@@ -44,6 +49,13 @@ export const DISCOVERY_CONTRACT_VERSIONS = {
   enumeration: DISCOVERY_ENUMERATION_VERSION,
 } as const;
 export type DiscoveryContractVersions = typeof DISCOVERY_CONTRACT_VERSIONS;
+
+export const DISCOVERY_CONTRACT_VERSIONS_V2 = {
+  ...DISCOVERY_CONTRACT_VERSIONS,
+  enumeration: DISCOVERY_ENUMERATION_VERSION_V2,
+  strategyDsl: STRATEGY_DSL_VERSION,
+} as const;
+export type DiscoveryContractVersionsV2 = typeof DISCOVERY_CONTRACT_VERSIONS_V2;
 
 /** Resolution D2 caps. The default is the UI-facing budget; the hard cap may
  *  only move with a config-contract bump plus performance evidence. */
@@ -138,6 +150,18 @@ const STRATEGY_KEYS = [
   'direction',
 ] as const;
 
+const DSL_STRATEGY_KEYS = [
+  'mode',
+  'dsl',
+  'slPct',
+  'tpPct',
+  'feePct',
+  'slipPct',
+  'sizePct',
+  'fillMode',
+  'direction',
+] as const;
+
 const GATE_KEYS = [
   'minTrades',
   'minAvgTradeReturn',
@@ -189,6 +213,15 @@ export interface DiscoveryBase {
   axes: DiscoveryAxis[];
 }
 
+export interface DslDiscoveryBase {
+  id: string;
+  presetVersion: typeof DISCOVERY_DSL_PRESET_VERSION;
+  strategy: DslCandidateStrategy;
+  axes: [];
+}
+
+export type AnyDiscoveryBase = DiscoveryBase | DslDiscoveryBase;
+
 export interface ResolvedConcurrency {
   /** What the config asked for; null means "use the machine default". */
   requested: number | null;
@@ -212,6 +245,28 @@ export interface ResolvedDiscoveryConfig {
   caps: { candidates: number };
   concurrency: ResolvedConcurrency;
 }
+
+export interface ResolvedDiscoveryConfigV2 extends Omit<ResolvedDiscoveryConfig, 'envelopeVersion' | 'contracts' | 'bases'> {
+  envelopeVersion: typeof DISCOVERY_CONFIG_VERSION_V2;
+  contracts: DiscoveryContractVersionsV2;
+  bases: AnyDiscoveryBase[];
+}
+
+export type AnyResolvedDiscoveryConfig = ResolvedDiscoveryConfig | ResolvedDiscoveryConfigV2;
+
+export interface DslCandidateStrategy {
+  mode: 'dsl';
+  dsl: StrategyDSL;
+  slPct: number;
+  tpPct: number;
+  feePct: number;
+  slipPct: number;
+  sizePct: number;
+  fillMode: FillMode;
+  direction: Direction;
+}
+
+export type DiscoveryStrategy = ParamsStrategy | DslCandidateStrategy;
 
 export interface ParseDiscoveryConfigOptions {
   /** Logical CPU count of the machine that will run the job (caller-supplied
@@ -343,7 +398,7 @@ function requireIntegerInRange(
 
 // ---------- strategy preset ----------
 
-function parseStrategy(value: unknown, path: string): ParamsStrategy {
+function parseParamsStrategy(value: unknown, path: string): ParamsStrategy {
   const object = requireObject(value, path);
   requireExactKeys(object, path, STRATEGY_KEYS);
 
@@ -407,6 +462,28 @@ function parseStrategy(value: unknown, path: string): ParamsStrategy {
   };
 }
 
+function parseDslStrategy(value: unknown, path: string): DslCandidateStrategy {
+  const object = requireObject(value, path);
+  requireExactKeys(object, path, DSL_STRATEGY_KEYS);
+  if (requireString(object, path, 'mode') !== 'dsl') fail(`${path}.mode must be "dsl"`);
+  const validation = validateDSL(object.dsl);
+  if (!validation.ok) fail(`${path}.dsl is invalid: ${validation.errors[0] ?? 'unknown error'}`);
+  const numeric = {} as Record<'slPct' | 'tpPct' | 'feePct' | 'slipPct' | 'sizePct', number>;
+  for (const key of ['slPct', 'tpPct', 'feePct', 'slipPct', 'sizePct'] as const) {
+    const parsed = requireNumber(object, path, key);
+    const problem = checkNumericParam(key, parsed);
+    if (problem) fail(`${path}.${problem}`);
+    numeric[key] = parsed;
+  }
+  return {
+    mode: 'dsl',
+    dsl: deepCloneJson(object.dsl) as StrategyDSL,
+    ...numeric,
+    fillMode: requireLiteral(object, path, 'fillMode', FILL_MODES),
+    direction: requireLiteral(object, path, 'direction', DIRECTIONS),
+  };
+}
+
 // ---------- axes ----------
 
 const BASE_ID_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
@@ -455,7 +532,11 @@ export function axisValues(axis: DiscoveryAxis): number[] {
   return values;
 }
 
-function parseBase(value: unknown, path: string): DiscoveryBase {
+function parseBase(
+  value: unknown,
+  path: string,
+  envelopeVersion: typeof DISCOVERY_CONFIG_VERSION | typeof DISCOVERY_CONFIG_VERSION_V2,
+): AnyDiscoveryBase {
   const object = requireObject(value, path);
   requireExactKeys(object, path, ['id', 'presetVersion', 'strategy', 'axes']);
   const id = requireString(object, path, 'id');
@@ -463,10 +544,25 @@ function parseBase(value: unknown, path: string): DiscoveryBase {
     fail(`${path}.id must match ${BASE_ID_PATTERN.source}`);
   }
   const presetVersion = requireString(object, path, 'presetVersion');
-  if (presetVersion !== DISCOVERY_PRESET_VERSION) {
-    fail(`${path}.presetVersion must be "${DISCOVERY_PRESET_VERSION}"`);
+  const strategyObject = requireObject(object.strategy, `${path}.strategy`);
+  const mode = requireString(strategyObject, `${path}.strategy`, 'mode');
+  let strategy: DiscoveryStrategy;
+  let expectedPreset: typeof DISCOVERY_PRESET_VERSION | typeof DISCOVERY_DSL_PRESET_VERSION;
+  if (envelopeVersion === DISCOVERY_CONFIG_VERSION) {
+    strategy = parseParamsStrategy(object.strategy, `${path}.strategy`);
+    expectedPreset = DISCOVERY_PRESET_VERSION;
+  } else if (mode === 'params') {
+    strategy = parseParamsStrategy(object.strategy, `${path}.strategy`);
+    expectedPreset = DISCOVERY_PRESET_VERSION;
+  } else if (mode === 'dsl') {
+    strategy = parseDslStrategy(object.strategy, `${path}.strategy`);
+    expectedPreset = DISCOVERY_DSL_PRESET_VERSION;
+  } else {
+    fail(`${path}.strategy.mode must be one of params, dsl (received ${mode})`);
   }
-  const strategy = parseStrategy(object.strategy, `${path}.strategy`);
+  if (presetVersion !== expectedPreset) {
+    fail(`${path}.presetVersion must be "${expectedPreset}"`);
+  }
 
   const rawAxes = requireArray(object, path, 'axes');
   const axes: DiscoveryAxis[] = [];
@@ -481,6 +577,12 @@ function parseBase(value: unknown, path: string): DiscoveryBase {
       if (problem) fail(`${path}.axes[${index}] generates an invalid value: ${problem}`);
     }
     axes.push(axis);
+  }
+  if (strategy.mode === 'dsl' && axes.length > 0) {
+    fail(`${path}.axes must be empty for a fixed DSL candidate`);
+  }
+  if (strategy.mode === 'dsl') {
+    return { id, presetVersion: DISCOVERY_DSL_PRESET_VERSION, strategy, axes: [] };
   }
   return { id, presetVersion: DISCOVERY_PRESET_VERSION, strategy, axes };
 }
@@ -590,33 +692,46 @@ const ENVELOPE_KEYS = [
   'maxConcurrency',
 ] as const;
 
-const CONTRACT_KEYS = Object.keys(DISCOVERY_CONTRACT_VERSIONS).sort() as (keyof DiscoveryContractVersions)[];
-
 /**
- * Parse and resolve one `discovery-config-v1` envelope. Throws `RangeError`
+ * Parse and resolve a discovery envelope. v1 remains params-only; v2 adds
+ * fixed executable DSL candidates. Throws `RangeError`
  * with a path-qualified message on the first problem; never returns a
  * partially-validated config.
  */
 export function parseDiscoveryConfig(
+  value: { envelopeVersion: typeof DISCOVERY_CONFIG_VERSION_V2 } & Record<string, unknown>,
+  options: ParseDiscoveryConfigOptions,
+): ResolvedDiscoveryConfigV2;
+export function parseDiscoveryConfig(
   value: unknown,
   options: ParseDiscoveryConfigOptions,
-): ResolvedDiscoveryConfig {
+): ResolvedDiscoveryConfig;
+export function parseDiscoveryConfig(
+  value: unknown,
+  options: ParseDiscoveryConfigOptions,
+): AnyResolvedDiscoveryConfig {
   const path = 'discoveryConfig';
   const object = requireObject(value, path);
   requireExactKeys(object, path, ENVELOPE_KEYS);
 
   const envelopeVersion = requireString(object, path, 'envelopeVersion');
-  if (envelopeVersion !== DISCOVERY_CONFIG_VERSION) {
-    fail(`${path}.envelopeVersion must be "${DISCOVERY_CONFIG_VERSION}"`);
+  if (envelopeVersion !== DISCOVERY_CONFIG_VERSION && envelopeVersion !== DISCOVERY_CONFIG_VERSION_V2) {
+    fail(`${path}.envelopeVersion must be one of ${DISCOVERY_CONFIG_VERSION}, ${DISCOVERY_CONFIG_VERSION_V2}`);
   }
 
+  const expectedContracts = envelopeVersion === DISCOVERY_CONFIG_VERSION
+    ? DISCOVERY_CONTRACT_VERSIONS
+    : DISCOVERY_CONTRACT_VERSIONS_V2;
+  const contractKeys = Object.keys(expectedContracts).sort(compareUtf8);
+
   const contractsObject = requireObject(object.contracts, `${path}.contracts`);
-  requireExactKeys(contractsObject, `${path}.contracts`, CONTRACT_KEYS);
-  for (const key of CONTRACT_KEYS) {
+  requireExactKeys(contractsObject, `${path}.contracts`, contractKeys);
+  for (const key of contractKeys) {
     const recorded = requireString(contractsObject, `${path}.contracts`, key);
-    if (recorded !== DISCOVERY_CONTRACT_VERSIONS[key]) {
+    const expected = expectedContracts[key as keyof typeof expectedContracts];
+    if (recorded !== expected) {
       fail(
-        `${path}.contracts.${key} must be "${DISCOVERY_CONTRACT_VERSIONS[key]}" (recorded "${recorded}")`,
+        `${path}.contracts.${key} must be "${expected}" (recorded "${recorded}")`,
       );
     }
   }
@@ -636,10 +751,10 @@ export function parseDiscoveryConfig(
 
   const rawBases = requireArray(object, path, 'bases');
   if (rawBases.length === 0) fail(`${path}.bases must contain at least one base preset`);
-  const bases: DiscoveryBase[] = [];
+  const bases: AnyDiscoveryBase[] = [];
   const baseIds = new Set<string>();
   for (let index = 0; index < rawBases.length; index++) {
-    const base = parseBase(rawBases[index], `${path}.bases[${index}]`);
+    const base = parseBase(rawBases[index], `${path}.bases[${index}]`, envelopeVersion);
     if (baseIds.has(base.id)) fail(`${path}.bases[${index}] repeats base id "${base.id}"`);
     baseIds.add(base.id);
     bases.push(base);
@@ -717,14 +832,14 @@ export function parseDiscoveryConfig(
   if (typeof requestedConcurrency === 'number' && !Number.isFinite(requestedConcurrency)) {
     fail(`${path}.maxConcurrency must be a finite number or null`);
   }
-  const resolved = resolveConcurrency(
+  const concurrencyResolved = resolveConcurrency(
     requestedConcurrency === null ? null : (requestedConcurrency as number),
     options.logicalCores,
   );
 
-  return {
-    envelopeVersion: DISCOVERY_CONFIG_VERSION,
-    contracts: { ...DISCOVERY_CONTRACT_VERSIONS },
+  const resolvedConfig = {
+    envelopeVersion,
+    contracts: { ...expectedContracts },
     dataset: { id: datasetId, contentHash },
     bases,
     embargo: { holdingAllowanceBars },
@@ -737,10 +852,11 @@ export function parseDiscoveryConfig(
     caps: { candidates },
     concurrency: {
       requested: requestedConcurrency === null ? null : (requestedConcurrency as number),
-      resolved,
+      resolved: concurrencyResolved,
       logicalCores: options.logicalCores,
     },
   };
+  return resolvedConfig as AnyResolvedDiscoveryConfig;
 }
 
 /** Convenience defaults for callers building a config; the parser still owns

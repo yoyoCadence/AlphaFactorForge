@@ -385,7 +385,7 @@ export async function buildRunnerConfigParityFixture(
     // UTF-8 (Rust's `String: Ord`). Both languages must name "＀" first.
     ['config-unknown-key-utf8-order', broken((config) => { config['\u{1F600}'] = 1; config['＀'] = 1; }), 'discoveryConfig has unknown key "＀"'],
     ['config-missing-envelope-key', broken((config) => { delete config.rootSeed; }), 'discoveryConfig is missing key "rootSeed"'],
-    ['config-envelope-version-mismatch', broken((config) => { config.envelopeVersion = 'discovery-config-v2'; }), 'envelopeVersion must be "discovery-config-v1"'],
+    ['config-envelope-version-mismatch', broken((config) => { config.envelopeVersion = 'discovery-config-v3'; }), 'envelopeVersion must be one of discovery-config-v1, discovery-config-v2'],
     ['config-contract-version-mismatch', broken((config) => { (config.contracts as JsonObject).gate = 'gate-v2'; }), 'contracts.gate must be "gate-v1"'],
     ['config-preset-version-mismatch', broken((config) => { firstBase(config).presetVersion = 'preset-v9'; }), 'presetVersion must be "discovery-preset-v1"'],
     ['config-dataset-legacy-hash', broken((config) => { (config.dataset as JsonObject).contentHash = 'legacy-unversioned'; }), 'contentHash must be a durable dataset-content-v2 identity'],

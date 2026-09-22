@@ -1,0 +1,126 @@
+{
+  "fixtureVersion": "strategy-dsl-parity-v1",
+  "contractVersion": "strategy-dsl-v1",
+  "numericPolicy": "indicator-v1 tolerance; boolean signals and analysis metadata exact",
+  "candles": [
+    { "t": 0, "o": 1, "h": 1.5, "l": 0.5, "c": 1, "v": 100 },
+    { "t": 60000, "o": 2, "h": 2.5, "l": 1.5, "c": 2, "v": 101 },
+    { "t": 120000, "o": 3, "h": 3.5, "l": 2.5, "c": 3, "v": 102 },
+    { "t": 180000, "o": 2, "h": 2.5, "l": 1.5, "c": 2, "v": 103 },
+    { "t": 240000, "o": 1, "h": 1.5, "l": 0.5, "c": 1, "v": 104 },
+    { "t": 300000, "o": 2, "h": 2.5, "l": 1.5, "c": 2, "v": 105 },
+    { "t": 360000, "o": 3, "h": 3.5, "l": 2.5, "c": 3, "v": 106 },
+    { "t": 420000, "o": 4, "h": 4.5, "l": 3.5, "c": 4, "v": 107 }
+  ],
+  "validCases": [
+    {
+      "id": "parameterized-sma-cross",
+      "dsl": {
+        "version": "strategy-dsl-v1",
+        "name": "SMA cross",
+        "params": {
+          "fast": 2,
+          "slow": { "type": "int", "min": 3, "max": 10, "default": 3 }
+        },
+        "entry": {
+          "op": "CROSS_UP",
+          "args": [
+            { "ind": "SMA", "src": "CLOSE", "len": "$fast" },
+            { "ind": "SMA", "src": "CLOSE", "len": "$slow" }
+          ]
+        },
+        "exit": {
+          "op": "CROSS_DOWN",
+          "args": [
+            { "ind": "SMA", "src": "CLOSE", "len": "$fast" },
+            { "ind": "SMA", "src": "CLOSE", "len": "$slow" }
+          ]
+        }
+      },
+      "expected": {
+        "entry": [false, false, false, false, false, false, true, false],
+        "exit": [false, false, false, false, true, false, false, false],
+        "nodeCount": 6,
+        "depth": 2,
+        "maxLookbackBars": 4,
+        "parameterCount": 2
+      }
+    },
+    {
+      "id": "typed-temporal-and-atr-tree",
+      "dsl": {
+        "version": "strategy-dsl-v1",
+        "name": "Momentum with ATR exit",
+        "params": {},
+        "entry": {
+          "op": "AND",
+          "args": [
+            { "op": "GT", "args": [{ "ind": "HLC3" }, { "op": "CONST", "v": 2.5 }] },
+            { "op": "RISING", "args": [{ "ind": "CLOSE" }], "n": 2 }
+          ]
+        },
+        "exit": {
+          "op": "OR",
+          "args": [
+            { "op": "LTE", "args": [{ "ind": "CLOSE" }, { "op": "CONST", "v": 1.5 }] },
+            { "op": "GT", "args": [{ "ind": "ATR", "len": 2 }, { "op": "CONST", "v": 1 }] }
+          ]
+        }
+      },
+      "expected": {
+        "entry": [false, false, true, false, false, false, true, true],
+        "exit": [true, true, true, true, true, true, true, true],
+        "nodeCount": 13,
+        "depth": 3,
+        "maxLookbackBars": 3,
+        "parameterCount": 0
+      }
+    }
+  ],
+  "invalidCases": [
+    {
+      "id": "multi-output-indicator-not-executable",
+      "dsl": {
+        "version": "strategy-dsl-v1",
+        "name": "MACD ambiguity",
+        "params": {},
+        "entry": { "op": "GT", "args": [{ "ind": "MACD", "src": "CLOSE", "len": 12 }, { "op": "CONST", "v": 0 }] },
+        "exit": { "op": "GT", "args": [{ "ind": "CLOSE" }, { "op": "CONST", "v": 0 }] }
+      },
+      "errorContains": "not executable"
+    },
+    {
+      "id": "logical-type-mismatch",
+      "dsl": {
+        "version": "strategy-dsl-v1",
+        "name": "Bad types",
+        "params": {},
+        "entry": { "op": "AND", "args": [{ "ind": "CLOSE" }, { "op": "CONST", "v": 1 }] },
+        "exit": { "op": "GT", "args": [{ "ind": "CLOSE" }, { "op": "CONST", "v": 0 }] }
+      },
+      "errorContains": "expected boolean"
+    },
+    {
+      "id": "lookback-below-existing-minimum",
+      "dsl": {
+        "version": "strategy-dsl-v1",
+        "name": "Too short",
+        "params": {},
+        "entry": { "op": "GT", "args": [{ "ind": "SMA", "src": "CLOSE", "len": 1 }, { "op": "CONST", "v": 0 }] },
+        "exit": { "op": "GT", "args": [{ "ind": "CLOSE" }, { "op": "CONST", "v": 0 }] }
+      },
+      "errorContains": "lookback must be int in [2, 400]"
+    },
+    {
+      "id": "code-token-smuggling",
+      "dsl": {
+        "version": "strategy-dsl-v1",
+        "name": "eval(fetch('remote'))",
+        "params": {},
+        "entry": { "op": "GT", "args": [{ "ind": "CLOSE" }, { "op": "CONST", "v": 0 }] },
+        "exit": { "op": "LT", "args": [{ "ind": "CLOSE" }, { "op": "CONST", "v": 0 }] }
+      },
+      "errorContains": "suspicious token"
+    }
+  ]
+}

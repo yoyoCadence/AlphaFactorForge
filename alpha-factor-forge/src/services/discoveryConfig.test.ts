@@ -6,15 +6,19 @@ import { MAX_RANDOM_ENTRY_RUNS } from './randomEntry';
 import {
   DISCOVERY_AXIS_KEYS,
   DISCOVERY_CONFIG_VERSION,
+  DISCOVERY_CONFIG_VERSION_V2,
   DISCOVERY_CONTRACT_VERSIONS,
+  DISCOVERY_CONTRACT_VERSIONS_V2,
   DISCOVERY_DEFAULT_CANDIDATE_CAP,
   DISCOVERY_HARD_CANDIDATE_CAP,
   DISCOVERY_MAX_AXIS_VALUES,
   DISCOVERY_PRESET_VERSION,
+  DISCOVERY_DSL_PRESET_VERSION,
   axisValues,
   parseDiscoveryConfig,
   resolveConcurrency,
 } from './discoveryConfig';
+import { STRATEGY_DSL_VERSION } from '../core/strategy-dsl/schema';
 
 const DATASET_HASH = `dataset-content-v2:${'a'.repeat(64)}`;
 
@@ -84,8 +88,8 @@ describe('discovery-config-v1 parsing', () => {
       .toThrow(/has unknown key "extra"/);
     expect(() => parse((config) => { delete config.rootSeed; }))
       .toThrow(/is missing key "rootSeed"/);
-    expect(() => parse((config) => { config.envelopeVersion = 'discovery-config-v2'; }))
-      .toThrow(/envelopeVersion must be "discovery-config-v1"/);
+    expect(() => parse((config) => { config.envelopeVersion = 'discovery-config-v3'; }))
+      .toThrow(/envelopeVersion must be one of discovery-config-v1, discovery-config-v2/);
     expect(() => parse((config) => {
       (config.contracts as Record<string, string>).gate = 'gate-v2';
     })).toThrow(/contracts\.gate must be "gate-v1"/);
@@ -329,5 +333,61 @@ describe('discovery-config-v1 parsing', () => {
     expect(() => parse((config) => {
       (config.bases as Record<string, unknown>[])[0].id = 'MA Cross';
     })).toThrow(/id must match/);
+  });
+});
+
+describe('discovery-config-v2 DSL admission', () => {
+  function dslConfig() {
+    const config = validConfig();
+    config.envelopeVersion = DISCOVERY_CONFIG_VERSION_V2;
+    config.contracts = { ...DISCOVERY_CONTRACT_VERSIONS_V2 };
+    config.bases = [{
+      id: 'dsl-cross',
+      presetVersion: DISCOVERY_DSL_PRESET_VERSION,
+      strategy: {
+        mode: 'dsl',
+        dsl: {
+          version: STRATEGY_DSL_VERSION,
+          name: 'Fixed SMA cross',
+          params: { fast: 2, slow: 3 },
+          entry: { op: 'CROSS_UP', args: [
+            { ind: 'SMA', src: 'CLOSE', len: '$fast' },
+            { ind: 'SMA', src: 'CLOSE', len: '$slow' },
+          ] },
+          exit: { op: 'CROSS_DOWN', args: [
+            { ind: 'SMA', src: 'CLOSE', len: '$fast' },
+            { ind: 'SMA', src: 'CLOSE', len: '$slow' },
+          ] },
+        },
+        slPct: 2,
+        tpPct: 4,
+        feePct: 0.05,
+        slipPct: 0.02,
+        sizePct: 100,
+        fillMode: 'nextOpen',
+        direction: 'long',
+      },
+      axes: [],
+    }];
+    return config as { envelopeVersion: typeof DISCOVERY_CONFIG_VERSION_V2 } & Record<string, unknown>;
+  }
+
+  it('admits one fixed validated DSL candidate with a pinned DSL contract', () => {
+    const resolved = parseDiscoveryConfig(dslConfig(), { logicalCores: 8 });
+    expect(resolved.contracts.strategyDsl).toBe(STRATEGY_DSL_VERSION);
+    expect(resolved.bases[0].strategy.mode).toBe('dsl');
+  });
+
+  it('rejects an invalid tree and any attempt to sweep DSL/risk fields', () => {
+    const invalid = dslConfig();
+    const base = (invalid.bases as Record<string, unknown>[])[0];
+    const strategy = base.strategy as Record<string, unknown>;
+    const dsl = strategy.dsl as Record<string, unknown>;
+    dsl.entry = { op: 'EXEC', args: [] };
+    expect(() => parseDiscoveryConfig(invalid, { logicalCores: 8 })).toThrow(/dsl is invalid/);
+
+    const swept = dslConfig();
+    (swept.bases as Record<string, unknown>[])[0].axes = [{ key: 'slPct', min: 1, max: 2, step: 1 }];
+    expect(() => parseDiscoveryConfig(swept, { logicalCores: 8 })).toThrow(/axes must be empty/);
   });
 });

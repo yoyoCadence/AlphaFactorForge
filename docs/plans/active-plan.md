@@ -6,7 +6,7 @@
 > [`../../handoffs/2026-09-21-p09-tiingo-v1.md`](../../handoffs/2026-09-21-p09-tiingo-v1.md)。
 > 純計算契約與限制見 [`../etf-semantics-v1.md`](../etf-semantics-v1.md)，驗證／交接見
 > [`../../handoffs/2026-09-20-p08-etf-semantics-v1.md`](../../handoffs/2026-09-20-p08-etf-semantics-v1.md)。
-> 下文保留原始規劃基準；P11 及後續功能未在本輪啟動，整體最終 Acceptance Criteria 尚未全部完成。
+> 下文保留原始規劃基準；P11 已於 2026-09-22 完成，P12 及後續功能未啟動，整體最終 Acceptance Criteria 尚未全部完成。
 
 ## 1. 目標、基準與交付限制
 
@@ -454,7 +454,7 @@ ETF 免費日線模式明確標為 **日線延遲確認模擬**：
 | P08 ETF 市場語意 | calendar、年化、split、dividend、native currency、成本契約 | P06 | 配息／分割／休市／付款日反例及 TS／Rust parity 通過 |
 | P09 US ETF adapter | Tiingo、來源設定、公司事件原件匯入 | P08 | 預設 ETF 可逐一報告資格；免費權限或付款日不足有明確阻擋 |
 | P10 TW ETF adapter | FinMind、TWSE 核對、ETF 事件與交易日 | P08 | 民國日期、成交量單位、0050 分割／停牌、配息案例通過 |
-| P11 可執行 DSL | 既有 DSL validator、TS evaluator、Rust evaluator | P05 | 白名單策略 exact／容差 parity；非法輸出不能進 runner |
+| P11 可執行 DSL | 既有 DSL validator、TS evaluator、Rust evaluator | P05 | **Done（2026-09-22）**：`strategy-dsl-v1` 共享 fixture、雙端 evaluator／驗證、`discovery-config-v2` fail-closed runner admission 與 P05 lineage |
 | P12 研究可行性與試驗帳本 | campaign、內層 walk-forward、統計精度預檢 | P05、P06、P11 | 不足樣本與 AlphaBTC 精度反例被阻擋；試驗計數不可重設 |
 | P13 一次性驗證 | Validation／Test reveal registry、凍結批次及選擇 | P12 | 併發、重試、崩潰、重匯入、重疊期間均不能二次取得新資格 |
 | P14 引擎封存與備份 | binary／build manifest、完整工作區 backup／restore | P03、P05、P13 | 校驗、隔離還原、消耗聯集、缺原引擎拒絕；未做 paper |

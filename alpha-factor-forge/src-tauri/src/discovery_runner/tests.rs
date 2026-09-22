@@ -27,7 +27,9 @@ thread_local! {
 pub(super) fn after_epoch_preflight() {
     AFTER_EPOCH_PREFLIGHT.with(|slot| {
         let callback = slot.borrow_mut().take();
-        if let Some(callback) = callback { callback(); }
+        if let Some(callback) = callback {
+            callback();
+        }
     });
 }
 
@@ -111,6 +113,42 @@ fn runner_config(dataset_id: i64, dataset_hash: &str, candidate_count: usize) ->
             "step": 1
         }])
     };
+    input
+}
+
+fn dsl_runner_config(dataset_id: i64, dataset_hash: &str) -> Value {
+    let mut input = runner_config(dataset_id, dataset_hash, 1);
+    input["envelopeVersion"] = json!("discovery-config-v2");
+    input["contracts"]["enumeration"] = json!("discovery-enumeration-v2");
+    input["contracts"]["strategyDsl"] = json!("strategy-dsl-v1");
+    input["bases"] = json!([{
+        "id": "dsl-cross",
+        "presetVersion": "discovery-dsl-preset-v1",
+        "strategy": {
+            "mode": "dsl",
+            "dsl": {
+                "version": "strategy-dsl-v1",
+                "name": "Runner DSL cross",
+                "params": {"fast": 2, "slow": 3},
+                "entry": {"op":"CROSS_UP","args":[
+                    {"ind":"SMA","src":"CLOSE","len":"$fast"},
+                    {"ind":"SMA","src":"CLOSE","len":"$slow"}
+                ]},
+                "exit": {"op":"CROSS_DOWN","args":[
+                    {"ind":"SMA","src":"CLOSE","len":"$fast"},
+                    {"ind":"SMA","src":"CLOSE","len":"$slow"}
+                ]}
+            },
+            "slPct": 2,
+            "tpPct": 4,
+            "feePct": 0.05,
+            "slipPct": 0.02,
+            "sizePct": 100,
+            "fillMode": "nextOpen",
+            "direction": "long"
+        },
+        "axes": []
+    }]);
     input
 }
 
@@ -411,14 +449,7 @@ type RunStateSnapshot = (
     Option<i64>,
     Option<String>,
 );
-type JobStateSnapshot = Vec<(
-    i64,
-    i64,
-    Segment,
-    JobStatus,
-    Option<i64>,
-    Option<String>,
-)>;
+type JobStateSnapshot = Vec<(i64, i64, Segment, JobStatus, Option<i64>, Option<String>)>;
 
 /// Everything a rejected lifecycle call must leave untouched: run row, job
 /// rows, and the connection's total write count.
@@ -576,8 +607,16 @@ fn stored_invalid_dataset_fails_closed_on_start_without_writing_anything() {
         "rejection came from identity, not the market-data validator: {message}"
     );
 
-    assert_eq!(table_count(&db, "discovery_runs"), 0, "a run row was written");
-    assert_eq!(table_count(&db, "discovery_jobs"), 0, "a job row was written");
+    assert_eq!(
+        table_count(&db, "discovery_runs"),
+        0,
+        "a run row was written"
+    );
+    assert_eq!(
+        table_count(&db, "discovery_jobs"),
+        0,
+        "a job row was written"
+    );
     assert_eq!(
         table_count(&db, "validation_records"),
         0,
@@ -955,6 +994,49 @@ fn result_and_done_events_observe_committed_database_state() {
 
     assert_eq!(sink.result_count(), 1);
     sink.assert_all_observed_after_commit();
+}
+
+#[test]
+fn admitted_dsl_is_persisted_with_lineage_before_runner_execution() {
+    let candles = alternating_candles(240, 1_577_836_800_000);
+    let db = migrated_db();
+    let (dataset_id, dataset_hash) = import_dataset(&db, &candles);
+    let config = dsl_runner_config(dataset_id, &dataset_hash);
+    let sink = Arc::new(RecordingSink::new(db.clone()));
+    let runner = DiscoveryRunner::default();
+
+    let run_id = runner
+        .start(db.clone(), sink.clone(), config)
+        .expect("start DSL runner");
+    wait_for_status(&runner, &db, run_id, RunStatus::Completed);
+    wait_for_coordinator_exit(&runner, run_id);
+
+    let conn = db.lock().expect("lock completed DSL runner db");
+    let persisted: (String, Option<String>, Option<String>, String) = conn
+        .query_row(
+            "SELECT type, dsl_json, param_schema_json, source FROM strategy_def LIMIT 1",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+        )
+        .expect("read persisted DSL strategy");
+    assert_eq!(persisted.0, "dsl");
+    assert!(persisted
+        .1
+        .as_deref()
+        .is_some_and(|dsl| dsl.contains("strategy-dsl-v1")));
+    assert!(persisted
+        .2
+        .as_deref()
+        .is_some_and(|params| params.contains("fast")));
+    assert_eq!(persisted.3, "traditional");
+    let lineage: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM research_attempts WHERE discovery_run_id = ?1",
+            [run_id],
+            |row| row.get(0),
+        )
+        .expect("count DSL lineage");
+    assert_eq!(lineage, 1);
 }
 
 #[test]

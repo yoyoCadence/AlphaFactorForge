@@ -54,7 +54,14 @@ Train 與 Validation 交界處留 **embargo gap**（例：指標最長回看期 
 
 ## 2. 指標庫與 Strategy DSL （需求 2）
 
-### 白名單指標（只有這些能被引用）
+### 設計白名單與目前可執行交集
+
+下列是完整設計白名單；實際可執行能力必須以版本化 DSL 契約為準，
+不能因名稱出現在此清單就送進 runner。P11 的 `strategy-dsl-v1` 僅開放
+兩個核心都已完成、且輸出語意不含歧義的交集：EMA、SMA、WMA、RSI、
+ROC、ATR、STDDEV、HIGHEST、LOWEST、CLOSE、OPEN、HIGH、LOW、HLC3。
+MACD／BBANDS 等多輸出指標要先定義輸出 selector 並完成雙端 parity
+才能加入。詳見 `docs/strategy-dsl-contract.md`。
 ```
 趨勢： EMA, SMA, WMA, MACD, ADX
 動量： RSI, STOCH, CCI, ROC, MOM
@@ -76,6 +83,7 @@ Train 與 Validation 交界處留 **embargo gap**（例：指標最長回看期 
 AI 與生成器都只輸出這種結構：
 ```json
 {
+  "version": "strategy-dsl-v1",
   "name": "EMA pull-back + RSI filter",
   "params": { "emaFast": 12, "emaSlow": 50, "rsiLen": 14, "rsiBuy": 40 },
   "entry": {
@@ -85,7 +93,7 @@ AI 與生成器都只輸出這種結構：
         { "ind": "EMA", "src": "CLOSE", "len": "$emaFast" },
         { "ind": "EMA", "src": "CLOSE", "len": "$emaSlow" } ] },
       { "op": "LT", "args": [
-        { "ind": "RSI", "len": "$rsiLen" },
+        { "ind": "RSI", "src": "CLOSE", "len": "$rsiLen" },
         { "op": "CONST", "v": "$rsiBuy" } ] }
     ]
   },
@@ -103,7 +111,11 @@ AI 與生成器都只輸出這種結構：
 - 參數 `$xxx` 只能引用自身 `params`，範圍與型別受 schema 限制（例：`len` 為 2..400 整數）。
 - **絕對禁止**：`import` / `eval` / `exec` / `fetch` / `fs` / `network` / `file` / `while` / 自訂函數字串。DSL 沒有迴圈、沒有 IO、沒有字串求值——它只是一棵運算樹。
 - AST 深度上限（例：8 層）與節點數上限（例：64），防組合爆炸與惡意巨型樹。
-- 編譯失敗 → 丟棄、記錄原因、AI 重試下一個。
+- P11 已完成純 TS／Rust evaluator、共享 authored fixture、backend
+  `validate_strategy_dsl` 與 `discovery-config-v2` runner admission。非法 DSL
+  在列舉／持久化／建立 job 前拒絕，execution boundary 再驗一次。
+- 驗證失敗 → 拒絕並回傳原因。AI 生成、重試與人工 approve 仍屬 P15，
+  P11 不會自動把任何模型輸出送入候選隊列。
 
 ---
 
@@ -393,7 +405,7 @@ AI DSL 生成: 開/關（顯示 backend 連線狀態，不顯示 key）
 
 ### Phase B — 探索骨架與驗證紀律（首版）
 - [ ] Train / Validation / Test 時間切分 + embargo
-- [ ] DSL schema + 白名單編譯器（AST 驗證、深度/節點上限）
+- [x] DSL schema + 白名單編譯器（P11：TS／Rust evaluator、AST 型別／arity／因果驗證、深度/節點上限、runner admission）
 - [ ] Gate 全條件 + Score（含三懲罰項）
 - [ ] 5 種 benchmark + Random Entry 蒙地卡羅
 - [ ] `strategy_hash` + `dataset_hash` + duplicate skip
@@ -406,7 +418,7 @@ AI DSL 生成: 開/關（顯示 backend 連線狀態，不顯示 key）
 - [ ] API key **secure storage**（OS keychain，backend 管理）
 - [ ] AI connection test（前端按鈕 → backend → Claude，回連線狀態）
 - [ ] AI 產生 **JSON Strategy DSL**（嚴格 schema + few-shot）
-- [ ] **DSL validator**（白名單編譯器把關）
+- [x] **DSL validator**（P11：前後端同契約；AI provider／approve 流程仍待 P15）
 - [ ] **人工 approve** 才入隊（不做全自動閉環）
 
 ### Phase D — 延後（不在第一版）

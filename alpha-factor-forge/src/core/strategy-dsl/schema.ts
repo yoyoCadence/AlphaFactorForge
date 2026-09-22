@@ -1,52 +1,45 @@
-// FULL — Strategy DSL schema (types + whitelists).
-// The DSL is a pure expression TREE. It has NO loops, NO IO, NO function
-// strings, NO recursion. Anything outside these whitelists is rejected by the
-// validator (see validator.ts). This is what makes AI-generated strategies safe.
+// `strategy-dsl-v1`: the executable, data-only strategy expression contract.
+//
+// The executable whitelist is intentionally the intersection of the current
+// TypeScript and Rust indicator cores. Multi-output indicators (MACD and
+// BBANDS) stay out until the DSL has an explicit output selector in both
+// languages. The tree has no calls, loops, IO, imports, or source strings.
 
-/** Indicators an expression node may reference (ind nodes). */
+export const STRATEGY_DSL_VERSION = 'strategy-dsl-v1' as const;
+
 export const INDICATOR_WHITELIST = [
-  'EMA', 'SMA', 'WMA', 'MACD', 'ADX',
-  'RSI', 'STOCH', 'CCI', 'ROC', 'MOM',
-  'ATR', 'BBANDS', 'STDDEV', 'KELTNER',
-  'OBV', 'VOL_SMA', 'MFI',
-  'CLOSE', 'OPEN', 'HIGH', 'LOW', 'HLC3', 'HIGHEST', 'LOWEST',
+  'EMA', 'SMA', 'WMA', 'RSI', 'ROC', 'ATR', 'STDDEV', 'HIGHEST', 'LOWEST',
+  'CLOSE', 'OPEN', 'HIGH', 'LOW', 'HLC3',
 ] as const;
 
-/** Operators an expression node may use (op nodes). */
 export const OPERATOR_WHITELIST = [
   'ADD', 'SUB', 'MUL', 'DIV', 'ABS', 'MIN', 'MAX', 'CLAMP',
   'GT', 'LT', 'GTE', 'LTE', 'CROSS_UP', 'CROSS_DOWN',
-  'AND', 'OR', 'NOT',
-  'SHIFT', 'RISING', 'FALLING', 'CONST',
+  'AND', 'OR', 'NOT', 'SHIFT', 'RISING', 'FALLING', 'CONST',
 ] as const;
 
 export type IndicatorName = (typeof INDICATOR_WHITELIST)[number];
 export type OperatorName = (typeof OPERATOR_WHITELIST)[number];
 
-/** Price sources usable as `src` on an indicator node. */
 export const PRICE_SOURCES = ['CLOSE', 'OPEN', 'HIGH', 'LOW', 'HLC3', 'VOLUME'] as const;
 export type PriceSource = (typeof PRICE_SOURCES)[number];
-
-// ---------- Expression nodes (the only allowed shapes) ----------
+export type Scalar = number | string;
 
 export interface IndicatorNode {
   ind: IndicatorName;
-  src?: PriceSource; // for price-derived indicators
-  len?: number | string; // number or "$param"
-  // extra named params (e.g. MACD fast/slow/signal); each must be number|"$param"
-  [k: string]: unknown;
+  src?: PriceSource;
+  len?: Scalar;
 }
 
 export interface OperatorNode {
   op: OperatorName;
   args?: ExprNode[];
-  v?: number | string; // for CONST: literal number or "$param"
-  n?: number | string; // for SHIFT/RISING/FALLING: lookback
+  v?: Scalar;
+  n?: Scalar;
 }
 
 export type ExprNode = IndicatorNode | OperatorNode;
 
-/** Parameter schema entry — constrains a `$param` referenced in the tree. */
 export interface ParamSpec {
   type: 'int' | 'float';
   min: number;
@@ -54,22 +47,20 @@ export interface ParamSpec {
   default: number;
 }
 
-/** A complete strategy in DSL form. */
 export interface StrategyDSL {
+  version: typeof STRATEGY_DSL_VERSION;
   name: string;
   params: Record<string, ParamSpec | number>;
-  entry: ExprNode; // must evaluate to boolean
-  exit: ExprNode; // must evaluate to boolean
+  entry: ExprNode;
+  exit: ExprNode;
 }
 
-// ---------- Validation limits (configurable) ----------
-
 export interface ValidatorLimits {
-  maxDepth: number; // AST depth limit
-  maxNodes: number; // AST node count limit
-  minLen: number; // min indicator length
-  maxLen: number; // max indicator length
-  maxConstAbs: number; // |CONST| ceiling
+  maxDepth: number;
+  maxNodes: number;
+  minLen: number;
+  maxLen: number;
+  maxConstAbs: number;
 }
 
 export const DEFAULT_LIMITS: ValidatorLimits = {
@@ -80,11 +71,4 @@ export const DEFAULT_LIMITS: ValidatorLimits = {
   maxConstAbs: 1e9,
 };
 
-/** Boolean-returning operators (entry/exit roots should be one of these). */
-export const BOOLEAN_OPS = new Set<OperatorName>([
-  'GT', 'LT', 'GTE', 'LTE', 'CROSS_UP', 'CROSS_DOWN', 'AND', 'OR', 'NOT', 'RISING', 'FALLING',
-]);
-
-/** Fields allowed on a node, by kind — anything else is "unknown field" -> reject. */
-export const ALLOWED_IND_FIELDS = new Set(['ind', 'src', 'len', 'fast', 'slow', 'signal', 'mult', 'k', 'd']);
-export const ALLOWED_OP_FIELDS = new Set(['op', 'args', 'v', 'n']);
+export type ExpressionType = 'number' | 'boolean';
