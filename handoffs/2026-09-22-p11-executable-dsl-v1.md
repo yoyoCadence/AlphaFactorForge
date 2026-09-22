@@ -3,8 +3,8 @@
 Date: 2026-09-22
 Repo: yoyoCadence/AlphaFactorForge
 Branch: `feat/p11-executable-dsl`
-PR: pending
-Status: implementation and local acceptance complete; publication pending
+PR: [#114](https://github.com/yoyoCadence/AlphaFactorForge/pull/114) (draft)
+Status: implementation, acceptance follow-up, and draft publication complete; merge pending
 
 ## Summary
 
@@ -98,4 +98,8 @@ The 2026-09-22 non-blocking review findings were handled before publication:
 
 ## Resolution (added when acted on)
 
-Pending commit, push, and draft PR publication.
+The implementation landed in `c1391f2` and the acceptance-review follow-up in
+`22c8739`. Both commits were pushed from `feat/p11-executable-dsl`, and Chinese
+Draft PR [#114](https://github.com/yoyoCadence/AlphaFactorForge/pull/114) was
+opened against `main`. Its base/head and Draft state were verified; merge
+remains maintainer-owned.
