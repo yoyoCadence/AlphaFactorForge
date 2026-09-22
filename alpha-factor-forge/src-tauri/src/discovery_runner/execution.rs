@@ -292,6 +292,9 @@ impl CandidateStrategy {
             CandidateSignals::Params(signal) => derive_embargo_bars(signal, holding_allowance_bars)
                 .map_err(|error| context(error, "derive embargo")),
             CandidateSignals::Dsl { validation, .. } => {
+                if !(0..=JS_MAX_SAFE_INTEGER).contains(&holding_allowance_bars) {
+                    return fail("holdingAllowanceBars must be a non-negative safe integer");
+                }
                 let embargo_bars = validation
                     .max_lookback_bars
                     .checked_add(holding_allowance_bars)
@@ -1131,6 +1134,14 @@ pub(crate) mod tests {
             config.contracts.strategy_dsl.as_deref(),
             Some("strategy-dsl-v1")
         );
+    }
+
+    #[test]
+    fn dsl_embargo_rejects_an_invalid_allowance_at_the_execution_boundary() {
+        let (_, candidate, _) = dsl_config_and_candidate();
+        let strategy = CandidateStrategy::parse(&candidate.strategy).expect("parse DSL candidate");
+        let error = strategy.embargo(-1).unwrap_err();
+        assert!(error.to_string().contains("non-negative safe integer"));
     }
 
     #[test]

@@ -138,7 +138,7 @@ export function validateDSL(
   const scalar = (
     value: unknown,
     path: string,
-    constraint: 'number' | 'period',
+    constraint: 'number' | 'period' | 'offset',
   ): number | undefined => {
     let resolved: number | undefined;
     if (typeof value === 'number') resolved = value;
@@ -156,9 +156,10 @@ export function validateDSL(
       errors.push(`${path}: value must be finite`);
       return undefined;
     }
-    if (constraint === 'period'
-      && (!Number.isSafeInteger(resolved) || resolved < limits.minLen || resolved > limits.maxLen)) {
-      errors.push(`${path}: lookback must be int in [${limits.minLen}, ${limits.maxLen}]`);
+    const minimum = constraint === 'offset' ? 1 : limits.minLen;
+    if (constraint !== 'number'
+      && (!Number.isSafeInteger(resolved) || resolved < minimum || resolved > limits.maxLen)) {
+      errors.push(`${path}: lookback must be int in [${minimum}, ${limits.maxLen}]`);
       return undefined;
     }
     if (constraint === 'number' && Math.abs(resolved) > limits.maxConstAbs) {
@@ -254,11 +255,11 @@ export function validateDSL(
       requireType('number');
       analysis = { type: 'boolean', lookback: lookback + 1 };
     } else if (op === 'SHIFT') {
-      const offset = scalar(node.n, `${path}.n`, 'period') ?? 0;
+      const offset = scalar(node.n, `${path}.n`, 'offset') ?? 0;
       analysis = { type: children[0]?.type ?? 'number', lookback: lookback + offset };
     } else if (op === 'RISING' || op === 'FALLING') {
       requireType('number');
-      const periods = scalar(node.n, `${path}.n`, 'period') ?? 0;
+      const periods = scalar(node.n, `${path}.n`, 'offset') ?? 0;
       analysis = { type: 'boolean', lookback: lookback + periods };
     } else {
       requireType('number');

@@ -63,14 +63,204 @@
           "op": "OR",
           "args": [
             { "op": "LTE", "args": [{ "ind": "CLOSE" }, { "op": "CONST", "v": 1.5 }] },
-            { "op": "GT", "args": [{ "ind": "ATR", "len": 2 }, { "op": "CONST", "v": 1 }] }
+            { "op": "GT", "args": [{ "ind": "ATR", "len": 2 }, { "op": "CONST", "v": 1.45 }] }
           ]
         }
       },
       "expected": {
         "entry": [false, false, true, false, false, false, true, true],
-        "exit": [true, true, true, true, true, true, true, true],
+        "exit": [true, false, false, true, true, true, true, true],
         "nodeCount": 13,
+        "depth": 3,
+        "maxLookbackBars": 3,
+        "parameterCount": 0
+      }
+    },
+    {
+      "id": "raw-arithmetic-and-clamp",
+      "dsl": {
+        "version": "strategy-dsl-v1",
+        "name": "Raw arithmetic and clamp",
+        "params": {},
+        "entry": {
+          "op": "GTE",
+          "args": [
+            { "op": "CLAMP", "args": [
+              { "op": "ADD", "args": [{ "ind": "OPEN" }, { "op": "CONST", "v": 1 }] },
+              { "op": "CONST", "v": 2 },
+              { "op": "CONST", "v": 4 }
+            ] },
+            { "op": "CONST", "v": 4 }
+          ]
+        },
+        "exit": {
+          "op": "LTE",
+          "args": [
+            { "op": "DIV", "args": [
+              { "op": "ABS", "args": [
+                { "op": "SUB", "args": [{ "ind": "CLOSE" }, { "op": "CONST", "v": 2 }] }
+              ] },
+              { "op": "CONST", "v": 2 }
+            ] },
+            { "op": "CONST", "v": 0.5 }
+          ]
+        }
+      },
+      "expected": {
+        "entry": [false, false, true, false, false, false, true, true],
+        "exit": [true, true, true, true, true, true, true, false],
+        "nodeCount": 16,
+        "depth": 5,
+        "maxLookbackBars": 1,
+        "parameterCount": 0
+      }
+    },
+    {
+      "id": "min-max-multiply-comparisons",
+      "dsl": {
+        "version": "strategy-dsl-v1",
+        "name": "Min max multiply comparisons",
+        "params": {},
+        "entry": {
+          "op": "GT",
+          "args": [
+            { "op": "MAX", "args": [
+              { "op": "MUL", "args": [{ "ind": "HIGH" }, { "op": "CONST", "v": 2 }] },
+              { "op": "MIN", "args": [{ "ind": "LOW" }, { "op": "CONST", "v": 2.5 }] }
+            ] },
+            { "op": "CONST", "v": 6 }
+          ]
+        },
+        "exit": {
+          "op": "LT",
+          "args": [
+            { "op": "MIN", "args": [
+              { "op": "MAX", "args": [{ "ind": "LOW" }, { "op": "CONST", "v": 2 }] },
+              { "op": "CONST", "v": 3 }
+            ] },
+            { "op": "CONST", "v": 2.5 }
+          ]
+        }
+      },
+      "expected": {
+        "entry": [false, false, true, false, false, false, true, true],
+        "exit": [true, true, false, true, true, true, false, false],
+        "nodeCount": 16,
+        "depth": 4,
+        "maxLookbackBars": 1,
+        "parameterCount": 0
+      }
+    },
+    {
+      "id": "one-bar-shift-and-trend",
+      "dsl": {
+        "version": "strategy-dsl-v1",
+        "name": "One bar shift and trend",
+        "params": {},
+        "entry": {
+          "op": "NOT",
+          "args": [
+            { "op": "SHIFT", "args": [
+              { "op": "GT", "args": [{ "ind": "CLOSE" }, { "op": "CONST", "v": 2 }] }
+            ], "n": 1 }
+          ]
+        },
+        "exit": {
+          "op": "OR",
+          "args": [
+            { "op": "RISING", "args": [{ "ind": "CLOSE" }], "n": 1 },
+            { "op": "FALLING", "args": [{ "ind": "CLOSE" }], "n": 1 }
+          ]
+        }
+      },
+      "expected": {
+        "entry": [true, true, true, false, true, true, true, false],
+        "exit": [false, true, true, true, true, true, true, true],
+        "nodeCount": 10,
+        "depth": 4,
+        "maxLookbackBars": 2,
+        "parameterCount": 0
+      }
+    },
+    {
+      "id": "ema-wma-source-matrix",
+      "dsl": {
+        "version": "strategy-dsl-v1",
+        "name": "EMA WMA source matrix",
+        "params": {},
+        "entry": {
+          "op": "GT",
+          "args": [
+            { "ind": "EMA", "src": "OPEN", "len": 2 },
+            { "ind": "WMA", "src": "HLC3", "len": 3 }
+          ]
+        },
+        "exit": {
+          "op": "GT",
+          "args": [
+            { "ind": "EMA", "src": "VOLUME", "len": 2 },
+            { "ind": "WMA", "src": "VOLUME", "len": 3 }
+          ]
+        }
+      },
+      "expected": {
+        "entry": [false, false, true, false, false, true, true, true],
+        "exit": [false, false, true, true, true, true, true, true],
+        "nodeCount": 6,
+        "depth": 2,
+        "maxLookbackBars": 3,
+        "parameterCount": 0
+      }
+    },
+    {
+      "id": "rsi-roc-stddev-matrix",
+      "dsl": {
+        "version": "strategy-dsl-v1",
+        "name": "RSI ROC STDDEV matrix",
+        "params": {},
+        "entry": {
+          "op": "GT",
+          "args": [{ "ind": "RSI", "src": "CLOSE", "len": 2 }, { "op": "CONST", "v": 50 }]
+        },
+        "exit": {
+          "op": "AND",
+          "args": [
+            { "op": "LT", "args": [{ "ind": "ROC", "src": "CLOSE", "len": 2 }, { "op": "CONST", "v": 0 }] },
+            { "op": "GT", "args": [{ "ind": "STDDEV", "src": "CLOSE", "len": 2 }, { "op": "CONST", "v": 0.4 }] }
+          ]
+        }
+      },
+      "expected": {
+        "entry": [false, false, true, false, false, true, true, true],
+        "exit": [false, false, false, false, true, false, false, false],
+        "nodeCount": 10,
+        "depth": 3,
+        "maxLookbackBars": 3,
+        "parameterCount": 0
+      }
+    },
+    {
+      "id": "range-and-atr-matrix",
+      "dsl": {
+        "version": "strategy-dsl-v1",
+        "name": "Range and ATR matrix",
+        "params": {},
+        "entry": {
+          "op": "GTE",
+          "args": [{ "ind": "HIGHEST", "src": "HIGH", "len": 3 }, { "op": "CONST", "v": 3.5 }]
+        },
+        "exit": {
+          "op": "AND",
+          "args": [
+            { "op": "LTE", "args": [{ "ind": "LOWEST", "src": "LOW", "len": 2 }, { "op": "CONST", "v": 0.5 }] },
+            { "op": "GTE", "args": [{ "ind": "ATR", "len": 2 }, { "op": "CONST", "v": 1.25 }] }
+          ]
+        }
+      },
+      "expected": {
+        "entry": [false, false, true, true, true, false, true, true],
+        "exit": [false, true, false, false, true, true, false, false],
+        "nodeCount": 10,
         "depth": 3,
         "maxLookbackBars": 3,
         "parameterCount": 0
@@ -110,6 +300,17 @@
         "exit": { "op": "GT", "args": [{ "ind": "CLOSE" }, { "op": "CONST", "v": 0 }] }
       },
       "errorContains": "lookback must be int in [2, 400]"
+    },
+    {
+      "id": "zero-temporal-offset",
+      "dsl": {
+        "version": "strategy-dsl-v1",
+        "name": "Zero temporal offset",
+        "params": {},
+        "entry": { "op": "RISING", "args": [{ "ind": "CLOSE" }], "n": 0 },
+        "exit": { "op": "GT", "args": [{ "ind": "CLOSE" }, { "op": "CONST", "v": 0 }] }
+      },
+      "errorContains": "lookback must be int in [1, 400]"
     },
     {
       "id": "code-token-smuggling",

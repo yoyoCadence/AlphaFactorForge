@@ -63,6 +63,24 @@ describe('validateDSL', () => {
     expect(validateDSL(bad).ok).toBe(false);
   });
 
+  it('admits one-bar temporal offsets while indicator periods still start at two', () => {
+    const temporal = structuredClone(good);
+    temporal.entry = { op: 'RISING', args: [{ ind: 'CLOSE' }], n: 1 };
+    temporal.exit = { op: 'SHIFT', args: [
+      { op: 'GT', args: [{ ind: 'CLOSE' }, { op: 'CONST', v: 0 }] },
+    ], n: 1 };
+    expect(validateDSL(temporal).ok).toBe(true);
+
+    const zeroOffset = structuredClone(temporal);
+    (zeroOffset.entry as { n: number }).n = 0;
+    expect(validateDSL(zeroOffset).errors).toContain('entry.n: lookback must be int in [1, 400]');
+
+    const oneBarIndicator = structuredClone(good);
+    (oneBarIndicator.exit as { args: { len: number }[] }).args[0].len = 1;
+    expect(validateDSL(oneBarIndicator).errors)
+      .toContain('exit.args[0].len: lookback must be int in [2, 400]');
+  });
+
   it('enforces depth/node limits, exact arity, and expression types', () => {
     expect(validateDSL(good, { maxDepth: 8, maxNodes: 3, minLen: 2, maxLen: 400, maxConstAbs: 1e9 }).ok).toBe(false);
     const bad = structuredClone(good);

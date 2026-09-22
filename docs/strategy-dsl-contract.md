@@ -12,6 +12,12 @@ Owning implementations:
 | Shared acceptance | `alpha-factor-forge/fixtures/rs-core/strategy-dsl-v1.json` | same authored fixture |
 | Runner admission | `discovery-config-v2` | `discovery_core/config.rs` |
 
+The shared fixture contains six focused vocabulary groups in addition to the
+parameterized cross and mixed-tree cases. Together they exercise every v1
+indicator and operator in both evaluators, and every valid case requires both
+`true` and `false` in its entry and exit signals so a constant result cannot
+masquerade as parity.
+
 ## Executable surface
 
 `strategy-dsl-v1` uses only the unambiguous single-series intersection already
@@ -23,8 +29,9 @@ implemented by both cores:
 - Arithmetic: `ADD`, `SUB`, `MUL`, `DIV`, `ABS`, `MIN`, `MAX`, `CLAMP`.
 - Comparison: `GT`, `LT`, `GTE`, `LTE`, `CROSS_UP`, `CROSS_DOWN`.
 - Logic: `AND`, `OR`, `NOT`.
-- Causal time operations: `SHIFT`, `RISING`, `FALLING`; every offset is a
-  positive historical lookback. There is no future or negative shift.
+- Causal time operations: `SHIFT`, `RISING`, `FALLING`; every offset is an
+  integer in `[1, 400]`, so `SHIFT(..., 1)` can express the previous bar.
+  There is no zero, future, or negative shift.
 - Constant: `CONST`.
 
 MACD and Bollinger Bands exist in both indicator libraries but produce more
@@ -44,7 +51,8 @@ Validation rejects before execution:
   contract versions;
 - wrong operator arity or numeric/boolean operand types;
 - non-finite constants/defaults and constants outside ±1e9;
-- period/lookback defaults outside integer `[2, 400]`;
+- indicator periods outside integer `[2, 400]`, or causal time-operation
+  offsets outside integer `[1, 400]`;
 - AST depth over 8 or total entry+exit node count over 64;
 - code/IO/network/import-like tokens anywhere in the JSON payload.
 
@@ -100,3 +108,8 @@ transaction before worker execution.
 The `validate_strategy_dsl` Tauri command returns the structured validation
 report for preview. `generate_strategy_dsl` and all provider/AI behavior remain
 P15; no P11 path automatically approves or queues model output.
+
+The inherited suspicious-token defence currently scans every string, including
+the display name. This can reject an otherwise harmless name containing words
+such as `window` or `process`; P15 must narrow or replace that heuristic before
+AI-authored names are admitted. P11 keeps the fail-closed behavior unchanged.

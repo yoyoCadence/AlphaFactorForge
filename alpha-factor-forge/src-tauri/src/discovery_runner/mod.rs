@@ -10,11 +10,11 @@
 //! Tauri implementation lives in `crate::desktop::discovery_events`, and
 //! `runtime::boundary_tests` asserts no `tauri` symbol re-enters here.
 
+pub(crate) mod execution;
 /// RUNNER-UI-001a: asserts the emitted `discovery-event-v1` JSON against the
 /// authored fixture the TypeScript client parses. Test-only; no runtime effect.
 #[cfg(test)]
 mod event_contract_tests;
-pub(crate) mod execution;
 #[cfg(test)]
 mod tests;
 
@@ -424,13 +424,11 @@ impl DiscoveryRunner {
                 let dsl_name = dsl.and_then(|dsl| dsl.get("name")).and_then(Value::as_str);
                 let strategy = StrategyDef {
                     id: None,
-                    name: dsl_name.map(str::to_string).unwrap_or_else(|| {
-                        format!(
-                            "Discovery {} #{:04}",
-                            candidate.base_id,
-                            candidate.index + 1
-                        )
-                    }),
+                    name: dsl_name.map(str::to_string).unwrap_or_else(|| format!(
+                        "Discovery {} #{:04}",
+                        candidate.base_id,
+                        candidate.index + 1
+                    )),
                     kind: if dsl.is_some() { "dsl" } else { "params" }.into(),
                     dsl_json: dsl.map(serde_json::to_string).transpose()?,
                     original_definition_json: definition_json,
@@ -438,20 +436,14 @@ impl DiscoveryRunner {
                         .and_then(|dsl| dsl.get("params"))
                         .map(serde_json::to_string)
                         .transpose()?,
-                    source: if dsl.is_some() {
-                        "traditional"
-                    } else {
-                        "sweep"
-                    }
-                    .into(),
+                    source: if dsl.is_some() { "traditional" } else { "sweep" }.into(),
                     ai_prompt_hash: None,
                     strategy_hash: candidate.strategy_hash.clone(),
                     lifecycle: "candidate".into(),
                     parent_strategy_id: None,
                 };
-                let strategy_id = repositories::get_or_insert_verified_runner_strategy(
-                    &conn, self.epoch, &strategy,
-                )?;
+                let strategy_id =
+                    repositories::get_or_insert_verified_runner_strategy(&conn, self.epoch, &strategy)?;
                 scheduled.push(ScheduledCandidate {
                     candidate: candidate.clone(),
                     strategy_id,
@@ -473,21 +465,10 @@ impl DiscoveryRunner {
             )?;
             // P05: what each candidate is an attempt at, frozen with the
             // enqueue (ABC-05). Same transaction as the job rows.
-            let lineage = run_lineage(
-                &config,
-                &raw_config,
-                run_id,
-                &dataset,
-                &scheduled,
-                self.epoch,
-            )?;
-            if let Err(error) = discovery::start_discovery_run_with_lineage(
-                &mut conn,
-                self.epoch,
-                run_id,
-                &specs,
-                Some(&lineage),
-            ) {
+            let lineage = run_lineage(&config, &raw_config, run_id, &dataset, &scheduled, self.epoch)?;
+            if let Err(error) =
+                discovery::start_discovery_run_with_lineage(&mut conn, self.epoch, run_id, &specs, Some(&lineage))
+            {
                 if matches!(error, AppError::StaleOwner(_)) {
                     return Err(error);
                 }
@@ -497,12 +478,7 @@ impl DiscoveryRunner {
                 let message = error.to_string();
                 if let Some(request_id) = request_id {
                     let _ = discovery::record_request_rejection(
-                        &conn,
-                        self.epoch,
-                        request_id,
-                        START_COMMAND,
-                        run_id,
-                        &message,
+                        &conn, self.epoch, request_id, START_COMMAND, run_id, &message,
                     );
                 }
                 return Err(other(message));
@@ -514,25 +490,14 @@ impl DiscoveryRunner {
                 .map(|request_id| vec![RequestOutcome::accepted(request_id, START_COMMAND, run_id)])
                 .unwrap_or_default();
             if let Err(error) = discovery::update_discovery_progress_with_outcomes(
-                &conn,
-                self.epoch,
-                run_id,
-                RunStatus::Running,
-                &progress,
-                &accepted,
+                &conn, self.epoch, run_id, RunStatus::Running, &progress, &accepted,
             ) {
                 if matches!(error, AppError::StaleOwner(_)) {
                     return Err(error);
                 }
                 let message = format!("failed to initialize discovery progress: {error}");
                 let rejected: Vec<RequestOutcome<'_>> = request_id
-                    .map(|request_id| {
-                        vec![RequestOutcome::rejected(
-                            request_id,
-                            START_COMMAND,
-                            &message,
-                        )]
-                    })
+                    .map(|request_id| vec![RequestOutcome::rejected(request_id, START_COMMAND, &message)])
                     .unwrap_or_default();
                 let _ = discovery::fail_discovery_run_with_outcomes(
                     &conn, self.epoch, run_id, &message, &rejected,
@@ -656,8 +621,14 @@ impl DiscoveryRunner {
             // candidates from the persisted config and freeze them in the
             // paused -> running transaction below. Existing P05 rows are
             // verified against this same lineage instead of rewritten.
-            let resume_lineage =
-                run_lineage(&config, &raw, run_id, &dataset, &scheduled, self.epoch)?;
+            let resume_lineage = run_lineage(
+                &config,
+                &raw,
+                run_id,
+                &dataset,
+                &scheduled,
+                self.epoch,
+            )?;
             (
                 PreparedRun {
                     config,
@@ -698,30 +669,17 @@ impl DiscoveryRunner {
                 resume_sequence,
             )?;
             let accepted: Vec<RequestOutcome<'_>> = request_id
-                .map(|request_id| {
-                    vec![RequestOutcome::accepted(request_id, RESUME_COMMAND, run_id)]
-                })
+                .map(|request_id| vec![RequestOutcome::accepted(request_id, RESUME_COMMAND, run_id)])
                 .unwrap_or_default();
             if let Err(error) = discovery::update_discovery_progress_with_outcomes(
-                &conn,
-                self.epoch,
-                run_id,
-                RunStatus::Running,
-                &progress,
-                &accepted,
+                &conn, self.epoch, run_id, RunStatus::Running, &progress, &accepted,
             ) {
                 if matches!(error, AppError::StaleOwner(_)) {
                     return Err(error);
                 }
                 let message = format!("failed to checkpoint resumed discovery: {error}");
                 let rejected: Vec<RequestOutcome<'_>> = request_id
-                    .map(|request_id| {
-                        vec![RequestOutcome::rejected(
-                            request_id,
-                            RESUME_COMMAND,
-                            &message,
-                        )]
-                    })
+                    .map(|request_id| vec![RequestOutcome::rejected(request_id, RESUME_COMMAND, &message)])
                     .unwrap_or_default();
                 let _ = discovery::fail_discovery_run_with_outcomes(
                     &conn, self.epoch, run_id, &message, &rejected,
@@ -776,9 +734,7 @@ impl DiscoveryRunner {
     /// host polls coordinator exit under its own deadline. A user pause
     /// already in flight keeps its request id and receives its own outcome.
     pub(crate) fn request_pause_for_shutdown(&self, run_id: i64) -> AppResult<()> {
-        let Some(control) = self.control(run_id)? else {
-            return Ok(());
-        };
+        let Some(control) = self.control(run_id)? else { return Ok(()) };
         match control.state.try_lock() {
             Ok(mut state) => {
                 if state.phase == ControlPhase::Running {
@@ -786,9 +742,7 @@ impl DiscoveryRunner {
                 }
             }
             Err(std::sync::TryLockError::WouldBlock) => {} // Retry next poll.
-            Err(std::sync::TryLockError::Poisoned(_)) => {
-                return Err(other("discovery control lock poisoned during shutdown"))
-            }
+            Err(std::sync::TryLockError::Poisoned(_)) => return Err(other("discovery control lock poisoned during shutdown")),
         }
         Ok(())
     }
@@ -797,12 +751,7 @@ impl DiscoveryRunner {
     /// in the coordinator after the in-flight candidate drains, so the request
     /// id rides on the control state and is recorded by that transition's
     /// transaction (P03b R1).
-    pub fn pause_for_request(
-        &self,
-        db: &SharedDb,
-        run_id: i64,
-        request_id: Option<&str>,
-    ) -> AppResult<()> {
+    pub fn pause_for_request(&self, db: &SharedDb, run_id: i64, request_id: Option<&str>) -> AppResult<()> {
         let control = self
             .control(run_id)?
             .ok_or_else(|| other(format!("discovery run {run_id} has no active coordinator")))?;
@@ -882,18 +831,12 @@ impl DiscoveryRunner {
             let cancelled_pause_message = pause_cancelled_message(run_id);
             let mut outcomes = own.clone();
             if let Some(pause_request_id) = pause_request_id.as_deref() {
-                outcomes.push(RequestOutcome::rejected(
-                    pause_request_id,
-                    PAUSE_COMMAND,
-                    &cancelled_pause_message,
-                ));
+                outcomes.push(RequestOutcome::rejected(pause_request_id, PAUSE_COMMAND, &cancelled_pause_message));
             }
             let run = {
                 let conn = lock(db, "db")?;
                 discovery::assert_owner(&conn, self.epoch)?;
-                discovery::cancel_discovery_run_with_outcomes(
-                    &conn, self.epoch, run_id, &outcomes,
-                )?;
+                discovery::cancel_discovery_run_with_outcomes(&conn, self.epoch, run_id, &outcomes)?;
                 discovery::get_discovery_run(&conn, run_id)?
             };
             state.pause_request_id = None;
@@ -941,11 +884,7 @@ impl DiscoveryRunner {
     /// `progress` on a connection the caller already holds, so it can be
     /// read in the same critical section as other state (P03b: the state
     /// version a snapshot is labelled with).
-    pub fn progress_on(
-        &self,
-        conn: &rusqlite::Connection,
-        run_id: i64,
-    ) -> AppResult<DiscoveryProgressSnapshot> {
+    pub fn progress_on(&self, conn: &rusqlite::Connection, run_id: i64) -> AppResult<DiscoveryProgressSnapshot> {
         let run = discovery::get_discovery_run(conn, run_id)?;
         let jobs = discovery::list_discovery_jobs(conn, run_id)?;
         progress_snapshot(&run, &jobs)
@@ -957,10 +896,7 @@ impl DiscoveryRunner {
     }
 
     /// `active_progress` on a connection the caller already holds.
-    pub fn active_progress_on(
-        &self,
-        conn: &rusqlite::Connection,
-    ) -> AppResult<Option<DiscoveryProgressSnapshot>> {
+    pub fn active_progress_on(&self, conn: &rusqlite::Connection) -> AppResult<Option<DiscoveryProgressSnapshot>> {
         let Some(run) = discovery::active_discovery_run(conn)? else {
             return Ok(None);
         };
@@ -994,10 +930,7 @@ impl DiscoveryRunner {
     /// list to empty before it releases the workspace, so the last
     /// checkpoint is committed by this epoch and not repaired by the next.
     pub fn active_coordinator_run_ids(&self) -> AppResult<Vec<i64>> {
-        let mut ids: Vec<i64> = lock(&self.controls, "discovery controls")?
-            .keys()
-            .copied()
-            .collect();
+        let mut ids: Vec<i64> = lock(&self.controls, "discovery controls")?.keys().copied().collect();
         ids.sort_unstable();
         Ok(ids)
     }
@@ -1317,34 +1250,28 @@ impl DiscoveryRunner {
                 // the projection. A result that cannot be kept immutably is
                 // not committed at all.
                 let artifact = match self.artifact_store.as_deref() {
-                    Some(store) => {
-                        match store_candidate_artifact(store, run_id, &outcome.work, &output) {
-                            Ok(reference) => Some(reference),
-                            Err(error) => {
-                                drop(conn);
-                                fail_run_after_commit(
-                                    &db,
-                                    sink.as_ref(),
-                                    run_id,
-                                    &mut state,
-                                    &control.changed,
-                                    &format!(
-                                        "candidate {} result artifact could not be stored: {error}",
-                                        outcome.work.candidate.index
-                                    ),
-                                );
-                                stop = true;
-                                continue;
-                            }
+                    Some(store) => match store_candidate_artifact(store, run_id, &outcome.work, &output) {
+                        Ok(reference) => Some(reference),
+                        Err(error) => {
+                            drop(conn);
+                            fail_run_after_commit(
+                                &db,
+                                sink.as_ref(),
+                                run_id,
+                                &mut state,
+                                &control.changed,
+                                &format!(
+                                    "candidate {} result artifact could not be stored: {error}",
+                                    outcome.work.candidate.index
+                                ),
+                            );
+                            stop = true;
+                            continue;
                         }
-                    }
+                    },
                     None => None,
                 };
-                match discovery::commit_candidate_assessment_with_artifact(
-                    &mut conn,
-                    &assessment,
-                    artifact.as_ref(),
-                ) {
+                match discovery::commit_candidate_assessment_with_artifact(&mut conn, &assessment, artifact.as_ref()) {
                     Ok(record_id) => record_id,
                     Err(error) => {
                         drop(conn);
@@ -1671,28 +1598,10 @@ fn run_lineage(
             .bases
             .iter()
             .find(|base| base.id == candidate.base_id)
-            .ok_or_else(|| {
-                other(format!(
-                    "candidate {} names unknown base {}",
-                    candidate.index, candidate.base_id
-                ))
-            })?;
-        let axes: Vec<Value> = base
-            .axes
-            .iter()
-            .map(|axis| serde_json::to_value(axis.key).unwrap_or(Value::Null))
-            .collect();
-        let axis_names: Vec<String> = axes
-            .iter()
-            .filter_map(|a| a.as_str().map(str::to_string))
-            .collect();
-        let signal = |key: &str| {
-            base.strategy
-                .get(key)
-                .and_then(Value::as_str)
-                .unwrap_or("?")
-                .to_string()
-        };
+            .ok_or_else(|| other(format!("candidate {} names unknown base {}", candidate.index, candidate.base_id)))?;
+        let axes: Vec<Value> = base.axes.iter().map(|axis| serde_json::to_value(axis.key).unwrap_or(Value::Null)).collect();
+        let axis_names: Vec<String> = axes.iter().filter_map(|a| a.as_str().map(str::to_string)).collect();
+        let signal = |key: &str| base.strategy.get(key).and_then(Value::as_str).unwrap_or("?").to_string();
         let dsl = base
             .strategy
             .get("dsl")
@@ -1729,10 +1638,7 @@ fn run_lineage(
             } else {
                 "Not stated: a mechanical parameter sweep of a preset strategy. Treated as unexplained until a hypothesis with stated failure modes replaces it (P15).".into()
             },
-            strategy_hash: format!(
-                "strategy-doc-v1:{}",
-                sha256_hex(&canonical_json(dsl.unwrap_or(&base.strategy))?)
-            ),
+            strategy_hash: format!("strategy-doc-v1:{}", sha256_hex(&canonical_json(dsl.unwrap_or(&base.strategy))?)),
             strategy_id: None,
             parent_strategy_id: None,
             variation_kind: Some(if dsl.is_some() {
@@ -1840,25 +1746,13 @@ fn pause_run_after_drain(
         // Persist the next sequence while the run is still running, then move
         // to paused. A crash between these commits can create a harmless
         // sequence gap, but can never repeat an emitted sequence.
-        discovery::update_discovery_progress(
-            &conn,
-            state.epoch,
-            run_id,
-            RunStatus::Running,
-            &progress,
-        )?;
+        discovery::update_discovery_progress(&conn, state.epoch, run_id, RunStatus::Running, &progress)?;
         let pause_request_id = state.pause_request_id.clone();
         let accepted: Vec<RequestOutcome<'_>> = pause_request_id
             .as_deref()
             .map(|request_id| vec![RequestOutcome::accepted(request_id, PAUSE_COMMAND, run_id)])
             .unwrap_or_default();
-        discovery::transition_run_with_outcomes(
-            &conn,
-            state.epoch,
-            run_id,
-            RunStatus::Paused,
-            &accepted,
-        )?;
+        discovery::transition_run_with_outcomes(&conn, state.epoch, run_id, RunStatus::Paused, &accepted)?;
     }
     // Committed: only now is the pause request answered (H2).
     state.pause_request_id = None;
@@ -1934,24 +1828,12 @@ fn fail_run_after_commit(
     let failed_pause_message = pause_failed_message(run_id);
     let rejected: Vec<RequestOutcome<'_>> = pause_request_id
         .as_deref()
-        .map(|request_id| {
-            vec![RequestOutcome::rejected(
-                request_id,
-                PAUSE_COMMAND,
-                &failed_pause_message,
-            )]
-        })
+        .map(|request_id| vec![RequestOutcome::rejected(request_id, PAUSE_COMMAND, &failed_pause_message)])
         .unwrap_or_default();
     let committed = (|| -> AppResult<DiscoveryRunRow> {
         let conn = lock(db, "db")?;
         discovery::assert_owner(&conn, state.epoch)?;
-        discovery::fail_discovery_run_with_outcomes(
-            &conn,
-            state.epoch,
-            run_id,
-            message,
-            &rejected,
-        )?;
+        discovery::fail_discovery_run_with_outcomes(&conn, state.epoch, run_id, message, &rejected)?;
         discovery::get_discovery_run(&conn, run_id)
     })();
     match committed {

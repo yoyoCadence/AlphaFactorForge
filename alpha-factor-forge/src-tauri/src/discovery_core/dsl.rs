@@ -175,7 +175,12 @@ fn valid_param_name(name: &str) -> bool {
 }
 
 impl Validator {
-    fn scalar(&mut self, value: Option<&Value>, path: &str, period: bool) -> Option<f64> {
+    fn scalar(
+        &mut self,
+        value: Option<&Value>,
+        path: &str,
+        minimum_lookback: Option<i64>,
+    ) -> Option<f64> {
         let resolved = match value {
             Some(Value::Number(value)) => value.as_f64(),
             Some(Value::String(reference)) if reference.starts_with('$') => {
@@ -204,13 +209,13 @@ impl Validator {
             self.errors.push(format!("{path}: value must be finite"));
             return None;
         }
-        if period {
+        if let Some(minimum) = minimum_lookback {
             if value.fract() != 0.0
-                || value < DSL_MIN_LOOKBACK as f64
+                || value < minimum as f64
                 || value > DSL_MAX_LOOKBACK as f64
             {
                 self.errors.push(format!(
-                    "{path}: lookback must be int in [{DSL_MIN_LOOKBACK}, {DSL_MAX_LOOKBACK}]"
+                    "{path}: lookback must be int in [{minimum}, {DSL_MAX_LOOKBACK}]"
                 ));
                 return None;
             }
@@ -293,7 +298,11 @@ impl Validator {
                 }
             }
             let period = self
-                .scalar(object.get("len"), &format!("{path}.len"), true)
+                .scalar(
+                    object.get("len"),
+                    &format!("{path}.len"),
+                    Some(DSL_MIN_LOOKBACK),
+                )
                 .map(|value| value as i64)
                 .unwrap_or(1);
             let lookback = period + i64::from(indicator == "RSI" || indicator == "ROC");
@@ -312,7 +321,7 @@ impl Validator {
         }
         if operator == "CONST" {
             exact_fields(object, &["op", "v"], path, &mut self.errors);
-            self.scalar(object.get("v"), &format!("{path}.v"), false);
+            self.scalar(object.get("v"), &format!("{path}.v"), None);
             self.max_lookback = self.max_lookback.max(1);
             return Some(Analysis {
                 kind: ExpressionType::Number,
@@ -378,7 +387,7 @@ impl Validator {
             }
         } else if operator == "SHIFT" {
             let offset = self
-                .scalar(object.get("n"), &format!("{path}.n"), true)
+                .scalar(object.get("n"), &format!("{path}.n"), Some(1))
                 .unwrap_or(0.0) as i64;
             Analysis {
                 kind: children
@@ -391,7 +400,7 @@ impl Validator {
         } else if ["RISING", "FALLING"].contains(&operator) {
             self.require_type(&children, ExpressionType::Number, path);
             let periods = self
-                .scalar(object.get("n"), &format!("{path}.n"), true)
+                .scalar(object.get("n"), &format!("{path}.n"), Some(1))
                 .unwrap_or(0.0) as i64;
             Analysis {
                 kind: ExpressionType::Boolean,
@@ -951,6 +960,8 @@ mod tests {
                 .iter()
                 .map(|value| value.as_bool().unwrap())
                 .collect();
+            assert!(expected_entry.contains(&true) && expected_entry.contains(&false));
+            assert!(expected_exit.contains(&true) && expected_exit.contains(&false));
             assert_eq!(signals.entry, expected_entry, "{}", case["id"]);
             assert_eq!(signals.exit, expected_exit, "{}", case["id"]);
         }
