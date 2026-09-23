@@ -76,7 +76,8 @@
 | JSON DSL 執行 | **可用（P11）** | `strategy-dsl-v1` 具 TS／Rust validator＋evaluator、共享 parity fixture 與 fail-closed `discovery-config-v2` runner admission；只開放兩核心已有的明確單序列交集，多輸出／未雙端實作指標仍拒絕。AI provider／approve 仍屬 P15（[`strategy-dsl-contract.md`](strategy-dsl-contract.md)） | — |
 | hypothesis／attempt／lineage 完整歷史 | 阻擋（覆寫語意） | `backtest_summary` 依 strategy＋dataset＋segment upsert；trades 為最新結果 | P05 |
 | 統計精度預檢 | **契約可用（P12a，未接 runtime）** | `research-precision-v1` 以整數精確判定 Holm 可達解析度、Monte Carlo 相對標準誤與抽樣預算；AlphaBTC 反例（`146/1001≈0.145854`）為 `NOT_ELIGIBLE` 回歸案例（[`research-precision-v1.md`](research-precision-v1.md)）。尚無 runner／命令呼叫 | P12 |
-| 試驗帳本、樣本長度／內層 walk-forward、block-bootstrap／Holm | 可規劃（P12b 規格草案待審） | 試驗帳本規格見 [`trial-ledger-v1.md`](trial-ledger-v1.md)：工作區外共用 registry、穩定 family／trial ID、事件聯集還原；尚無程式或 migration。精度預檢的 `priorTrials` 目前仍由呼叫端提供 | P12 |
+| 試驗帳本 registry 核心 | **模組可用（P12b-1a，未接 runtime）** | [`trial-ledger-v1.md`](trial-ledger-v1.md) §16：工作區外 registry、雜湊鏈、內容雜湊事件／批次 ID、衝突檢查、歷史收據與同交易 `admissionCount`；`precision_plan_from_count` 是進入 P12a 的唯一路徑。尚無 runner／命令呼叫 | P12 |
+| 試驗帳本匯出／匯入與工作區接線、樣本長度／內層 walk-forward、block-bootstrap／Holm | 可規劃 | 匯出／匯入與聯集待 P12b-1b；register-before-enqueue、綁定與回填待 P12b-2；精度預檢的 `priorTrials` 在接線前仍由呼叫端提供 | P12 |
 | 一次性 Test 消耗 registry | 可規劃 | 現有 Test 從未執行（split contract）；尚無消耗紀錄 | P13 |
 | 引擎封存與備份／還原 | 可規劃 | 只有 contract／identity hashes | P14 |
 | Validation／Test 不進 prompt 的自動測試 | 可規劃 | 契約：ai-provider §7 | P13／P15 |

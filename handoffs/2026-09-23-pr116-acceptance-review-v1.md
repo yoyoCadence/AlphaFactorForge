@@ -5,7 +5,7 @@ Repo: yoyoCadence/AlphaFactorForge
 Branch: `docs/p12b-trial-ledger-spec`
 Reviewed head: `84f2118ae69c928fde8163ebb3bdb5e58c62c4c7`
 PR: [#116](https://github.com/yoyoCadence/AlphaFactorForge/pull/116)
-Status: R1–R4 closed at `af1a7c7`; R5 addressed in the following commit (see the last Resolution); awaiting re-review. Six §15 policy decisions recorded below. P12b implementation remains unstarted.
+Status: Accepted for the P12b specification at `41626c5` after re-review; R1–R5 closed. Six §15 policy decisions recorded. P12b implementation remains unstarted.
 
 ## Summary
 
@@ -91,3 +91,15 @@ Documentation only; the reviewer's re-review and §15 decisions were first commi
 Verification: `git diff --check` passes; relative links resolve; the referenced P12a test exists in `precision.rs`; A31/A32 outcomes recomputed with exact BigInt arithmetic. No code suites were rerun (documentation only).
 
 Status: R5 addressed in the specification; awaiting re-review. P12b implementation has not started.
+
+### Resolution — R5 re-verified; PR #116 specification accepted (2026-09-23)
+
+Reviewed head: `41626c54d0f518cb63ccf8eeb91690a9e9393760`, matching the remote PR #116 head. The worktree was clean at review start.
+
+- R5 is closed. The registration receipt retains only historical `familyEffectiveBefore` and `batchEffectiveTrials`; both fresh and replayed `register_batch` calls obtain a separate `admissionCount` in the same `BEGIN IMMEDIATE` transaction. §5 maps P12a's `priorTrials` and `plannedTrials` only from that current count, and §11 gives this path a distinct type.
+- §6.4 fences an `ELIGIBLE` decision before it can drive further action: verify the snapshot's event prefix, read current family count, and recompute P12a if it grew. P13 retains ownership of the final gap-free freeze/alpha reservation; the spec does not claim that P12b implements it.
+- Independently recomputed the A31/A32 precision boundaries using BigInt: at m = 2 / 22 / 32, the precision requirement is 975 / 10,975 / 15,975 samples, respectively. Thus the reported stale-receipt counterexample changes `ELIGIBLE` to `NOT_ELIGIBLE` exactly as A31 states; A32's five additional trials also cross the declared boundary.
+- R1–R4 remain closed; §15 contains all six policy decisions made in the prior re-review. No new blocking specification finding in this correction.
+- `git diff --check origin/main...HEAD` passed. GitHub Actions run `35866640218` completed successfully in all six jobs on this exact head: typecheck, test, build, cargo-check, native-smoke and e2e. No local code suites were rerun because this PR changes documentation only.
+
+**PR #116 is acceptable as the P12b specification.** This is not acceptance of P12b-1/P12b-2 runtime behavior; there is still no ledger migration or implementation. No merge or remote review submission was performed.

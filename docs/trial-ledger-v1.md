@@ -1,6 +1,7 @@
 # Trial ledger v1（`trial-ledger-v1` / `trial-family-v1`）— P12b 規格
 
-> **狀態：規格草案（2026-09-23），待維護者審查；尚未實作。** 沒有 migration、程式或命令依本文存在。
+> **狀態：規格已接受（2026-09-23，PR #116）。** P12b-1a（registry 核心）已實作，實作紀錄見 §16；
+> 匯出／匯入（P12b-1b）、工作區接線（P12b-2）與 admission 阻擋（P12d）尚未實作，runtime 尚無呼叫者。
 > 修訂（同日）：依 [PR #116 驗收審查](../handoffs/2026-09-23-pr116-acceptance-review-v1.md) R1–R4 修正——
 > 匯出含批次與收據（§8）、以雜湊鏈取代計數水位（§7）、payload 納入 split／seed／benchmark 身分（§4.3）、
 > 批次 ID 綁定完整內容且重播前一律逐筆比對（§6.1）；`originRegistryId` 移出事件雜湊（§4.3）。
@@ -121,6 +122,10 @@ familyId   = "trial-family-v1:" + sha256(familyKey)
   （依其契約的 seed 與配對規則）不計入；其他任何「基準」都拒絕登記為 `benchmark`，須改登記為 `variant`。
   判定所需的身分寫在事件本身（§4.3 `benchmarkId`、`benchmarkParamsHash`），因此匯入時可重新驗證白名單，
   不依賴登記端的說法。
+  **白名單與參數雜湊只能驗證宣稱，不能證明實際執行。** 本機登記的非計數豁免還須由後端基準執行路徑產生憑據，
+  並核對事件的策略、資料、split、seed、引擎身分；隨機進場亦須核對候選交易的持有期間配對。缺少可驗證憑據的
+  白名單宣稱仍登記，但保守計入有效試驗。匯入端若無法驗證非計數基準的執行來源，必須拒絕匯入或隔離家族，
+  不得僅憑公開的參數雜湊承認豁免。
 - `reproduction`：必須指明 `reproductionOf = <eventId>`，且下列欄位與被參照事件的 payload **逐一相等**且皆非 null：
   `strategyHash`、`datasetHash`、`splitHash`（split＋embargo）、`seedsHash`、`engineFingerprintHash`。
   任何一項不同或為 null → 拒絕（`reproduction_mismatch`），須登記為 `variant`。被參照事件必須已在同一 registry
@@ -585,3 +590,47 @@ A31 的 registry 部分（重試回傳目前計數、plan 只能由 `admissionCo
 
 以上決定不代表本規格已完成驗收；[PR #116 覆驗](../handoffs/2026-09-23-pr116-acceptance-review-v1.md) 的 R5 仍待修正。
 （更新：R5 已依 §5、§6.3、§6.4 修正並加入 A31–A32，待再次覆驗。）
+
+---
+
+## 16. 實作紀錄：P12b-1a registry 核心（2026-09-23）
+
+P12b-1 再拆成兩半：**P12b-1a**（本節，registry 核心）與 **P12b-1b**（匯出／匯入、聯集、檢查點與衝突隔離的寫入）。
+
+| 項目 | 位置 |
+| --- | --- |
+| 模組 | `alpha-factor-forge/src-tauri/src/research/trial_ledger.rs` |
+| registry migration | `alpha-factor-forge/src-tauri/registry_migrations/0001_trial_ledger.sql`（版本記錄於 append-only 的 `registry_migrations`） |
+
+**已實作**：§2 開啟（雙向包含檢查、不支援磁碟的拒絕、schema 較新即拒絕、`registry_id`）；§3 家族身分；§4 分類驗證與事件 ID；
+§6.1 `register_batch`；§6.3 歷史收據；§6.4 `admissionCount` 與 `read_admission_count`；§7.1 雜湊鏈與開啟時驗證；
+§11 `precision_plan_from_count`。
+
+**實作時確定、規格未明寫的細節**：
+
+1. **衝突優先序**：同一次登記同時出現「既有鍵內容不同」與「既有鍵屬於另一批」時，先掃描全部鍵，回報 `idempotency_conflict`；
+   沒有內容衝突才檢查批次歸屬、回報 `batch_conflict`。這讓 A27（整批內容改變）與 A28（部分重疊）同時成立。
+2. **鏈編碼**：digest 一律小寫 hex；`chain_n = sha256(chain_{n-1} 的 hex 文字 ＋ eventId 文字)`，創世值同 §7.1。
+3. **各 kind 的必填欄位**：`hypothesis`／`variant`／`diagnostic` 需要 strategy、dataset、split、seeds、engine 五個 hash；
+   `legacy` 需要 strategy、dataset、engine（split／seeds 可為 null）；`benchmark` 需要 strategy、dataset、split、seeds、engine；
+   `reproduction` 缺任一識別欄位即 `reproduction_mismatch`。`snapshotId` 恰在批次有 `instrumentId` 時出現。
+   一批只能有一個 `requestId`（或全為 legacy），`workspaceId`／`requestId` 不得含 `:`。
+4. **benchmark 凍結身分與憑據**：`{benchmark, contract, params}`，`params` 只含策略參數；每次執行不同的成本不屬於身分。
+   `benchmark-suite-v1` 或 `random-entry-v1` 版本改變時，測試會失敗，強制重審白名單。非計數豁免另需由 Rust 後端
+   `run_and_attest_*_benchmark` 實際執行後建立的程序內憑據，且憑據須與整個事件輸入、workspace 與 instrument 相符；隨機進場事件的
+   `hypothesisHash` 承諾候選 closed trades，`seedsHash` 承諾明示 seed。未附憑據者保守計數。程序內憑據未寫入
+   `trial-event-v1` payload；P12b-1b 匯入不得直接信任來源事件的 `effective = false`，必須補上可驗證的執行來源或
+   拒絕／隔離。P12b-2 仍須把憑據與同一個 workspace snapshot、候選結果和執行指紋接起來。
+5. **不支援的磁碟**：UNC／映射的遠端磁碟（Windows `GetVolumePathNameW`／`GetDriveTypeW`），或位於
+   `OneDrive`、`OneDriveConsumer`、`OneDriveCommercial` 環境變數所指目錄之下；無法判定 Windows 磁碟區時拒絕。
+6. **開啟時鏈不一致**：仍可登記（接在最後一個儲存的鏈值之後），但所有 admission 回報 `registry_chain_broken`，直到另有處理。
+7. **admission 的另一個阻擋理由** `no_effective_trials`：本批沒有有效試驗（例如只有已驗證的 benchmark），沒有可確認的對象。
+8. **schema 一次到位**：`origin_checkpoints`、`registry_imports`、`family_conflicts`、`registry_conflicts` 已在 0001 建立，
+   P12b-1b 不需再改 schema；本階段只有測試會寫入 `family_conflicts`。
+9. **舊批次重播**：家族釘住 protocol 前登記的非計數批次，即使後來釘住另一個 `testsPerTrial`，仍可用相同事件與
+   批次 ID 取得原收據；新批次與有效批次重播仍受已釘住的 protocol 約束。非計數批次的原宣告 protocol 不在
+   `trial_batches` 身分內，不能用它改動計數或取得資格。
+
+**已驗收**：A3、A4、A5、A6、A8、A17、A19、A27、A28、A30、A31，以及 AlphaBTC 計數對應 `146/1001`、未知家族、隔離家族、
+append-only 觸發器、較新 schema 拒絕、事件／批次 ID 與 registry 無關（A29 的識別部分）。
+**尚未**：A13–A16、A21、A25、A26、A29 的聯集部分（P12b-1b）；A1、A2、A7、A9–A12、A18、A22–A24（P12b-2）；A20、A32（P12d）。
