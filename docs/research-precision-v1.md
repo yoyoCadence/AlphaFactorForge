@@ -35,7 +35,7 @@ integer (a float literal such as `1000.0` is rejected) no larger than
 | --- | --- | --- |
 | `contractVersion` | `"research-precision-v1"` | exact |
 | `correction` | `"holm"` | only correction in v1 |
-| `alphaPpm` | integer `[1, 999999]` | family-wise alpha, parts per million (`0.05` = `50000`) |
+| `alphaPpm` | integer `[1, 999999]` | family-wise alpha allocated to **this** confirmation, parts per million (`0.05` = `50000`); not a campaign total to be reused per batch |
 | `maxRelativeStandardErrorPpm` | integer `[1, 999999]` | largest accepted relative Monte Carlo standard error at the strictest Holm threshold |
 | `priorTrials` | integer `[0, MAX]` | effective trials already recorded in the family |
 | `plannedTrials` | integer `[1, MAX]` | trials this batch adds |
@@ -80,6 +80,22 @@ count; it is not evidence that any candidate passes.
 
 Adding trials never lowers a requirement or improves the best adjusted p
 (tested), so growing the family can only make a plan harder to admit.
+
+Assumptions and limits (PR #115 review):
+
+- `sqrt((1 − p) / (p·B))` is the binomial relative standard error of an
+  unsmoothed proportion under independent resampling. It is a planning
+  quantity, not an exact error description of the `(1 + extreme) / (B + 1)`
+  estimator, and it says nothing about bootstrap model bias (block length,
+  dependence). It is kept as a conservative pre-run screen.
+- `ELIGIBLE` means only that the sampling plan is feasible. It is not evidence
+  of statistical power, sufficient sample length, or a valid strategy, and a
+  passing precheck must never by itself produce a confirmation `PASS`.
+- Alpha and the error limit must be frozen before any confirmation result is
+  read. Cross-batch alpha spending is not defined here.
+- The public typed API (`evaluate_precision_plan`) re-checks every field
+  against the domain in §2 before any arithmetic, so a directly constructed
+  out-of-domain plan returns an error instead of overflowing.
 
 ## 4. AlphaBTC regression
 

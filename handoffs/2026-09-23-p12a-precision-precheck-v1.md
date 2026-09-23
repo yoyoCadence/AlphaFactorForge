@@ -72,3 +72,15 @@ Files: `alpha-factor-forge/src-tauri/src/discovery_core/precision.rs` (new),
 - Playwright not rerun: no frontend file changed.
 - Fixture expectations were derived independently with Node BigInt, not by
   running the Rust implementation.
+
+## Resolution
+
+2026-09-23 — The PR #115 acceptance review
+([handoff](2026-09-23-pr115-acceptance-review-v1.md)) found R1: the public
+`evaluate_precision_plan` could overflow-panic on directly constructed
+out-of-domain counts. Fixed on this branch: every field is re-checked before
+arithmetic and the family product uses checked arithmetic; a `catch_unwind`
+regression (fails on the pre-fix code) was added. The contract doc now states
+the relative-SE planning assumption and that `alphaPpm` is the alpha allocated
+to this confirmation. Rust is now **386** (88 + 296 + 2). Formulas, JSON
+contract and fixture are unchanged; P12 remains In Progress.

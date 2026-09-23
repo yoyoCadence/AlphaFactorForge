@@ -185,15 +185,23 @@ pub fn parse_precision_plan(raw: &Value) -> Result<PrecisionPlan, PrecisionPlanE
 }
 
 /// `(prior + planned) * testsPerTrial`, bounded by [`PRECISION_MAX_COUNT`].
+/// Checked arithmetic: a directly constructed plan with arbitrary `u64`
+/// counts must return an error, never overflow (PR #115 review R1).
 fn family_tests(plan: &PrecisionPlan) -> Result<(u64, u64), PrecisionPlanError> {
-    let trials = u128::from(plan.prior_trials) + u128::from(plan.planned_trials);
-    let tests = trials * u128::from(plan.tests_per_trial);
-    if tests > u128::from(PRECISION_MAX_COUNT) {
-        return fail(format!(
+    let tests = u128::from(plan.prior_trials)
+        .checked_add(u128::from(plan.planned_trials))
+        .and_then(|trials| {
+            trials
+                .checked_mul(u128::from(plan.tests_per_trial))
+                .map(|tests| (trials, tests))
+        })
+        .filter(|(_, tests)| *tests <= u128::from(PRECISION_MAX_COUNT));
+    match tests {
+        Some((trials, tests)) => Ok((trials as u64, tests as u64)),
+        None => fail(format!(
             "precision: family tests (priorTrials + plannedTrials) * testsPerTrial must not exceed {PRECISION_MAX_COUNT}"
-        ));
+        )),
     }
-    Ok((trials as u64, tests as u64))
 }
 
 fn ceil_div(numerator: u128, denominator: u128) -> u128 {
@@ -205,17 +213,20 @@ fn bounded(value: u128) -> Option<u64> {
 }
 
 /// Evaluates an already-parsed plan. Fails closed only on a plan that could
-/// not have come from [`parse_precision_plan`].
+/// not have come from [`parse_precision_plan`]: every field is re-checked
+/// against the same domain before any arithmetic.
 pub fn evaluate_precision_plan(
     plan: &PrecisionPlan,
 ) -> Result<PrecisionReport, PrecisionPlanError> {
+    let count = |value: u64, min: u64| (min..=PRECISION_MAX_COUNT).contains(&value);
     if !(1..=999_999).contains(&plan.alpha_ppm)
         || !(1..=999_999).contains(&plan.max_relative_standard_error_ppm)
-        || plan.planned_trials == 0
-        || plan.tests_per_trial == 0
-        || plan.bootstrap_samples == 0
+        || !count(plan.prior_trials, 0)
+        || !count(plan.planned_trials, 1)
+        || !count(plan.tests_per_trial, 1)
+        || !count(plan.bootstrap_samples, 1)
+        || !count(plan.max_bootstrap_samples, 1)
         || plan.bootstrap_samples > plan.max_bootstrap_samples
-        || plan.max_bootstrap_samples > PRECISION_MAX_COUNT
     {
         return fail("precision: plan is outside the research-precision-v1 domain".into());
     }
@@ -561,6 +572,86 @@ mod tests {
             max_bootstrap_samples: 1,
         };
         assert!(evaluate_precision_plan(&direct).is_err());
+    }
+
+    /// PR #115 review R1: the public typed API must reject out-of-domain
+    /// counts with `Err` before any arithmetic, never panic on overflow.
+    #[test]
+    fn direct_api_rejects_out_of_domain_counts_without_panicking() {
+        let legal = PrecisionPlan {
+            alpha_ppm: 50_000,
+            max_relative_standard_error_ppm: 200_000,
+            prior_trials: 49,
+            planned_trials: 24,
+            tests_per_trial: 2,
+            bootstrap_samples: 72_975,
+            max_bootstrap_samples: 100_000,
+        };
+        let evaluate = |plan: PrecisionPlan| {
+            std::panic::catch_unwind(|| evaluate_precision_plan(&plan))
+                .expect("evaluate_precision_plan must not panic")
+        };
+        assert!(evaluate(legal).is_ok());
+
+        // The reviewer's reproduction: three u64::MAX counts.
+        let reproduction = PrecisionPlan {
+            prior_trials: u64::MAX,
+            planned_trials: u64::MAX,
+            tests_per_trial: u64::MAX,
+            ..legal
+        };
+        assert!(evaluate(reproduction).is_err());
+
+        type Setter = fn(&mut PrecisionPlan, u64);
+        let fields: [(&str, Setter); 5] = [
+            ("priorTrials", |plan, value| plan.prior_trials = value),
+            ("plannedTrials", |plan, value| plan.planned_trials = value),
+            ("testsPerTrial", |plan, value| plan.tests_per_trial = value),
+            ("bootstrapSamples", |plan, value| {
+                plan.bootstrap_samples = value;
+                plan.max_bootstrap_samples = value;
+            }),
+            ("maxBootstrapSamples", |plan, value| {
+                plan.max_bootstrap_samples = value
+            }),
+        ];
+        for (name, set) in fields {
+            for value in [PRECISION_MAX_COUNT + 1, u64::MAX] {
+                let mut plan = legal;
+                set(&mut plan, value);
+                assert!(evaluate(plan).is_err(), "{name} = {value}");
+            }
+        }
+
+        // Legal maxima stay accepted where the family still fits.
+        let mut plan = legal;
+        plan.bootstrap_samples = PRECISION_MAX_COUNT;
+        plan.max_bootstrap_samples = PRECISION_MAX_COUNT;
+        let report = evaluate(plan).unwrap();
+        assert_eq!(report.status, PrecisionStatus::Eligible);
+        assert_eq!(report.best_adjusted_p.denominator, PRECISION_MAX_COUNT + 1);
+
+        let mut plan = legal;
+        plan.prior_trials = PRECISION_MAX_COUNT - 1;
+        plan.planned_trials = 1;
+        plan.tests_per_trial = 1;
+        let report = evaluate(plan).unwrap();
+        assert_eq!(report.family_tests, PRECISION_MAX_COUNT);
+        assert_eq!(report.status, PrecisionStatus::NotEligible);
+        plan.prior_trials = PRECISION_MAX_COUNT;
+        assert!(evaluate(plan)
+            .unwrap_err()
+            .0
+            .starts_with("precision: family tests"));
+
+        let mut plan = legal;
+        plan.tests_per_trial = PRECISION_MAX_COUNT;
+        plan.prior_trials = 0;
+        plan.planned_trials = 1;
+        assert_eq!(evaluate(plan).unwrap().family_tests, PRECISION_MAX_COUNT);
+
+        // The checked family product itself also fails closed on raw u64s.
+        assert!(family_tests(&reproduction).is_err());
     }
 
     #[test]
