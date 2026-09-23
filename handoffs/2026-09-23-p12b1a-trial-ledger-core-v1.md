@@ -3,7 +3,7 @@
 Date: 2026-09-23
 Repo: yoyoCadence/AlphaFactorForge
 Branch: `feat/p12b1-trial-ledger-core` (from main `69c1033`, PR #116 spec merged)
-PR: pending (to be linked after publication)
+PR: [#117](https://github.com/yoyoCadence/AlphaFactorForge/pull/117) (ready for review; merge is maintainer-owned)
 Status: implementation and local verification complete; review pending. P12b-1b, P12b-2 and P12 stay open.
 
 ## Summary
