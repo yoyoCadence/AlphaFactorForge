@@ -5,7 +5,7 @@ Repo: yoyoCadence/AlphaFactorForge
 Branch: `docs/p12b-trial-ledger-spec`
 Reviewed head: `84f2118ae69c928fde8163ebb3bdb5e58c62c4c7`
 PR: [#116](https://github.com/yoyoCadence/AlphaFactorForge/pull/116)
-Status: Needs four bounded specification corrections before acceptance. P12b implementation remains unstarted.
+Status: Re-review at `af1a7c7`: R1–R4 closed; one new admission-count finding (R5) needs correction. Six §15 policy decisions recorded below. P12b implementation remains unstarted.
 
 ## Summary
 
@@ -52,3 +52,27 @@ Self-verification: a small Node simulation confirmed that `[A,B]` vs `[A,C]` cha
 §15's six policy questions are unchanged and still need the maintainer's decision. P12b implementation has not started.
 
 Status: R1–R4 addressed in the specification; awaiting re-review.
+
+## Re-review — `af1a7c7` (2026-09-23)
+
+The remote PR head and clean local branch match at `af1a7c79eb40b4b5d9b5112d9a12924cea259069`. The documentation diff closes R1–R4 and the `originRegistryId` review note:
+
+- R1: full export contains batches, events and receipts; import validates references and inserts in foreign-key order. A21 covers import into an empty registry and receipt replay.
+- R2: workspace binding checks a prefix hash-chain checkpoint, including same-count divergence and verified replacement. A22–A24/A30 cover the cases.
+- R3: immutable payload includes split, seed and benchmark identity hashes; registration and import revalidate the reproduction/benchmark rules. A25–A26 cover mismatches.
+- R4: batch identity includes event IDs, and registration compares every existing idempotency key before replaying a receipt. A27–A28 cover changed payload and partial overlap.
+
+**R5 (blocking): A replayed receipt can be stale when used for a new precision admission.** §6.3 returns the original `(priorTrials, plannedTrials)` on retry, including after an import (lines 235–243), while §11 tells P12d to build the P12a plan from `register_batch`'s result (line 431). Example: family initially has zero trials; batch A registers one and crashes before its workspace enqueue/admission; batch B adds ten trials; retry A returns its old receipt `(0,1)`. A P12a plan built from that return uses family size 1 although the registry now has 11 effective trials. The receipt is correct as a historical retry answer but not an authoritative *current* count for a newly executed admission. Specify a separate current family count read and when it must be taken (and how its freshness is fenced against later admission/confirmation), or restrict receipt replay to replaying an already persisted decision. Add a deterministic A31-style crash/retry/intervening-batch case. This does not reopen R1–R4.
+
+### §15 policy decisions for v1
+
+1. **Accept one canonical instrument per family.** Interval, date range, dataset, workspace and protocol stay outside the key; a family pins one protocol at its first effective event. State the guarantee as *per instrument*, not per economic asset.
+2. **Defer cross-venue aliases to a versioned follow-up.** Economic equivalence across spot/futures, quote currencies and venues needs its own governed mapping and merge rules. Do not imply cross-venue trial accounting is solved in v1; a multi-instrument or cross-venue confirmation stays unsupported rather than using an implicit alias.
+3. **Count every diagnostic in v1.** Without evidence that its result was hidden from selection, an exemption would be an avoidable undercount.
+4. **Block qualification for unknown pre-P05 history.** Keep `legacy_trials_unknown`; do not accept a manually estimated count as verified history. A future recovery rule needs its own recorded evidence and contract.
+5. **No manual quarantine release in v1.** A conflicting family stays ineligible. Define an append-only, reviewable resolution process in a later contract version before allowing release.
+6. **Accept `%LOCALAPPDATA%\\com.alphafactorforge.evidence\\` for the registry.** It keeps SQLite on local storage and outside the Roaming workspace. A moved/restored workspace whose registry is missing must remain ineligible until a verified export/import restores the evidence.
+
+These are the requested policy choices, not a claim that the PR is accepted or that implementation has begun. They are recorded in the local §15 edit and scope/limitations; R5 still needs correction.
+
+Verification: `git diff --check 84f2118..af1a7c7` passed. GitHub Actions run `35863487620` completed successfully on this head in all six jobs (typecheck, test, build, cargo-check, native-smoke, e2e). No local code suites were rerun for this documentation-only correction.

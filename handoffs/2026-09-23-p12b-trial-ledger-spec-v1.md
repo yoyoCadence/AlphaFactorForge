@@ -4,7 +4,7 @@ Date: 2026-09-23
 Repo: yoyoCadence/AlphaFactorForge
 Branch: `docs/p12b-trial-ledger-spec` (from main `a56f12e`, PR #115 / P12a merged)
 PR: [#116](https://github.com/yoyoCadence/AlphaFactorForge/pull/116) (ready for review; merge is maintainer-owned)
-Status: Specification drafted; needs maintainer review of §15 before P12b implementation starts. P12 stays In Progress.
+Status: Re-review at `af1a7c7`: §15 decisions recorded locally; R5 admission-count correction remains before acceptance. P12 stays In Progress.
 
 ## Summary
 
@@ -80,3 +80,7 @@ inclusion, R3 reproduction identity missing from the payload, R4 batch retry byp
 checks). All four are corrected in `docs/trial-ledger-v1.md` on this branch (details in the review's
 Resolution); acceptance cases A21–A30 were added and the P12b-1/P12b-2 split updated. The §15 policy
 questions remain open. Still documentation only.
+
+## Re-review and policy decision (2026-09-23)
+
+The re-review of `af1a7c7` closed R1–R4 but found R5: a historical batch receipt can understate the current family size if another batch registers before a crashed request retries admission. The six policy questions are now answered in spec §15: instrument-only v1 family; defer cross-venue aliases; all diagnostics count; unknown pre-P05 history blocks qualification; no manual conflict release in v1; local AppData registry accepted. These local documentation edits do not approve PR #116 or start P12b implementation. See the [acceptance review](2026-09-23-pr116-acceptance-review-v1.md).

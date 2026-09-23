@@ -28,7 +28,7 @@
 | 並行 | 登記與權威計數讀取在同一筆 registry 寫入交易；SQLite 單一寫入者 |
 | P12e／P13 | P12 做純計算與規則（P12e-1..3）；P13 做確認批次凍結、alpha 原子預約與消耗、Validation／Test 一次性揭露與崩潰／重試恢復 |
 
-本文把這些決策轉成可驗收的規則；§15 列出本文新增、仍需維護者確認的設計選擇。
+本文把這些決策轉成可驗收的規則；§15 記錄 v1 的六項政策決定。
 
 ---
 
@@ -93,7 +93,7 @@ familyId   = "trial-family-v1:" + sha256(familyKey)
   因此一個家族的 `testsPerTrial` 必然一致，符合 P12a v1 的假設，也不能靠改 protocol 開新家族。
   改變 protocol 需要新的契約版本與維護者決定。
 - 已知缺口：同一經濟標的在不同場所（例如兩個交易所的 BTC）是不同 instrument id，v1 視為不同家族。
-  是否加入 append-only 的家族別名（alias）表列於 §15。
+  跨場所別名延後至具明確等價與合併規則的契約版本（§15）；v1 的計數保證限於單一標準化 instrument。
 
 ---
 
@@ -337,7 +337,7 @@ JSON Lines；第一行 header：
   還原後的綁定較舊，只要目前 registry 仍含該鏈頭的前綴就正常接受，計數不會變少。
 - **registry 還原**只能以匯入（聯集）進行：從備份匯出檔匯入到目前 registry。直接用舊檔取代 registry
   會在下一次工作區開啟時由 §7 偵測為回退或分歧。
-- 隔離中的家族在 v1 沒有自動解除途徑；解除需要維護者決定與新契約版本（§15）。
+- 隔離中的家族在 v1 不提供解除途徑；解除須由後續契約版本定義可稽核、僅追加的流程（§15）。
 
 ---
 
@@ -352,7 +352,7 @@ JSON Lines；第一行 header：
 - 回填是冪等的（同一批重跑回傳既有收據），在該工作區第一次綁定 registry 時執行一次，並寫入綁定鏈頭。
 - 不回填 P05 之前、沒有 attempt 列的歷史執行（`validation_records` 單獨存在者）：v1 無法可靠還原其候選數。
   這類工作區若其 dataset 有 snapshot，實作須在報告中列出「存在未計入的 pre-P05 紀錄」並對該家族回報
-  `legacy_trials_unknown`，停止資格判定，直到維護者決定（§15）。
+  `legacy_trials_unknown`，停止資格判定；恢復資格須由後續契約版本定義（§15）。
 - 不匯入 AlphaBTC 的任何紀錄（plan §6）。
 
 ---
@@ -491,13 +491,16 @@ P12d 再用 A20 串接 P12a 並讓預檢失敗時不建立可執行的確認工�
 
 ---
 
-## 15. 待維護者確認
+## 15. v1 政策決定（2026-09-23 覆驗）
 
-1. **家族粒度**：v1 以單一 instrument 為家族（不含 interval／期間／protocol）。這比審查建議的「商品／研究範圍／protocol」
-   更粗、更保守；是否接受？
-2. **跨場所別名**：是否在 v1 加入 append-only 家族別名表，或留待多資產工作？
-3. **diagnostic 一律計入**：v1 不提供豁免；是否接受？
-4. **pre-P05 歷史**：有 snapshot 但沒有 attempt 的舊紀錄，v1 以 `legacy_trials_unknown` 停止該家族資格判定；
-   或改為由維護者一次性宣告保守估計值（須記錄來源）？
-5. **隔離解除**：家族衝突隔離是否需要 v1 內的人工解除流程（會留下事件），或維持「僅新契約版本可解除」？
-6. **registry 路徑**：`%LOCALAPPDATA%\com.alphafactorforge.evidence\` 是否可接受（不隨 Roaming 同步）？
+1. **家族粒度**：接受單一標準化 instrument 為家族；interval、期間、dataset、工作區及 protocol 不進家族鍵。
+   保證範圍明確限於同一 instrument，不宣稱涵蓋同一經濟標的的所有場所。
+2. **跨場所別名**：v1 不加入 alias 表；留待具備經濟等價判準、既有家族合併與 protocol 衝突規則的後續版本。
+   v1 不支援跨場所／多 instrument 的聯合確認，不得用隱含別名取得資格。
+3. **diagnostic**：v1 一律計入；尚無證據機制能證明結果未參與候選選擇，不提供豁免。
+4. **pre-P05 歷史**：保留 `legacy_trials_unknown`，停止受影響家族的資格判定；不接受人工估計值當作已驗證計數。
+5. **隔離解除**：v1 不提供人工解除；衝突家族持續不可取得資格，待後續版本定義留下完整紀錄的解除流程。
+6. **registry 路徑**：接受 `%LOCALAPPDATA%\com.alphafactorforge.evidence\`。工作區移轉後 registry 缺失時維持不合格，
+   直到經已驗證的事件匯出／匯入還原證據。
+
+以上決定不代表本規格已完成驗收；[PR #116 覆驗](../handoffs/2026-09-23-pr116-acceptance-review-v1.md) 的 R5 仍待修正。
