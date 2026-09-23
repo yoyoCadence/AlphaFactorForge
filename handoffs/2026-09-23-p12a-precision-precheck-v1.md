@@ -3,7 +3,7 @@
 Date: 2026-09-23
 Repo: yoyoCadence/AlphaFactorForge
 Branch: `feat/p12a-precision-precheck` (from main `7aefaa9`, P11 merged via PR #114)
-PR: pending (to be linked after publication)
+PR: [#115](https://github.com/yoyoCadence/AlphaFactorForge/pull/115) (ready for review; merge is maintainer-owned)
 Status: implementation and local verification complete; review pending. P12 parent phase stays In Progress.
 
 ## Summary
