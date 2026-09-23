@@ -4,7 +4,7 @@ Date: 2026-09-23
 Repo: yoyoCadence/AlphaFactorForge
 Branch: `docs/p12b-trial-ledger-spec` (from main `a56f12e`, PR #115 / P12a merged)
 PR: [#116](https://github.com/yoyoCadence/AlphaFactorForge/pull/116) (ready for review; merge is maintainer-owned)
-Status: R1–R5 addressed and §15 policies decided (2026-09-23); awaiting re-review. P12b implementation not started. P12 stays In Progress.
+Status: P12b specification accepted at `41626c5` after re-review; implementation remains open. P12 stays In Progress.
 
 ## Summary
 
@@ -92,3 +92,7 @@ current `admissionCount` (same registry transaction as the registration or verif
 from the historical receipt; only the count can build a P12a plan; a freshness fence re-reads before any
 `ELIGIBLE` decision is acted on. Acceptance cases A31–A32 added. Details in the
 [review Resolution](2026-09-23-pr116-acceptance-review-v1.md). Still documentation only; awaiting re-review.
+
+## Acceptance re-review (2026-09-23)
+
+The independent [PR #116 review](2026-09-23-pr116-acceptance-review-v1.md) closed R5 on `41626c5`, with no new blocking specification finding. A31/A32's numerical thresholds were recomputed independently and all six CI jobs passed on the reviewed head. The specification is accepted; P12b-1/P12b-2 implementation and its behavioral acceptance have not started.
