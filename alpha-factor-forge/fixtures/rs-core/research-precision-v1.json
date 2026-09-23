@@ -1,0 +1,216 @@
+{
+  "contractVersion": "research-precision-v1",
+  "description": "Hand-authored P12a precision-precheck cases. Expected values were derived independently with exact BigInt arithmetic (resolution = ceil(1e6*m/alphaPpm) - 1; precision = ceil((1e6*m - alphaPpm) * 1e12 / (alphaPpm * sePpm^2))), not by running the Rust implementation. The alphabtc-* cases reproduce AlphaBTC docs/AUTONOMOUS_RESEARCH.md section 4: 49 prior + 24 planned trials, 2 tests each, 1,000 samples, alpha 0.05 -> best adjusted p 146/1001. maxRelativeStandardErrorPpm 200000 (20%) is a fixture choice, not a product default.",
+  "cases": [
+    {
+      "id": "alphabtc-1000-samples",
+      "plan": {
+        "contractVersion": "research-precision-v1",
+        "correction": "holm",
+        "alphaPpm": 50000,
+        "maxRelativeStandardErrorPpm": 200000,
+        "priorTrials": 49,
+        "plannedTrials": 24,
+        "testsPerTrial": 2,
+        "bootstrapSamples": 1000,
+        "maxBootstrapSamples": 100000
+      },
+      "expected": {
+        "contractVersion": "research-precision-v1",
+        "status": "NOT_ELIGIBLE",
+        "reasons": ["bootstrap_resolution_insufficient", "monte_carlo_precision_insufficient"],
+        "familyTrials": 73,
+        "familyTests": 146,
+        "minAttainableRawP": { "numerator": 1, "denominator": 1001 },
+        "bestAdjustedP": { "numerator": 146, "denominator": 1001 },
+        "bestAdjustedPValue": 0.14585414585414586,
+        "requiredSamplesForResolution": 2919,
+        "requiredSamplesForPrecision": 72975
+      }
+    },
+    {
+      "id": "alphabtc-2918-samples-one-below-resolution",
+      "plan": {
+        "contractVersion": "research-precision-v1",
+        "correction": "holm",
+        "alphaPpm": 50000,
+        "maxRelativeStandardErrorPpm": 200000,
+        "priorTrials": 49,
+        "plannedTrials": 24,
+        "testsPerTrial": 2,
+        "bootstrapSamples": 2918,
+        "maxBootstrapSamples": 100000
+      },
+      "expected": {
+        "contractVersion": "research-precision-v1",
+        "status": "NOT_ELIGIBLE",
+        "reasons": ["bootstrap_resolution_insufficient", "monte_carlo_precision_insufficient"],
+        "familyTrials": 73,
+        "familyTests": 146,
+        "minAttainableRawP": { "numerator": 1, "denominator": 2919 },
+        "bestAdjustedP": { "numerator": 146, "denominator": 2919 },
+        "bestAdjustedPValue": 0.050017129153819805,
+        "requiredSamplesForResolution": 2919,
+        "requiredSamplesForPrecision": 72975
+      }
+    },
+    {
+      "id": "alphabtc-2919-samples-resolution-reached-precision-not",
+      "plan": {
+        "contractVersion": "research-precision-v1",
+        "correction": "holm",
+        "alphaPpm": 50000,
+        "maxRelativeStandardErrorPpm": 200000,
+        "priorTrials": 49,
+        "plannedTrials": 24,
+        "testsPerTrial": 2,
+        "bootstrapSamples": 2919,
+        "maxBootstrapSamples": 100000
+      },
+      "expected": {
+        "contractVersion": "research-precision-v1",
+        "status": "NOT_ELIGIBLE",
+        "reasons": ["monte_carlo_precision_insufficient"],
+        "familyTrials": 73,
+        "familyTests": 146,
+        "minAttainableRawP": { "numerator": 1, "denominator": 2920 },
+        "bestAdjustedP": { "numerator": 146, "denominator": 2920 },
+        "bestAdjustedPValue": 0.05,
+        "requiredSamplesForResolution": 2919,
+        "requiredSamplesForPrecision": 72975
+      }
+    },
+    {
+      "id": "alphabtc-72975-samples-eligible",
+      "plan": {
+        "contractVersion": "research-precision-v1",
+        "correction": "holm",
+        "alphaPpm": 50000,
+        "maxRelativeStandardErrorPpm": 200000,
+        "priorTrials": 49,
+        "plannedTrials": 24,
+        "testsPerTrial": 2,
+        "bootstrapSamples": 72975,
+        "maxBootstrapSamples": 100000
+      },
+      "expected": {
+        "contractVersion": "research-precision-v1",
+        "status": "ELIGIBLE",
+        "reasons": [],
+        "familyTrials": 73,
+        "familyTests": 146,
+        "minAttainableRawP": { "numerator": 1, "denominator": 72976 },
+        "bestAdjustedP": { "numerator": 146, "denominator": 72976 },
+        "bestAdjustedPValue": 0.0020006577504933128,
+        "requiredSamplesForResolution": 2919,
+        "requiredSamplesForPrecision": 72975
+      }
+    },
+    {
+      "id": "budget-one-below-requirement",
+      "plan": {
+        "contractVersion": "research-precision-v1",
+        "correction": "holm",
+        "alphaPpm": 50000,
+        "maxRelativeStandardErrorPpm": 200000,
+        "priorTrials": 49,
+        "plannedTrials": 24,
+        "testsPerTrial": 2,
+        "bootstrapSamples": 1000,
+        "maxBootstrapSamples": 72974
+      },
+      "expected": {
+        "contractVersion": "research-precision-v1",
+        "status": "NOT_ELIGIBLE",
+        "reasons": [
+          "bootstrap_resolution_insufficient",
+          "monte_carlo_precision_insufficient",
+          "bootstrap_budget_insufficient"
+        ],
+        "familyTrials": 73,
+        "familyTests": 146,
+        "minAttainableRawP": { "numerator": 1, "denominator": 1001 },
+        "bestAdjustedP": { "numerator": 146, "denominator": 1001 },
+        "bestAdjustedPValue": 0.14585414585414586,
+        "requiredSamplesForResolution": 2919,
+        "requiredSamplesForPrecision": 72975
+      }
+    },
+    {
+      "id": "large-family-caps-adjusted-p-at-one",
+      "plan": {
+        "contractVersion": "research-precision-v1",
+        "correction": "holm",
+        "alphaPpm": 50000,
+        "maxRelativeStandardErrorPpm": 200000,
+        "priorTrials": 10000,
+        "plannedTrials": 24,
+        "testsPerTrial": 2,
+        "bootstrapSamples": 1000,
+        "maxBootstrapSamples": 100000
+      },
+      "expected": {
+        "contractVersion": "research-precision-v1",
+        "status": "NOT_ELIGIBLE",
+        "reasons": [
+          "bootstrap_resolution_insufficient",
+          "monte_carlo_precision_insufficient",
+          "bootstrap_budget_insufficient"
+        ],
+        "familyTrials": 10024,
+        "familyTests": 20048,
+        "minAttainableRawP": { "numerator": 1, "denominator": 1001 },
+        "bestAdjustedP": { "numerator": 1001, "denominator": 1001 },
+        "bestAdjustedPValue": 1.0,
+        "requiredSamplesForResolution": 400959,
+        "requiredSamplesForPrecision": 10023975
+      }
+    },
+    {
+      "id": "reject-unknown-field-before-values",
+      "plan": {
+        "contractVersion": "research-precision-v1",
+        "correction": "holm",
+        "alpha": 0.05,
+        "alphaPpm": 0,
+        "maxRelativeStandardErrorPpm": 200000,
+        "priorTrials": 49,
+        "plannedTrials": 24,
+        "testsPerTrial": 2,
+        "bootstrapSamples": 1000,
+        "maxBootstrapSamples": 100000
+      },
+      "error": "precision.alpha: unknown field"
+    },
+    {
+      "id": "reject-float-literal-count",
+      "plan": {
+        "contractVersion": "research-precision-v1",
+        "correction": "holm",
+        "alphaPpm": 50000,
+        "maxRelativeStandardErrorPpm": 200000,
+        "priorTrials": 49,
+        "plannedTrials": 24,
+        "testsPerTrial": 2,
+        "bootstrapSamples": 1000.0,
+        "maxBootstrapSamples": 100000
+      },
+      "error": "precision.bootstrapSamples: must be an integer in [1, 9007199254740991]"
+    },
+    {
+      "id": "reject-samples-above-budget",
+      "plan": {
+        "contractVersion": "research-precision-v1",
+        "correction": "holm",
+        "alphaPpm": 50000,
+        "maxRelativeStandardErrorPpm": 200000,
+        "priorTrials": 49,
+        "plannedTrials": 24,
+        "testsPerTrial": 2,
+        "bootstrapSamples": 100001,
+        "maxBootstrapSamples": 100000
+      },
+      "error": "precision.bootstrapSamples: exceeds maxBootstrapSamples"
+    }
+  ]
+}

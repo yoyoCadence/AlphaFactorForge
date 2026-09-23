@@ -6,7 +6,7 @@
 > [`../../handoffs/2026-09-21-p09-tiingo-v1.md`](../../handoffs/2026-09-21-p09-tiingo-v1.md)。
 > 純計算契約與限制見 [`../etf-semantics-v1.md`](../etf-semantics-v1.md)，驗證／交接見
 > [`../../handoffs/2026-09-20-p08-etf-semantics-v1.md`](../../handoffs/2026-09-20-p08-etf-semantics-v1.md)。
-> 下文保留原始規劃基準；P11 已於 2026-09-22 完成，P12 及後續功能未啟動，整體最終 Acceptance Criteria 尚未全部完成。
+> 下文保留原始規劃基準；P11 已於 2026-09-22 完成。P12 於 2026-09-23 啟動並拆成子項：P12a 統計精度預檢契約（[`../research-precision-v1.md`](../research-precision-v1.md)）已完成但尚未接入 runtime；試驗帳本、樣本長度／內層 walk-forward 與 campaign 仍未完成。P13 及後續功能未啟動，整體最終 Acceptance Criteria 尚未全部完成。
 
 ## 1. 目標、基準與交付限制
 
