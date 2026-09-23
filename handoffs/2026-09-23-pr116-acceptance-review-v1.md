@@ -5,7 +5,7 @@ Repo: yoyoCadence/AlphaFactorForge
 Branch: `docs/p12b-trial-ledger-spec`
 Reviewed head: `84f2118ae69c928fde8163ebb3bdb5e58c62c4c7`
 PR: [#116](https://github.com/yoyoCadence/AlphaFactorForge/pull/116)
-Status: Re-review at `af1a7c7`: R1–R4 closed; one new admission-count finding (R5) needs correction. Six §15 policy decisions recorded below. P12b implementation remains unstarted.
+Status: R1–R4 closed at `af1a7c7`; R5 addressed in the following commit (see the last Resolution); awaiting re-review. Six §15 policy decisions recorded below. P12b implementation remains unstarted.
 
 ## Summary
 
@@ -76,3 +76,18 @@ The remote PR head and clean local branch match at `af1a7c79eb40b4b5d9b5112d9a12
 These are the requested policy choices, not a claim that the PR is accepted or that implementation has begun. They are recorded in the local §15 edit and scope/limitations; R5 still needs correction.
 
 Verification: `git diff --check 84f2118..af1a7c7` passed. GitHub Actions run `35863487620` completed successfully on this head in all six jobs (typecheck, test, build, cargo-check, native-smoke, e2e). No local code suites were rerun for this documentation-only correction.
+
+### Resolution — R5 addressed in the spec (2026-09-23, same branch, PR #116)
+
+Documentation only; the reviewer's re-review and §15 decisions were first committed unchanged (`a759e9f`).
+
+- **Two different outputs.** `register_batch` now returns both a historical `registrationReceipt` (§6.3) and a current `admissionCount` (§6.4). The count is read at the end of the same `BEGIN IMMEDIATE` transaction as the registration **or** the verified whole-batch replay, keeping §0's "registration and authoritative count read in one write transaction" decision. On a retry, the receipt stays the registration-time number while `admissionCount` includes every batch registered in between.
+- **§5 mapping.** A P12a plan is built only from `admissionCount`: `priorTrials = familyEffectiveTrials − batchEffectiveTrials` (all *other* effective trials at the snapshot, including those registered after this batch), `plannedTrials = batchEffectiveTrials`, `m = familyEffectiveTrials × testsPerTrial`.
+- **Receipts cannot be misused.** Receipt fields renamed to `familyEffectiveBefore` / `batchEffectiveTrials` (schema `family_effective_before`), stated as audit-only; §11's `precision_plan_from_count` accepts only an `AdmissionCount`, whose fields are private to the ledger, so a receipt cannot be passed or re-assembled into one.
+- **Freshness fence (§6.4).** Before any stage acts on an `ELIGIBLE` decision (P12d dispatch; P13 freeze/alpha reservation) it re-reads via `read_admission_count`: first prove the snapshot's events are still present (chain value at `snapshot.seq`, or the §7.3 checkpoint when the registry was replaced), then compare the family effective count — equal keeps the decision, larger forces a P12a re-evaluation. Only `ELIGIBLE` needs the fence because counts only grow and P12a requirements are monotone in family size (`growing_the_family_can_only_raise_requirements`). A persisted decision replayed by P03b keeps its snapshot and is still fenced before use. The gap-free guarantee is handed to P13 as a stated requirement (read and reserve in one registry write transaction, or re-read after the reservation commits and void on mismatch).
+- **Acceptance.** A31 (the reported crash/retry/intervening-batch case) and A32 (fence) use BigInt-verified numbers with alpha 50,000 ppm, SE 200,000 ppm, `testsPerTrial` 2: in A31, B = 975 is `ELIGIBLE` if the stale receipt (m = 2) were used but correctly `NOT_ELIGIBLE` with the current count (m = 22, precision needs 10,975); in A32, a decision `ELIGIBLE` at m = 22 with B = 10,975 becomes `NOT_ELIGIBLE` after five more trials (m = 32, needs 15,975), and an unchanged count keeps it. A31's registry part is P12b-1; A32 is accepted with P12d.
+- A3, A8, A21 wording now distinguishes the historical receipt from the current count; §7.2's binding takes `(seq, chainHead)` from the same `admissionCount`.
+
+Verification: `git diff --check` passes; relative links resolve; the referenced P12a test exists in `precision.rs`; A31/A32 outcomes recomputed with exact BigInt arithmetic. No code suites were rerun (documentation only).
+
+Status: R5 addressed in the specification; awaiting re-review. P12b implementation has not started.

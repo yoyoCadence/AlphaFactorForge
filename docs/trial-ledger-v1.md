@@ -4,6 +4,8 @@
 > 修訂（同日）：依 [PR #116 驗收審查](../handoffs/2026-09-23-pr116-acceptance-review-v1.md) R1–R4 修正——
 > 匯出含批次與收據（§8）、以雜湊鏈取代計數水位（§7）、payload 納入 split／seed／benchmark 身分（§4.3）、
 > 批次 ID 綁定完整內容且重播前一律逐筆比對（§6.1）；`originRegistryId` 移出事件雜湊（§4.3）。
+> 修訂二（同日）：依覆驗 R5 區分「歷史收據」與「admission 用的目前計數」（§5、§6.3、§6.4），
+> 並加入新鮮度圍欄與 A31–A32。
 > 上游：[`plans/active-plan.md`](plans/active-plan.md) §4.4／§4.5 與 §5 P12 列；
 > 決策來源：[`../handoffs/2026-09-23-pr115-acceptance-review-v1.md`](../handoffs/2026-09-23-pr115-acceptance-review-v1.md)
 > 的「Follow-up answers」與維護者 2026-09-23 的回覆；消費端：[`research-precision-v1.md`](research-precision-v1.md)（P12a）。
@@ -164,13 +166,19 @@ eventId        = "trial-event-v1:" + sha256(eventPayload)
 
 ## 5. 計數與 P12a 對應
 
+P12a plan 只能由 §6.4 的 `admissionCount`（**讀取當下**的計數快照）組成：
+
 ```text
-priorTrials   = 家族中 effective = 1 的事件數（本批登記之前）
-plannedTrials = 本批新增且 effective = 1 的事件數
-testsPerTrial = 家族 protocol_json.testsPerTrial
-m             = (priorTrials + plannedTrials) × testsPerTrial      # 即 P12a familyTests
+familyEffectiveTrials = 快照當下家族中 effective = 1 的事件數（含本批）
+batchEffectiveTrials  = 本批 effective = 1 的事件數
+P12a priorTrials      = familyEffectiveTrials − batchEffectiveTrials
+P12a plannedTrials    = batchEffectiveTrials
+testsPerTrial         = 家族 protocol_json.testsPerTrial
+m                     = familyEffectiveTrials × testsPerTrial      # 即 P12a familyTests
 ```
 
+- 這裡的 `priorTrials` 是「快照當下家族中**本批以外**的全部有效試驗」，**包含本批之後才登記的試驗**；
+  它不是「本批登記時已存在的試驗數」。後者只存在於歷史收據（§6.3），**不得**用於 plan（R5）。
 - 只有後端從 registry 計算這些數字；**沒有任何命令、CLI 參數或 UI 欄位可以傳入 `priorTrials`**。
   P12a 的 plan JSON 由後端組裝。
 - 失敗、取消、跳過、孤兒登記（§6.2）全部仍計入：登記即代表一次選擇機會，不退還。
@@ -190,18 +198,23 @@ batchId = "trial-batch-v1:" + sha256(canonical_json({version:"trial-batch-v1", f
 ```
 
 `batchId` 綁定**整批每個事件的完整內容**（經由 `eventId`），不只是冪等鍵。
-`register_batch(family, events[]) -> {batchId, priorTrials, plannedTrials, testsPerTrial, eventIds}` 在一個
-`BEGIN IMMEDIATE` 交易中依序：
+`register_batch(family, events[]) -> {batchId, eventIds, testsPerTrial, admissionCount, registrationReceipt}`
+在一個 `BEGIN IMMEDIATE` 交易中依序：
 
 1. 檢查家族衝突隔離（§8.2 第 2 點）；已隔離 → 拒絕。
 2. 依 §4 驗證每個事件並計算其 `eventId`，再算出 `batchId`。
 3. **逐筆比對（永遠先做，不能被步驟 4 略過）**：對每個冪等鍵查既有事件——
    - 存在但 `eventId` 不同 → 整批拒絕（`idempotency_conflict`），不寫入；
    - 存在且 `eventId` 相同但屬於另一批 → 整批拒絕（`batch_conflict`）：v1 不允許與既有批次部分重疊。
-4. 若 `batchId` 已存在（由步驟 3 可知此時每個事件都逐位相同）→ 這是整批重試：不寫入，回傳收據（§6.3）。
-5. 否則（本批沒有任何既有鍵）：`priorTrials` = 目前家族有效事件數；依序寫入批次、事件（附 §7 雜湊鏈）與
-   本 registry 的收據；首次有效登記時凍結家族 protocol；`plannedTrials` = 本批有效事件數。
-6. COMMIT。
+4. 若 `batchId` 已存在（由步驟 3 可知此時每個事件都逐位相同）→ 這是整批重試：不寫入；
+   `registrationReceipt` 取既有的歷史收據（§6.3）。
+5. 否則（本批沒有任何既有鍵）：依序寫入批次、事件（附 §7 雜湊鏈）與本 registry 的歷史收據
+   （`familyEffectiveBefore` = 寫入前家族有效事件數，`batchEffectiveTrials` = 本批有效事件數）；首次有效登記時凍結家族 protocol。
+6. **不論步驟 4 或 5**，仍在同一交易內讀出目前計數快照 `admissionCount`（§6.4）。
+7. COMMIT。
+
+首次登記時兩者一致（`admissionCount.familyEffectiveTrials` = 收據的 `familyEffectiveBefore` ＋ `batchEffectiveTrials`）；整批重試時，
+收據是登記當下的舊數字，`admissionCount` 則包含這段期間其他批次新增的試驗（R5）。
 
 因此「同一組冪等鍵、但 strategy hash 或 kind 改變」的整批重送會在步驟 3 以 `idempotency_conflict` 失敗，
 不可能拿到舊收據。
@@ -223,7 +236,7 @@ batchId = "trial-batch-v1:" + sha256(canonical_json({version:"trial-batch-v1", f
 | 崩潰點 | 結果 |
 | --- | --- |
 | 2 之前 | 兩邊都沒有寫入；重新入隊是全新批次 |
-| 2 之後、3 之前 | registry 有登記、工作區沒有 run → **孤兒登記**：仍計入，不退還。以同一 `requestId` 重試入隊會取回相同事件並完成第 3 步；換新 requestId 則是新批次、新事件 |
+| 2 之後、3 之前 | registry 有登記、工作區沒有 run → **孤兒登記**：仍計入，不退還。以同一 `requestId` 重試入隊會取回相同事件（整批重播）與**重試當下**的 `admissionCount`，並完成第 3 步；任何 admission 判定都用這個新快照，不用歷史收據（§6.4）。換新 requestId 則是新批次、新事件 |
 | 3 之後 | 正常；重試入隊由 P03b 命令冪等回傳既有結果 |
 
 - claim 的工作區交易必須確認對應 attempt 的 `trial_event_id` 非 NULL（與 P05「恰好一筆 attempt」規則同一交易）；
@@ -234,13 +247,49 @@ batchId = "trial-batch-v1:" + sha256(canonical_json({version:"trial-batch-v1", f
 
 ### 6.3 批次收據
 
-- 收據 = `(batchId, receiptRegistryId, priorTrials, plannedTrials)`，存於 `batch_receipts`，主鍵
-  `(batch_id, receipt_registry_id)`。它記錄「該批在某個 registry 登記當下」的計數，只供重試取得與第一次相同的
-  答案；**不是**計數來源——計數一律由事件表重新計算（§5）。
+- 收據 = `(batchId, receiptRegistryId, familyEffectiveBefore, batchEffectiveTrials)`，存於 `batch_receipts`，主鍵
+  `(batch_id, receipt_registry_id)`。它記錄「該批在某個 registry 登記當下」的計數，**只是歷史稽核資料**：
+  供重試辨認批次、以及事後查閱登記當時的家族規模。它**不是**計數來源（計數一律由事件表重新計算，§5），
+  也**不得**作為 P12a plan 或任何資格判定的輸入——那只能用 §6.4 的 `admissionCount`（R5）。
 - 整批重試的回傳：若目前 registry 有自己的收據，回傳它；否則（此批只經匯入得知）回傳批次
   `origin_registry_id` 的收據。兩者都沒有 → 資料不一致，拒絕（`batch_receipt_missing`）。
 - 同一批可能在兩個 registry 各自登記（例如 registry 被替換後以同一 requestId 重試），因此可能有多張收據；
   匯入時以主鍵聯集，同主鍵不同數值 → 衝突（§8.2）。
+
+### 6.4 目前計數（`admissionCount`）與新鮮度圍欄
+
+```text
+admissionCount = {registryId, familyId, familyEffectiveTrials, batchEffectiveTrials,
+                  testsPerTrial, seq, chainHead}
+```
+
+- 只有兩個來源，而且都在**單一 registry 交易**內一次讀出，所以計數與鏈頭描述同一個 registry 狀態：
+  - `register_batch` 的步驟 6：首次登記或整批重播都一樣，與登記／重播驗證在同一筆 `BEGIN IMMEDIATE` 交易內
+    （符合 §0「登記與權威計數讀取在同一筆寫入交易」）；
+  - `read_admission_count(batchId)`：唯讀交易，供之後重讀。
+- `familyId` 為 null（`family_unknown`）或家族已隔離 → 不回傳快照，改回報對應理由；資格判定停止。
+- 使用 `admissionCount` 之前，工作區綁定必須已通過 §7 檢查。
+
+**新鮮度圍欄。** 依某個 `admissionCount` 做出的判定，只對該快照的 `familyEffectiveTrials` 有效。之後任何階段要依據
+**`ELIGIBLE`** 判定行動之前（P12d 派送可執行的確認工作；P13 凍結確認批次或預約 alpha），都必須以
+`read_admission_count` 重讀，並依序：
+
+1. **先證明快照看到的事件都還在**：同一 `registryId` 時，registry 在 `snapshot.seq` 的鏈值必須等於
+   `snapshot.chainHead`；`registryId` 不同時，依 §7.3 以 `(snapshot.registryId, snapshot.seq, snapshot.chainHead)`
+   驗證檢查點。不成立 → 依 §7 停止資格判定。
+2. **再比較家族有效計數**：
+   - 相等 → 家族沒有新增有效試驗，原判定可沿用；
+   - 變大 → 原判定過時：以新快照重算 P12a，連同新快照保存新判定；重算仍為 `ELIGIBLE` 才能繼續；
+   - 變小 → 步驟 1 通過時不可能發生（事件只增不刪、有效性登記時凍結）；若發生即視為不一致，停止資格判定。
+
+- 只有 `ELIGIBLE` 需要圍欄：家族有效計數只增不減，而 P12a 的需求值不會因家族變大而降低
+  （P12a `growing_the_family_can_only_raise_requirements`），所以過時的 `NOT_ELIGIBLE` 不可能因重讀變成 `ELIGIBLE`。
+- 已保存的判定經 P03b 重送時逐字重播（含其快照）；圍欄仍在該判定被用來行動之前套用。
+  尚未保存判定的重試，則由 `register_batch` 取得新的 `admissionCount`（A31）。
+- P12d 派送前的重讀，是為了不派送明顯過時的判定；它與工作區寫入之間仍可能有其他批次登記。
+  **不留空隙的保證屬於 P13**，並作為交給 P13 的要求：確認凍結所用的最後一次計數，與凍結／alpha 預約之間，
+  不得有「有效試驗已登記卻沒被看到」的空隙——在同一筆 registry 寫入交易內讀取並預約；或在預約提交後重讀比對，
+  不相等即作廢該預約、重新判定。P12b 不實作這個預約。
 
 ---
 
@@ -264,8 +313,8 @@ chain_seq = sha256(chain_{seq-1} || eventId_seq)          # seq = 本 registry �
 ### 7.2 工作區綁定
 
 工作區在 `app_settings` 保存 `trial_ledger_binding = {registryId, seq, chainHead}`，並在寫入 attempts 的
-同一筆工作區交易（§6.2 步驟 3）中更新為**登記完成當下** registry 的 `(seq, chain_seq)`。
-這個鏈頭涵蓋本工作區當時看得到的所有事件，包括其他工作區的事件。
+同一筆工作區交易（§6.2 步驟 3）中更新為 `register_batch` 回傳之 `admissionCount` 的 `(seq, chainHead)`
+（與計數同一筆 registry 交易讀出，§6.4）。這個鏈頭涵蓋本工作區當時看得到的所有事件，包括其他工作區的事件。
 
 | 開啟時觀察 | 判定 |
 | --- | --- |
@@ -307,7 +356,7 @@ JSON Lines；第一行 header：
 | `family` | `familyId`、`familyKey`、`protocol_json` |
 | `batch` | `batchId`、`familyId`、`originRegistryId`、`members`（依 idempotencyKey 排序的 `[idempotencyKey, eventId]`） |
 | `event` | 完整 payload、`originRegistryId`、`batchId`、`seq`、`chain`（皆為來源 registry 的值，依 `seq` 遞增） |
-| `receipt` | `batchId`、`receiptRegistryId`、`priorTrials`、`plannedTrials` |
+| `receipt` | `batchId`、`receiptRegistryId`、`familyEffectiveBefore`、`batchEffectiveTrials` |
 | `originCheckpoint` | 來源 registry 持有的其他 registry 檢查點（`originRegistryId`、`originSeq`、`eventId`、`originChain`），每個來源都從 seq 1 起完整列出 |
 
 批次與收據都在檔內，所以匯入不需要合成任何列，重試收據原樣保留（R1）。
@@ -391,8 +440,8 @@ CREATE TABLE trial_events (
 CREATE TABLE batch_receipts (               -- §6.3；不是計數來源
   batch_id            TEXT NOT NULL REFERENCES trial_batches(batch_id),
   receipt_registry_id TEXT NOT NULL,
-  prior_trials        INTEGER NOT NULL,
-  planned_trials      INTEGER NOT NULL,
+  family_effective_before INTEGER NOT NULL,   -- 刻意不叫 prior_trials：不是 P12a 輸入
+  batch_effective_trials  INTEGER NOT NULL,
   PRIMARY KEY (batch_id, receipt_registry_id)
 );
 CREATE TABLE origin_checkpoints (           -- §7.3；只經匯入寫入且已重算驗證
@@ -418,17 +467,44 @@ CREATE TABLE registry_conflicts (...);      -- §8.2 第 2 點；檢查點分歧
 
 ```rust
 pub struct TrialLedger { /* registry connection */ }
+pub struct BatchRegistration {
+    pub batch_id: String,
+    pub event_ids: Vec<String>,
+    /// Current count, read in the same transaction as the registration or verified replay (§6.4).
+    pub admission_count: AdmissionCount,
+    /// Historical audit only (§6.3); never an input to a precision plan.
+    pub registration_receipt: RegistrationReceipt,
+}
+/// Fields are private with read-only getters: only the ledger constructs one,
+/// so a caller cannot assemble a count from a receipt or from UI/CLI input.
+pub struct AdmissionCount {
+    registry_id: String,
+    family_id: String,
+    family_effective_trials: u64,
+    batch_effective_trials: u64,
+    tests_per_trial: u64,
+    seq: u64,
+    chain_head: String,
+}
+pub struct RegistrationReceipt {
+    pub receipt_registry_id: String,
+    pub family_effective_before: u64, // deliberately not named prior_trials
+    pub batch_effective_trials: u64,
+}
 impl TrialLedger {
     pub fn open(registry_dir: &Path, workspace_dir: &Path) -> Result<Self, LedgerError>;
     pub fn register_batch(&self, batch: &TrialBatch) -> Result<BatchRegistration, LedgerError>;
-    pub fn family_counts(&self, family_id: &str) -> Result<FamilyCounts, LedgerError>;
+    pub fn read_admission_count(&self, batch_id: &str) -> Result<AdmissionCount, LedgerError>;
     pub fn export(&self, out: &Path) -> Result<ExportSummary, LedgerError>;
     pub fn import(&self, file: &Path) -> Result<ImportReport, LedgerError>;
 }
 pub fn check_binding(ledger: &TrialLedger, binding: Option<&LedgerBinding>) -> BindingStatus;
+/// The only ledger-to-P12a path. Takes a current `AdmissionCount`; a `RegistrationReceipt` cannot be passed.
+pub fn precision_plan_from_count(count: &AdmissionCount, sampling: &SamplingPlan) -> PrecisionPlan;
 ```
 
-- 不新增前端命令；P12d 的 admission 呼叫 `register_batch` 後把結果組成 P12a plan。
+- 不新增前端命令。P12d 以 `register_batch` 回傳的 `admission_count`（或之後以 `read_admission_count` 重讀的值）
+  經 `precision_plan_from_count` 組成 P12a plan；歷史收據在型別上無法傳入（R5）。
 - 匯出／匯入先只提供 service CLI 子命令（與 P07 `fetch` 同一模式），UI 留給 P21。
 
 ---
@@ -439,12 +515,12 @@ pub fn check_binding(ledger: &TrialLedger, binding: Option<&LedgerBinding>) -> B
 | --- | --- | --- |
 | A1 | 新工作區（新 `AFF_DATA_DIR`）對同一 instrument 登記 | 計數延續既有家族，不歸零 |
 | A2 | 同 instrument 改 interval／日期範圍／來源／重新匯入 dataset（hash 不同） | 同一家族，計數延續 |
-| A3 | 同一冪等鍵重試登記（含同一 requestId 重試入隊） | 回傳相同 eventId 與相同 prior／planned，不增加計數 |
+| A3 | 同一冪等鍵重試登記（含同一 requestId 重試入隊） | 回傳相同 eventId 與相同歷史收據，不增加計數；`admissionCount` 為重試當下的計數 |
 | A4 | 同一冪等鍵改 `kind`（例如 variant → diagnostic／benchmark） | `idempotency_conflict`，無寫入 |
 | A5 | 不在白名單或參數不同的 benchmark | 拒絕為 benchmark |
 | A6 | reproduction 任一識別欄位不同 | `reproduction_mismatch` |
 | A7 | 失敗、取消、孤兒登記 | 全部仍計入 |
-| A8 | 兩個程序同時 `register_batch` 同一家族 | 兩批皆成功或以 busy 重試成功；最終計數 = 兩批和；各批 prior 不重疊 |
+| A8 | 兩個程序同時 `register_batch` 同一家族 | 兩批皆成功或以 busy 重試成功；最終計數 = 兩批和；兩張收據的 `familyEffectiveBefore` 依交易順序銜接、不重疊；後完成者的 `admissionCount` 含兩批 |
 | A9 | registry COMMIT 後、工作區寫入前崩潰 | 孤兒登記計入；重啟報告；重試入隊取回同事件 |
 | A10 | 未登記的 attempt 嘗試 claim | `trial_not_registered`，rollback |
 | A11 | 刪除 registry 檔後開啟已綁定工作區 | `registry_missing`；不自動新建取代 |
@@ -457,7 +533,7 @@ pub fn check_binding(ledger: &TrialLedger, binding: Option<&LedgerBinding>) -> B
 | A18 | 無 snapshot 的 legacy dataset | `family_unknown`，不能取得資格 |
 | A19 | registry 目錄設在工作區內（或反之） | 開啟被拒 |
 | A20 | P12a 串接 | 依 §5 組出的 plan 對 AlphaBTC 等價計數得 `146/1001` 且 `NOT_ELIGIBLE` |
-| A21 | 在 `foreign_keys = ON` 下，把匯出檔匯入全新 registry；之後以同一批重試登記 | 匯入成功，無合成列；重試回傳來源收據（相同 prior／planned），計數不變 |
+| A21 | 在 `foreign_keys = ON` 下，把匯出檔匯入全新 registry；之後以同一批重試登記 | 匯入成功，無合成列；重試回傳來源的歷史收據（數值不變），計數不變；`admissionCount` 為匯入後的目前計數 |
 | A22 | 工作區看過 A、B；以只含 A 的舊副本（同 `registryId`）再加入 C 後開啟 | 計數相同，但 `registry_diverged` |
 | A23 | 更換成新 registry：匯入了等量事件，卻缺少工作區看過的某一筆 | 檢查點鏈值不符，`registry_replaced` |
 | A24 | 更換成新 registry：匯入含舊 registry 至綁定 seq 的完整匯出 | 接受並改綁；計數延續 |
@@ -467,6 +543,8 @@ pub fn check_binding(ledger: &TrialLedger, binding: Option<&LedgerBinding>) -> B
 | A28 | 與既有批次部分重疊的新批次 | `batch_conflict`，無寫入 |
 | A29 | 同一登記在兩個 registry 各自寫入後聯集 | 同一 `eventId`，只計一次；兩張收據都保留 |
 | A30 | registry 檔中某筆 `chain` 被改動 | 開啟時 `registry_chain_broken` |
+| A31 | 家族原為 0；批次 A（1 筆有效）登記後、工作區寫入與 admission 前崩潰；批次 B 新增 10 筆；以同一 requestId 重試 A。P12a 參數：alpha 50,000 ppm、SE 200,000 ppm、`testsPerTrial` 2、B = 975、上限 100,000 | 重試回傳相同事件與歷史收據（`familyEffectiveBefore` 0、`batchEffectiveTrials` 1）；`admissionCount` = 家族 11、本批 1。plan 為 prior 10、planned 1（m = 22）→ `NOT_ELIGIBLE`（precision 需 10,975）。若誤用收據（m = 2）會得到 `ELIGIBLE`——測試必須證明 plan 只由 `admissionCount` 組成 |
+| A32 | 已保存的 `ELIGIBLE` 判定，快照為家族 11（m = 22，B = 10,975，其餘同 A31）；派送前批次 C 又新增 5 筆 | 重讀：鏈前綴成立、家族 16 > 11 → 判定過時；以 m = 32 重算為 `NOT_ELIGIBLE`（precision 需 15,975）→ 不建立可執行的確認工作。若期間無新增（仍為 11）→ 原判定沿用 |
 
 ---
 
@@ -474,10 +552,12 @@ pub fn check_binding(ledger: &TrialLedger, binding: Option<&LedgerBinding>) -> B
 
 | 子項 | 範圍 | 不含 |
 | --- | --- | --- |
-| P12b-1 | registry 模組、schema、`register_batch`、收據、雜湊鏈、計數、冪等、衝突、匯出／匯入、包含檢查；A3–A6、A8、A13–A17、A19、A21、A25–A30 | runner 接線、工作區 migration |
+| P12b-1 | registry 模組、schema、`register_batch`（含同交易 `admissionCount`）、`read_admission_count`、歷史收據、雜湊鏈、計數、冪等、衝突、匯出／匯入、包含檢查、`precision_plan_from_count`；A3–A6、A8、A13–A17、A19、A21、A25–A31 | runner 接線、工作區 migration |
 | P12b-2 | 工作區 migration `0009`（`trial_event_id`、綁定鏈頭）、runner 入隊先登記、claim 檢查、回填、§7 偵測；A1、A2、A7、A9–A12、A18、A22–A24 | admission 阻擋（P12d） |
 
-P12d 再用 A20 串接 P12a 並讓預檢失敗時不建立可執行的確認工作。
+P12d 再用 A20 串接 P12a、用 A32 驗收 §6.4 的新鮮度圍欄，並讓預檢失敗時不建立可執行的確認工作。
+A31 的 registry 部分（重試回傳目前計數、plan 只能由 `admissionCount` 組成）屬 P12b-1；「崩潰」以
+「已登記、未寫工作區」的狀態模擬即可。
 
 ---
 
@@ -504,3 +584,4 @@ P12d 再用 A20 串接 P12a 並讓預檢失敗時不建立可執行的確認工�
    直到經已驗證的事件匯出／匯入還原證據。
 
 以上決定不代表本規格已完成驗收；[PR #116 覆驗](../handoffs/2026-09-23-pr116-acceptance-review-v1.md) 的 R5 仍待修正。
+（更新：R5 已依 §5、§6.3、§6.4 修正並加入 A31–A32，待再次覆驗。）

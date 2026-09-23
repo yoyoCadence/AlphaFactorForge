@@ -4,7 +4,7 @@ Date: 2026-09-23
 Repo: yoyoCadence/AlphaFactorForge
 Branch: `docs/p12b-trial-ledger-spec` (from main `a56f12e`, PR #115 / P12a merged)
 PR: [#116](https://github.com/yoyoCadence/AlphaFactorForge/pull/116) (ready for review; merge is maintainer-owned)
-Status: Re-review at `af1a7c7`: §15 decisions recorded locally; R5 admission-count correction remains before acceptance. P12 stays In Progress.
+Status: R1–R5 addressed and §15 policies decided (2026-09-23); awaiting re-review. P12b implementation not started. P12 stays In Progress.
 
 ## Summary
 
@@ -84,3 +84,11 @@ questions remain open. Still documentation only.
 ## Re-review and policy decision (2026-09-23)
 
 The re-review of `af1a7c7` closed R1–R4 but found R5: a historical batch receipt can understate the current family size if another batch registers before a crashed request retries admission. The six policy questions are now answered in spec §15: instrument-only v1 family; defer cross-venue aliases; all diagnostics count; unknown pre-P05 history blocks qualification; no manual conflict release in v1; local AppData registry accepted. These local documentation edits do not approve PR #116 or start P12b implementation. See the [acceptance review](2026-09-23-pr116-acceptance-review-v1.md).
+
+## Resolution — R5 (2026-09-23)
+
+R5 is corrected in `docs/trial-ledger-v1.md` §5/§6.1/§6.3/§6.4/§11: `register_batch` returns a
+current `admissionCount` (same registry transaction as the registration or verified replay) separately
+from the historical receipt; only the count can build a P12a plan; a freshness fence re-reads before any
+`ELIGIBLE` decision is acted on. Acceptance cases A31–A32 added. Details in the
+[review Resolution](2026-09-23-pr116-acceptance-review-v1.md). Still documentation only; awaiting re-review.
