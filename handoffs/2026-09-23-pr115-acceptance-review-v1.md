@@ -5,7 +5,7 @@ Repo: yoyoCadence/AlphaFactorForge
 Branch: `feat/p12a-precision-precheck`
 Reviewed commit: `9478a3d71d62fb8cc8cc9afd9026f62e467e49d1`
 PR: [#115](https://github.com/yoyoCadence/AlphaFactorForge/pull/115)
-Status: Needs one bounded API validation fix before acceptance; P12 remains In Progress.
+Status: Accepted for P12a at `76df9ed` after re-review; R1 resolved. P12 remains In Progress.
 
 ## Summary
 
@@ -124,3 +124,37 @@ file passes. No frontend change, so Vitest/Playwright were not rerun locally;
 remote CI reruns all six lanes on the pushed head.
 
 Status: R1 fixed; awaiting re-review. P12 remains In Progress.
+
+### Resolution — R1 re-verified and P12a accepted (2026-09-23)
+
+Reviewed commit: `76df9ed6df29535b1f879a5b1a4db0aa032dd890`, matching remote PR #115 head. Worktree was clean at review start.
+
+- Independently reviewed the complete fix diff. All public evaluator fields are checked before arithmetic; checked family arithmetic is a second guard. The legal domain bounds the later precision numerator below `u128::MAX`. Formulas, fixture, parser rejection order and runtime scope are unchanged.
+- Re-ran `cargo test --locked --lib discovery_core::precision`: **13/13 passed**, including the original three-`u64::MAX` reproduction, each count above MAX, legal maxima and the direct family-helper overflow guard.
+- All six remote CI lanes are **SUCCESS on this exact head**: typecheck, test, build, cargo-check, native-smoke and e2e. The author reports full Rust **386**; this re-review independently reran the affected 13 tests, not the full suite or frontend/UI tests again.
+- R1 is closed; no new blocking finding in the correction. **PR #115 is acceptable within P12a scope.** No merge or remote review submission was performed. The unconnected runtime and unfinished P12b–e remain accurately disclosed.
+
+### Follow-up answers — concrete recommendations for the second screenshot
+
+These are recommended design choices in response to the user's request, not an implementation start or a claim of maintainer approval. Preserve P12 In Progress.
+
+**P12b location and authority:** use one application-level SQLite evidence registry outside every workspace, with its own schema version/migration path. Workspace databases store references/projections only. Stable family/trial identities survive workspace creation, rename, data re-import and restore; a changed dataset hash is not sufficient grounds for a new family. `priorTrials` is computed by the backend from the registry and cannot be overridden by UI/CLI.
+
+**P12b trial classification:** register hypothesis/variant attempts before selection-relevant evaluation, retaining rejected candidates. A diagnostic that influences candidate selection counts under the predeclared policy; the label alone cannot exempt it. A fixed benchmark or exact reproduction may avoid a new effective trial only under a frozen, auditable rule; its event remains recorded. A new variant is not an idempotent retry. The spec must distinguish event count, effective trial count and hypothesis-test count. P12a v1 assumes uniform `testsPerTrial`; do not silently flatten mixed test counts into that field—constrain the v1 family or version the contract.
+
+**Restore/import:** union immutable events by stable ID, verify matching payloads, reject conflicting identities, and recompute projections. Never overwrite the registry or take `max(countA, countB)`. Missing/unverifiable history blocks qualification; restoring a workspace cannot restore a clean research history. Include new-workspace, duplicate import, divergent-branch union, old-backup, identity-conflict and crash/retry fixtures.
+
+**Concurrency and crash boundary:** registration and authoritative count/reservation reads belong in one short registry write transaction; long backtests run outside it. SQLite permits one writer at a time and `BEGIN IMMEDIATE` obtains the write transaction at the start ([official documentation](https://www.sqlite.org/lang_transaction.html)); handle busy/retry using stable request IDs. A workspace lock alone does not protect the shared registry. Commit registry registration before dispatching work; a crash before workspace job creation leaves recoverable registration, not permission to run unregistered. Specify reconciliation explicitly rather than assuming two separate databases commit atomically.
+
+**P12e vs P13 ownership:** split by responsibility, avoiding a dependency cycle:
+
+| Owner | Recommended deliverable | Acceptance boundary |
+| --- | --- | --- |
+| P12e-1 | Versioned pure block-bootstrap/Holm calculation, frozen block-length/seed/test definitions and authored fixtures | Repeatability and known numerical cases; no automatic confirmation PASS |
+| P12e-2 | Pure, predeclared cross-batch alpha allocation rule and budget contract | Per-confirmation allocation, total-budget bound, exhaustion/rounding rejection; ties directly to P12a `alphaPpm` |
+| P12e-3 | Seeded noise-data false-positive simulation for the declared protocol | Predeclared simulation size/tolerance, reproducible report; a simulation is validation evidence, not a universal validity proof |
+| P13 | Use those contracts in frozen confirmation batches; atomically reserve/persist alpha allocation and Validation/Test exposure/consumption before execution | Concurrent requests, retries, crashes and restore cannot regain spent budget or fresh evidence; uncertain execution cannot silently refund alpha |
+
+Keep the present P12b → P12c → P12d order; then complete the bounded P12e calculation/protocol slices before P13's confirmation integration. P12d can reject infeasible plans without exposing a functioning statistical confirmation feature. P13 owns the actual confirmation state machine and can produce a statistical PASS only after its own evidence and budget checks. Trial-family accounting and alpha spending are distinct contracts and must both be specified; passing a numerical budget check does not make reused confirmation data independent.
+
+**Next recommended task:** write the P12b specification (schema, family identity, classification, idempotency, migration and restore cases) before its implementation. Keep the current relative-SE formula and the new documentation clarifications. The remaining work does not block merging this accepted P12a PR.
