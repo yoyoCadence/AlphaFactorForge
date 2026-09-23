@@ -71,3 +71,12 @@ Please confirm or change the six choices in spec §15 before implementation:
 
 Documentation only. No build or test suite was rerun; no source file changed. Markdown links in the
 new files point to existing paths.
+
+## Resolution
+
+2026-09-23 — The [PR #116 acceptance review](2026-09-23-pr116-acceptance-review-v1.md) found four
+blocking specification contradictions (R1 export without batches, R2 count watermarks not proving
+inclusion, R3 reproduction identity missing from the payload, R4 batch retry bypassing conflict
+checks). All four are corrected in `docs/trial-ledger-v1.md` on this branch (details in the review's
+Resolution); acceptance cases A21–A30 were added and the P12b-1/P12b-2 split updated. The §15 policy
+questions remain open. Still documentation only.

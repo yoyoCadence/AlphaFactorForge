@@ -1,6 +1,9 @@
 # Trial ledger v1（`trial-ledger-v1` / `trial-family-v1`）— P12b 規格
 
 > **狀態：規格草案（2026-09-23），待維護者審查；尚未實作。** 沒有 migration、程式或命令依本文存在。
+> 修訂（同日）：依 [PR #116 驗收審查](../handoffs/2026-09-23-pr116-acceptance-review-v1.md) R1–R4 修正——
+> 匯出含批次與收據（§8）、以雜湊鏈取代計數水位（§7）、payload 納入 split／seed／benchmark 身分（§4.3）、
+> 批次 ID 綁定完整內容且重播前一律逐筆比對（§6.1）；`originRegistryId` 移出事件雜湊（§4.3）。
 > 上游：[`plans/active-plan.md`](plans/active-plan.md) §4.4／§4.5 與 §5 P12 列；
 > 決策來源：[`../handoffs/2026-09-23-pr115-acceptance-review-v1.md`](../handoffs/2026-09-23-pr115-acceptance-review-v1.md)
 > 的「Follow-up answers」與維護者 2026-09-23 的回覆；消費端：[`research-precision-v1.md`](research-precision-v1.md)（P12a）。
@@ -114,9 +117,13 @@ familyId   = "trial-family-v1:" + sha256(familyKey)
 - `benchmark`：只有 [`benchmark-suite-contract.md`](benchmark-suite-contract.md) 的四個確定性基準
   （`buyHold`／`smaCross`／`rsiReversion`／`bollingerReversion`，參數等於契約凍結值）與 `random-entry-v1`
   （依其契約的 seed 與配對規則）不計入；其他任何「基準」都拒絕登記為 `benchmark`，須改登記為 `variant`。
-- `reproduction`：必須指明 `reproductionOf = <eventId>`，且下列全部相同：strategy hash、dataset content hash、
-  split／embargo 設定、engine fingerprint hash、seed。任何一項不同 → 拒絕（`reproduction_mismatch`），
-  須登記為 `variant`。
+  判定所需的身分寫在事件本身（§4.3 `benchmarkId`、`benchmarkParamsHash`），因此匯入時可重新驗證白名單，
+  不依賴登記端的說法。
+- `reproduction`：必須指明 `reproductionOf = <eventId>`，且下列欄位與被參照事件的 payload **逐一相等**且皆非 null：
+  `strategyHash`、`datasetHash`、`splitHash`（split＋embargo）、`seedsHash`、`engineFingerprintHash`。
+  任何一項不同或為 null → 拒絕（`reproduction_mismatch`），須登記為 `variant`。被參照事件必須已在同一 registry
+  （或同一匯入檔）中；找不到 → `reproduction_reference_missing`。這些欄位都在不可變 payload 內，所以匯入端可獨立重驗。
+  §9 回填的 `legacy` 事件若無法還原 `splitHash`／`seedsHash`（為 null），就不能作為 reproduction 的對象。
 - 事件的 `kind` 與 `effective` 屬於事件內容的一部分（進入 `eventId` 雜湊），因此「改標籤」只能透過新增事件，
   且同一冪等鍵已存在時會觸發 §4.3 的衝突。
 
@@ -126,12 +133,24 @@ familyId   = "trial-family-v1:" + sha256(familyKey)
 idempotencyKey = "<workspaceId>:request:<requestId>:candidate:<index>"   # 新登記（§6.2）
                | "<workspaceId>:<attemptKey>"                              # 僅 §9 legacy 回填
 eventPayload   = canonical_json({version:"trial-event-v1", familyId, kind, effective,
-                                 idempotencyKey, originRegistryId, workspaceId, requestId, candidateIndex,
-                                 legacyAttemptKey,
+                                 idempotencyKey, workspaceId, requestId, candidateIndex, legacyAttemptKey,
                                  hypothesisHash, strategyHash, datasetHash, snapshotId,
-                                 engineFingerprintHash, reproductionOf})
+                                 splitHash, seedsHash, engineFingerprintHash,
+                                 benchmarkId, benchmarkParamsHash, reproductionOf})
 eventId        = "trial-event-v1:" + sha256(eventPayload)
 ```
+
+| 欄位 | 定義 |
+| --- | --- |
+| `splitHash` | `sha256(canonical_json(split plan + embargo breakdown))`：Train／Validation／Test 範圍與 embargo 推導結果（split／embargo 契約版本一併納入） |
+| `seedsHash` | `sha256(canonical_json({rootSeed, seeds}))`，取自 P05 attempt 的 `input_fingerprint_json` |
+| `benchmarkId`／`benchmarkParamsHash` | 僅 `kind = benchmark` 時非 null；參數為 canonical JSON 的 sha256 |
+| `reproductionOf` | 僅 `kind = reproduction` 時非 null |
+
+- 所有欄位**一律出現**在 canonical JSON 中；不適用者為 `null`，因此「缺欄位」與「欄位為 null」不會產生兩種雜湊。
+- **`originRegistryId` 不在 payload 內**，而是事件列的來源欄位（`origin_registry_id`，第一個登記它的 registry；
+  不參與識別）。因此同一次登記（相同冪等鍵與內容）即使在兩個 registry 各自寫入（例如 registry 被替換後重試），
+  仍得到**同一個 `eventId`**，聯集時自然去重；同一冪等鍵但內容不同才是衝突（§8.2）。
 
 - 新登記不能使用 P05 `attempt_key`（`run:<run_id>:…`），因為 `run_id` 要到工作區交易才產生，晚於登記。
   改用入隊命令既有的 `research-command-v1` `requestId`（P03b，入隊前即存在且冪等）；attempt 另存 `trial_event_id`
@@ -139,7 +158,7 @@ eventId        = "trial-event-v1:" + sha256(eventPayload)
 - 同一 `idempotencyKey` 再次登記：payload 相同 → 回傳既有事件（重試）；payload 不同 → 拒絕
   （`idempotency_conflict`），不寫入。**新的變體不是重試**：它有新的冪等鍵（新的 candidate index 或新的 requestId），因此是新事件。
 - 時間戳（`registered_at`）不在 payload 內，以免同一登記在兩份 registry 產生不同 ID。
-- `eventId` 是內容雜湊，跨 registry 聯集時同一事件必得同一 ID（§8）。
+- `eventId` 是內容雜湊；在上述 `originRegistryId` 規則下，跨 registry 聯集時同一登記必得同一 ID（§8）。
 
 ---
 
@@ -163,16 +182,29 @@ m             = (priorTrials + plannedTrials) × testsPerTrial      # 即 P12a f
 
 ### 6.1 單一 registry 交易
 
-`register_batch(family, events[]) -> {priorTrials, plannedTrials, testsPerTrial, eventIds}` 在一個
-`BEGIN IMMEDIATE` 交易中：
+一批只屬於一個家族（`familyId` 可為 null，代表 `family_unknown`），且每個事件恰好屬於一批。
 
-1. 檢查家族衝突隔離（§8.3）；已隔離 → 拒絕。
-2. 讀取本批之前的有效計數（`priorTrials`）。
-3. 依 §4 驗證並冪等插入每個事件；首次有效登記時凍結家族 protocol。
-4. 計算 `plannedTrials` = 本批**新**插入的有效事件數。已存在的事件（重試）不算新增。
-   整批以 `batch_id`（排序後冪等鍵的 sha256）冪等：同一批重試時直接回傳 `trial_batches` 中保存的
-   prior／planned，不重新計算；只部分重疊的批次是新批次，重疊部分不算新增。
-5. COMMIT。
+```text
+batchId = "trial-batch-v1:" + sha256(canonical_json({version:"trial-batch-v1", familyId,
+                                     members: [[idempotencyKey, eventId], ...]}))   # 依 idempotencyKey 排序
+```
+
+`batchId` 綁定**整批每個事件的完整內容**（經由 `eventId`），不只是冪等鍵。
+`register_batch(family, events[]) -> {batchId, priorTrials, plannedTrials, testsPerTrial, eventIds}` 在一個
+`BEGIN IMMEDIATE` 交易中依序：
+
+1. 檢查家族衝突隔離（§8.2 第 2 點）；已隔離 → 拒絕。
+2. 依 §4 驗證每個事件並計算其 `eventId`，再算出 `batchId`。
+3. **逐筆比對（永遠先做，不能被步驟 4 略過）**：對每個冪等鍵查既有事件——
+   - 存在但 `eventId` 不同 → 整批拒絕（`idempotency_conflict`），不寫入；
+   - 存在且 `eventId` 相同但屬於另一批 → 整批拒絕（`batch_conflict`）：v1 不允許與既有批次部分重疊。
+4. 若 `batchId` 已存在（由步驟 3 可知此時每個事件都逐位相同）→ 這是整批重試：不寫入，回傳收據（§6.3）。
+5. 否則（本批沒有任何既有鍵）：`priorTrials` = 目前家族有效事件數；依序寫入批次、事件（附 §7 雜湊鏈）與
+   本 registry 的收據；首次有效登記時凍結家族 protocol；`plannedTrials` = 本批有效事件數。
+6. COMMIT。
+
+因此「同一組冪等鍵、但 strategy hash 或 kind 改變」的整批重送會在步驟 3 以 `idempotency_conflict` 失敗，
+不可能拿到舊收據。
 
 長時間工作（回測、bootstrap）一律在交易外執行。`SQLITE_BUSY` 在 busy timeout 後以同一冪等鍵重試。
 
@@ -200,20 +232,60 @@ m             = (priorTrials + plannedTrials) × testsPerTrial      # 即 P12a f
 - 孤兒登記只能由工作區端辨識（registry 看不到工作區）；啟動時列出 `trial_event_id` 對應不到 attempt 的
   本工作區事件作為報告，不修改任何計數。
 
+### 6.3 批次收據
+
+- 收據 = `(batchId, receiptRegistryId, priorTrials, plannedTrials)`，存於 `batch_receipts`，主鍵
+  `(batch_id, receipt_registry_id)`。它記錄「該批在某個 registry 登記當下」的計數，只供重試取得與第一次相同的
+  答案；**不是**計數來源——計數一律由事件表重新計算（§5）。
+- 整批重試的回傳：若目前 registry 有自己的收據，回傳它；否則（此批只經匯入得知）回傳批次
+  `origin_registry_id` 的收據。兩者都沒有 → 資料不一致，拒絕（`batch_receipt_missing`）。
+- 同一批可能在兩個 registry 各自登記（例如 registry 被替換後以同一 requestId 重試），因此可能有多張收據；
+  匯入時以主鍵聯集，同主鍵不同數值 → 衝突（§8.2）。
+
 ---
 
 ## 7. 工作區綁定與回退偵測
 
-工作區在 `app_settings` 保存 `trial_ledger_binding = {registryId, eventCount, familyCounts}`：
-上次成功登記後、本工作區所見 registry 的 ID 與（全域及各家族）事件數水位。
+計數水位不足以證明「看過的事件都還在」：舊副本只有 A，再加入 C 後計數與「A、B」相同，卻遺失了 B。
+因此 v1 以**每個 registry 自己的 append-only 雜湊鏈**作為包含證據。
+
+### 7.1 雜湊鏈
+
+```text
+chain_0   = sha256("trial-ledger-v1:genesis:" + registryId)
+chain_seq = sha256(chain_{seq-1} || eventId_seq)          # seq = 本 registry 的插入順序，從 1 起連續
+```
+
+- 每筆事件列保存 `seq` 與 `chain`。本地登記與匯入的事件都依寫入順序接在**本 registry** 的鏈上。
+- `chain_seq` 承諾了 seq ≤ 該值的**全部**事件及其順序，所以「在 seq = N 時的鏈頭相同」等於「前 N 筆事件完全相同」。
+- registry 開啟時重算整條鏈；任何不一致 → `registry_chain_broken`，停止資格判定。
+  （這偵測的是不一致，不是防竄改：能改檔的人也能重算整條鏈，見 §14。）
+
+### 7.2 工作區綁定
+
+工作區在 `app_settings` 保存 `trial_ledger_binding = {registryId, seq, chainHead}`，並在寫入 attempts 的
+同一筆工作區交易（§6.2 步驟 3）中更新為**登記完成當下** registry 的 `(seq, chain_seq)`。
+這個鏈頭涵蓋本工作區當時看得到的所有事件，包括其他工作區的事件。
 
 | 開啟時觀察 | 判定 |
 | --- | --- |
-| 未綁定，registry 存在或新建 | 綁定目前 registry |
-| `registryId` 相同，計數 ≥ 水位 | 正常，更新水位 |
-| `registryId` 相同，任一計數 < 水位 | **回退**：`registry_rolled_back`，停止資格判定 |
-| registry 不存在，但工作區有綁定 | **缺失**：`registry_missing`，停止資格判定；**不自動新建空 registry 取代** |
-| `registryId` 不同 | `registry_replaced`：除非新 registry 的 `registry_imports` 含舊 `registryId` 且匯入事件數 ≥ 水位（§8），否則停止資格判定 |
+| 未綁定，registry 存在或新建 | 綁定目前鏈頭 |
+| `registryId` 相同，且 registry 在 `binding.seq` 的 `chain` = `binding.chainHead` | 正常，更新為目前鏈頭 |
+| `registryId` 相同，registry 最大 seq < `binding.seq` | **回退**：`registry_rolled_back` |
+| `registryId` 相同，`binding.seq` 位置的 `chain` ≠ `binding.chainHead` | **分歧**：`registry_diverged`（同計數、內容不同的副本在此被擋下） |
+| registry 不存在，但工作區有綁定 | **缺失**：`registry_missing`；**不自動新建空 registry 取代** |
+| `registryId` 不同 | 見 §7.3；不成立 → `registry_replaced` |
+
+以上除第一、二列外都停止資格判定。
+
+### 7.3 更換 registry
+
+新 registry 只有在**持有舊 registry 的已驗證鏈檢查點**時才被接受：
+`origin_checkpoints` 中存在 `(origin_registry_id = binding.registryId, origin_seq = binding.seq)`，
+且其 `origin_chain = binding.chainHead`。這些檢查點只能經 §8.2 匯入，匯入時已由事件 ID 從
+創世值重算驗證，而對應事件也都已寫入本 registry。成立 → 改綁新 registry 的目前鏈頭；否則 `registry_replaced`。
+
+只比對匯入事件數是不夠的：「匯入了等量事件但缺少工作區看過的某一筆」會使鏈值不同而被拒絕。
 
 - 「停止資格判定」表示：探索與回測仍可執行，但任何需要 `priorTrials` 的確認／資格流程回報
   `NOT_ELIGIBLE`，理由為上述代碼。
@@ -226,25 +298,45 @@ m             = (priorTrials + plannedTrials) × testsPerTrial      # 即 P12a f
 
 ### 8.1 匯出格式 `trial-ledger-export-v1`
 
-JSON Lines：第一行 header `{version, registryId, schemaVersion, exportedAt, familyCount, eventCount,
-bodySha256}`；其後每行一個家族（`familyId`、`familyKey`、`protocol_json`），再每行一個事件（完整 payload）。
+JSON Lines；第一行 header：
+`{version, registryId, schemaVersion, exportedAt, familyCount, batchCount, eventCount, headSeq, headChain, bodySha256}`。
+其後依下列順序，每行一筆帶 `type` 的紀錄（匯出是**完整**的，不做部分匯出）：
+
+| `type` | 內容 |
+| --- | --- |
+| `family` | `familyId`、`familyKey`、`protocol_json` |
+| `batch` | `batchId`、`familyId`、`originRegistryId`、`members`（依 idempotencyKey 排序的 `[idempotencyKey, eventId]`） |
+| `event` | 完整 payload、`originRegistryId`、`batchId`、`seq`、`chain`（皆為來源 registry 的值，依 `seq` 遞增） |
+| `receipt` | `batchId`、`receiptRegistryId`、`priorTrials`、`plannedTrials` |
+| `originCheckpoint` | 來源 registry 持有的其他 registry 檢查點（`originRegistryId`、`originSeq`、`eventId`、`originChain`），每個來源都從 seq 1 起完整列出 |
+
+批次與收據都在檔內，所以匯入不需要合成任何列，重試收據原樣保留（R1）。
 
 ### 8.2 匯入規則
 
-1. 驗證 header、`bodySha256`、每個家族 `familyId = hash(familyKey)`、每個事件
-   `eventId = hash(payload)`。任一失敗 → 整份拒絕（`import_integrity_failed`），不部分寫入。
-2. 在一個交易中：家族以 `familyId` 聯集；事件以 `eventId` 聯集（已存在即略過）。
-3. **衝突**：同一 `idempotencyKey` 對應不同 `eventId`，或同一 `familyId` 的 `protocol_json` 不同 →
-   不寫入衝突事件，在 `family_conflicts` 追加紀錄並**隔離該家族**。
-4. 追加 `registry_imports`（來源 `registryId`、檔案 sha256、匯入事件數、新增數、衝突數、時間）。
+1. **完整性（寫入前全部檢查）**：header 與 `bodySha256`；每個 `familyId = hash(familyKey)`；每個
+   `eventId = hash(payload)`；每個 `batchId = hash(familyId, members)`，members 中每個 `eventId` 都有對應的
+   `event` 紀錄且其 `batchId` 相符，每個事件恰屬一批；每張收據的 `batchId` 存在於檔內；
+   依 §4.2 重驗每個 `benchmark`（白名單與參數雜湊）與 `reproduction`（參照事件在檔內或本 registry，且五個識別欄位相等）；
+   從來源 `registryId` 的創世值依序重算 `event.chain` 至 `headSeq`／`headChain`；每個 `originCheckpoint`
+   來源也從其創世值重算。任一失敗 → 整份拒絕（`import_integrity_failed`），不部分寫入。
+2. **衝突偵測**（對照本 registry）：同一 `idempotencyKey` 對應不同 `eventId`；事件已存在但屬於另一批；
+   同一 `familyId` 的 `protocol_json` 不同；同一 `(batchId, receiptRegistryId)` 收據數值不同。
+   衝突的列不寫入；在 `family_conflicts` 追加紀錄並**隔離該家族**。其他家族照常匯入。
+   同一 `(originRegistryId, originSeq)` 的檢查點鏈值不同（同一 registry 出現兩段歷史）→ 該來源的檢查點全部不寫入，
+   在 `registry_conflicts` 追加紀錄；§7.3 因而無法以該來源接受替換。
+3. **單一交易、依外鍵順序寫入**（`foreign_keys = ON`）：家族 → 批次 → 事件（以來源 `seq` 順序接到本地鏈，
+   保存 `origin_registry_id`）→ 收據 → 檢查點（來源 registry 自己的鏈，以及檔內其他來源的檢查點）。
+   已存在的相同列略過。
+4. 追加 `registry_imports`（來源 `registryId`、檔案 sha256、`headSeq`／`headChain`、新增與略過數、衝突數、時間）。
 5. 計數由聯集後的事件表重新計算。**禁止**覆蓋 registry 檔、以 `max(countA, countB)` 合併或刪除任何事件。
 
 ### 8.3 還原
 
 - **工作區還原**（P14）不含 registry（§2.1 包含檢查），因此還原舊工作區不會還原乾淨的研究歷史；
-  該工作區的 §7 水位若高於目前 registry，會回報回退。
-- **registry 還原**只能以匯入（聯集）進行：從備份匯出檔匯入到目前 registry。直接用舊檔取代 registry 會改變
-  計數，下一次工作區開啟時由 §7 偵測為回退。
+  還原後的綁定較舊，只要目前 registry 仍含該鏈頭的前綴就正常接受，計數不會變少。
+- **registry 還原**只能以匯入（聯集）進行：從備份匯出檔匯入到目前 registry。直接用舊檔取代 registry
+  會在下一次工作區開啟時由 §7 偵測為回退或分歧。
 - 隔離中的家族在 v1 沒有自動解除途徑；解除需要維護者決定與新契約版本（§15）。
 
 ---
@@ -254,7 +346,10 @@ bodySha256}`；其後每行一個家族（`familyId`、`familyKey`、`protocol_j
 - P12b 實作的工作區 migration 為每個既有 `research_attempts` 列產生一筆 `legacy` 事件：
   idempotencyKey 使用既有 `workspaceId:attempt_key`，家族依 attempt 的 dataset 解析 snapshot instrument；
   解析不到 → `familyId = NULL`（`family_unknown`）。
-- 回填是冪等的（同一鍵重跑回傳既有事件），在該工作區第一次綁定 registry 時執行一次，並記錄於水位。
+- 回填依家族分批：每個 `(workspaceId, familyId)` 一批（`familyId` 為 null 者一批），走一般的
+  `register_batch`，因此適用相同的冪等、衝突與收據規則。`splitHash`／`seedsHash` 能由 attempt 的
+  input fingerprint 與既有 run 設定還原者填入，否則為 null。
+- 回填是冪等的（同一批重跑回傳既有收據），在該工作區第一次綁定 registry 時執行一次，並寫入綁定鏈頭。
 - 不回填 P05 之前、沒有 attempt 列的歷史執行（`validation_records` 單獨存在者）：v1 無法可靠還原其候選數。
   這類工作區若其 dataset 有 snapshot，實作須在報告中列出「存在未計入的 pre-P05 紀錄」並對該家族回報
   `legacy_trials_unknown`，停止資格判定，直到維護者決定（§15）。
@@ -265,33 +360,51 @@ bodySha256}`；其後每行一個家族（`familyId`、`familyKey`、`protocol_j
 ## 10. Schema 草案（registry `0001_trial_ledger`）
 
 ```sql
+-- 建表與寫入順序即外鍵順序：families → batches → events → receipts（§8.2 第 3 點）
 CREATE TABLE registry_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);   -- registry_id, schema_version
-CREATE TABLE trial_batches (                -- 讓整批重試回傳相同 prior/planned（§6.1）
-  batch_id       TEXT PRIMARY KEY,          -- sha256 of sorted idempotency keys
-  family_id      TEXT,
-  prior_trials   INTEGER NOT NULL,
-  planned_trials INTEGER NOT NULL,
-  created_at     TEXT NOT NULL
-);
 CREATE TABLE trial_families (
-  family_id     TEXT PRIMARY KEY,           -- trial-family-v1:<sha256>
+  family_id     TEXT PRIMARY KEY,           -- trial-family-v1:<sha256(family_key)>
   family_key    TEXT NOT NULL,              -- canonical JSON
   protocol_json TEXT,                       -- NULL 直到第一筆有效事件；之後凍結
   created_at    TEXT NOT NULL
 );
+CREATE TABLE trial_batches (                -- 批次身分（§6.1）；不含計數
+  batch_id           TEXT PRIMARY KEY,      -- trial-batch-v1:<sha256(familyId, sorted [key, eventId])>
+  family_id          TEXT REFERENCES trial_families(family_id),     -- NULL = family_unknown
+  members_json       TEXT NOT NULL,         -- 排序後的 [idempotencyKey, eventId]，可重算 batch_id
+  origin_registry_id TEXT NOT NULL,
+  created_at         TEXT NOT NULL
+);
 CREATE TABLE trial_events (
-  event_id        TEXT PRIMARY KEY,         -- trial-event-v1:<sha256(payload)>
-  seq             INTEGER NOT NULL UNIQUE,  -- 本 registry 的插入順序（不跨 registry 比較）
-  family_id       TEXT REFERENCES trial_families(family_id),   -- NULL = family_unknown
-  idempotency_key TEXT NOT NULL UNIQUE,
-  kind            TEXT NOT NULL CHECK (kind IN ('hypothesis','variant','diagnostic','benchmark','reproduction','legacy')),
-  effective       INTEGER NOT NULL CHECK (effective IN (0,1)),
-  batch_id        TEXT NOT NULL REFERENCES trial_batches(batch_id),
-  payload_json    TEXT NOT NULL,
-  registered_at   TEXT NOT NULL
+  event_id           TEXT PRIMARY KEY,      -- trial-event-v1:<sha256(payload)>
+  seq                INTEGER NOT NULL UNIQUE,   -- 本 registry 的鏈位置，從 1 起連續
+  chain              TEXT NOT NULL,         -- §7.1
+  family_id          TEXT REFERENCES trial_families(family_id),     -- NULL = family_unknown
+  idempotency_key    TEXT NOT NULL UNIQUE,
+  kind               TEXT NOT NULL CHECK (kind IN ('hypothesis','variant','diagnostic','benchmark','reproduction','legacy')),
+  effective          INTEGER NOT NULL CHECK (effective IN (0,1)),
+  batch_id           TEXT NOT NULL REFERENCES trial_batches(batch_id),   -- 每個事件恰屬一批
+  payload_json       TEXT NOT NULL,         -- canonical，可重算 event_id
+  origin_registry_id TEXT NOT NULL,         -- 來源，不參與識別（§4.3）
+  registered_at      TEXT NOT NULL
+);
+CREATE TABLE batch_receipts (               -- §6.3；不是計數來源
+  batch_id            TEXT NOT NULL REFERENCES trial_batches(batch_id),
+  receipt_registry_id TEXT NOT NULL,
+  prior_trials        INTEGER NOT NULL,
+  planned_trials      INTEGER NOT NULL,
+  PRIMARY KEY (batch_id, receipt_registry_id)
+);
+CREATE TABLE origin_checkpoints (           -- §7.3；只經匯入寫入且已重算驗證
+  origin_registry_id TEXT NOT NULL,
+  origin_seq         INTEGER NOT NULL,
+  event_id           TEXT NOT NULL REFERENCES trial_events(event_id),
+  origin_chain       TEXT NOT NULL,
+  PRIMARY KEY (origin_registry_id, origin_seq)
 );
 CREATE TABLE registry_imports (...);        -- §8.2 第 4 點
-CREATE TABLE family_conflicts (...);        -- §8.2 第 3 點；存在任一列即隔離該家族
+CREATE TABLE family_conflicts (...);        -- §8.2 第 2 點；存在任一列即隔離該家族
+CREATE TABLE registry_conflicts (...);      -- §8.2 第 2 點；檢查點分歧
 ```
 
 所有表以 `BEFORE UPDATE`／`BEFORE DELETE` 觸發器 `RAISE(ABORT)`，唯一例外是 `trial_families.protocol_json`
@@ -335,7 +448,7 @@ pub fn check_binding(ledger: &TrialLedger, binding: Option<&LedgerBinding>) -> B
 | A9 | registry COMMIT 後、工作區寫入前崩潰 | 孤兒登記計入；重啟報告；重試入隊取回同事件 |
 | A10 | 未登記的 attempt 嘗試 claim | `trial_not_registered`，rollback |
 | A11 | 刪除 registry 檔後開啟已綁定工作區 | `registry_missing`；不自動新建取代 |
-| A12 | 以舊 registry 檔取代 | `registry_rolled_back` 或 `registry_replaced` |
+| A12 | 以舊 registry 檔取代 | 依情況 `registry_rolled_back`、`registry_diverged` 或 `registry_replaced`；皆停止資格判定 |
 | A13 | 重複匯入同一匯出檔 | 無新增、計數不變 |
 | A14 | 兩份 registry 各自新增試驗後互相匯入 | 聯集；計數 = 去重後總數，不是較大值 |
 | A15 | 匯入含相同 idempotencyKey、不同 payload 的事件 | 家族隔離，資格判定停止 |
@@ -344,6 +457,16 @@ pub fn check_binding(ledger: &TrialLedger, binding: Option<&LedgerBinding>) -> B
 | A18 | 無 snapshot 的 legacy dataset | `family_unknown`，不能取得資格 |
 | A19 | registry 目錄設在工作區內（或反之） | 開啟被拒 |
 | A20 | P12a 串接 | 依 §5 組出的 plan 對 AlphaBTC 等價計數得 `146/1001` 且 `NOT_ELIGIBLE` |
+| A21 | 在 `foreign_keys = ON` 下，把匯出檔匯入全新 registry；之後以同一批重試登記 | 匯入成功，無合成列；重試回傳來源收據（相同 prior／planned），計數不變 |
+| A22 | 工作區看過 A、B；以只含 A 的舊副本（同 `registryId`）再加入 C 後開啟 | 計數相同，但 `registry_diverged` |
+| A23 | 更換成新 registry：匯入了等量事件，卻缺少工作區看過的某一筆 | 檢查點鏈值不符，`registry_replaced` |
+| A24 | 更換成新 registry：匯入含舊 registry 至綁定 seq 的完整匯出 | 接受並改綁；計數延續 |
+| A25 | 匯出／匯入後，reproduction 的 `seedsHash` 或 `splitHash` 與原事件不同 | 匯入時 `import_integrity_failed`；直接登記時 `reproduction_mismatch` |
+| A26 | 匯出檔中 benchmark 事件的 `benchmarkId` 不在白名單或參數雜湊不符 | `import_integrity_failed` |
+| A27 | 整批重送：冪等鍵全相同，但其中一筆的 strategy hash 或 kind 改變 | `idempotency_conflict`，不回傳舊收據、無寫入 |
+| A28 | 與既有批次部分重疊的新批次 | `batch_conflict`，無寫入 |
+| A29 | 同一登記在兩個 registry 各自寫入後聯集 | 同一 `eventId`，只計一次；兩張收據都保留 |
+| A30 | registry 檔中某筆 `chain` 被改動 | 開啟時 `registry_chain_broken` |
 
 ---
 
@@ -351,8 +474,8 @@ pub fn check_binding(ledger: &TrialLedger, binding: Option<&LedgerBinding>) -> B
 
 | 子項 | 範圍 | 不含 |
 | --- | --- | --- |
-| P12b-1 | registry 模組、schema、`register_batch`、計數、冪等、衝突、匯出／匯入、包含檢查；A3–A6、A8、A13–A17、A19 | runner 接線、工作區 migration |
-| P12b-2 | 工作區 migration `0009`（`trial_event_id`、綁定水位）、runner 入隊先登記、claim 檢查、回填、§7 偵測；A1、A2、A7、A9–A12、A18 | admission 阻擋（P12d） |
+| P12b-1 | registry 模組、schema、`register_batch`、收據、雜湊鏈、計數、冪等、衝突、匯出／匯入、包含檢查；A3–A6、A8、A13–A17、A19、A21、A25–A30 | runner 接線、工作區 migration |
+| P12b-2 | 工作區 migration `0009`（`trial_event_id`、綁定鏈頭）、runner 入隊先登記、claim 檢查、回填、§7 偵測；A1、A2、A7、A9–A12、A18、A22–A24 | admission 阻擋（P12d） |
 
 P12d 再用 A20 串接 P12a 並讓預檢失敗時不建立可執行的確認工作。
 
@@ -361,7 +484,8 @@ P12d 再用 A20 串接 P12a 並讓預檢失敗時不建立可執行的確認工�
 ## 14. 不在範圍與已知限制
 
 - 統計檢定、alpha 分配與噪音模擬（P12e-1..3）；確認批次、alpha 原子預約／消耗、Validation／Test 揭露（P13）。
-- 不防竄改：本機使用者可刪除或一致回退所有副本（§7）。
+- 不防竄改：本機使用者可刪除或一致回退所有副本（§7）。§7 的雜湊鏈能偵測回退、分歧與不一致的修改，
+  但能改檔的人可以重算整條鏈；它是包含證據，不是簽章。
 - v1 家族不處理跨場所同標的與多 instrument 試驗（§3）。
 - 不遷移 AlphaBTC 紀錄。
 

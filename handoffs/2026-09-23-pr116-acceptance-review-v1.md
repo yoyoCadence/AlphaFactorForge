@@ -34,3 +34,21 @@ The proposed registry location, broad instrument family, register-before-enqueue
 - Read the five-file `origin/main...HEAD` diff, relevant P05/P06 contracts, migrations `0007`/`0008`, and P03b/runner command paths.
 - `git diff --check origin/main...HEAD` passed.
 - GitHub Actions run `35859403151`: typecheck, test, build, cargo-check, native-smoke, e2e all succeeded on `84f2118`. No local code suites were rerun for this documentation-only PR.
+
+## Resolution
+
+### Resolution — R1–R4 addressed in the spec (2026-09-23, same branch, PR #116)
+
+Documentation only; `docs/trial-ledger-v1.md` revised. No code, migration or command.
+
+- **R1 (export omits batches):** §8.1 export now carries `batch` (identity + sorted `[idempotencyKey, eventId]` members), `event` (with its `batchId`), `receipt` and `originCheckpoint` records. §8.2 validates every batch/receipt reference before writing and inserts in foreign-key order (families → batches → events → receipts → checkpoints) under `foreign_keys = ON`, so nothing is synthesized. Receipts moved to `batch_receipts (batch_id, receipt_registry_id)` (§6.3) and are explicitly not a count source; a retry after import returns the origin receipt. Acceptance A21.
+- **R2 (count watermark ≠ inclusion):** §7 replaces counts with a per-registry append-only hash chain (`chain_seq = sha256(chain_{seq-1} || eventId)`, genesis bound to `registryId`). The workspace binding is `{registryId, seq, chainHead}`; same ID requires the chain value at `binding.seq` to match (`registry_diverged` otherwise). A replacement registry is accepted only through a verified `origin_checkpoints` row for the old registry at the bound seq whose chain matches — checkpoints can only come from §8.2 imports that recompute them from genesis. Acceptance A22 (same-count divergent copy), A23 (equal-count replacement missing an event), A24 (valid replacement), A30 (chain edited).
+- **R3 (reproduction identity not in payload):** §4.3 payload now always contains `splitHash`, `seedsHash`, `benchmarkId`, `benchmarkParamsHash` (null when not applicable, always present). §4.2 requires the five identity fields to be equal and non-null; §8.2 re-validates reproduction and benchmark rules on import. Legacy events with unrecoverable split/seed cannot be reproduction targets. Acceptance A25, A26.
+- **R4 (batch retry bypasses conflict check):** `batchId` now hashes the family plus every `[idempotencyKey, eventId]`, so it binds full content. §6.1 always compares each key's existing `eventId` first (step 3) — mismatch → `idempotency_conflict`, overlap with another batch → `batch_conflict` — and only then may replay a receipt (step 4). Acceptance A27 (whole batch, same keys, changed payload) and A28 (partial overlap).
+- **Review note (`originRegistryId`):** removed from the hashed payload; kept as a non-identity `origin_registry_id` column, so the same registration written independently in two registries gets one `eventId` and dedupes on union. Acceptance A29.
+
+Self-verification: a small Node simulation confirmed that `[A,B]` vs `[A,C]` chains share length but differ at seq 2 (A22), that a replacement lacking the seq-2 checkpoint is refused (A23) and a full one accepted (A24), and that changing one event's payload changes the `batchId` (A27). Stale references (`§8.3` quarantine, count watermarks, A12 wording) were swept. `git diff --check` passes; relative links resolve.
+
+§15's six policy questions are unchanged and still need the maintainer's decision. P12b implementation has not started.
+
+Status: R1–R4 addressed in the specification; awaiting re-review.
