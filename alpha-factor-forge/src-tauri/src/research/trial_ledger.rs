@@ -34,12 +34,16 @@ use rusqlite::{params, Connection, OptionalExtension, Transaction, TransactionBe
 use serde_json::{json, Value};
 
 use super::{canonical_json, sha256_hex};
-use alpha_factor_forge::discovery_core::benchmarks::BENCHMARK_CONTRACT_VERSION;
+use alpha_factor_forge::discovery_core::benchmarks::{
+    run_deterministic_benchmarks, RunBenchmarksArgs, BENCHMARK_CONTRACT_VERSION,
+};
 use alpha_factor_forge::discovery_core::market_foundation::{
     format_instrument_id, parse_instrument_id,
 };
 use alpha_factor_forge::discovery_core::precision::{PrecisionPlan, PRECISION_MAX_COUNT};
-use alpha_factor_forge::discovery_core::random_entry::RANDOM_ENTRY_CONTRACT_VERSION;
+use alpha_factor_forge::discovery_core::random_entry::{
+    run_random_entry_benchmark, RandomEntryArgs, RANDOM_ENTRY_CONTRACT_VERSION,
+};
 
 pub const TRIAL_LEDGER_VERSION: &str = "trial-ledger-v1";
 pub const TRIAL_FAMILY_VERSION: &str = "trial-family-v1";
@@ -164,11 +168,12 @@ impl TrialKind {
         }
     }
 
-    /// Spec §4.2: only a validated benchmark or reproduction is recorded
-    /// without adding an effective trial. Validation happens before this
-    /// value is ever stored.
+    /// A reproduction has a registry-verifiable reference. A benchmark's
+    /// published ID/params hash alone does not prove that the backend ran the
+    /// frozen strategy (or the random-entry seed and candidate pairing).
+    /// Until P12b-2 supplies verifiable run evidence, count it conservatively.
     fn effective(self) -> bool {
-        !matches!(self, Self::Benchmark | Self::Reproduction)
+        self != Self::Reproduction
     }
 }
 
@@ -200,6 +205,19 @@ pub struct TrialEventInput {
     pub benchmark_id: Option<String>,
     pub benchmark_params_hash: Option<String>,
     pub reproduction_of: Option<String>,
+    /// An in-process proof minted by the backend benchmark executor. A raw
+    /// benchmark claim without this proof is conservatively effective.
+    pub benchmark_evidence: Option<BenchmarkEvidence>,
+}
+
+/// Opaque to callers: only the two executor-backed constructors below mint
+/// this proof. Its snapshot prevents a caller from changing the event after
+/// the actual benchmark run. It is deliberately not a serialized trust token.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BenchmarkEvidence {
+    event: Box<TrialEventInput>,
+    workspace_id: String,
+    instrument_id: Option<String>,
 }
 
 /// One batch = one family = one enqueue request (or one backfill).
@@ -374,6 +392,112 @@ pub fn benchmark_params_hash(id: &str) -> Option<String> {
         .map(|text| sha256_hex(text.as_bytes()))
 }
 
+/// The registry-facing identity of a benchmark run. P12b-2 must build this
+/// from the same frozen workspace snapshot and execution fingerprint that it
+/// uses for the run, before the enqueue transaction.
+pub struct BenchmarkContext {
+    pub workspace_id: String,
+    pub instrument_id: Option<String>,
+    pub origin: TrialOrigin,
+    pub dataset_hash: String,
+    pub snapshot_id: Option<String>,
+    pub split_hash: String,
+    pub seeds_hash: String,
+    pub engine_fingerprint_hash: String,
+}
+
+fn attest_benchmark(
+    mut event: TrialEventInput,
+    workspace_id: String,
+    instrument_id: Option<String>,
+) -> TrialEventInput {
+    event.benchmark_evidence = Some(BenchmarkEvidence {
+        event: Box::new(event.clone()),
+        workspace_id,
+        instrument_id,
+    });
+    event
+}
+
+/// Run the frozen backend suite and create a non-effective benchmark event
+/// from the result. Merely supplying the public params hash cannot mint the
+/// in-process evidence needed for the exemption.
+pub fn run_and_attest_deterministic_benchmark(
+    id: &str,
+    args: &RunBenchmarksArgs<'_>,
+    context: BenchmarkContext,
+) -> Result<TrialEventInput, LedgerError> {
+    if id == RANDOM_ENTRY_CONTRACT_VERSION || benchmark_params_hash(id).is_none() {
+        return invalid(format!(
+            "benchmarkId {id:?} is not a deterministic benchmark"
+        ));
+    }
+    let runs = run_deterministic_benchmarks(args)
+        .map_err(|error| LedgerError::InvalidBatch(format!("benchmark execution: {error}")))?;
+    let run = runs
+        .into_iter()
+        .find(|run| run.id == id)
+        .ok_or_else(|| LedgerError::InvalidBatch(format!("benchmarkId {id:?} was not run")))?;
+    let strategy = canonical_text(&json!({"benchmarkId": id, "strategy": run.strat}))?;
+    let event = TrialEventInput {
+        kind: TrialKind::Benchmark,
+        origin: context.origin,
+        hypothesis_hash: None,
+        strategy_hash: Some(sha256_hex(strategy.as_bytes())),
+        dataset_hash: Some(context.dataset_hash),
+        snapshot_id: context.snapshot_id,
+        split_hash: Some(context.split_hash),
+        seeds_hash: Some(context.seeds_hash),
+        engine_fingerprint_hash: Some(context.engine_fingerprint_hash),
+        benchmark_id: Some(id.into()),
+        benchmark_params_hash: benchmark_params_hash(id),
+        reproduction_of: None,
+        benchmark_evidence: None,
+    };
+    Ok(attest_benchmark(
+        event,
+        context.workspace_id,
+        context.instrument_id,
+    ))
+}
+
+/// Execute the random-entry contract using the candidate's actual closed
+/// trades. The event commits to both the explicit seed and the holding-period
+/// pool; a changed seed or pairing invalidates the in-process evidence.
+pub fn run_and_attest_random_entry_benchmark(
+    args: &RandomEntryArgs<'_>,
+    candidate_strategy_hash: String,
+    context: BenchmarkContext,
+) -> Result<TrialEventInput, LedgerError> {
+    run_random_entry_benchmark(args)
+        .map_err(|error| LedgerError::InvalidBatch(format!("benchmark execution: {error}")))?;
+    let pairing = canonical_text(&json!({
+        "candidateTrades": args.candidate.trades,
+        "contract": RANDOM_ENTRY_CONTRACT_VERSION,
+    }))?;
+    let seed = canonical_text(&json!({"rootSeed": args.seed, "seeds": [args.seed]}))?;
+    let event = TrialEventInput {
+        kind: TrialKind::Benchmark,
+        origin: context.origin,
+        hypothesis_hash: Some(sha256_hex(pairing.as_bytes())),
+        strategy_hash: Some(candidate_strategy_hash),
+        dataset_hash: Some(context.dataset_hash),
+        snapshot_id: context.snapshot_id,
+        split_hash: Some(context.split_hash),
+        seeds_hash: Some(sha256_hex(seed.as_bytes())),
+        engine_fingerprint_hash: Some(context.engine_fingerprint_hash),
+        benchmark_id: Some(RANDOM_ENTRY_CONTRACT_VERSION.into()),
+        benchmark_params_hash: benchmark_params_hash(RANDOM_ENTRY_CONTRACT_VERSION),
+        reproduction_of: None,
+        benchmark_evidence: None,
+    };
+    Ok(attest_benchmark(
+        event,
+        context.workspace_id,
+        context.instrument_id,
+    ))
+}
+
 /// The family id for a canonical P06 instrument id (spec §3).
 pub fn family_id_for(instrument_id: &str) -> Result<String, LedgerError> {
     Ok(family_parts(instrument_id)?.0)
@@ -439,6 +563,7 @@ struct PreparedEvent {
     input_index: usize,
     idempotency_key: String,
     kind: TrialKind,
+    effective: bool,
     payload_json: String,
     payload: Value,
     event_id: String,
@@ -459,10 +584,7 @@ impl PreparedBatch {
         self.family.as_ref().map(|(id, _)| id.as_str())
     }
     fn effective_count(&self) -> u64 {
-        self.events
-            .iter()
-            .filter(|event| event.kind.effective())
-            .count() as u64
+        self.events.iter().filter(|event| event.effective).count() as u64
     }
 }
 
@@ -514,6 +636,9 @@ fn prepare_batch(input: &TrialBatchInput) -> Result<PreparedBatch, LedgerError> 
     let mut prepared = Vec::with_capacity(input.events.len());
     for (index, event) in input.events.iter().enumerate() {
         let kind = event.kind;
+        if kind != TrialKind::Benchmark && event.benchmark_evidence.is_some() {
+            return invalid("benchmark evidence belongs only to kind benchmark");
+        }
         for (field, value) in [
             ("hypothesisHash", &event.hypothesis_hash),
             ("strategyHash", &event.strategy_hash),
@@ -604,7 +729,17 @@ fn prepare_batch(input: &TrialBatchInput) -> Result<PreparedBatch, LedgerError> 
                 forbid("reproductionOf", &event.reproduction_of, kind)?;
             }
             TrialKind::Benchmark => {
-                require("datasetHash", &event.dataset_hash, kind)?;
+                // These fields make the claimed run auditable. They do not
+                // establish benchmark provenance, so it still counts above.
+                for (field, value) in [
+                    ("strategyHash", &event.strategy_hash),
+                    ("datasetHash", &event.dataset_hash),
+                    ("splitHash", &event.split_hash),
+                    ("seedsHash", &event.seeds_hash),
+                    ("engineFingerprintHash", &event.engine_fingerprint_hash),
+                ] {
+                    require(field, value, kind)?;
+                }
                 forbid("reproductionOf", &event.reproduction_of, kind)?;
                 let id = event.benchmark_id.as_deref().unwrap_or("");
                 let Some(expected) = benchmark_params_hash(id) else {
@@ -616,6 +751,16 @@ fn prepare_batch(input: &TrialBatchInput) -> Result<PreparedBatch, LedgerError> 
                     return invalid(format!(
                         "benchmarkParamsHash does not match the frozen {id} parameters; register it as a variant"
                     ));
+                }
+                if let Some(evidence) = &event.benchmark_evidence {
+                    let mut unsigned = event.clone();
+                    unsigned.benchmark_evidence = None;
+                    if *evidence.event != unsigned
+                        || evidence.workspace_id != input.workspace_id
+                        || evidence.instrument_id != input.instrument_id
+                    {
+                        return invalid("benchmark evidence does not match the executed run");
+                    }
                 }
             }
             TrialKind::Reproduction => {
@@ -639,11 +784,12 @@ fn prepare_batch(input: &TrialBatchInput) -> Result<PreparedBatch, LedgerError> 
         }
 
         // Every field always present; `null` when not applicable (spec §4.3).
+        let effective = kind.effective() && event.benchmark_evidence.is_none();
         let payload = json!({
             "version": TRIAL_EVENT_VERSION,
             "familyId": family_id,
             "kind": kind.as_str(),
-            "effective": kind.effective(),
+            "effective": effective,
             "idempotencyKey": idempotency_key,
             "workspaceId": workspace,
             "requestId": request_id,
@@ -666,6 +812,7 @@ fn prepare_batch(input: &TrialBatchInput) -> Result<PreparedBatch, LedgerError> 
             input_index: index,
             idempotency_key,
             kind,
+            effective,
             payload_json,
             payload,
             event_id,
@@ -711,14 +858,43 @@ fn sync_roots_from_env() -> Vec<PathBuf> {
         .collect()
 }
 
-/// Spec §2.1 detection rule: a network (UNC) path, or a path under a known
-/// sync-client root, cannot hold the registry. Both inputs are canonical.
+/// Spec §2.1 detection rule: a network (UNC or mapped remote volume) path,
+/// or a path under a known sync-client root, cannot hold the registry.
+/// Both inputs are canonical.
 fn is_unsupported_volume(path: &Path, sync_roots: &[PathBuf]) -> bool {
+    is_unsupported_volume_with_probe(path, sync_roots, remote_or_unknown_volume)
+}
+
+fn is_unsupported_volume_with_probe(
+    path: &Path,
+    sync_roots: &[PathBuf],
+    remote_probe: impl Fn(&Path) -> bool,
+) -> bool {
     let text = path.to_string_lossy();
     if text.starts_with(r"\\?\UNC\") || (text.starts_with(r"\\") && !text.starts_with(r"\\?\")) {
         return true;
     }
-    sync_roots.iter().any(|root| path.starts_with(root))
+    sync_roots.iter().any(|root| path.starts_with(root)) || remote_probe(path)
+}
+
+#[cfg(windows)]
+fn remote_or_unknown_volume(path: &Path) -> bool {
+    use std::os::windows::ffi::OsStrExt;
+    use windows_sys::Win32::Storage::FileSystem::{GetDriveTypeW, GetVolumePathNameW};
+
+    // Resolve the volume mount point first: a canonical mapped SMB path may
+    // still be \\?\Z:\... rather than UNC. Failure is unsupported, not local.
+    let name: Vec<u16> = path.as_os_str().encode_wide().chain(Some(0)).collect();
+    let mut root = vec![0u16; 32_768];
+    if unsafe { GetVolumePathNameW(name.as_ptr(), root.as_mut_ptr(), root.len() as u32) } == 0 {
+        return true;
+    }
+    matches!(unsafe { GetDriveTypeW(root.as_ptr()) }, 0 | 1 | 4)
+}
+
+#[cfg(not(windows))]
+fn remote_or_unknown_volume(_path: &Path) -> bool {
+    false
 }
 
 fn new_registry_id() -> Result<String, LedgerError> {
@@ -1024,8 +1200,13 @@ impl TrialLedger {
             }
         }
         let existing = found.len();
-        // The declared protocol must match the family's pin, on replay too.
-        if let Some(id) = &family_id {
+        let replayed = existing > 0;
+        // A non-effective batch registered before the family's first pin can
+        // have a different historical protocol. Its exact event/batch replay
+        // must still return the old receipt and the current admission count.
+        // Effective replays and all new batches must obey the current pin.
+        if (!replayed || batch.effective_count() > 0) && family_id.is_some() {
+            let id = family_id.as_ref().expect("checked above");
             if let Some(pinned) = pinned_protocol(&tx, id)? {
                 if pinned != batch.protocol_json {
                     return Err(LedgerError::FamilyProtocolMismatch(format!(
@@ -1036,7 +1217,6 @@ impl TrialLedger {
             }
         }
 
-        let replayed = existing > 0;
         let receipt = if replayed {
             if existing != batch.events.len() {
                 return Err(LedgerError::StateInvalid(format!(
@@ -1081,7 +1261,7 @@ impl TrialLedger {
                         family_id,
                         event.idempotency_key,
                         event.kind.as_str(),
-                        event.kind.effective() as i64,
+                        event.effective as i64,
                         batch.batch_id,
                         event.payload_json,
                         self.registry_id,
@@ -1399,6 +1579,7 @@ mod tests {
             benchmark_id: None,
             benchmark_params_hash: None,
             reproduction_of: None,
+            benchmark_evidence: None,
         }
     }
 
@@ -1430,14 +1611,101 @@ mod tests {
         TrialEventInput {
             kind: TrialKind::Benchmark,
             hypothesis_hash: None,
-            strategy_hash: None,
-            split_hash: None,
-            seeds_hash: None,
-            engine_fingerprint_hash: None,
             benchmark_id: Some(id.into()),
             benchmark_params_hash: benchmark_params_hash(id),
             ..event(TrialKind::Variant, request, index)
         }
+    }
+
+    fn benchmark_context(request: &str, index: u64) -> BenchmarkContext {
+        BenchmarkContext {
+            workspace_id: "ws1".into(),
+            instrument_id: Some(BTC.into()),
+            origin: TrialOrigin::Request {
+                request_id: request.into(),
+                candidate_index: index,
+            },
+            dataset_hash: "dataset-1".into(),
+            snapshot_id: Some("snapshot-1".into()),
+            split_hash: "split-1".into(),
+            seeds_hash: format!("seeds-{request}-{index}"),
+            engine_fingerprint_hash: "engine-1".into(),
+        }
+    }
+
+    fn benchmark_candles() -> Vec<alpha_factor_forge::discovery_core::types::Candle> {
+        (0..250)
+            .map(|index| {
+                let price = 100.0 + index as f64;
+                alpha_factor_forge::discovery_core::types::Candle {
+                    timestamp: index,
+                    open: price,
+                    high: price + 1.0,
+                    low: price - 1.0,
+                    close: price,
+                    volume: 1.0,
+                }
+            })
+            .collect()
+    }
+
+    fn attested_benchmark_event(request: &str, index: u64, id: &str) -> TrialEventInput {
+        let candles = benchmark_candles();
+        run_and_attest_deterministic_benchmark(
+            id,
+            &RunBenchmarksArgs {
+                candles: &candles,
+                interval: "1d",
+                costs: alpha_factor_forge::discovery_core::benchmarks::BenchmarkCosts {
+                    fee_pct: 0.0,
+                    slip_pct: 0.0,
+                },
+                start_equity: None,
+                from: None,
+                to: None,
+            },
+            benchmark_context(request, index),
+        )
+        .unwrap()
+    }
+
+    fn attested_random_entry_event(request: &str, index: u64) -> TrialEventInput {
+        use alpha_factor_forge::discovery_core::metrics::{ClosedTrade, TradeSide};
+        use alpha_factor_forge::discovery_core::random_entry::RandomEntryCandidate;
+
+        let candles = benchmark_candles();
+        let candidate = RandomEntryCandidate {
+            trades: vec![ClosedTrade {
+                entry_time: 1,
+                exit_time: 3,
+                side: TradeSide::Long,
+                entry_price: 101.0,
+                exit_price: 103.0,
+                pnl: 2.0,
+                pnl_pct: 2.0 / 101.0,
+                bars: 2,
+            }],
+            net_return: 0.02,
+        };
+        run_and_attest_random_entry_benchmark(
+            &RandomEntryArgs {
+                candles: &candles,
+                interval: "1d",
+                costs: alpha_factor_forge::discovery_core::benchmarks::BenchmarkCosts {
+                    fee_pct: 0.0,
+                    slip_pct: 0.0,
+                },
+                candidate: &candidate,
+                seed: 42,
+                runs: Some(2),
+                start_equity: None,
+                from: None,
+                to: None,
+            },
+            "candidate-strategy".into(),
+            benchmark_context(request, index),
+        )
+        .unwrap()
     }
 
     // ---------------------------------------------------------- opening
@@ -1510,8 +1778,17 @@ mod tests {
             &[]
         ));
         assert!(!is_unsupported_volume(
-            Path::new(r"\\?\C:\Users\me\AppData\Local\evidence"),
+            &std::fs::canonicalize(&dirs.registry).unwrap(),
             &[]
+        ));
+        assert!(
+            is_unsupported_volume_with_probe(Path::new(r"\\?\Z:\evidence"), &[], |_| true,),
+            "a mapped drive must be checked by volume type even without UNC syntax"
+        );
+        assert!(!is_unsupported_volume_with_probe(
+            Path::new(r"\\?\C:\evidence"),
+            &[],
+            |_| false,
         ));
         assert!(!is_unsupported_volume(
             Path::new("/home/me/.local/share/evidence"),
@@ -1688,7 +1965,7 @@ mod tests {
         );
 
         let mut tuned = batch("r1", 1);
-        tuned.events[0] = benchmark_event("r1", 0, "smaCross");
+        tuned.events[0] = attested_benchmark_event("r1", 0, "smaCross");
         tuned.events[0].benchmark_params_hash = benchmark_params_hash("rsiReversion");
         assert_eq!(
             ledger.register_batch(&tuned).err().unwrap().code(),
@@ -1696,10 +1973,8 @@ mod tests {
         );
 
         let mut valid = batch("r2", 1);
-        valid.events[0] = benchmark_event("r2", 0, "smaCross");
-        valid
-            .events
-            .push(benchmark_event("r2", 1, RANDOM_ENTRY_CONTRACT_VERSION));
+        valid.events[0] = attested_benchmark_event("r2", 0, "smaCross");
+        valid.events.push(attested_random_entry_event("r2", 1));
         let registered = ledger.register_batch(&valid).unwrap();
         assert_eq!(registered.registration_receipt.batch_effective_trials, 0);
         assert_eq!(
@@ -1711,6 +1986,64 @@ mod tests {
             2,
             "benchmark events are still recorded"
         );
+
+        let mut missing_seed = batch("r3", 1);
+        missing_seed.events[0] = benchmark_event("r3", 0, RANDOM_ENTRY_CONTRACT_VERSION);
+        missing_seed.events[0].seeds_hash = None;
+        assert_eq!(
+            ledger.register_batch(&missing_seed).err().unwrap().code(),
+            "invalid_trial_batch"
+        );
+
+        let mut wrong_seed = batch("r3", 1);
+        wrong_seed.events[0] = attested_random_entry_event("r3", 0);
+        wrong_seed.events[0].seeds_hash = Some("a different seed".into());
+        assert_eq!(
+            ledger.register_batch(&wrong_seed).err().unwrap().code(),
+            "invalid_trial_batch"
+        );
+
+        let mut wrong_pairing = batch("r3", 1);
+        wrong_pairing.events[0] = attested_random_entry_event("r3", 0);
+        wrong_pairing.events[0].hypothesis_hash = Some("a different holding pool".into());
+        assert_eq!(
+            ledger.register_batch(&wrong_pairing).err().unwrap().code(),
+            "invalid_trial_batch"
+        );
+
+        let mut tuned_strategy = batch("r3", 1);
+        tuned_strategy.events[0] = attested_benchmark_event("r3", 0, "smaCross");
+        tuned_strategy.events[0].strategy_hash = Some("tuned strategy".into());
+        assert_eq!(
+            ledger.register_batch(&tuned_strategy).err().unwrap().code(),
+            "invalid_trial_batch"
+        );
+
+        let mut moved_workspace = batch("r3", 1);
+        moved_workspace.events[0] = attested_benchmark_event("r3", 0, "smaCross");
+        moved_workspace.workspace_id = "another-workspace".into();
+        assert_eq!(
+            ledger
+                .register_batch(&moved_workspace)
+                .err()
+                .unwrap()
+                .code(),
+            "invalid_trial_batch"
+        );
+
+        let mut moved_family = batch("r3", 1);
+        moved_family.events[0] = attested_benchmark_event("r3", 0, "smaCross");
+        moved_family.instrument_id = Some("crypto:binance:ETHUSDT".into());
+        assert_eq!(
+            ledger.register_batch(&moved_family).err().unwrap().code(),
+            "invalid_trial_batch"
+        );
+
+        let mut unverified = batch("r4", 1);
+        unverified.events[0] = benchmark_event("r4", 0, "smaCross");
+        let recorded = ledger.register_batch(&unverified).unwrap();
+        assert_eq!(recorded.registration_receipt.batch_effective_trials, 1);
+        assert_eq!(count(&recorded.admission).family_effective_trials(), 1);
     }
 
     #[test]
@@ -1818,6 +2151,51 @@ mod tests {
             ledger.register_batch(&replay).err().unwrap().code(),
             "family_protocol_mismatch",
             "a replay cannot change the protocol either"
+        );
+    }
+
+    #[test]
+    fn a3_pre_pin_benchmark_replays_after_a_later_protocol_pin() {
+        let dirs = scratch();
+        let ledger = open(&dirs);
+        let mut first = batch("r1", 1);
+        first.events[0] = attested_benchmark_event("r1", 0, "smaCross");
+        first.tests_per_trial = 1;
+        let original = ledger.register_batch(&first).unwrap();
+        assert_eq!(original.registration_receipt.batch_effective_trials, 0);
+
+        let effective = ledger.register_batch(&batch("r2", 1)).unwrap();
+        assert_eq!(count(&effective.admission).tests_per_trial(), 2);
+        let replay = ledger.register_batch(&first).unwrap();
+        assert!(replay.replayed);
+        assert_eq!(replay.event_ids, original.event_ids);
+        assert_eq!(replay.registration_receipt, original.registration_receipt);
+        assert_eq!(
+            replay.admission,
+            Admission::Blocked(AdmissionBlocked::NoEffectiveTrials)
+        );
+
+        let mut new_batch = batch("r3", 1);
+        new_batch.tests_per_trial = 1;
+        assert_eq!(
+            ledger.register_batch(&new_batch).err().unwrap().code(),
+            "family_protocol_mismatch"
+        );
+
+        // Registry COMMIT succeeded but the workspace write did not happen.
+        // A restarted runner rebuilds and resends the original input.
+        drop(ledger);
+        let reopened = open(&dirs);
+        let after_restart = reopened.register_batch(&first).unwrap();
+        assert!(after_restart.replayed);
+        assert_eq!(after_restart.event_ids, original.event_ids);
+        assert_eq!(
+            after_restart.registration_receipt,
+            original.registration_receipt
+        );
+        assert_eq!(
+            after_restart.admission,
+            Admission::Blocked(AdmissionBlocked::NoEffectiveTrials)
         );
     }
 
