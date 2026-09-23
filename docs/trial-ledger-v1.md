@@ -1,7 +1,7 @@
 # Trial ledger v1（`trial-ledger-v1` / `trial-family-v1`）— P12b 規格
 
-> **狀態：規格已接受（2026-09-23，PR #116）。** P12b-1a（registry 核心）已實作，實作紀錄見 §16；
-> registry 核心（P12b-1a）已合併；匯出／匯入（P12b-1b）在本地分支實作，詳 §17。工作區接線（P12b-2）與 admission 阻擋（P12d）尚未實作，runtime 尚無呼叫者。
+> **狀態：規格已接受（2026-09-23，PR #116）。** P12b-1a registry 核心與 P12b-1b 匯出／匯入均已合併，實作紀錄見 §16–17。
+> P12b-2a 綁定檢查在本地分支實作（§18）；工作區 migration、runner 接線與回填（P12b-2b）及 admission 阻擋（P12d）尚未實作，runtime 尚無 ledger 呼叫者。
 > 修訂（同日）：依 [PR #116 驗收審查](../handoffs/2026-09-23-pr116-acceptance-review-v1.md) R1–R4 修正——
 > 匯出含批次與收據（§8）、以雜湊鏈取代計數水位（§7）、payload 納入 split／seed／benchmark 身分（§4.3）、
 > 批次 ID 綁定完整內容且重播前一律逐筆比對（§6.1）；`originRegistryId` 移出事件雜湊（§4.3）。
@@ -657,3 +657,22 @@ P12b-2 若要讓非計數 benchmark 可攜，須先定義並持久化可重驗�
 
 本地回歸測試覆蓋 A13–A16、A21、A25、A26、A29，另含來源檢查點分歧、跨家族部分匯入、永久隔離、
 精確 reproduction 與上述 benchmark 拒絕條件。
+
+---
+
+## 18. 實作紀錄：P12b-2a 綁定檢查（2026-09-24）
+
+P12b-2 拆成兩個可獨立驗證的切片。**P12b-2a** 提供 §7.2–7.3 的 registry 開啟與綁定判定；
+**P12b-2b** 才將工作區 migration `0009`、legacy 回填、先登記再入隊、claim 檢查和 runtime 啟動接線一起落地。
+這避免在 `trial_event_id` 尚未寫入時，讓新 attempt 以 NULL 入隊／執行。
+
+`TrialLedger::open_existing` 供已有綁定的工作區使用：registry 目錄或檔案不存在、檔案為空庫時回報
+`registry_missing`，不建立替代 registry。未綁定的首開仍使用 `open`。`LedgerBinding` 在工作區
+`app_settings.trial_ledger_binding` 讀寫 `{registryId, seq, chainHead}`；讀取時拒絕格式損壞，寫入函式供
+P12b-2b 在建立 attempts 的同一筆工作區交易內呼叫，不自行提交。
+
+`check_binding` 在同一 registry 讀取交易中驗證目前事件鏈並比對儲存的前綴：相同 registry 可接受後續新增事件；
+序號落後回報 `registry_rolled_back`，鏈值不同回報 `registry_diverged`。registry ID 改變時，只有匯入產生的
+舊 registry、舊序號與舊鏈值檢查點存在且其事件仍在新 registry，才回傳新鏈頭；否則回報
+`registry_replaced`。鏈已損壞時回報 `registry_chain_broken`。此切片只有可測試的底層 API，
+尚不改變任何 runtime 行為或資格判定。
