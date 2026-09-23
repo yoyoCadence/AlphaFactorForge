@@ -25,6 +25,12 @@
 // same for its not-yet-wired readers).
 #![allow(dead_code)]
 
+#[path = "trial_ledger_transfer.rs"]
+mod transfer;
+// Public for the P12b-2 command surface; no runtime caller exists yet.
+#[allow(unused_imports)]
+pub use transfer::ImportSummary;
+
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
@@ -106,6 +112,8 @@ pub enum LedgerError {
     BatchNotFound(String),
     #[error("registry_state_invalid: {0}")]
     StateInvalid(String),
+    #[error("import_integrity_failed: {0}")]
+    ImportIntegrityFailed(String),
 }
 
 impl LedgerError {
@@ -129,6 +137,7 @@ impl LedgerError {
             Self::BatchReceiptMissing(_) => "batch_receipt_missing",
             Self::BatchNotFound(_) => "batch_not_found",
             Self::StateInvalid(_) => "registry_state_invalid",
+            Self::ImportIntegrityFailed(_) => "import_integrity_failed",
         }
     }
 }
@@ -1205,14 +1214,15 @@ impl TrialLedger {
         // have a different historical protocol. Its exact event/batch replay
         // must still return the old receipt and the current admission count.
         // Effective replays and all new batches must obey the current pin.
-        if (!replayed || batch.effective_count() > 0) && family_id.is_some() {
-            let id = family_id.as_ref().expect("checked above");
-            if let Some(pinned) = pinned_protocol(&tx, id)? {
-                if pinned != batch.protocol_json {
-                    return Err(LedgerError::FamilyProtocolMismatch(format!(
-                        "{id} is pinned to {pinned}, the batch declares {}",
-                        batch.protocol_json
-                    )));
+        if !replayed || batch.effective_count() > 0 {
+            if let Some(id) = &family_id {
+                if let Some(pinned) = pinned_protocol(&tx, id)? {
+                    if pinned != batch.protocol_json {
+                        return Err(LedgerError::FamilyProtocolMismatch(format!(
+                            "{id} is pinned to {pinned}, the batch declares {}",
+                            batch.protocol_json
+                        )));
+                    }
                 }
             }
         }

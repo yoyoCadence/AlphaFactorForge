@@ -1,7 +1,7 @@
 # Trial ledger v1（`trial-ledger-v1` / `trial-family-v1`）— P12b 規格
 
 > **狀態：規格已接受（2026-09-23，PR #116）。** P12b-1a（registry 核心）已實作，實作紀錄見 §16；
-> 匯出／匯入（P12b-1b）、工作區接線（P12b-2）與 admission 阻擋（P12d）尚未實作，runtime 尚無呼叫者。
+> registry 核心（P12b-1a）已合併；匯出／匯入（P12b-1b）在本地分支實作，詳 §17。工作區接線（P12b-2）與 admission 阻擋（P12d）尚未實作，runtime 尚無呼叫者。
 > 修訂（同日）：依 [PR #116 驗收審查](../handoffs/2026-09-23-pr116-acceptance-review-v1.md) R1–R4 修正——
 > 匯出含批次與收據（§8）、以雜湊鏈取代計數水位（§7）、payload 納入 split／seed／benchmark 身分（§4.3）、
 > 批次 ID 綁定完整內容且重播前一律逐筆比對（§6.1）；`originRegistryId` 移出事件雜湊（§4.3）。
@@ -633,4 +633,27 @@ P12b-1 再拆成兩半：**P12b-1a**（本節，registry 核心）與 **P12b-1b*
 
 **已驗收**：A3、A4、A5、A6、A8、A17、A19、A27、A28、A30、A31，以及 AlphaBTC 計數對應 `146/1001`、未知家族、隔離家族、
 append-only 觸發器、較新 schema 拒絕、事件／批次 ID 與 registry 無關（A29 的識別部分）。
-**尚未**：A13–A16、A21、A25、A26、A29 的聯集部分（P12b-1b）；A1、A2、A7、A9–A12、A18、A22–A24（P12b-2）；A20、A32（P12d）。
+**本切片當時尚未**：A13–A16、A21、A25、A26、A29 的聯集部分（P12b-1b，見 §17）；A1、A2、A7、A9–A12、A18、A22–A24（P12b-2）；A20、A32（P12d）。
+
+---
+
+## 17. 實作紀錄：P12b-1b 匯出／匯入（2026-09-23）
+
+`research::trial_ledger::transfer` 提供 `export_json_lines` 與 `import_json_lines`，仍未接 runtime command。
+匯出在同一讀取交易中產生完整的 family、batch、event、receipt、origin checkpoint JSON Lines；header 的
+`bodySha256` 包含 body 的每一個位元組與換行。匯入先核對版本、canonical JSON、筆數、family／event／batch ID、
+批次成員、收據、來源雜湊鏈、其他來源的連續檢查點，再以 `prepare_batch` 重建每個事件 payload，重驗分類規則。
+任何完整性錯誤都在寫入前回傳 `import_integrity_failed`。
+
+有效檔案在單一 `BEGIN IMMEDIATE` 交易中依外鍵順序聯集。相同事件跳過且不重複計數；同一家族的冪等鍵、
+批次、protocol 或收據衝突會追加 `family_conflicts` 並永久隔離該家族，其他家族照常匯入。
+同一來源與序號的檢查點分歧追加 `registry_conflicts`，不接受該來源的新檢查點；衝突家族造成的來源鏈缺口也
+不寫入不完整的檢查點。匯入完成後再次驗證本地事件鏈與批次成員，失敗就回滾。
+
+**保守邊界**：P12b-1a 的 benchmark 程序內憑據未存入事件或匯出檔，因此 `effective = false` 的 benchmark
+目前無法跨 registry 獨立驗證；此類匯入整份拒絕，無部分寫入。未附憑據、已計數的白名單 benchmark 可以匯入。
+P12b-2 若要讓非計數 benchmark 可攜，須先定義並持久化可重驗的執行來源，再擴充匯出契約；不得直接信任
+來源 payload 的 `effective` 值。這一限制不影響 variant、hypothesis、diagnostic、legacy 與精確 reproduction 的聯集。
+
+本地回歸測試覆蓋 A13–A16、A21、A25、A26、A29，另含來源檢查點分歧、跨家族部分匯入、永久隔離、
+精確 reproduction 與上述 benchmark 拒絕條件。
