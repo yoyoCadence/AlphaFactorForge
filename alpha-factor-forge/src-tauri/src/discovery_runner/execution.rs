@@ -40,6 +40,10 @@ use alpha_factor_forge::discovery_core::{
     signals::{build_params_signals, ParamsSignalConfig},
     split::{plan_validation_split, ValidationSplitPlan},
     types::Candle,
+    walk_forward::{
+        evaluate_walk_forward_plan, WalkForwardFold, WalkForwardPlan, WalkForwardReport,
+        WalkForwardStatus,
+    },
 };
 use chrono::{TimeZone, Utc};
 use serde::Serialize;
@@ -50,6 +54,7 @@ use crate::db::{
     validation_record::{BENCHMARK_RECORD_VERSION, VALIDATION_RECORD_VERSION},
 };
 const JS_MAX_SAFE_INTEGER: i64 = 9_007_199_254_740_991;
+pub const WALK_FORWARD_EVIDENCE_VERSION: &str = "walk-forward-evidence-v1";
 
 /// P05: everything about the ENGINE a candidate ran on, frozen into its
 /// research attempt: this package's version and every contract version the
@@ -110,6 +115,45 @@ pub struct CandidateExecutionOutput {
     pub validation_trades: Vec<TradeRow>,
     pub record: ValidationRecordRow,
     pub digest: CandidateResultDigest,
+}
+
+/// An unqualified observation from a single inner segment. Neither a metric
+/// nor a trade count here is a Gate verdict or a confirmation result.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WalkForwardSegmentEvidence {
+    pub metrics: Value,
+    pub trades: Vec<TradeRow>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WalkForwardFoldEvidence {
+    pub window: WalkForwardFold,
+    pub train: WalkForwardSegmentEvidence,
+    pub validation: WalkForwardSegmentEvidence,
+}
+
+/// Serializable, content-bound material for P12c-2b's future immutable
+/// artifact. It does not contain outer Validation/Test observations.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WalkForwardExecutionEvidence {
+    pub version: &'static str,
+    pub execution_contract: &'static str,
+    pub metrics_contract: &'static str,
+    pub candidate_index: i64,
+    pub strategy_id: i64,
+    pub strategy_hash: String,
+    pub dataset_id: i64,
+    pub dataset_hash: String,
+    pub interval: String,
+    pub embargo: EmbargoDerivation,
+    pub start_equity: f64,
+    pub fee_pct: f64,
+    pub slip_pct: f64,
+    pub plan: WalkForwardReport,
+    pub folds: Vec<WalkForwardFoldEvidence>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -995,6 +1039,135 @@ pub fn execute_candidate(
     })
 }
 
+/// Execute a fixed candidate on every declared inner Train fold. P12c-2b
+/// will supply the declaration from a versioned run and persist this output;
+/// this entry point has no IO, database access, ranking or admission effect.
+/// It intentionally builds each training signal from only that training
+/// prefix, and each inner-validation signal from only its own prefix.
+#[allow(dead_code)] // P12c-2b is the first production caller.
+pub fn execute_candidate_walk_forward(
+    args: &ExecuteCandidateArgs<'_>,
+    declaration: &WalkForwardPlan,
+) -> Result<WalkForwardExecutionEvidence, CandidateExecutionError> {
+    if args.strategy_id < 1 {
+        return fail("strategy_id must be positive");
+    }
+    if args.dataset.id != args.config.dataset.id
+        || args.dataset.content_hash != args.config.dataset.content_hash
+    {
+        return fail("walk-forward dataset identity does not match discovery config");
+    }
+    let candle_count = u64::try_from(args.candles.len())
+        .map_err(|_| CandidateExecutionError("candle count exceeds u64".into()))?;
+    if declaration.total_bars != candle_count {
+        return fail("walk-forward totalBars does not match the supplied dataset");
+    }
+    let strategy = CandidateStrategy::parse(&args.candidate.strategy)?;
+    if strategy.fee_pct != args.config.benchmark_costs.fee_pct
+        || strategy.slip_pct != args.config.benchmark_costs.slip_pct
+    {
+        return fail("candidate costs do not match the resolved benchmark costs");
+    }
+    let computed_hash = strategy_hash(
+        &args.candidate.strategy,
+        strategy.fee_pct,
+        strategy.slip_pct,
+    )
+    .map_err(|error| context(error, "candidate strategy identity"))?;
+    if computed_hash != args.candidate.strategy_hash {
+        return fail("candidate strategy content does not match its strategy_hash");
+    }
+    let embargo = strategy.embargo(args.config.embargo.holding_allowance_bars)?;
+    if declaration.embargo_bars != embargo.embargo_bars as u64 {
+        return fail("walk-forward embargoBars differs from the candidate's derived embargo");
+    }
+    if declaration.minimum_train_bars < embargo.max_signal_lookback_bars as u64 {
+        return fail("walk-forward minimumTrainBars is below the candidate signal lookback");
+    }
+    let plan = evaluate_walk_forward_plan(declaration)
+        .map_err(|error| context(error, "plan walk-forward folds"))?;
+    let mut evidence = WalkForwardExecutionEvidence {
+        version: WALK_FORWARD_EVIDENCE_VERSION,
+        execution_contract: EXECUTION_CONTRACT_VERSION,
+        metrics_contract: METRICS_CONTRACT_VERSION,
+        candidate_index: args.candidate.index,
+        strategy_id: args.strategy_id,
+        strategy_hash: args.candidate.strategy_hash.clone(),
+        dataset_id: args.dataset.id,
+        dataset_hash: args.dataset.content_hash.into(),
+        interval: args.dataset.interval.into(),
+        embargo,
+        start_equity: args.config.execution.start_equity,
+        fee_pct: strategy.fee_pct,
+        slip_pct: strategy.slip_pct,
+        plan,
+        folds: Vec::new(),
+    };
+    if evidence.plan.status == WalkForwardStatus::NotEligible {
+        return Ok(evidence);
+    }
+
+    let outer_train = evidence.plan.outer_train.expect("eligible plan has outer Train");
+    let outer_train_end = usize::try_from(outer_train.to)
+        .ok()
+        .and_then(|index| index.checked_add(1))
+        .ok_or_else(|| CandidateExecutionError("outer Train cannot be sliced".into()))?;
+    let train_only_candles = args.candles.get(..outer_train_end)
+        .ok_or_else(|| CandidateExecutionError("outer Train exceeds the supplied candles".into()))?;
+    validate_timestamps(train_only_candles)?;
+
+    for window in &evidence.plan.folds {
+        let train_end = usize::try_from(window.train.to)
+            .ok()
+            .and_then(|index| index.checked_add(1))
+            .ok_or_else(|| CandidateExecutionError("inner Train cannot be sliced".into()))?;
+        let validation_end = usize::try_from(window.validation.to)
+            .ok()
+            .and_then(|index| index.checked_add(1))
+            .ok_or_else(|| CandidateExecutionError("inner validation cannot be sliced".into()))?;
+        let training_candles = train_only_candles.get(..train_end)
+            .ok_or_else(|| CandidateExecutionError("inner Train exceeds outer Train".into()))?;
+        let validation_candles = train_only_candles.get(..validation_end)
+            .ok_or_else(|| CandidateExecutionError("inner validation exceeds outer Train".into()))?;
+        let training_signals = strategy.build_signals(training_candles)?;
+        let validation_signals = strategy.build_signals(validation_candles)?;
+        let train = run_backtest(
+            training_candles,
+            &training_signals,
+            &strategy.backtest_config(
+                args.dataset.interval,
+                args.config.execution.start_equity,
+                window.train.from,
+                window.train.to,
+            ),
+        )
+        .map_err(|error| context(error, "run inner Train backtest"))?;
+        let validation = run_backtest(
+            validation_candles,
+            &validation_signals,
+            &strategy.backtest_config(
+                args.dataset.interval,
+                args.config.execution.start_equity,
+                window.validation.from,
+                window.validation.to,
+            ),
+        )
+        .map_err(|error| context(error, "run inner validation backtest"))?;
+        evidence.folds.push(WalkForwardFoldEvidence {
+            window: *window,
+            train: WalkForwardSegmentEvidence {
+                metrics: encode_metrics(&train.metrics)?,
+                trades: trade_rows(&train.trades),
+            },
+            validation: WalkForwardSegmentEvidence {
+                metrics: encode_metrics(&validation.metrics)?,
+                trades: trade_rows(&validation.trades),
+            },
+        });
+    }
+    Ok(evidence)
+}
+
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
@@ -1110,6 +1283,214 @@ pub(crate) mod tests {
             candles: &candles,
         })
         .expect("execute representative candidate")
+    }
+
+    #[test]
+    fn fixed_candidate_folds_keep_costed_evidence_inside_outer_train() {
+        let (config, candidate, tested_combinations) = test_config_and_candidate();
+        let candles = alternating_candles(120);
+        let derived = CandidateStrategy::parse(&candidate.strategy)
+            .unwrap()
+            .embargo(config.embargo.holding_allowance_bars)
+            .unwrap();
+        let declaration = WalkForwardPlan {
+            total_bars: candles.len() as u64,
+            embargo_bars: derived.embargo_bars as u64,
+            minimum_train_bars: 20,
+            fold_validation_bars: 8,
+            fold_count: 3,
+        };
+        let args = ExecuteCandidateArgs {
+            config: &config,
+            candidate: &candidate,
+            tested_combinations,
+            strategy_id: 11,
+            dataset: ExecutionDataset {
+                id: config.dataset.id,
+                content_hash: &config.dataset.content_hash,
+                interval: "1d",
+            },
+            candles: &candles,
+        };
+        let evidence = execute_candidate_walk_forward(&args, &declaration).unwrap();
+        assert_eq!(evidence.version, WALK_FORWARD_EVIDENCE_VERSION);
+        assert_eq!(evidence.plan.status, WalkForwardStatus::Eligible);
+        assert_eq!(evidence.folds.len(), 3);
+        let outer = plan_validation_split(120, derived.embargo_bars).unwrap();
+        for fold in &evidence.folds {
+            assert!(fold.window.validation.to < outer.validation.from);
+            let first = candles[fold.window.validation.from as usize].timestamp;
+            let last = candles[fold.window.validation.to as usize].timestamp;
+            for trade in &fold.validation.trades {
+                assert!((first..=last).contains(&trade.entry_time));
+                assert!((first..=last).contains(&trade.exit_time));
+            }
+            assert_eq!(
+                fold.validation.metrics["values"]["tradeCount"],
+                json!(fold.validation.trades.len())
+            );
+        }
+        let serialized = serde_json::to_value(&evidence).unwrap();
+        assert!(serialized["plan"].get("validation").is_none());
+        assert!(serialized["plan"].get("test").is_none());
+    }
+
+    #[test]
+    fn outer_holdout_and_later_inner_bars_cannot_change_earlier_fold_evidence() {
+        let (config, candidate, tested_combinations) = test_config_and_candidate();
+        let candles = alternating_candles(120);
+        let derived = CandidateStrategy::parse(&candidate.strategy)
+            .unwrap()
+            .embargo(config.embargo.holding_allowance_bars)
+            .unwrap();
+        let declaration = WalkForwardPlan {
+            total_bars: 120,
+            embargo_bars: derived.embargo_bars as u64,
+            minimum_train_bars: 20,
+            fold_validation_bars: 8,
+            fold_count: 3,
+        };
+        let execute = |candles: &[Candle]| {
+            execute_candidate_walk_forward(
+                &ExecuteCandidateArgs {
+                    config: &config,
+                    candidate: &candidate,
+                    tested_combinations,
+                    strategy_id: 11,
+                    dataset: ExecutionDataset {
+                        id: config.dataset.id,
+                        content_hash: &config.dataset.content_hash,
+                        interval: "1d",
+                    },
+                    candles,
+                },
+                &declaration,
+            )
+            .unwrap()
+        };
+        let baseline = execute(&candles);
+        let outer_train_end = baseline.plan.outer_train.unwrap().to as usize + 1;
+        let mut hidden_changed = candles.clone();
+        for candle in &mut hidden_changed[outer_train_end..] {
+            candle.timestamp = i64::MAX;
+            candle.open = 1_000_000.0;
+            candle.high = 1_000_000.0;
+            candle.low = 1_000_000.0;
+            candle.close = 1_000_000.0;
+        }
+        assert_eq!(
+            serde_json::to_value(execute(&candles)).unwrap(),
+            serde_json::to_value(execute(&hidden_changed)).unwrap()
+        );
+
+        let mut later_changed = candles.clone();
+        let first_fold_end = baseline.folds[0].window.validation.to as usize + 1;
+        for candle in &mut later_changed[first_fold_end..outer_train_end] {
+            candle.open = 150.0;
+            candle.high = 151.0;
+            candle.low = 149.0;
+            candle.close = 150.0;
+        }
+        let changed = execute(&later_changed);
+        assert_eq!(
+            serde_json::to_value(&baseline.folds[0]).unwrap(),
+            serde_json::to_value(&changed.folds[0]).unwrap()
+        );
+    }
+
+    #[test]
+    fn infeasible_folds_do_not_execute_and_mismatched_declarations_fail() {
+        let (config, candidate, tested_combinations) = test_config_and_candidate();
+        let candles = alternating_candles(96);
+        let derived = CandidateStrategy::parse(&candidate.strategy)
+            .unwrap()
+            .embargo(config.embargo.holding_allowance_bars)
+            .unwrap();
+        let mut declaration = WalkForwardPlan {
+            total_bars: 96,
+            embargo_bars: derived.embargo_bars as u64,
+            minimum_train_bars: 20,
+            fold_validation_bars: 10,
+            fold_count: 3,
+        };
+        let args = ExecuteCandidateArgs {
+            config: &config,
+            candidate: &candidate,
+            tested_combinations,
+            strategy_id: 11,
+            dataset: ExecutionDataset {
+                id: config.dataset.id,
+                content_hash: &config.dataset.content_hash,
+                interval: "1d",
+            },
+            candles: &candles,
+        };
+        let report = execute_candidate_walk_forward(&args, &declaration).unwrap();
+        assert_eq!(report.plan.status, WalkForwardStatus::NotEligible);
+        assert!(report.folds.is_empty());
+
+        declaration.total_bars += 1;
+        assert!(execute_candidate_walk_forward(&args, &declaration)
+            .unwrap_err()
+            .0
+            .contains("totalBars"));
+        declaration.total_bars = 96;
+        declaration.embargo_bars += 1;
+        assert!(execute_candidate_walk_forward(&args, &declaration)
+            .unwrap_err()
+            .0
+            .contains("embargoBars"));
+        declaration.embargo_bars -= 1;
+        declaration.minimum_train_bars = 1;
+        assert!(execute_candidate_walk_forward(&args, &declaration)
+            .unwrap_err()
+            .0
+            .contains("lookback"));
+    }
+
+    #[test]
+    fn fixed_dsl_candidate_uses_the_same_train_only_fold_boundary() {
+        let (config, candidate, tested_combinations) = dsl_config_and_candidate();
+        let candles = alternating_candles(240);
+        let derived = CandidateStrategy::parse(&candidate.strategy)
+            .unwrap()
+            .embargo(config.embargo.holding_allowance_bars)
+            .unwrap();
+        let declaration = WalkForwardPlan {
+            total_bars: 240,
+            embargo_bars: derived.embargo_bars as u64,
+            minimum_train_bars: 30,
+            fold_validation_bars: 12,
+            fold_count: 3,
+        };
+        let execute = |candles: &[Candle]| {
+            execute_candidate_walk_forward(
+                &ExecuteCandidateArgs {
+                    config: &config,
+                    candidate: &candidate,
+                    tested_combinations,
+                    strategy_id: 12,
+                    dataset: ExecutionDataset {
+                        id: config.dataset.id,
+                        content_hash: &config.dataset.content_hash,
+                        interval: "1d",
+                    },
+                    candles,
+                },
+                &declaration,
+            )
+            .unwrap()
+        };
+        let baseline = execute(&candles);
+        assert_eq!(baseline.plan.status, WalkForwardStatus::Eligible);
+        assert_eq!(baseline.folds.len(), 3);
+        let mut hidden_changed = candles.clone();
+        let outer_train_end = baseline.plan.outer_train.unwrap().to as usize + 1;
+        hidden_changed[outer_train_end].timestamp = i64::MAX;
+        assert_eq!(
+            serde_json::to_value(baseline).unwrap(),
+            serde_json::to_value(execute(&hidden_changed)).unwrap()
+        );
     }
 
     #[test]

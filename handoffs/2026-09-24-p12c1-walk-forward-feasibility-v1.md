@@ -3,7 +3,7 @@
 Date: 2026-09-24
 Repo: yoyoCadence/AlphaFactorForge
 Branch: `feat/p12c1-walk-forward-feasibility` (from merged PR #120, `7537fa3`)
-Status: Implementation and local verification complete; P12c remains In Progress.
+Status: Resolved for P12c-1 (merged PR #121); P12c remains In Progress.
 
 ## Summary
 
@@ -25,3 +25,7 @@ The pure Rust `research-walk-forward-v1` precheck derives the existing outer spl
 ## Verification
 
 `cargo test --locked --quiet`: 436 Rust tests pass (93 core, 341 desktop, 2 service smoke). `cargo check --locked --all-targets` passes. `cargo clippy --locked --all-targets` passes with five pre-existing warnings in unrelated files. Targeted rustfmt and `git diff --check` pass. No packaged Tauri UI rerun (no UI change); remote CI pending PR.
+
+## Resolution (2026-09-25)
+
+P12c-1 merged through [PR #121](https://github.com/yoyoCadence/AlphaFactorForge/pull/121) as `5069805`. P12c-2a now executes fixed candidates on the declared Train-only folds and returns versioned evidence; see [its handoff](2026-09-25-p12c2a-walk-forward-execution-v1.md). The original P12c-2 runtime/persistence action remains P12c-2b, and admission remains P12d.

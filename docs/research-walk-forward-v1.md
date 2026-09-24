@@ -72,3 +72,36 @@ With `E=2`, `M=20`, `F=3`, `V=10`, the requirement is `56` Train bars.
 zero embargo, malformed declarations, and a requirement above the safe-integer
 bound. Runtime fold execution, trade-count evidence, cost/parameter stability,
 campaign admission and statistical confirmation remain open.
+
+## P12c-2a fixed-candidate fold execution (2026-09-25)
+
+`discovery_runner::execution::execute_candidate_walk_forward` accepts an
+already enumerated candidate, its immutable dataset candles, and an explicit
+`WalkForwardPlan`. It returns serializable `walk-forward-evidence-v1` material
+for P12c-2b to persist. There is no production runner caller yet.
+
+Before any backtest, execution verifies the candidate's strategy hash and
+costs against the resolved discovery config, the dataset identity and candle
+count, the derived embargo against the declaration, and the initial Train
+minimum against the signal lookback. A valid but infeasible plan returns its
+`NOT_ELIGIBLE` report with an empty `folds` array; it never executes a
+subset of folds.
+
+For an eligible plan, each fold runs the unchanged costed backtest twice:
+once on the training prefix ending at that fold's Train boundary, and once
+on the prefix ending at its inner validation boundary. Both executions use
+the declared segment's inclusive `from`/`to` indexes, the existing execution
+model and the configured starting equity. Signal construction sees only the
+corresponding prefix; the whole routine never reads a candle after the outer
+Train endpoint. Every fold records its window, encoded metrics (including
+explicit non-finite statuses) and closed trades. The evidence also binds the
+candidate index, strategy ID/hash, dataset ID/hash/interval, starting equity,
+fee/slippage, derived embargo and execution / metrics contract versions. It
+contains no Gate, Score or confirmation `PASS`.
+
+This is **fixed-candidate evaluation**, not per-fold parameter fitting or
+optimization. P12c-2b must add a versioned run declaration and persist the
+evidence in the immutable candidate artifact with an auditable attempt link;
+P12d must freeze campaign thresholds and decide how this evidence affects
+admission. Neither existing `discovery-config-v1/v2` nor its result artifact
+changes in P12c-2a.
