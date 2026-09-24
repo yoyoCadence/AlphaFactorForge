@@ -22,6 +22,7 @@ pub mod seed;
 pub mod signals;
 pub mod split;
 pub mod types;
+pub mod walk_forward;
 
 #[cfg(test)]
 mod backtest_parity_tests;
