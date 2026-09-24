@@ -3,7 +3,7 @@
 Date: 2026-09-24
 Repo: yoyoCadence/AlphaFactorForge
 Branch: `feat/p12b2b-trial-ledger-runtime` (from `origin/main` `9a2a719`, merged PR #119)
-Status: Implementation and local verification complete; GitLab MR publication waits for a GitLab project URL (this checkout has only a GitHub `origin`).
+Status: Implementation and local verification complete; feature branch pushed to GitHub for PR review.
 
 ## Summary
 
@@ -27,6 +27,6 @@ Workspace migration `0009` links every newly queued discovery attempt to a regis
 
 `cargo test --locked --quiet`: 431 Rust tests pass (88 core, 341 desktop, 2 real service smoke). `cargo check --locked --all-targets` passes. `cargo clippy --locked --all-targets` passes with only five pre-existing warnings. `rustfmt --check` for the new module and `git diff --check` pass. Focused cases cover terminal legacy backfill, recoverable split identity, frozen event links, unregistered enqueue/claim rollback, orphan replay/report, pre-P05 unknown-family reporting, missing bound registry, and desktop/service hand-over with registered event IDs. Packaged Tauri UI and remote CI have not been run.
 
-## Publication blocker
+## Publication
 
-This repository configures only `origin=https://github.com/yoyoCadence/AlphaFactorForge.git`. No GitLab remote or project URL is available, so a GitLab MR cannot be created or linked until the maintainer supplies the target project. The code, tests, documentation, and local commit can be completed independently.
+The maintainer clarified that this repository uses GitHub for review. The feature branch is pushed to `origin=https://github.com/yoyoCadence/AlphaFactorForge.git`; the PR targets `main`. No merge is authorized.
