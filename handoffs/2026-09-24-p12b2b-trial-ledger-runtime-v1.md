@@ -3,7 +3,7 @@
 Date: 2026-09-24
 Repo: yoyoCadence/AlphaFactorForge
 Branch: `feat/p12b2b-trial-ledger-runtime` (from `origin/main` `9a2a719`, merged PR #119)
-Status: Implementation and local verification complete; feature branch pushed to GitHub for PR review.
+Status: Resolved; merged in GitHub PR #120 as `7537fa3`.
 
 ## Summary
 
@@ -30,3 +30,7 @@ Workspace migration `0009` links every newly queued discovery attempt to a regis
 ## Publication
 
 The maintainer clarified that this repository uses GitHub for review. The feature branch is pushed to `origin=https://github.com/yoyoCadence/AlphaFactorForge.git`; the PR targets `main`. No merge is authorized.
+
+## Resolution
+
+The maintainer merged [PR #120](https://github.com/yoyoCadence/AlphaFactorForge/pull/120) as `7537fa3` on 2026-09-24. P12c-1 started from that fetched `origin/main`; its new work stays on `feat/p12c1-walk-forward-feasibility`. P12b/P12 remain In Progress because admission still belongs to P12d.
