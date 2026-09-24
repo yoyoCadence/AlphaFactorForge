@@ -1,4 +1,4 @@
-//! P12b-1a — the trial ledger registry core (`trial-ledger-v1`,
+//! P12b — the trial ledger registry (`trial-ledger-v1`,
 //! `docs/trial-ledger-v1.md`).
 //!
 //! The registry is ONE SQLite database outside every workspace (spec §2) and
@@ -8,9 +8,10 @@
 //! historical receipt (§6.3), and the current admission count (§6.4) — the
 //! only ledger value a P12a precision plan may be built from.
 //!
-//! Not here yet: export/import, union and checkpoint writes (P12b-1b), the
-//! workspace binding and runner wiring (P12b-2), and admission blocking
-//! (P12d). Nothing in the runtime calls this module yet.
+//! The transfer module owns export/import and union (P12b-1b); the binding
+//! module owns the registry-side workspace prefix check (P12b-2a). Runner
+//! wiring, workspace migration and legacy backfill (P12b-2b), then admission
+//! blocking (P12d), still follow. Nothing in the runtime calls this yet.
 //!
 //! Chain encoding (§7.1): lowercase-hex SHA-256 digests; `chain_0 =
 //! sha256("trial-ledger-v1:genesis:" + registryId)` and `chain_n =
@@ -25,8 +26,13 @@
 // same for its not-yet-wired readers).
 #![allow(dead_code)]
 
+#[path = "trial_ledger_binding.rs"]
+mod binding;
 #[path = "trial_ledger_transfer.rs"]
 mod transfer;
+// Public for the P12b-2 runner/workspace transaction; no runtime caller yet.
+#[allow(unused_imports)]
+pub use binding::{read_workspace_binding, write_workspace_binding, BindingCheck, LedgerBinding};
 // Public for the P12b-2 command surface; no runtime caller exists yet.
 #[allow(unused_imports)]
 pub use transfer::ImportSummary;
@@ -36,7 +42,9 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::Duration;
 
-use rusqlite::{params, Connection, OptionalExtension, Transaction, TransactionBehavior};
+use rusqlite::{
+    params, Connection, OpenFlags, OptionalExtension, Transaction, TransactionBehavior,
+};
 use serde_json::{json, Value};
 
 use super::{canonical_json, sha256_hex};
@@ -92,6 +100,8 @@ pub enum LedgerError {
     UnsupportedVolume(String),
     #[error("registry_schema_newer: {0}")]
     SchemaTooNew(String),
+    #[error("registry_missing: {0}")]
+    RegistryMissing(String),
     #[error("invalid_trial_batch: {0}")]
     InvalidBatch(String),
     #[error("idempotency_conflict: {0}")]
@@ -127,6 +137,7 @@ impl LedgerError {
             Self::WorkspaceInsideRegistry(_) => "workspace_inside_registry",
             Self::UnsupportedVolume(_) => "registry_on_unsupported_volume",
             Self::SchemaTooNew(_) => "registry_schema_newer",
+            Self::RegistryMissing(_) => "registry_missing",
             Self::InvalidBatch(_) => "invalid_trial_batch",
             Self::IdempotencyConflict(_) => "idempotency_conflict",
             Self::BatchConflict(_) => "batch_conflict",
@@ -1091,13 +1102,36 @@ impl TrialLedger {
         Self::open_with_sync_roots(registry_dir, workspace_dir, &sync_roots_from_env())
     }
 
+    /// A bound workspace must never create an empty replacement if its
+    /// previously observed registry file disappeared (spec §7.2).
+    pub fn open_existing(registry_dir: &Path, workspace_dir: &Path) -> Result<Self, LedgerError> {
+        Self::open_with_sync_roots_mode(registry_dir, workspace_dir, &sync_roots_from_env(), true)
+    }
+
     fn open_with_sync_roots(
         registry_dir: &Path,
         workspace_dir: &Path,
         sync_roots: &[PathBuf],
     ) -> Result<Self, LedgerError> {
-        std::fs::create_dir_all(registry_dir)?;
-        let registry = std::fs::canonicalize(registry_dir)?;
+        Self::open_with_sync_roots_mode(registry_dir, workspace_dir, sync_roots, false)
+    }
+
+    fn open_with_sync_roots_mode(
+        registry_dir: &Path,
+        workspace_dir: &Path,
+        sync_roots: &[PathBuf],
+        require_existing: bool,
+    ) -> Result<Self, LedgerError> {
+        if !require_existing {
+            std::fs::create_dir_all(registry_dir)?;
+        }
+        let registry = std::fs::canonicalize(registry_dir).map_err(|error| {
+            if require_existing && error.kind() == std::io::ErrorKind::NotFound {
+                LedgerError::RegistryMissing(registry_dir.display().to_string())
+            } else {
+                LedgerError::Io(error)
+            }
+        })?;
         let workspace = std::fs::canonicalize(workspace_dir)?;
         if registry.starts_with(&workspace) {
             return Err(LedgerError::RegistryInsideWorkspace(format!(
@@ -1120,7 +1154,31 @@ impl TrialLedger {
             )));
         }
         let path = registry.join(REGISTRY_FILE_NAME);
-        let mut conn = Connection::open(&path)?;
+        let mut conn = if require_existing {
+            Connection::open_with_flags(&path, OpenFlags::SQLITE_OPEN_READ_WRITE).map_err(
+                |error| {
+                    if !path.is_file() {
+                        LedgerError::RegistryMissing(path.display().to_string())
+                    } else {
+                        LedgerError::Db(error)
+                    }
+                },
+            )?
+        } else {
+            Connection::open(&path)?
+        };
+        if require_existing {
+            // A stray empty SQLite file is not evidence of the bound registry.
+            let required_tables: i64 = conn.query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table'
+                   AND name IN ('registry_meta', 'registry_migrations')",
+                [],
+                |row| row.get(0),
+            )?;
+            if required_tables != 2 {
+                return Err(LedgerError::RegistryMissing(path.display().to_string()));
+            }
+        }
         conn.pragma_update(None, "journal_mode", "WAL")?;
         conn.pragma_update(None, "foreign_keys", "ON")?;
         conn.busy_timeout(BUSY_TIMEOUT)?;
