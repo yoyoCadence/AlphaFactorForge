@@ -31,6 +31,7 @@ use alpha_factor_forge::discovery_core::market_data;
 use alpha_factor_forge::discovery_core::types::Candle as CoreCandle;
 use serde::Serialize;
 use serde_json::{json, Value};
+use rusqlite::OptionalExtension;
 
 use crate::db::discovery::{
     self, CandidateAssessment, CandidateJobSpec, ClaimedCandidateJobs, DiscoveryJobRow,
@@ -41,6 +42,10 @@ use crate::db::repositories::{self, StrategyDef};
 use crate::error::{AppError, AppResult};
 use crate::research::artifacts::{ArtifactRef, ArtifactStore};
 use crate::research::history::{self as history, AttemptDraft, HypothesisDraft};
+use crate::research::trial_ledger::{
+    TrialBatchInput, TrialEventInput, TrialKind, TrialLedger, TrialOrigin,
+};
+use crate::research::trial_ledger_workspace::{self, unique_snapshot};
 use crate::research::{canonical_json, sha256_hex, CANDIDATE_RESULT_VERSION};
 
 use self::execution::{
@@ -327,6 +332,8 @@ pub struct DiscoveryRunner {
     /// workspaces) records the attempt without a file; production always
     /// sets it (`runtime::open_workspace`).
     artifact_store: Option<Arc<ArtifactStore>>,
+    trial_ledger: Option<Arc<TrialLedger>>,
+    workspace_id: Option<String>,
 }
 
 impl Default for DiscoveryRunner {
@@ -336,6 +343,8 @@ impl Default for DiscoveryRunner {
             executor: Arc::new(ProductionExecutor),
             epoch: None,
             artifact_store: None,
+            trial_ledger: None,
+            workspace_id: None,
         }
     }
 }
@@ -362,6 +371,27 @@ impl DiscoveryRunner {
 
     pub fn artifact_store(&self) -> Option<&ArtifactStore> {
         self.artifact_store.as_deref()
+    }
+
+    pub fn with_trial_ledger(mut self, ledger: Arc<TrialLedger>, workspace_id: &str) -> Self {
+        self.trial_ledger = Some(ledger);
+        self.workspace_id = Some(workspace_id.into());
+        self
+    }
+
+    fn check_candidate_registration(&self, conn: &rusqlite::Connection, run_id: i64, candidate_index: i64) -> AppResult<()> {
+        let Some(ledger) = &self.trial_ledger else { return Ok(()); };
+        trial_ledger_workspace::require_current(ledger, conn)?;
+        let event: Option<String> = conn.query_row(
+            "SELECT trial_event_id FROM research_attempts
+             WHERE discovery_run_id = ?1 AND candidate_index = ?2 AND status = 'submitted'",
+            rusqlite::params![run_id, candidate_index], |row| row.get(0),
+        ).optional()?.flatten();
+        let event = event.ok_or_else(|| other("trial_not_registered"))?;
+        if !ledger.contains_event(&event).map_err(|error| other(error.to_string()))? {
+            return Err(other("trial_not_registered: event missing from registry"));
+        }
+        Ok(())
     }
 
     pub fn recover_orphans(&self, db: &SharedDb) -> AppResult<RecoveryReport> {
@@ -466,8 +496,17 @@ impl DiscoveryRunner {
             // P05: what each candidate is an attempt at, frozen with the
             // enqueue (ABC-05). Same transaction as the job rows.
             let lineage = run_lineage(&config, &raw_config, run_id, &dataset, &scheduled, self.epoch)?;
-            if let Err(error) =
-                discovery::start_discovery_run_with_lineage(&mut conn, self.epoch, run_id, &specs, Some(&lineage))
+            let trial_request = request_id.map(str::to_string).unwrap_or_else(|| format!("run-{run_id}"));
+            let registration = if let Some(ledger) = &self.trial_ledger {
+                Some(register_lineage(
+                    ledger, &conn, self.workspace_id.as_deref().ok_or_else(|| other("workspace identity missing"))?,
+                    &trial_request, &config, &dataset, &lineage,
+                )?)
+            } else { None };
+            if let Err(error) = discovery::start_discovery_run_bound(
+                &mut conn, self.epoch, run_id, &specs, Some(&lineage),
+                registration.as_ref().map(|(ids, binding)| (ids.as_slice(), binding)),
+            )
             {
                 if matches!(error, AppError::StaleOwner(_)) {
                     return Err(error);
@@ -655,12 +694,20 @@ impl DiscoveryRunner {
         {
             let conn = lock(&db, "db")?;
             discovery::assert_owner(&conn, self.epoch)?;
-            discovery::resume_discovery_run_with_lineage(
+            let registration = if let Some(ledger) = &self.trial_ledger {
+                Some(trial_ledger_workspace::register_missing_lineage(
+                    &conn, ledger,
+                    self.workspace_id.as_deref().ok_or_else(|| other("workspace identity missing"))?,
+                    &resume_lineage,
+                )?)
+            } else { None };
+            discovery::resume_discovery_run_bound(
                 &conn,
                 self.epoch,
                 run_id,
                 &begun,
                 &resume_lineage,
+                registration.as_ref().map(|(events, head)| (events, head)),
             )?;
             let progress = stored_progress_json(
                 prepared.enumeration,
@@ -1013,6 +1060,7 @@ impl DiscoveryRunner {
                         }
                         let scheduled = prepared.candidates[next].clone();
                         let claimed = match lock(&db, "db").and_then(|conn| {
+                            self.check_candidate_registration(&conn, run_id, scheduled.candidate.index)?;
                             discovery::claim_candidate_jobs_with_attempt(
                                 &conn,
                                 state.epoch,
@@ -1676,6 +1724,61 @@ fn run_lineage(
         lineage.push((hypothesis, attempt));
     }
     Ok(lineage)
+}
+
+fn trial_hash(value: &Value) -> AppResult<String> {
+    Ok(sha256_hex(&canonical_json(value)?))
+}
+
+/// Registry commit first, then the caller stores these IDs and the observed
+/// head in the same workspace transaction as its queued jobs.
+fn register_lineage(
+    ledger: &TrialLedger,
+    conn: &rusqlite::Connection,
+    workspace_id: &str,
+    request_id: &str,
+    config: &ResolvedDiscoveryConfig,
+    dataset: &VerifiedDataset,
+    lineage: &history::RunLineage,
+) -> AppResult<(Vec<String>, crate::research::trial_ledger::LedgerBinding)> {
+    trial_ledger_workspace::require_current(ledger, conn)?;
+    let snapshot = unique_snapshot(conn, dataset.id, &dataset.content_hash)?;
+    let split_hash = trial_hash(&json!({
+        "split": config.contracts.split,
+        "embargo": config.contracts.embargo,
+    }))?;
+    let events = lineage.iter().map(|(hypothesis, attempt)| {
+        let index = attempt.candidate_index.ok_or_else(|| other("candidate index missing"))?;
+        let seeds = attempt.input_fingerprint.get("seeds")
+            .ok_or_else(|| other("candidate seeds missing"))?;
+        let strategy_hash = attempt.input_fingerprint.get("strategyHash")
+            .and_then(Value::as_str).ok_or_else(|| other("strategy hash missing"))?;
+        Ok(TrialEventInput {
+            kind: TrialKind::Variant,
+            origin: TrialOrigin::Request {
+                request_id: request_id.into(), candidate_index: index as u64,
+            },
+            hypothesis_hash: Some(hypothesis.hash()?),
+            strategy_hash: Some(strategy_hash.into()),
+            dataset_hash: Some(dataset.content_hash.clone()),
+            snapshot_id: snapshot.as_ref().map(|(_, id)| id.clone()),
+            split_hash: Some(split_hash.clone()),
+            seeds_hash: Some(trial_hash(seeds)?),
+            engine_fingerprint_hash: Some(trial_hash(&attempt.engine_fingerprint)?),
+            benchmark_id: None,
+            benchmark_params_hash: None,
+            reproduction_of: None,
+            benchmark_evidence: None,
+        })
+    }).collect::<AppResult<Vec<_>>>()?;
+    let registered = ledger.register_batch(&TrialBatchInput {
+        workspace_id: workspace_id.into(),
+        instrument_id: snapshot.map(|(instrument, _)| instrument),
+        tests_per_trial: 1,
+        events,
+    }).map_err(|error| other(error.to_string()))?;
+    let head = trial_ledger_workspace::require_current(ledger, conn)?;
+    Ok((registered.event_ids, head))
 }
 
 /// P05: the complete, immutable result of one candidate as a

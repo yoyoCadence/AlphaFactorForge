@@ -1095,6 +1095,29 @@ pub struct TrialLedger {
 }
 
 impl TrialLedger {
+    /// The claim fence uses the current registry, never just the workspace's
+    /// stored foreign ID. A missing event blocks execution after a restore.
+    pub fn contains_event(&self, event_id: &str) -> Result<bool, LedgerError> {
+        let conn = self.lock()?;
+        Ok(conn.query_row(
+            "SELECT 1 FROM trial_events WHERE event_id = ?1",
+            [event_id],
+            |_| Ok(()),
+        ).optional()?.is_some())
+    }
+
+    /// Event IDs registered by this workspace, including the harmless
+    /// registry-only leftovers of a failed workspace enqueue.
+    pub fn workspace_event_ids(&self, workspace_id: &str) -> Result<Vec<String>, LedgerError> {
+        let conn = self.lock()?;
+        let mut stmt = conn.prepare(
+            "SELECT event_id FROM trial_events WHERE json_extract(payload_json, '$.workspaceId') = ?1 ORDER BY seq",
+        )?;
+        let ids = stmt.query_map([workspace_id], |row| row.get(0))?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(ids)
+    }
+
     /// Opens (creating if needed) the registry in `registry_dir` for the
     /// workspace at `workspace_dir`. Both directories are canonicalized and
     /// must not contain one another (spec §2.1); the workspace must exist.

@@ -206,15 +206,24 @@ fn a_hand_over_moves_an_in_flight_run_to_the_service_at_a_checkpoint_and_the_tak
     // The desktop's runner, but with a worker we can hold at each candidate.
     let (started_tx, started_rx) = mpsc::channel();
     let gate = Arc::new(PermitGate::new());
-    let gated = DiscoveryRunner {
-        executor: Arc::new(PermittedProductionExecutor { started: started_tx, gate: gate.clone() }),
-        ..DiscoveryRunner::with_epoch(workspace.ownership.epoch)
-    };
+    let mut gated = workspace.discovery.clone();
+    gated.executor = Arc::new(PermittedProductionExecutor { started: started_tx, gate: gate.clone() });
     workspace.discovery = gated.clone();
     let db = workspace.db.clone();
     let run_id = gated
         .start(db.clone(), Arc::new(RecordingSink::new(db.clone())), runner_config(dataset_id, &dataset_hash, 2))
         .unwrap();
+    let trial_ids = {
+        let conn = db.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT trial_event_id FROM research_attempts WHERE discovery_run_id = ?1 ORDER BY candidate_index"
+        ).unwrap();
+        stmt.query_map([run_id], |row| row.get::<_, String>(0)).unwrap()
+            .collect::<Result<Vec<_>, _>>().unwrap()
+    };
+    assert_eq!(trial_ids.len(), 2, "every candidate was registered before dispatch");
+    let ledger = gated.trial_ledger.as_ref().unwrap();
+    assert!(trial_ids.iter().all(|id| ledger.contains_event(id).unwrap()));
     assert_eq!(started_rx.recv_timeout(TEST_TIMEOUT).unwrap(), 0, "candidate 0 in flight in the desktop");
 
     let slot = Mutex::new(HostMode::Embedded(workspace));

@@ -2034,7 +2034,9 @@ mod tests {
             .expect("0008 adds the market foundation");
         conn.prepare("SELECT snapshot_id, status FROM market_snapshots")
             .expect("0008 adds the market snapshots");
-        assert_eq!(count(&conn, "schema_migrations"), 8);
+        conn.prepare("SELECT trial_event_id FROM research_attempts")
+            .expect("0009 adds the frozen registry event link");
+        assert_eq!(count(&conn, "schema_migrations"), 9);
     }
 
     #[test]
@@ -2063,7 +2065,7 @@ mod tests {
         assert_eq!(count(&conn, "strategy_def"), 1, "existing data survives");
         assert_eq!(count(&conn, "datasets"), 1);
         assert_eq!(count(&conn, "validation_records"), 0, "new table exists");
-        assert_eq!(count(&conn, "schema_migrations"), 8);
+        assert_eq!(count(&conn, "schema_migrations"), 9);
         assert_eq!(count(&conn, "hypotheses"), 0, "0007 research history exists");
         assert_eq!(count(&conn, "workspace_ownership"), 1, "0004 seeds the unowned row");
         assert_eq!(count(&conn, "runtime_state"), 1, "0006 seeds the state version");

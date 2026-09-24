@@ -196,12 +196,21 @@ pub type RunLineage = Vec<(HypothesisDraft, AttemptDraft)>;
 
 /// Register every hypothesis (deduplicated) and attempt, in the caller's
 /// transaction. Returns `(hypothesis id, attempt id)` per candidate, in order.
-pub fn register_run_lineage(conn: &Connection, lineage: &RunLineage) -> AppResult<Vec<(i64, i64)>> {
+/// The production enqueue supplies the registry's IDs. The IDs and jobs are
+/// frozen by the caller's single workspace transaction.
+pub fn register_run_lineage_with_events(
+    conn: &Connection,
+    lineage: &RunLineage,
+    event_ids: Option<&[String]>,
+) -> AppResult<Vec<(i64, i64)>> {
+    if event_ids.is_some_and(|ids| ids.len() != lineage.len()) {
+        return Err(AppError::Other("trial event count differs from run lineage".into()));
+    }
     let mut ids = Vec::with_capacity(lineage.len());
-    for (hypothesis, attempt) in lineage {
+    for (index, (hypothesis, attempt)) in lineage.iter().enumerate() {
         let (hypothesis_id, _) = register_hypothesis(conn, hypothesis)?;
         let draft = AttemptDraft { hypothesis_id, ..attempt.clone() };
-        ids.push((hypothesis_id, register_attempt(conn, &draft)?));
+        ids.push((hypothesis_id, register_attempt_with_event(conn, &draft, event_ids.map(|ids| ids[index].as_str()))?));
     }
     Ok(ids)
 }
@@ -211,7 +220,11 @@ pub fn register_run_lineage(conn: &Connection, lineage: &RunLineage) -> AppResul
 /// this inserts rows solely for pre-0007 runs whose queued jobs survived the
 /// schema upgrade. The caller owns the paused -> running transaction, so no
 /// candidate can be claimed between this check and the transition.
-pub fn ensure_resumable_lineage(conn: &Connection, lineage: &RunLineage) -> AppResult<usize> {
+pub fn ensure_resumable_lineage_with_events(
+    conn: &Connection,
+    lineage: &RunLineage,
+    events: Option<&std::collections::BTreeMap<String, String>>,
+) -> AppResult<usize> {
     let mut inserted = 0usize;
     for (hypothesis, expected) in lineage {
         let existing = conn
@@ -224,7 +237,11 @@ pub fn ensure_resumable_lineage(conn: &Connection, lineage: &RunLineage) -> AppR
         let Some(existing) = existing else {
             let (hypothesis_id, _) = register_hypothesis(conn, hypothesis)?;
             let draft = AttemptDraft { hypothesis_id, ..expected.clone() };
-            register_attempt(conn, &draft)?;
+            let event = events.map(|map| map.get(&expected.attempt_key)
+                .map(String::as_str)
+                .ok_or_else(|| AppError::Other("trial_not_registered".into())))
+                .transpose()?;
+            register_attempt_with_event(conn, &draft, event)?;
             inserted += 1;
             continue;
         };
@@ -261,17 +278,26 @@ pub fn ensure_resumable_lineage(conn: &Connection, lineage: &RunLineage) -> AppR
                 expected.attempt_key
             )));
         }
+        if events.is_some() {
+            let linked: Option<String> = conn.query_row(
+                "SELECT trial_event_id FROM research_attempts WHERE attempt_key = ?1",
+                [&expected.attempt_key], |row| row.get(0),
+            )?;
+            if linked.is_none() {
+                return Err(AppError::Other("trial_not_registered".into()));
+            }
+        }
     }
     Ok(inserted)
 }
 
 /// Queue one attempt (`submitted`). A repeated key is an error: the caller
 /// that wants "the same attempt" looks it up instead.
-pub fn register_attempt(conn: &Connection, draft: &AttemptDraft) -> AppResult<i64> {
+pub fn register_attempt_with_event(conn: &Connection, draft: &AttemptDraft, event_id: Option<&str>) -> AppResult<i64> {
     conn.execute(
         "INSERT INTO research_attempts (attempt_key, hypothesis_id, strategy_id, dataset_id, discovery_run_id,
-             candidate_index, status, input_fingerprint_json, engine_fingerprint_json, epoch)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'submitted', ?7, ?8, ?9)",
+             candidate_index, status, input_fingerprint_json, engine_fingerprint_json, epoch, trial_event_id)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'submitted', ?7, ?8, ?9, ?10)",
         params![
             draft.attempt_key,
             draft.hypothesis_id,
@@ -282,6 +308,7 @@ pub fn register_attempt(conn: &Connection, draft: &AttemptDraft) -> AppResult<i6
             serde_json::to_string(&draft.input_fingerprint)?,
             serde_json::to_string(&draft.engine_fingerprint)?,
             draft.epoch,
+            event_id,
         ],
     )?;
     Ok(conn.last_insert_rowid())
