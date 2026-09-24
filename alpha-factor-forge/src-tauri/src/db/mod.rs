@@ -66,6 +66,10 @@ const MIGRATIONS: &[(&str, &str)] = &[
         "0008_market_foundation",
         include_str!("../../migrations/0008_market_foundation.sql"),
     ),
+    (
+        "0009_trial_ledger_binding",
+        include_str!("../../migrations/0009_trial_ledger_binding.sql"),
+    ),
 ];
 
 /// Open (creating if needed) the workspace database at `db_path` and run

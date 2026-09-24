@@ -16,6 +16,7 @@
 pub mod artifacts;
 pub mod history;
 pub mod trial_ledger;
+pub mod trial_ledger_workspace;
 
 use serde_json::Value;
 use sha2::{Digest, Sha256};

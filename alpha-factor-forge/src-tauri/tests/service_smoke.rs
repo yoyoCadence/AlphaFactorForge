@@ -32,6 +32,12 @@ impl Drop for Workspace {
             std::fs::remove_dir_all(&self.0)
                 .unwrap_or_else(|error| panic!("workspace {} not removed: {error}", self.0.display()));
         }
+        let registry = self.0.with_extension("registry");
+        if registry.exists() {
+            std::fs::remove_dir_all(&registry).unwrap_or_else(|error| {
+                panic!("registry {} not removed: {error}", registry.display())
+            });
+        }
     }
 }
 
@@ -53,6 +59,7 @@ fn fresh_dir(label: &str) -> PathBuf {
 
 fn service(args: &[&str], dir: &Path) -> Command {
     let mut command = Command::new(SERVICE);
+    command.env("AFF_TEST_TRIAL_REGISTRY_DIR", dir.with_extension("registry"));
     command.args(args).arg("--data-dir").arg(dir);
     command.stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
     command

@@ -676,3 +676,14 @@ P12b-2b 在建立 attempts 的同一筆工作區交易內呼叫，不自行提�
 舊 registry、舊序號與舊鏈值檢查點存在且其事件仍在新 registry，才回傳新鏈頭；否則回報
 `registry_replaced`。鏈已損壞時回報 `registry_chain_broken`。此切片只有可測試的底層 API，
 尚不改變任何 runtime 行為或資格判定。
+
+---
+
+## 19. 實作紀錄：P12b-2b 工作區與 runner 接線（2026-09-24）
+
+- 工作區 migration `0009` 增加可回填的 `research_attempts.trial_event_id`；第一次由 NULL 寫入後，trigger 禁止修改。既有 terminal attempt 只允許這次補鏈，不重新開放其狀態或結果。
+- desktop 與 service 共用 `runtime::open_workspace`：取得工作區 ownership 後，開啟使用者本機資料目錄中的共享 registry，檢查既有 binding；若 registry 遺失或鏈回退／分歧，停止開啟。第一次綁定會依家族回填現有 P05 attempt，registry 先提交，事件 ID 與鏈頭再由同一工作區交易提交；中斷後重試可重放原批次。
+- 對沒有 attempt 的 pre-P05 `validation_records`，啟動報告列出可辨識 snapshot 的受影響家族 `legacy_trials_unknown`。registry 已登記、工作區尚未有 attempt 的事件列為 orphan；兩類都保留證據，不補造歷史次數。
+- runner 於入隊前以 frozen lineage 登記本批 variant，並在同一工作區交易寫入 job、attempt、事件 ID 與鏈頭。恢復更早、沒有 P05 attempt 的 queued run 時，先補 legacy 事件再建 attempt。claim 前驗證 binding 與 registry 中的事件；工作區 claim 交易也拒絕 NULL 連結（`trial_not_registered`）。失敗／取消不刪除已登記事件。
+- 無唯一 dataset snapshot 時使用 `family_unknown`，不猜測 instrument 或 snapshot；舊 attempt 無法可靠還原的 split／seeds 保持 NULL。現行 discovery 每個 candidate 暫以一個檢定宣告 `testsPerTrial = 1`；P12d 必須在使用 P12a admission 前凍結並核對完整 campaign protocol，若要改變已釘選的家族 protocol，需先制定新契約版本。
+- 此切片只建立試驗登記與執行圍欄；P12a–c 的資格／確認阻擋仍由 P12d 接線，portable 非有效 benchmark 證明仍待後續契約。

@@ -203,6 +203,12 @@ impl ServiceLauncher for ExecutableLauncher {
             .open(data_dir.join(SERVICE_LOG_FILE_NAME))?;
         let log_err = log.try_clone()?;
         let mut command = Command::new(&self.exe);
+        #[cfg(test)]
+        command.env(
+            "AFF_TEST_TRIAL_REGISTRY_DIR",
+            crate::research::trial_ledger_workspace::registry_dir(data_dir)
+                .map_err(|error| io::Error::other(error.to_string()))?,
+        );
         command
             .arg("run")
             .arg("--data-dir")

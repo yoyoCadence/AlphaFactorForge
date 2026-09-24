@@ -405,6 +405,22 @@ fn claim_candidate_jobs_inner(
         )));
     }
 
+    if require_attempt
+        && crate::research::trial_ledger::read_workspace_binding(&tx)
+            .map_err(|error| AppError::Other(error.to_string()))?
+            .is_some()
+    {
+        let event: Option<Option<String>> = tx.query_row(
+            "SELECT trial_event_id FROM research_attempts
+             WHERE discovery_run_id = ?1 AND candidate_index = ?2 AND status = 'submitted'",
+            params![run_id, candidate_index],
+            |row| row.get(0),
+        ).optional()?;
+        if event.flatten().is_none() {
+            return Err(AppError::Other("trial_not_registered".into()));
+        }
+    }
+
     let updated = tx.execute(
         "UPDATE discovery_jobs
          SET status = 'running', error_message = NULL, updated_at = datetime('now')
@@ -665,19 +681,18 @@ pub fn start_discovery_run(
     run_id: i64,
     candidates: &[CandidateJobSpec],
 ) -> AppResult<()> {
-    start_discovery_run_with_lineage(conn, epoch, run_id, candidates, None)
+    start_discovery_run_bound(conn, epoch, run_id, candidates, None, None)
 }
 
-/// `start_discovery_run` plus the P05 research history: the run's frozen
-/// hypothesis and one `submitted` attempt per candidate land in the SAME
-/// transaction as the job rows (ABC-05: hypothesis and enqueue are atomic).
-/// `None` is the legacy/test path with no history rows.
-pub fn start_discovery_run_with_lineage(
+/// Queue jobs, freeze their P05 lineage and P12 event IDs, and advance the
+/// registry binding in one owner-checked workspace transaction.
+pub fn start_discovery_run_bound(
     conn: &mut Connection,
     epoch: Option<i64>,
     run_id: i64,
     candidates: &[CandidateJobSpec],
     lineage: Option<&crate::research::history::RunLineage>,
+    binding: Option<(&[String], &crate::research::trial_ledger::LedgerBinding)>,
 ) -> AppResult<()> {
     if candidates.is_empty() {
         return Err(AppError::Other(
@@ -723,6 +738,15 @@ pub fn start_discovery_run_with_lineage(
 
     let tx = super::ownership::write_transaction(conn, epoch)?;
     let from = current_status(&tx, run_id)?;
+    if crate::research::trial_ledger::read_workspace_binding(&tx)
+        .map_err(|error| AppError::Other(error.to_string()))?
+        .is_some() && binding.is_none()
+    {
+        return Err(AppError::Other("trial_not_registered".into()));
+    }
+    if binding.is_some() && lineage.is_none() {
+        return Err(AppError::Other("trial_not_registered: lineage missing".into()));
+    }
     // `idle -> running` lives here, not in the generic table: starting a run
     // is enqueueing its candidates, and the two must not be separable.
     if from != RunStatus::Idle {
@@ -757,7 +781,14 @@ pub fn start_discovery_run_with_lineage(
                 candidates.len()
             )));
         }
-        crate::research::history::register_run_lineage(&tx, lineage)?;
+        crate::research::history::register_run_lineage_with_events(
+            &tx, lineage, binding.map(|(ids, _)| ids)
+        )?;
+    }
+
+    if let Some((_, head)) = binding {
+        crate::research::trial_ledger::write_workspace_binding(&tx, head)
+            .map_err(|error| AppError::Other(error.to_string()))?;
     }
 
     tx.execute(
@@ -893,22 +924,35 @@ pub fn transition_run_with_outcomes(
 /// transaction. Existing P05 attempts are verified; queued candidates from a
 /// pre-0007 run receive their first frozen attempt before the run can become
 /// claimable.
-pub fn resume_discovery_run_with_lineage(
+pub fn resume_discovery_run_bound(
     conn: &Connection,
     epoch: Option<i64>,
     run_id: i64,
     outcomes: &[RequestOutcome<'_>],
     lineage: &crate::research::history::RunLineage,
+    binding: Option<(&std::collections::BTreeMap<String, String>, &crate::research::trial_ledger::LedgerBinding)>,
 ) -> AppResult<usize> {
     let tx = super::ownership::write_transaction(conn, epoch)?;
     let from = current_status(&tx, run_id)?;
+    if crate::research::trial_ledger::read_workspace_binding(&tx)
+        .map_err(|error| AppError::Other(error.to_string()))?
+        .is_some() && binding.is_none()
+    {
+        return Err(AppError::Other("trial_not_registered".into()));
+    }
     if from != RunStatus::Paused {
         return Err(AppError::Other(format!(
             "illegal run transition {} -> running",
             from.as_str()
         )));
     }
-    let inserted = crate::research::history::ensure_resumable_lineage(&tx, lineage)?;
+    let inserted = crate::research::history::ensure_resumable_lineage_with_events(
+        &tx, lineage, binding.map(|(events, _)| events),
+    )?;
+    if let Some((_, head)) = binding {
+        crate::research::trial_ledger::write_workspace_binding(&tx, head)
+            .map_err(|error| AppError::Other(error.to_string()))?;
+    }
     tx.execute(
         "UPDATE discovery_runs
          SET status = 'running', updated_at = datetime('now')

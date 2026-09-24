@@ -3,7 +3,7 @@
 Date: 2026-09-24
 Repo: yoyoCadence/AlphaFactorForge
 Branch: `feat/p12b2a-trial-ledger-binding` (from merged PR #118, `ecb9a4f`)
-Status: Local implementation and verification complete; review pending. P12b-2b must connect the runtime.
+Status: PR #119 merged; P12b-2b runtime integration implemented locally for review.
 
 ## Summary
 
@@ -26,3 +26,7 @@ This slice implements the registry side of the workspace binding contract in spe
 
 - Six isolated Rust tests pass: missing/blank registry, valid existing reopen, same-prefix/rollback/divergence, imported replacement checkpoint, post-open chain damage, and strict/transactional workspace binding storage.
 - `cargo test --locked`: 429 Rust tests (88 library, 339 desktop binary, 2 service smoke), all pass. `cargo check --locked --all-targets` and targeted rustfmt pass; clippy reports only the five existing warnings outside this slice.
+
+## Resolution (2026-09-24)
+
+PR #119 merged P12b-2a. P12b-2b now adds migration `0009`, backfills legacy attempts, binds desktop/service startup, registers discovery candidates before enqueue, and checks registry membership before claim. The new workspace/runtime handoff records the implementation and remaining P12d admission boundary: [P12b-2b handoff](2026-09-24-p12b2b-trial-ledger-runtime-v1.md).

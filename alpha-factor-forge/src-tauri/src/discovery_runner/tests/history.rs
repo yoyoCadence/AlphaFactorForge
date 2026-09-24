@@ -22,9 +22,13 @@ fn fresh_dir() -> PathBuf {
 struct TempDir(PathBuf);
 impl Drop for TempDir {
     fn drop(&mut self) {
+        let registry = crate::research::trial_ledger_workspace::registry_dir(&self.0).ok();
         if self.0.exists() {
             std::fs::remove_dir_all(&self.0)
                 .unwrap_or_else(|error| panic!("temp dir {} not removed: {error}", self.0.display()));
+        }
+        if let Some(registry) = registry.filter(|path| path.exists()) {
+            std::fs::remove_dir_all(&registry).unwrap();
         }
     }
 }
@@ -338,6 +342,7 @@ fn recovery_requeues_an_interrupted_attempt_as_the_same_attempt() {
 fn a_pre_0007_paused_run_gets_lineage_before_resume_and_cannot_bypass_it() {
     let dir = fresh_dir();
     let _guard = TempDir(dir.clone());
+    std::fs::create_dir_all(&dir).unwrap();
     let candles = alternating_candles(240, 1_577_836_800_000);
     let db = migrated_db();
     let (dataset_id, dataset_hash) = import_dataset(&db, &candles);
@@ -389,6 +394,13 @@ fn a_pre_0007_paused_run_gets_lineage_before_resume_and_cannot_bypass_it() {
         run_id
     };
 
+    let workspace_id = crate::db::runtime_ledger::workspace_id(&db.lock().unwrap()).unwrap();
+    let bound = crate::research::trial_ledger_workspace::adopt(
+        &mut db.lock().unwrap(), &dir, &workspace_id,
+    ).unwrap();
+    let ledger = bound.ledger;
+    let runner = runner.with_trial_ledger(ledger.clone(), &workspace_id);
+
     runner
         .resume(db.clone(), Arc::new(RecordingSink::new(db.clone())), run_id)
         .expect("resume backfills queued lineage before executing");
@@ -397,6 +409,16 @@ fn a_pre_0007_paused_run_gets_lineage_before_resume_and_cannot_bypass_it() {
 
     let attempts = attempts_of(&db, run_id);
     assert_eq!(attempts.len(), 2);
+    let event_ids: Vec<String> = {
+        let conn = db.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT trial_event_id FROM research_attempts WHERE discovery_run_id = ?1 ORDER BY candidate_index"
+        ).unwrap();
+        stmt.query_map([run_id], |row| row.get(0)).unwrap()
+            .collect::<Result<Vec<_>, _>>().unwrap()
+    };
+    assert_eq!(event_ids.len(), 2);
+    assert!(event_ids.iter().all(|event| ledger.contains_event(event).unwrap()));
     assert!(attempts.iter().all(|attempt| {
         attempt.status == AttemptStatus::Completed && attempt.result_artifact.is_some()
     }));

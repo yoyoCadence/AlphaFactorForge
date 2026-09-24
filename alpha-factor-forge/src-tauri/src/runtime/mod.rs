@@ -48,6 +48,7 @@ use crate::db::ownership::{self, HolderKind, HEARTBEAT_PERIOD};
 use crate::db::{self, discovery::RecoveryReport, runtime_ledger};
 use crate::discovery_runner::DiscoveryRunner;
 use crate::error::{AppError, AppResult};
+use crate::research::trial_ledger_workspace::{self, LedgerWorkspaceReport};
 
 /// Shared database handle: one connection, one coordinator/writer at a time.
 pub type SharedDb = Arc<Mutex<rusqlite::Connection>>;
@@ -65,6 +66,7 @@ pub struct Workspace {
     /// (`research-command-v1` §2); minted by migration 0005. A host builds
     /// its `commands::Dispatcher` from this, the epoch, and its own sink.
     pub workspace_id: String,
+    pub trial_ledger_report: Arc<LedgerWorkspaceReport>,
 }
 
 /// Proof of ownership for one acquisition: the OS lock, the epoch every write
@@ -195,6 +197,20 @@ pub fn open_workspace_with(
     let mut conn = db::open_at(db_path)?;
     // 4. Record ourselves and bump the epoch.
     let acquired = ownership::acquire(&mut conn, kind, std::process::id())?;
+    let workspace_id = runtime_ledger::workspace_id(&conn)?;
+    let bound = trial_ledger_workspace::adopt(&mut conn, data_dir, &workspace_id)?;
+    if !bound.report.orphan_event_ids.is_empty() {
+        eprintln!(
+            "trial ledger: {} registry events have no workspace attempt: {}",
+            bound.report.orphan_event_ids.len(), bound.report.orphan_event_ids.join(", ")
+        );
+    }
+    if !bound.report.legacy_trials_unknown.is_empty() {
+        eprintln!(
+            "trial ledger: legacy_trials_unknown for families: {}",
+            bound.report.legacy_trials_unknown.join(", ")
+        );
+    }
     // 4b. P06: the calendars this build defines from the contract alone
     //     (`crypto-24x7-v1`). Idempotent and owner-only, like the migration
     //     it follows; calendars that need external holiday data are
@@ -204,7 +220,8 @@ pub fn open_workspace_with(
     // 5. Orphan recovery, as the holder of the new epoch. P05: the runner
     //    keeps every completed candidate's full result beside the database.
     let discovery = DiscoveryRunner::with_epoch(acquired.epoch)
-        .with_artifact_store(crate::research::artifacts::ArtifactStore::in_data_dir(data_dir));
+        .with_artifact_store(crate::research::artifacts::ArtifactStore::in_data_dir(data_dir))
+        .with_trial_ledger(bound.ledger, &workspace_id);
     let recovery = discovery.recover_orphans(&db)?;
     // P03b: the workspace identity and the request ledger's housekeeping,
     // both as the owner (a stale holder could do neither).
@@ -220,6 +237,7 @@ pub fn open_workspace_with(
         discovery,
         recovery,
         workspace_id,
+        trial_ledger_report: Arc::new(bound.report),
         ownership: OwnershipHandle {
             epoch: acquired.epoch,
             instance_id: acquired.instance_id,
@@ -301,7 +319,7 @@ mod tests {
         let applied: i64 = conn
             .query_row("SELECT COUNT(*) FROM schema_migrations", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(applied, 8, "0001–0008 applied on first open");
+        assert_eq!(applied, 9, "0001–0009 applied on first open");
         assert_eq!(workspace.workspace_id.len(), 32, "0005 minted the workspace id");
         drop(conn);
         drop(workspace);
@@ -326,7 +344,7 @@ mod tests {
         let applied: i64 = conn
             .query_row("SELECT COUNT(*) FROM schema_migrations", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(applied, 8, "no migration is re-applied");
+        assert_eq!(applied, 9, "no migration is re-applied");
         assert_eq!(second.workspace_id, first_workspace_id, "the id survives a reopen");
         let value: String = conn
             .query_row("SELECT value_json FROM app_settings WHERE key = 'p02'", [], |r| r.get(0))
@@ -493,17 +511,17 @@ mod tests {
             assert_eq!(pragma::<i64>(&conn, "foreign_keys"), 1);
             assert_eq!(pragma::<i64>(&conn, "busy_timeout"), db::BUSY_TIMEOUT.as_millis() as i64);
             let applied: i64 = conn.query_row("SELECT COUNT(*) FROM schema_migrations", [], |r| r.get(0)).unwrap();
-            assert_eq!(applied, 8, "nothing applied by the non-owner");
+            assert_eq!(applied, 9, "nothing applied by the non-owner");
         }
         // Behind: the owner's build is older than this one.
-        owner.db.lock().unwrap().execute("DELETE FROM schema_migrations WHERE version = '0008_market_foundation'", []).unwrap();
+        owner.db.lock().unwrap().execute("DELETE FROM schema_migrations WHERE version = '0009_trial_ledger_binding'", []).unwrap();
         let behind = db::open_migrated(&path).expect_err("pending migration");
         assert!(matches!(behind, AppError::SchemaPending(_)), "{behind:?}");
-        assert!(behind.to_string().contains("0008_market_foundation"));
+        assert!(behind.to_string().contains("0009_trial_ledger_binding"));
         let still: i64 = owner.db.lock().unwrap().query_row("SELECT COUNT(*) FROM schema_migrations", [], |r| r.get(0)).unwrap();
-        assert_eq!(still, 7, "the non-owner did not migrate");
+        assert_eq!(still, 8, "the non-owner did not migrate");
         // Ahead: the owner's build is newer than this one.
-        owner.db.lock().unwrap().execute_batch("INSERT INTO schema_migrations (version) VALUES ('0008_market_foundation'), ('0099_from_the_future')").unwrap();
+        owner.db.lock().unwrap().execute_batch("INSERT INTO schema_migrations (version) VALUES ('0009_trial_ledger_binding'), ('0099_from_the_future')").unwrap();
         let ahead = db::open_migrated(&path).expect_err("unknown migration");
         assert!(matches!(ahead, AppError::SchemaTooNew(_)), "{ahead:?}");
         drop(owner);
@@ -524,7 +542,7 @@ mod tests {
         let error = refused.err().expect("a newer schema must refuse the open");
         assert!(matches!(error, AppError::SchemaTooNew(_)), "got {error:?}");
         assert!(error.to_string().contains("0099_from_the_future"));
-        assert!(error.to_string().contains("0008_market_foundation"), "names what this build knows");
+        assert!(error.to_string().contains("0009_trial_ledger_binding"), "names what this build knows");
 
         // Refused BEFORE ownership: the row is still unowned, and the lock was
         // released with the failed attempt so a matching build could open it.
