@@ -14,8 +14,8 @@
     "command": "npm run fixtures:runner-config",
     "sourceHashEncoding": "utf8-lf-v1",
     "sourceHashes": {
-      "generator": "sha256:55cb481c3e872438fe7f1b42933c862c10d2cbd2deba0742312568ce5465a463",
-      "discoveryConfig": "sha256:1d8cab99eec3f06da759095c341b686f9914ed638bc1d448171ca0f053352d32",
+      "generator": "sha256:0fa26909608d7db47ac669f3c3e7516003e8d505867115554617a591ca128e53",
+      "discoveryConfig": "sha256:8661f717c5a3a8323b5b0a585856067ec0d87e2929c8b3fbf1c66801274a87ac",
       "candidateEnumeration": "sha256:6858af5bf6c6c4c5f2500225a5b57ff368d89a5584d51d21ca467e46f60780b3",
       "discoverySeed": "sha256:e554aa682d57da5e195734689412cfd6509050d2213a9a4844cbbdb1855f05d6",
       "hashing": "sha256:ed2f1bd67868014afc28a4717d899950db86d134d74e0d249e82561a593d5a6e",
@@ -1499,7 +1499,7 @@
       "id": "config-envelope-version-mismatch",
       "logicalCores": 8,
       "input": {
-        "envelopeVersion": "discovery-config-v3",
+        "envelopeVersion": "discovery-config-v4",
         "contracts": {
           "strategyHash": "strategy-v2",
           "datasetHash": "dataset-content-v2",
@@ -1623,7 +1623,7 @@
         },
         "maxConcurrency": null
       },
-      "expectedErrorIncludes": "envelopeVersion must be one of discovery-config-v1, discovery-config-v2"
+      "expectedErrorIncludes": "envelopeVersion must be one of discovery-config-v1, discovery-config-v2, discovery-config-v3"
     },
     {
       "id": "config-contract-version-mismatch",

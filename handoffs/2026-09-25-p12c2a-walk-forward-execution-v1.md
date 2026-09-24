@@ -3,7 +3,7 @@
 Date: 2026-09-25
 Repo: yoyoCadence/AlphaFactorForge
 Branch: `feat/p12c2a-walk-forward-execution` (from merged PR #121, `5069805`)
-Status: Implementation and local verification complete; P12c-2b and P12d remain open.
+Status: Resolved for P12c-2a (merged PR #122); P12d remains open.
 
 ## Summary
 
@@ -25,3 +25,7 @@ The standalone Rust `execute_candidate_walk_forward` entry point evaluates an al
 ## Verification
 
 `cargo test --locked --quiet` passes 440 Rust tests (93 library, 345 desktop, 2 service smoke), including four new fold-execution tests for params/DSL, suffix isolation and invalid/ineligible declarations. `cargo check --locked --all-targets` passes. `cargo clippy --locked --all-targets` passes with five pre-existing warnings in unrelated files. `git diff --check` passes. No packaged Tauri UI or live research campaign was run; no UI or production runner path changed.
+
+## Resolution (2026-09-25)
+
+P12c-2a merged through [PR #122](https://github.com/yoyoCadence/AlphaFactorForge/pull/122) as `a77de2d`. P12c-2b now adds the versioned v3 run declaration, runner preflight/execution and immutable result artifact; see [its handoff](2026-09-25-p12c2b-walk-forward-runtime-v1.md). Campaign admission remains P12d.

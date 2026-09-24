@@ -24,7 +24,7 @@ const STATUS_LABEL: Record<ResearchAttemptStatus, string> = {
 
 type LoadState = 'idle' | 'loading' | 'ready' | 'error';
 
-/** The pieces of a `candidate-result-v1` document the list needs. */
+/** The fields shared by `candidate-result-v1/v2` that the list needs. */
 function resultDigest(result: Record<string, unknown> | null): { train: string; validation: string } {
   const segment = (key: 'train' | 'validation'): string => {
     const summary = (result?.[key] as { summary?: Record<string, unknown> } | undefined)?.summary;

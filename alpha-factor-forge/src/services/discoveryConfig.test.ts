@@ -7,8 +7,10 @@ import {
   DISCOVERY_AXIS_KEYS,
   DISCOVERY_CONFIG_VERSION,
   DISCOVERY_CONFIG_VERSION_V2,
+  DISCOVERY_CONFIG_VERSION_V3,
   DISCOVERY_CONTRACT_VERSIONS,
   DISCOVERY_CONTRACT_VERSIONS_V2,
+  DISCOVERY_CONTRACT_VERSIONS_V3,
   DISCOVERY_DEFAULT_CANDIDATE_CAP,
   DISCOVERY_HARD_CANDIDATE_CAP,
   DISCOVERY_MAX_AXIS_VALUES,
@@ -88,8 +90,8 @@ describe('discovery-config-v1 parsing', () => {
       .toThrow(/has unknown key "extra"/);
     expect(() => parse((config) => { delete config.rootSeed; }))
       .toThrow(/is missing key "rootSeed"/);
-    expect(() => parse((config) => { config.envelopeVersion = 'discovery-config-v3'; }))
-      .toThrow(/envelopeVersion must be one of discovery-config-v1, discovery-config-v2/);
+    expect(() => parse((config) => { config.envelopeVersion = 'discovery-config-v4'; }))
+      .toThrow(/envelopeVersion must be one of discovery-config-v1, discovery-config-v2, discovery-config-v3/);
     expect(() => parse((config) => {
       (config.contracts as Record<string, string>).gate = 'gate-v2';
     })).toThrow(/contracts\.gate must be "gate-v1"/);
@@ -333,6 +335,39 @@ describe('discovery-config-v1 parsing', () => {
     expect(() => parse((config) => {
       (config.bases as Record<string, unknown>[])[0].id = 'MA Cross';
     })).toThrow(/id must match/);
+  });
+});
+
+describe('discovery-config-v3 walk-forward declaration', () => {
+  function v3Config() {
+    const config = validConfig();
+    config.envelopeVersion = DISCOVERY_CONFIG_VERSION_V3;
+    config.contracts = { ...DISCOVERY_CONTRACT_VERSIONS_V3 };
+    config.walkForward = { minimumTrainBars: 20, foldValidationBars: 8, foldCount: 3 };
+    return config as { envelopeVersion: typeof DISCOVERY_CONFIG_VERSION_V3 } & Record<string, unknown>;
+  }
+
+  it('pins a strict fold declaration without changing v1/v2', () => {
+    const resolved = parseDiscoveryConfig(v3Config(), { logicalCores: 8 });
+    expect(resolved.walkForward).toEqual({ minimumTrainBars: 20, foldValidationBars: 8, foldCount: 3 });
+    expect(resolved.contracts.walkForward).toBe('research-walk-forward-v1');
+    expect(resolved.contracts.walkForwardEvidence).toBe('walk-forward-evidence-v1');
+    expect(parse().envelopeVersion).toBe(DISCOVERY_CONFIG_VERSION);
+  });
+
+  it('rejects missing, unversioned and out-of-range declarations', () => {
+    const missing = v3Config();
+    delete missing.walkForward;
+    expect(() => parseDiscoveryConfig(missing, { logicalCores: 8 })).toThrow(/missing key "walkForward"/);
+    const badVersion = v3Config();
+    (badVersion.contracts as Record<string, string>).walkForward = 'research-walk-forward-v0';
+    expect(() => parseDiscoveryConfig(badVersion, { logicalCores: 8 })).toThrow(/contracts.walkForward/);
+    const tooFew = v3Config();
+    (tooFew.walkForward as Record<string, number>).foldCount = 1;
+    expect(() => parseDiscoveryConfig(tooFew, { logicalCores: 8 })).toThrow(/foldCount must be an integer in \[2, 128\]/);
+    const old = validConfig();
+    old.walkForward = v3Config().walkForward;
+    expect(() => parseDiscoveryConfig(old, { logicalCores: 8 })).toThrow(/unknown key "walkForward"/);
   });
 });
 

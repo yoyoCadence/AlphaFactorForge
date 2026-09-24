@@ -277,7 +277,7 @@ export interface Hypothesis {
 }
 
 /** `get_research_attempt`: the attempt, its hypothesis, and — when it
- *  completed with an artifact — the complete `candidate-result-v1` document,
+ *  completed with an artifact — the complete `candidate-result-v1/v2` document,
  *  checksum-verified on read. `resultError` is set instead of `result` when
  *  the file is missing or altered: the row is the evidence, the file is not. */
 export interface ResearchAttemptDetail {

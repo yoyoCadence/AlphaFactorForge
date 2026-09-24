@@ -11,7 +11,7 @@ use super::*;
 use crate::db::ownership::{acquire, HolderKind};
 use crate::research::artifacts::ArtifactStore;
 use crate::research::history::{self, AttemptFilter, AttemptStatus, HypothesisDraft};
-use crate::research::CANDIDATE_RESULT_VERSION;
+use crate::research::{CANDIDATE_RESULT_VERSION, CANDIDATE_RESULT_VERSION_V2};
 
 fn fresh_dir() -> PathBuf {
     static COUNTER: AtomicU64 = AtomicU64::new(0);
@@ -64,6 +64,94 @@ fn projection(db: &SharedDb, strategy_id: i64, dataset_id: i64, segment: &str) -
             |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
         )
         .unwrap()
+}
+
+#[test]
+fn v3_run_persists_train_only_folds_with_the_completed_attempt() {
+    let dir = fresh_dir();
+    let _guard = TempDir(dir.clone());
+    let db = migrated_db();
+    let candles = alternating_candles(240, 1_577_836_800_000);
+    let (dataset_id, dataset_hash) = import_dataset(&db, &candles);
+    let runner = owned_runner(&db, &dir, Arc::new(ProductionExecutor));
+    let config = walk_forward_runner_config(dataset_id, &dataset_hash);
+    let run_id = run_to_completion(&runner, &db, config);
+    let attempt = attempts_of(&db, run_id).remove(0);
+    assert_eq!(attempt.status, AttemptStatus::Completed);
+    let stored = attempt.result_artifact.unwrap();
+    assert_eq!(stored.reference.kind, CANDIDATE_RESULT_VERSION_V2);
+    let document: Value = serde_json::from_slice(&runner.artifact_store().unwrap()
+        .read(&stored.reference).unwrap()).unwrap();
+    assert_eq!(document["version"], CANDIDATE_RESULT_VERSION_V2);
+    assert_eq!(document["attemptKey"], attempt.attempt_key);
+    assert_eq!(document["walkForward"]["version"], "walk-forward-evidence-v1");
+    assert_eq!(document["walkForward"]["strategyId"], attempt.strategy_id);
+    assert_eq!(document["walkForward"]["datasetHash"], dataset_hash);
+    assert_eq!(document["walkForward"]["plan"]["status"], "ELIGIBLE");
+    let folds = document["walkForward"]["folds"].as_array().unwrap();
+    assert_eq!(folds.len(), 3);
+    let outer_end = document["walkForward"]["plan"]["outerTrain"]["to"].as_u64().unwrap();
+    assert_eq!(folds[2]["window"]["validation"]["to"].as_u64(), Some(outer_end));
+    assert!(document["walkForward"]["plan"].get("test").is_none());
+    assert!(folds.iter().all(|fold| fold["train"]["metrics"].is_object()
+        && fold["validation"]["trades"].is_array()));
+}
+
+#[test]
+fn v3_ineligible_declaration_rejects_before_run_or_attempt_write() {
+    let dir = fresh_dir();
+    let _guard = TempDir(dir.clone());
+    let db = migrated_db();
+    let candles = alternating_candles(96, 1_577_836_800_000);
+    let (dataset_id, dataset_hash) = import_dataset(&db, &candles);
+    let runner = owned_runner(&db, &dir, Arc::new(ProductionExecutor));
+    let mut config = walk_forward_runner_config(dataset_id, &dataset_hash);
+    config["walkForward"]["foldValidationBars"] = json!(10);
+    let error = runner.start(db.clone(), Arc::new(RecordingSink::new(db.clone())), config)
+        .unwrap_err().to_string();
+    assert!(error.contains("NOT_ELIGIBLE"), "{error}");
+    let conn = db.lock().unwrap();
+    let runs: i64 = conn.query_row("SELECT COUNT(*) FROM discovery_runs", [], |r| r.get(0)).unwrap();
+    let attempts: i64 = conn.query_row("SELECT COUNT(*) FROM research_attempts", [], |r| r.get(0)).unwrap();
+    assert_eq!((runs, attempts), (0, 0));
+}
+
+struct NoFoldExecutor;
+
+impl CandidateExecutor for NoFoldExecutor {
+    fn execute(&self, work: &CandidateWork) -> Result<CandidateExecutionOutput, String> {
+        execute_candidate(&ExecuteCandidateArgs {
+            config: &work.config,
+            candidate: &work.candidate,
+            tested_combinations: work.tested_combinations,
+            strategy_id: work.strategy_id,
+            dataset: ExecutionDataset {
+                id: work.dataset.id,
+                content_hash: &work.dataset.content_hash,
+                interval: &work.dataset.interval,
+            },
+            candles: &work.candles,
+        }).map_err(|error| error.to_string())
+    }
+}
+
+#[test]
+fn v3_result_without_fold_evidence_cannot_complete_an_attempt() {
+    let dir = fresh_dir();
+    let _guard = TempDir(dir.clone());
+    let db = migrated_db();
+    let candles = alternating_candles(240, 1_577_836_800_000);
+    let (dataset_id, dataset_hash) = import_dataset(&db, &candles);
+    let runner = owned_runner(&db, &dir, Arc::new(NoFoldExecutor));
+    let run_id = runner.start(db.clone(), Arc::new(RecordingSink::new(db.clone())),
+        walk_forward_runner_config(dataset_id, &dataset_hash)).unwrap();
+    wait_for_status(&runner, &db, run_id, RunStatus::Failed);
+    wait_for_coordinator_exit(&runner, run_id);
+    let run = discovery::get_discovery_run(&db.lock().unwrap(), run_id).unwrap();
+    assert!(run.error_message.unwrap().contains("walk-forward evidence does not match"));
+    let attempt = attempts_of(&db, run_id).remove(0);
+    assert_eq!(attempt.status, AttemptStatus::Failed);
+    assert!(attempt.result_artifact.is_none());
 }
 
 #[test]
@@ -121,6 +209,7 @@ fn a_run_freezes_its_hypothesis_and_one_attempt_per_candidate_with_the_enqueue()
         assert_eq!(stored.reference.kind, CANDIDATE_RESULT_VERSION);
         let document: Value = serde_json::from_slice(&store.read(&stored.reference).unwrap()).unwrap();
         assert_eq!(document["version"], CANDIDATE_RESULT_VERSION);
+        assert!(document.get("walkForward").is_none());
         assert_eq!(document["attemptKey"], attempt.attempt_key);
         assert_eq!(document["strategy"]["id"], attempt.strategy_id);
         assert!(document["train"]["summary"]["trade_count"].is_number());

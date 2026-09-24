@@ -116,6 +116,21 @@ fn runner_config(dataset_id: i64, dataset_hash: &str, candidate_count: usize) ->
     input
 }
 
+fn walk_forward_runner_config(dataset_id: i64, dataset_hash: &str) -> Value {
+    let mut input = runner_config(dataset_id, dataset_hash, 1);
+    input["envelopeVersion"] = json!("discovery-config-v3");
+    input["contracts"]["enumeration"] = json!("discovery-enumeration-v2");
+    input["contracts"]["strategyDsl"] = json!("strategy-dsl-v1");
+    input["contracts"]["walkForward"] = json!("research-walk-forward-v1");
+    input["contracts"]["walkForwardEvidence"] = json!("walk-forward-evidence-v1");
+    input["walkForward"] = json!({
+        "minimumTrainBars": 20,
+        "foldValidationBars": 8,
+        "foldCount": 3,
+    });
+    input
+}
+
 fn dsl_runner_config(dataset_id: i64, dataset_hash: &str) -> Value {
     let mut input = runner_config(dataset_id, dataset_hash, 1);
     input["envelopeVersion"] = json!("discovery-config-v2");

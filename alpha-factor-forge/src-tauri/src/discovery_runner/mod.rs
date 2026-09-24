@@ -29,6 +29,9 @@ use alpha_factor_forge::discovery_core::enumerate::{
 };
 use alpha_factor_forge::discovery_core::market_data;
 use alpha_factor_forge::discovery_core::types::Candle as CoreCandle;
+use alpha_factor_forge::discovery_core::walk_forward::{
+    WalkForwardStatus, WALK_FORWARD_EVIDENCE_VERSION, WALK_FORWARD_VERSION,
+};
 use serde::Serialize;
 use serde_json::{json, Value};
 use rusqlite::OptionalExtension;
@@ -46,10 +49,11 @@ use crate::research::trial_ledger::{
     TrialBatchInput, TrialEventInput, TrialKind, TrialLedger, TrialOrigin,
 };
 use crate::research::trial_ledger_workspace::{self, unique_snapshot};
-use crate::research::{canonical_json, sha256_hex, CANDIDATE_RESULT_VERSION};
+use crate::research::{canonical_json, sha256_hex, CANDIDATE_RESULT_VERSION, CANDIDATE_RESULT_VERSION_V2};
 
 use self::execution::{
-    execute_candidate, CandidateExecutionOutput, ExecuteCandidateArgs, ExecutionDataset,
+    declared_walk_forward_plan, execute_candidate, execute_candidate_walk_forward,
+    CandidateExecutionOutput, ExecuteCandidateArgs, ExecutionDataset,
 };
 
 pub const DISCOVERY_EVENT_VERSION: &str = "discovery-event-v1";
@@ -300,7 +304,7 @@ struct ProductionExecutor;
 
 impl CandidateExecutor for ProductionExecutor {
     fn execute(&self, work: &CandidateWork) -> Result<CandidateExecutionOutput, String> {
-        execute_candidate(&ExecuteCandidateArgs {
+        let args = ExecuteCandidateArgs {
             config: &work.config,
             candidate: &work.candidate,
             tested_combinations: work.tested_combinations,
@@ -311,9 +315,32 @@ impl CandidateExecutor for ProductionExecutor {
                 interval: &work.dataset.interval,
             },
             candles: &work.candles,
-        })
-        .map_err(|error| error.to_string())
+        };
+        let mut output = execute_candidate(&args).map_err(|error| error.to_string())?;
+        if let Some(input) = work.config.walk_forward {
+            let plan = declared_walk_forward_plan(&work.config, &work.candidate, work.candles.len(), input)
+                .map_err(|error| error.to_string())?;
+            output.walk_forward = Some(execute_candidate_walk_forward(&args, &plan)
+                .map_err(|error| error.to_string())?);
+        }
+        Ok(output)
     }
+}
+
+fn preflight_walk_forward(
+    config: &ResolvedDiscoveryConfig,
+    candidates: &[EnumeratedCandidate],
+    candle_count: usize,
+) -> AppResult<()> {
+    let Some(input) = config.walk_forward else {
+        return Ok(());
+    };
+    for candidate in candidates {
+        declared_walk_forward_plan(config, candidate, candle_count, input).map_err(|error| other(format!(
+            "candidate {} walk-forward preflight: {error}", candidate.index
+        )))?;
+    }
+    Ok(())
 }
 
 /// Cloneable manager handle. Exactly one control exists for each in-process
@@ -444,6 +471,7 @@ impl DiscoveryRunner {
                 )));
             }
             let (dataset, candles) = load_verified_dataset(&conn, &config)?;
+            preflight_walk_forward(&config, &plan.candidates, candles.len())?;
             let mut scheduled = Vec::with_capacity(plan.candidates.len());
             let mut specs = Vec::with_capacity(plan.candidates.len());
             for candidate in &plan.candidates {
@@ -652,6 +680,7 @@ impl DiscoveryRunner {
             );
             let plan = enumerate_candidates(&config).map_err(|error| other(error.to_string()))?;
             let (dataset, candles) = load_verified_dataset(&conn, &config)?;
+            preflight_walk_forward(&config, &plan.candidates, candles.len())?;
             let jobs = discovery::list_discovery_jobs(&conn, run_id)?;
             let strategies = repositories::list_strategies(&conn)?;
             let (scheduled, completed) = resume_candidates(&plan, &jobs, &strategies, dataset.id)?;
@@ -1789,7 +1818,31 @@ fn store_candidate_artifact(
     work: &CandidateWork,
     output: &CandidateExecutionOutput,
 ) -> AppResult<ArtifactRef> {
-    let document = json!({
+    if work.config.walk_forward.is_some() != output.walk_forward.is_some() {
+        return Err(other("walk-forward evidence does not match the run declaration"));
+    }
+    if let Some(evidence) = &output.walk_forward {
+        let declared = work.config.walk_forward.expect("presence checked above");
+        if evidence.candidate_index != work.candidate.index
+            || evidence.strategy_id != work.strategy_id
+            || evidence.strategy_hash != work.candidate.strategy_hash
+            || evidence.dataset_id != work.dataset.id
+            || evidence.dataset_hash != work.dataset.content_hash
+            || evidence.version != WALK_FORWARD_EVIDENCE_VERSION
+            || evidence.plan.contract_version != WALK_FORWARD_VERSION
+            || evidence.plan.status != WalkForwardStatus::Eligible
+            || evidence.plan.plan.minimum_train_bars != declared.minimum_train_bars
+            || evidence.plan.plan.fold_validation_bars != declared.fold_validation_bars
+            || evidence.plan.plan.fold_count != declared.fold_count
+            || evidence.plan.folds.len() != declared.fold_count as usize
+            || evidence.folds.len() != declared.fold_count as usize
+            || !evidence.folds.iter().zip(&evidence.plan.folds)
+                .all(|(fold, planned)| fold.window == *planned)
+        {
+            return Err(other("walk-forward evidence identity or fold count mismatch"));
+        }
+    }
+    let mut document = json!({
         "version": CANDIDATE_RESULT_VERSION,
         "attemptKey": history::candidate_attempt_key(run_id, work.candidate.index),
         "runId": run_id,
@@ -1801,7 +1854,14 @@ fn store_candidate_artifact(
         "record": output.record,
         "digest": { "gatePassed": output.digest.gate_passed, "score": output.digest.score },
     });
-    store.put(CANDIDATE_RESULT_VERSION, &canonical_json(&document)?)
+    let version = if let Some(walk_forward) = &output.walk_forward {
+        document["version"] = Value::String(CANDIDATE_RESULT_VERSION_V2.into());
+        document["walkForward"] = serde_json::to_value(walk_forward)?;
+        CANDIDATE_RESULT_VERSION_V2
+    } else {
+        CANDIDATE_RESULT_VERSION
+    };
+    store.put(version, &canonical_json(&document)?)
 }
 
 fn digest(work: &CandidateWork) -> DiscoveryCandidateDigest {

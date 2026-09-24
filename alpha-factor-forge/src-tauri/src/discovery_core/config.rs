@@ -23,9 +23,13 @@ use super::random_entry::RANDOM_ENTRY_CONTRACT_VERSION;
 use super::score::{ScoreCaps, ScoreConfig, ScoreWeights, SCORE_FORMULA_VERSION};
 use super::seed::DISCOVERY_SEED_VERSION;
 use super::split::SPLIT_CONTRACT_VERSION;
+use super::walk_forward::{
+    WALK_FORWARD_EVIDENCE_VERSION, WALK_FORWARD_MAX_FOLDS, WALK_FORWARD_VERSION,
+};
 
 pub const DISCOVERY_CONFIG_VERSION: &str = "discovery-config-v1";
 pub const DISCOVERY_CONFIG_VERSION_V2: &str = "discovery-config-v2";
+pub const DISCOVERY_CONFIG_VERSION_V3: &str = "discovery-config-v3";
 pub const DISCOVERY_PRESET_VERSION: &str = "discovery-preset-v1";
 pub const DISCOVERY_DSL_PRESET_VERSION: &str = "discovery-dsl-preset-v1";
 pub const DISCOVERY_ENUMERATION_VERSION: &str = "discovery-enumeration-v1";
@@ -288,6 +292,22 @@ const ENVELOPE_KEYS: [&str; 13] = [
     "caps",
     "maxConcurrency",
 ];
+const ENVELOPE_KEYS_V3: [&str; 14] = [
+    "envelopeVersion",
+    "contracts",
+    "dataset",
+    "bases",
+    "embargo",
+    "execution",
+    "benchmarkCosts",
+    "randomEntry",
+    "gateConfig",
+    "scoreConfig",
+    "rootSeed",
+    "caps",
+    "maxConcurrency",
+    "walkForward",
+];
 
 // ---------- resolved shapes ----------
 
@@ -308,6 +328,10 @@ pub struct DiscoveryContractVersions {
     pub enumeration: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub strategy_dsl: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub walk_forward: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub walk_forward_evidence: Option<String>,
 }
 
 pub fn discovery_contract_versions() -> DiscoveryContractVersions {
@@ -315,7 +339,8 @@ pub fn discovery_contract_versions() -> DiscoveryContractVersions {
 }
 
 fn discovery_contract_versions_for(envelope_version: &str) -> DiscoveryContractVersions {
-    let dsl = envelope_version == DISCOVERY_CONFIG_VERSION_V2;
+    let dsl = envelope_version != DISCOVERY_CONFIG_VERSION;
+    let walk_forward = envelope_version == DISCOVERY_CONFIG_VERSION_V3;
     DiscoveryContractVersions {
         strategy_hash: STRATEGY_HASH_VERSION.into(),
         dataset_hash: DATASET_HASH_VERSION.into(),
@@ -335,6 +360,8 @@ fn discovery_contract_versions_for(envelope_version: &str) -> DiscoveryContractV
         }
         .into(),
         strategy_dsl: dsl.then(|| STRATEGY_DSL_VERSION.into()),
+        walk_forward: walk_forward.then(|| WALK_FORWARD_VERSION.into()),
+        walk_forward_evidence: walk_forward.then(|| WALK_FORWARD_EVIDENCE_VERSION.into()),
     }
 }
 
@@ -356,6 +383,12 @@ fn contract_entries(versions: &DiscoveryContractVersions) -> Vec<(&'static str, 
     ];
     if let Some(strategy_dsl) = versions.strategy_dsl.as_deref() {
         entries.push(("strategyDsl", strategy_dsl));
+    }
+    if let Some(walk_forward) = versions.walk_forward.as_deref() {
+        entries.push(("walkForward", walk_forward));
+    }
+    if let Some(walk_forward_evidence) = versions.walk_forward_evidence.as_deref() {
+        entries.push(("walkForwardEvidence", walk_forward_evidence));
     }
     entries.sort_by(|left, right| left.0.cmp(right.0));
     entries
@@ -450,6 +483,16 @@ pub struct ResolvedDiscoveryConfig {
     pub root_seed: u32,
     pub caps: CapsInput,
     pub concurrency: ResolvedConcurrency,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub walk_forward: Option<WalkForwardInput>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WalkForwardInput {
+    pub minimum_train_bars: u64,
+    pub fold_validation_bars: u64,
+    pub fold_count: u64,
 }
 
 // ---------- strict readers ----------
@@ -926,22 +969,25 @@ pub fn resolve_concurrency(requested: Option<f64>, logical_cores: f64) -> Result
 
 // ---------- envelope ----------
 
-/// Parse and resolve a discovery envelope. v1 remains params-only; v2 adds
-/// fixed, already-versioned DSL candidates without changing v1 semantics.
+/// Parse and resolve a discovery envelope. v1 remains params-only, v2 adds
+/// fixed DSL candidates, and v3 declares Train-only walk-forward folds.
 pub fn parse_discovery_config(
     value: &Value,
     logical_cores: f64,
 ) -> Result<ResolvedDiscoveryConfig, ConfigError> {
     let path = "discoveryConfig";
     let object = require_object(value, path)?;
-    require_exact_keys(object, path, &ENVELOPE_KEYS)?;
+    let v3 = object.get("envelopeVersion").and_then(Value::as_str)
+        == Some(DISCOVERY_CONFIG_VERSION_V3);
+    require_exact_keys(object, path, if v3 { &ENVELOPE_KEYS_V3 } else { &ENVELOPE_KEYS })?;
 
     let envelope_version = require_string(object, path, "envelopeVersion")?;
     if envelope_version != DISCOVERY_CONFIG_VERSION
         && envelope_version != DISCOVERY_CONFIG_VERSION_V2
+        && envelope_version != DISCOVERY_CONFIG_VERSION_V3
     {
         return fail(format!(
-            "{path}.envelopeVersion must be one of {DISCOVERY_CONFIG_VERSION}, {DISCOVERY_CONFIG_VERSION_V2}"
+            "{path}.envelopeVersion must be one of {DISCOVERY_CONFIG_VERSION}, {DISCOVERY_CONFIG_VERSION_V2}, {DISCOVERY_CONFIG_VERSION_V3}"
         ));
     }
 
@@ -1099,6 +1145,35 @@ pub fn parse_discovery_config(
     };
     let resolved = resolve_concurrency(requested_concurrency, logical_cores)?;
 
+    let walk_forward = if v3 {
+        let wf_path = format!("{path}.walkForward");
+        let wf = require_object(object.get("walkForward").unwrap_or(&Value::Null), &wf_path)?;
+        require_exact_keys(
+            wf, &wf_path, &["minimumTrainBars", "foldValidationBars", "foldCount"],
+        )?;
+        let minimum_train_bars = require_integer_in_range(
+            require_number(wf, &wf_path, "minimumTrainBars")?,
+            &format!("{wf_path}.minimumTrainBars"),
+            1,
+            JS_MAX_SAFE_INTEGER as i64,
+        )? as u64;
+        let fold_validation_bars = require_integer_in_range(
+            require_number(wf, &wf_path, "foldValidationBars")?,
+            &format!("{wf_path}.foldValidationBars"),
+            1,
+            JS_MAX_SAFE_INTEGER as i64,
+        )? as u64;
+        let fold_count = require_integer_in_range(
+            require_number(wf, &wf_path, "foldCount")?,
+            &format!("{wf_path}.foldCount"),
+            2,
+            WALK_FORWARD_MAX_FOLDS as i64,
+        )? as u64;
+        Some(WalkForwardInput { minimum_train_bars, fold_validation_bars, fold_count })
+    } else {
+        None
+    };
+
     Ok(ResolvedDiscoveryConfig {
         envelope_version: envelope_version.to_string(),
         contracts,
@@ -1122,6 +1197,7 @@ pub fn parse_discovery_config(
             resolved,
             logical_cores: logical_cores as i64,
         },
+        walk_forward,
     })
 }
 
@@ -1218,5 +1294,24 @@ mod tests {
         swept["bases"][0]["axes"] = serde_json::json!([{"key":"slPct","min":1,"max":2,"step":1}]);
         let error = parse_discovery_config(&swept, 8.0).unwrap_err();
         assert!(error.to_string().contains("axes must be empty"));
+    }
+
+    #[test]
+    fn v3_pins_walk_forward_and_preserves_v2_shape() {
+        let mut config = dsl_config();
+        config["envelopeVersion"] = serde_json::json!(DISCOVERY_CONFIG_VERSION_V3);
+        config["contracts"]["walkForward"] = serde_json::json!(WALK_FORWARD_VERSION);
+        config["contracts"]["walkForwardEvidence"] = serde_json::json!(WALK_FORWARD_EVIDENCE_VERSION);
+        config["walkForward"] = serde_json::json!({
+            "minimumTrainBars": 20, "foldValidationBars": 8, "foldCount": 3
+        });
+        let parsed = parse_discovery_config(&config, 8.0).unwrap();
+        assert_eq!(parsed.walk_forward.unwrap().fold_count, 3);
+        assert_eq!(parsed.contracts.walk_forward.as_deref(), Some(WALK_FORWARD_VERSION));
+        config["walkForward"]["foldCount"] = serde_json::json!(1);
+        assert!(parse_discovery_config(&config, 8.0).unwrap_err().0.contains("foldCount"));
+        config["walkForward"]["foldCount"] = serde_json::json!(3);
+        config["contracts"]["walkForwardEvidence"] = serde_json::json!("walk-forward-evidence-v0");
+        assert!(parse_discovery_config(&config, 8.0).unwrap_err().0.contains("walkForwardEvidence"));
     }
 }

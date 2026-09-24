@@ -42,9 +42,10 @@ use alpha_factor_forge::discovery_core::{
     types::Candle,
     walk_forward::{
         evaluate_walk_forward_plan, WalkForwardFold, WalkForwardPlan, WalkForwardReport,
-        WalkForwardStatus,
+        WalkForwardStatus, WALK_FORWARD_EVIDENCE_VERSION,
     },
 };
+use alpha_factor_forge::discovery_core::config::WalkForwardInput;
 use chrono::{TimeZone, Utc};
 use serde::Serialize;
 use serde_json::{Map, Number, Value};
@@ -54,7 +55,6 @@ use crate::db::{
     validation_record::{BENCHMARK_RECORD_VERSION, VALIDATION_RECORD_VERSION},
 };
 const JS_MAX_SAFE_INTEGER: i64 = 9_007_199_254_740_991;
-pub const WALK_FORWARD_EVIDENCE_VERSION: &str = "walk-forward-evidence-v1";
 
 /// P05: everything about the ENGINE a candidate ran on, frozen into its
 /// research attempt: this package's version and every contract version the
@@ -115,6 +115,7 @@ pub struct CandidateExecutionOutput {
     pub validation_trades: Vec<TradeRow>,
     pub record: ValidationRecordRow,
     pub digest: CandidateResultDigest,
+    pub walk_forward: Option<WalkForwardExecutionEvidence>,
 }
 
 /// An unqualified observation from a single inner segment. Neither a metric
@@ -1036,6 +1037,7 @@ pub fn execute_candidate(
             gate_passed: gate.pass,
             score: score_value,
         },
+        walk_forward: None,
     })
 }
 
@@ -1044,7 +1046,6 @@ pub fn execute_candidate(
 /// this entry point has no IO, database access, ranking or admission effect.
 /// It intentionally builds each training signal from only that training
 /// prefix, and each inner-validation signal from only its own prefix.
-#[allow(dead_code)] // P12c-2b is the first production caller.
 pub fn execute_candidate_walk_forward(
     args: &ExecuteCandidateArgs<'_>,
     declaration: &WalkForwardPlan,
@@ -1166,6 +1167,37 @@ pub fn execute_candidate_walk_forward(
         });
     }
     Ok(evidence)
+}
+
+/// Resolve the per-candidate embargo and bar count from the frozen v3 input.
+/// Called before a run is written and again by the worker; an ineligible
+/// candidate never enters the queue or produces a partial fold artifact.
+pub fn declared_walk_forward_plan(
+    config: &ResolvedDiscoveryConfig,
+    candidate: &EnumeratedCandidate,
+    candle_count: usize,
+    input: WalkForwardInput,
+) -> Result<WalkForwardPlan, CandidateExecutionError> {
+    let strategy = CandidateStrategy::parse(&candidate.strategy)?;
+    let embargo = strategy.embargo(config.embargo.holding_allowance_bars)?;
+    if input.minimum_train_bars < embargo.max_signal_lookback_bars as u64 {
+        return fail("walk-forward minimumTrainBars is below the candidate signal lookback");
+    }
+    let total_bars = u64::try_from(candle_count)
+        .map_err(|_| CandidateExecutionError("candle count exceeds u64".into()))?;
+    let plan = WalkForwardPlan {
+        total_bars,
+        embargo_bars: embargo.embargo_bars as u64,
+        minimum_train_bars: input.minimum_train_bars,
+        fold_validation_bars: input.fold_validation_bars,
+        fold_count: input.fold_count,
+    };
+    let report = evaluate_walk_forward_plan(&plan)
+        .map_err(|error| context(error, "plan walk-forward folds"))?;
+    if report.status != WalkForwardStatus::Eligible {
+        return fail("walk-forward plan is NOT_ELIGIBLE for this candidate");
+    }
+    Ok(plan)
 }
 
 #[cfg(test)]
