@@ -27,6 +27,7 @@ use crate::error::AppResult;
 pub const HYPOTHESIS_VERSION: &str = "hypothesis-v1";
 /// The immutable candidate result artifact's version (its `kind`).
 pub const CANDIDATE_RESULT_VERSION: &str = "candidate-result-v1";
+pub const CANDIDATE_RESULT_VERSION_V2: &str = "candidate-result-v2";
 
 /// Canonical JSON text (object keys sorted recursively, no whitespace) as
 /// bytes: what an artifact file contains and what a hypothesis hashes, so the

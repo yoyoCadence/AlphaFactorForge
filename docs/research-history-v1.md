@@ -152,3 +152,15 @@ Production claim 與 commit 都要求**恰好一筆**對應 attempt 隨 job 前�
 - 嘗試以候選為單位；未來 attempt 之間的父子血緣（`parent_strategy_id`）由 P11／P15 填入。
 - 未提供匯出／備份（P14）；未提供全文索引（plan §4.3 經驗庫，P17）。
 - P05 之前已完成、且明細已被投影覆寫的候選仍不可恢復；升級補建只適用於尚未執行的 queued 候選。若既有 attempt 的 engine fingerprint 與目前 build 不同，resume 拒絕並要求開新 run，不會把新引擎結果寫進舊 attempt。
+
+## P12c-2b 增量 artifact 版本（2026-09-25）
+
+既有 `candidate-result-v1` 格式與歷史 attempt 不變。`discovery-config-v3`
+的 walk-forward run 改寫入 `candidate-result-v2`：保留原有 attempt、策略、
+資料集、Train/Validation、record 與 digest 欄位，另加 `walkForward`，內含
+`walk-forward-evidence-v1`。`research_artifacts.kind` 對應文件版本。
+
+既有 `get_research_attempt` 讀取路徑會先核對 checksum 與長度，再回傳任一
+版本；UI 使用的 Train/Validation 摘要欄位仍存在。完成的
+`research_attempts.result_artifact_id` 在原有候選提交交易內連結不可變檔案與
+attempt。本次無 migration，也不修改先前的 artifact。

@@ -1,7 +1,7 @@
 # Research walk-forward feasibility (`research-walk-forward-v1`)
 
-Status: P12c-1 pure Rust planning contract. Fold execution and runtime admission
-remain P12c-2 and P12d, respectively.
+Status: P12c-1 planning, P12c-2a fixed-candidate execution and P12c-2b
+runner persistence are implemented. Campaign admission remains P12d.
 
 | Concern | Location |
 | --- | --- |
@@ -105,3 +105,34 @@ evidence in the immutable candidate artifact with an auditable attempt link;
 P12d must freeze campaign thresholds and decide how this evidence affects
 admission. Neither existing `discovery-config-v1/v2` nor its result artifact
 changes in P12c-2a.
+
+## P12c-2b versioned run and immutable evidence (2026-09-25)
+
+`discovery-config-v3` retains v2's candidate and execution fields and adds a
+required `walkForward` object with exact keys `minimumTrainBars`,
+`foldValidationBars`, and `foldCount`. The first two are safe integers at least
+1; folds are an integer in `[2,128]`. The run contracts additionally pin
+`walkForward: research-walk-forward-v1` and
+`walkForwardEvidence: walk-forward-evidence-v1`. Older v1/v2 envelopes reject
+this field and keep their previous behavior and `candidate-result-v1` output.
+
+For each v3 candidate, the runner derives `totalBars` from the verified dataset
+and `embargoBars` from that candidate's used-signal lookback plus the frozen
+holding allowance. Before creating a run, it checks that `minimumTrainBars`
+covers the lookback and the P12c-1 report is `ELIGIBLE` for **every** enumerated
+candidate. An invalid or short plan fails before run/attempt rows are written.
+Resume repeats that preflight from the stored raw config and verified dataset.
+
+The worker executes the normal outer Train/Validation assessment and the
+P12c-2a fixed-candidate folds. The fold executor reads only outer Train candles.
+Its complete evidence is embedded as `walkForward` in `candidate-result-v2`,
+whose `attemptKey`, strategy/dataset identity and content-addressed artifact
+reference link it to the completed attempt. The existing artifact store stages
+and hashes the file before the candidate transaction commits its reference,
+jobs, summaries, record and progress. A failed fold execution or artifact write
+fails the run without a completed candidate checkpoint. No database migration
+or new UI flow is needed.
+
+The declared lengths are caller-provided bounds, not P12d's campaign policy.
+Fold evidence is not used by Gate, Score, qualification or confirmation in this
+slice; P12d must decide those rules and freeze an admissible campaign protocol.

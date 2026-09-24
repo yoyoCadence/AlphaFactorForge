@@ -11,6 +11,7 @@ use serde_json::{Map, Value};
 use super::split::{plan_validation_split, InclusiveBarRange};
 
 pub const WALK_FORWARD_VERSION: &str = "research-walk-forward-v1";
+pub const WALK_FORWARD_EVIDENCE_VERSION: &str = "walk-forward-evidence-v1";
 pub const WALK_FORWARD_MAX_COUNT: u64 = 9_007_199_254_740_991;
 pub const WALK_FORWARD_MAX_FOLDS: u64 = 128;
 

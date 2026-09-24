@@ -303,3 +303,15 @@ result discarded after cancel or fail.
 
 Within-run checkpoint reuse after pause or restart is required. Cross-run reuse
 is not.
+
+## P12c-2b optional walk-forward execution
+
+Only `discovery-config-v3` declares Train-only walk-forward folds. The runner
+checks every candidate against its derived embargo and the verified dataset
+before writing a run, and repeats that check on resume. Workers compute the
+P12c-2a fold evidence without SQLite access; the coordinator places it in a
+`candidate-result-v2` artifact and commits its reference with the existing
+candidate transaction. v1/v2 runs still write `candidate-result-v1` with the
+same shape and event behavior. The fold evidence is audit data only: Gate,
+Score, best-strategy selection and qualification are not changed here. P12d
+owns admission and campaign-level protocol constraints.

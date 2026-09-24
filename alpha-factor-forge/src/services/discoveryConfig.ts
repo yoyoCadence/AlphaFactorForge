@@ -27,6 +27,7 @@ import type { ParamsStrategy, SignalId } from './strategy';
 
 export const DISCOVERY_CONFIG_VERSION = 'discovery-config-v1';
 export const DISCOVERY_CONFIG_VERSION_V2 = 'discovery-config-v2';
+export const DISCOVERY_CONFIG_VERSION_V3 = 'discovery-config-v3';
 export const DISCOVERY_PRESET_VERSION = 'discovery-preset-v1';
 export const DISCOVERY_DSL_PRESET_VERSION = 'discovery-dsl-preset-v1';
 export const DISCOVERY_ENUMERATION_VERSION = 'discovery-enumeration-v1';
@@ -56,6 +57,12 @@ export const DISCOVERY_CONTRACT_VERSIONS_V2 = {
   strategyDsl: STRATEGY_DSL_VERSION,
 } as const;
 export type DiscoveryContractVersionsV2 = typeof DISCOVERY_CONTRACT_VERSIONS_V2;
+export const DISCOVERY_CONTRACT_VERSIONS_V3 = {
+  ...DISCOVERY_CONTRACT_VERSIONS_V2,
+  walkForward: 'research-walk-forward-v1',
+  walkForwardEvidence: 'walk-forward-evidence-v1',
+} as const;
+export type DiscoveryContractVersionsV3 = typeof DISCOVERY_CONTRACT_VERSIONS_V3;
 
 /** Resolution D2 caps. The default is the UI-facing budget; the hard cap may
  *  only move with a config-contract bump plus performance evidence. */
@@ -252,7 +259,13 @@ export interface ResolvedDiscoveryConfigV2 extends Omit<ResolvedDiscoveryConfig,
   bases: AnyDiscoveryBase[];
 }
 
-export type AnyResolvedDiscoveryConfig = ResolvedDiscoveryConfig | ResolvedDiscoveryConfigV2;
+export interface ResolvedDiscoveryConfigV3 extends Omit<ResolvedDiscoveryConfigV2, 'envelopeVersion' | 'contracts'> {
+  envelopeVersion: typeof DISCOVERY_CONFIG_VERSION_V3;
+  contracts: DiscoveryContractVersionsV3;
+  walkForward: { minimumTrainBars: number; foldValidationBars: number; foldCount: number };
+}
+
+export type AnyResolvedDiscoveryConfig = ResolvedDiscoveryConfig | ResolvedDiscoveryConfigV2 | ResolvedDiscoveryConfigV3;
 
 export interface DslCandidateStrategy {
   mode: 'dsl';
@@ -535,7 +548,7 @@ export function axisValues(axis: DiscoveryAxis): number[] {
 function parseBase(
   value: unknown,
   path: string,
-  envelopeVersion: typeof DISCOVERY_CONFIG_VERSION | typeof DISCOVERY_CONFIG_VERSION_V2,
+  envelopeVersion: typeof DISCOVERY_CONFIG_VERSION | typeof DISCOVERY_CONFIG_VERSION_V2 | typeof DISCOVERY_CONFIG_VERSION_V3,
 ): AnyDiscoveryBase {
   const object = requireObject(value, path);
   requireExactKeys(object, path, ['id', 'presetVersion', 'strategy', 'axes']);
@@ -691,13 +704,18 @@ const ENVELOPE_KEYS = [
   'caps',
   'maxConcurrency',
 ] as const;
+const ENVELOPE_KEYS_V3 = [...ENVELOPE_KEYS, 'walkForward'] as const;
 
 /**
- * Parse and resolve a discovery envelope. v1 remains params-only; v2 adds
- * fixed executable DSL candidates. Throws `RangeError`
+ * Parse and resolve a discovery envelope. v1 remains params-only, v2 adds
+ * fixed executable DSL candidates, and v3 declares Train-only folds. Throws `RangeError`
  * with a path-qualified message on the first problem; never returns a
  * partially-validated config.
  */
+export function parseDiscoveryConfig(
+  value: { envelopeVersion: typeof DISCOVERY_CONFIG_VERSION_V3 } & Record<string, unknown>,
+  options: ParseDiscoveryConfigOptions,
+): ResolvedDiscoveryConfigV3;
 export function parseDiscoveryConfig(
   value: { envelopeVersion: typeof DISCOVERY_CONFIG_VERSION_V2 } & Record<string, unknown>,
   options: ParseDiscoveryConfigOptions,
@@ -712,16 +730,17 @@ export function parseDiscoveryConfig(
 ): AnyResolvedDiscoveryConfig {
   const path = 'discoveryConfig';
   const object = requireObject(value, path);
-  requireExactKeys(object, path, ENVELOPE_KEYS);
+  const v3 = object.envelopeVersion === DISCOVERY_CONFIG_VERSION_V3;
+  requireExactKeys(object, path, v3 ? ENVELOPE_KEYS_V3 : ENVELOPE_KEYS);
 
   const envelopeVersion = requireString(object, path, 'envelopeVersion');
-  if (envelopeVersion !== DISCOVERY_CONFIG_VERSION && envelopeVersion !== DISCOVERY_CONFIG_VERSION_V2) {
-    fail(`${path}.envelopeVersion must be one of ${DISCOVERY_CONFIG_VERSION}, ${DISCOVERY_CONFIG_VERSION_V2}`);
+  if (envelopeVersion !== DISCOVERY_CONFIG_VERSION && envelopeVersion !== DISCOVERY_CONFIG_VERSION_V2 && envelopeVersion !== DISCOVERY_CONFIG_VERSION_V3) {
+    fail(`${path}.envelopeVersion must be one of ${DISCOVERY_CONFIG_VERSION}, ${DISCOVERY_CONFIG_VERSION_V2}, ${DISCOVERY_CONFIG_VERSION_V3}`);
   }
 
   const expectedContracts = envelopeVersion === DISCOVERY_CONFIG_VERSION
     ? DISCOVERY_CONTRACT_VERSIONS
-    : DISCOVERY_CONTRACT_VERSIONS_V2;
+    : v3 ? DISCOVERY_CONTRACT_VERSIONS_V3 : DISCOVERY_CONTRACT_VERSIONS_V2;
   const contractKeys = Object.keys(expectedContracts).sort(compareUtf8);
 
   const contractsObject = requireObject(object.contracts, `${path}.contracts`);
@@ -837,6 +856,18 @@ export function parseDiscoveryConfig(
     options.logicalCores,
   );
 
+  let walkForward: ResolvedDiscoveryConfigV3['walkForward'] | undefined;
+  if (v3) {
+    const wfPath = `${path}.walkForward`;
+    const wf = requireObject(object.walkForward, wfPath);
+    requireExactKeys(wf, wfPath, ['minimumTrainBars', 'foldValidationBars', 'foldCount']);
+    walkForward = {
+      minimumTrainBars: requireIntegerInRange(requireNumber(wf, wfPath, 'minimumTrainBars'), `${wfPath}.minimumTrainBars`, 1, Number.MAX_SAFE_INTEGER),
+      foldValidationBars: requireIntegerInRange(requireNumber(wf, wfPath, 'foldValidationBars'), `${wfPath}.foldValidationBars`, 1, Number.MAX_SAFE_INTEGER),
+      foldCount: requireIntegerInRange(requireNumber(wf, wfPath, 'foldCount'), `${wfPath}.foldCount`, 2, 128),
+    };
+  }
+
   const resolvedConfig = {
     envelopeVersion,
     contracts: { ...expectedContracts },
@@ -855,6 +886,7 @@ export function parseDiscoveryConfig(
       resolved: concurrencyResolved,
       logicalCores: options.logicalCores,
     },
+    ...(walkForward ? { walkForward } : {}),
   };
   return resolvedConfig as AnyResolvedDiscoveryConfig;
 }
