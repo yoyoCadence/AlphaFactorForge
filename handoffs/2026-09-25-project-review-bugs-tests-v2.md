@@ -284,3 +284,10 @@ DB-ASYNC-001 只提到「大型匯入與結果持久化」。本次另外找到�
 
 - e2e：`npx playwright test --list` 共 78 個測試，分屬 22 個檔案；本地設定 `retries: 0`，所以 exit 0 代表全數通過。
 - 一次性探針腳本的內容與輸出記錄在 session 中，repo 內沒有留下任何檔案。
+
+## Addendum（2026-09-25，v3 補讀）
+
+已依「全部完整檢視」補讀 v2 讀得較淺或尚未讀的檔案，新發現記在
+`2026-09-25-project-review-bugs-tests-v3.md`。本檔的 A1–A5、B1–B14、T1–T14 仍然有效。對本檔的影響只有一項：
+ETF 365 年化併入 **A1**，v3 補了三點證據（Score 使用 cagr／sortino、`compute_etf_metrics` 無呼叫者、
+Gate 不使用年化指標），不另立項目。
