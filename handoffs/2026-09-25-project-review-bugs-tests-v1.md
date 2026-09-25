@@ -201,3 +201,16 @@ discovery_core / runner / runtime / commands）做一次審查，只記錄不修
   `!RangeInclusive::contains`、兩處 `map_or` 可簡化、`&PathBuf` 應改 `&Path`。
 - Playwright e2e（`npx playwright test`，chromium，`?mock=1`）：exit 0，全部通過。
   輸出被截斷，沒有保留總數那一行，但 Playwright 只要有失敗就會回傳非 0。
+
+## Addendum (2026-09-25, same session) — superseded by v2
+
+The user asked for a full-depth review, so a per-file deep-reading version has been written: `handoffs/2026-09-25-project-review-bugs-tests-v2.md`.
+The body of this v1 is kept as-is (append-only); the corrections are:
+
+- **P1-2 (short-position ruin)** → downgraded to P2 in v2 (B1). The contract already documents the short as a "1× no-liquidation" model, and in discovery MDD > 0.35 is rejected by the Gate; what remains is a metric inconsistency.
+- **P1-4 (main-thread blocking)** is already tracked as **DB-ASYNC-001**; v2 (A5) adds new evidence (sync commands + HTTP proxied to the service, holding the DB lock across the whole dataset load at run start, artifact IO under the DB lock).
+- **P2-1 (Web Worker unused)** is already tracked as **PERF-001**.
+- **P2-5 (ATR)**: the Rust comment already states this is a deliberate contract choice; only the TS comment is misleading → P3.
+- **P2-8** is already tracked as INTERVAL-CONTRACT-001, and **P3 Rust version drift** as TOOLCHAIN-001.
+- v1 missed several items, which v2 adds: A2 zero-trade candidates making the whole run fail + the default Gate being impossible to pass on the bundled sample (reproduced); A3 discovery defaults to same-candle close fills; B5 silent crash on startup failure; B8 CSP blocking fonts; B10 cross-run score ranking; B11 eight IDs from the 2026-08-07 review never made it into the task list.
+- e2e measured at **78/78 passed**.
