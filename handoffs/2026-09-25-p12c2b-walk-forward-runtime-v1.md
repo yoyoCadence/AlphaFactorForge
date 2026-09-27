@@ -25,3 +25,7 @@ Status: Implementation and local verification complete; P12d admission remains o
 ## Verification
 
 `npm test`: 975 Vitest tests pass. `npm run typecheck` and `npm run build` pass. `cargo test --locked --quiet`: 444 Rust tests pass (94 library, 348 desktop, 2 service smoke). `cargo check --locked --all-targets` passes. `cargo clippy --locked --all-targets` passes with five pre-existing warnings in unrelated files. `git diff --check` passes. Remote PR CI pending.
+
+## Resolution (2026-09-27)
+
+P12c-2b merged through [PR #123](https://github.com/yoyoCadence/AlphaFactorForge/pull/123) as `f747131`. P12d-1 now supplies the independent frozen feasibility declaration primitive; see [its handoff](2026-09-27-p12d1-campaign-declaration-v1.md). The declaration does not query snapshots or grant eligibility. P12d-2 still owns authoritative binding, persistence, current-ledger checks and admission; P12d/P12 remain open.
