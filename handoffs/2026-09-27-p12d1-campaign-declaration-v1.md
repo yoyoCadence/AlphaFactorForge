@@ -3,6 +3,7 @@
 Date: 2026-09-27
 Repo: yoyoCadence/AlphaFactorForge
 Branch: `feat/p12d1-campaign-declaration` (from merged PR #123, `f747131`)
+PR: [#124](https://github.com/yoyoCadence/AlphaFactorForge/pull/124) (ready for review; not merged)
 Status: Implementation and local verification complete; P12d-2 admission remains open.
 
 ## Summary
@@ -62,4 +63,10 @@ merging remains maintainer-owned.
   `spawn EPERM`; the escalated rerun passed.
 - Targeted rustfmt and `git diff --check`: pass.
 - Local Playwright, packaged desktop UI and a live campaign were not rerun.
-  Remote CI is pending publication; the PR checks are the current CI authority.
+  Remote CI started on PR #124; the PR checks are the current CI authority.
+
+## Publication (2026-09-27)
+
+Implementation `f1900cf` is pushed; Chinese non-Draft PR #124 targets `main`.
+The final fetch/rebase found no new baseline commits; the seven campaign tests
+and targeted rustfmt passed again. No merge was performed.
