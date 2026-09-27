@@ -1,0 +1,39 @@
+{
+  "contractVersion": "research-campaign-declaration-v1",
+  "contracts": {
+    "datasetIdentity": "dataset-content-v2",
+    "marketSnapshot": "market-snapshot-v1",
+    "execution": "backtest-execution-v1",
+    "metrics": "metrics-v2",
+    "split": "validation-split-v1",
+    "precision": "research-precision-v1",
+    "trialLedger": "trial-ledger-v1",
+    "walkForward": "research-walk-forward-v1",
+    "walkForwardEvidence": "walk-forward-evidence-v1"
+  },
+  "sampling": {
+    "alphaPpm": 50000,
+    "maxRelativeStandardErrorPpm": 200000,
+    "bootstrapSamples": 100000,
+    "maxBootstrapSamples": 200000
+  },
+  "instruments": [
+    {
+      "instrumentId": "crypto:binance:BTCUSDT",
+      "listedAtMs": 1502928000000,
+      "delistedAtMs": null,
+      "snapshotId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "datasetHash": "dataset-content-v2:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "interval": "1h",
+      "fromMs": 1735689600000,
+      "toMs": 1767222000000,
+      "samplePolicy": {
+        "minimumTotalBars": 8760,
+        "minimumTrainBars": 1000,
+        "foldValidationBars": 500,
+        "foldCount": 3,
+        "rationale": "Authored fixture only; one year of hourly observations with three Train-only folds."
+      }
+    }
+  ]
+}
