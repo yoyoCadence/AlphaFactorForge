@@ -3,7 +3,8 @@
 Date: 2026-09-29
 Repo: yoyoCadence/AlphaFactorForge
 Branch: `feat/p12d2a-authoritative-snapshot` (from merged PR #124, `c787e8d`)
-Status: Local implementation and verification complete; P12d-2 admission integration remains open.
+PR: [#125](https://github.com/yoyoCadence/AlphaFactorForge/pull/125) (ready for review; not merged)
+Status: Implementation published for review; P12d-2 admission integration remains open.
 
 ## Summary
 
@@ -52,3 +53,10 @@ qualification decision.
 - Targeted rustfmt and `git diff --check`: pass.
 - TypeScript, local Playwright, packaged desktop and a live campaign were not
   rerun; this slice changes only Rust backend verification and documentation.
+
+## Publication (2026-09-29)
+
+Implementation commit `84592d1` was pushed after a no-change rebase against
+`origin/main`. The four targeted tests passed again. Chinese non-Draft PR #125
+targets `main`; six remote checks started and remain the CI authority. No merge
+was performed.
