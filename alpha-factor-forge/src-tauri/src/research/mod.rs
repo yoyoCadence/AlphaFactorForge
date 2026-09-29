@@ -14,6 +14,7 @@
 //! referenced). Neither names a host or a framework.
 
 pub mod artifacts;
+pub mod campaign_admission;
 pub mod campaign_snapshot;
 pub mod history;
 pub mod trial_ledger;
