@@ -119,3 +119,25 @@ proof that freezing occurred before exposure are not implemented by this type.
 
 P12d and P12 remain In Progress. No database migration, dependency, frontend,
 command, admission endpoint or confirmation execution is part of P12d-1.
+
+## P12d-2a authoritative snapshot resolution (2026-09-29)
+
+`research::campaign_snapshot::resolve_campaign_snapshots` is a read-only backend
+boundary for a previously frozen declaration. For every instrument it loads
+the exact `snapshotId`; it never substitutes the newest snapshot. It checks the
+P06 snapshot and instrument versions, exact revision/listing period, calendar,
+interval, dataset metadata and inclusive first/last bar, then recomputes the
+`dataset-content-v2` hash from **all** stored candles and applies the market
+data admissibility check. It requires the declared minimum total bars, clean
+snapshot coverage with a matching bar count, a non-demo/non-degraded snapshot,
+confirmed cost profile, ETF corporate-action version, and complete accepted
+primary sources that have not been superseded. Finally it reconstructs the P06
+snapshot content hash from those authoritative records and compares it with the
+declared ID. A missing or inconsistent binding fails closed.
+
+The returned row IDs and bar count are observations at read time, not a durable
+admission result. This slice does not verify raw artifact bytes, numeric
+execution costs, P12a/P12c feasibility, current ledger/history, or run links.
+P12d-2b must repeat verification in its admission/freshness transaction and
+freeze the concrete execution and cost settings before enqueue. P12d/P12 stay
+In Progress; no UI, command, migration, or runner caller is added here.
