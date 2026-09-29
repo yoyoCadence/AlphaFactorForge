@@ -6,6 +6,8 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Current Snapshot
 
+- **PR #116–#125 acceptance review completed (2026-09-29)** at merged `af8196d`, on `review/pr116-125-acceptance`. All ten final-head CI runs pass six jobs; local 975 Vitest / 455 Rust, typecheck, build and all-target cargo check pass. Five additional counterexamples fail: transfer loses quarantine, known origin divergence still authorizes replacement, split identity omits actual embargo, reopen fails to persist its observed head, and an empty registry cannot restore a seq=0 binding. Product code is unchanged; the regression patch and per-PR conclusions are in [the acceptance handoff](handoffs/2026-09-29-pr116-125-acceptance-review-v1.md). Review is Done; fixes below remain Backlog and P12 remains In Progress.
+
 - **P12d-2a authoritative snapshot resolution completed locally (2026-09-29)** on `feat/p12d2a-authoritative-snapshot` from merged PR #124 (`c787e8d`). Read-only backend verification resolves only exact frozen snapshot IDs, recomputes the full dataset content identity and checks instrument revision/listing, interval and exact bounds, minimum bars, coverage, accepted unsuperseded sources, cost status and snapshot content identity. Four integration tests use actual P06 snapshots and cover missing/mismatched bindings, candle changes, source revision, demo and degraded data. **455 Rust (101 + 352 + 2)** pass; all-target check and clippy pass (five existing warnings). No runtime caller, ledger/history check, admission fence or persistence; **P12d-2/P12d/P12 remain In Progress.** [Contract](docs/research-campaign-declaration-v1.md), [handoff](handoffs/2026-09-29-p12d2a-authoritative-snapshot-v1.md).
 
 - **P12d-1 campaign declaration completed locally (2026-09-27)** on `feat/p12d1-campaign-declaration`, from merged PR #123 (`f747131`). New pure `research-campaign-declaration-v1` freezes a bounded instrument set, listing/data ranges, versioned dataset and snapshot references, explicit sampling/history policies and contract pins into an immutable canonical content identity. Seven tests cover strict nested fields, invalid domains/bindings, duplicate/overlarge universes, identity stability and sensitivity, and an independently calculated fixture hash. **975 Vitest / 451 Rust (101 + 348 + 2)** pass; typecheck, build, all-target check, clippy (five existing warnings) and targeted rustfmt pass. No runtime caller, persistence or qualification claim; P12d-2 must verify authoritative snapshots/current ledger and connect admission. **P12d/P12 remain In Progress.** [Contract](docs/research-campaign-declaration-v1.md), [handoff](handoffs/2026-09-27-p12d1-campaign-declaration-v1.md).
@@ -96,6 +98,16 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 - **P09 authenticated external acceptance** (2026-09-21): implementation/local verification Done (below), but live Tiingo download, free entitlement and payment coverage still require the operator's token in Windows Credential Manager. User intends to register; native status currently `credential_missing`. Re-run the documented bounded range after setup and append evidence to the P09 handoff.
 
 ## Backlog
+
+### PR #116–#125 acceptance follow-ups (2026-09-29)
+
+Evidence, reproduction patch and acceptance conditions: [review handoff](handoffs/2026-09-29-pr116-125-acceptance-review-v1.md). These are separate repair tasks; the existing product task order is unchanged.
+
+- [ ] **P12-AUDIT-R1 (P1)** — preserve permanent family/origin conflicts across complete registry export/import, including repeated transfers; update the wire contract.
+- [ ] **P12-AUDIT-R2 (P1)** — refuse replacement authority from an origin with recorded registry divergence, including later imports and reopened bindings.
+- [ ] **P12-AUDIT-R3 (P2)** — bind trial split identity to actual derived embargo/windows and applicable fold declarations; treat incomplete legacy identities conservatively.
+- [ ] **P12-AUDIT-R4 (P2)** — persist the current registry head and accepted replacement ID on every successful workspace adoption.
+- [ ] **P12-AUDIT-R5 (P2)** — support verified empty-registry transfer and restoration of seq=0 workspace bindings.
 
 ### AlphaBTC capability transfer and persistent service (2026-09-15)
 
@@ -277,6 +289,8 @@ These were named inside the UI port entry and must not be buried by closing it. 
 - [ ] Full closed-loop AI automation. (Specification: ABC-14.)
 
 ## Done
+
+- [x] **PR-REVIEW-116-125 — Latest ten PR acceptance review** (2026-09-29). Reviewed #116–#125 against merged `af8196d`, checked all ten final-head CI runs, reran 975 Vitest / 455 Rust plus typecheck/build/all-target check, and reproduced five missing edge cases. Preserved the failures as a standalone test patch and recorded repair tasks without changing product code. [Handoff](handoffs/2026-09-29-pr116-125-acceptance-review-v1.md).
 
 - [x] **P12d-2a — Authoritative snapshot resolution** (2026-09-29, branch `feat/p12d2a-authoritative-snapshot`). Additive, read-only `research::campaign_snapshot` loads the exact frozen P06 snapshot for each instrument and validates current full-candle hash, snapshot content identity, instrument revision and listing, calendar, exact dataset bounds/interval, declared minimum bars, clean coverage, confirmed cost status and accepted unsuperseded primary provenance. Four Rust integration tests use the real P06 snapshot builder and prove fail-closed missing/mismatched bindings, changed candles, revised source, and demo/degraded snapshots. **455 Rust (101 + 352 + 2)**; `cargo check --locked --all-targets`, clippy (five existing warnings), targeted rustfmt and `git diff --check` pass. TypeScript and UI were unchanged, so npm/Playwright were not rerun. No migration, dependency, command or runtime caller. P12d-2 still needs ledger/history, P12a/P12c admission, transaction freshness, frozen execution/cost settings and campaign/run persistence; parent P12d/P12 remain In Progress. [Contract](docs/research-campaign-declaration-v1.md), [handoff](handoffs/2026-09-29-p12d2a-authoritative-snapshot-v1.md).
 
