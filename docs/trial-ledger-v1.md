@@ -7,6 +7,10 @@
 > 批次 ID 綁定完整內容且重播前一律逐筆比對（§6.1）；`originRegistryId` 移出事件雜湊（§4.3）。
 > 修訂二（同日）：依覆驗 R5 區分「歷史收據」與「admission 用的目前計數」（§5、§6.3、§6.4），
 > 並加入新鮮度圍欄與 A31–A32。
+> 修訂三（2026-09-29）：依 [PR #116–#125 驗收](../handoffs/2026-09-29-pr116-125-acceptance-review-v1.md) R1–R5 修正——
+> 匯出改為 `trial-ledger-export-v2`，保留家族隔離、來源衝突與 genesis 證據（§8）；已記錄衝突的來源永久不能授權替換、
+> 空 registry 以 genesis 證據恢復（§7.3）；每次成功開啟都保存觀察到的鏈頭（§7.2）；`splitHash` 綁定實際推導的切分（§4.3）。
+> 實作紀錄與相容性說明見 §20。
 > 上游：[`plans/active-plan.md`](plans/active-plan.md) §4.4／§4.5 與 §5 P12 列；
 > 決策來源：[`../handoffs/2026-09-23-pr115-acceptance-review-v1.md`](../handoffs/2026-09-23-pr115-acceptance-review-v1.md)
 > 的「Follow-up answers」與維護者 2026-09-23 的回覆；消費端：[`research-precision-v1.md`](research-precision-v1.md)（P12a）。
@@ -62,6 +66,12 @@
   理由碼 `registry_on_unsupported_volume`。偵測規則由實作定義並列入測試。
 - 隔離測試必須同時設定 `AFF_DATA_DIR` 與 `AFF_REGISTRY_DIR`。只設前者時，測試試驗會寫入使用者真實 registry；
   這只會**增加**計數（保守方向），不會繞過規則，但仍列為測試紀律。
+- **實作註記（2026-09-29，§20）**：P12b-2b 起 runtime 實際使用
+  `<platform data_local_dir>/com.alphafactorforge.trial-ledger/trial-ledger.sqlite3`
+  （`research::trial_ledger_workspace::registry_dir`；Windows 為 `%LOCALAPPDATA%\com.alphafactorforge.trial-ledger\`）。
+  debug build 的隔離 seam 是 `AFF_TEST_TRIAL_REGISTRY_DIR`，且只對 temp 目錄下 `aff-` 開頭的工作區生效，release build 忽略；
+  單元測試一律使用每個工作區各自的 temp registry。上面的 `com.alphafactorforge.evidence`／`AFF_REGISTRY_DIR`
+  只存在於尚無呼叫者的 `default_registry_dir()`。**備份與還原請以實際路徑為準**；兩者如何統一留待維護者決定。
 
 ### 2.2 開啟與遷移
 
@@ -131,6 +141,9 @@ familyId   = "trial-family-v1:" + sha256(familyKey)
   任何一項不同或為 null → 拒絕（`reproduction_mismatch`），須登記為 `variant`。被參照事件必須已在同一 registry
   （或同一匯入檔）中；找不到 → `reproduction_reference_missing`。這些欄位都在不可變 payload 內，所以匯入端可獨立重驗。
   §9 回填的 `legacy` 事件若無法還原 `splitHash`／`seedsHash`（為 null），就不能作為 reproduction 的對象。
+  另外（§20），reproduction 的 `splitHash` 必須是 `trial-split-v1:` 版本化切分身分；因為必須與被參照事件相等，
+  §20 之前只雜湊契約名稱的未版本化值也不能作為免費 reproduction 的主體或對象（`reproduction_mismatch`），
+  匯入時同樣重驗（`import_integrity_failed`）。舊事件不改寫，仍照常計數。
 - 事件的 `kind` 與 `effective` 屬於事件內容的一部分（進入 `eventId` 雜湊），因此「改標籤」只能透過新增事件，
   且同一冪等鍵已存在時會觸發 §4.3 的衝突。
 
@@ -149,7 +162,7 @@ eventId        = "trial-event-v1:" + sha256(eventPayload)
 
 | 欄位 | 定義 |
 | --- | --- |
-| `splitHash` | `sha256(canonical_json(split plan + embargo breakdown))`：Train／Validation／Test 範圍與 embargo 推導結果（split／embargo 契約版本一併納入） |
+| `splitHash` | `sha256(canonical_json(split plan + embargo breakdown))`：Train／Validation／Test 範圍與 embargo 推導結果（split／embargo 契約版本一併納入）。§20 起的實作格式為 `trial-split-v1:<sha256>`，逐候選由驗證後的 bar 數推導，v3 另含 fold 宣告與 fold 視窗 |
 | `seedsHash` | `sha256(canonical_json({rootSeed, seeds}))`，取自 P05 attempt 的 `input_fingerprint_json` |
 | `benchmarkId`／`benchmarkParamsHash` | 僅 `kind = benchmark` 時非 null；參數為 canonical JSON 的 sha256 |
 | `reproductionOf` | 僅 `kind = reproduction` 時非 null |
@@ -332,6 +345,9 @@ chain_seq = sha256(chain_{seq-1} || eventId_seq)          # seq = 本 registry �
 
 以上除第一、二列外都停止資格判定。
 
+「更新為目前鏈頭」在每次成功開啟都執行（§20）：包括同一 registry 看到新事件、以及 §7.3 接受替換後改綁新 registry；
+寫入在 owner 檢查的工作區交易中完成，因此開啟時觀察到的新歷史立即成為回退界線。legacy 回填仍只在首次綁定執行。
+
 ### 7.3 更換 registry
 
 新 registry 只有在**持有舊 registry 的已驗證鏈檢查點**時才被接受：
@@ -340,6 +356,12 @@ chain_seq = sha256(chain_{seq-1} || eventId_seq)          # seq = 本 registry �
 創世值重算驗證，而對應事件也都已寫入本 registry。成立 → 改綁新 registry 的目前鏈頭；否則 `registry_replaced`。
 
 只比對匯入事件數是不夠的：「匯入了等量事件但缺少工作區看過的某一筆」會使鏈值不同而被拒絕。
+
+- **已知分歧的來源（§20）**：只要 `registry_conflicts` 有 `binding.registryId` 的任何紀錄（本地匯入時偵測，或完整轉移帶入），
+  該來源永久不能授權替換；之前已寫入的檢查點也不再有效，之後的匯入也不再為它寫入檢查點。結果為 `registry_replaced`。
+- **空前綴（§20）**：`binding.seq = 0` 時沒有事件可作檢查點。改以 `origin_genesis` 中存在 `binding.registryId`
+  為證據——代表本 registry 曾驗證該來源的完整匯出（直接或經另一份完整匯出帶入）。只有 `seq = 0` 且鏈頭等於該來源
+  創世值的綁定能用此證據；caller 自己提供的 `seq = 0` 不構成證據。
 
 - 「停止資格判定」表示：探索與回測仍可執行，但任何需要 `priorTrials` 的確認／資格流程回報
   `NOT_ELIGIBLE`，理由為上述代碼。
@@ -363,8 +385,15 @@ JSON Lines；第一行 header：
 | `event` | 完整 payload、`originRegistryId`、`batchId`、`seq`、`chain`（皆為來源 registry 的值，依 `seq` 遞增） |
 | `receipt` | `batchId`、`receiptRegistryId`、`familyEffectiveBefore`、`batchEffectiveTrials` |
 | `originCheckpoint` | 來源 registry 持有的其他 registry 檢查點（`originRegistryId`、`originSeq`、`eventId`、`originChain`），每個來源都從 seq 1 起完整列出 |
+| `originGenesis` | v2：來源已驗證其創世值的其他 registry（`originRegistryId`，不可為來源自己） |
+| `familyConflict` | v2：來源 `family_conflicts` 的每個相異內容（`familyId`、`kind`、`detailJson`），不含本地時間戳 |
+| `registryConflict` | v2：來源 `registry_conflicts` 的每個相異內容（`originRegistryId`、`detailJson`） |
 
 批次與收據都在檔內，所以匯入不需要合成任何列，重試收據原樣保留（R1）。
+
+**版本 v2（§20）**：header 的 `version` 為 `trial-ledger-export-v2`，`schemaVersion` 為 registry 最新 migration；
+後三種紀錄依上表順序附在 `originCheckpoint` 之後。v1 檔無法表示來源是否已隔離家族，匯入會洗掉隔離，因此一律拒絕
+（`import_integrity_failed`）；runtime 尚未提供匯出命令，實際上不存在需要相容的 v1 檔。
 
 ### 8.2 匯入規則
 
@@ -384,6 +413,11 @@ JSON Lines；第一行 header：
    已存在的相同列略過。
 4. 追加 `registry_imports`（來源 `registryId`、檔案 sha256、`headSeq`／`headChain`、新增與略過數、衝突數、時間）。
 5. 計數由聯集後的事件表重新計算。**禁止**覆蓋 registry 檔、以 `max(countA, countB)` 合併或刪除任何事件。
+6. **永久證據的聯集（v2，§20）**：檔內 `familyConflict`／`registryConflict` 依內容去重追加，所以重複匯入冪等。
+   帶入的家族隔離立即生效；該家族在來源中的列與本 registry 不衝突，仍照常聯集，以保留計數與批次（admission 回報
+   `family_quarantined`）。已存在或帶入的 `registryConflict` 使該來源的檢查點與 genesis 一律不寫入。
+   來源本身、檔內 `originGenesis` 與檔內檢查點的來源寫入 `origin_genesis`（本 registry 自己除外）。
+   已存在於本地的隔離家族事件不算來源鏈的缺口，因此重新匯入同一來源的新歷史仍能延伸其檢查點。
 
 ### 8.3 還原
 
@@ -459,6 +493,11 @@ CREATE TABLE origin_checkpoints (           -- §7.3；只經匯入寫入且已�
 CREATE TABLE registry_imports (...);        -- §8.2 第 4 點
 CREATE TABLE family_conflicts (...);        -- §8.2 第 2 點；存在任一列即隔離該家族
 CREATE TABLE registry_conflicts (...);      -- §8.2 第 2 點；檢查點分歧
+-- registry migration 0002_origin_genesis（§20）
+CREATE TABLE origin_genesis (               -- §7.3 空前綴證據；只經匯入寫入
+  origin_registry_id TEXT PRIMARY KEY,
+  recorded_at        TEXT NOT NULL
+);                                          -- migration 由 registry_imports 與 origin_checkpoints 回填
 ```
 
 所有表以 `BEFORE UPDATE`／`BEFORE DELETE` 觸發器 `RAISE(ABORT)`，唯一例外是 `trial_families.protocol_json`
@@ -687,3 +726,60 @@ P12b-2b 在建立 attempts 的同一筆工作區交易內呼叫，不自行提�
 - runner 於入隊前以 frozen lineage 登記本批 variant，並在同一工作區交易寫入 job、attempt、事件 ID 與鏈頭。恢復更早、沒有 P05 attempt 的 queued run 時，先補 legacy 事件再建 attempt。claim 前驗證 binding 與 registry 中的事件；工作區 claim 交易也拒絕 NULL 連結（`trial_not_registered`）。失敗／取消不刪除已登記事件。
 - 無唯一 dataset snapshot 時使用 `family_unknown`，不猜測 instrument 或 snapshot；舊 attempt 無法可靠還原的 split／seeds 保持 NULL。現行 discovery 每個 candidate 暫以一個檢定宣告 `testsPerTrial = 1`；P12d 必須在使用 P12a admission 前凍結並核對完整 campaign protocol，若要改變已釘選的家族 protocol，需先制定新契約版本。
 - 此切片只建立試驗登記與執行圍欄；P12a–c 的資格／確認阻擋仍由 P12d 接線，portable 非有效 benchmark 證明仍待後續契約。
+
+---
+
+## 20. 實作紀錄：PR #116–#125 驗收修復 R1–R5（2026-09-29）
+
+依 [PR #116–#125 驗收](../handoffs/2026-09-29-pr116-125-acceptance-review-v1.md)。審查者的五項反例原樣納入正式測試
+（僅 `adopt` 多一個 `epoch` 參數，測試傳 `None`），另加回歸測試。`trial-ledger-v1` 的事件、批次、家族與鏈編碼都不變；
+變的是匯出 wire 版本、registry schema、綁定判定，以及 runner 產生的 `splitHash` 內容。
+
+| 項目 | 修復 | 位置 |
+| --- | --- | --- |
+| R1 | 匯出 v2 帶出家族衝突；匯入依內容去重追加、立即隔離，但來源的列仍聯集（計數與批次不遺失）。已存在的隔離家族事件不再被當成來源鏈缺口 | `research/trial_ledger_transfer.rs` |
+| R2 | `check_binding` 在同一讀取交易查 `registry_conflicts`，有紀錄即拒絕替換；匯入把既有與帶入的衝突來源一併排除於檢查點與 genesis 之外；`registryConflict` 隨匯出轉移 | `trial_ledger_binding.rs`、`trial_ledger_transfer.rs` |
+| R3 | `splitHash` 改為逐候選的 `trial-split-v1` 身分；新登記與 legacy 回填共用 `discovery_runner::candidate_split_hashes`；ledger 拒絕以未版本化 `splitHash` 作 reproduction | `discovery_runner/execution.rs`、`discovery_runner/mod.rs`、`trial_ledger_workspace.rs`、`trial_ledger.rs` |
+| R4 | `adopt(…, epoch)` 每次成功採納都在 `ownership::write_transaction_quiet(epoch)` 中寫回目前鏈頭（含接受替換後的新 `registryId`）；runtime 傳入剛取得的 epoch | `trial_ledger_workspace.rs`、`runtime/mod.rs` |
+| R5 | registry migration `0002_origin_genesis`；匯入記錄已驗證來源的 genesis 並隨匯出轉移；`seq = 0` 的綁定只憑此證據接受 | `registry_migrations/0002_origin_genesis.sql`、`trial_ledger_transfer.rs`、`trial_ledger_binding.rs` |
+
+**切分身分。** `execution::trial_split_identity` 產生
+
+```text
+{contracts:{split, embargo}, totalBars, holdingAllowanceBars,
+ embargo: <該候選的 EmbargoDerivation> | null,
+ split:   <plan_validation_split 的 Train/Validation/Test 與 embargo 範圍> | null,
+ walkForward: null | {declaration: <v3 walkForward 宣告>, report: <evaluate_walk_forward_plan 報告，含 folds> | null}}
+splitHash = "trial-split-v1:" + sha256(canonical_json({version: "trial-split-v1", identity}))
+```
+
+推導失敗的欄位記為 null（該候選之後在執行時失敗），輸入本身仍在身分中，所以任何輸入改變都會改變雜湊。
+新登記使用 `load_verified_dataset` 驗證後的 bar 數，並核對 lineage 的候選 index 與 strategy hash 等於凍結設定重新列舉的結果。
+legacy 回填使用 `datasets.candle_count`，且只有在 run config 符合 attempt 的 `configHash`、設定中的 dataset 等於 attempt 的
+dataset、候選 index 存在且其 strategy hash 相符時才填入；否則為 null（不能作為 reproduction 對象）。
+
+**相容性與已知限制**
+
+- registry schema 升為 `0002_origin_genesis`：舊 build 開啟新 registry 會回報 `registry_schema_newer`。
+  migration 以既有 `registry_imports` 來源與 `origin_checkpoints` 來源回填 genesis 證據（不含自己）。
+- `trial-ledger-export-v1` 檔一律拒絕（§8.1）。
+- 既有事件不改寫：本修復之前登記的 variant 與已回填的 legacy 事件保留未版本化 `splitHash`，照常計數，
+  但不能作為免費 reproduction 的依據。
+- 舊 build 已提交 registry、但工作區尚未寫入的批次（孤兒登記，或首次綁定時在兩步之間中斷），升級後以同一 requestId／
+  attempt 重試會算出不同 `splitHash`，得到 `idempotency_conflict` 而停止（fail closed，不會少計）。新 requestId 即為新批次；
+  首次綁定中斷的工作區在 v1 沒有自動修復途徑，需人工處理。
+- attempt 的 `configHash`（gate、score、random entry 等選擇設定）仍不在事件身分中；它們不改變評估的 bar 範圍，
+  不屬 R3 的切分身分範圍。
+- `ImportSummary.conflicts` 只計本次新偵測的衝突，帶入的證據不計入。
+- genesis 證據與檢查點相同，只證明工作區當時看過的前綴；來源在那之後新增、但工作區未觀察到的事件不在其保證內（§7.3）。
+
+**測試**：原反例 `review_quarantine_survives_export_into_replacement`、`review_divergent_origin_cannot_authorize_replacement`、
+`review_changed_embargo_cannot_replay_registered_trial`、`review_reopen_persists_newly_observed_registry_head`、
+`review_empty_export_can_restore_empty_workspace_binding`；新增 `r1_quarantine_survives_chained_and_repeated_transfers`
+（A→C→D、重複匯入、其他家族可用、隔離家族重新匯入不擋檢查點）、`r1_v1_files_and_malformed_evidence_are_refused_before_writes`、
+`r2_a_divergent_origin_stays_refused_after_replay_reopen_and_transfer`、`r3_import_refuses_a_reproduction_of_an_unversioned_split`、
+`an_unversioned_split_can_never_back_a_free_reproduction`、`registered_trials_carry_the_candidate_split_identity`、
+`trial_split_hash_binds_bars_embargo_and_fold_declaration`、`legacy_split_is_recovered_only_from_the_frozen_run_config`（改寫為
+完整邊界矩陣）、`r4_the_reopen_watermark_detects_a_later_rollback`、`r4_an_accepted_replacement_is_persisted_immediately`、
+`r5_an_empty_origin_restores_through_transfers_only_with_evidence`、`r5_genesis_evidence_never_overrides_a_recorded_divergence`、
+`schema_v2_backfills_origin_genesis_from_v1_evidence`。

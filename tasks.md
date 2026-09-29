@@ -6,6 +6,8 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Current Snapshot
 
+- **P12-AUDIT-R1–R5 fixed locally (2026-09-29)** on `fix/p12-audit-r1-r5` from `af8196d`. Export is now `trial-ledger-export-v2` and carries family quarantines, origin conflicts and verified origin genesis; a recorded origin conflict permanently refuses replacement; every successful workspace adoption persists the observed head (including an accepted replacement); registry migration `0002_origin_genesis` lets an empty registry restore a seq=0 binding; `splitHash` is a per-candidate `trial-split-v1` identity of the derived embargo, split and v3 folds, and unversioned splits cannot back a free reproduction. All five review counterexamples pass unchanged apart from `adopt`'s new epoch argument, plus 12 new regressions. **472 Rust (101 + 369 + 2)**; all-target check and clippy pass (five existing warnings); three mutation checks were each caught. No TypeScript/UI change, so npm/Playwright were not rerun. P12 remains In Progress. [Contract §20](docs/trial-ledger-v1.md), [handoff Resolution](handoffs/2026-09-29-pr116-125-acceptance-review-v1.md).
+
 - **PR #116–#125 acceptance review completed (2026-09-29)** at merged `af8196d`, on `review/pr116-125-acceptance`. All ten final-head CI runs pass six jobs; local 975 Vitest / 455 Rust, typecheck, build and all-target cargo check pass. Five additional counterexamples fail: transfer loses quarantine, known origin divergence still authorizes replacement, split identity omits actual embargo, reopen fails to persist its observed head, and an empty registry cannot restore a seq=0 binding. Product code is unchanged; the regression patch and per-PR conclusions are in [the acceptance handoff](handoffs/2026-09-29-pr116-125-acceptance-review-v1.md). Review is Done; fixes below remain Backlog and P12 remains In Progress.
 
 - **P12d-2a authoritative snapshot resolution completed locally (2026-09-29)** on `feat/p12d2a-authoritative-snapshot` from merged PR #124 (`c787e8d`). Read-only backend verification resolves only exact frozen snapshot IDs, recomputes the full dataset content identity and checks instrument revision/listing, interval and exact bounds, minimum bars, coverage, accepted unsuperseded sources, cost status and snapshot content identity. Four integration tests use actual P06 snapshots and cover missing/mismatched bindings, candle changes, source revision, demo and degraded data. **455 Rust (101 + 352 + 2)** pass; all-target check and clippy pass (five existing warnings). No runtime caller, ledger/history check, admission fence or persistence; **P12d-2/P12d/P12 remain In Progress.** [Contract](docs/research-campaign-declaration-v1.md), [handoff](handoffs/2026-09-29-p12d2a-authoritative-snapshot-v1.md).
@@ -103,11 +105,13 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 Evidence, reproduction patch and acceptance conditions: [review handoff](handoffs/2026-09-29-pr116-125-acceptance-review-v1.md). These are separate repair tasks; the existing product task order is unchanged.
 
-- [ ] **P12-AUDIT-R1 (P1)** — preserve permanent family/origin conflicts across complete registry export/import, including repeated transfers; update the wire contract.
-- [ ] **P12-AUDIT-R2 (P1)** — refuse replacement authority from an origin with recorded registry divergence, including later imports and reopened bindings.
-- [ ] **P12-AUDIT-R3 (P2)** — bind trial split identity to actual derived embargo/windows and applicable fold declarations; treat incomplete legacy identities conservatively.
-- [ ] **P12-AUDIT-R4 (P2)** — persist the current registry head and accepted replacement ID on every successful workspace adoption.
-- [ ] **P12-AUDIT-R5 (P2)** — support verified empty-registry transfer and restoration of seq=0 workspace bindings.
+All five items below moved to Done on 2026-09-29 (P12-AUDIT-R1–R5); kept here as the original acceptance wording.
+
+- [x] **P12-AUDIT-R1 (P1)** — preserve permanent family/origin conflicts across complete registry export/import, including repeated transfers; update the wire contract.
+- [x] **P12-AUDIT-R2 (P1)** — refuse replacement authority from an origin with recorded registry divergence, including later imports and reopened bindings.
+- [x] **P12-AUDIT-R3 (P2)** — bind trial split identity to actual derived embargo/windows and applicable fold declarations; treat incomplete legacy identities conservatively.
+- [x] **P12-AUDIT-R4 (P2)** — persist the current registry head and accepted replacement ID on every successful workspace adoption.
+- [x] **P12-AUDIT-R5 (P2)** — support verified empty-registry transfer and restoration of seq=0 workspace bindings.
 
 ### AlphaBTC capability transfer and persistent service (2026-09-15)
 
@@ -289,6 +293,8 @@ These were named inside the UI port entry and must not be buried by closing it. 
 - [ ] Full closed-loop AI automation. (Specification: ABC-14.)
 
 ## Done
+
+- [x] **P12-AUDIT-R1–R5 — PR #116–#125 acceptance fixes** (2026-09-29, branch `fix/p12-audit-r1-r5`). R1: `trial-ledger-export-v2` exports distinct family/origin conflicts and verified origin genesis; imports union the evidence idempotently, quarantine immediately while still unioning the family's non-conflicting rows, and no longer treat an already-present quarantined event as a source-chain gap; v1 files are refused. R2: `check_binding` refuses any origin with a recorded `registry_conflicts` row, and imports skip checkpoints/genesis for known or carried conflicted origins. R3: runner and legacy backfill share `candidate_split_hashes` (verified bar count, candidate embargo, outer split, v3 fold declaration/report → `trial-split-v1:<sha256>`); legacy fills it only when config, dataset, candidate index and strategy are provable; the ledger refuses reproductions with an unversioned split. R4: `adopt(…, epoch)` persists the current head on every successful adoption in an owner-checked transaction. R5: registry migration `0002_origin_genesis` (backfilled from import/checkpoint evidence) lets a seq=0 binding be restored only after a validated (possibly transitive) export of that origin. Also documented the actual runtime registry path in §2.1. **472 Rust (101 + 369 + 2)**, all-target check, clippy (five existing warnings); mutation checks M1 gap rule, M2 known conflicts, M3 reopen write were each caught. No TypeScript/UI change; npm/Playwright not rerun. Known limits (old unversioned events kept as-is; pre-upgrade orphan retries fail closed with `idempotency_conflict`) are in [contract §20](docs/trial-ledger-v1.md). [Handoff Resolution](handoffs/2026-09-29-pr116-125-acceptance-review-v1.md).
 
 - [x] **PR-REVIEW-116-125 — Latest ten PR acceptance review** (2026-09-29). Reviewed #116–#125 against merged `af8196d`, checked all ten final-head CI runs, reran 975 Vitest / 455 Rust plus typecheck/build/all-target check, and reproduced five missing edge cases. Preserved the failures as a standalone test patch and recorded repair tasks without changing product code. [Handoff](handoffs/2026-09-29-pr116-125-acceptance-review-v1.md).
 

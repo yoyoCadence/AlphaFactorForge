@@ -4,7 +4,7 @@ Date: 2026-09-29
 Repo: yoyoCadence/AlphaFactorForge
 Branch: `review/pr116-125-acceptance`
 Reviewed baseline: `af8196de1532028b13023184a95a88b3337f9ff0`（PR #125 合併後的 `origin/main`）
-Status: 驗收完成；R1–R5 待修復。整組尚不能無條件通過。
+Status: R1–R5 已在 `fix/p12-audit-r1-r5` 本機修復（見 Resolution），待 PR／CI 與覆驗。原狀態：驗收完成；R1–R5 待修復。整組尚不能無條件通過。
 
 ## Summary
 
@@ -154,3 +154,40 @@ cargo test --locked --bin alpha-factor-forge review_ -- --nocapture
 ## Resolution
 
 Pending. 修復者請追加變更 commit、對應回歸結果與驗收結論；保留本次原始證據。
+
+### Resolution — R1–R5 本機修復（2026-09-29，branch `fix/p12-audit-r1-r5`）
+
+- 分支自 `af8196d`。`ad999a5` 原樣提交本驗收的 handoff、patch 與 task board 紀錄；`f08dd34` 為產品修復與測試。
+  尚未 push、開 PR 或跑遠端 CI。
+- **先確認缺陷**：在 `af8196d` 套用本 handoff 的 patch 後執行 `review_` filter，結果與上文一致——5 failed、4 passed，
+  失敗都落在行為斷言。修復後同一 filter 9 passed。五項反例已原樣納入正式測試，唯一改動是 `adopt` 增加 `epoch`
+  參數（測試傳 `None`）；因此這份 patch 對修復後的分支已不能再套用，只作為原始證據保留。
+
+| 項目 | 修復 | 主要回歸 |
+| --- | --- | --- |
+| R1 | 匯出升為 `trial-ledger-export-v2`，帶出相異的 `familyConflict`、`registryConflict` 與 `originGenesis`；匯入依內容去重追加，帶入的隔離立即生效，但該家族不衝突的列仍聯集（計數與批次保留）。已存在於本地的隔離家族事件不再被當成來源鏈缺口。v1 檔一律拒絕。 | `r1_quarantine_survives_chained_and_repeated_transfers`（A→C→D、重複匯入冪等、其他家族可用、之後匯入仍延伸檢查點）、`r1_v1_files_and_malformed_evidence_are_refused_before_writes` |
+| R2 | `check_binding` 在同一讀取交易查 `registry_conflicts`，有紀錄即 `registry_replaced`；匯入把既有、帶入與本次偵測的衝突來源一併排除於檢查點與 genesis 之外。 | `r2_a_divergent_origin_stays_refused_after_replay_reopen_and_transfer`（先接受→分歧→重播正常匯出→重開→來源後續真實歷史→轉移到下一個 registry，皆拒絕） |
+| R3 | `splitHash` 改為逐候選 `trial-split-v1:<sha256>`，身分含驗證後 bar 數、holding allowance、候選推導的 embargo、outer Train／Validation／Test，以及 v3 fold 宣告與報告。新登記與 legacy 回填共用 `candidate_split_hashes`；legacy 只有在 config、dataset、候選 index 與 strategy 都能證明時才填入。ledger 拒絕以未版本化 `splitHash` 作 reproduction（登記與匯入都檢查）；舊事件不改寫。 | `registered_trials_carry_the_candidate_split_identity`、`trial_split_hash_binds_bars_embargo_and_fold_declaration`、`legacy_split_is_recovered_only_from_the_frozen_run_config`、`an_unversioned_split_can_never_back_a_free_reproduction`、`r3_import_refuses_a_reproduction_of_an_unversioned_split` |
+| R4 | `adopt(…, epoch)` 每次成功採納都在 `ownership::write_transaction_quiet(epoch)` 交易中寫回目前鏈頭；runtime 傳入剛取得的 epoch；legacy 回填仍只在首次綁定。 | `r4_the_reopen_watermark_detects_a_later_rollback`、`r4_an_accepted_replacement_is_persisted_immediately` |
+| R5 | registry migration `0002_origin_genesis`（append-only，並從既有 `registry_imports`／`origin_checkpoints` 回填）；匯入記錄已驗證來源並隨匯出轉移；`seq = 0` 的綁定只憑此證據接受，且衝突優先。 | `r5_an_empty_origin_restores_through_transfers_only_with_evidence`、`r5_genesis_evidence_never_overrides_a_recorded_divergence`、`schema_v2_backfills_origin_genesis_from_v1_evidence` |
+
+**驗證**
+
+- `cargo test --locked`：**472 通過（101 library + 369 desktop + 2 service smoke）** = 455 baseline + 5 反例 + 12 新回歸。
+- `cargo check --locked --all-targets` 通過；`cargo clippy --locked --all-targets` 只有既有五個 warning（`discovery_core/backtest.rs`、
+  `score.rs`、`commands/file_commands.rs`），修改檔案沒有新增。
+- 突變檢查（暫時還原修復、跑測試、再復原）：M1 還原「隔離家族一律算缺口」→ R1 串接測試失敗；M2 匯入忽略既有／帶入的來源衝突
+  → R2 測試失敗；M3 只在首次綁定寫入 → 三個 reopen／R4 測試失敗。
+- 沒有 TypeScript、UI、e2e 或前端 schema 變更（`src/`、`e2e/`、fixtures 未引用 ledger 匯出或 `splitHash`），所以未重跑 npm 與 Playwright。
+  本機以 `CARGO_TARGET_DIR` 置於 OneDrive 外建置。
+- rustfmt：crate 本來就不是全檔 rustfmt 乾淨（約 850 個既有差異），沒有整檔重排；新程式碼遵循周邊風格。
+
+**相容性與仍需決定的事項**（細節見 [`docs/trial-ledger-v1.md`](../docs/trial-ledger-v1.md) §20）
+
+- registry schema 升為 `0002`：舊 build 開啟會得到 `registry_schema_newer`。
+- 舊 build 已提交 registry、工作區尚未寫入的批次，升級後以同一 requestId／attempt 重試會得到 `idempotency_conflict`（fail closed、不少計）；
+  首次綁定恰好在兩步之間中斷的工作區在 v1 沒有自動修復途徑。
+- attempt 的 `configHash`（gate／score／random entry 等選擇設定）仍不在事件身分中；它不改變評估的 bar 範圍，本次不擴大 R3。
+- 次要文件落差已在 §2.1 以附註同步實際路徑 `com.alphafactorforge.trial-ledger` 與 `AFF_TEST_TRIAL_REGISTRY_DIR`；
+  未使用的 `default_registry_dir()`／`AFF_REGISTRY_DIR` 常數沒有修改，兩者統一需維護者決定。
+- 下一步：push 並開 PR 跑六項 CI、請審查者以本 handoff 的反例覆驗；之後再接 P12d admission。
