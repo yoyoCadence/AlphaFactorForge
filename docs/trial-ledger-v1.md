@@ -783,3 +783,21 @@ dataset、候選 index 存在且其 strategy hash 相符時才填入；否則為
 完整邊界矩陣）、`r4_the_reopen_watermark_detects_a_later_rollback`、`r4_an_accepted_replacement_is_persisted_immediately`、
 `r5_an_empty_origin_restores_through_transfers_only_with_evidence`、`r5_genesis_evidence_never_overrides_a_recorded_divergence`、
 `schema_v2_backfills_origin_genesis_from_v1_evidence`。
+
+---
+
+## 21. 實作紀錄：P12d-2b §6.4 新鮮度圍欄（2026-09-29）
+
+- `TrialLedger::fence_admission(batchId, earlier)` 在**同一筆 registry 讀取交易**中依 §6.4 執行：先以 §7 的前綴判定
+  （同一 registry 比對 `earlier.seq` 的鏈值；不同 registry 依 §7.3 檢查點／genesis 與來源衝突）證明 `earlier` 看到的事件都還在，
+  再讀該批的目前 `admissionCount` 比較家族有效計數。`check_binding` 與圍欄共用同一個前綴判定。
+- `earlier` 是 `AdmissionSnapshot`（`AdmissionCount::snapshot()` 的可序列化副本：registryId、familyId、兩個有效計數、
+  testsPerTrial、seq、chainHead），由保存判定的一方存下；圍欄只拿它比較，不會把它變回計數或 P12a 輸入。
+- 結果：`Unchanged`（原判定可沿用）、`Grew`（以回傳的新計數重算 P12a）、`Blocked`：`Prefix`（回報原 §7 代碼）、
+  `Admission`（例如判定之後家族被隔離）或 `Inconsistent`（`admission_count_inconsistent`：家族計數變小，或家族、
+  protocol、批次有效數改變——前綴成立時這些都不可能發生）。批次不存在 → `batch_not_found`。
+- A32 以帳本測試（`a32_the_fence_proves_the_prefix_before_comparing_the_family`）與 campaign 評估測試驗收；
+  A20 由 campaign admission 以真實帳本組出 `146/1001`、`NOT_ELIGIBLE`。替換後的圍欄、無證據的 registry 與判定後隔離
+  由 `the_fence_follows_a_proven_replacement_and_reports_a_later_quarantine` 覆蓋。
+- 本節只提供圍欄；何時呼叫（P12d-2c 保存判定、P13 派送確認工作）見
+  [`research-campaign-declaration-v1.md`](research-campaign-declaration-v1.md) 的 P12d-2b 一節。
