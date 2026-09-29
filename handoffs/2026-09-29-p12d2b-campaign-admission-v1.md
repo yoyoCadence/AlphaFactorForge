@@ -3,8 +3,8 @@
 Date: 2026-09-29
 Repo: yoyoCadence/AlphaFactorForge
 Branch: `feat/p12d2b-campaign-admission` (from merged PR #126, `b5667fb`)
-PR: pending
-Status: Implemented locally; P12d-2c (persistence and runner wiring) is next.
+PR: [#127](https://github.com/yoyoCadence/AlphaFactorForge/pull/127) (draft)
+Status: Published as draft PR #127 for CI and review; P12d-2c (persistence and runner wiring) is next.
 
 ## Summary
 
