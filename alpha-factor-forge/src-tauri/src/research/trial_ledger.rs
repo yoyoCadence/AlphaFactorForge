@@ -63,6 +63,9 @@ pub const TRIAL_LEDGER_VERSION: &str = "trial-ledger-v1";
 pub const TRIAL_FAMILY_VERSION: &str = "trial-family-v1";
 pub const TRIAL_EVENT_VERSION: &str = "trial-event-v1";
 pub const TRIAL_BATCH_VERSION: &str = "trial-batch-v1";
+/// Prefix of a `splitHash` that commits to the actual derived windows (§20).
+/// Unprefixed values predate it and only named contract versions.
+pub const TRIAL_SPLIT_VERSION: &str = "trial-split-v1";
 pub const HOLM_CORRECTION: &str = "holm";
 
 /// Overrides the registry directory, like `AFF_DATA_DIR` does the workspace;
@@ -77,10 +80,16 @@ const ONEDRIVE_ENV_VARS: [&str; 3] = ["OneDrive", "OneDriveConsumer", "OneDriveC
 
 /// The registry's own migrations (spec §2.2), separate from the workspace's.
 /// ADD new migrations to the END only.
-const REGISTRY_MIGRATIONS: &[(&str, &str)] = &[(
-    "0001_trial_ledger",
-    include_str!("../../registry_migrations/0001_trial_ledger.sql"),
-)];
+const REGISTRY_MIGRATIONS: &[(&str, &str)] = &[
+    (
+        "0001_trial_ledger",
+        include_str!("../../registry_migrations/0001_trial_ledger.sql"),
+    ),
+    (
+        "0002_origin_genesis",
+        include_str!("../../registry_migrations/0002_origin_genesis.sql"),
+    ),
+];
 
 // ------------------------------------------------------------------ errors
 
@@ -569,6 +578,27 @@ fn batch_id_for(family_id: Option<&str>, members: &Value) -> Result<String, Ledg
     ))
 }
 
+/// The versioned `splitHash` of a split identity document (spec §4.3, §20).
+/// The caller builds the document from the windows it actually evaluates.
+pub fn split_hash_for(identity: &Value) -> Result<String, LedgerError> {
+    let text = canonical_text(&json!({"version": TRIAL_SPLIT_VERSION, "identity": identity}))?;
+    Ok(format!("{TRIAL_SPLIT_VERSION}:{}", sha256_hex(text.as_bytes())))
+}
+
+/// Only a versioned split identity proves which bars were evaluated, so only
+/// such an event can be the subject or target of a free reproduction.
+fn is_versioned_split_hash(value: &str) -> bool {
+    value
+        .strip_prefix(TRIAL_SPLIT_VERSION)
+        .and_then(|rest| rest.strip_prefix(':'))
+        .is_some_and(|digest| {
+            digest.len() == 64
+                && digest
+                    .bytes()
+                    .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+        })
+}
+
 /// The five fields a reproduction must match exactly (spec §4.2).
 const REPRODUCTION_IDENTITY: [&str; 5] = [
     "strategyHash",
@@ -797,6 +827,14 @@ fn prepare_batch(input: &TrialBatchInput) -> Result<PreparedBatch, LedgerError> 
                             "{field} is required for a reproduction"
                         )));
                     }
+                }
+                // Equality with the referenced event is checked later, so
+                // this also keeps unversioned (pre-§20) events from being
+                // reproduced for free. Import re-runs this check (§8.2).
+                if !event.split_hash.as_deref().is_some_and(is_versioned_split_hash) {
+                    return Err(LedgerError::ReproductionMismatch(format!(
+                        "splitHash is not a {TRIAL_SPLIT_VERSION} identity; register it as a variant"
+                    )));
                 }
                 forbid("benchmarkId", &event.benchmark_id, kind)?;
                 forbid("benchmarkParamsHash", &event.benchmark_params_hash, kind)?;
@@ -1653,6 +1691,11 @@ mod tests {
         TrialLedger::open_with_sync_roots(&dirs.registry, &dirs.workspace, &[]).unwrap()
     }
 
+    /// A versioned split identity; only these can back a reproduction (§20).
+    fn split(tag: &str) -> String {
+        split_hash_for(&json!(tag)).unwrap()
+    }
+
     fn event(kind: TrialKind, request: &str, index: u64) -> TrialEventInput {
         TrialEventInput {
             kind,
@@ -1664,7 +1707,7 @@ mod tests {
             strategy_hash: Some(format!("strategy-{request}-{index}")),
             dataset_hash: Some("dataset-1".into()),
             snapshot_id: Some("snapshot-1".into()),
-            split_hash: Some("split-1".into()),
+            split_hash: Some(split("split-1")),
             seeds_hash: Some(format!("seeds-{request}-{index}")),
             engine_fingerprint_hash: Some("engine-1".into()),
             benchmark_id: None,
@@ -1718,7 +1761,7 @@ mod tests {
             },
             dataset_hash: "dataset-1".into(),
             snapshot_id: Some("snapshot-1".into()),
-            split_hash: "split-1".into(),
+            split_hash: split("split-1"),
             seeds_hash: format!("seeds-{request}-{index}"),
             engine_fingerprint_hash: "engine-1".into(),
         }
@@ -2168,7 +2211,7 @@ mod tests {
         ] {
             let error = reproduce(request, &|event| match field {
                 "seeds" => event.seeds_hash = Some("other".into()),
-                "split" => event.split_hash = Some("other".into()),
+                "split" => event.split_hash = Some(split("other")),
                 "strategy" => event.strategy_hash = Some("other".into()),
                 "engine" => event.engine_fingerprint_hash = Some("other".into()),
                 _ => event.dataset_hash = Some("other".into()),
@@ -2191,6 +2234,111 @@ mod tests {
         .err()
         .unwrap();
         assert_eq!(error.code(), "reproduction_reference_missing");
+    }
+
+    #[test]
+    fn an_unversioned_split_can_never_back_a_free_reproduction() {
+        // Before §20 the runner hashed only the split/embargo contract names.
+        // Such an event stays valid and counted, but it cannot prove which
+        // bars it used, so even an identical replay must count as a variant.
+        let dirs = scratch();
+        let ledger = open(&dirs);
+        let mut old = batch("old", 1);
+        old.events[0].split_hash = Some("0".repeat(64));
+        let original = ledger.register_batch(&old).unwrap();
+        let mut input = batch("replay", 1);
+        input.events[0] = TrialEventInput {
+            kind: TrialKind::Reproduction,
+            origin: TrialOrigin::Request {
+                request_id: "replay".into(),
+                candidate_index: 0,
+            },
+            reproduction_of: Some(original.event_ids[0].clone()),
+            ..old.events[0].clone()
+        };
+        assert_eq!(
+            ledger.register_batch(&input).err().unwrap().code(),
+            "reproduction_mismatch"
+        );
+        for malformed in [
+            format!("{TRIAL_SPLIT_VERSION}:{}", "A".repeat(64)),
+            format!("{TRIAL_SPLIT_VERSION}:{}", "a".repeat(63)),
+            format!("trial-split-v2:{}", "a".repeat(64)),
+            "a".repeat(64),
+        ] {
+            assert!(!is_versioned_split_hash(&malformed), "{malformed}");
+        }
+        assert!(is_versioned_split_hash(&split("any identity")));
+        assert_ne!(split("one"), split("two"));
+        assert_eq!(split("one"), split("one"));
+    }
+
+    #[test]
+    fn schema_v2_backfills_origin_genesis_from_v1_evidence() {
+        let dirs = scratch();
+        std::fs::create_dir_all(&dirs.registry).unwrap();
+        let own = "a".repeat(32);
+        let imported = "b".repeat(32);
+        let checkpointed = "c".repeat(32);
+        {
+            // A registry written by a schema-v1 build: import evidence exists,
+            // but no origin_genesis table yet.
+            let conn = Connection::open(dirs.registry.join(REGISTRY_FILE_NAME)).unwrap();
+            conn.execute_batch(
+                "CREATE TABLE registry_migrations (
+                     version TEXT PRIMARY KEY,
+                     applied_at TEXT NOT NULL DEFAULT (datetime('now')));",
+            )
+            .unwrap();
+            conn.execute_batch(REGISTRY_MIGRATIONS[0].1).unwrap();
+            conn.execute(
+                "INSERT INTO registry_meta (key, value) VALUES ('registry_id', ?1)",
+                [&own],
+            )
+            .unwrap();
+            conn.execute(
+                "INSERT INTO registry_migrations (version) VALUES ('0001_trial_ledger')",
+                [],
+            )
+            .unwrap();
+            for source in [&own, &imported, &imported] {
+                conn.execute(
+                    "INSERT INTO registry_imports (source_registry_id, file_sha256, head_seq,
+                         head_chain, added_events, skipped_events, conflicts, imported_at)
+                     VALUES (?1, 'f', 0, 'h', 0, 0, 0, '2026-09-01T00:00:00+00:00')",
+                    [source],
+                )
+                .unwrap();
+            }
+            // Only the backfill SQL is under test, so the checkpoint's event
+            // is not materialized.
+            conn.execute_batch("PRAGMA foreign_keys = OFF;").unwrap();
+            conn.execute(
+                "INSERT INTO origin_checkpoints (origin_registry_id, origin_seq, event_id,
+                     origin_chain) VALUES (?1, 1, 'event', 'chain')",
+                [&checkpointed],
+            )
+            .unwrap();
+        }
+        let ledger = open(&dirs);
+        assert_eq!(ledger.registry_id(), own);
+        let conn = ledger.lock().unwrap();
+        let origins: Vec<String> = {
+            let mut stmt = conn
+                .prepare("SELECT origin_registry_id FROM origin_genesis ORDER BY 1")
+                .unwrap();
+            let rows = stmt.query_map([], |row| row.get(0)).unwrap();
+            rows.collect::<Result<_, _>>().unwrap()
+        };
+        assert_eq!(origins, vec![imported, checkpointed], "never its own id");
+        let applied: Vec<String> = {
+            let mut stmt = conn
+                .prepare("SELECT version FROM registry_migrations ORDER BY version")
+                .unwrap();
+            let rows = stmt.query_map([], |row| row.get(0)).unwrap();
+            rows.collect::<Result<_, _>>().unwrap()
+        };
+        assert_eq!(applied, vec!["0001_trial_ledger", "0002_origin_genesis"]);
     }
 
     #[test]

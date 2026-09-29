@@ -106,7 +106,9 @@ pub fn write_workspace_binding(
 impl TrialLedger {
     /// Compare the workspace's saved prefix against one consistent registry
     /// read. A changed registry ID is accepted only when import left the exact
-    /// old prefix checkpoint and its event is present (§7.3).
+    /// old prefix checkpoint and its event is present (§7.3) — or, for an
+    /// empty prefix, verified genesis evidence of that origin (§20) — and the
+    /// origin has no recorded registry conflict (§8.2).
     pub fn check_binding(
         &self,
         saved: Option<&LedgerBinding>,
@@ -147,6 +149,16 @@ impl TrialLedger {
                     return Ok(BindingCheck::RegistryDiverged);
                 }
             } else {
+                // A recorded divergence is permanent: checkpoints that were
+                // valid before it can no longer vouch for this origin.
+                let conflicted = tx
+                    .query_row(
+                        "SELECT 1 FROM registry_conflicts WHERE origin_registry_id = ?1 LIMIT 1",
+                        [&saved.registry_id],
+                        |_| Ok(()),
+                    )
+                    .optional()?
+                    .is_some();
                 let checkpoint: Option<(String, String)> = tx
                     .query_row(
                         "SELECT c.origin_chain, c.event_id FROM origin_checkpoints c
@@ -155,7 +167,20 @@ impl TrialLedger {
                         |row| Ok((row.get(0)?, row.get(1)?)),
                     )
                     .optional()?;
-                let accepted = if let Some((chain, event_id)) = checkpoint {
+                let accepted = if conflicted {
+                    false
+                } else if saved.seq == 0 {
+                    // `validate` pinned the chain head to the origin genesis;
+                    // there is no event to checkpoint, so require proof that
+                    // a complete export of that origin was validated here.
+                    tx.query_row(
+                        "SELECT 1 FROM origin_genesis WHERE origin_registry_id = ?1",
+                        [&saved.registry_id],
+                        |_| Ok(()),
+                    )
+                    .optional()?
+                    .is_some()
+                } else if let Some((chain, event_id)) = checkpoint {
                     chain == saved.chain_head
                         && tx
                             .query_row(

@@ -98,6 +98,116 @@ fn v3_run_persists_train_only_folds_with_the_completed_attempt() {
 }
 
 #[test]
+fn review_changed_embargo_cannot_replay_registered_trial() {
+    let dir = fresh_dir();
+    let _guard = TempDir(dir.clone());
+    std::fs::create_dir_all(&dir).unwrap();
+    let db = migrated_db();
+    let candles = alternating_candles(240, 1_577_836_800_000);
+    let (dataset_id, dataset_hash) = import_dataset(&db, &candles);
+    let workspace_id = crate::db::runtime_ledger::workspace_id(&db.lock().unwrap()).unwrap();
+    let bound = crate::research::trial_ledger_workspace::adopt(
+        &mut db.lock().unwrap(), &dir, &workspace_id, None,
+    ).unwrap();
+    let raw = walk_forward_runner_config(dataset_id, &dataset_hash);
+    let mut changed = raw.clone();
+    changed["embargo"]["holdingAllowanceBars"] = json!(
+        raw["embargo"]["holdingAllowanceBars"].as_i64().unwrap() + 1);
+    let first = parse_discovery_config(&raw, 8.0).unwrap();
+    let second = parse_discovery_config(&changed, 8.0).unwrap();
+    let candidate = enumerate_candidates(&first).unwrap().candidates.remove(0);
+    let other = enumerate_candidates(&second).unwrap().candidates.remove(0);
+    assert_eq!(candidate.strategy_hash, other.strategy_hash);
+    let first_plan = declared_walk_forward_plan(&first, &candidate, candles.len(), first.walk_forward.unwrap()).unwrap();
+    let second_plan = declared_walk_forward_plan(&second, &other, candles.len(), second.walk_forward.unwrap()).unwrap();
+    assert_ne!(first_plan.embargo_bars, second_plan.embargo_bars);
+    let conn = db.lock().unwrap();
+    let (dataset, _) = load_verified_dataset(&conn, &first).unwrap();
+    let scheduled = vec![ScheduledCandidate { candidate, strategy_id: 1 }];
+    let first_lineage = run_lineage(&first, &raw, 1, &dataset, &scheduled, None).unwrap();
+    let second_lineage = run_lineage(&second, &changed, 1, &dataset, &scheduled, None).unwrap();
+    register_lineage(&bound.ledger, &conn, &workspace_id, "same-request", &first, &dataset, &first_lineage).unwrap();
+    let retry = register_lineage(&bound.ledger, &conn, &workspace_id, "same-request", &second, &dataset, &second_lineage);
+    assert!(retry.is_err(), "different actual windows must not replay the same event IDs: {retry:?}");
+}
+
+/// trial-ledger-v1 §20: the registered event carries the candidate's derived
+/// split identity; an identical retry replays, a changed fold plan conflicts.
+#[test]
+fn registered_trials_carry_the_candidate_split_identity() {
+    let dir = fresh_dir();
+    let _guard = TempDir(dir.clone());
+    std::fs::create_dir_all(&dir).unwrap();
+    let db = migrated_db();
+    let candles = alternating_candles(240, 1_577_836_800_000);
+    let (dataset_id, dataset_hash) = import_dataset(&db, &candles);
+    let workspace_id = crate::db::runtime_ledger::workspace_id(&db.lock().unwrap()).unwrap();
+    let bound = crate::research::trial_ledger_workspace::adopt(
+        &mut db.lock().unwrap(), &dir, &workspace_id, None,
+    ).unwrap();
+    let raw = walk_forward_runner_config(dataset_id, &dataset_hash);
+    let mut changed = raw.clone();
+    changed["walkForward"]["foldCount"] = json!(2);
+    let config = parse_discovery_config(&raw, 8.0).unwrap();
+    let other = parse_discovery_config(&changed, 8.0).unwrap();
+    let candidate = enumerate_candidates(&config).unwrap().candidates.remove(0);
+    let conn = db.lock().unwrap();
+    let (dataset, _) = load_verified_dataset(&conn, &config).unwrap();
+    assert_eq!(dataset.candle_count, candles.len());
+    let scheduled = vec![ScheduledCandidate { candidate: candidate.clone(), strategy_id: 1 }];
+    let lineage = run_lineage(&config, &raw, 1, &dataset, &scheduled, None).unwrap();
+    let register = |config: &ResolvedDiscoveryConfig, lineage: &history::RunLineage| {
+        register_lineage(&bound.ledger, &conn, &workspace_id, "request", config, &dataset, lineage)
+    };
+    let (ids, _) = register(&config, &lineage).unwrap();
+    let payload: Value = {
+        let registry = rusqlite::Connection::open(bound.ledger.path()).unwrap();
+        let text: String = registry
+            .query_row("SELECT payload_json FROM trial_events WHERE event_id = ?1", [&ids[0]], |row| row.get(0))
+            .unwrap();
+        serde_json::from_str(&text).unwrap()
+    };
+    let expected = candidate_split_hashes(&config, candles.len()).unwrap()[&candidate.index].1.clone();
+    assert!(expected.starts_with("trial-split-v1:"), "{expected}");
+    assert_eq!(payload["splitHash"], json!(expected));
+    assert_eq!(register(&config, &lineage).unwrap().0, ids, "an identical retry replays");
+    let other_lineage = run_lineage(&other, &changed, 1, &dataset, &scheduled, None).unwrap();
+    let error = register(&other, &other_lineage).unwrap_err();
+    assert!(error.to_string().contains("idempotency_conflict"), "{error}");
+}
+
+/// Every input that moves an evaluated window moves the split identity.
+#[test]
+fn trial_split_hash_binds_bars_embargo_and_fold_declaration() {
+    let dataset_hash = format!("dataset-content-v2:{}", "a".repeat(64));
+    let hash_of = |raw: &Value, bars: usize| {
+        let config = parse_discovery_config(raw, 8.0).unwrap();
+        candidate_split_hashes(&config, bars).unwrap()[&0].1.clone()
+    };
+    let base = walk_forward_runner_config(7, &dataset_hash);
+    let reference = hash_of(&base, 240);
+    assert_eq!(hash_of(&base, 240), reference, "deterministic");
+    let mut seen = std::collections::BTreeSet::from([reference]);
+    let mut variants = vec![
+        ("one more bar", base.clone(), 241),
+        ("no fold declaration", runner_config(7, &dataset_hash, 1), 240),
+    ];
+    for (label, section, field, delta) in [
+        ("holding allowance", "embargo", "holdingAllowanceBars", 1),
+        ("minimum train", "walkForward", "minimumTrainBars", 1),
+        ("fold validation", "walkForward", "foldValidationBars", 1),
+        ("fold count", "walkForward", "foldCount", -1),
+    ] {
+        let mut changed = base.clone();
+        changed[section][field] = json!(base[section][field].as_i64().unwrap() + delta);
+        variants.push((label, changed, 240));
+    }
+    for (label, raw, bars) in variants {
+        assert!(seen.insert(hash_of(&raw, bars)), "{label} must change splitHash");
+    }
+}
+
+#[test]
 fn v3_ineligible_declaration_rejects_before_run_or_attempt_write() {
     let dir = fresh_dir();
     let _guard = TempDir(dir.clone());
@@ -485,7 +595,7 @@ fn a_pre_0007_paused_run_gets_lineage_before_resume_and_cannot_bypass_it() {
 
     let workspace_id = crate::db::runtime_ledger::workspace_id(&db.lock().unwrap()).unwrap();
     let bound = crate::research::trial_ledger_workspace::adopt(
-        &mut db.lock().unwrap(), &dir, &workspace_id,
+        &mut db.lock().unwrap(), &dir, &workspace_id, None,
     ).unwrap();
     let ledger = bound.ledger;
     let runner = runner.with_trial_ledger(ledger.clone(), &workspace_id);

@@ -46,7 +46,7 @@ use crate::error::{AppError, AppResult};
 use crate::research::artifacts::{ArtifactRef, ArtifactStore};
 use crate::research::history::{self as history, AttemptDraft, HypothesisDraft};
 use crate::research::trial_ledger::{
-    TrialBatchInput, TrialEventInput, TrialKind, TrialLedger, TrialOrigin,
+    split_hash_for, TrialBatchInput, TrialEventInput, TrialKind, TrialLedger, TrialOrigin,
 };
 use crate::research::trial_ledger_workspace::{self, unique_snapshot};
 use crate::research::{canonical_json, sha256_hex, CANDIDATE_RESULT_VERSION, CANDIDATE_RESULT_VERSION_V2};
@@ -1433,6 +1433,8 @@ struct VerifiedDataset {
     id: i64,
     interval: String,
     content_hash: String,
+    /// Verified candle count: the `totalBars` every split is derived from.
+    candle_count: usize,
 }
 
 fn load_verified_dataset(
@@ -1466,7 +1468,7 @@ fn load_verified_dataset(
             config.dataset.id
         )));
     }
-    let core = normalized
+    let core: Vec<CoreCandle> = normalized
         .into_iter()
         .map(|candle| CoreCandle {
             timestamp: candle.timestamp,
@@ -1482,6 +1484,7 @@ fn load_verified_dataset(
             id: config.dataset.id,
             interval: dataset.interval,
             content_hash: dataset.dataset_hash,
+            candle_count: core.len(),
         },
         core,
     ))
@@ -1759,6 +1762,25 @@ fn trial_hash(value: &Value) -> AppResult<String> {
     Ok(sha256_hex(&canonical_json(value)?))
 }
 
+/// `(strategyHash, splitHash)` for every candidate of a frozen config, keyed
+/// by candidate index. New registrations and legacy backfill both derive the
+/// split identity here from the config and verified bar count, so one
+/// contract serves both (trial-ledger-v1 §20).
+pub(crate) fn candidate_split_hashes(
+    config: &ResolvedDiscoveryConfig,
+    candle_count: usize,
+) -> AppResult<BTreeMap<i64, (String, String)>> {
+    let plan = enumerate_candidates(config).map_err(|error| other(error.to_string()))?;
+    plan.candidates
+        .iter()
+        .map(|candidate| {
+            let identity = execution::trial_split_identity(config, candidate, candle_count);
+            let split = split_hash_for(&identity).map_err(|error| other(error.to_string()))?;
+            Ok((candidate.index, (candidate.strategy_hash.clone(), split)))
+        })
+        .collect()
+}
+
 /// Registry commit first, then the caller stores these IDs and the observed
 /// head in the same workspace transaction as its queued jobs.
 fn register_lineage(
@@ -1772,16 +1794,19 @@ fn register_lineage(
 ) -> AppResult<(Vec<String>, crate::research::trial_ledger::LedgerBinding)> {
     trial_ledger_workspace::require_current(ledger, conn)?;
     let snapshot = unique_snapshot(conn, dataset.id, &dataset.content_hash)?;
-    let split_hash = trial_hash(&json!({
-        "split": config.contracts.split,
-        "embargo": config.contracts.embargo,
-    }))?;
+    let splits = candidate_split_hashes(config, dataset.candle_count)?;
     let events = lineage.iter().map(|(hypothesis, attempt)| {
         let index = attempt.candidate_index.ok_or_else(|| other("candidate index missing"))?;
         let seeds = attempt.input_fingerprint.get("seeds")
             .ok_or_else(|| other("candidate seeds missing"))?;
         let strategy_hash = attempt.input_fingerprint.get("strategyHash")
             .and_then(Value::as_str).ok_or_else(|| other("strategy hash missing"))?;
+        let split_hash = match splits.get(&index) {
+            Some((frozen, split)) if frozen == strategy_hash => split,
+            _ => return Err(other(format!(
+                "candidate {index} does not match the frozen config's enumeration"
+            ))),
+        };
         Ok(TrialEventInput {
             kind: TrialKind::Variant,
             origin: TrialOrigin::Request {
