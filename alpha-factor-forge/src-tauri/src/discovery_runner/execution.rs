@@ -1200,6 +1200,50 @@ pub fn declared_walk_forward_plan(
     Ok(plan)
 }
 
+/// The trial ledger's split identity for one candidate (`docs/trial-ledger-v1.md`
+/// §4.3, §20). It commits to the frozen inputs AND the windows the executor
+/// derives from them — this candidate's embargo, the outer
+/// Train/Validation/Test split and, for a v3 run, the declared folds — so two
+/// events with one `splitHash` were evaluated on the same bars. A derivation
+/// that fails is recorded as `null` (the candidate then fails in execution);
+/// the identity still changes whenever an input changes.
+pub fn trial_split_identity(
+    config: &ResolvedDiscoveryConfig,
+    candidate: &EnumeratedCandidate,
+    candle_count: usize,
+) -> Value {
+    let embargo = CandidateStrategy::parse(&candidate.strategy)
+        .and_then(|strategy| strategy.embargo(config.embargo.holding_allowance_bars))
+        .ok();
+    let split = embargo.and_then(|embargo| {
+        plan_validation_split(i64::try_from(candle_count).ok()?, embargo.embargo_bars).ok()
+    });
+    let walk_forward = config.walk_forward.map(|input| {
+        let report = embargo.and_then(|embargo| {
+            evaluate_walk_forward_plan(&WalkForwardPlan {
+                total_bars: u64::try_from(candle_count).ok()?,
+                embargo_bars: u64::try_from(embargo.embargo_bars).ok()?,
+                minimum_train_bars: input.minimum_train_bars,
+                fold_validation_bars: input.fold_validation_bars,
+                fold_count: input.fold_count,
+            })
+            .ok()
+        });
+        serde_json::json!({ "declaration": input, "report": report })
+    });
+    serde_json::json!({
+        "contracts": {
+            "split": config.contracts.split,
+            "embargo": config.contracts.embargo,
+        },
+        "totalBars": candle_count,
+        "holdingAllowanceBars": config.embargo.holding_allowance_bars,
+        "embargo": embargo,
+        "split": split,
+        "walkForward": walk_forward,
+    })
+}
+
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;

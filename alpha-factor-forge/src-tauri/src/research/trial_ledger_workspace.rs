@@ -81,10 +81,14 @@ pub fn require_current(ledger: &TrialLedger, conn: &Connection) -> AppResult<Led
     }
 }
 
+/// Open the registry for this workspace and persist the head it observed.
+/// `epoch` is the ownership epoch acquired by `runtime::open_workspace`
+/// (`None` only for tests and pre-lease callers), checked inside the write.
 pub fn adopt(
     conn: &mut Connection,
     workspace_dir: &Path,
     workspace_id: &str,
+    epoch: Option<i64>,
 ) -> AppResult<BoundLedger> {
     let saved = read_workspace_binding(conn).map_err(ledger_error)?;
     let dir = registry_dir(workspace_dir)?;
@@ -99,26 +103,33 @@ pub fn adopt(
         BindingCheck::Current(head) => head,
         blocked => return Err(ledger_error(blocked.code())),
     };
+    // Legacy backfill runs once, on the first binding only.
     let assignments = if saved.is_none() {
         backfill(conn, &ledger, workspace_id)?
     } else {
         Vec::new()
     };
-    if saved.is_none() {
-        let current = match ledger.check_binding(Some(&head)).map_err(ledger_error)? {
+    let current = if saved.is_none() {
+        // Cover the batches the backfill just committed to the registry.
+        match ledger.check_binding(Some(&head)).map_err(ledger_error)? {
             BindingCheck::Current(head) => head,
             blocked => return Err(ledger_error(blocked.code())),
-        };
-        let tx = conn.transaction()?;
-        for (id, event) in &assignments {
-            tx.execute(
-                "UPDATE research_attempts SET trial_event_id = ?1 WHERE id = ?2 AND trial_event_id IS NULL",
-                params![event, id],
-            )?;
         }
-        write_workspace_binding(&tx, &current).map_err(ledger_error)?;
-        tx.commit()?;
+    } else {
+        head
+    };
+    // Every successful adoption persists what it observed (§7.2): the newer
+    // head of the same registry becomes the rollback watermark, and an
+    // accepted replacement (§7.3) rebinds to the new registry immediately.
+    let tx = crate::db::ownership::write_transaction_quiet(conn, epoch)?;
+    for (id, event) in &assignments {
+        tx.execute(
+            "UPDATE research_attempts SET trial_event_id = ?1 WHERE id = ?2 AND trial_event_id IS NULL",
+            params![event, id],
+        )?;
     }
+    write_workspace_binding(&tx, &current).map_err(ledger_error)?;
+    tx.commit()?;
     let report = LedgerWorkspaceReport {
         backfilled_attempts: assignments.len(),
         orphan_event_ids: orphan_events(conn, &ledger, workspace_id)?,
@@ -220,26 +231,57 @@ struct LegacyAttempt {
     input: Value,
     engine: Value,
     run_config: Option<Value>,
+    dataset_id: i64,
+    candidate_index: Option<i64>,
+    candle_count: i64,
 }
 
-fn recover_legacy_split(attempt: &LegacyAttempt) -> AppResult<Option<String>> {
-    let Some(raw) = &attempt.run_config else {
+/// Per `(configHash, candle count)`: the config's dataset reference and its
+/// candidates' `(strategyHash, splitHash)`, or `None` when the config no
+/// longer parses or enumerates. One enumeration serves a whole legacy run.
+type RecoveredSplits =
+    BTreeMap<(String, i64), Option<(i64, String, BTreeMap<i64, (String, String)>)>>;
+
+/// §9/§20: a legacy attempt gets the same versioned split identity a new
+/// registration derives, but only when every input is provable — the frozen
+/// run config its `configHash` names, the config's dataset, the attempt's
+/// candidate index and that candidate's strategy. Anything else is `None`,
+/// so an unprovable split can never back a free reproduction.
+fn recover_legacy_split(
+    attempt: &LegacyAttempt,
+    recovered: &mut RecoveredSplits,
+) -> AppResult<Option<String>> {
+    let (Some(raw), Some(index)) = (&attempt.run_config, attempt.candidate_index) else {
         return Ok(None);
     };
-    if attempt.input.get("configHash").and_then(Value::as_str) != Some(hash_value(raw)?.as_str()) {
+    let config_hash = hash_value(raw)?;
+    if attempt.input.get("configHash").and_then(Value::as_str) != Some(config_hash.as_str()) {
         return Ok(None);
     }
-    let cores = std::thread::available_parallelism()
-        .map(usize::from)
-        .unwrap_or(1) as f64;
-    let Ok(config) = alpha_factor_forge::discovery_core::config::parse_discovery_config(raw, cores)
-    else {
+    let key = (config_hash, attempt.candle_count);
+    if !recovered.contains_key(&key) {
+        let cores = std::thread::available_parallelism()
+            .map(usize::from)
+            .unwrap_or(1) as f64;
+        let splits = alpha_factor_forge::discovery_core::config::parse_discovery_config(raw, cores)
+            .ok()
+            .zip(usize::try_from(attempt.candle_count).ok())
+            .and_then(|(config, bars)| {
+                let splits = crate::discovery_runner::candidate_split_hashes(&config, bars).ok()?;
+                Some((config.dataset.id, config.dataset.content_hash, splits))
+            });
+        recovered.insert(key.clone(), splits);
+    }
+    let Some(Some((dataset_id, dataset_hash, splits))) = recovered.get(&key) else {
         return Ok(None);
     };
-    Ok(Some(hash_value(&serde_json::json!({
-        "split": config.contracts.split,
-        "embargo": config.contracts.embargo,
-    }))?))
+    if *dataset_id != attempt.dataset_id || *dataset_hash != attempt.dataset_hash {
+        return Ok(None);
+    }
+    Ok(splits
+        .get(&index)
+        .filter(|(strategy, _)| *strategy == attempt.strategy_hash)
+        .map(|(_, split)| split.clone()))
 }
 
 /// A dataset can have several snapshots over time. Without a unique frozen
@@ -278,7 +320,8 @@ fn backfill(
         let mut stmt = conn.prepare(
             "SELECT a.id, a.attempt_key, h.hypothesis_hash, s.strategy_hash,
                     d.dataset_hash, a.dataset_id, a.input_fingerprint_json,
-                    a.engine_fingerprint_json, r.config_json
+                    a.engine_fingerprint_json, r.config_json, a.candidate_index,
+                    d.candle_count
              FROM research_attempts a JOIN hypotheses h ON h.id = a.hypothesis_id
              JOIN strategy_def s ON s.id = a.strategy_id
              JOIN datasets d ON d.id = a.dataset_id
@@ -297,6 +340,8 @@ fn backfill(
                     r.get::<_, String>(6)?,
                     r.get::<_, String>(7)?,
                     r.get::<_, Option<String>>(8)?,
+                    r.get::<_, Option<i64>>(9)?,
+                    r.get::<_, i64>(10)?,
                 ))
             })?
             .collect::<Result<Vec<_>, _>>()?;
@@ -311,6 +356,8 @@ fn backfill(
             input,
             engine,
             run_config,
+            candidate_index,
+            candle_count,
         ) in rows
         {
             out.push(LegacyAttempt {
@@ -323,6 +370,9 @@ fn backfill(
                 input: serde_json::from_str(&input)?,
                 engine: serde_json::from_str(&engine)?,
                 run_config: run_config.and_then(|text| serde_json::from_str(&text).ok()),
+                dataset_id,
+                candidate_index,
+                candle_count,
             });
         }
         let total: i64 = conn.query_row(
@@ -350,6 +400,7 @@ fn backfill(
             .push(attempt);
     }
     let mut assigned = Vec::new();
+    let mut recovered = RecoveredSplits::new();
     for (instrument_id, family) in families {
         let events = family
             .iter()
@@ -363,7 +414,7 @@ fn backfill(
                     strategy_hash: Some(attempt.strategy_hash.clone()),
                     dataset_hash: Some(attempt.dataset_hash.clone()),
                     snapshot_id: attempt.snapshot.as_ref().map(|(_, id)| id.clone()),
-                    split_hash: recover_legacy_split(attempt)?,
+                    split_hash: recover_legacy_split(attempt, &mut recovered)?,
                     seeds_hash: attempt.input.get("seeds").map(hash_value).transpose()?,
                     engine_fingerprint_hash: Some(hash_value(&attempt.engine)?),
                     benchmark_id: None,
@@ -446,21 +497,200 @@ mod tests {
         .unwrap();
         let raw = fixture["enumerationCases"][0]["input"].clone();
         let config_hash = hash_value(&raw).unwrap();
+        let config =
+            alpha_factor_forge::discovery_core::config::parse_discovery_config(&raw, 4.0).unwrap();
+        let bars = 2_000;
+        let expected = crate::discovery_runner::candidate_split_hashes(&config, bars).unwrap();
+        let (strategy_hash, split) = expected[&0].clone();
         let attempt = LegacyAttempt {
             id: 1,
             key: "old".into(),
             hypothesis_hash: "h".into(),
-            strategy_hash: "s".into(),
-            dataset_hash: "d".into(),
+            strategy_hash,
+            dataset_hash: config.dataset.content_hash.clone(),
             snapshot: None,
             input: serde_json::json!({"configHash": config_hash}),
             engine: serde_json::json!({}),
             run_config: Some(raw),
+            dataset_id: config.dataset.id,
+            candidate_index: Some(0),
+            candle_count: bars as i64,
         };
-        assert!(recover_legacy_split(&attempt).unwrap().is_some());
-        let mut changed = attempt;
-        changed.input["configHash"] = serde_json::json!("different");
-        assert_eq!(recover_legacy_split(&changed).unwrap(), None);
+        let recover = |attempt: &LegacyAttempt| {
+            recover_legacy_split(attempt, &mut RecoveredSplits::new()).unwrap()
+        };
+        // The same contract a new registration uses (§20), never the old
+        // contract-version-only hash.
+        assert_eq!(recover(&attempt), Some(split.clone()));
+        assert!(split.starts_with("trial-split-v1:"));
+
+        let mut other_bars = attempt.clone();
+        other_bars.candle_count += 1;
+        let moved = recover(&other_bars).unwrap();
+        assert_ne!(moved, split, "the bar count moves every derived window");
+
+        for (label, change) in [
+            ("config hash", Box::new(|a: &mut LegacyAttempt| a.input["configHash"] = serde_json::json!("different"))
+                as Box<dyn Fn(&mut LegacyAttempt)>),
+            ("dataset id", Box::new(|a: &mut LegacyAttempt| a.dataset_id += 1)),
+            ("dataset hash", Box::new(|a: &mut LegacyAttempt| a.dataset_hash.push('x'))),
+            ("candidate index", Box::new(|a: &mut LegacyAttempt| a.candidate_index = None)),
+            ("unknown candidate", Box::new(|a: &mut LegacyAttempt| a.candidate_index = Some(1_000_000))),
+            ("strategy", Box::new(|a: &mut LegacyAttempt| a.strategy_hash.push('x'))),
+            ("run config", Box::new(|a: &mut LegacyAttempt| a.run_config = None)),
+            ("negative bars", Box::new(|a: &mut LegacyAttempt| a.candle_count = -1)),
+        ] {
+            let mut changed = attempt.clone();
+            change(&mut changed);
+            assert_eq!(recover(&changed), None, "{label} is not provable");
+        }
+    }
+
+    #[test]
+    fn review_reopen_persists_newly_observed_registry_head() {
+        let root = std::env::temp_dir().join(format!(
+            "aff-ledger-workspace-review-{}-{}", std::process::id(), NEXT.fetch_add(1, Ordering::SeqCst)));
+        std::fs::create_dir_all(&root).unwrap();
+        let registry = registry_dir(&root).unwrap();
+        let mut conn = crate::db::open_at(&root.join(crate::db::DB_FILE_NAME)).unwrap();
+        let id = crate::db::runtime_ledger::workspace_id(&conn).unwrap();
+        let first = adopt(&mut conn, &root, &id, None).unwrap();
+        assert_eq!(read_workspace_binding(&conn).unwrap().unwrap().seq, 0);
+        first.ledger.register_batch(&TrialBatchInput {
+            workspace_id: "another-workspace".into(), instrument_id: None, tests_per_trial: 1,
+            events: vec![TrialEventInput {
+                kind: TrialKind::Legacy, origin: TrialOrigin::Legacy { attempt_key: "other-attempt".into() },
+                hypothesis_hash: None, strategy_hash: Some("strategy".into()), dataset_hash: Some("dataset".into()),
+                snapshot_id: None, split_hash: None, seeds_hash: None, engine_fingerprint_hash: Some("engine".into()),
+                benchmark_id: None, benchmark_params_hash: None, reproduction_of: None, benchmark_evidence: None,
+            }],
+        }).unwrap();
+        drop(first);
+        let reopened = adopt(&mut conn, &root, &id, None).unwrap();
+        assert_eq!(require_current(&reopened.ledger, &conn).unwrap().seq, 1);
+        let persisted = read_workspace_binding(&conn).unwrap().unwrap();
+        drop(reopened);
+        drop(conn);
+        std::fs::remove_dir_all(registry).unwrap();
+        std::fs::remove_dir_all(root).unwrap();
+        assert_eq!(persisted.seq, 1, "opening must preserve its newly observed rollback watermark");
+    }
+
+    /// An isolated workspace and its test registry, removed on drop.
+    struct Scratch {
+        root: PathBuf,
+        registry: PathBuf,
+    }
+
+    impl Scratch {
+        fn new() -> Self {
+            let root = std::env::temp_dir().join(format!(
+                "aff-ledger-workspace-r4-{}-{}",
+                std::process::id(),
+                NEXT.fetch_add(1, Ordering::SeqCst)
+            ));
+            std::fs::create_dir_all(&root).unwrap();
+            let registry = registry_dir(&root).unwrap();
+            Self { root, registry }
+        }
+
+        fn registry_file(&self) -> PathBuf {
+            self.registry
+                .join(super::super::trial_ledger::REGISTRY_FILE_NAME)
+        }
+    }
+
+    impl Drop for Scratch {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.registry);
+            let _ = std::fs::remove_dir_all(&self.root);
+        }
+    }
+
+    /// A trial another workspace registers in the shared registry.
+    fn foreign_batch(attempt_key: &str) -> TrialBatchInput {
+        TrialBatchInput {
+            workspace_id: "another-workspace".into(),
+            instrument_id: None,
+            tests_per_trial: 1,
+            events: vec![TrialEventInput {
+                kind: TrialKind::Legacy,
+                origin: TrialOrigin::Legacy {
+                    attempt_key: attempt_key.into(),
+                },
+                hypothesis_hash: None,
+                strategy_hash: Some("strategy".into()),
+                dataset_hash: Some("dataset".into()),
+                snapshot_id: None,
+                split_hash: None,
+                seeds_hash: None,
+                engine_fingerprint_hash: Some("engine".into()),
+                benchmark_id: None,
+                benchmark_params_hash: None,
+                reproduction_of: None,
+                benchmark_evidence: None,
+            }],
+        }
+    }
+
+    #[test]
+    fn r4_the_reopen_watermark_detects_a_later_rollback() {
+        let scratch = Scratch::new();
+        let mut conn = crate::db::open_at(&scratch.root.join(crate::db::DB_FILE_NAME)).unwrap();
+        let id = crate::db::runtime_ledger::workspace_id(&conn).unwrap();
+        drop(adopt(&mut conn, &scratch.root, &id, None).unwrap());
+        // A copy of the registry as this workspace first saw it (seq 0).
+        let backup = scratch.root.join("registry-before.sqlite3");
+        std::fs::copy(scratch.registry_file(), &backup).unwrap();
+        let bound = adopt(&mut conn, &scratch.root, &id, None).unwrap();
+        bound.ledger.register_batch(&foreign_batch("other-attempt")).unwrap();
+        drop(bound);
+        drop(adopt(&mut conn, &scratch.root, &id, None).unwrap());
+        assert_eq!(read_workspace_binding(&conn).unwrap().unwrap().seq, 1);
+
+        for suffix in ["-wal", "-shm"] {
+            let mut sidecar = scratch.registry_file().into_os_string();
+            sidecar.push(suffix);
+            let _ = std::fs::remove_file(PathBuf::from(sidecar));
+        }
+        std::fs::copy(&backup, scratch.registry_file()).unwrap();
+        let error = adopt(&mut conn, &scratch.root, &id, None)
+            .err()
+            .expect("the older copy still covers seq 0 but not the observed seq 1");
+        assert!(error.to_string().contains("registry_rolled_back"), "{error}");
+    }
+
+    #[test]
+    fn r4_an_accepted_replacement_is_persisted_immediately() {
+        let scratch = Scratch::new();
+        let mut conn = crate::db::open_at(&scratch.root.join(crate::db::DB_FILE_NAME)).unwrap();
+        let id = crate::db::runtime_ledger::workspace_id(&conn).unwrap();
+        let bound = adopt(&mut conn, &scratch.root, &id, None).unwrap();
+        bound.ledger.register_batch(&foreign_batch("other-attempt")).unwrap();
+        drop(bound);
+        drop(adopt(&mut conn, &scratch.root, &id, None).unwrap());
+        let old = read_workspace_binding(&conn).unwrap().unwrap();
+        assert_eq!(old.seq, 1);
+
+        // Restore the registry from its export into a new registry file.
+        let export = TrialLedger::open(&scratch.registry, &scratch.root)
+            .unwrap()
+            .export_json_lines()
+            .unwrap();
+        std::fs::remove_dir_all(&scratch.registry).unwrap();
+        let replacement = TrialLedger::open(&scratch.registry, &scratch.root).unwrap();
+        let new_id = replacement.registry_id().to_string();
+        assert_ne!(new_id, old.registry_id);
+        replacement.import_json_lines(&export).unwrap();
+        drop(replacement);
+
+        drop(adopt(&mut conn, &scratch.root, &id, None).unwrap());
+        let persisted = read_workspace_binding(&conn).unwrap().unwrap();
+        assert_eq!(persisted.registry_id, new_id, "rebound to the accepted registry");
+        assert_eq!(persisted.seq, 1);
+        // The watermark is now the new registry's own chain.
+        drop(adopt(&mut conn, &scratch.root, &id, None).unwrap());
+        assert_eq!(read_workspace_binding(&conn).unwrap().unwrap(), persisted);
     }
 
     #[test]
@@ -503,7 +733,7 @@ mod tests {
              VALUES (2,1,'validation-record-v1',0,'{}');"
         ).unwrap();
         let id = crate::db::runtime_ledger::workspace_id(&conn).unwrap();
-        let first = adopt(&mut conn, &root, &id).unwrap();
+        let first = adopt(&mut conn, &root, &id, None).unwrap();
         assert_eq!(first.report.backfilled_attempts, 1);
         assert!(first.report.orphan_event_ids.is_empty());
         assert_eq!(
@@ -602,7 +832,7 @@ mod tests {
         assert!(replay.replayed);
         assert_eq!(orphan.event_ids, replay.event_ids);
         drop(first);
-        let second = adopt(&mut conn, &root, &id).unwrap();
+        let second = adopt(&mut conn, &root, &id, None).unwrap();
         assert_eq!(second.report.backfilled_attempts, 0);
         assert_eq!(second.report.orphan_event_ids, orphan.event_ids);
         drop(second);
@@ -610,7 +840,7 @@ mod tests {
         let registry_file = registry.join(super::super::trial_ledger::REGISTRY_FILE_NAME);
         std::fs::remove_file(&registry_file).unwrap();
         let mut conn = crate::db::open_at(&root.join(crate::db::DB_FILE_NAME)).unwrap();
-        let error = adopt(&mut conn, &root, &id)
+        let error = adopt(&mut conn, &root, &id, None)
             .err()
             .expect("bound registry is missing");
         assert!(error.to_string().contains("registry_missing"), "{error}");

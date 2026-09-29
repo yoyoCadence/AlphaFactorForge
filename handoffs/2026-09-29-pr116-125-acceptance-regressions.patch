@@ -1,0 +1,182 @@
+diff --git a/alpha-factor-forge/src-tauri/src/discovery_runner/tests/history.rs b/alpha-factor-forge/src-tauri/src/discovery_runner/tests/history.rs
+index 6062b9c..a614e22 100644
+--- a/alpha-factor-forge/src-tauri/src/discovery_runner/tests/history.rs
++++ b/alpha-factor-forge/src-tauri/src/discovery_runner/tests/history.rs
+@@ -97,6 +97,40 @@ fn v3_run_persists_train_only_folds_with_the_completed_attempt() {
+         && fold["validation"]["trades"].is_array()));
+ }
+ 
++#[test]
++fn review_changed_embargo_cannot_replay_registered_trial() {
++    let dir = fresh_dir();
++    let _guard = TempDir(dir.clone());
++    std::fs::create_dir_all(&dir).unwrap();
++    let db = migrated_db();
++    let candles = alternating_candles(240, 1_577_836_800_000);
++    let (dataset_id, dataset_hash) = import_dataset(&db, &candles);
++    let workspace_id = crate::db::runtime_ledger::workspace_id(&db.lock().unwrap()).unwrap();
++    let bound = crate::research::trial_ledger_workspace::adopt(
++        &mut db.lock().unwrap(), &dir, &workspace_id,
++    ).unwrap();
++    let raw = walk_forward_runner_config(dataset_id, &dataset_hash);
++    let mut changed = raw.clone();
++    changed["embargo"]["holdingAllowanceBars"] = json!(
++        raw["embargo"]["holdingAllowanceBars"].as_i64().unwrap() + 1);
++    let first = parse_discovery_config(&raw, 8.0).unwrap();
++    let second = parse_discovery_config(&changed, 8.0).unwrap();
++    let candidate = enumerate_candidates(&first).unwrap().candidates.remove(0);
++    let other = enumerate_candidates(&second).unwrap().candidates.remove(0);
++    assert_eq!(candidate.strategy_hash, other.strategy_hash);
++    let first_plan = declared_walk_forward_plan(&first, &candidate, candles.len(), first.walk_forward.unwrap()).unwrap();
++    let second_plan = declared_walk_forward_plan(&second, &other, candles.len(), second.walk_forward.unwrap()).unwrap();
++    assert_ne!(first_plan.embargo_bars, second_plan.embargo_bars);
++    let conn = db.lock().unwrap();
++    let (dataset, _) = load_verified_dataset(&conn, &first).unwrap();
++    let scheduled = vec![ScheduledCandidate { candidate, strategy_id: 1 }];
++    let first_lineage = run_lineage(&first, &raw, 1, &dataset, &scheduled, None).unwrap();
++    let second_lineage = run_lineage(&second, &changed, 1, &dataset, &scheduled, None).unwrap();
++    register_lineage(&bound.ledger, &conn, &workspace_id, "same-request", &first, &dataset, &first_lineage).unwrap();
++    let retry = register_lineage(&bound.ledger, &conn, &workspace_id, "same-request", &second, &dataset, &second_lineage);
++    assert!(retry.is_err(), "different actual windows must not replay the same event IDs: {retry:?}");
++}
++
+ #[test]
+ fn v3_ineligible_declaration_rejects_before_run_or_attempt_write() {
+     let dir = fresh_dir();
+diff --git a/alpha-factor-forge/src-tauri/src/research/trial_ledger_transfer.rs b/alpha-factor-forge/src-tauri/src/research/trial_ledger_transfer.rs
+index 776d1b6..51f2258 100644
+--- a/alpha-factor-forge/src-tauri/src/research/trial_ledger_transfer.rs
++++ b/alpha-factor-forge/src-tauri/src/research/trial_ledger_transfer.rs
+@@ -1500,6 +1500,27 @@ mod tests {
+         assert_eq!(event_rows(&target), 2);
+     }
+ 
++    #[test]
++    fn review_quarantine_survives_export_into_replacement() {
++        let a = Dirs::new();
++        let b = Dirs::new();
++        let c = Dirs::new();
++        let source = a.open();
++        let conflicting = b.open();
++        let replacement = c.open();
++        let registered = source.register_batch(&batch("same")).unwrap();
++        let mut changed = batch("same");
++        changed.events[0].strategy_hash = Some("different-strategy".into());
++        conflicting.register_batch(&changed).unwrap();
++        source.import_json_lines(&conflicting.export_json_lines().unwrap()).unwrap();
++        assert_eq!(source.read_admission_count(&registered.batch_id).unwrap(),
++            Admission::Blocked(AdmissionBlocked::FamilyQuarantined));
++        replacement.import_json_lines(&source.export_json_lines().unwrap()).unwrap();
++        assert_eq!(replacement.read_admission_count(&registered.batch_id).unwrap(),
++            Admission::Blocked(AdmissionBlocked::FamilyQuarantined),
++            "a supported export/import must not release permanent quarantine");
++    }
++
+     #[test]
+     fn a29_same_event_from_two_registries_is_one_event_with_two_receipts() {
+         let a = Dirs::new();
+@@ -1613,6 +1634,63 @@ mod tests {
+         assert_eq!(conflicts, 1);
+     }
+ 
++    #[test]
++    fn review_divergent_origin_cannot_authorize_replacement() {
++        use super::super::{BindingCheck, LedgerBinding};
++        let a = Dirs::new();
++        let b = Dirs::new();
++        let c = Dirs::new();
++        let first = a.open();
++        let target = b.open();
++        let other = c.open();
++        first.register_batch(&batch("first")).unwrap();
++        let saved = match first.check_binding(None).unwrap() {
++            BindingCheck::Current(saved) => saved,
++            other => panic!("{other:?}"),
++        };
++        target.import_json_lines(&first.export_json_lines().unwrap()).unwrap();
++        other.register_batch(&batch("other")).unwrap();
++        // Model a valid fork of the same registry, as in the existing A30 fixture.
++        let rows: Vec<Value> = std::str::from_utf8(&other.export_json_lines().unwrap())
++            .unwrap().lines().map(|line| serde_json::from_str(line).unwrap()).collect();
++        let mut header = rows[0].clone();
++        header["registryId"] = json!(first.registry_id());
++        let mut chain = genesis(first.registry_id());
++        let mut body = String::new();
++        for mut row in rows.into_iter().skip(1) {
++            if row["type"] == "event" {
++                chain = next_chain(&chain, row["eventId"].as_str().unwrap());
++                row["chain"] = json!(chain);
++            }
++            body.push_str(&canonical_text(&row).unwrap());
++            body.push('\n');
++        }
++        header["headChain"] = json!(chain);
++        header["bodySha256"] = json!(sha256_hex(body.as_bytes()));
++        let fork = format!("{}\n{body}", canonical_text(&header).unwrap());
++        assert!(target.import_json_lines(fork.as_bytes()).unwrap().conflicts > 0);
++        let saved: LedgerBinding = saved;
++        assert!(!matches!(target.check_binding(Some(&saved)).unwrap(), BindingCheck::Current(_)),
++            "a recorded source divergence must invalidate its existing replacement authority");
++    }
++
++    #[test]
++    fn review_empty_export_can_restore_empty_workspace_binding() {
++        use super::super::BindingCheck;
++        let a = Dirs::new();
++        let b = Dirs::new();
++        let source = a.open();
++        let replacement = b.open();
++        let saved = match source.check_binding(None).unwrap() {
++            BindingCheck::Current(saved) => saved,
++            other => panic!("{other:?}"),
++        };
++        assert_eq!(saved.seq, 0);
++        replacement.import_json_lines(&source.export_json_lines().unwrap()).unwrap();
++        assert!(matches!(replacement.check_binding(Some(&saved)).unwrap(), BindingCheck::Current(_)),
++            "a validated complete empty export proves the source genesis prefix");
++    }
++
+     #[test]
+     fn non_effective_benchmark_import_fails_closed_without_portable_run_evidence() {
+         use alpha_factor_forge::discovery_core::benchmarks::{BenchmarkCosts, RunBenchmarksArgs};
+diff --git a/alpha-factor-forge/src-tauri/src/research/trial_ledger_workspace.rs b/alpha-factor-forge/src-tauri/src/research/trial_ledger_workspace.rs
+index f20709f..38f6b42 100644
+--- a/alpha-factor-forge/src-tauri/src/research/trial_ledger_workspace.rs
++++ b/alpha-factor-forge/src-tauri/src/research/trial_ledger_workspace.rs
+@@ -463,6 +463,36 @@ mod tests {
+         assert_eq!(recover_legacy_split(&changed).unwrap(), None);
+     }
+ 
++    #[test]
++    fn review_reopen_persists_newly_observed_registry_head() {
++        let root = std::env::temp_dir().join(format!(
++            "aff-ledger-workspace-review-{}-{}", std::process::id(), NEXT.fetch_add(1, Ordering::SeqCst)));
++        std::fs::create_dir_all(&root).unwrap();
++        let registry = registry_dir(&root).unwrap();
++        let mut conn = crate::db::open_at(&root.join(crate::db::DB_FILE_NAME)).unwrap();
++        let id = crate::db::runtime_ledger::workspace_id(&conn).unwrap();
++        let first = adopt(&mut conn, &root, &id).unwrap();
++        assert_eq!(read_workspace_binding(&conn).unwrap().unwrap().seq, 0);
++        first.ledger.register_batch(&TrialBatchInput {
++            workspace_id: "another-workspace".into(), instrument_id: None, tests_per_trial: 1,
++            events: vec![TrialEventInput {
++                kind: TrialKind::Legacy, origin: TrialOrigin::Legacy { attempt_key: "other-attempt".into() },
++                hypothesis_hash: None, strategy_hash: Some("strategy".into()), dataset_hash: Some("dataset".into()),
++                snapshot_id: None, split_hash: None, seeds_hash: None, engine_fingerprint_hash: Some("engine".into()),
++                benchmark_id: None, benchmark_params_hash: None, reproduction_of: None, benchmark_evidence: None,
++            }],
++        }).unwrap();
++        drop(first);
++        let reopened = adopt(&mut conn, &root, &id).unwrap();
++        assert_eq!(require_current(&reopened.ledger, &conn).unwrap().seq, 1);
++        let persisted = read_workspace_binding(&conn).unwrap().unwrap();
++        drop(reopened);
++        drop(conn);
++        std::fs::remove_dir_all(registry).unwrap();
++        std::fs::remove_dir_all(root).unwrap();
++        assert_eq!(persisted.seq, 1, "opening must preserve its newly observed rollback watermark");
++    }
++
+     #[test]
+     fn terminal_legacy_attempt_is_backfilled_once_and_its_event_link_is_frozen() {
+         let root = std::env::temp_dir().join(format!(

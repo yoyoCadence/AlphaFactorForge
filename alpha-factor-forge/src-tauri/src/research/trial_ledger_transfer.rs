@@ -1,6 +1,11 @@
 //! Complete, versioned registry export and validated event-union import
 //! (trial-ledger-v1 §8). Kept separate from registration so the wire format
 //! and its validation can be reviewed together.
+//!
+//! v2 (§20) also carries the permanent evidence a v1 file dropped: family
+//! quarantines, registry-origin conflicts, and verified origin genesis. A
+//! transfer can therefore neither release a quarantine nor launder a known
+//! divergent origin, and an empty source can still be restored.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -12,10 +17,16 @@ use super::{
     batch_id_for, benchmark_params_hash, canonical_text, event_id_for, family_parts, genesis, head,
     next_chain, prepare_batch, sha256_hex, verify_chain, LedgerError, LedgerIntegrity,
     TrialBatchInput, TrialEventInput, TrialKind, TrialLedger, TrialOrigin, REGISTRY_MIGRATIONS,
-    REPRODUCTION_IDENTITY,
+    REPRODUCTION_IDENTITY, TRIAL_FAMILY_VERSION,
 };
 
-pub const TRIAL_LEDGER_EXPORT_VERSION: &str = "trial-ledger-export-v1";
+/// v1 files cannot say whether their source had quarantined a family, so
+/// importing one could silently release that quarantine; they are refused.
+pub const TRIAL_LEDGER_EXPORT_VERSION: &str = "trial-ledger-export-v2";
+
+/// Detail recorded when an import sees an origin checkpoint contradict one
+/// already held (or this registry's own chain).
+const ORIGIN_DIVERGED_DETAIL: &str = "checkpoint_diverged_or_incomplete";
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -71,6 +82,21 @@ enum ExportRecord {
         event_id: String,
         origin_chain: String,
     },
+    /// Another registry whose complete export the source validated, directly
+    /// or transitively: proof of that origin's empty (seq 0) prefix.
+    OriginGenesis { origin_registry_id: String },
+    /// One distinct `family_conflicts` row; any one quarantines the family.
+    FamilyConflict {
+        family_id: String,
+        kind: String,
+        detail_json: String,
+    },
+    /// One distinct `registry_conflicts` row; the origin can never again
+    /// authorize a workspace's registry replacement.
+    RegistryConflict {
+        origin_registry_id: String,
+        detail_json: String,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -95,11 +121,67 @@ fn mark_family_conflict(
     Ok(())
 }
 
-fn valid_registry_id(id: &str) -> bool {
-    id.len() == 32
-        && id
+fn lower_hex(text: &str, len: usize) -> bool {
+    text.len() == len
+        && text
             .bytes()
             .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+}
+
+fn valid_registry_id(id: &str) -> bool {
+    lower_hex(id, 32)
+}
+
+/// A conflict may name a family the file has no rows for (its conflicting
+/// rows were never written), so only the identity's shape is checkable.
+fn valid_family_id(id: &str) -> bool {
+    id.strip_prefix(TRIAL_FAMILY_VERSION)
+        .and_then(|rest| rest.strip_prefix(':'))
+        .is_some_and(|digest| lower_hex(digest, 64))
+}
+
+fn canonical_detail(detail: &str) -> Result<(), LedgerError> {
+    let value: Value =
+        serde_json::from_str(detail).map_err(|_| integrity("conflict detail is not JSON"))?;
+    if canonical_text(&value)? != detail {
+        return Err(integrity("conflict detail is not canonical JSON"));
+    }
+    Ok(())
+}
+
+/// Append a family conflict unless the identical evidence is already held,
+/// so repeated imports of the same file stay idempotent.
+fn record_family_conflict(
+    tx: &rusqlite::Transaction<'_>,
+    family_id: &str,
+    kind: &str,
+    detail_json: &str,
+    now: &str,
+) -> Result<(), LedgerError> {
+    tx.execute(
+        "INSERT INTO family_conflicts (family_id, kind, detail_json, recorded_at)
+         SELECT ?1, ?2, ?3, ?4 WHERE NOT EXISTS (
+             SELECT 1 FROM family_conflicts
+              WHERE family_id = ?1 AND kind = ?2 AND detail_json = ?3)",
+        params![family_id, kind, detail_json, now],
+    )?;
+    Ok(())
+}
+
+fn record_registry_conflict(
+    tx: &rusqlite::Transaction<'_>,
+    origin: &str,
+    detail_json: &str,
+    now: &str,
+) -> Result<(), LedgerError> {
+    tx.execute(
+        "INSERT INTO registry_conflicts (origin_registry_id, detail_json, recorded_at)
+         SELECT ?1, ?2, ?3 WHERE NOT EXISTS (
+             SELECT 1 FROM registry_conflicts
+              WHERE origin_registry_id = ?1 AND detail_json = ?2)",
+        params![origin, detail_json, now],
+    )?;
+    Ok(())
 }
 
 fn record_line(record: &ExportRecord) -> Result<String, LedgerError> {
@@ -235,6 +317,55 @@ impl TrialLedger {
                 body.push('\n');
             }
         }
+        // Permanent evidence (§20). Conflicts are exported once per distinct
+        // content; their timestamps are local audit data, not identity.
+        {
+            let mut stmt = tx.prepare(
+                "SELECT origin_registry_id FROM origin_genesis ORDER BY origin_registry_id",
+            )?;
+            let rows = stmt.query_map([], |row| {
+                Ok(ExportRecord::OriginGenesis {
+                    origin_registry_id: row.get(0)?,
+                })
+            })?;
+            for row in rows {
+                body.push_str(&record_line(&row?)?);
+                body.push('\n');
+            }
+        }
+        {
+            let mut stmt = tx.prepare(
+                "SELECT DISTINCT family_id, kind, detail_json FROM family_conflicts
+                   ORDER BY family_id, kind, detail_json",
+            )?;
+            let rows = stmt.query_map([], |row| {
+                Ok(ExportRecord::FamilyConflict {
+                    family_id: row.get(0)?,
+                    kind: row.get(1)?,
+                    detail_json: row.get(2)?,
+                })
+            })?;
+            for row in rows {
+                body.push_str(&record_line(&row?)?);
+                body.push('\n');
+            }
+        }
+        {
+            let mut stmt = tx.prepare(
+                "SELECT DISTINCT origin_registry_id, detail_json FROM registry_conflicts
+                   ORDER BY origin_registry_id, detail_json",
+            )?;
+            let rows = stmt.query_map([], |row| {
+                Ok(ExportRecord::RegistryConflict {
+                    origin_registry_id: row.get(0)?,
+                    detail_json: row.get(1)?,
+                })
+            })?;
+            for row in rows {
+                body.push_str(&record_line(&row?)?);
+                body.push('\n');
+            }
+        }
         let (head_seq, head_chain) = head(&tx, &self.registry_id)?;
         let header = ExportHeader {
             version: TRIAL_LEDGER_EXPORT_VERSION.into(),
@@ -266,6 +397,9 @@ struct ValidatedExport {
     events: Vec<(String, Value, String, String, u64, String)>,
     receipts: BTreeMap<(String, String), (u64, u64)>,
     checkpoints: BTreeMap<(String, u64), (String, String)>,
+    genesis: BTreeSet<String>,
+    family_conflicts: BTreeSet<(String, String, String)>,
+    registry_conflicts: BTreeSet<(String, String)>,
 }
 
 impl ValidatedExport {
@@ -294,6 +428,9 @@ impl ValidatedExport {
         let mut events = Vec::new();
         let mut receipts = BTreeMap::new();
         let mut checkpoints = BTreeMap::new();
+        let mut genesis_origins = BTreeSet::new();
+        let mut family_conflicts = BTreeSet::new();
+        let mut registry_conflicts = BTreeSet::new();
         let mut section = 0;
         for (line_no, line) in body.split_inclusive('\n').enumerate() {
             let line = line
@@ -313,6 +450,9 @@ impl ValidatedExport {
                 ExportRecord::Event { .. } => 2,
                 ExportRecord::Receipt { .. } => 3,
                 ExportRecord::OriginCheckpoint { .. } => 4,
+                ExportRecord::OriginGenesis { .. } => 5,
+                ExportRecord::FamilyConflict { .. } => 6,
+                ExportRecord::RegistryConflict { .. } => 7,
             };
             if order < section {
                 return Err(integrity("record types are not in FK order"));
@@ -442,6 +582,38 @@ impl ValidatedExport {
                         return Err(integrity("duplicate origin checkpoint"));
                     }
                 }
+                ExportRecord::OriginGenesis { origin_registry_id } => {
+                    if !valid_registry_id(&origin_registry_id)
+                        || origin_registry_id == header.registry_id
+                        || !genesis_origins.insert(origin_registry_id)
+                    {
+                        return Err(integrity("invalid or duplicate origin genesis"));
+                    }
+                }
+                ExportRecord::FamilyConflict {
+                    family_id,
+                    kind,
+                    detail_json,
+                } => {
+                    canonical_detail(&detail_json)?;
+                    if !valid_family_id(&family_id)
+                        || kind.trim().is_empty()
+                        || !family_conflicts.insert((family_id, kind, detail_json))
+                    {
+                        return Err(integrity("invalid or duplicate family conflict"));
+                    }
+                }
+                ExportRecord::RegistryConflict {
+                    origin_registry_id,
+                    detail_json,
+                } => {
+                    canonical_detail(&detail_json)?;
+                    if !valid_registry_id(&origin_registry_id)
+                        || !registry_conflicts.insert((origin_registry_id, detail_json))
+                    {
+                        return Err(integrity("invalid or duplicate registry conflict"));
+                    }
+                }
             }
         }
         if families.len() != header.family_count
@@ -516,6 +688,9 @@ impl ValidatedExport {
             events,
             receipts,
             checkpoints,
+            genesis: genesis_origins,
+            family_conflicts,
+            registry_conflicts,
         })
     }
 
@@ -902,15 +1077,26 @@ impl TrialLedger {
                 }
             }
         }
+        // Rows that conflict now, or belong to a family this registry had
+        // already quarantined, are not written (§8.2 step 2).
         quarantined.extend(family_conflicts.keys().cloned());
 
         let now = chrono::Utc::now().to_rfc3339();
         for (family_id, details) in &family_conflicts {
-            tx.execute(
-                "INSERT INTO family_conflicts (family_id, kind, detail_json, recorded_at)
-                 VALUES (?1, 'import_conflict', ?2, ?3)",
-                params![family_id, canonical_text(&json!(details))?, now],
+            record_family_conflict(
+                &tx,
+                family_id,
+                "import_conflict",
+                &canonical_text(&json!(details))?,
+                &now,
             )?;
+        }
+        // A quarantine the source carried stays permanent here (§20). Its
+        // family's rows do not conflict with this registry, so they are still
+        // unioned: the trials stay counted and the batch stays addressable,
+        // and admission reports the quarantine instead of a count.
+        for (family_id, kind, detail_json) in &source.family_conflicts {
+            record_family_conflict(&tx, family_id, kind, detail_json, &now)?;
         }
         for (family_id, (key, protocol)) in &source.families {
             if quarantined.contains(family_id) {
@@ -952,14 +1138,12 @@ impl TrialLedger {
         let (mut seq, mut chain) = head(&tx, &self.registry_id)?;
         let mut added = 0;
         let mut skipped = 0;
-        let mut skipped_quarantined = false;
+        // A skipped event that is absent here leaves a gap in the source
+        // chain; the presence check below then withholds that origin's
+        // checkpoints. An already-present event of a quarantined family is
+        // not a gap, so re-importing a source still extends its checkpoints.
         for (event_id, payload, origin, batch_id, _, _) in &source.events {
             let family = source.batches[batch_id].0.as_deref();
-            if family.is_some_and(|id| quarantined.contains(id)) {
-                skipped += 1;
-                skipped_quarantined = true;
-                continue;
-            }
             let exists = tx
                 .query_row(
                     "SELECT 1 FROM trial_events WHERE event_id = ?1",
@@ -968,7 +1152,7 @@ impl TrialLedger {
                 )
                 .optional()?
                 .is_some();
-            if exists {
+            if exists || family.is_some_and(|id| quarantined.contains(id)) {
                 skipped += 1;
                 continue;
             }
@@ -1026,6 +1210,7 @@ impl TrialLedger {
                 return Err(integrity("source checkpoint contradicts its own chain"));
             }
         }
+        // Divergence seen by THIS import (counted in the summary).
         let mut blocked_origins = BTreeSet::new();
         for ((origin, origin_seq), (event_id, origin_chain)) in &checkpoints {
             let old: Option<(String, String)> = tx
@@ -1052,10 +1237,18 @@ impl TrialLedger {
                 }
             }
         }
+        // A conflict is permanent (§8.2, §20): one recorded by an earlier
+        // import or carried in by this file blocks the origin as surely as
+        // one seen now, so no later import can add evidence for it.
+        let mut conflicted_origins: BTreeSet<String> = {
+            let mut stmt =
+                tx.prepare("SELECT DISTINCT origin_registry_id FROM registry_conflicts")?;
+            let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
+            rows.collect::<Result<_, _>>()?
+        };
+        conflicted_origins.extend(source.registry_conflicts.iter().map(|(id, _)| id.clone()));
+        conflicted_origins.extend(blocked_origins.iter().cloned());
         let mut incomplete_origins = BTreeSet::new();
-        if skipped_quarantined {
-            incomplete_origins.insert(source.header.registry_id.clone());
-        }
         for ((origin, _), (event_id, _)) in &checkpoints {
             let present = tx
                 .query_row(
@@ -1069,19 +1262,15 @@ impl TrialLedger {
                 incomplete_origins.insert(origin.clone());
             }
         }
+        let diverged_detail = canonical_text(&json!({"reason": ORIGIN_DIVERGED_DETAIL}))?;
         for origin in &blocked_origins {
-            tx.execute(
-                "INSERT INTO registry_conflicts (origin_registry_id, detail_json, recorded_at)
-                 VALUES (?1, ?2, ?3)",
-                params![
-                    origin,
-                    canonical_text(&json!({"reason":"checkpoint_diverged_or_incomplete"}))?,
-                    now
-                ],
-            )?;
+            record_registry_conflict(&tx, origin, &diverged_detail, &now)?;
+        }
+        for (origin, detail_json) in &source.registry_conflicts {
+            record_registry_conflict(&tx, origin, detail_json, &now)?;
         }
         for ((origin, origin_seq), (event_id, origin_chain)) in &checkpoints {
-            if blocked_origins.contains(origin)
+            if conflicted_origins.contains(origin)
                 || incomplete_origins.contains(origin)
                 || origin == &self.registry_id
             {
@@ -1092,6 +1281,22 @@ impl TrialLedger {
                     (origin_registry_id, origin_seq, event_id, origin_chain)
                  VALUES (?1, ?2, ?3, ?4)",
                 params![origin, *origin_seq as i64, event_id, origin_chain],
+            )?;
+        }
+        // Genesis evidence (§20): the validated source itself, every origin it
+        // held genesis or checkpoints for. An empty prefix needs no events, so
+        // an incomplete origin still qualifies; a conflicted one never does.
+        let mut genesis_origins = source.genesis.clone();
+        genesis_origins.insert(source.header.registry_id.clone());
+        genesis_origins.extend(source.checkpoints.keys().map(|(origin, _)| origin.clone()));
+        for origin in &genesis_origins {
+            if conflicted_origins.contains(origin) || origin == &self.registry_id {
+                continue;
+            }
+            tx.execute(
+                "INSERT OR IGNORE INTO origin_genesis (origin_registry_id, recorded_at)
+                 VALUES (?1, ?2)",
+                params![origin, now],
             )?;
         }
         let conflicts = (family_conflicts.len() + blocked_origins.len()) as u64;
@@ -1192,7 +1397,7 @@ mod tests {
                 strategy_hash: Some(format!("strategy-{request}")),
                 dataset_hash: Some("dataset".into()),
                 snapshot_id: Some("snapshot".into()),
-                split_hash: Some("split".into()),
+                split_hash: Some(super::super::split_hash_for(&json!("split")).unwrap()),
                 seeds_hash: Some("seeds".into()),
                 engine_fingerprint_hash: Some("engine".into()),
                 benchmark_id: None,
@@ -1501,6 +1706,27 @@ mod tests {
     }
 
     #[test]
+    fn review_quarantine_survives_export_into_replacement() {
+        let a = Dirs::new();
+        let b = Dirs::new();
+        let c = Dirs::new();
+        let source = a.open();
+        let conflicting = b.open();
+        let replacement = c.open();
+        let registered = source.register_batch(&batch("same")).unwrap();
+        let mut changed = batch("same");
+        changed.events[0].strategy_hash = Some("different-strategy".into());
+        conflicting.register_batch(&changed).unwrap();
+        source.import_json_lines(&conflicting.export_json_lines().unwrap()).unwrap();
+        assert_eq!(source.read_admission_count(&registered.batch_id).unwrap(),
+            Admission::Blocked(AdmissionBlocked::FamilyQuarantined));
+        replacement.import_json_lines(&source.export_json_lines().unwrap()).unwrap();
+        assert_eq!(replacement.read_admission_count(&registered.batch_id).unwrap(),
+            Admission::Blocked(AdmissionBlocked::FamilyQuarantined),
+            "a supported export/import must not release permanent quarantine");
+    }
+
+    #[test]
     fn a29_same_event_from_two_registries_is_one_event_with_two_receipts() {
         let a = Dirs::new();
         let b = Dirs::new();
@@ -1614,6 +1840,63 @@ mod tests {
     }
 
     #[test]
+    fn review_divergent_origin_cannot_authorize_replacement() {
+        use super::super::{BindingCheck, LedgerBinding};
+        let a = Dirs::new();
+        let b = Dirs::new();
+        let c = Dirs::new();
+        let first = a.open();
+        let target = b.open();
+        let other = c.open();
+        first.register_batch(&batch("first")).unwrap();
+        let saved = match first.check_binding(None).unwrap() {
+            BindingCheck::Current(saved) => saved,
+            other => panic!("{other:?}"),
+        };
+        target.import_json_lines(&first.export_json_lines().unwrap()).unwrap();
+        other.register_batch(&batch("other")).unwrap();
+        // Model a valid fork of the same registry, as in the existing A30 fixture.
+        let rows: Vec<Value> = std::str::from_utf8(&other.export_json_lines().unwrap())
+            .unwrap().lines().map(|line| serde_json::from_str(line).unwrap()).collect();
+        let mut header = rows[0].clone();
+        header["registryId"] = json!(first.registry_id());
+        let mut chain = genesis(first.registry_id());
+        let mut body = String::new();
+        for mut row in rows.into_iter().skip(1) {
+            if row["type"] == "event" {
+                chain = next_chain(&chain, row["eventId"].as_str().unwrap());
+                row["chain"] = json!(chain);
+            }
+            body.push_str(&canonical_text(&row).unwrap());
+            body.push('\n');
+        }
+        header["headChain"] = json!(chain);
+        header["bodySha256"] = json!(sha256_hex(body.as_bytes()));
+        let fork = format!("{}\n{body}", canonical_text(&header).unwrap());
+        assert!(target.import_json_lines(fork.as_bytes()).unwrap().conflicts > 0);
+        let saved: LedgerBinding = saved;
+        assert!(!matches!(target.check_binding(Some(&saved)).unwrap(), BindingCheck::Current(_)),
+            "a recorded source divergence must invalidate its existing replacement authority");
+    }
+
+    #[test]
+    fn review_empty_export_can_restore_empty_workspace_binding() {
+        use super::super::BindingCheck;
+        let a = Dirs::new();
+        let b = Dirs::new();
+        let source = a.open();
+        let replacement = b.open();
+        let saved = match source.check_binding(None).unwrap() {
+            BindingCheck::Current(saved) => saved,
+            other => panic!("{other:?}"),
+        };
+        assert_eq!(saved.seq, 0);
+        replacement.import_json_lines(&source.export_json_lines().unwrap()).unwrap();
+        assert!(matches!(replacement.check_binding(Some(&saved)).unwrap(), BindingCheck::Current(_)),
+            "a validated complete empty export proves the source genesis prefix");
+    }
+
+    #[test]
     fn non_effective_benchmark_import_fails_closed_without_portable_run_evidence() {
         use alpha_factor_forge::discovery_core::benchmarks::{BenchmarkCosts, RunBenchmarksArgs};
         use alpha_factor_forge::discovery_core::types::Candle;
@@ -1670,5 +1953,348 @@ mod tests {
             "import_integrity_failed"
         );
         assert_eq!(event_rows(&target), 0);
+    }
+
+    // --------------------------- PR #116–#125 acceptance follow-ups (§20)
+
+    use super::super::{BindingCheck, LedgerBinding};
+
+    fn current(ledger: &TrialLedger) -> LedgerBinding {
+        match ledger.check_binding(None).unwrap() {
+            BindingCheck::Current(binding) => binding,
+            other => panic!("expected a current binding, got {other:?}"),
+        }
+    }
+
+    fn accepts(ledger: &TrialLedger, saved: &LedgerBinding) -> bool {
+        match ledger.check_binding(Some(saved)).unwrap() {
+            BindingCheck::Current(head) => {
+                assert_eq!(head.registry_id, ledger.registry_id());
+                true
+            }
+            BindingCheck::RegistryReplaced => false,
+            other => panic!("unexpected binding state {other:?}"),
+        }
+    }
+
+    fn rows(ledger: &TrialLedger, table: &str) -> i64 {
+        ledger
+            .lock()
+            .unwrap()
+            .query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |row| {
+                row.get(0)
+            })
+            .unwrap()
+    }
+
+    /// `export` rebuilt as a self-consistent history of `registry_id`: a valid
+    /// fork of that registry, as in the origin-divergence fixture above.
+    fn fork_as(registry_id: &str, export: &[u8]) -> Vec<u8> {
+        let rows: Vec<Value> = std::str::from_utf8(export)
+            .unwrap()
+            .lines()
+            .map(|line| serde_json::from_str(line).unwrap())
+            .collect();
+        let mut header = rows[0].clone();
+        header["registryId"] = json!(registry_id);
+        let mut chain = genesis(registry_id);
+        let mut body = String::new();
+        for mut row in rows.into_iter().skip(1) {
+            if row["type"] == "event" {
+                chain = next_chain(&chain, row["eventId"].as_str().unwrap());
+                row["chain"] = json!(chain);
+            }
+            body.push_str(&canonical_text(&row).unwrap());
+            body.push('\n');
+        }
+        header["headChain"] = json!(chain);
+        header["bodySha256"] = json!(sha256_hex(body.as_bytes()));
+        format!("{}\n{body}", canonical_text(&header).unwrap()).into_bytes()
+    }
+
+    /// Append records to a valid export and re-seal its body hash.
+    fn with_records(export: &[u8], records: &[Value]) -> Vec<u8> {
+        let text = std::str::from_utf8(export).unwrap();
+        let (header, body) = text.split_once('\n').unwrap();
+        let mut header: Value = serde_json::from_str(header).unwrap();
+        let mut body = body.to_string();
+        for record in records {
+            body.push_str(&canonical_text(record).unwrap());
+            body.push('\n');
+        }
+        header["bodySha256"] = json!(sha256_hex(body.as_bytes()));
+        format!("{}\n{body}", canonical_text(&header).unwrap()).into_bytes()
+    }
+
+    #[test]
+    fn r1_quarantine_survives_chained_and_repeated_transfers() {
+        let (a, b, c, d) = (Dirs::new(), Dirs::new(), Dirs::new(), Dirs::new());
+        let source = a.open();
+        let conflicting = b.open();
+        let first_hop = c.open();
+        let second_hop = d.open();
+        let quarantined = source.register_batch(&batch("same")).unwrap();
+        let eth = |request: &str| TrialBatchInput {
+            instrument_id: Some("crypto:binance:ETHUSDT".into()),
+            ..batch(request)
+        };
+        let normal = source.register_batch(&eth("eth")).unwrap();
+        let mut changed = batch("same");
+        changed.events[0].strategy_hash = Some("different-strategy".into());
+        conflicting.register_batch(&changed).unwrap();
+        source
+            .import_json_lines(&conflicting.export_json_lines().unwrap())
+            .unwrap();
+
+        let export = source.export_json_lines().unwrap();
+        first_hop.import_json_lines(&export).unwrap();
+        let again = first_hop.import_json_lines(&export).unwrap();
+        assert_eq!((again.added_events, again.conflicts), (0, 0), "a repeat is a no-op");
+        let hop = first_hop.export_json_lines().unwrap();
+        second_hop.import_json_lines(&hop).unwrap();
+        second_hop.import_json_lines(&hop).unwrap();
+        for ledger in [&source, &first_hop, &second_hop] {
+            assert_eq!(
+                ledger.read_admission_count(&quarantined.batch_id).unwrap(),
+                Admission::Blocked(AdmissionBlocked::FamilyQuarantined)
+            );
+            assert!(
+                matches!(
+                    ledger.read_admission_count(&normal.batch_id).unwrap(),
+                    Admission::Count(_)
+                ),
+                "other families stay usable"
+            );
+            assert_eq!(
+                ledger.register_batch(&batch("later")).err().unwrap().code(),
+                "family_quarantined"
+            );
+            assert_eq!(event_rows(ledger), 2, "the quarantined trials stay counted");
+            assert_eq!(rows(ledger, "family_conflicts"), 1, "evidence is unioned once");
+        }
+        let evidence = |bytes: Vec<u8>| -> Vec<String> {
+            String::from_utf8(bytes)
+                .unwrap()
+                .lines()
+                .filter(|line| line.contains("\"type\":\"familyConflict\""))
+                .map(str::to_string)
+                .collect()
+        };
+        let original = evidence(source.export_json_lines().unwrap());
+        assert_eq!(original.len(), 1);
+        assert_eq!(evidence(second_hop.export_json_lines().unwrap()), original);
+
+        // An already-present event of the quarantined family is not a gap: a
+        // newer export still extends the source's replacement checkpoints.
+        source.register_batch(&eth("eth-2")).unwrap();
+        let saved = current(&source);
+        assert_eq!(saved.seq, 3);
+        first_hop
+            .import_json_lines(&source.export_json_lines().unwrap())
+            .unwrap();
+        assert!(accepts(&first_hop, &saved));
+    }
+
+    #[test]
+    fn r1_v1_files_and_malformed_evidence_are_refused_before_writes() {
+        let (a, b) = (Dirs::new(), Dirs::new());
+        let source = a.open();
+        let target = b.open();
+        let registered = source.register_batch(&batch("r1")).unwrap();
+        let export = source.export_json_lines().unwrap();
+        let text = std::str::from_utf8(&export).unwrap();
+        let (header, body) = text.split_once('\n').unwrap();
+        let mut header: Value = serde_json::from_str(header).unwrap();
+        assert_eq!(header["version"], TRIAL_LEDGER_EXPORT_VERSION);
+        header["version"] = json!("trial-ledger-export-v1");
+        let v1 = format!("{}\n{body}", canonical_text(&header).unwrap());
+        assert_eq!(
+            target.import_json_lines(v1.as_bytes()).err().unwrap().code(),
+            "import_integrity_failed",
+            "a v1 file cannot say whether its source quarantined a family"
+        );
+
+        let family = super::super::family_id_for(BTC).unwrap();
+        let conflict = json!({"type": "familyConflict", "familyId": family,
+            "kind": "import_conflict", "detailJson": "[\"seen elsewhere\"]"});
+        for (label, records) in [
+            ("non-canonical detail", vec![json!({"type": "familyConflict",
+                "familyId": family, "kind": "import_conflict", "detailJson": "[ ]"})]),
+            ("malformed family", vec![json!({"type": "familyConflict",
+                "familyId": "trial-family-v1:xyz", "kind": "k", "detailJson": "[]"})]),
+            ("duplicate conflict", vec![conflict.clone(), conflict.clone()]),
+            ("malformed origin", vec![json!({"type": "registryConflict",
+                "originRegistryId": "not-hex", "detailJson": "{}"})]),
+            ("self genesis", vec![json!({"type": "originGenesis",
+                "originRegistryId": source.registry_id()})]),
+            ("section order", vec![conflict.clone(),
+                json!({"type": "originGenesis", "originRegistryId": "0".repeat(32)})]),
+        ] {
+            assert_eq!(
+                target
+                    .import_json_lines(&with_records(&export, &records))
+                    .err()
+                    .unwrap()
+                    .code(),
+                "import_integrity_failed",
+                "{label}"
+            );
+        }
+        assert_eq!(event_rows(&target), 0);
+
+        // Valid evidence the target never observed itself still quarantines.
+        target
+            .import_json_lines(&with_records(&export, &[conflict]))
+            .unwrap();
+        assert_eq!(
+            target.read_admission_count(&registered.batch_id).unwrap(),
+            Admission::Blocked(AdmissionBlocked::FamilyQuarantined)
+        );
+    }
+
+    #[test]
+    fn r2_a_divergent_origin_stays_refused_after_replay_reopen_and_transfer() {
+        let (a, b, c, d) = (Dirs::new(), Dirs::new(), Dirs::new(), Dirs::new());
+        let first = a.open();
+        let other = c.open();
+        first.register_batch(&batch("first")).unwrap();
+        let saved = current(&first);
+        let normal = first.export_json_lines().unwrap();
+        let target = b.open();
+        target.import_json_lines(&normal).unwrap();
+        assert!(accepts(&target, &saved), "accepted before the divergence");
+
+        other.register_batch(&batch("other")).unwrap();
+        let fork = fork_as(first.registry_id(), &other.export_json_lines().unwrap());
+        assert!(target.import_json_lines(&fork).unwrap().conflicts > 0);
+        assert!(!accepts(&target, &saved));
+        target.import_json_lines(&normal).unwrap();
+        assert!(!accepts(&target, &saved), "replaying the normal export");
+        drop(target);
+        let target = b.open();
+        assert!(!accepts(&target, &saved), "reopened");
+
+        // A genuine later history of the origin adds no new authority.
+        first.register_batch(&batch("second")).unwrap();
+        let later = current(&first);
+        target
+            .import_json_lines(&first.export_json_lines().unwrap())
+            .unwrap();
+        assert!(!accepts(&target, &later));
+        let newest: i64 = target
+            .lock()
+            .unwrap()
+            .query_row(
+                "SELECT MAX(origin_seq) FROM origin_checkpoints WHERE origin_registry_id = ?1",
+                [first.registry_id()],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(newest, 1, "no checkpoint is added for a conflicted origin");
+        assert_eq!(rows(&target, "registry_conflicts"), 1);
+
+        // A complete transfer carries the conflict to the next registry.
+        let next = d.open();
+        next.import_json_lines(&target.export_json_lines().unwrap())
+            .unwrap();
+        assert!(!accepts(&next, &saved));
+        assert!(!accepts(&next, &later));
+        let carried: i64 = next
+            .lock()
+            .unwrap()
+            .query_row(
+                "SELECT COUNT(*) FROM origin_checkpoints WHERE origin_registry_id = ?1",
+                [first.registry_id()],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(carried, 0, "the conflicted origin's checkpoints are not carried");
+    }
+
+    #[test]
+    fn r5_an_empty_origin_restores_through_transfers_only_with_evidence() {
+        let (a, b, c, d) = (Dirs::new(), Dirs::new(), Dirs::new(), Dirs::new());
+        let empty = a.open();
+        let saved = current(&empty);
+        assert_eq!(saved.seq, 0);
+        let unrelated = d.open();
+        assert!(!accepts(&unrelated, &saved), "seq 0 alone is not evidence");
+        let first_hop = b.open();
+        let second_hop = c.open();
+        first_hop
+            .import_json_lines(&empty.export_json_lines().unwrap())
+            .unwrap();
+        second_hop
+            .import_json_lines(&first_hop.export_json_lines().unwrap())
+            .unwrap();
+        second_hop
+            .import_json_lines(&first_hop.export_json_lines().unwrap())
+            .unwrap();
+        for ledger in [&first_hop, &second_hop] {
+            assert!(accepts(ledger, &saved));
+            let origins: Vec<String> = {
+                let conn = ledger.lock().unwrap();
+                let mut stmt = conn
+                    .prepare("SELECT origin_registry_id FROM origin_genesis ORDER BY 1")
+                    .unwrap();
+                let ids = stmt.query_map([], |row| row.get(0)).unwrap();
+                ids.collect::<Result<_, _>>().unwrap()
+            };
+            // Direct sources plus carried evidence, each exactly once.
+            let mut expected = vec![empty.registry_id().to_string()];
+            if std::ptr::eq(ledger, &second_hop) {
+                expected.push(first_hop.registry_id().to_string());
+            }
+            expected.sort();
+            assert_eq!(origins, expected);
+        }
+        let conn = first_hop.lock().unwrap();
+        for sql in [
+            "UPDATE origin_genesis SET recorded_at = 'x'",
+            "DELETE FROM origin_genesis",
+        ] {
+            let error = conn.execute(sql, []).err().unwrap();
+            assert!(error.to_string().contains("append-only"), "{sql}: {error}");
+        }
+    }
+
+    #[test]
+    fn r3_import_refuses_a_reproduction_of_an_unversioned_split() {
+        let (a, b) = (Dirs::new(), Dirs::new());
+        let source = a.open();
+        let target = b.open();
+        let first = source.register_batch(&batch("original")).unwrap();
+        let mut copy = batch("copy");
+        copy.events[0].kind = TrialKind::Reproduction;
+        copy.events[0].strategy_hash = Some("strategy-original".into());
+        copy.events[0].reproduction_of = Some(first.event_ids[0].clone());
+        source.register_batch(&copy).unwrap();
+        // Both events rewritten to one pre-§20 value: still equal, still not proof.
+        let bytes = rewrite_export(&source.export_json_lines().unwrap(), |payload| {
+            payload["splitHash"] = json!("0".repeat(64));
+        });
+        assert_eq!(
+            target.import_json_lines(&bytes).err().unwrap().code(),
+            "import_integrity_failed"
+        );
+        assert_eq!(event_rows(&target), 0);
+    }
+
+    #[test]
+    fn r5_genesis_evidence_never_overrides_a_recorded_divergence() {
+        let (a, b, c) = (Dirs::new(), Dirs::new(), Dirs::new());
+        let origin = a.open();
+        let empty = current(&origin);
+        origin.register_batch(&batch("first")).unwrap();
+        let target = b.open();
+        target
+            .import_json_lines(&origin.export_json_lines().unwrap())
+            .unwrap();
+        assert!(accepts(&target, &empty));
+        let other = c.open();
+        other.register_batch(&batch("other")).unwrap();
+        let fork = fork_as(origin.registry_id(), &other.export_json_lines().unwrap());
+        assert!(target.import_json_lines(&fork).unwrap().conflicts > 0);
+        assert!(!accepts(&target, &empty));
     }
 }

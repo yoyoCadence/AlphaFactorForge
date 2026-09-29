@@ -198,7 +198,7 @@ pub fn open_workspace_with(
     // 4. Record ourselves and bump the epoch.
     let acquired = ownership::acquire(&mut conn, kind, std::process::id())?;
     let workspace_id = runtime_ledger::workspace_id(&conn)?;
-    let bound = trial_ledger_workspace::adopt(&mut conn, data_dir, &workspace_id)?;
+    let bound = trial_ledger_workspace::adopt(&mut conn, data_dir, &workspace_id, Some(acquired.epoch))?;
     if !bound.report.orphan_event_ids.is_empty() {
         eprintln!(
             "trial ledger: {} registry events have no workspace attempt: {}",
