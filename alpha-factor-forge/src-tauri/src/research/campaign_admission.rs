@@ -187,27 +187,13 @@ pub fn evaluate_campaign_admission(
     input: &CampaignAdmissionInput<'_>,
 ) -> AppResult<CampaignAdmissionReport> {
     let id = input.instrument_id;
-    let declaration: Declaration = serde_json::from_value(input.campaign.document().clone())?;
-    let binding = declaration
-        .instruments
-        .iter()
-        .find(|binding| binding.instrument_id == id)
-        .ok_or_else(|| invalid(id, "instrument is not declared by this campaign"))?;
     let resolved = input.resolved;
-    if resolved.instrument_id != id
-        || resolved.snapshot_id != binding.snapshot_id
-        || resolved.dataset_hash != binding.dataset_hash
-    {
-        return Err(invalid(
-            id,
-            "resolved snapshot does not match the declaration",
-        ));
-    }
+    let (declared_sampling, binding) =
+        bind(input.campaign, id, resolved, input.candidates)?;
     if input.batch_id.trim().is_empty() {
         return Err(invalid(id, "batch id is missing"));
     }
     let family_id = family_id_for(id).map_err(|error| invalid(id, error))?;
-    validate_candidates(id, input.candidates, binding, resolved.bar_count)?;
 
     let snapshot = SnapshotObservation {
         snapshot_id: resolved.snapshot_id.clone(),
@@ -268,10 +254,10 @@ pub fn evaluate_campaign_admission(
     // Precision is computed whenever a current count exists, even alongside
     // other reasons, so the stored decision shows the full picture.
     let sampling = SamplingPlan {
-        alpha_ppm: declaration.sampling.alpha_ppm,
-        max_relative_standard_error_ppm: declaration.sampling.max_relative_standard_error_ppm,
-        bootstrap_samples: declaration.sampling.bootstrap_samples,
-        max_bootstrap_samples: declaration.sampling.max_bootstrap_samples,
+        alpha_ppm: declared_sampling.alpha_ppm,
+        max_relative_standard_error_ppm: declared_sampling.max_relative_standard_error_ppm,
+        bootstrap_samples: declared_sampling.bootstrap_samples,
+        max_bootstrap_samples: declared_sampling.max_bootstrap_samples,
     };
     let precision = count
         .map(|count| {
@@ -305,6 +291,45 @@ pub fn evaluate_campaign_admission(
         precision,
         walk_forward: input.candidates.to_vec(),
     })
+}
+
+/// Every check that makes a run this campaign's run, without the ledger. A
+/// runner calls it before registering trials, so a run that contradicts the
+/// campaign registers nothing; `evaluate_campaign_admission` repeats it.
+pub fn validate_campaign_binding(
+    campaign: &FrozenCampaignDeclaration,
+    instrument_id: &str,
+    resolved: &ResolvedInstrument,
+    candidates: &[CandidateFeasibility],
+) -> AppResult<()> {
+    bind(campaign, instrument_id, resolved, candidates).map(|_| ())
+}
+
+fn bind(
+    campaign: &FrozenCampaignDeclaration,
+    id: &str,
+    resolved: &ResolvedInstrument,
+    candidates: &[CandidateFeasibility],
+) -> AppResult<(Sampling, InstrumentBinding)> {
+    let Declaration {
+        sampling,
+        instruments,
+    } = serde_json::from_value(campaign.document().clone())?;
+    let binding = instruments
+        .into_iter()
+        .find(|binding| binding.instrument_id == id)
+        .ok_or_else(|| invalid(id, "instrument is not declared by this campaign"))?;
+    if resolved.instrument_id != id
+        || resolved.snapshot_id != binding.snapshot_id
+        || resolved.dataset_hash != binding.dataset_hash
+    {
+        return Err(invalid(
+            id,
+            "resolved snapshot does not match the declaration",
+        ));
+    }
+    validate_candidates(id, candidates, &binding, resolved.bar_count)?;
+    Ok((sampling, binding))
 }
 
 /// Every candidate must be planned against this campaign's policy and the

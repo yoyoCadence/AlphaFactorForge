@@ -93,6 +93,22 @@ pub fn resolve_campaign_snapshots(
         .collect()
 }
 
+/// The same exact resolution for one declared instrument (P12d-2c): a
+/// campaign-bound run needs only its own binding, not every instrument's.
+pub fn resolve_campaign_instrument(
+    conn: &Connection,
+    campaign: &FrozenCampaignDeclaration,
+    instrument_id: &str,
+) -> AppResult<ResolvedInstrument> {
+    let declaration: Declaration = serde_json::from_value(campaign.document().clone())?;
+    let binding = declaration
+        .instruments
+        .iter()
+        .find(|binding| binding.instrument_id == instrument_id)
+        .ok_or_else(|| reject(instrument_id, "instrument is not declared by this campaign"))?;
+    resolve_one(conn, binding)
+}
+
 fn resolve_one(conn: &Connection, binding: &InstrumentBinding) -> AppResult<ResolvedInstrument> {
     let id = &binding.instrument_id;
     let snapshot = snapshot::get_snapshot_by_id(conn, &binding.snapshot_id)?

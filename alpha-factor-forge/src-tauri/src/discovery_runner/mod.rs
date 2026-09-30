@@ -49,9 +49,17 @@ use crate::research::trial_ledger::{
     split_hash_for, TrialBatchInput, TrialEventInput, TrialKind, TrialLedger, TrialOrigin,
 };
 use crate::research::trial_ledger_workspace::{self, unique_snapshot};
+use crate::db::campaign::CampaignAdmissionRecord;
+use crate::research::campaign_admission::{
+    evaluate_campaign_admission, validate_campaign_binding, CampaignAdmissionInput,
+    CampaignAdmissionReport, CandidateFeasibility, LedgerInput,
+};
+use crate::research::campaign_snapshot::{resolve_campaign_instrument, ResolvedInstrument};
+use alpha_factor_forge::discovery_core::campaign::{freeze_campaign, FrozenCampaignDeclaration};
 use crate::research::{canonical_json, sha256_hex, CANDIDATE_RESULT_VERSION, CANDIDATE_RESULT_VERSION_V2};
 
 use self::execution::{
+    candidate_walk_forward_report,
     declared_walk_forward_plan, execute_candidate, execute_candidate_walk_forward,
     CandidateExecutionOutput, ExecuteCandidateArgs, ExecutionDataset,
 };
@@ -269,6 +277,98 @@ struct ScheduledCandidate {
     strategy_id: i64,
 }
 
+/// P12d-2c: the campaign a run is bound to — one declared instrument of a
+/// `research-campaign-declaration-v1` document (one run per instrument,
+/// maintainer decision 2026-09-29).
+#[derive(Clone, Debug)]
+pub struct CampaignStart {
+    pub declaration: Value,
+    pub instrument_id: String,
+}
+
+/// A campaign binding checked against the run before any write.
+struct BoundCampaign {
+    frozen: FrozenCampaignDeclaration,
+    instrument_id: String,
+    resolved: ResolvedInstrument,
+    /// Derived here for the complete enumerated candidate set.
+    candidates: Vec<CandidateFeasibility>,
+}
+
+impl BoundCampaign {
+    /// The first decision, from the count read with this registration.
+    fn evaluate(
+        &self,
+        conn: &rusqlite::Connection,
+        registered: &LineageRegistration,
+    ) -> AppResult<CampaignAdmissionReport> {
+        let legacy = trial_ledger_workspace::unknown_legacy_families(conn)?;
+        evaluate_campaign_admission(&CampaignAdmissionInput {
+            campaign: &self.frozen,
+            instrument_id: &self.instrument_id,
+            resolved: &self.resolved,
+            earlier_snapshot: None,
+            batch_id: &registered.batch_id,
+            ledger: LedgerInput::Registered(&registered.admission),
+            legacy_trials_unknown: &legacy,
+            candidates: &self.candidates,
+        })
+    }
+}
+
+impl DiscoveryRunner {
+    fn bind_campaign(
+        &self,
+        conn: &rusqlite::Connection,
+        start: &CampaignStart,
+        config: &ResolvedDiscoveryConfig,
+        candidates: &[EnumeratedCandidate],
+        dataset: &VerifiedDataset,
+        candle_count: usize,
+    ) -> AppResult<BoundCampaign> {
+        if self.trial_ledger.is_none() {
+            return Err(other("a campaign run needs the workspace's trial ledger"));
+        }
+        let frozen = freeze_campaign(&start.declaration).map_err(|error| other(error.to_string()))?;
+        let walk_forward = config
+            .walk_forward
+            .ok_or_else(|| other("a campaign run needs a discovery-config-v3 walk-forward declaration"))?;
+        let resolved = resolve_campaign_instrument(conn, &frozen, &start.instrument_id)?;
+        if resolved.dataset_id != dataset.id
+            || resolved.dataset_hash != dataset.content_hash
+            || resolved.bar_count != candle_count as u64
+        {
+            return Err(other(format!(
+                "campaign {}: the run's dataset is not the declared snapshot's dataset",
+                start.instrument_id
+            )));
+        }
+        let feasibility: Vec<CandidateFeasibility> = candidates
+            .iter()
+            .map(|candidate| {
+                let (report, error) =
+                    match candidate_walk_forward_report(config, candidate, candle_count, walk_forward) {
+                        Ok(report) => (Some(report), None),
+                        Err(error) => (None, Some(error.to_string())),
+                    };
+                CandidateFeasibility {
+                    candidate_index: candidate.index,
+                    strategy_hash: candidate.strategy_hash.clone(),
+                    report,
+                    error,
+                }
+            })
+            .collect();
+        validate_campaign_binding(&frozen, &start.instrument_id, &resolved, &feasibility)?;
+        Ok(BoundCampaign {
+            frozen,
+            instrument_id: start.instrument_id.clone(),
+            resolved,
+            candidates: feasibility,
+        })
+    }
+}
+
 struct PreparedRun {
     config: Arc<ResolvedDiscoveryConfig>,
     enumeration: EnumerationCounts,
@@ -449,6 +549,34 @@ impl DiscoveryRunner {
         raw_config: Value,
         request_id: Option<&str>,
     ) -> AppResult<i64> {
+        self.start_inner(db, sink, raw_config, request_id, None)
+    }
+
+    /// P12d-2c: start a run bound to one declared instrument of a frozen
+    /// campaign (docs/research-campaign-declaration-v1.md). The run config
+    /// stays a v3 discovery config; the binding is checked against it before
+    /// any write, trials register under the declared snapshot's family, and
+    /// the admission decision is stored with the enqueue. A `NOT_ELIGIBLE`
+    /// decision still runs: it only blocks later confirmation.
+    pub fn start_campaign_for_request(
+        &self,
+        db: SharedDb,
+        sink: Arc<dyn DiscoveryEventSink>,
+        raw_config: Value,
+        campaign: &CampaignStart,
+        request_id: Option<&str>,
+    ) -> AppResult<i64> {
+        self.start_inner(db, sink, raw_config, request_id, Some(campaign))
+    }
+
+    fn start_inner(
+        &self,
+        db: SharedDb,
+        sink: Arc<dyn DiscoveryEventSink>,
+        raw_config: Value,
+        request_id: Option<&str>,
+        campaign: Option<&CampaignStart>,
+    ) -> AppResult<i64> {
         let begun: Vec<RequestOutcome<'_>> = request_id
             .map(|request_id| vec![RequestOutcome::begun(request_id, START_COMMAND)])
             .unwrap_or_default();
@@ -472,6 +600,14 @@ impl DiscoveryRunner {
             }
             let (dataset, candles) = load_verified_dataset(&conn, &config)?;
             preflight_walk_forward(&config, &plan.candidates, candles.len())?;
+            // P12d-2c: every campaign check precedes the first write, so a run
+            // that contradicts its campaign creates no run row and registers
+            // no trials.
+            let campaign = campaign
+                .map(|start| {
+                    self.bind_campaign(&conn, start, &config, &plan.candidates, &dataset, candles.len())
+                })
+                .transpose()?;
             let mut scheduled = Vec::with_capacity(plan.candidates.len());
             let mut specs = Vec::with_capacity(plan.candidates.len());
             for candidate in &plan.candidates {
@@ -525,16 +661,40 @@ impl DiscoveryRunner {
             // enqueue (ABC-05). Same transaction as the job rows.
             let lineage = run_lineage(&config, &raw_config, run_id, &dataset, &scheduled, self.epoch)?;
             let trial_request = request_id.map(str::to_string).unwrap_or_else(|| format!("run-{run_id}"));
+            let mut admission = None;
             let registration = if let Some(ledger) = &self.trial_ledger {
-                Some(register_lineage(
-                    ledger, &conn, self.workspace_id.as_deref().ok_or_else(|| other("workspace identity missing"))?,
-                    &trial_request, &config, &dataset, &lineage,
-                )?)
+                let workspace_id = self.workspace_id.as_deref().ok_or_else(|| other("workspace identity missing"))?;
+                Some(match &campaign {
+                    Some(bound) => {
+                        let registered = register_lineage_with(
+                            ledger, &conn, workspace_id, &trial_request, &config, &dataset, &lineage,
+                            Some((bound.instrument_id.clone(), bound.resolved.snapshot_id.clone())),
+                        )?;
+                        admission = Some(bound.evaluate(&conn, &registered)?);
+                        (registered.event_ids, registered.head)
+                    }
+                    None => register_lineage(
+                        ledger, &conn, workspace_id, &trial_request, &config, &dataset, &lineage,
+                    )?,
+                })
             } else { None };
-            if let Err(error) = discovery::start_discovery_run_bound(
-                &mut conn, self.epoch, run_id, &specs, Some(&lineage),
-                registration.as_ref().map(|(ids, binding)| (ids.as_slice(), binding)),
-            )
+            let binding = registration.as_ref().map(|(ids, binding)| (ids.as_slice(), binding));
+            let enqueued = match (&campaign, &admission, binding) {
+                (Some(bound), Some(report), Some(binding)) => discovery::start_discovery_run_for_campaign(
+                    &mut conn, self.epoch, run_id, &specs, &lineage, binding,
+                    &CampaignAdmissionRecord {
+                        campaign: &bound.frozen,
+                        report,
+                        fee_pct: config.benchmark_costs.fee_pct,
+                        slip_pct: config.benchmark_costs.slip_pct,
+                    },
+                ),
+                (Some(_), _, _) => Err(other("campaign admission was not evaluated")),
+                (None, _, binding) => discovery::start_discovery_run_bound(
+                    &mut conn, self.epoch, run_id, &specs, Some(&lineage), binding,
+                ),
+            };
+            if let Err(error) = enqueued
             {
                 if matches!(error, AppError::StaleOwner(_)) {
                     return Err(error);
@@ -1792,8 +1952,37 @@ fn register_lineage(
     dataset: &VerifiedDataset,
     lineage: &history::RunLineage,
 ) -> AppResult<(Vec<String>, crate::research::trial_ledger::LedgerBinding)> {
-    trial_ledger_workspace::require_current(ledger, conn)?;
     let snapshot = unique_snapshot(conn, dataset.id, &dataset.content_hash)?;
+    let registered = register_lineage_with(
+        ledger, conn, workspace_id, request_id, config, dataset, lineage, snapshot,
+    )?;
+    Ok((registered.event_ids, registered.head))
+}
+
+/// What a registration returns to a campaign-bound start: the batch and the
+/// admission count read in its registry transaction (trial-ledger-v1 §6.4).
+struct LineageRegistration {
+    event_ids: Vec<String>,
+    head: crate::research::trial_ledger::LedgerBinding,
+    batch_id: String,
+    admission: crate::research::trial_ledger::Admission,
+}
+
+/// `register_lineage` with the family chosen by the caller: a campaign run
+/// passes its declared, verified snapshot instead of guessing a unique one,
+/// so a dataset with several snapshots still has a known family (P12d-2c).
+#[allow(clippy::too_many_arguments)]
+fn register_lineage_with(
+    ledger: &TrialLedger,
+    conn: &rusqlite::Connection,
+    workspace_id: &str,
+    request_id: &str,
+    config: &ResolvedDiscoveryConfig,
+    dataset: &VerifiedDataset,
+    lineage: &history::RunLineage,
+    snapshot: Option<(String, String)>,
+) -> AppResult<LineageRegistration> {
+    trial_ledger_workspace::require_current(ledger, conn)?;
     let splits = candidate_split_hashes(config, dataset.candle_count)?;
     let events = lineage.iter().map(|(hypothesis, attempt)| {
         let index = attempt.candidate_index.ok_or_else(|| other("candidate index missing"))?;
@@ -1832,7 +2021,12 @@ fn register_lineage(
         events,
     }).map_err(|error| other(error.to_string()))?;
     let head = trial_ledger_workspace::require_current(ledger, conn)?;
-    Ok((registered.event_ids, head))
+    Ok(LineageRegistration {
+        event_ids: registered.event_ids,
+        head,
+        batch_id: registered.batch_id,
+        admission: registered.admission,
+    })
 }
 
 /// P05: the complete, immutable result of one candidate as a

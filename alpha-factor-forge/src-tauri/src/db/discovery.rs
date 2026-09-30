@@ -694,6 +694,41 @@ pub fn start_discovery_run_bound(
     lineage: Option<&crate::research::history::RunLineage>,
     binding: Option<(&[String], &crate::research::trial_ledger::LedgerBinding)>,
 ) -> AppResult<()> {
+    start_discovery_run_inner(conn, epoch, run_id, candidates, lineage, binding, None)
+}
+
+/// P12d-2c: `start_discovery_run_bound` for a campaign-bound run, which also
+/// stores the frozen declaration and the admission decision in the same
+/// transaction, so the queued run and its decision cannot be separated.
+pub fn start_discovery_run_for_campaign(
+    conn: &mut Connection,
+    epoch: Option<i64>,
+    run_id: i64,
+    candidates: &[CandidateJobSpec],
+    lineage: &crate::research::history::RunLineage,
+    binding: (&[String], &crate::research::trial_ledger::LedgerBinding),
+    campaign: &super::campaign::CampaignAdmissionRecord<'_>,
+) -> AppResult<()> {
+    start_discovery_run_inner(
+        conn,
+        epoch,
+        run_id,
+        candidates,
+        Some(lineage),
+        Some(binding),
+        Some(campaign),
+    )
+}
+
+fn start_discovery_run_inner(
+    conn: &mut Connection,
+    epoch: Option<i64>,
+    run_id: i64,
+    candidates: &[CandidateJobSpec],
+    lineage: Option<&crate::research::history::RunLineage>,
+    binding: Option<(&[String], &crate::research::trial_ledger::LedgerBinding)>,
+    campaign: Option<&super::campaign::CampaignAdmissionRecord<'_>>,
+) -> AppResult<()> {
     if candidates.is_empty() {
         return Err(AppError::Other(
             "a discovery run must start with at least one candidate".into(),
@@ -784,6 +819,13 @@ pub fn start_discovery_run_bound(
         crate::research::history::register_run_lineage_with_events(
             &tx, lineage, binding.map(|(ids, _)| ids)
         )?;
+    }
+
+    if let Some(record) = campaign {
+        let lineage = lineage.ok_or_else(|| {
+            AppError::Other("campaign admission needs the run lineage".into())
+        })?;
+        super::campaign::record_campaign_admission(&tx, epoch, run_id, lineage, record)?;
     }
 
     if let Some((_, head)) = binding {
