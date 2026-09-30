@@ -1,5 +1,6 @@
 // SKELETON — command module registry.
 pub mod ai_commands;
+pub mod campaign_commands;
 pub mod db_commands;
 pub mod discovery_commands;
 pub mod runtime_commands;

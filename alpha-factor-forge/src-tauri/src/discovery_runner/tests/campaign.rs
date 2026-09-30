@@ -29,6 +29,8 @@ struct Workspace {
     store: ArtifactStore,
     runner: DiscoveryRunner,
     ledger: Arc<TrialLedger>,
+    epoch: i64,
+    workspace_id: String,
     dataset_id: i64,
     dataset_hash: String,
     snapshot_id: String,
@@ -151,7 +153,8 @@ fn workspace() -> Workspace {
         store,
         runner,
         ledger,
-
+        epoch,
+        workspace_id,
         dataset_id,
         dataset_hash,
         snapshot_id: String::new(),
@@ -243,7 +246,7 @@ fn an_eligible_campaign_run_stores_its_decision_with_the_enqueue() {
         .unwrap()
         .expect("a campaign run has a decision");
     assert_eq!(
-        stored.campaign.campaign_id(),
+        stored.campaign_id,
         campaign_id,
         "re-frozen from storage"
     );
@@ -510,4 +513,130 @@ fn the_enqueue_refuses_a_decision_for_missing_or_substituted_candidates() {
         let error = conn.execute(sql, []).unwrap_err();
         assert!(error.to_string().contains("append-only"), "{sql}: {error}");
     }
+}
+
+// ---------------------------- P12d-2d campaign.freeze / campaign.start
+
+fn dispatcher(workspace: &Workspace) -> crate::runtime::commands::Dispatcher {
+    crate::runtime::commands::Dispatcher::new(
+        workspace.db.clone(),
+        workspace.runner.clone(),
+        workspace.epoch,
+        workspace.workspace_id.clone(),
+        Arc::new(RecordingSink::new(workspace.db.clone())),
+        Arc::new(crate::runtime::commands::InFlightRequests::default()),
+    )
+}
+
+fn envelope(workspace: &Workspace, request: &str, command: &str, payload: Value) -> Value {
+    json!({
+        "protocolVersion": crate::runtime::commands::COMMAND_PROTOCOL_VERSION,
+        "workspaceId": workspace.workspace_id,
+        "requestId": request,
+        "command": command,
+        "payload": payload,
+    })
+}
+
+#[test]
+fn freezing_saves_once_and_runs_start_from_the_saved_list() {
+    use crate::runtime::commands::ErrorCode;
+    let workspace = workspace();
+    let dispatcher = dispatcher(&workspace);
+    let declared = declaration(&workspace, 100_000, 200_000);
+    let expected = freeze_campaign(&declared).unwrap().campaign_id().to_string();
+    let freeze = |request: &str, payload: Value| {
+        dispatcher.dispatch(envelope(&workspace, request, "campaign.freeze", payload))
+    };
+
+    let frozen = freeze("freeze-1", json!({ "declaration": declared })).unwrap();
+    assert_eq!(frozen, json!({ "campaignId": expected }), "the backend derives the ID");
+    assert_eq!(freeze("freeze-1", json!({ "declaration": declared })).unwrap(), frozen);
+    assert_eq!(freeze("freeze-2", json!({ "declaration": declared })).unwrap(), frozen);
+    assert_eq!(count(&workspace.db, "SELECT COUNT(*) FROM research_campaigns"), 1);
+    let unknown_key = freeze("freeze-3", json!({ "declaration": declared, "campaignId": expected }));
+    assert_eq!(unknown_key.unwrap_err().code, ErrorCode::Validation);
+    let mut invalid = declared.clone();
+    invalid["sampling"]["priorTrials"] = json!(0);
+    assert_eq!(
+        freeze("freeze-4", json!({ "declaration": invalid })).unwrap_err().code,
+        ErrorCode::Validation
+    );
+    assert_eq!(count(&workspace.db, "SELECT COUNT(*) FROM research_campaigns"), 1);
+    {
+        let conn = workspace.db.lock().unwrap();
+        let listed = crate::db::campaign::list_campaigns(&conn).unwrap();
+        assert_eq!(listed.len(), 1);
+        assert_eq!(listed[0].campaign_id, expected);
+        assert_eq!(listed[0].document, *freeze_campaign(&declared).unwrap().document());
+        assert!(listed[0].runs.is_empty());
+        assert!(crate::db::campaign::get_campaign(&conn, &"0".repeat(64)).unwrap().is_none());
+    }
+
+    let config = walk_forward_runner_config(workspace.dataset_id, &workspace.dataset_hash);
+    let start = |request: &str, campaign_id: &str| {
+        dispatcher.dispatch(envelope(
+            &workspace,
+            request,
+            "campaign.start",
+            json!({ "config": config, "campaignId": campaign_id, "instrumentId": BTC }),
+        ))
+    };
+    let started = start("start-1", &expected).unwrap();
+    let run_id = started["runId"].as_i64().unwrap();
+    complete(&workspace, run_id);
+    assert_eq!(start("start-1", &expected).unwrap(), started, "one run per request id");
+    assert_eq!(count(&workspace.db, "SELECT COUNT(*) FROM discovery_runs"), 1);
+    let (command, stage): (String, String) = workspace
+        .db
+        .lock()
+        .unwrap()
+        .query_row(
+            "SELECT command, stage FROM request_outcomes WHERE request_id = 'start-1'",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .unwrap();
+    assert_eq!((command.as_str(), stage.as_str()), ("campaign.start", "accepted"));
+    {
+        let conn = workspace.db.lock().unwrap();
+        let listed = crate::db::campaign::list_campaigns(&conn).unwrap();
+        assert_eq!(listed[0].runs.len(), 1);
+        assert_eq!(
+            (listed[0].runs[0].run_id, listed[0].runs[0].instrument_id.as_str(), listed[0].runs[0].status.as_str()),
+            (run_id, BTC, "ELIGIBLE")
+        );
+    }
+
+    let missing = start("start-2", &"0".repeat(64)).unwrap_err();
+    assert_eq!(missing.code, ErrorCode::NotFound, "{}", missing.message);
+    let wrong_shape = dispatcher.dispatch(envelope(
+        &workspace,
+        "start-3",
+        "campaign.start",
+        json!({ "config": config, "campaignId": expected }),
+    ));
+    assert_eq!(wrong_shape.unwrap_err().code, ErrorCode::Validation);
+    assert_eq!(count(&workspace.db, "SELECT COUNT(*) FROM discovery_runs"), 1);
+}
+
+#[test]
+fn a_stored_campaign_that_no_longer_refreezes_is_an_error() {
+    let workspace = workspace();
+    let declared = declaration(&workspace, 100_000, 200_000);
+    let document = String::from_utf8(
+        crate::research::canonical_json(freeze_campaign(&declared).unwrap().document()).unwrap(),
+    )
+    .unwrap();
+    let conn = workspace.db.lock().unwrap();
+    // A row whose ID is not its document's: listing must not skip or trust it.
+    conn.execute(
+        "INSERT INTO research_campaigns (campaign_id, version, document_json) VALUES (?1, ?2, ?3)",
+        rusqlite::params!["a".repeat(64), "research-campaign-declaration-v1", document],
+    )
+    .unwrap();
+    let error = crate::db::campaign::list_campaigns(&conn).unwrap_err();
+    assert!(error.to_string().contains("no longer re-freezes"), "{error}");
+    let error = crate::db::campaign::get_campaign(&conn, &"a".repeat(64)).unwrap_err();
+    assert!(error.to_string().contains("no longer re-freezes"), "{error}");
 }

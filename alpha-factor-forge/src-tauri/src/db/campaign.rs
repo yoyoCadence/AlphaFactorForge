@@ -1,13 +1,15 @@
 //! P12d-2c: frozen campaign declarations and the admission decision of each
 //! campaign-bound run (migration 0010, docs/research-campaign-declaration-v1.md).
 //!
-//! Writes happen only inside the caller's owner-checked enqueue transaction
+//! Writes happen only as the workspace owner: `freeze_and_store_campaign`
+//! (P12d-2d, its own write transaction) or inside the enqueue transaction
 //! (`discovery::start_discovery_run_for_campaign`). Reads re-freeze the stored
 //! declaration: a row is never trusted just because it is in the database.
 
 use std::collections::BTreeSet;
 
 use rusqlite::{params, Connection, OptionalExtension};
+use serde::Serialize;
 use serde_json::Value;
 
 use alpha_factor_forge::discovery_core::campaign::{
@@ -30,13 +32,12 @@ pub struct CampaignAdmissionRecord<'a> {
     pub slip_pct: f64,
 }
 
-/// A stored decision with its re-validated declaration.
-// First runtime reader: P13 confirmation scheduling (and a campaign status
-// view); until then only tests read decisions back.
-#[allow(dead_code)]
-#[derive(Debug)]
+/// A stored decision whose declaration was re-validated on read. Serialized
+/// for the read-only decision view; list the declaration with `list_campaigns`.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct StoredCampaignAdmission {
-    pub campaign: FrozenCampaignDeclaration,
+    pub campaign_id: String,
     pub instrument_id: String,
     pub batch_id: String,
     pub status: String,
@@ -54,6 +55,143 @@ fn status_code(status: CampaignAdmissionStatus) -> &'static str {
         CampaignAdmissionStatus::Eligible => "ELIGIBLE",
         CampaignAdmissionStatus::NotEligible => "NOT_ELIGIBLE",
     }
+}
+
+/// Store a frozen declaration once, inside the caller's transaction. The same
+/// campaign stored again must present the identical canonical document.
+fn store_campaign(conn: &Connection, campaign: &FrozenCampaignDeclaration) -> AppResult<()> {
+    let campaign_id = campaign.campaign_id();
+    let document = String::from_utf8(canonical_json(campaign.document())?)
+        .map_err(|_| invalid("campaign document is not UTF-8"))?;
+    let stored: Option<String> = conn
+        .query_row(
+            "SELECT document_json FROM research_campaigns WHERE campaign_id = ?1",
+            [campaign_id],
+            |row| row.get(0),
+        )
+        .optional()?;
+    match stored {
+        Some(existing) if existing != document => Err(invalid(format!(
+            "stored campaign {campaign_id} does not match its declaration"
+        ))),
+        Some(_) => Ok(()),
+        None => {
+            conn.execute(
+                "INSERT INTO research_campaigns (campaign_id, version, document_json)
+                 VALUES (?1, ?2, ?3)",
+                params![campaign_id, CAMPAIGN_DECLARATION_VERSION, document],
+            )?;
+            Ok(())
+        }
+    }
+}
+
+/// P12d-2d: freeze a declaration and store it as the workspace owner
+/// (maintainer decision 2026-09-30: freezing saves; runs start from the saved
+/// list). Validation is `freeze_campaign`'s, never the caller's. Storing the
+/// same document again is a no-op that returns the same ID.
+pub fn freeze_and_store_campaign(
+    conn: &Connection,
+    epoch: Option<i64>,
+    declaration: &Value,
+) -> AppResult<String> {
+    let frozen =
+        freeze_campaign(declaration).map_err(|error| AppError::Other(error.to_string()))?;
+    let tx = super::ownership::write_transaction(conn, epoch)?;
+    store_campaign(&tx, &frozen)?;
+    tx.commit()?;
+    Ok(frozen.campaign_id().to_string())
+}
+
+/// A stored campaign, re-frozen from its row, or `None` when not stored.
+pub fn get_campaign(
+    conn: &Connection,
+    campaign_id: &str,
+) -> AppResult<Option<FrozenCampaignDeclaration>> {
+    let document: Option<String> = conn
+        .query_row(
+            "SELECT document_json FROM research_campaigns WHERE campaign_id = ?1",
+            [campaign_id],
+            |row| row.get(0),
+        )
+        .optional()?;
+    document
+        .map(|document| refreeze(campaign_id, &document))
+        .transpose()
+}
+
+fn refreeze(campaign_id: &str, document: &str) -> AppResult<FrozenCampaignDeclaration> {
+    let campaign = freeze_campaign(&serde_json::from_str(document)?)
+        .map_err(|error| invalid(error.to_string()))?;
+    if campaign.campaign_id() != campaign_id {
+        return Err(invalid(format!(
+            "stored campaign {campaign_id} no longer re-freezes to its identity"
+        )));
+    }
+    Ok(campaign)
+}
+
+/// One run started for a stored campaign and its decision.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CampaignRunSummary {
+    pub run_id: i64,
+    pub instrument_id: String,
+    pub status: String,
+    pub created_at: String,
+}
+
+/// A stored campaign for the authoring list: its re-validated document and
+/// the runs already started for it (one per instrument per run).
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CampaignSummary {
+    pub campaign_id: String,
+    pub version: String,
+    pub created_at: String,
+    pub document: Value,
+    pub runs: Vec<CampaignRunSummary>,
+}
+
+/// Every stored campaign, newest first. A row that no longer re-freezes to
+/// its ID is an error, not silently skipped.
+pub fn list_campaigns(conn: &Connection) -> AppResult<Vec<CampaignSummary>> {
+    let rows: Vec<(String, String, String, String)> = {
+        let mut stmt = conn.prepare(
+            "SELECT campaign_id, version, document_json, created_at FROM research_campaigns
+              ORDER BY created_at DESC, campaign_id",
+        )?;
+        let rows = stmt.query_map([], |row| {
+            Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+        })?;
+        rows.collect::<Result<_, _>>()?
+    };
+    let mut runs_stmt = conn.prepare(
+        "SELECT discovery_run_id, instrument_id, status, created_at FROM campaign_run_admissions
+          WHERE campaign_id = ?1 ORDER BY discovery_run_id",
+    )?;
+    rows.into_iter()
+        .map(|(campaign_id, version, document, created_at)| {
+            let frozen = refreeze(&campaign_id, &document)?;
+            let runs = runs_stmt
+                .query_map([&campaign_id], |row| {
+                    Ok(CampaignRunSummary {
+                        run_id: row.get(0)?,
+                        instrument_id: row.get(1)?,
+                        status: row.get(2)?,
+                        created_at: row.get(3)?,
+                    })
+                })?
+                .collect::<Result<_, _>>()?;
+            Ok(CampaignSummary {
+                campaign_id,
+                version,
+                created_at,
+                document: frozen.document().clone(),
+                runs,
+            })
+        })
+        .collect()
 }
 
 /// Store the declaration once and append the run's decision, inside the
@@ -102,30 +240,7 @@ pub(crate) fn record_campaign_admission(
         ));
     }
 
-    let document = String::from_utf8(canonical_json(record.campaign.document())?)
-        .map_err(|_| invalid("campaign document is not UTF-8"))?;
-    let stored: Option<String> = conn
-        .query_row(
-            "SELECT document_json FROM research_campaigns WHERE campaign_id = ?1",
-            [campaign_id],
-            |row| row.get(0),
-        )
-        .optional()?;
-    match stored {
-        Some(existing) if existing != document => {
-            return Err(invalid(format!(
-                "stored campaign {campaign_id} does not match its declaration"
-            )))
-        }
-        Some(_) => {}
-        None => {
-            conn.execute(
-                "INSERT INTO research_campaigns (campaign_id, version, document_json)
-                 VALUES (?1, ?2, ?3)",
-                params![campaign_id, CAMPAIGN_DECLARATION_VERSION, document],
-            )?;
-        }
-    }
+    store_campaign(conn, record.campaign)?;
     conn.execute(
         "INSERT INTO campaign_run_admissions
             (discovery_run_id, campaign_id, instrument_id, batch_id, status,
@@ -153,7 +268,6 @@ type AdmissionRow = (String, String, String, String, String, String, f64, f64);
 
 /// The decision of a campaign-bound run, or `None` for any other run. The
 /// declaration is re-frozen and must reproduce its stored identity.
-#[allow(dead_code)] // see `StoredCampaignAdmission`
 pub fn get_campaign_admission(
     conn: &Connection,
     run_id: i64,
@@ -184,15 +298,9 @@ pub fn get_campaign_admission(
     else {
         return Ok(None);
     };
-    let campaign = freeze_campaign(&serde_json::from_str(&document)?)
-        .map_err(|error| invalid(error.to_string()))?;
-    if campaign.campaign_id() != campaign_id {
-        return Err(invalid(format!(
-            "stored campaign {campaign_id} no longer re-freezes to its identity"
-        )));
-    }
+    refreeze(&campaign_id, &document)?;
     Ok(Some(StoredCampaignAdmission {
-        campaign,
+        campaign_id,
         instrument_id,
         batch_id,
         status,

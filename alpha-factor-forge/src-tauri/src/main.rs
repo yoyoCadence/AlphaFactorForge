@@ -199,6 +199,14 @@ fn main() {
             commands::research_commands::list_hypotheses,
             commands::research_commands::get_research_attempt,
             commands::research_commands::list_unreferenced_artifacts,
+            // --- Research campaigns (P12d-2d) ---
+            commands::campaign_commands::list_market_instruments,
+            commands::campaign_commands::list_market_snapshots,
+            commands::campaign_commands::preview_research_campaign,
+            commands::campaign_commands::freeze_research_campaign,
+            commands::campaign_commands::list_research_campaigns,
+            commands::campaign_commands::start_campaign_discovery,
+            commands::campaign_commands::get_campaign_admission,
             // --- Host mode (P04b: background service hand-over) ---
             commands::runtime_commands::get_host_status,
             commands::runtime_commands::enter_background_mode,
