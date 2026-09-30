@@ -7,6 +7,7 @@
 // dead-code-eliminated from production builds and can never activate there.
 
 import {
+  campaigns as realCampaigns,
   db as realDb,
   discovery as realDiscovery,
   files as realFiles,
@@ -52,6 +53,7 @@ type Client = {
   runtime: typeof realRuntime;
   runtimeEvents: typeof realRuntimeEvents;
   research: typeof realResearch;
+  campaigns: typeof realCampaigns;
 };
 
 function pick(): Client {
@@ -71,6 +73,7 @@ function pick(): Client {
     runtime: realRuntime,
     runtimeEvents: realRuntimeEvents,
     research: realResearch,
+    campaigns: realCampaigns,
   };
 }
 
@@ -85,3 +88,4 @@ export const discoveryEvents = client.discoveryEvents;
 export const runtime = client.runtime;
 export const runtimeEvents = client.runtimeEvents;
 export const research = client.research;
+export const campaigns = client.campaigns;

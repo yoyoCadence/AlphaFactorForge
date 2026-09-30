@@ -345,5 +345,38 @@ exact payloads (unknown or missing keys are `Validation`):
 (`tauri-client/commands.ts`) are pinned against the Rust source by Vitest,
 including every invoke argument key against the command signatures.
 
-Not yet: the authoring UI, the `?mock=1` client for it, and a decision view
-(P12d-2d-2).
+At the end of P12d-2d-1, the authoring UI, its `?mock=1` client, and the
+decision view remained for P12d-2d-2 below.
+
+## P12d-2d-2 campaign authoring UI (2026-09-30)
+
+The Campaign panel loads P06 instrument revisions and snapshot options through
+the typed `campaigns` client. An author selects one snapshot per instrument,
+enters each instrument's total/Train/fold lengths and rationale, and edits the
+P12a sampling declaration. The selected snapshot provides its exact identity,
+dataset hash, interval and dataset bounds; the matching instrument revision
+provides listing bounds. The form neither fetches market data nor creates a
+snapshot. No sample-length policy is silently chosen for an instrument.
+
+Preview sends the complete declaration to the backend. It shows the
+backend-derived campaign ID and each instrument's resolution/error, and the UI
+enables freeze only for the same unchanged draft after every instrument resolves.
+Freeze saves through the backend command; subsequent starts use the saved
+campaign list. Preview proves one read-time state, so a start re-verifies the
+binding. An author can still inspect a saved campaign whose snapshot is no
+longer in the bounded authoring list: start recovers its unique dataset ID by
+the frozen content hash, interval and range from the workspace dataset list.
+
+One saved instrument starts one run at a time. The UI builds and pre-validates
+a `discovery-config-v3` params-strategy envelope with the frozen per-instrument
+fold declaration, selected dataset identity, visible seed and holding
+allowance; execution costs come from the current strategy and are frozen by
+the backend with the run. The saved run list and decision view show admission
+status, reasons, precision, snapshot and costs. `ELIGIBLE` is a feasibility
+decision, never a confirmation `PASS`. A failed decision read after a successful
+start reports the run ID so the user can refresh its stored decision.
+
+The DEV-only `?mock=1` seam simulates the typed methods for browser tests;
+canonical campaign identity, authoritative snapshot checks, SQLite writes and
+ledger admission remain Rust-owned. A real Tauri/service smoke with
+service-created snapshots remains an operator acceptance item.
