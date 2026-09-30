@@ -32,7 +32,10 @@ mod binding;
 mod transfer;
 // Public for the P12b-2 runner/workspace transaction; no runtime caller yet.
 #[allow(unused_imports)]
-pub use binding::{read_workspace_binding, write_workspace_binding, BindingCheck, LedgerBinding};
+pub use binding::{
+    read_workspace_binding, write_workspace_binding, AdmissionFence, AdmissionSnapshot,
+    BindingCheck, FenceBlocked, LedgerBinding,
+};
 // Public for the P12b-2 command surface; no runtime caller exists yet.
 #[allow(unused_imports)]
 pub use transfer::ImportSummary;

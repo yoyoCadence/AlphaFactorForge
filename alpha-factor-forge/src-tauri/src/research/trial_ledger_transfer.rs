@@ -2297,4 +2297,144 @@ mod tests {
         assert!(target.import_json_lines(&fork).unwrap().conflicts > 0);
         assert!(!accepts(&target, &empty));
     }
+
+    // ------------------------------------ P12d-2b §6.4 freshness fence
+
+    use super::super::{AdmissionFence, AdmissionSnapshot, FenceBlocked};
+
+    /// `count` effective BTC variants in one batch.
+    fn many(request: &str, count: u64) -> TrialBatchInput {
+        let mut input = batch(request);
+        let template = input.events.remove(0);
+        input.events = (0..count)
+            .map(|index| TrialEventInput {
+                origin: TrialOrigin::Request {
+                    request_id: request.into(),
+                    candidate_index: index,
+                },
+                strategy_hash: Some(format!("strategy-{request}-{index}")),
+                ..template.clone()
+            })
+            .collect();
+        input
+    }
+
+    fn snapshot_of(admission: &Admission) -> AdmissionSnapshot {
+        match admission {
+            Admission::Count(count) => count.snapshot(),
+            Admission::Blocked(reason) => panic!("admission blocked: {reason:?}"),
+        }
+    }
+
+    #[test]
+    fn a32_the_fence_proves_the_prefix_before_comparing_the_family() {
+        let a = Dirs::new();
+        let ledger = a.open();
+        ledger.register_batch(&many("reqB", 10)).unwrap();
+        let decided = ledger.register_batch(&many("reqA", 1)).unwrap();
+        let earlier = snapshot_of(&decided.admission);
+        assert_eq!(earlier.family_effective_trials, 11);
+        let fence = |snapshot: &AdmissionSnapshot| {
+            ledger.fence_admission(&decided.batch_id, snapshot).unwrap()
+        };
+        assert!(matches!(fence(&earlier), AdmissionFence::Unchanged(count)
+            if count.snapshot() == earlier));
+
+        ledger.register_batch(&many("reqC", 5)).unwrap();
+        match fence(&earlier) {
+            AdmissionFence::Grew(count) => {
+                assert_eq!(count.family_effective_trials(), 16);
+                assert_eq!(count.batch_effective_trials(), 1);
+                assert_eq!(count.seq(), 16);
+            }
+            other => panic!("expected Grew, got {other:?}"),
+        }
+
+        // Step 1: a prefix the registry cannot prove.
+        let ahead = AdmissionSnapshot { seq: 99, ..earlier.clone() };
+        assert_eq!(
+            fence(&ahead),
+            AdmissionFence::Blocked(FenceBlocked::Prefix(BindingCheck::RegistryRolledBack))
+        );
+        let other_chain = AdmissionSnapshot { chain_head: "0".repeat(64), ..earlier.clone() };
+        assert_eq!(
+            fence(&other_chain),
+            AdmissionFence::Blocked(FenceBlocked::Prefix(BindingCheck::RegistryDiverged))
+        );
+        // Step 2: counts that cannot move once the prefix holds.
+        for inconsistent in [
+            AdmissionSnapshot { family_effective_trials: 17, ..earlier.clone() },
+            AdmissionSnapshot { batch_effective_trials: 2, ..earlier.clone() },
+            AdmissionSnapshot { tests_per_trial: 3, ..earlier.clone() },
+            AdmissionSnapshot {
+                family_id: super::super::family_id_for("crypto:binance:ETHUSDT").unwrap(),
+                ..earlier.clone()
+            },
+        ] {
+            assert_eq!(
+                fence(&inconsistent),
+                AdmissionFence::Blocked(FenceBlocked::Inconsistent),
+                "{inconsistent:?}"
+            );
+        }
+        assert_eq!(
+            FenceBlocked::Inconsistent.code(),
+            "admission_count_inconsistent"
+        );
+        assert_eq!(
+            ledger
+                .fence_admission("trial-batch-v1:missing", &earlier)
+                .err()
+                .unwrap()
+                .code(),
+            "batch_not_found"
+        );
+        let malformed = AdmissionSnapshot { registry_id: "short".into(), ..earlier };
+        assert_eq!(
+            ledger
+                .fence_admission(&decided.batch_id, &malformed)
+                .err()
+                .unwrap()
+                .code(),
+            "registry_state_invalid"
+        );
+    }
+
+    #[test]
+    fn the_fence_follows_a_proven_replacement_and_reports_a_later_quarantine() {
+        let (a, b, c, d) = (Dirs::new(), Dirs::new(), Dirs::new(), Dirs::new());
+        let origin = a.open();
+        let decided = origin.register_batch(&many("req", 2)).unwrap();
+        let earlier = snapshot_of(&decided.admission);
+
+        let restored = b.open();
+        let unrelated = c.open();
+        restored
+            .import_json_lines(&origin.export_json_lines().unwrap())
+            .unwrap();
+        assert!(matches!(
+            restored.fence_admission(&decided.batch_id, &earlier).unwrap(),
+            AdmissionFence::Unchanged(count) if count.registry_id() == restored.registry_id()
+        ));
+        assert_eq!(
+            unrelated.fence_admission(&decided.batch_id, &earlier).unwrap(),
+            AdmissionFence::Blocked(FenceBlocked::Prefix(BindingCheck::RegistryReplaced)),
+            "a registry without evidence of the prefix cannot vouch for it"
+        );
+
+        // The family is quarantined after the decision was made.
+        let conflicting = d.open();
+        let mut changed = many("req", 2);
+        changed.events[0].strategy_hash = Some("different".into());
+        conflicting.register_batch(&changed).unwrap();
+        origin
+            .import_json_lines(&conflicting.export_json_lines().unwrap())
+            .unwrap();
+        assert_eq!(
+            origin.fence_admission(&decided.batch_id, &earlier).unwrap(),
+            AdmissionFence::Blocked(FenceBlocked::Admission(
+                AdmissionBlocked::FamilyQuarantined
+            ))
+        );
+    }
 }

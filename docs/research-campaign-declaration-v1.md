@@ -1,6 +1,9 @@
 # Research campaign declaration (`research-campaign-declaration-v1`)
 
 Status: P12d-1 declaration primitive. **No runtime caller or admission authority.**
+P12d-2a adds read-only snapshot resolution and P12d-2b a pure admission
+evaluator with the §6.4 ledger fence (sections below); neither has a runtime
+caller yet, and neither can produce a confirmation `PASS`.
 
 `discovery_core::campaign::freeze_campaign` accepts an explicit JSON declaration
 and returns an immutable, validated document and its `campaign_id`. This freezes
@@ -141,3 +144,85 @@ execution costs, P12a/P12c feasibility, current ledger/history, or run links.
 P12d-2b must repeat verification in its admission/freshness transaction and
 freeze the concrete execution and cost settings before enqueue. P12d/P12 stay
 In Progress; no UI, command, migration, or runner caller is added here.
+
+## P12d-2b admission evaluation and freshness fence (2026-09-29)
+
+### Maintainer decisions (2026-09-29)
+
+1. **One run per instrument.** A campaign-bound discovery run names one
+   `campaignId` and one declared `instrumentId`; admission is decided per
+   instrument, matching the single-dataset runner and the single-instrument
+   trial family. A multi-instrument run is out of scope.
+2. **`NOT_ELIGIBLE` does not stop exploration.** The run still executes and its
+   trials still count (registration precedes admission by design); the stored
+   decision blocks only later confirmation/qualification, as trial-ledger-v1 §7
+   already states for blocked ledger states.
+3. **Costs are the run's frozen numbers.** P06 `cost-profile-v1` carries no
+   numeric fees, so P12d-2c freezes the run's `feePct`/`slipPct` into the stored
+   decision and requires the snapshot's cost status to be confirmed. That the
+   numbers are not checked against a P06 numeric profile is a recorded
+   limitation, not a verified property.
+
+### `research-campaign-admission-v1`
+
+`research::campaign_admission::evaluate_campaign_admission` combines, for one
+declared instrument: the P12d-2a `ResolvedInstrument`, the current ledger state,
+the workspace's `legacy_trials_unknown` families, every candidate's P12c
+walk-forward report, and the campaign's P12a sampling. It reads no database,
+registry, clock or randomness.
+
+**Errors, not decisions.** The call fails when the binding contradicts the
+campaign, because such a run must not be linked to it: an undeclared
+instrument; a resolved snapshot for another instrument or dataset; an empty
+batch ID; no candidates, a repeated candidate index, a blank strategy hash, or
+a candidate without exactly one of report/error; a walk-forward report of
+another contract version, or whose `totalBars` differs from the verified bar
+count or whose `minimumTrainBars`/`foldValidationBars`/`foldCount` differ from
+the instrument's sample policy; or a ledger count of another family.
+
+**Reasons.** Every failing check is reported once, in this fixed order; the
+status is `ELIGIBLE` only when none applies:
+
+| Reason | Condition |
+| --- | --- |
+| `snapshot_changed` | re-evaluation only: the re-verified snapshot rows differ from the stored observation |
+| `ledger_prefix_unproven` | fence step 1 failed (rolled back, diverged, replaced without evidence, chain broken) |
+| `ledger_count_inconsistent` | fence step 2: family shrank, or its family, protocol or batch size changed |
+| `family_unknown`, `family_quarantined`, `registry_chain_broken`, `no_effective_trials` | the ledger's `AdmissionBlocked`, at registration or at the fence |
+| `legacy_trials_unknown` | the workspace reports uncounted pre-P05 history for this family |
+| `insufficient_total_bars` | verified bars below `minimumTotalBars` |
+| `walk_forward_not_eligible` | any candidate has no plan or a `NOT_ELIGIBLE` P12c report |
+| `precision_not_eligible` | the P12a report built by `precision_plan_from_count` from the current count |
+
+Precision is evaluated whenever a current count exists, even alongside other
+reasons. `ELIGIBLE` only means the declared confirmation is feasible under the
+current family; it is never a confirmation `PASS` (P12e/P13).
+
+**Report.** `contractVersion`, `campaignId`, `instrumentId`, `familyId`,
+`batchId`, `status`, `reasons`, `snapshot` (declared `snapshotId` plus the
+observed snapshot/instrument/dataset rows, dataset hash, bar count and cost
+profile version), `ledgerFence` (`null` for a first decision; `unchanged`,
+`grew` or the fence's blocking code), `ledger` (the `AdmissionSnapshot` a later
+fence compares against; `null` without a count), `precision` and `walkForward`.
+
+**Freshness fence.** A first decision uses the `Admission` read with the
+registration. Before anything acts on an `ELIGIBLE` decision, the caller
+re-verifies the snapshot, calls `TrialLedger::fence_admission(batchId,
+storedLedger)` and evaluates again with that fence and the stored snapshot
+observation. The fence reads the prefix and the count in one registry
+transaction; `grew` recomputes precision from the new count, which can only
+raise the requirement, so a stale `NOT_ELIGIBLE` never needs a fence.
+
+Acceptance: trial-ledger-v1 A20 (the assembled plan gives `146/1001` and
+`NOT_ELIGIBLE`) and A32 (family 11 → `ELIGIBLE` at B = 10,975; five more trials
+→ `grew`, m = 32, `NOT_ELIGIBLE` needing 15,975; no change → decision stands)
+run through this evaluator and the real ledger.
+
+### Still P12d-2c
+
+Persist the frozen declaration and the decision (workspace migration), add the
+campaign binding to the run configuration, derive each candidate's P12c report
+in the runner, register the batch against the declared snapshot's family (not a
+guessed unique snapshot), freeze `feePct`/`slipPct`, and write the decision in
+the enqueue transaction. The fence then needs a caller at the point confirmation
+work is scheduled (P13). P12d/P12 remain In Progress.

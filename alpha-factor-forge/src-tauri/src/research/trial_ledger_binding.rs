@@ -2,8 +2,11 @@
 //! Call `check_binding` before adopting a registry and write the returned
 //! current head inside the workspace transaction that creates attempts.
 
-use super::{genesis, head, verify_chain, LedgerError, LedgerIntegrity, TrialLedger};
-use rusqlite::{params, Connection, OptionalExtension, TransactionBehavior};
+use super::{
+    admission_in, genesis, head, verify_chain, Admission, AdmissionBlocked, AdmissionCount,
+    LedgerError, LedgerIntegrity, TrialLedger,
+};
+use rusqlite::{params, Connection, OptionalExtension, Transaction, TransactionBehavior};
 use serde::{Deserialize, Serialize};
 
 const BINDING_KEY: &str = "trial_ledger_binding";
@@ -118,13 +121,25 @@ impl TrialLedger {
         }
         let mut conn = self.lock()?;
         let tx = conn.transaction_with_behavior(TransactionBehavior::Deferred)?;
+        let check = self.prefix_check(&tx, saved)?;
+        tx.commit()?;
+        Ok(check)
+    }
+
+    /// The §7 prefix decision inside the caller's read transaction, so the
+    /// admission fence can read the prefix and the count as one state.
+    fn prefix_check(
+        &self,
+        tx: &Transaction<'_>,
+        saved: Option<&LedgerBinding>,
+    ) -> Result<BindingCheck, LedgerError> {
         if !matches!(
-            verify_chain(&tx, &self.registry_id)?,
+            verify_chain(tx, &self.registry_id)?,
             LedgerIntegrity::Intact { .. }
         ) {
             return Ok(BindingCheck::RegistryChainBroken);
         }
-        let (seq, chain_head) = head(&tx, &self.registry_id)?;
+        let (seq, chain_head) = head(tx, &self.registry_id)?;
         let current = LedgerBinding {
             registry_id: self.registry_id.clone(),
             seq,
@@ -198,8 +213,129 @@ impl TrialLedger {
                 }
             }
         }
-        tx.commit()?;
         Ok(BindingCheck::Current(current))
+    }
+
+    /// The §6.4 freshness fence for a decision made from `earlier`, read as
+    /// one registry state: first prove every event it saw is still present
+    /// (same registry: the chain at its seq; replacement: §7.3 evidence), then
+    /// compare the family's effective count. Callers must pass it before they
+    /// act on an `ELIGIBLE` decision; a stale `NOT_ELIGIBLE` cannot improve.
+    pub fn fence_admission(
+        &self,
+        batch_id: &str,
+        earlier: &AdmissionSnapshot,
+    ) -> Result<AdmissionFence, LedgerError> {
+        let binding = LedgerBinding {
+            registry_id: earlier.registry_id.clone(),
+            seq: earlier.seq,
+            chain_head: earlier.chain_head.clone(),
+        };
+        binding.validate()?;
+        let mut conn = self.lock()?;
+        let tx = conn.transaction_with_behavior(TransactionBehavior::Deferred)?;
+        match self.prefix_check(&tx, Some(&binding))? {
+            BindingCheck::Current(_) => {}
+            unproven => return Ok(AdmissionFence::Blocked(FenceBlocked::Prefix(unproven))),
+        }
+        let family: Option<Option<String>> = tx
+            .query_row(
+                "SELECT family_id FROM trial_batches WHERE batch_id = ?1",
+                [batch_id],
+                |row| row.get(0),
+            )
+            .optional()?;
+        let Some(family) = family else {
+            return Err(LedgerError::BatchNotFound(batch_id.to_string()));
+        };
+        let admission = admission_in(
+            &tx,
+            batch_id,
+            family.as_deref(),
+            &self.registry_id,
+            &self.integrity,
+        )?;
+        tx.commit()?;
+        Ok(match admission {
+            Admission::Blocked(reason) => AdmissionFence::Blocked(FenceBlocked::Admission(reason)),
+            Admission::Count(count) => {
+                // Events are append-only and effectiveness is frozen at
+                // registration, so with the prefix proven none of these can
+                // change; if one did, the registry is inconsistent.
+                if count.family_id != earlier.family_id
+                    || count.tests_per_trial != earlier.tests_per_trial
+                    || count.batch_effective_trials != earlier.batch_effective_trials
+                    || count.family_effective_trials < earlier.family_effective_trials
+                {
+                    AdmissionFence::Blocked(FenceBlocked::Inconsistent)
+                } else if count.family_effective_trials == earlier.family_effective_trials {
+                    AdmissionFence::Unchanged(count)
+                } else {
+                    AdmissionFence::Grew(count)
+                }
+            }
+        })
+    }
+}
+
+/// What a stored admission decision was based on (§6.4): the registry state
+/// and counts of the `admissionCount` it used. The fence only compares it;
+/// it never becomes a count or a precision-plan input.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct AdmissionSnapshot {
+    pub registry_id: String,
+    pub family_id: String,
+    pub family_effective_trials: u64,
+    pub batch_effective_trials: u64,
+    pub tests_per_trial: u64,
+    pub seq: u64,
+    pub chain_head: String,
+}
+
+impl AdmissionCount {
+    /// The part of this count a decision must store for its later fence.
+    pub fn snapshot(&self) -> AdmissionSnapshot {
+        AdmissionSnapshot {
+            registry_id: self.registry_id.clone(),
+            family_id: self.family_id.clone(),
+            family_effective_trials: self.family_effective_trials,
+            batch_effective_trials: self.batch_effective_trials,
+            tests_per_trial: self.tests_per_trial,
+            seq: self.seq,
+            chain_head: self.chain_head.clone(),
+        }
+    }
+}
+
+/// §6.4 outcome. Only `Unchanged` lets an earlier decision stand as made.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum AdmissionFence {
+    /// Prefix proven, no new effective trial in the family.
+    Unchanged(AdmissionCount),
+    /// Prefix proven, the family grew: re-evaluate P12a from this count.
+    Grew(AdmissionCount),
+    /// The earlier decision cannot be acted on.
+    Blocked(FenceBlocked),
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum FenceBlocked {
+    /// Step 1 failed: the earlier prefix is not provably present.
+    Prefix(BindingCheck),
+    /// The batch has no admission count any more (e.g. quarantined since).
+    Admission(AdmissionBlocked),
+    /// The family shrank, or its family, protocol or batch size changed.
+    Inconsistent,
+}
+
+impl FenceBlocked {
+    pub fn code(&self) -> &'static str {
+        match self {
+            Self::Prefix(check) => check.code(),
+            Self::Admission(reason) => reason.code(),
+            Self::Inconsistent => "admission_count_inconsistent",
+        }
     }
 }
 
