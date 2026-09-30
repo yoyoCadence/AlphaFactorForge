@@ -3,8 +3,8 @@
 Date: 2026-09-30
 Repo: yoyoCadence/AlphaFactorForge
 Branch: `feat/p12d2d1-campaign-commands` (from merged PR #129, `3a92e9f`)
-PR: pending
-Status: Implemented locally; P12d-2d-2 (authoring UI) is next.
+PR: [#130](https://github.com/yoyoCadence/AlphaFactorForge/pull/130) (draft)
+Status: Published as draft PR #130 for CI and review; P12d-2d-2 (authoring UI) is next.
 
 ## Summary
 
