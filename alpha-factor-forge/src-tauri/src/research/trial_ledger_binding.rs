@@ -219,8 +219,9 @@ impl TrialLedger {
     /// The §6.4 freshness fence for a decision made from `earlier`, read as
     /// one registry state: first prove every event it saw is still present
     /// (same registry: the chain at its seq; replacement: §7.3 evidence), then
-    /// compare the family's effective count. Callers must pass it before they
-    /// act on an `ELIGIBLE` decision; a stale `NOT_ELIGIBLE` cannot improve.
+    /// compare the family's effective count. The read transaction ends before
+    /// return: P13 must synchronize this final check with confirmation admission,
+    /// so intervening registration/import cannot invalidate its observation.
     pub fn fence_admission(
         &self,
         batch_id: &str,
@@ -262,7 +263,8 @@ impl TrialLedger {
                 // Events are append-only and effectiveness is frozen at
                 // registration, so with the prefix proven none of these can
                 // change; if one did, the registry is inconsistent.
-                if count.family_id != earlier.family_id
+                if count.batch_id != earlier.batch_id
+                    || count.family_id != earlier.family_id
                     || count.tests_per_trial != earlier.tests_per_trial
                     || count.batch_effective_trials != earlier.batch_effective_trials
                     || count.family_effective_trials < earlier.family_effective_trials
@@ -285,6 +287,7 @@ impl TrialLedger {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct AdmissionSnapshot {
     pub registry_id: String,
+    pub batch_id: String,
     pub family_id: String,
     pub family_effective_trials: u64,
     pub batch_effective_trials: u64,
@@ -298,6 +301,7 @@ impl AdmissionCount {
     pub fn snapshot(&self) -> AdmissionSnapshot {
         AdmissionSnapshot {
             registry_id: self.registry_id.clone(),
+            batch_id: self.batch_id.clone(),
             family_id: self.family_id.clone(),
             family_effective_trials: self.family_effective_trials,
             batch_effective_trials: self.batch_effective_trials,
@@ -325,7 +329,7 @@ pub enum FenceBlocked {
     Prefix(BindingCheck),
     /// The batch has no admission count any more (e.g. quarantined since).
     Admission(AdmissionBlocked),
-    /// The family shrank, or its family, protocol or batch size changed.
+    /// The family shrank, or its family, protocol, batch identity or size changed.
     Inconsistent,
 }
 

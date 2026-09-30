@@ -279,6 +279,7 @@ pub struct RegistrationReceipt {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AdmissionCount {
     registry_id: String,
+    batch_id: String,
     family_id: String,
     family_effective_trials: u64,
     batch_effective_trials: u64,
@@ -288,6 +289,10 @@ pub struct AdmissionCount {
 }
 
 impl AdmissionCount {
+    pub fn batch_id(&self) -> &str {
+        &self.batch_id
+    }
+
     pub fn registry_id(&self) -> &str {
         &self.registry_id
     }
@@ -1641,6 +1646,7 @@ fn admission_in(
     let (seq, chain_head) = head(tx, registry_id)?;
     Ok(Admission::Count(AdmissionCount {
         registry_id: registry_id.to_string(),
+        batch_id: batch_id.to_string(),
         family_id: family_id.to_string(),
         family_effective_trials: family_effective,
         batch_effective_trials: batch_effective as u64,

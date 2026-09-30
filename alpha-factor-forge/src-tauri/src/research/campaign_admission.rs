@@ -20,7 +20,9 @@ use serde::{Deserialize, Serialize};
 use alpha_factor_forge::discovery_core::{
     campaign::FrozenCampaignDeclaration,
     precision::{evaluate_precision_plan, PrecisionReport, PrecisionStatus},
-    walk_forward::{WalkForwardReport, WalkForwardStatus, WALK_FORWARD_VERSION},
+    walk_forward::{
+        evaluate_walk_forward_plan, WalkForwardReport, WalkForwardStatus, WALK_FORWARD_VERSION,
+    },
 };
 
 use super::campaign_snapshot::ResolvedInstrument;
@@ -192,7 +194,10 @@ pub fn evaluate_campaign_admission(
         .find(|binding| binding.instrument_id == id)
         .ok_or_else(|| invalid(id, "instrument is not declared by this campaign"))?;
     let resolved = input.resolved;
-    if resolved.instrument_id != id || resolved.dataset_hash != binding.dataset_hash {
+    if resolved.instrument_id != id
+        || resolved.snapshot_id != binding.snapshot_id
+        || resolved.dataset_hash != binding.dataset_hash
+    {
         return Err(invalid(
             id,
             "resolved snapshot does not match the declaration",
@@ -205,7 +210,7 @@ pub fn evaluate_campaign_admission(
     validate_candidates(id, input.candidates, binding, resolved.bar_count)?;
 
     let snapshot = SnapshotObservation {
-        snapshot_id: binding.snapshot_id.clone(),
+        snapshot_id: resolved.snapshot_id.clone(),
         snapshot_row_id: resolved.snapshot_row_id,
         instrument_row_id: resolved.instrument_row_id,
         dataset_id: resolved.dataset_id,
@@ -241,6 +246,9 @@ pub fn evaluate_campaign_admission(
     if let Some(count) = count {
         if count.family_id() != family_id {
             return Err(invalid(id, "ledger count belongs to another family"));
+        }
+        if count.batch_id() != input.batch_id {
+            return Err(invalid(id, "ledger count belongs to another batch"));
         }
     }
     if input.legacy_trials_unknown.contains(&family_id) {
@@ -313,6 +321,9 @@ fn validate_candidates(
     let mut indexes = BTreeSet::new();
     for candidate in candidates {
         let index = candidate.candidate_index;
+        if index < 0 {
+            return Err(invalid(id, "candidate index must be non-negative"));
+        }
         if !indexes.insert(index) {
             return Err(invalid(id, format!("candidate {index} is listed twice")));
         }
@@ -335,6 +346,16 @@ fn validate_candidates(
                     return Err(invalid(
                         id,
                         format!("candidate {index} walk-forward plan differs from the campaign sample policy"),
+                    ));
+                }
+                // Reports are public data, not proof that this plan passed
+                // P12c. Recompute all derived evidence before trusting it.
+                let expected = evaluate_walk_forward_plan(plan)
+                    .map_err(|error| invalid(id, format!("candidate {index}: {error}")))?;
+                if *report != expected {
+                    return Err(invalid(
+                        id,
+                        format!("candidate {index} walk-forward report disagrees with its plan"),
                     ));
                 }
             }

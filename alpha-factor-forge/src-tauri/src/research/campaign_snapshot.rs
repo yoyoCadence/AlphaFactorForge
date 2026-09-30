@@ -58,6 +58,7 @@ struct SamplePolicy {
 #[derive(Debug, PartialEq, Eq)]
 pub struct ResolvedInstrument {
     pub instrument_id: String,
+    pub snapshot_id: String,
     pub snapshot_row_id: i64,
     pub instrument_row_id: i64,
     pub dataset_id: i64,
@@ -245,6 +246,7 @@ fn resolve_one(conn: &Connection, binding: &InstrumentBinding) -> AppResult<Reso
 
     Ok(ResolvedInstrument {
         instrument_id: id.clone(),
+        snapshot_id: snapshot.snapshot_id,
         snapshot_row_id: snapshot.id,
         instrument_row_id: instrument.id,
         dataset_id: snapshot.dataset_id,

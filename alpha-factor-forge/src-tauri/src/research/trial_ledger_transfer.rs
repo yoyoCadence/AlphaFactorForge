@@ -2327,6 +2327,23 @@ mod tests {
     }
 
     #[test]
+    fn admission_fence_rejects_another_equal_sized_batch_in_the_same_family() {
+        let dirs = Dirs::new();
+        let ledger = dirs.open();
+        let first = ledger.register_batch(&many("batch-a", 1)).unwrap();
+        let second = ledger.register_batch(&many("batch-b", 1)).unwrap();
+        let earlier = snapshot_of(&ledger.read_admission_count(&first.batch_id).unwrap());
+        assert!(matches!(
+            ledger.fence_admission(&first.batch_id, &earlier).unwrap(),
+            AdmissionFence::Unchanged(_)
+        ));
+        assert_eq!(
+            ledger.fence_admission(&second.batch_id, &earlier).unwrap(),
+            AdmissionFence::Blocked(FenceBlocked::Inconsistent)
+        );
+    }
+
+    #[test]
     fn a32_the_fence_proves_the_prefix_before_comparing_the_family() {
         let a = Dirs::new();
         let ledger = a.open();

@@ -173,12 +173,14 @@ registry, clock or randomness.
 
 **Errors, not decisions.** The call fails when the binding contradicts the
 campaign, because such a run must not be linked to it: an undeclared
-instrument; a resolved snapshot for another instrument or dataset; an empty
-batch ID; no candidates, a repeated candidate index, a blank strategy hash, or
+instrument; a resolved snapshot with a different snapshot ID, instrument or
+dataset; an empty batch ID; no candidates, a negative or repeated candidate
+index, a blank strategy hash, or
 a candidate without exactly one of report/error; a walk-forward report of
 another contract version, or whose `totalBars` differs from the verified bar
 count or whose `minimumTrainBars`/`foldValidationBars`/`foldCount` differ from
-the instrument's sample policy; or a ledger count of another family.
+the instrument's sample policy; a report whose status, reasons, bounds or folds
+differ from recomputing its plan; or a ledger count of another family or batch.
 
 **Reasons.** Every failing check is reported once, in this fixed order; the
 status is `ELIGIBLE` only when none applies:
@@ -187,7 +189,7 @@ status is `ELIGIBLE` only when none applies:
 | --- | --- |
 | `snapshot_changed` | re-evaluation only: the re-verified snapshot rows differ from the stored observation |
 | `ledger_prefix_unproven` | fence step 1 failed (rolled back, diverged, replaced without evidence, chain broken) |
-| `ledger_count_inconsistent` | fence step 2: family shrank, or its family, protocol or batch size changed |
+| `ledger_count_inconsistent` | fence step 2: family shrank, or its family, protocol, batch ID or batch size changed |
 | `family_unknown`, `family_quarantined`, `registry_chain_broken`, `no_effective_trials` | the ledger's `AdmissionBlocked`, at registration or at the fence |
 | `legacy_trials_unknown` | the workspace reports uncounted pre-P05 history for this family |
 | `insufficient_total_bars` | verified bars below `minimumTotalBars` |
@@ -199,19 +201,27 @@ reasons. `ELIGIBLE` only means the declared confirmation is feasible under the
 current family; it is never a confirmation `PASS` (P12e/P13).
 
 **Report.** `contractVersion`, `campaignId`, `instrumentId`, `familyId`,
-`batchId`, `status`, `reasons`, `snapshot` (declared `snapshotId` plus the
+`batchId`, `status`, `reasons`, `snapshot` (verified `snapshotId`, checked against the declaration, plus the
 observed snapshot/instrument/dataset rows, dataset hash, bar count and cost
 profile version), `ledgerFence` (`null` for a first decision; `unchanged`,
 `grew` or the fence's blocking code), `ledger` (the `AdmissionSnapshot` a later
-fence compares against; `null` without a count), `precision` and `walkForward`.
+fence compares against, including its `batchId`; `null` without a count),
+`precision` and `walkForward`.
 
 **Freshness fence.** A first decision uses the `Admission` read with the
 registration. Before anything acts on an `ELIGIBLE` decision, the caller
 re-verifies the snapshot, calls `TrialLedger::fence_admission(batchId,
 storedLedger)` and evaluates again with that fence and the stored snapshot
 observation. The fence reads the prefix and the count in one registry
-transaction; `grew` recomputes precision from the new count, which can only
-raise the requirement, so a stale `NOT_ELIGIBLE` never needs a fence.
+transaction; `grew` recomputes precision from the new count. Family growth
+alone can only raise that requirement; it cannot repair a precision failure.
+Other reasons may change on a later refresh and require fresh evidence.
+
+The fence is an observation of that registry transaction, not a reservation:
+its read transaction ends before the function returns. A saved `Unchanged`
+result is not a durable permit to schedule confirmation later. P13 must
+synchronize the final fence with confirmation admission so registration or
+import cannot change the family between the check and that admission.
 
 Acceptance: trial-ledger-v1 A20 (the assembled plan gives `146/1001` and
 `NOT_ELIGIBLE`) and A32 (family 11 → `ELIGIBLE` at B = 10,975; five more trials
@@ -226,3 +236,10 @@ in the runner, register the batch against the declared snapshot's family (not a
 guessed unique snapshot), freeze `feePct`/`slipPct`, and write the decision in
 the enqueue transaction. The fence then needs a caller at the point confirmation
 work is scheduled (P13). P12d/P12 remain In Progress.
+
+The runner must supply the complete frozen candidate set and derive each
+candidate's embargo from its strategy and execution settings. The pure
+evaluator checks report consistency but has no strategy bodies or batch
+membership records from which to prove those two properties. P12d-2c acceptance
+must cover missing/substituted candidates and a dataset with multiple snapshots,
+using the campaign's declared snapshot to choose the ledger family.

@@ -139,6 +139,7 @@ fn exact_authoritative_snapshot_resolves_without_writing_or_admission_status() {
     let frozen = freeze_campaign(&declaration).unwrap();
     let rows = resolve_campaign_snapshots(&conn, &frozen).unwrap();
     assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].snapshot_id, declaration["instruments"][0]["snapshotId"]);
     assert_eq!(rows[0].bar_count, 4);
     assert_eq!(rows[0].cost_profile_version, "cost-profile-v1");
     let after: i64 = conn
