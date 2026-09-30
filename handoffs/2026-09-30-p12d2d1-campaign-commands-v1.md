@@ -4,7 +4,7 @@ Date: 2026-09-30
 Repo: yoyoCadence/AlphaFactorForge
 Branch: `feat/p12d2d1-campaign-commands` (from merged PR #129, `3a92e9f`)
 PR: [#130](https://github.com/yoyoCadence/AlphaFactorForge/pull/130) (draft)
-Status: Published as draft PR #130 for CI and review; P12d-2d-2 (authoring UI) is next.
+Status: PR #130 merged and accepted on 2026-09-30; P12d-2d-2 UI continued on `feat/p12d2d2-campaign-ui`.
 
 ## Summary
 
@@ -75,3 +75,16 @@ the UI will use; it changes no UI. Contract:
   existing warnings; rustfmt applied to the new Rust files; `git diff --check`
   pass.
 - No UI change, so Playwright was not rerun locally (CI runs e2e).
+
+## Resolution — PR #130 acceptance (2026-09-30)
+
+Reviewed the merged `8269c7e` against its base `3a92e9f`: owner-checked,
+idempotent declaration storage; re-freezing on list/get; strict command
+payloads; stored campaign start and request outcome; embedded/connected Tauri
+commands and the typed client argument names. No blocking defect was found in
+this command slice. All six jobs on the PR head passed in
+[CI run 36714893574](https://github.com/yoyoCadence/AlphaFactorForge/actions/runs/36714893574).
+
+The next slice is implemented on `feat/p12d2d2-campaign-ui` from the merged
+main. Its separate [handoff](2026-09-30-p12d2d2-campaign-ui-v1.md) records
+the UI behavior, validation and remaining real-host smoke.

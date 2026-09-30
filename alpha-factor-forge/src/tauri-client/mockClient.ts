@@ -22,6 +22,11 @@ import type {
   ResearchAttempt,
   ResearchAttemptDetail,
   ResearchAttemptFilter,
+  CampaignAdmission,
+  CampaignPreview,
+  CampaignSummary,
+  MarketInstrument,
+  MarketSnapshotOption,
 } from './commands';
 import {
   DISCOVERY_EVENTS,
@@ -47,6 +52,9 @@ import { axisValues, type DiscoveryAxis } from '../services/discoveryConfig';
 import { prepareDatasetImport, type ImportCandlesInput } from './dbClient';
 import { assertValidBundle } from '../services/validationRecord';
 import { strategyHashFromDefinitionJson } from '../core/hashing';
+import { canonicalize, sha256BytesHex } from '../core/hashing';
+import { CAMPAIGN_CONTRACTS } from '../services/campaignAuthoring';
+import { DISCOVERY_CONFIG_VERSION_V3, parseDiscoveryConfig } from '../services/discoveryConfig';
 import { seedHistory } from './mockHistorySeed';
 
 /**
@@ -246,10 +254,53 @@ export function makeMockClient() {
   const researchDetailDelay = mockResearchDetailDelay();
   let resultsReadCount = 0;
 
+  // P12d-2d-2: snapshots represent records created earlier by the service CLI.
+  // Two BTC snapshots share a dataset, making snapshot identity observable in
+  // the authoring form. This mock is DEV-only and is never an identity oracle.
+  const btc = 'crypto:binance:BTCUSDT';
+  const eth = 'crypto:binance:ETHUSDT';
+  const mockFrom = 1_735_689_600_000;
+  const mockTo = 1_767_222_000_000;
+  const marketInstruments: MarketInstrument[] = [btc, eth].map((instrumentId, index) => ({
+    id: index + 3, instrumentId, revision: 1, contentHash: 'a'.repeat(64),
+    version: 'market-instrument-v1', market: 'crypto', venue: 'binance',
+    symbol: index === 0 ? 'BTCUSDT' : 'ETHUSDT', base: index === 0 ? 'BTC' : 'ETH', quote: 'USDT',
+    assetType: 'spot-crypto', sessionCalendarId: 'crypto-24x7', timezone: 'UTC',
+    lotSize: null, priceStep: null, minNotional: null,
+    listedFrom: 1_502_928_000_000, delistedAt: null, suspensions: [], sourceCapabilities: {}, createdAt: '2026-09-30',
+  }));
+  const marketSnapshots: MarketSnapshotOption[] = [
+    [btc, 3, 11, 'a', 'b'], [btc, 3, 11, 'c', 'b'], [eth, 4, 12, 'd', 'e'],
+  ].map(([instrumentId, instrumentRowId, datasetId, snapshotHex, datasetHex], index) => ({
+    snapshot: {
+      id: index + 7, snapshotId: String(snapshotHex).repeat(64), version: 'market-snapshot-v1',
+      instrumentRowId: Number(instrumentRowId), instrumentId: String(instrumentId), interval: '1h',
+      datasetId: Number(datasetId), datasetHash: `dataset-content-v2:${String(datasetHex).repeat(64)}`,
+      priceBasis: 'raw', calendarId: 'crypto-24x7', corporateActionVersion: null,
+      costProfileVersion: 'cost-profile-v1', kind: 'historical', status: 'ok',
+      asOf: mockTo, coverage: { blocking: false, matchedCount: 8760 }, createdAt: '2026-09-30',
+    },
+    qualificationEligible: true,
+    dataset: { id: Number(datasetId), interval: '1h', startTime: mockFrom, endTime: mockTo, candleCount: 8760 },
+  }));
+  const storedCampaigns = new Map<string, CampaignSummary>();
+  const mockAdmissions = new Map<number, CampaignAdmission>();
+
   const db = {
     init: async () => 'mock database ready',
     runMigrations: async () => 'mock: migrations up to date',
-    getDatasets: async () => datasets.slice(),
+    getDatasets: async () => {
+      if (mockSearchParam('campaignHideSnapshotsAfterFreeze') !== '1' || storedCampaigns.size === 0) return datasets.slice();
+      // A frozen campaign remains startable when its snapshot ages out of the
+      // bounded authoring list; the dataset table has a unique content hash.
+      return [...datasets, ...marketSnapshots.filter((_, index) => index !== 1).map((item) => ({
+        id: item.dataset.id, exchange: 'binance',
+        symbol: item.snapshot.instrumentId === btc ? 'BTCUSDT' : 'ETHUSDT',
+        interval: item.dataset.interval, start_time: item.dataset.startTime,
+        end_time: item.dataset.endTime, candle_count: item.dataset.candleCount,
+        source: 'mock service', dataset_hash: item.snapshot.datasetHash,
+      }))];
+    },
     getCandles: async (datasetId: number, from: number, to: number) => {
       if (candleDelayMs > 0) await new Promise((resolve) => globalThis.setTimeout(resolve, candleDelayMs));
       if (datasetId === candleFailureDatasetId) {
@@ -868,6 +919,110 @@ export function makeMockClient() {
     },
   };
 
+  // Mirrors the seven typed campaign methods at the DEV-only dataClient seam.
+  // It validates form shape and snapshot bindings, while the real Rust backend
+  // remains the authority for canonical identity, persistence and admission.
+  type MockBinding = {
+    instrumentId: string; snapshotId: string; datasetHash: string; interval: string;
+    fromMs: number; toMs: number;
+    samplePolicy: { minimumTotalBars: number; minimumTrainBars: number; foldValidationBars: number; foldCount: number; rationale: string };
+  };
+  type MockDocument = {
+    contractVersion: string; contracts: Record<string, string>;
+    sampling: { alphaPpm: number; maxRelativeStandardErrorPpm: number; bootstrapSamples: number; maxBootstrapSamples: number };
+    instruments: MockBinding[];
+  };
+  const validateCampaignDocument = (value: unknown): MockDocument => {
+    const document = value as MockDocument;
+    if (!document || document.contractVersion !== 'research-campaign-declaration-v1'
+      || !Array.isArray(document.instruments) || document.instruments.length === 0
+      || !document.contracts || !document.sampling) throw new Error('invalid campaign declaration');
+    for (const [key, expected] of Object.entries(CAMPAIGN_CONTRACTS)) {
+      if (document.contracts[key] !== expected) throw new Error(`campaign contracts.${key} differs`);
+    }
+    for (const value of Object.values(document.sampling)) {
+      if (!Number.isSafeInteger(value) || value <= 0) throw new Error('invalid sampling');
+    }
+    if (document.sampling.bootstrapSamples > document.sampling.maxBootstrapSamples) throw new Error('invalid sampling budget');
+    if (new Set(document.instruments.map((item) => item.instrumentId)).size !== document.instruments.length) throw new Error('duplicate instrument');
+    for (const item of document.instruments) {
+      if (!item.samplePolicy?.rationale?.trim()) throw new Error('sample policy rationale is missing');
+      for (const count of [item.samplePolicy.minimumTotalBars, item.samplePolicy.minimumTrainBars, item.samplePolicy.foldValidationBars, item.samplePolicy.foldCount]) {
+        if (!Number.isSafeInteger(count) || count <= 0) throw new Error('invalid sample policy');
+      }
+    }
+    return document;
+  };
+  const campaignIdOf = async (document: MockDocument): Promise<string> =>
+    sha256BytesHex(new TextEncoder().encode(canonicalize(document)));
+  const campaignPreview = async (value: unknown): Promise<CampaignPreview> => {
+    const document = validateCampaignDocument(value);
+    return {
+      campaignId: await campaignIdOf(document),
+      instruments: document.instruments.map((binding) => {
+        const option = marketSnapshots.find((item) => item.snapshot.snapshotId === binding.snapshotId);
+        const forcedFailure = mockSearchParam('campaignPreviewFail') === 'eth' && binding.instrumentId === eth;
+        const resolved = !forcedFailure && option != null && option.qualificationEligible
+          && option.snapshot.instrumentId === binding.instrumentId
+          && option.snapshot.datasetHash === binding.datasetHash
+          && option.snapshot.interval === binding.interval
+          && option.dataset.startTime === binding.fromMs && option.dataset.endTime === binding.toMs;
+        return { instrumentId: binding.instrumentId, resolved,
+          barCount: resolved ? option!.dataset.candleCount : null,
+          error: resolved ? null : 'snapshot binding did not resolve' };
+      }),
+    };
+  };
+  const campaigns = {
+    listInstruments: async () => marketInstruments.map((item) => ({ ...item })),
+    listSnapshots: async () => mockSearchParam('campaignEmptySnapshots') === '1'
+      || (mockSearchParam('campaignHideSnapshotsAfterFreeze') === '1' && storedCampaigns.size > 0)
+      ? [] : marketSnapshots.map((item) => structuredClone(item)),
+    preview: campaignPreview,
+    freeze: async (value: unknown) => {
+      const document = validateCampaignDocument(value);
+      const campaignId = await campaignIdOf(document);
+      if (!storedCampaigns.has(campaignId)) {
+        storedCampaigns.set(campaignId, {
+          campaignId, version: 'research-campaign-declaration-v1', createdAt: new Date().toISOString(),
+          document: structuredClone(document) as unknown as Record<string, unknown>, runs: [],
+        });
+      }
+      return campaignId;
+    },
+    list: async () => [...storedCampaigns.values()].reverse().map((row) => structuredClone(row)),
+    start: async (config: unknown, campaignId: string, instrumentId: string) => {
+      const row = storedCampaigns.get(campaignId);
+      if (!row) throw new Error('campaign not found');
+      const binding = (row.document as unknown as MockDocument).instruments.find((item) => item.instrumentId === instrumentId);
+      if (!binding) throw new Error('instrument is not declared');
+      const option = marketSnapshots.find((item) => item.snapshot.snapshotId === binding.snapshotId);
+      if (!option) throw new Error('declared snapshot is missing');
+      if ((config as { envelopeVersion?: unknown })?.envelopeVersion !== DISCOVERY_CONFIG_VERSION_V3) {
+        throw new Error('campaign run needs discovery-config-v3');
+      }
+      const parsed = parseDiscoveryConfig(config as { envelopeVersion: typeof DISCOVERY_CONFIG_VERSION_V3 } & Record<string, unknown>, { logicalCores: 4 });
+      if (parsed.dataset.id !== option.dataset.id || parsed.dataset.contentHash !== binding.datasetHash
+        || parsed.walkForward?.minimumTrainBars !== binding.samplePolicy.minimumTrainBars
+        || parsed.walkForward.foldValidationBars !== binding.samplePolicy.foldValidationBars
+        || parsed.walkForward.foldCount !== binding.samplePolicy.foldCount) throw new Error('campaign run binding differs');
+      const runId = await discovery.start(config);
+      const status = instrumentId === eth ? 'NOT_ELIGIBLE' : 'ELIGIBLE';
+      const reasons = status === 'ELIGIBLE' ? [] : ['precision_not_eligible'];
+      row.runs.push({ runId, instrumentId, status, createdAt: new Date().toISOString() });
+      mockAdmissions.set(runId, {
+        campaignId, instrumentId, batchId: `trial-batch-v1:mock-${runId}`, status,
+        feePct: parsed.benchmarkCosts.feePct, slipPct: parsed.benchmarkCosts.slipPct,
+        report: { contractVersion: 'research-campaign-admission-v1', campaignId, instrumentId,
+          status, reasons, snapshot: { snapshotId: binding.snapshotId, barCount: option.dataset.candleCount },
+          precision: { familyTests: instrumentId === eth ? 32 : 2, requiredSamplesForPrecision: instrumentId === eth ? 15975 : 975 },
+        },
+      });
+      return runId;
+    },
+    admission: async (runId: number) => mockAdmissions.get(runId) ?? null,
+  };
+
   if (mockPreexistingDiscoveryRun() === 'paused') {
     const runId = nextId++;
     mockRun = {
@@ -885,7 +1040,7 @@ export function makeMockClient() {
   }
 
   if (!mockSeedHistory()) {
-    return { db, files, importDataset, isTauri: () => true, discovery, discoveryEvents, runtime, runtimeEvents, research };
+    return { db, files, importDataset, isTauri: () => true, discovery, discoveryEvents, runtime, runtimeEvents, research, campaigns };
   }
   const seeded = seedHistory(db);
   // Awaited by every gated method; this handler only marks the rejection as
@@ -905,6 +1060,7 @@ export function makeMockClient() {
     runtime,
     runtimeEvents,
     research,
+    campaigns,
   };
 }
 
