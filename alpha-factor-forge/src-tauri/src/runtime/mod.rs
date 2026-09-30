@@ -319,7 +319,7 @@ mod tests {
         let applied: i64 = conn
             .query_row("SELECT COUNT(*) FROM schema_migrations", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(applied, 9, "0001–0009 applied on first open");
+        assert_eq!(applied, 10, "0001–0010 applied on first open");
         assert_eq!(workspace.workspace_id.len(), 32, "0005 minted the workspace id");
         drop(conn);
         drop(workspace);
@@ -344,7 +344,7 @@ mod tests {
         let applied: i64 = conn
             .query_row("SELECT COUNT(*) FROM schema_migrations", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(applied, 9, "no migration is re-applied");
+        assert_eq!(applied, 10, "no migration is re-applied");
         assert_eq!(second.workspace_id, first_workspace_id, "the id survives a reopen");
         let value: String = conn
             .query_row("SELECT value_json FROM app_settings WHERE key = 'p02'", [], |r| r.get(0))
@@ -511,17 +511,17 @@ mod tests {
             assert_eq!(pragma::<i64>(&conn, "foreign_keys"), 1);
             assert_eq!(pragma::<i64>(&conn, "busy_timeout"), db::BUSY_TIMEOUT.as_millis() as i64);
             let applied: i64 = conn.query_row("SELECT COUNT(*) FROM schema_migrations", [], |r| r.get(0)).unwrap();
-            assert_eq!(applied, 9, "nothing applied by the non-owner");
+            assert_eq!(applied, 10, "nothing applied by the non-owner");
         }
         // Behind: the owner's build is older than this one.
-        owner.db.lock().unwrap().execute("DELETE FROM schema_migrations WHERE version = '0009_trial_ledger_binding'", []).unwrap();
+        owner.db.lock().unwrap().execute("DELETE FROM schema_migrations WHERE version = '0010_campaign_admission'", []).unwrap();
         let behind = db::open_migrated(&path).expect_err("pending migration");
         assert!(matches!(behind, AppError::SchemaPending(_)), "{behind:?}");
-        assert!(behind.to_string().contains("0009_trial_ledger_binding"));
+        assert!(behind.to_string().contains("0010_campaign_admission"));
         let still: i64 = owner.db.lock().unwrap().query_row("SELECT COUNT(*) FROM schema_migrations", [], |r| r.get(0)).unwrap();
-        assert_eq!(still, 8, "the non-owner did not migrate");
+        assert_eq!(still, 9, "the non-owner did not migrate");
         // Ahead: the owner's build is newer than this one.
-        owner.db.lock().unwrap().execute_batch("INSERT INTO schema_migrations (version) VALUES ('0009_trial_ledger_binding'), ('0099_from_the_future')").unwrap();
+        owner.db.lock().unwrap().execute_batch("INSERT INTO schema_migrations (version) VALUES ('0010_campaign_admission'), ('0099_from_the_future')").unwrap();
         let ahead = db::open_migrated(&path).expect_err("unknown migration");
         assert!(matches!(ahead, AppError::SchemaTooNew(_)), "{ahead:?}");
         drop(owner);
@@ -542,7 +542,7 @@ mod tests {
         let error = refused.err().expect("a newer schema must refuse the open");
         assert!(matches!(error, AppError::SchemaTooNew(_)), "got {error:?}");
         assert!(error.to_string().contains("0099_from_the_future"));
-        assert!(error.to_string().contains("0009_trial_ledger_binding"), "names what this build knows");
+        assert!(error.to_string().contains("0010_campaign_admission"), "names what this build knows");
 
         // Refused BEFORE ownership: the row is still unowned, and the lock was
         // released with the failed attempt so a matching build could open it.

@@ -9,6 +9,7 @@
 // database at `<app_data_dir>/alphafactorforge.sqlite3` plus a WAL sidecar
 // carrying the migrations), so neither moves.
 
+pub mod campaign;
 pub mod discovery;
 #[cfg(test)]
 mod discovery_tests;
@@ -69,6 +70,10 @@ const MIGRATIONS: &[(&str, &str)] = &[
     (
         "0009_trial_ledger_binding",
         include_str!("../../migrations/0009_trial_ledger_binding.sql"),
+    ),
+    (
+        "0010_campaign_admission",
+        include_str!("../../migrations/0010_campaign_admission.sql"),
     ),
 ];
 

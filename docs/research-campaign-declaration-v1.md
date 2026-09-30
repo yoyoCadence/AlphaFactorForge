@@ -4,6 +4,8 @@ Status: P12d-1 declaration primitive. **No runtime caller or admission authority
 P12d-2a adds read-only snapshot resolution and P12d-2b a pure admission
 evaluator with the §6.4 ledger fence (sections below); neither has a runtime
 caller yet, and neither can produce a confirmation `PASS`.
+P12d-2c adds campaign-bound runs to the discovery runner and stores each
+run's decision (workspace migration `0010`); no command or UI starts one yet.
 
 `discovery_core::campaign::freeze_campaign` accepts an explicit JSON declaration
 and returns an immutable, validated document and its `campaign_id`. This freezes
@@ -243,3 +245,62 @@ evaluator checks report consistency but has no strategy bodies or batch
 membership records from which to prove those two properties. P12d-2c acceptance
 must cover missing/substituted candidates and a dataset with multiple snapshots,
 using the campaign's declared snapshot to choose the ledger family.
+
+## P12d-2c campaign-bound runs (2026-09-30)
+
+`DiscoveryRunner::start_campaign_for_request(db, sink, rawConfig,
+CampaignStart { declaration, instrumentId }, requestId)` starts one run for one
+declared instrument (decision 1). The run config stays an unchanged
+`discovery-config-v3` document: the binding travels beside it and is persisted
+in the decision, so the config envelope and its TypeScript parity parser do
+not change. The ordinary `start`/`start_for_request` paths are unchanged.
+
+**Order of operations.**
+
+1. Parse the config, enumerate the complete candidate set, verify the dataset
+   and run the existing v3 walk-forward preflight (an infeasible fold plan
+   still refuses the run, as for any v3 run).
+2. **Bind before any write.** Re-freeze the declaration; require the workspace
+   trial ledger and a v3 walk-forward declaration; resolve the declared
+   instrument's exact snapshot (`resolve_campaign_instrument`, the P12d-2a
+   checks for that instrument only); require that snapshot's dataset ID, hash
+   and bar count to equal the run's verified dataset; derive every enumerated
+   candidate's P12c report from its own strategy (`candidate_walk_forward_report`,
+   shared with `declared_walk_forward_plan`); and apply
+   `validate_campaign_binding`. Any failure returns an error before the
+   strategy rows, the run row or any trial registration is written.
+3. Create the run row and lineage, then register the batch under the
+   **declared** snapshot's instrument and snapshot ID. A dataset with several
+   P06 snapshots therefore keeps its family; an unbound run still uses the
+   unique-snapshot rule and would register it as `family_unknown`.
+4. Evaluate admission from the count read with that registration and the
+   workspace's `legacy_trials_unknown` families.
+5. Queue the jobs, freeze the lineage and event IDs, store the declaration
+   and the decision, and advance the registry binding in **one** owner-checked
+   workspace transaction (`start_discovery_run_for_campaign`).
+
+`NOT_ELIGIBLE` runs are queued and executed like any other (decision 2).
+
+**Storage (migration `0010_campaign_admission`, append-only).**
+`research_campaigns` holds each declaration once as canonical JSON under its
+`campaign_id`; a later run of the same campaign must present the identical
+document. `campaign_run_admissions` holds one decision per run: campaign,
+instrument, batch ID, status, the full `research-campaign-admission-v1`
+report JSON (including the snapshot observation and `AdmissionSnapshot` for a
+later fence), the run's frozen `feePct`/`slipPct` taken from `benchmarkCosts`
+(decision 3), and the writer's epoch. The store refuses a decision whose
+candidates (index and strategy hash) differ from the lineage being queued, so
+a missing or substituted candidate cannot be recorded.
+`db::campaign::get_campaign_admission` re-freezes the stored declaration and
+rejects a row that no longer reproduces its ID.
+
+**Still open.**
+
+- No command, service endpoint or UI starts a campaign run yet (P12d-2d).
+- The fence has no caller until P13 schedules confirmation work; a stored
+  decision is not a permit (see the P12d-2b fence note).
+- Numeric costs are not cross-checked against P06 (decision 3), and raw source
+  artifact bytes are not re-verified.
+- A retry with the same request after a crash between the registry commit and
+  the enqueue re-registers idempotently and re-evaluates from the current
+  count, as trial-ledger-v1 §6.2 specifies.

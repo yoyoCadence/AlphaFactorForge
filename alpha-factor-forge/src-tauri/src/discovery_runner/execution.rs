@@ -1178,6 +1178,22 @@ pub fn declared_walk_forward_plan(
     candle_count: usize,
     input: WalkForwardInput,
 ) -> Result<WalkForwardPlan, CandidateExecutionError> {
+    let report = candidate_walk_forward_report(config, candidate, candle_count, input)?;
+    if report.status != WalkForwardStatus::Eligible {
+        return fail("walk-forward plan is NOT_ELIGIBLE for this candidate");
+    }
+    Ok(report.plan)
+}
+
+/// The candidate's P12c report derived from its own strategy (embargo and
+/// signal lookback) and the verified bar count. `Err` when no plan exists;
+/// a `NOT_ELIGIBLE` report is returned rather than failed, for admission.
+pub fn candidate_walk_forward_report(
+    config: &ResolvedDiscoveryConfig,
+    candidate: &EnumeratedCandidate,
+    candle_count: usize,
+    input: WalkForwardInput,
+) -> Result<WalkForwardReport, CandidateExecutionError> {
     let strategy = CandidateStrategy::parse(&candidate.strategy)?;
     let embargo = strategy.embargo(config.embargo.holding_allowance_bars)?;
     if input.minimum_train_bars < embargo.max_signal_lookback_bars as u64 {
@@ -1192,12 +1208,7 @@ pub fn declared_walk_forward_plan(
         fold_validation_bars: input.fold_validation_bars,
         fold_count: input.fold_count,
     };
-    let report = evaluate_walk_forward_plan(&plan)
-        .map_err(|error| context(error, "plan walk-forward folds"))?;
-    if report.status != WalkForwardStatus::Eligible {
-        return fail("walk-forward plan is NOT_ELIGIBLE for this candidate");
-    }
-    Ok(plan)
+    evaluate_walk_forward_plan(&plan).map_err(|error| context(error, "plan walk-forward folds"))
 }
 
 /// The trial ledger's split identity for one candidate (`docs/trial-ledger-v1.md`

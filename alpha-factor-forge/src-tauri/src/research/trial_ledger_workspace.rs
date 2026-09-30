@@ -460,7 +460,7 @@ fn orphan_events(
         .collect())
 }
 
-fn unknown_legacy_families(conn: &Connection) -> AppResult<Vec<String>> {
+pub(crate) fn unknown_legacy_families(conn: &Connection) -> AppResult<Vec<String>> {
     let mut stmt = conn.prepare(
         "SELECT DISTINCT v.dataset_id, d.dataset_hash FROM validation_records v
          JOIN datasets d ON d.id = v.dataset_id
