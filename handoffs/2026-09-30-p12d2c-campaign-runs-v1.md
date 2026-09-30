@@ -2,9 +2,9 @@
 
 Date: 2026-09-30
 Repo: yoyoCadence/AlphaFactorForge
-Branch: `feat/p12d2c-campaign-runs` (on `fix/pr127-review-fixes`, PR #128)
-PR: not opened yet — waits for PR #128 to merge, then rebases onto `main`
-Status: Implemented locally; P12d-2d (command/service surface) is next.
+Branch: `feat/p12d2c-campaign-runs` (rebased onto `main` `3cb58e7` after PR #128 merged)
+PR: [#129](https://github.com/yoyoCadence/AlphaFactorForge/pull/129) (draft)
+Status: Published as draft PR #129 for CI and review; P12d-2d (command/service surface and UI authoring) is next.
 
 ## Summary
 
@@ -57,8 +57,13 @@ admission), which are published separately as PR #128.
 
 1. **P12d-2d:** expose campaign starts through the command/service surface
    (request envelope with the declaration and instrument, typed client, and
-   an idempotent replay), and a read-only view of a run's decision. Decide
-   whether the UI authors campaigns or only starts declared ones.
+   an idempotent replay), and a read-only view of a run's decision.
+   **Maintainer decision (2026-09-30): the UI must be able to author
+   campaigns** — not only start already declared ones. P12d-2d therefore also
+   needs a campaign authoring flow (instrument/snapshot selection, sample
+   policy with rationale, sampling, freeze preview showing the campaign ID)
+   whose output is validated by the backend `freeze_campaign`, never trusted
+   from the frontend. Split it into reviewable slices before implementing.
 2. **P13:** call `TrialLedger::fence_admission` synchronously with
    confirmation admission; a stored decision or `Unchanged` result is not a
    durable permit.
