@@ -100,6 +100,11 @@ fn fixture_dataset_hash() -> String {
 fn resolved(bar_count: u64) -> ResolvedInstrument {
     ResolvedInstrument {
         instrument_id: BTC.into(),
+        snapshot_id: serde_json::from_str::<Value>(FIXTURE).unwrap()["instruments"][0]
+            ["snapshotId"]
+            .as_str()
+            .unwrap()
+            .to_string(),
         snapshot_row_id: 7,
         instrument_row_id: 3,
         dataset_id: 11,
@@ -146,12 +151,19 @@ impl<'a> Case<'a> {
     }
 
     fn evaluate(&self, ledger: LedgerInput<'_>) -> AppResult<CampaignAdmissionReport> {
+        let batch_id = match ledger {
+            LedgerInput::Registered(Admission::Count(count))
+            | LedgerInput::Fenced(AdmissionFence::Unchanged(count) | AdmissionFence::Grew(count)) => {
+                count.batch_id()
+            }
+            _ => "trial-batch-v1:blocked",
+        };
         evaluate_campaign_admission(&CampaignAdmissionInput {
             campaign: self.campaign,
             instrument_id: BTC,
             resolved: &self.resolved,
             earlier_snapshot: self.earlier_snapshot.as_ref(),
-            batch_id: "trial-batch-v1:batch",
+            batch_id,
             ledger,
             legacy_trials_unknown: &self.legacy,
             candidates: &self.candidates,
@@ -160,6 +172,80 @@ impl<'a> Case<'a> {
 }
 
 use CampaignAdmissionReason as R;
+
+#[test]
+fn admission_rejects_a_different_declared_snapshot_for_the_same_dataset() {
+    let registry = Registry::new();
+    let batch = registry.register("snapshot-binding", 1);
+    let original = campaign_with(100_000, 200_000);
+    let mut declaration = original.document().clone();
+    let old_id = declaration["instruments"][0]["snapshotId"]
+        .as_str()
+        .unwrap();
+    let other_id = if old_id == "a".repeat(64) { "b" } else { "a" }.repeat(64);
+    declaration["instruments"][0]["snapshotId"] = json!(other_id);
+    let other = freeze_campaign(&declaration).unwrap();
+    let mut case = Case::new(&original);
+    assert!(case
+        .evaluate(LedgerInput::Registered(&batch.admission))
+        .is_ok());
+    // Reusing A's resolution for B used to relabel the observation as B.
+    case.campaign = &other;
+    assert!(case
+        .evaluate(LedgerInput::Registered(&batch.admission))
+        .is_err());
+}
+
+#[test]
+fn admission_rejects_a_count_from_another_batch_in_the_same_family() {
+    let registry = Registry::new();
+    let first = registry.register("batch-a", 1);
+    let second = registry.register("batch-b", 1);
+    let campaign = campaign_with(100_000, 200_000);
+    let case = Case::new(&campaign);
+    let input = CampaignAdmissionInput {
+        campaign: &campaign,
+        instrument_id: BTC,
+        resolved: &case.resolved,
+        earlier_snapshot: None,
+        batch_id: &first.batch_id,
+        ledger: LedgerInput::Registered(&second.admission),
+        legacy_trials_unknown: &[],
+        candidates: &case.candidates,
+    };
+    assert!(evaluate_campaign_admission(&input).is_err());
+}
+
+#[test]
+fn admission_rejects_a_walk_forward_status_that_disagrees_with_its_plan() {
+    let registry = Registry::new();
+    let batch = registry.register("report-binding", 1);
+    let campaign = campaign_with(100_000, 200_000);
+    let mut case = Case::new(&campaign);
+    case.candidates[0] = candidate(0, BARS, 3_000);
+    let report = case
+        .evaluate(LedgerInput::Registered(&batch.admission))
+        .unwrap();
+    assert_eq!(report.reasons, vec![R::WalkForwardNotEligible]);
+    case.candidates[0].report.as_mut().unwrap().status = WalkForwardStatus::Eligible;
+    assert!(case
+        .evaluate(LedgerInput::Registered(&batch.admission))
+        .is_err());
+
+    // An eligible label also cannot hide missing or altered fold evidence.
+    case.candidates[0] = candidate(0, BARS, 24);
+    case.candidates[0].report.as_mut().unwrap().folds.clear();
+    assert!(case
+        .evaluate(LedgerInput::Registered(&batch.admission))
+        .is_err());
+    case.candidates[0] = candidate(0, BARS, 24);
+    case.candidates[0].report.as_mut().unwrap().folds[0]
+        .validation
+        .to += 1;
+    assert!(case
+        .evaluate(LedgerInput::Registered(&batch.admission))
+        .is_err());
+}
 
 #[test]
 fn a20_alphabtc_equivalent_counts_are_not_eligible_through_campaign_admission() {
@@ -252,6 +338,7 @@ fn a32_an_eligible_decision_is_fenced_before_it_is_acted_on() {
     assert_eq!(json["status"], "NOT_ELIGIBLE");
     assert_eq!(json["reasons"], json!(["precision_not_eligible"]));
     assert_eq!(json["ledger"]["familyEffectiveTrials"], 16);
+    assert_eq!(json["ledger"]["batchId"], batch.batch_id);
     assert_eq!(json["snapshot"]["snapshotRowId"], 7);
     assert_eq!(json["walkForward"][0]["report"]["status"], "ELIGIBLE");
     assert!(json.get("pass").is_none() && json["status"] != "PASS");
@@ -386,7 +473,7 @@ fn a_binding_that_contradicts_the_campaign_is_an_error() {
         .map(|error| error.to_string())
     };
     let base = Case::new(&campaign);
-    assert_eq!(error(&base, BTC, "trial-batch-v1:batch"), None);
+    assert_eq!(error(&base, BTC, &batch.batch_id), None);
     assert!(error(&base, "crypto:binance:ETHUSDT", "b")
         .unwrap()
         .contains("not declared"));
@@ -406,6 +493,10 @@ fn a_binding_that_contradicts_the_campaign_is_an_error() {
         (
             "duplicate",
             Box::new(|case| case.candidates[1].candidate_index = 0),
+        ),
+        (
+            "negative index",
+            Box::new(|case| case.candidates[0].candidate_index = -1),
         ),
         (
             "blank strategy",
@@ -448,10 +539,7 @@ fn a_binding_that_contradicts_the_campaign_is_an_error() {
     for (label, change) in changes {
         let mut case = Case::new(&campaign);
         change(&mut case);
-        assert!(
-            error(&case, BTC, "trial-batch-v1:batch").is_some(),
-            "{label}"
-        );
+        assert!(error(&case, BTC, &batch.batch_id).is_some(), "{label}");
     }
 
     // A count read for another instrument's family is not this decision's.

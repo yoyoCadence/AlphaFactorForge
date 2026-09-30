@@ -4,7 +4,7 @@ Date: 2026-09-29
 Repo: yoyoCadence/AlphaFactorForge
 Branch: `feat/p12d2b-campaign-admission` (from merged PR #126, `b5667fb`)
 PR: [#127](https://github.com/yoyoCadence/AlphaFactorForge/pull/127) (draft)
-Status: Published as draft PR #127 for CI and review; P12d-2c (persistence and runner wiring) is next.
+Status: PR #127 merged (`226f043`) before its review fixes were committed; the fixes below were carried unchanged to `fix/pr127-review-fixes` (`257d3d9`) and published as PR #128. P12d-2c (persistence and runner wiring) is next.
 
 ## Summary
 
@@ -88,3 +88,81 @@ These are recorded in
   snapshot is ignored; the walk-forward plan is not compared with the policy.
 - No TypeScript, UI, e2e, migration or dependency change; npm and Playwright
   were not rerun.
+
+## Resolution — PR #127 acceptance review (2026-09-30)
+
+Reviewed PR head `35d02a9e11aea0fadaa638e3ea879d8218383def` against merged
+PR #126 (`b5667fb`). The direction is sound: one instrument per run, exploration
+separate from confirmation eligibility, and a pure evaluator/fence before
+persistence and runner integration. The fixes below are in the existing feature
+branch's working tree; they have not been committed or pushed.
+
+Three correctness gaps were reproduced and fixed:
+
+1. **Snapshot identity (P2).** The evaluator checked instrument and dataset,
+   then copied the declaration's snapshot ID into the report. A resolution for
+   snapshot A could therefore be reused with a declaration naming snapshot B
+   for the same dataset. `ResolvedInstrument` now carries the verified snapshot
+   ID, the evaluator compares it to the declaration, and the observation uses
+   that verified ID. The existing real-database resolver test checks the returned
+   identity; the new admission regression rejects cross-snapshot reuse.
+2. **Batch identity (P2).** `AdmissionCount` and `AdmissionSnapshot` lacked the
+   batch ID. The evaluator accepted a count belonging to another batch, and the
+   fence returned `Unchanged` for another equal-sized batch in the same family.
+   The count now retains the batch ID from the registry read, the saved snapshot
+   carries it, and both evaluator and fence compare it. Existing fixtures now
+   pass actual registered IDs. This adds no migration: the new admission
+   snapshot is not persisted until P12d-2c.
+3. **Walk-forward evidence consistency (P2).** A valid but infeasible plan with
+   its report status changed to `ELIGIBLE` was accepted. The evaluator now
+   recomputes the P12c report and compares all fields, rejecting inconsistent
+   status, reasons, bounds or folds. Negative candidate indexes are also refused.
+   Genuine infeasibility still returns `NOT_ELIGIBLE`, preserving exploration.
+
+Four new tests failed against the original implementation, then passed after
+the fixes:
+
+- `admission_rejects_a_different_declared_snapshot_for_the_same_dataset`
+- `admission_rejects_a_count_from_another_batch_in_the_same_family`
+- `admission_rejects_a_walk_forward_status_that_disagrees_with_its_plan`
+  (also checks missing and altered folds)
+- `admission_fence_rejects_another_equal_sized_batch_in_the_same_family`
+
+Verification after fixes:
+
+- `cargo test --locked`: **483 passed (101 library + 380 desktop + 2 service)**.
+- `cargo check --locked --all-targets`: pass.
+- `cargo clippy --locked --all-targets`: pass with the same five existing
+  warnings in `backtest.rs`, `score.rs` and `file_commands.rs`.
+- `git diff --check`: pass. Rustfmt applied only to the admission module and
+  its tests, avoiding unrelated formatting changes.
+- PR head `35d02a9` already passed all six CI jobs in
+  [run 36630471840](https://github.com/yoyoCadence/AlphaFactorForge/actions/runs/36630471840).
+  Those checks predate these local fixes; no new remote CI run is claimed.
+- No frontend changes; npm/Playwright were not rerun locally.
+
+Integration acceptance remains required, with the boundary now explicit in the
+campaign and ledger contracts:
+
+- P12d-2c must derive the **complete** candidate set and each strategy's embargo
+  from frozen run inputs. Report self-consistency alone does not prove candidate
+  membership/completeness or a strategy-derived embargo. Include missing or
+  substituted candidate counterexamples in the runner tests.
+- P12d-2c must use the declared snapshot when a dataset has multiple snapshots,
+  and persist the decision plus the run's frozen fee/slippage values atomically
+  with enqueue. The numeric P06 cost-profile limitation remains as agreed.
+- The fence commits its read transaction before returning; it observes a moment
+  in time. P13 must synchronize the final fence with confirmation admission,
+  preventing intervening registration/import from invalidating the decision.
+  A stored `Unchanged` result is not a durable scheduling permit.
+
+### Publication of the review fixes (2026-09-30)
+
+PR #127 was merged at `35d02a9` (merge `226f043`) while the fixes above were
+still uncommitted in the old feature branch's working tree. They were stashed,
+moved unchanged onto `fix/pr127-review-fixes` from `226f043`, and committed as
+`257d3d9`. Re-verified there: `cargo test --locked` **483 passed
+(101 + 380 + 2)**, the four regressions pass, clippy shows only the five
+existing warnings, and `git diff --check` passes. Published as
+[PR #128](https://github.com/yoyoCadence/AlphaFactorForge/pull/128); remote CI
+is the authority for the six jobs.
