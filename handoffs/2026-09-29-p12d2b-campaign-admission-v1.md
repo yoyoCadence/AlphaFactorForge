@@ -4,7 +4,7 @@ Date: 2026-09-29
 Repo: yoyoCadence/AlphaFactorForge
 Branch: `feat/p12d2b-campaign-admission` (from merged PR #126, `b5667fb`)
 PR: [#127](https://github.com/yoyoCadence/AlphaFactorForge/pull/127) (draft)
-Status: PR #127 direction accepted after the 2026-09-30 local review fixes below; fixes are uncommitted/unpushed. P12d-2c (persistence and runner wiring) is next.
+Status: PR #127 merged (`226f043`) before its review fixes were committed; the fixes below were carried unchanged to `fix/pr127-review-fixes` (`257d3d9`) and published as PR #128. P12d-2c (persistence and runner wiring) is next.
 
 ## Summary
 
@@ -155,3 +155,14 @@ campaign and ledger contracts:
   in time. P13 must synchronize the final fence with confirmation admission,
   preventing intervening registration/import from invalidating the decision.
   A stored `Unchanged` result is not a durable scheduling permit.
+
+### Publication of the review fixes (2026-09-30)
+
+PR #127 was merged at `35d02a9` (merge `226f043`) while the fixes above were
+still uncommitted in the old feature branch's working tree. They were stashed,
+moved unchanged onto `fix/pr127-review-fixes` from `226f043`, and committed as
+`257d3d9`. Re-verified there: `cargo test --locked` **483 passed
+(101 + 380 + 2)**, the four regressions pass, clippy shows only the five
+existing warnings, and `git diff --check` passes. Published as
+[PR #128](https://github.com/yoyoCadence/AlphaFactorForge/pull/128); remote CI
+is the authority for the six jobs.
