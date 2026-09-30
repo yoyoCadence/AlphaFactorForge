@@ -305,6 +305,128 @@ export const research = {
   listUnreferencedArtifacts: () => invoke<string[]>('list_unreferenced_artifacts'),
 };
 
+// ---- Research campaigns (P12d-2d, research-campaign-declaration-v1) ----
+
+/** A P06 instrument revision (Rust `market::registry::InstrumentRow`). */
+export interface MarketInstrument {
+  id: number;
+  instrumentId: string;
+  revision: number;
+  contentHash: string;
+  version: string;
+  market: 'crypto' | 'us-etf' | 'tw-etf';
+  venue: string;
+  symbol: string;
+  base: string;
+  quote: string;
+  assetType: 'spot-crypto' | 'etf';
+  sessionCalendarId: string;
+  timezone: string;
+  lotSize: number | null;
+  priceStep: number | null;
+  minNotional: number | null;
+  /** Inclusive listing instant (ms); `null` = unknown, which cannot resolve. */
+  listedFrom: number | null;
+  /** Exclusive delisting instant (ms), or `null` when still listed. */
+  delistedAt: number | null;
+  suspensions: unknown[];
+  sourceCapabilities: unknown;
+  createdAt: string;
+}
+
+/** A P06 snapshot row (Rust `market::snapshot::SnapshotRow`). */
+export interface MarketSnapshot {
+  id: number;
+  snapshotId: string;
+  version: string;
+  instrumentRowId: number;
+  instrumentId: string;
+  interval: string;
+  datasetId: number;
+  datasetHash: string;
+  priceBasis: 'raw' | 'adjusted-split' | 'adjusted-total-return';
+  calendarId: string;
+  corporateActionVersion: string | null;
+  costProfileVersion: string | null;
+  kind: 'demo' | 'historical' | 'forward-observed';
+  status: 'ok' | 'degraded';
+  asOf: number;
+  coverage: unknown;
+  createdAt: string;
+}
+
+/** A snapshot as the authoring form offers it. `qualificationEligible` is
+ *  the snapshot's own rule; freezing still runs the full P12d-2a check. */
+export interface MarketSnapshotOption {
+  snapshot: MarketSnapshot;
+  qualificationEligible: boolean;
+  dataset: {
+    id: number;
+    interval: string;
+    startTime: number;
+    endTime: number;
+    candleCount: number;
+  };
+}
+
+/** `preview_research_campaign`: the ID freezing would give and whether each
+ *  declared snapshot resolves now. Nothing is stored. */
+export interface CampaignPreview {
+  campaignId: string;
+  instruments: {
+    instrumentId: string;
+    resolved: boolean;
+    barCount: number | null;
+    error: string | null;
+  }[];
+}
+
+export interface CampaignRunSummary {
+  runId: number;
+  instrumentId: string;
+  status: 'ELIGIBLE' | 'NOT_ELIGIBLE';
+  createdAt: string;
+}
+
+/** A stored, re-validated campaign and the runs started for it. */
+export interface CampaignSummary {
+  campaignId: string;
+  version: string;
+  createdAt: string;
+  /** The canonical `research-campaign-declaration-v1` document. */
+  document: Record<string, unknown>;
+  runs: CampaignRunSummary[];
+}
+
+/** A campaign run's stored decision (`research-campaign-admission-v1`).
+ *  `ELIGIBLE` is never a confirmation PASS. */
+export interface CampaignAdmission {
+  campaignId: string;
+  instrumentId: string;
+  batchId: string;
+  status: 'ELIGIBLE' | 'NOT_ELIGIBLE';
+  /** The full admission report: reasons, snapshot, ledger, precision, walkForward. */
+  report: Record<string, unknown>;
+  feePct: number;
+  slipPct: number;
+}
+
+export const campaigns = {
+  listInstruments: () => invoke<MarketInstrument[]>('list_market_instruments'),
+  listSnapshots: () => invoke<MarketSnapshotOption[]>('list_market_snapshots'),
+  /** Validate a draft without storing it. Rejects when it does not freeze. */
+  preview: (declaration: unknown) =>
+    invoke<CampaignPreview>('preview_research_campaign', { declaration }),
+  /** Freeze and store (freezing saves); resolves to the backend-derived ID. */
+  freeze: (declaration: unknown) => invoke<string>('freeze_research_campaign', { declaration }),
+  list: () => invoke<CampaignSummary[]>('list_research_campaigns'),
+  /** Start one declared instrument's run of a stored campaign. */
+  start: (config: unknown, campaignId: string, instrumentId: string) =>
+    invoke<number>('start_campaign_discovery', { config, campaignId, instrumentId }),
+  /** `null` for a run that is not campaign-bound. */
+  admission: (runId: number) => invoke<CampaignAdmission | null>('get_campaign_admission', { runId }),
+};
+
 // ---- Versioned command envelope (P03b, research-command-v1) ----
 
 /** `research-command-v1` (docs/research-runtime-contract.md §2). Built by

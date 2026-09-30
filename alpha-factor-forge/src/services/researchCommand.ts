@@ -30,6 +30,8 @@ export const RESEARCH_COMMANDS = [
   'discovery.active',
   'events.read',
   'ownership.read',
+  'campaign.freeze',
+  'campaign.start',
 ] as const;
 
 export type ResearchCommand = (typeof RESEARCH_COMMANDS)[number];
@@ -40,6 +42,8 @@ export const MUTATING_COMMANDS: readonly ResearchCommand[] = [
   'discovery.pause',
   'discovery.resume',
   'discovery.cancel',
+  'campaign.freeze',
+  'campaign.start',
 ];
 
 export const COMMAND_ERROR_CODES: readonly CommandErrorCode[] = [

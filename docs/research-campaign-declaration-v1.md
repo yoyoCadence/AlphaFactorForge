@@ -304,3 +304,46 @@ rejects a row that no longer reproduces its ID.
 - A retry with the same request after a crash between the registry commit and
   the enqueue re-registers idempotently and re-evaluates from the current
   count, as trial-ledger-v1 §6.2 specifies.
+
+## P12d-2d-1 campaign commands and typed client (2026-09-30)
+
+### Maintainer decisions (2026-09-30)
+
+1. **The UI authors campaigns**, not only starts declared ones (P12d-2d-2).
+2. **Freezing saves.** A frozen declaration is stored immediately in
+   `research_campaigns`; runs start later from the saved list by
+   `campaignId`, so the declaration is fixed before any of its results exist
+   and is not re-sent with every start.
+3. **Multi-instrument campaigns in the first UI**, one run per instrument,
+   started one at a time (the runner allows one active run).
+
+### Commands
+
+The frontend never supplies a campaign ID or an admission status: the backend
+derives the ID with `freeze_campaign` and the status with the P12d-2b
+evaluator. Reads use the host mode's connection in both modes; writes are the
+workspace owner's (embedded: direct under its epoch; connected: proxied as the
+envelope commands below).
+
+| Tauri command (invoke args) | Result | Notes |
+| --- | --- | --- |
+| `list_market_instruments` | P06 instrument revisions | listing bounds for `listedAtMs`/`delistedAtMs` |
+| `list_market_snapshots` | newest 500 snapshots with dataset bounds, bar count and `qualificationEligible` | the snapshot's own rule; freezing still verifies |
+| `preview_research_campaign` (`declaration`) | `{campaignId, instruments[{instrumentId, resolved, barCount, error}]}` | stores nothing; a declaration that does not freeze is an error |
+| `freeze_research_campaign` (`declaration`) | `campaignId` | owner write; storing the same document again returns the same ID |
+| `list_research_campaigns` | stored campaigns, newest first, each re-frozen, with its runs and decision statuses | a row that no longer re-freezes is an error, never skipped |
+| `start_campaign_discovery` (`config`, `campaignId`, `instrumentId`) | run ID | `DiscoveryRunner::start_stored_campaign_for_request`: loads and re-freezes the stored campaign, then the P12d-2c path |
+| `get_campaign_admission` (`runId`) | the stored decision or `null` | `report` is the full `research-campaign-admission-v1` document |
+
+`research-command-v1` gains two mutating, request-ID-idempotent commands with
+exact payloads (unknown or missing keys are `Validation`):
+`campaign.freeze` `{declaration}` → `{campaignId}` and `campaign.start`
+`{config, campaignId, instrumentId}` → `{runId}`. A start records its
+`request_outcomes` rows under `campaign.start`; an unknown campaign is
+`NotFound` and starts nothing. The TypeScript whitelist
+(`services/researchCommand.ts`) and the typed `campaigns` client
+(`tauri-client/commands.ts`) are pinned against the Rust source by Vitest,
+including every invoke argument key against the command signatures.
+
+Not yet: the authoring UI, the `?mock=1` client for it, and a decision view
+(P12d-2d-2).

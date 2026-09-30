@@ -235,6 +235,26 @@ impl ServiceProxy {
         self.call("discovery.cancel", json!({ "runId": run_id })).map(|_| ())
     }
 
+    // ---- proxied campaign commands (P12d-2d) ----
+
+    pub fn campaign_freeze(&self, declaration: Value) -> AppResult<String> {
+        let result = self.call("campaign.freeze", json!({ "declaration": declaration }))?;
+        result["campaignId"]
+            .as_str()
+            .map(str::to_string)
+            .ok_or_else(|| AppError::Other(format!("campaign.freeze answered without a campaignId: {result}")))
+    }
+
+    pub fn campaign_start(&self, config: Value, campaign_id: &str, instrument_id: &str) -> AppResult<i64> {
+        let result = self.call(
+            "campaign.start",
+            json!({ "config": config, "campaignId": campaign_id, "instrumentId": instrument_id }),
+        )?;
+        result["runId"]
+            .as_i64()
+            .ok_or_else(|| AppError::Other(format!("campaign.start answered without a runId: {result}")))
+    }
+
     /// The `discovery-progress-v1` snapshot, as JSON. The state version the
     /// service attaches stays in the bridge: the window's snapshot shape is
     /// the mode-agnostic one, and the bridge's forwarder is what compares

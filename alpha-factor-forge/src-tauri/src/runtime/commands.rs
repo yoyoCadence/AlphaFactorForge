@@ -193,6 +193,8 @@ pub enum Command {
     DiscoveryActive,
     EventsRead,
     OwnershipRead,
+    CampaignFreeze,
+    CampaignStart,
 }
 
 impl Command {
@@ -205,6 +207,8 @@ impl Command {
         Command::DiscoveryActive,
         Command::EventsRead,
         Command::OwnershipRead,
+        Command::CampaignFreeze,
+        Command::CampaignStart,
     ];
 
     pub fn name(self) -> &'static str {
@@ -217,6 +221,8 @@ impl Command {
             Command::DiscoveryActive => "discovery.active",
             Command::EventsRead => "events.read",
             Command::OwnershipRead => "ownership.read",
+            Command::CampaignFreeze => "campaign.freeze",
+            Command::CampaignStart => "campaign.start",
         }
     }
 
@@ -228,7 +234,12 @@ impl Command {
     pub fn mutates(self) -> bool {
         matches!(
             self,
-            Command::DiscoveryStart | Command::DiscoveryPause | Command::DiscoveryResume | Command::DiscoveryCancel
+            Command::DiscoveryStart
+                | Command::DiscoveryPause
+                | Command::DiscoveryResume
+                | Command::DiscoveryCancel
+                | Command::CampaignFreeze
+                | Command::CampaignStart
         )
     }
 }
@@ -509,6 +520,26 @@ impl Dispatcher {
                 let limit = payload.get("limit").and_then(Value::as_u64).map(|n| n as usize);
                 self.events_page(after, limit)
             }
+            Command::CampaignFreeze => {
+                let payload: CampaignFreezePayload = typed_payload(payload)?;
+                let campaign_id = {
+                    let conn = self.lock_db()?;
+                    crate::db::campaign::freeze_and_store_campaign(&conn, Some(self.epoch), &payload.declaration)?
+                };
+                Ok(json!({ "campaignId": campaign_id }))
+            }
+            Command::CampaignStart => {
+                let payload: CampaignStartPayload = typed_payload(payload)?;
+                let run_id = self.discovery.start_stored_campaign_for_request(
+                    self.db.clone(),
+                    self.sink.clone(),
+                    payload.config,
+                    &payload.campaign_id,
+                    &payload.instrument_id,
+                    request_id,
+                )?;
+                Ok(json!({ "runId": run_id }))
+            }
             Command::OwnershipRead => {
                 let row = {
                     let conn = self.lock_db()?;
@@ -629,6 +660,31 @@ fn replay(stored: runtime_ledger::StoredRequest) -> Result<Value, CommandError> 
         }
         other => Err(pending_error(&stored.request_id, &format!("unexpected receipt status {other:?}"))),
     }
+}
+
+/// `campaign.freeze` (P12d-2d): the declaration to validate and store.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct CampaignFreezePayload {
+    declaration: Value,
+}
+
+/// `campaign.start` (P12d-2d): a `discovery-config-v3` run for one declared
+/// instrument of a stored campaign.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct CampaignStartPayload {
+    config: Value,
+    campaign_id: String,
+    instrument_id: String,
+}
+
+/// A command payload with an exact shape: unknown or missing keys are a
+/// `Validation` error, never ignored.
+fn typed_payload<T: serde::de::DeserializeOwned>(payload: &Value) -> Result<T, CommandError> {
+    serde_json::from_value(payload.clone()).map_err(|error| {
+        CommandError::new(ErrorCode::Validation, format!("invalid payload: {error}"), false)
+    })
 }
 
 fn run_id_of(payload: &Value) -> Result<i64, CommandError> {

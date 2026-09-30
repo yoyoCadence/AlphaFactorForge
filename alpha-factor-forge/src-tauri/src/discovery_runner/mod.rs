@@ -74,6 +74,7 @@ type SharedDb = Arc<Mutex<rusqlite::Connection>>;
 /// The command names the runner records outcomes under (P03b R1). They are
 /// the dispatcher's whitelist names; the runner only needs them as labels.
 const START_COMMAND: &str = "discovery.start";
+const CAMPAIGN_START_COMMAND: &str = "campaign.start";
 const RESUME_COMMAND: &str = "discovery.resume";
 const PAUSE_COMMAND: &str = "discovery.pause";
 const CANCEL_COMMAND: &str = "discovery.cancel";
@@ -569,6 +570,32 @@ impl DiscoveryRunner {
         self.start_inner(db, sink, raw_config, request_id, Some(campaign))
     }
 
+    /// P12d-2d: start a run for one instrument of a campaign stored by
+    /// `campaign.freeze` (runs start from the saved list, maintainer decision
+    /// 2026-09-30). The stored declaration is re-frozen before it is used, so
+    /// the desktop command and the `campaign.start` envelope share one path.
+    pub fn start_stored_campaign_for_request(
+        &self,
+        db: SharedDb,
+        sink: Arc<dyn DiscoveryEventSink>,
+        raw_config: Value,
+        campaign_id: &str,
+        instrument_id: &str,
+        request_id: Option<&str>,
+    ) -> AppResult<i64> {
+        let campaign = {
+            let conn = lock(&db, "db")?;
+            crate::db::campaign::get_campaign(&conn, campaign_id)?.ok_or_else(|| {
+                other(format!("campaign {campaign_id} not found; freeze it before starting runs"))
+            })?
+        };
+        let start = CampaignStart {
+            declaration: campaign.document().clone(),
+            instrument_id: instrument_id.to_string(),
+        };
+        self.start_campaign_for_request(db, sink, raw_config, &start, request_id)
+    }
+
     fn start_inner(
         &self,
         db: SharedDb,
@@ -577,8 +604,10 @@ impl DiscoveryRunner {
         request_id: Option<&str>,
         campaign: Option<&CampaignStart>,
     ) -> AppResult<i64> {
+        // The command whose first answer this start records (request_outcomes).
+        let start_command = if campaign.is_some() { CAMPAIGN_START_COMMAND } else { START_COMMAND };
         let begun: Vec<RequestOutcome<'_>> = request_id
-            .map(|request_id| vec![RequestOutcome::begun(request_id, START_COMMAND)])
+            .map(|request_id| vec![RequestOutcome::begun(request_id, start_command)])
             .unwrap_or_default();
         let logical_cores = logical_cores();
         let config = Arc::new(
@@ -705,7 +734,7 @@ impl DiscoveryRunner {
                 let message = error.to_string();
                 if let Some(request_id) = request_id {
                     let _ = discovery::record_request_rejection(
-                        &conn, self.epoch, request_id, START_COMMAND, run_id, &message,
+                        &conn, self.epoch, request_id, start_command, run_id, &message,
                     );
                 }
                 return Err(other(message));
@@ -714,7 +743,7 @@ impl DiscoveryRunner {
             let progress =
                 stored_progress_json(plan.counts, plan.counts.final_unique, 0, initial_sequence)?;
             let accepted: Vec<RequestOutcome<'_>> = request_id
-                .map(|request_id| vec![RequestOutcome::accepted(request_id, START_COMMAND, run_id)])
+                .map(|request_id| vec![RequestOutcome::accepted(request_id, start_command, run_id)])
                 .unwrap_or_default();
             if let Err(error) = discovery::update_discovery_progress_with_outcomes(
                 &conn, self.epoch, run_id, RunStatus::Running, &progress, &accepted,
@@ -724,7 +753,7 @@ impl DiscoveryRunner {
                 }
                 let message = format!("failed to initialize discovery progress: {error}");
                 let rejected: Vec<RequestOutcome<'_>> = request_id
-                    .map(|request_id| vec![RequestOutcome::rejected(request_id, START_COMMAND, &message)])
+                    .map(|request_id| vec![RequestOutcome::rejected(request_id, start_command, &message)])
                     .unwrap_or_default();
                 let _ = discovery::fail_discovery_run_with_outcomes(
                     &conn, self.epoch, run_id, &message, &rejected,
