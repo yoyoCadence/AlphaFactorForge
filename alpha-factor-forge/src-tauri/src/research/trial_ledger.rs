@@ -92,6 +92,10 @@ const REGISTRY_MIGRATIONS: &[(&str, &str)] = &[
         "0002_origin_genesis",
         include_str!("../../registry_migrations/0002_origin_genesis.sql"),
     ),
+    (
+        "0003_family_protocol_upgrades",
+        include_str!("../../registry_migrations/0003_family_protocol_upgrades.sql"),
+    ),
 ];
 
 // ------------------------------------------------------------------ errors
@@ -630,6 +634,7 @@ struct PreparedEvent {
 #[derive(Clone, Debug)]
 struct PreparedBatch {
     family: Option<(String, String)>,
+    tests_per_trial: u64,
     protocol_json: String,
     batch_id: String,
     members_json: String,
@@ -896,6 +901,7 @@ fn prepare_batch(input: &TrialBatchInput) -> Result<PreparedBatch, LedgerError> 
     let batch_id = batch_id_for(family_id.as_deref(), &members)?;
     Ok(PreparedBatch {
         family,
+        tests_per_trial: input.tests_per_trial,
         protocol_json: protocol_json(input.tests_per_trial)?,
         batch_id,
         members_json,
@@ -1340,15 +1346,21 @@ impl TrialLedger {
         // A non-effective batch registered before the family's first pin can
         // have a different historical protocol. Its exact event/batch replay
         // must still return the old receipt and the current admission count.
-        // Effective replays and all new batches must obey the current pin.
+        // Effective replays and all new batches must obey the current
+        // protocol, which only rises (§22): fewer tests per trial than the
+        // family's effective count is refused; more upgrades the family.
+        let mut upgrade = None;
         if !replayed || batch.effective_count() > 0 {
             if let Some(id) = &family_id {
-                if let Some(pinned) = pinned_protocol(&tx, id)? {
-                    if pinned != batch.protocol_json {
+                if let Some(effective) = effective_tests_per_trial(&tx, id)? {
+                    if batch.tests_per_trial < effective {
                         return Err(LedgerError::FamilyProtocolMismatch(format!(
-                            "{id} is pinned to {pinned}, the batch declares {}",
-                            batch.protocol_json
+                            "{id} requires {effective} tests per trial (protocols only rise), the batch declares {}",
+                            batch.tests_per_trial
                         )));
+                    }
+                    if batch.tests_per_trial > effective {
+                        upgrade = Some(id.clone());
                     }
                 }
             }
@@ -1428,6 +1440,15 @@ impl TrialLedger {
                 batch_effective_trials: batch_effective,
             }
         };
+        if let Some(id) = &upgrade {
+            let now = chrono::Utc::now().to_rfc3339();
+            tx.execute(
+                "INSERT INTO family_protocol_upgrades
+                    (family_id, tests_per_trial, protocol_json, recorded_at)
+                 VALUES (?1, ?2, ?3, ?4)",
+                params![id, batch.tests_per_trial as i64, batch.protocol_json, now],
+            )?;
+        }
         // 6. the current count, in this same transaction.
         let admission = admission_in(
             &tx,
@@ -1501,15 +1522,30 @@ fn is_quarantined(tx: &Transaction<'_>, family_id: &str) -> Result<bool, LedgerE
         .is_some())
 }
 
-fn pinned_protocol(tx: &Transaction<'_>, family_id: &str) -> Result<Option<String>, LedgerError> {
-    Ok(tx
+/// The family's current tests per trial (§22): the largest of its first pin
+/// and every upgrade, or `None` before its first effective trial.
+fn effective_tests_per_trial(conn: &Connection, family_id: &str) -> Result<Option<u64>, LedgerError> {
+    let Some(pinned) = conn
         .query_row(
             "SELECT protocol_json FROM trial_families WHERE family_id = ?1",
             [family_id],
             |row| row.get::<_, Option<String>>(0),
         )
         .optional()?
-        .flatten())
+        .flatten()
+    else {
+        return Ok(None);
+    };
+    let pinned: Value = serde_json::from_str(&pinned)?;
+    let pinned = pinned["testsPerTrial"].as_u64().ok_or_else(|| {
+        LedgerError::StateInvalid(format!("{family_id} protocol has no testsPerTrial"))
+    })?;
+    let upgraded: Option<i64> = conn.query_row(
+        "SELECT MAX(tests_per_trial) FROM family_protocol_upgrades WHERE family_id = ?1",
+        [family_id],
+        |row| row.get(0),
+    )?;
+    Ok(Some(upgraded.map_or(pinned, |value| pinned.max(value as u64))))
 }
 
 fn count_family_effective(
@@ -1635,12 +1671,8 @@ fn admission_in(
     if batch_effective == 0 {
         return Ok(Admission::Blocked(AdmissionBlocked::NoEffectiveTrials));
     }
-    let protocol = pinned_protocol(tx, family_id)?.ok_or_else(|| {
+    let tests_per_trial = effective_tests_per_trial(tx, family_id)?.ok_or_else(|| {
         LedgerError::StateInvalid(format!("{family_id} has effective trials but no protocol"))
-    })?;
-    let protocol: Value = serde_json::from_str(&protocol)?;
-    let tests_per_trial = protocol["testsPerTrial"].as_u64().ok_or_else(|| {
-        LedgerError::StateInvalid(format!("{family_id} protocol has no testsPerTrial"))
     })?;
     let family_effective = count_family_effective(tx, Some(family_id))?;
     let (seq, chain_head) = head(tx, registry_id)?;
@@ -2347,7 +2379,10 @@ mod tests {
             let rows = stmt.query_map([], |row| row.get(0)).unwrap();
             rows.collect::<Result<_, _>>().unwrap()
         };
-        assert_eq!(applied, vec!["0001_trial_ledger", "0002_origin_genesis"]);
+        assert_eq!(
+            applied,
+            vec!["0001_trial_ledger", "0002_origin_genesis", "0003_family_protocol_upgrades"]
+        );
     }
 
     #[test]
@@ -2383,23 +2418,55 @@ mod tests {
     }
 
     #[test]
-    fn a17_a_family_keeps_the_protocol_of_its_first_effective_trial() {
+    fn a17_a_family_test_count_only_rises() {
+        // Revised by §22 (2026-10-01): fewer tests than the family's current
+        // count is refused; more raises the family, never resetting m.
         let dirs = scratch();
         let ledger = open(&dirs);
-        ledger.register_batch(&batch("r1", 1)).unwrap();
-        let mut other = batch("r2", 1);
-        other.tests_per_trial = 1;
+        let first = ledger.register_batch(&batch("r1", 1)).unwrap();
+        assert_eq!(count(&first.admission).tests_per_trial(), 2);
+        let mut lower = batch("r2", 1);
+        lower.tests_per_trial = 1;
         assert_eq!(
-            ledger.register_batch(&other).err().unwrap().code(),
+            ledger.register_batch(&lower).err().unwrap().code(),
             "family_protocol_mismatch"
         );
-        let mut replay = batch("r1", 1);
-        replay.tests_per_trial = 3;
+        let mut raised = batch("r1", 1);
+        raised.tests_per_trial = 3;
+        let replay = ledger.register_batch(&raised).unwrap();
+        assert!(replay.replayed, "a replay may raise the protocol");
+        assert_eq!(count(&replay.admission).tests_per_trial(), 3);
         assert_eq!(
-            ledger.register_batch(&replay).err().unwrap().code(),
+            ledger.register_batch(&batch("r3", 1)).err().unwrap().code(),
             "family_protocol_mismatch",
-            "a replay cannot change the protocol either"
+            "the pin's count is now below the family's"
         );
+        let mut next = batch("r3", 1);
+        next.tests_per_trial = 3;
+        let next = ledger.register_batch(&next).unwrap();
+        assert_eq!(count(&next.admission).tests_per_trial(), 3);
+        assert_eq!(count(&next.admission).family_effective_trials(), 2);
+
+        let conn = ledger.lock().unwrap();
+        let rows: Vec<(i64, String)> = {
+            let mut stmt = conn
+                .prepare("SELECT tests_per_trial, protocol_json FROM family_protocol_upgrades")
+                .unwrap();
+            let rows = stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?))).unwrap();
+            rows.collect::<Result<_, _>>().unwrap()
+        };
+        assert_eq!(rows, vec![(3, protocol_json(3).unwrap())], "one upgrade, recorded once");
+        let pin: String = conn
+            .query_row("SELECT protocol_json FROM trial_families", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(pin, protocol_json(2).unwrap(), "the first pin itself never changes");
+        for sql in [
+            "UPDATE family_protocol_upgrades SET tests_per_trial = 2",
+            "DELETE FROM family_protocol_upgrades",
+        ] {
+            let error = conn.execute(sql, []).err().unwrap();
+            assert!(error.to_string().contains("append-only"), "{sql}: {error}");
+        }
     }
 
     #[test]

@@ -16,6 +16,13 @@ use super::trial_ledger::{
 use super::{canonical_json, sha256_hex};
 use crate::error::{AppError, AppResult};
 
+/// Hypothesis tests each discovery trial is registered with (maintainer
+/// decision 2026-10-01): net return above zero, and excess over the
+/// buy-and-hold benchmark above zero, reported separately (P12e). A family
+/// pinned at 1 by earlier runs rises to 2 on its next registration; a test
+/// count never falls (trial-ledger-v1 §22).
+pub const DISCOVERY_TESTS_PER_TRIAL: u64 = 2;
+
 pub struct BoundLedger {
     pub ledger: Arc<TrialLedger>,
     pub report: LedgerWorkspaceReport,
@@ -208,7 +215,7 @@ pub fn register_missing_lineage(
             .register_batch(&TrialBatchInput {
                 workspace_id: workspace_id.into(),
                 instrument_id,
-                tests_per_trial: 1,
+                tests_per_trial: DISCOVERY_TESTS_PER_TRIAL,
                 events: members.iter().map(|(_, event)| event.clone()).collect(),
             })
             .map_err(ledger_error)?;
@@ -428,7 +435,7 @@ fn backfill(
             .register_batch(&TrialBatchInput {
                 workspace_id: workspace_id.into(),
                 instrument_id,
-                tests_per_trial: 1,
+                tests_per_trial: DISCOVERY_TESTS_PER_TRIAL,
                 events,
             })
             .map_err(ledger_error)?;

@@ -260,17 +260,21 @@ impl TrialLedger {
         Ok(match admission {
             Admission::Blocked(reason) => AdmissionFence::Blocked(FenceBlocked::Admission(reason)),
             Admission::Count(count) => {
-                // Events are append-only and effectiveness is frozen at
-                // registration, so with the prefix proven none of these can
-                // change; if one did, the registry is inconsistent.
+                // Events are append-only, effectiveness is frozen at
+                // registration and protocols only rise (§22), so with the
+                // prefix proven none of these can move backwards; if one
+                // did, the registry is inconsistent. A raised test count, like
+                // a larger family, enlarges m: the decision must be redone.
                 if count.batch_id != earlier.batch_id
                     || count.family_id != earlier.family_id
-                    || count.tests_per_trial != earlier.tests_per_trial
+                    || count.tests_per_trial < earlier.tests_per_trial
                     || count.batch_effective_trials != earlier.batch_effective_trials
                     || count.family_effective_trials < earlier.family_effective_trials
                 {
                     AdmissionFence::Blocked(FenceBlocked::Inconsistent)
-                } else if count.family_effective_trials == earlier.family_effective_trials {
+                } else if count.family_effective_trials == earlier.family_effective_trials
+                    && count.tests_per_trial == earlier.tests_per_trial
+                {
                     AdmissionFence::Unchanged(count)
                 } else {
                     AdmissionFence::Grew(count)
@@ -315,9 +319,10 @@ impl AdmissionCount {
 /// §6.4 outcome. Only `Unchanged` lets an earlier decision stand as made.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum AdmissionFence {
-    /// Prefix proven, no new effective trial in the family.
+    /// Prefix proven: no new effective trial and the same test count.
     Unchanged(AdmissionCount),
-    /// Prefix proven, the family grew: re-evaluate P12a from this count.
+    /// Prefix proven, and the family grew or its test count rose (§22):
+    /// re-evaluate P12a from this count.
     Grew(AdmissionCount),
     /// The earlier decision cannot be acted on.
     Blocked(FenceBlocked),
@@ -329,7 +334,8 @@ pub enum FenceBlocked {
     Prefix(BindingCheck),
     /// The batch has no admission count any more (e.g. quarantined since).
     Admission(AdmissionBlocked),
-    /// The family shrank, or its family, protocol, batch identity or size changed.
+    /// The family or its test count shrank, or its family, batch identity or
+    /// batch size changed.
     Inconsistent,
 }
 

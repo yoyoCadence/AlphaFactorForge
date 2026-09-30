@@ -2046,7 +2046,7 @@ fn register_lineage_with(
     let registered = ledger.register_batch(&TrialBatchInput {
         workspace_id: workspace_id.into(),
         instrument_id: snapshot.map(|(instrument, _)| instrument),
-        tests_per_trial: 1,
+        tests_per_trial: trial_ledger_workspace::DISCOVERY_TESTS_PER_TRIAL,
         events,
     }).map_err(|error| other(error.to_string()))?;
     let head = trial_ledger_workspace::require_current(ledger, conn)?;
