@@ -3,8 +3,8 @@
 Date: 2026-10-01
 Repo: yoyoCadence/AlphaFactorForge
 Branch: `feat/p12e0-protocol-upgrade` (from merged PR #131, `b3f05c3`)
-PR: pending
-Status: Implemented locally; P12e-1 (circular block bootstrap / Holm) is next.
+PR: [#132](https://github.com/yoyoCadence/AlphaFactorForge/pull/132) (draft)
+Status: Published as draft PR #132 for CI and review; P12e-1 (circular block bootstrap / Holm) is next.
 
 ## Summary
 
