@@ -134,6 +134,11 @@ take-back 的 `stop` 失敗時桌面維持 connect 且 forwarder 不中斷。
 
 明確**不提供**的命令：任意 shell、任意 SQL、任意檔案路徑讀寫、實盤下單。
 
+P12d-2d（2026-09-30）新增兩個 mutating、依 `requestId` 冪等的命令，payload 形狀固定（未知或缺少的 key 回
+`Validation`）：`campaign.freeze` `{declaration}` → `{campaignId}`（後端 `freeze_campaign` 驗證並保存）與
+`campaign.start` `{config, campaignId, instrumentId}` → `{runId}`（找不到已保存的 campaign 回 `NotFound`）。
+細節見 [`research-campaign-declaration-v1.md`](research-campaign-declaration-v1.md) 的 P12d-2d-1 一節。
+
 錯誤回應為結構化物件 `{ code, message, retryable }`，`code` 為固定字串集合，
 包含至少：`UnsupportedProtocol`、`WorkspaceMismatch`、`Unauthorized`、
 `NotOwner`、`StaleOwner`、`DuplicateRequest`、`Validation`、`NotFound`、`Busy`。
