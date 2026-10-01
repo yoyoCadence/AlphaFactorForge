@@ -78,7 +78,7 @@
 | 統計精度預檢 | **契約可用（P12a，未接 runtime）** | `research-precision-v1` 以整數精確判定 Holm 可達解析度、Monte Carlo 相對標準誤與抽樣預算；AlphaBTC 反例（`146/1001≈0.145854`）為 `NOT_ELIGIBLE` 回歸案例（[`research-precision-v1.md`](research-precision-v1.md)）。尚無 runner／命令呼叫 | P12 |
 | 試驗帳本 registry 與工作區接線 | **部分已實作（P12b-1／P12b-2）** | [`trial-ledger-v1.md`](trial-ledger-v1.md) §16–19：registry、匯出／匯入、workspace 綁定、舊紀錄回填及 runner register-before-enqueue 已接線；`precision_plan_from_count` 已具備，但 P12d 尚未把帳本計數接入 admission | P12 |
 | 樣本長度／內層 walk-forward | **規劃契約可用（P12c-1，未接 runtime）** | [`research-walk-forward-v1.md`](research-walk-forward-v1.md)：純 Rust 只在外層 Train 內安排 expanding folds；樣本不足回報 `NOT_ELIGIBLE`。fold 執行與 admission 仍待 P12c-2／P12d | P12 |
-| block-bootstrap／Holm 與跨批次 alpha | 可規劃 | P12e 純計算與規則尚未開始；確認執行與消耗屬 P13 | P12／P13 |
+| block-bootstrap／Holm 與跨批次 alpha | 可規劃 | P12e-0（檢定數只升不降）與 P12e-1（circular block bootstrap／Holm 純計算，[`research-confirmation-statistics-v1`](research-confirmation-statistics-v1.md)）已完成，尚無 runtime 呼叫者；跨批次 alpha 分配（P12e-2）與噪音偽陽性模擬（P12e-3）未開始；確認執行與消耗屬 P13 | P12／P13 |
 | 一次性 Test 消耗 registry | 可規劃 | 現有 Test 從未執行（split contract）；尚無消耗紀錄 | P13 |
 | 引擎封存與備份／還原 | 可規劃 | 只有 contract／identity hashes | P14 |
 | Validation／Test 不進 prompt 的自動測試 | 可規劃 | 契約：ai-provider §7 | P13／P15 |
