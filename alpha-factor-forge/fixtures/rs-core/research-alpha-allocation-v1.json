@@ -1,0 +1,338 @@
+{
+  "contractVersion": "research-alpha-allocation-v1",
+  "description": "P12e-2 alpha allocation cases. Declarations, reserved histories and error messages are hand-written. The expected reports and equal-split schedules are produced by the independent TypeScript reference in src/parity/alphaAllocationFixture.ts (npm run fixtures:alpha-allocation), not by the Rust module. A total of 50000 ppm (0.05) is a fixture choice, not a product default.",
+  "cases": [
+    {
+      "id": "first-confirmation",
+      "declaration": {
+        "contractVersion": "research-alpha-allocation-v1",
+        "rule": "declared-schedule",
+        "scope": "trial-family",
+        "totalAlphaPpm": 50000,
+        "schedule": [
+          20000,
+          15000,
+          10000,
+          5000
+        ]
+      },
+      "reserved": [],
+      "expected": {
+        "contractVersion": "research-alpha-allocation-v1",
+        "rule": "declared-schedule",
+        "scope": "trial-family",
+        "allocationId": "104705944f7da4b3bceb04e805f4fefa35db1930c332d820ec58fad94d1b8e3a",
+        "status": "ELIGIBLE",
+        "reasons": [],
+        "totalAlphaPpm": 50000,
+        "scheduledConfirmations": 4,
+        "reservedConfirmations": 0,
+        "spentAlphaPpm": 0,
+        "confirmationNumber": 1,
+        "alphaPpm": 20000,
+        "remainingConfirmations": 3,
+        "remainingScheduledAlphaPpm": 30000,
+        "unscheduledAlphaPpm": 0
+      }
+    },
+    {
+      "id": "third-confirmation",
+      "declaration": {
+        "contractVersion": "research-alpha-allocation-v1",
+        "rule": "declared-schedule",
+        "scope": "trial-family",
+        "totalAlphaPpm": 50000,
+        "schedule": [
+          20000,
+          15000,
+          10000,
+          5000
+        ]
+      },
+      "reserved": [
+        20000,
+        15000
+      ],
+      "expected": {
+        "contractVersion": "research-alpha-allocation-v1",
+        "rule": "declared-schedule",
+        "scope": "trial-family",
+        "allocationId": "104705944f7da4b3bceb04e805f4fefa35db1930c332d820ec58fad94d1b8e3a",
+        "status": "ELIGIBLE",
+        "reasons": [],
+        "totalAlphaPpm": 50000,
+        "scheduledConfirmations": 4,
+        "reservedConfirmations": 2,
+        "spentAlphaPpm": 35000,
+        "confirmationNumber": 3,
+        "alphaPpm": 10000,
+        "remainingConfirmations": 1,
+        "remainingScheduledAlphaPpm": 5000,
+        "unscheduledAlphaPpm": 0
+      }
+    },
+    {
+      "id": "last-confirmation",
+      "declaration": {
+        "contractVersion": "research-alpha-allocation-v1",
+        "rule": "declared-schedule",
+        "scope": "trial-family",
+        "totalAlphaPpm": 50000,
+        "schedule": [
+          20000,
+          15000,
+          10000,
+          5000
+        ]
+      },
+      "reserved": [
+        20000,
+        15000,
+        10000
+      ],
+      "expected": {
+        "contractVersion": "research-alpha-allocation-v1",
+        "rule": "declared-schedule",
+        "scope": "trial-family",
+        "allocationId": "104705944f7da4b3bceb04e805f4fefa35db1930c332d820ec58fad94d1b8e3a",
+        "status": "ELIGIBLE",
+        "reasons": [],
+        "totalAlphaPpm": 50000,
+        "scheduledConfirmations": 4,
+        "reservedConfirmations": 3,
+        "spentAlphaPpm": 45000,
+        "confirmationNumber": 4,
+        "alphaPpm": 5000,
+        "remainingConfirmations": 0,
+        "remainingScheduledAlphaPpm": 0,
+        "unscheduledAlphaPpm": 0
+      }
+    },
+    {
+      "id": "budget-exhausted",
+      "declaration": {
+        "contractVersion": "research-alpha-allocation-v1",
+        "rule": "declared-schedule",
+        "scope": "trial-family",
+        "totalAlphaPpm": 50000,
+        "schedule": [
+          20000,
+          15000,
+          10000,
+          5000
+        ]
+      },
+      "reserved": [
+        20000,
+        15000,
+        10000,
+        5000
+      ],
+      "expected": {
+        "contractVersion": "research-alpha-allocation-v1",
+        "rule": "declared-schedule",
+        "scope": "trial-family",
+        "allocationId": "104705944f7da4b3bceb04e805f4fefa35db1930c332d820ec58fad94d1b8e3a",
+        "status": "NOT_ELIGIBLE",
+        "reasons": [
+          "alpha_budget_exhausted"
+        ],
+        "totalAlphaPpm": 50000,
+        "scheduledConfirmations": 4,
+        "reservedConfirmations": 4,
+        "spentAlphaPpm": 50000,
+        "confirmationNumber": null,
+        "alphaPpm": null,
+        "remainingConfirmations": 0,
+        "remainingScheduledAlphaPpm": 0,
+        "unscheduledAlphaPpm": 0
+      }
+    },
+    {
+      "id": "equal-split-leaves-the-remainder-unscheduled",
+      "declaration": {
+        "contractVersion": "research-alpha-allocation-v1",
+        "rule": "declared-schedule",
+        "scope": "trial-family",
+        "totalAlphaPpm": 50000,
+        "schedule": [
+          16666,
+          16666,
+          16666
+        ]
+      },
+      "reserved": [
+        16666
+      ],
+      "expected": {
+        "contractVersion": "research-alpha-allocation-v1",
+        "rule": "declared-schedule",
+        "scope": "trial-family",
+        "allocationId": "a6e5e31143cdd055b5722a6b3db9cf3a5eef779253bf3c9a5aea6a19dec48683",
+        "status": "ELIGIBLE",
+        "reasons": [],
+        "totalAlphaPpm": 50000,
+        "scheduledConfirmations": 3,
+        "reservedConfirmations": 1,
+        "spentAlphaPpm": 16666,
+        "confirmationNumber": 2,
+        "alphaPpm": 16666,
+        "remainingConfirmations": 1,
+        "remainingScheduledAlphaPpm": 16666,
+        "unscheduledAlphaPpm": 2
+      }
+    },
+    {
+      "id": "one-confirmation-takes-the-whole-budget",
+      "declaration": {
+        "contractVersion": "research-alpha-allocation-v1",
+        "rule": "declared-schedule",
+        "scope": "trial-family",
+        "totalAlphaPpm": 50000,
+        "schedule": [
+          50000
+        ]
+      },
+      "reserved": [],
+      "expected": {
+        "contractVersion": "research-alpha-allocation-v1",
+        "rule": "declared-schedule",
+        "scope": "trial-family",
+        "allocationId": "9bdc6326c0e854b6872fe3922c130fdf0f584f7447c2dab9b3340ee39ccc1709",
+        "status": "ELIGIBLE",
+        "reasons": [],
+        "totalAlphaPpm": 50000,
+        "scheduledConfirmations": 1,
+        "reservedConfirmations": 0,
+        "spentAlphaPpm": 0,
+        "confirmationNumber": 1,
+        "alphaPpm": 50000,
+        "remainingConfirmations": 0,
+        "remainingScheduledAlphaPpm": 0,
+        "unscheduledAlphaPpm": 0
+      }
+    },
+    {
+      "id": "schedule-one-ppm-above-the-budget",
+      "declaration": {
+        "contractVersion": "research-alpha-allocation-v1",
+        "rule": "declared-schedule",
+        "scope": "trial-family",
+        "totalAlphaPpm": 50000,
+        "schedule": [
+          25000,
+          25001
+        ]
+      },
+      "reserved": [],
+      "error": "allocation.schedule: allocates 50001 ppm, above totalAlphaPpm 50000"
+    },
+    {
+      "id": "zero-share",
+      "declaration": {
+        "contractVersion": "research-alpha-allocation-v1",
+        "rule": "declared-schedule",
+        "scope": "trial-family",
+        "totalAlphaPpm": 50000,
+        "schedule": [
+          50000,
+          0
+        ]
+      },
+      "reserved": [],
+      "error": "allocation.schedule[1]: must be an integer in [1, 999999]"
+    },
+    {
+      "id": "reserved-alpha-differs-from-the-schedule",
+      "declaration": {
+        "contractVersion": "research-alpha-allocation-v1",
+        "rule": "declared-schedule",
+        "scope": "trial-family",
+        "totalAlphaPpm": 50000,
+        "schedule": [
+          20000,
+          15000,
+          10000,
+          5000
+        ]
+      },
+      "reserved": [
+        20000,
+        10000
+      ],
+      "error": "allocation: confirmation 2 reserved 10000 ppm but the schedule declares 15000"
+    },
+    {
+      "id": "more-reservations-than-the-schedule",
+      "declaration": {
+        "contractVersion": "research-alpha-allocation-v1",
+        "rule": "declared-schedule",
+        "scope": "trial-family",
+        "totalAlphaPpm": 50000,
+        "schedule": [
+          20000,
+          15000,
+          10000,
+          5000
+        ]
+      },
+      "reserved": [
+        20000,
+        15000,
+        10000,
+        5000,
+        5000
+      ],
+      "error": "allocation: 5 confirmations are reserved but the schedule declares 4"
+    }
+  ],
+  "equalSchedules": [
+    {
+      "id": "three-confirmations-floor",
+      "totalAlphaPpm": 50000,
+      "confirmations": 3,
+      "schedule": [
+        16666,
+        16666,
+        16666
+      ]
+    },
+    {
+      "id": "four-confirmations-exact",
+      "totalAlphaPpm": 50000,
+      "confirmations": 4,
+      "schedule": [
+        12500,
+        12500,
+        12500,
+        12500
+      ]
+    },
+    {
+      "id": "one-ppm-each",
+      "totalAlphaPpm": 7,
+      "confirmations": 7,
+      "schedule": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "id": "share-would-floor-to-zero",
+      "totalAlphaPpm": 7,
+      "confirmations": 8,
+      "error": "allocation: confirmations must be in [1, 7] so every share is at least 1 ppm"
+    },
+    {
+      "id": "no-confirmations",
+      "totalAlphaPpm": 50000,
+      "confirmations": 0,
+      "error": "allocation: confirmations must be in [1, 50000] so every share is at least 1 ppm"
+    }
+  ]
+}

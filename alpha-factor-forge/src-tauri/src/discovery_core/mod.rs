@@ -1,5 +1,6 @@
 //! Pure computation modules for Strategy Discovery.
 
+pub mod alpha_allocation;
 pub mod backtest;
 pub mod benchmarks;
 pub mod campaign;
