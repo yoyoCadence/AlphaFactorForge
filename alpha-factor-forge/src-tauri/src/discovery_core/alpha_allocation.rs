@@ -273,6 +273,13 @@ pub fn equal_alpha_schedule(
 /// every confirmation the family has already reserved, oldest first, counting
 /// ones that failed or never finished. It must equal the schedule's prefix:
 /// a history that contradicts the declaration is an error, not an allocation.
+///
+/// Only amounts are compared. This says nothing about where a reservation
+/// came from, which confirmation number it was made for, whether two entries
+/// are the same reservation, or whether the list is complete: with equal
+/// neighbouring shares, two independent reservations of one confirmation look
+/// exactly like that confirmation and the next. The caller must settle
+/// identity and numbering before building `reserved` (contract §9).
 pub fn allocate_confirmation_alpha(
     declaration: &AlphaAllocationDeclaration,
     reserved: &[u64],

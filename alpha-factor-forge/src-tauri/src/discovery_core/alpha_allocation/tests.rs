@@ -383,6 +383,47 @@ fn a_history_that_contradicts_the_schedule_is_refused() {
     assert_eq!(reset.alpha_ppm, Some(20_000));
 }
 
+/// PR #134 review R1. The history is a list of amounts, so the prefix check
+/// compares amounts and nothing else: it cannot see which reservation an
+/// amount came from or which confirmation number it was made for.
+#[test]
+fn amounts_alone_cannot_tell_a_duplicated_confirmation_from_the_next_one() {
+    // Two registries each reserved "confirmation 1" of an equal split. Kept
+    // side by side and projected to amounts, that is `[16666, 16666]` — the
+    // very list a family's legitimate first and second confirmations produce.
+    let equal = budget(50_000, &equal_alpha_schedule(50_000, 3).unwrap());
+    let legitimate_first_and_second = [equal.schedule[0], equal.schedule[1]];
+    let two_independent_firsts = [equal.schedule[0], equal.schedule[0]];
+    assert_eq!(legitimate_first_and_second, two_independent_firsts);
+    let report = allocate_confirmation_alpha(&equal, &two_independent_firsts).unwrap();
+    // Current, intended behaviour: the third share is allocated. Refusing
+    // equal amounts would refuse every legitimate equal split, so P13 must
+    // verify reservation identity and confirmation numbers BEFORE it turns
+    // records into amounts.
+    assert_eq!(report.status, AlphaAllocationStatus::Eligible);
+    assert_eq!(report.confirmation_number, Some(3));
+    assert_eq!(report.alpha_ppm, Some(16_666));
+    assert_eq!(report.spent_alpha_ppm, 33_332);
+
+    // The same holds for any two neighbouring shares that happen to be equal.
+    let flat_start = budget(50_000, &[20_000, 20_000, 10_000]);
+    assert_eq!(
+        allocate_confirmation_alpha(&flat_start, &[20_000, 20_000])
+            .unwrap()
+            .alpha_ppm,
+        Some(10_000)
+    );
+
+    // Only when neighbouring shares differ does the duplicate show up — as a
+    // side effect of the amounts, not as a guarantee of the contract.
+    assert_eq!(
+        allocate_confirmation_alpha(&declaration(), &[20_000, 20_000])
+            .unwrap_err()
+            .0,
+        "allocation: confirmation 2 reserved 20000 ppm but the schedule declares 15000"
+    );
+}
+
 #[test]
 fn an_equal_split_floors_and_never_rounds_up() {
     assert_eq!(equal_alpha_schedule(50_000, 3).unwrap(), vec![16_666; 3]);

@@ -6,7 +6,7 @@ Branch: `feat/p12e2-alpha-allocation`
 PR: [#134](https://github.com/yoyoCadence/AlphaFactorForge/pull/134)
 Reviewed head: `a8a7626a953fba99a819536bdb042898e5981082`
 Base: `345203367ac5428a0445efd0aaadedd28c1fbd9b` (merged #133)
-Status: Needs R1 contract clarification and a boundary test before merge; pure allocation arithmetic accepted. P13 advice below is a recommendation for the maintainer, not an adopted decision.
+Status: R1 resolved on the PR branch (2026-10-01, see Resolution); awaiting re-review/merge. Pure allocation arithmetic accepted. P13 advice below is a recommendation for the maintainer, not an adopted decision.
 
 ## Summary
 
@@ -88,3 +88,35 @@ P13 的資料表／匯入實作留在 P13，不需納入這個 PR。
 - 未重跑作者所述 mutation checks 或 clippy；未在本機重跑 Playwright，遠端 e2e 已成功。
 
 本次只新增驗收 handoff 與 task board 記錄。產品程式未修改，PR 未合併；本地驗收紀錄尚未 commit／push／張貼到 GitHub。
+
+## Resolution (2026-10-01)
+
+R1 was acted on in PR #134, on top of the reviewed head `a8a7626`. This
+handoff and its task board line were committed unchanged first (`eb05452`).
+
+1. **Contract and PR description corrected.** Contract §3 now states what the
+   prefix check does not establish, with the `[16666, 16666, 16666]`
+   counterexample; §9 item 5 no longer claims a merged duplicate always
+   stops allocation; the PR description was rewritten to match. The original
+   handoff has a Resolution instead of an in-place edit.
+2. **P13 responsibility made explicit** (§9 item 5): verify family/declaration
+   binding, reservation identity and confirmation number on the stored
+   records and detect conflicts before projecting to amounts; never pass two
+   independent reservations of one number on as `k` and `k + 1`. §9 item 1
+   adds the note from the review that `allocationId` does not contain the
+   family, so the budget is keyed by family.
+3. **Boundary test added:**
+   `amounts_alone_cannot_tell_a_duplicated_confirmation_from_the_next_one`
+   pins the current behaviour (third share allocated for the equal split, and
+   for `[20000, 20000, 10000]`) and the contrast case that is refused.
+   Legitimate equal splits are still allocated; no equal amount is refused.
+   The function's doc comment carries the same warning.
+
+The three P13 recommendations are recorded in contract §9.1 and marked as
+recommendations, not adopted decisions. The cross-instrument bound in §10 now
+uses the review's `min(1, Σ family totals)` wording. The P12e-3 advice is not
+acted on here; it is input for that slice.
+
+Verification after the fix: 515 Rust (122 + 391 + 2), all-target check,
+clippy (five existing warnings), 1010 Vitest, typecheck and build pass. No
+product behaviour changed.

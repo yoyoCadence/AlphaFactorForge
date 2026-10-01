@@ -3,8 +3,8 @@
 Date: 2026-10-01
 Repo: yoyoCadence/AlphaFactorForge
 Branch: `feat/p12e2-alpha-allocation` (from merged PR #133, `3452033`)
-PR: opened from this branch as a draft (its number is recorded by the next slice; no follow-up docs commit)
-Status: Implemented and verified locally; P12e-3 (noise-data false-positive simulation) is next.
+PR: [#134](https://github.com/yoyoCadence/AlphaFactorForge/pull/134) (draft)
+Status: Published as draft PR #134; acceptance-review R1 fixed on the branch (see Resolution). P12e-3 (noise-data false-positive simulation) is next.
 
 ## Summary
 
@@ -103,3 +103,42 @@ P12e-1 was published as PR #133 and merged as `3452033`.
   pass. Clippy: the five existing warnings only. rustfmt on the new Rust
   files; `git diff --check` pass.
 - No UI change; Playwright not rerun locally.
+
+## Resolution (2026-10-01) — PR #134 acceptance review, R1
+
+Published as draft PR [#134](https://github.com/yoyoCadence/AlphaFactorForge/pull/134).
+The [acceptance review](2026-10-01-pr134-alpha-allocation-acceptance-review-v1.md)
+accepted the allocation arithmetic and all six design choices, and found one
+P2 documentation defect, fixed on this branch:
+
+- **Design choice 1 overstated what the check proves.** It said two
+  registries that each reserved "confirmation 1" cannot be merged into a
+  usable history. That holds only when neighbouring shares differ. With equal
+  shares (`[16666, 16666, 16666]`) the two reservations project to
+  `[16666, 16666]`, the same list a legitimate first and second confirmation
+  produce, and the third share is allocated.
+- **What the amount prefix actually checks:** amounts, and nothing else. It
+  gives no guarantee about a reservation's source, its identity, the
+  uniqueness of confirmation numbers, or the completeness of the history.
+- **P13 responsibility, now explicit** (contract §3 and §9 item 5): before
+  projecting stored records to amounts, verify each reservation's family and
+  declaration binding, its identity and its confirmation number, and detect
+  conflicts there. Two independent reservations of one confirmation number
+  must never be passed on as confirmations `k` and `k + 1`. Because
+  `allocationId` does not contain the family, the stored budget is keyed by
+  the family (§9 item 1).
+- **Behaviour unchanged on purpose.** Refusing equal amounts would refuse
+  every legitimate equal split. A new test,
+  `amounts_alone_cannot_tell_a_duplicated_confirmation_from_the_next_one`,
+  records the equal-share case, a second equal-neighbour case, and the
+  differing-share case that is refused only as a side effect.
+- The review's three P13 recommendations (allocated-share re-check, conflict
+  handling, cross-instrument scope) are recorded in contract §9.1 as
+  recommendations, **not** adopted decisions. They replace nothing in
+  "Required Action / Decision" item 3 until the maintainer decides.
+
+Verification after the fix: `cargo test --locked` **515 passed (122 library +
+391 desktop + 2 service)** = 514 + the new test; `cargo check --locked
+--all-targets` pass; clippy the five existing warnings only; rustfmt on the
+two allocation Rust files; `git diff --check` pass. No TypeScript, fixture or
+UI change, so `npm test` stays at 1010 (rerun: pass).

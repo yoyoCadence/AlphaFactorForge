@@ -76,6 +76,20 @@ Nothing is carried over or recycled: a confirmation that rejected no
 hypothesis, failed, or was abandoned has still spent its share, and a share is
 never enlarged by what earlier confirmations "did not use".
 
+**What the prefix check does not establish** (PR #134 review, R1). `reserved`
+is a list of amounts, and step 2 compares amounts only. It gives no guarantee
+about where a reservation came from, which reservation an entry is, whether
+confirmation numbers are unique, or whether the list is complete. In
+particular it does **not** detect two independent reservations of the same
+confirmation number when neighbouring shares are equal: with the schedule
+`[16666, 16666, 16666]`, two registries that each reserved "confirmation 1"
+yield `[16666, 16666]` — exactly what a legitimate first and second
+confirmation yield — and the third share is allocated (tested). A duplicate is
+refused only when the neighbouring shares happen to differ (`[20000, 20000]`
+against `[20000, 15000, …]`), which is a side effect, not a rule. Refusing
+equal amounts would refuse every legitimate equal split, so the function
+keeps this behaviour and §9 puts the check where the identities are.
+
 ## 4. Equal split
 
 `equal_alpha_schedule(totalAlphaPpm, confirmations)` returns `confirmations`
@@ -157,9 +171,11 @@ a product default.
 The function is pure and trusts its inputs. For the budget to mean anything:
 
 1. **One declaration per family, kept with the trial registry** (outside the
-   workspace), fixed before the family's first confirmation and identified by
-   `allocationId`. A different declaration for a family that already has one
-   must be refused; otherwise redeclaring is a reset.
+   workspace), fixed before the family's first confirmation. A different
+   declaration for a family that already has one must be refused; otherwise
+   redeclaring is a reset. `allocationId` identifies the declaration's
+   content only — it does not contain the family — so the stored budget must
+   be keyed by the family, never by `allocationId` alone.
 2. **Reserve before running**, atomically, and pass *every* reservation of
    the family as `reserved`. A caller that passes a shorter list gets an
    earlier confirmation number again — exactly the reset decision 2 forbids,
@@ -170,19 +186,50 @@ The function is pure and trusts its inputs. For the budget to mean anything:
 4. **Reconcile with the campaign.** A campaign's `sampling.alphaPpm`
    ([`research-campaign-declaration-v1.md`](research-campaign-declaration-v1.md))
    is what admission planned with. If it differs from the allocated share,
-   P13 has to refuse or re-check; this contract does not choose.
-5. **Union on export/import.** Declarations and reservations must travel
-   with the ledger. If two registries each reserved "confirmation 1" for the
-   same family, the merged history contradicts the schedule and §3 stops
-   allocating. v1 has no rule for resolving that; it fails closed.
+   P13 has to refuse or re-check; this contract does not choose (§9.1).
+5. **Verify identity and numbering before projecting records to amounts**
+   (corrected after the PR #134 review; the earlier text wrongly claimed that
+   a merged history with two "confirmation 1" reservations always contradicts
+   the schedule — see §3). Declarations and reservations must travel with
+   the ledger on export/import. Before P13 builds `reserved`, it must check,
+   on the stored records themselves: the family and declaration each
+   reservation is bound to, each reservation's identity, and its
+   confirmation number — and it must detect conflicts there. Two independent
+   reservations of one confirmation number must never be passed on as
+   confirmations `k` and `k + 1`. What P13 does with such a conflict is its
+   own design (§9.1); this module cannot see it.
 6. `NOT_ELIGIBLE` here blocks confirmation only; exploration may continue
    (maintainer decision of 2026-09-29).
+
+### 9.1 Acceptance-review recommendations for P13 (not adopted decisions)
+
+From the [PR #134 acceptance review](../handoffs/2026-10-01-pr134-alpha-allocation-acceptance-review-v1.md).
+They are recorded so P13 starts from them; each still needs a maintainer
+decision and its own contract text.
+
+1. **Alpha mismatch (item 4).** Use the allocated share and re-run P12a with
+   the latest fenced family count before anything is revealed, with the
+   frozen sample count and cap. If that is insufficient, block the
+   confirmation. Keep the original campaign as the audit record; never add
+   samples or change alpha after results are seen.
+2. **Reservation conflicts (item 5).** An exact replay of the same
+   reservation may be deduplicated. Different reservations for the same
+   confirmation number keep all records and the conflict evidence, and stop
+   further allocation for that family — no renumbering, no deleting failed
+   records, no new declaration, no cleared budget.
+3. **Across instruments (§10).** Keep per-family budgets and state the scope
+   of the guarantee. If an overall bound is wanted later, declare a
+   research-level total first and divide it among families.
 
 ## 10. Limits
 
 - **Per-family budgets do not add up to a portfolio guarantee.** Each
-  instrument has its own total. Across `N` instruments, the chance of at
-  least one false confirmation somewhere can approach `N × total`.
+  instrument has its own total. Across families the bound on at least one
+  false confirmation somewhere is `min(1, Σ family totals)` — `min(1, N ×
+  total)` for `N` instruments with the same total. "5% per family" is not
+  "5% for the whole research programme".
+- **The amount-only history proves little** (§3): it cannot show reservation
+  identity, unique confirmation numbers or completeness.
 - The total and the shares are declared numbers. Nothing here says which
   total is appropriate or checks that a schedule is sensible; a schedule that
   spends most of the budget first leaves later confirmations very strict.
