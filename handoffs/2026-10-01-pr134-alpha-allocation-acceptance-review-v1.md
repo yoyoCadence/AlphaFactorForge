@@ -6,7 +6,7 @@ Branch: `feat/p12e2-alpha-allocation`
 PR: [#134](https://github.com/yoyoCadence/AlphaFactorForge/pull/134)
 Reviewed head: `a8a7626a953fba99a819536bdb042898e5981082`
 Base: `345203367ac5428a0445efd0aaadedd28c1fbd9b` (merged #133)
-Status: R1 resolved on the PR branch (2026-10-01, see Resolution); awaiting re-review/merge. Pure allocation arithmetic accepted. The three P13 recommendations below were adopted by the maintainer on 2026-10-01 (see the second Resolution).
+Status: Re-review accepted at `56be681` (2026-10-02, see final Resolution); R1 closed, no merge-blocking findings. PR not merged by this review. The three P13 recommendations below were adopted by the maintainer on 2026-10-01 (see the second Resolution).
 
 ## Summary
 
@@ -137,3 +137,78 @@ They are recorded as decisions in contract §9.1 and on the P13 row of the
 task board. The finer points of the recommendations that the decision does
 not spell out stay as input for the P13 contract. The P12e-3 advice is
 unchanged: input for that slice.
+
+## Resolution (2026-10-02) — independent re-review at `56be681`
+
+Reviewed head: `56be681c5029ade7036d7d9ed0f1872e23b8d831`.
+Result: **Accepted. R1 is closed; no new merge-blocking findings.**
+
+The three required actions are complete:
+
+1. Contract §3/§9.5 and the PR description now explain that the prefix check
+   verifies amounts only; the earlier guarantee about merged duplicate
+   confirmation numbers is explicitly corrected. The original handoff has an
+   appended Resolution, preserving the historical record.
+2. P13 must verify family/declaration binding, reservation identity and
+   confirmation numbers before projecting records to amounts. The stored
+   budget is keyed by family because `allocationId` does not contain it.
+3. The new boundary test covers the equal split, equal adjacent shares in an
+   otherwise unequal schedule, and the different-share control that is
+   refused. Legitimate equal splits retain their existing behavior.
+
+The changes to production Rust since `a8a7626` are doc comments only; the
+allocator's executable behavior is unchanged. `81101a3..56be681` changes only
+four documentation/task files. The three maintainer decisions are consistently
+recorded in contract §9.1, the PR description and the task board. P12e-3/P13
+remain open; neither is implemented by this PR.
+
+### Re-review verification
+
+- Independently run locally:
+  `cargo test --locked --lib discovery_core::alpha_allocation::tests` —
+  **11 passed**, including the R1 boundary test and the P12e-1/P12a alpha
+  integration test.
+- `rustfmt --check` on the two allocation Rust files and `git diff --check`
+  pass.
+- Latest head's [CI run 36879266778](https://github.com/yoyoCadence/AlphaFactorForge/actions/runs/36879266778)
+  succeeds in all six jobs: typecheck, test, build, cargo-check, native-smoke
+  and e2e. The backend log confirms **515 passed (122 + 391 + 2)**; Vitest
+  confirms 1010 tests in 58 files.
+- Full frontend/backend suites were not rerun locally in this re-review:
+  changed executable code is limited to the added Rust boundary test, and
+  the final-head CI supplies the complete-suite evidence.
+
+### Separate CI follow-up — does not block PR #134
+
+The superseded `81101a3456972e9a91af085621ec1de77ecf5814` head's
+[CI run 36878575129](https://github.com/yoyoCadence/AlphaFactorForge/actions/runs/36878575129)
+failed in `cargo-check` during backend tests, after all 122 library tests
+passed. The log confirms the same startup assertion in three host tests:
+
+- `a_failed_take_back_keeps_forwarding_the_services_events`
+- `a_missing_terminal_ledger_row_makes_the_window_re_read_once`
+- `a_take_back_after_the_service_died_still_re_owns_the_workspace`
+
+Each failed at `discovery_runner/tests/host.rs:123` with
+`the service never published`. That helper waits on the shared
+`TEST_TIMEOUT = 10 seconds` from `discovery_runner/tests.rs:12`. The failed
+desktop suite took 188.88 seconds, versus 45.76 seconds in the successful
+latest run. The host harness/runtime did not change in this PR, and the two
+heads' Rust trees are identical. This supports a load-sensitive existing
+startup-test problem; it does **not** establish the exact root cause or prove
+that every such failure is infrastructure-only.
+
+Recommend a separate bounded test-harness task/PR: expose service-thread
+errors or early exit and startup-stage timings in the wait failure, retain a
+finite test-only wait, and ensure failed startup cleans up the service. Use
+that evidence to choose a configurable wait (30 seconds is a candidate,
+not an established fix) or controlled test concurrency. Keep production
+timeouts unchanged and avoid retries that hide failures. Recorded as
+`CI-HOST-STARTUP-001` in Backlog; implementation has not started.
+
+The PR description's CI checklist still has an unchecked item despite this
+successful final-head run; checking it and linking the run is a documentation
+nit, not an acceptance blocker.
+
+Review record updated locally only; no production source change, PR review
+submission, commit, push or merge was performed by this re-review.
