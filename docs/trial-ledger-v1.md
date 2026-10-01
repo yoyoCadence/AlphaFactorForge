@@ -11,6 +11,9 @@
 > 匯出改為 `trial-ledger-export-v2`，保留家族隔離、來源衝突與 genesis 證據（§8）；已記錄衝突的來源永久不能授權替換、
 > 空 registry 以 genesis 證據恢復（§7.3）；每次成功開啟都保存觀察到的鏈頭（§7.2）；`splitHash` 綁定實際推導的切分（§4.3）。
 > 實作紀錄與相容性說明見 §20。
+> 修訂四（2026-10-01，維護者決定）：家族的 `testsPerTrial` **只升不降**——宣告較多檢定的登記會升級家族、較少的拒絕；
+> 匯入時 protocol 不同改為取最大值聯集，不再隔離；匯出升為 `trial-ledger-export-v3` 帶出升級紀錄；discovery 每個 trial
+> 登記 2 個檢定（淨報酬、相對 buy-and-hold 的超額）。取代下文 §3、§8.2、A17 與 §19 的相關舊規則，見 §22。
 > 上游：[`plans/active-plan.md`](plans/active-plan.md) §4.4／§4.5 與 §5 P12 列；
 > 決策來源：[`../handoffs/2026-09-23-pr115-acceptance-review-v1.md`](../handoffs/2026-09-23-pr115-acceptance-review-v1.md)
 > 的「Follow-up answers」與維護者 2026-09-23 的回覆；消費端：[`research-precision-v1.md`](research-precision-v1.md)（P12a）。
@@ -105,6 +108,8 @@ familyId   = "trial-family-v1:" + sha256(familyKey)
   {"correction":"holm","testsPerTrial":<n>}`；之後任何登記的 protocol 不同即拒絕（`family_protocol_mismatch`）。
   因此一個家族的 `testsPerTrial` 必然一致，符合 P12a v1 的假設，也不能靠改 protocol 開新家族。
   改變 protocol 需要新的契約版本與維護者決定。
+  **§22 修訂（2026-10-01）**：上述「不同即拒絕」改為「只升不降」。宣告較少檢定的登記仍拒絕；宣告較多者在同一交易升級家族，
+  家族的有效 `testsPerTrial` 為首次釘選值與所有升級中的最大值，一個家族在任一時刻仍只有一個 m。首次釘選的列本身不變。
 - 已知缺口：同一經濟標的在不同場所（例如兩個交易所的 BTC）是不同 instrument id，v1 視為不同家族。
   跨場所別名延後至具明確等價與合併規則的契約版本（§15）；v1 的計數保證限於單一標準化 instrument。
 
@@ -385,6 +390,7 @@ JSON Lines；第一行 header：
 | `event` | 完整 payload、`originRegistryId`、`batchId`、`seq`、`chain`（皆為來源 registry 的值，依 `seq` 遞增） |
 | `receipt` | `batchId`、`receiptRegistryId`、`familyEffectiveBefore`、`batchEffectiveTrials` |
 | `originCheckpoint` | 來源 registry 持有的其他 registry 檢查點（`originRegistryId`、`originSeq`、`eventId`、`originChain`），每個來源都從 seq 1 起完整列出 |
+| `protocolUpgrade` | v3（§22）：家族高於首次釘選的 `testsPerTrial`（`familyId`、`testsPerTrial`）；緊接在 `family` 之後，家族須在檔內且已釘選，數值須大於釘選值 |
 | `originGenesis` | v2：來源已驗證其創世值的其他 registry（`originRegistryId`，不可為來源自己） |
 | `familyConflict` | v2：來源 `family_conflicts` 的每個相異內容（`familyId`、`kind`、`detailJson`），不含本地時間戳 |
 | `registryConflict` | v2：來源 `registry_conflicts` 的每個相異內容（`originRegistryId`、`detailJson`） |
@@ -394,6 +400,9 @@ JSON Lines；第一行 header：
 **版本 v2（§20）**：header 的 `version` 為 `trial-ledger-export-v2`，`schemaVersion` 為 registry 最新 migration；
 後三種紀錄依上表順序附在 `originCheckpoint` 之後。v1 檔無法表示來源是否已隔離家族，匯入會洗掉隔離，因此一律拒絕
 （`import_integrity_failed`）；runtime 尚未提供匯出命令，實際上不存在需要相容的 v1 檔。
+
+**版本 v3（§22）**：header 的 `version` 為 `trial-ledger-export-v3`；`protocolUpgrade` 列在 `family` 之後、`batch` 之前。
+v2 檔無法帶出升級後的檢定數，匯入會讓目標家族的 m 變小，因此與 v1 一樣拒絕。
 
 ### 8.2 匯入規則
 
@@ -408,6 +417,8 @@ JSON Lines；第一行 header：
    衝突的列不寫入；在 `family_conflicts` 追加紀錄並**隔離該家族**。其他家族照常匯入。
    同一 `(originRegistryId, originSeq)` 的檢查點鏈值不同（同一 registry 出現兩段歷史）→ 該來源的檢查點全部不寫入，
    在 `registry_conflicts` 追加紀錄；§7.3 因而無法以該來源接受替換。
+   **§22 修訂**：`protocol_json` 不同不再是衝突，不隔離家族；檢定數只升不降，聯集取所有釘選值與升級中的最大值
+   （高於本地釘選值者記為本地升級）。`familyKey` 不同仍是衝突。
 3. **單一交易、依外鍵順序寫入**（`foreign_keys = ON`）：家族 → 批次 → 事件（以來源 `seq` 順序接到本地鏈，
    保存 `origin_registry_id`）→ 收據 → 檢查點（來源 registry 自己的鏈，以及檔內其他來源的檢查點）。
    已存在的相同列略過。
@@ -498,6 +509,14 @@ CREATE TABLE origin_genesis (               -- §7.3 空前綴證據；只經匯
   origin_registry_id TEXT PRIMARY KEY,
   recorded_at        TEXT NOT NULL
 );                                          -- migration 由 registry_imports 與 origin_checkpoints 回填
+-- registry migration 0003_family_protocol_upgrades（§22）
+CREATE TABLE family_protocol_upgrades (     -- 只升不降；有效 testsPerTrial = max(釘選值, 本表)
+  family_id       TEXT    NOT NULL REFERENCES trial_families(family_id),
+  tests_per_trial INTEGER NOT NULL CHECK (tests_per_trial >= 2),
+  protocol_json   TEXT    NOT NULL,
+  recorded_at     TEXT    NOT NULL,
+  PRIMARY KEY (family_id, tests_per_trial)
+);
 ```
 
 所有表以 `BEFORE UPDATE`／`BEFORE DELETE` 觸發器 `RAISE(ABORT)`，唯一例外是 `trial_families.protocol_json`
@@ -573,7 +592,7 @@ pub fn precision_plan_from_count(count: &AdmissionCount, sampling: &SamplingPlan
 | A14 | 兩份 registry 各自新增試驗後互相匯入 | 聯集；計數 = 去重後總數，不是較大值 |
 | A15 | 匯入含相同 idempotencyKey、不同 payload 的事件 | 家族隔離，資格判定停止 |
 | A16 | 匯出檔被改一個位元組 | `import_integrity_failed`，無部分寫入 |
-| A17 | 家族第二批使用不同 `testsPerTrial` | `family_protocol_mismatch` |
+| A17 | 家族第二批使用不同 `testsPerTrial` | `family_protocol_mismatch`（§22 修訂：只有**較少**時拒絕；較多時升級家族，m 變大） |
 | A18 | 無 snapshot 的 legacy dataset | `family_unknown`，不能取得資格 |
 | A19 | registry 目錄設在工作區內（或反之） | 開啟被拒 |
 | A20 | P12a 串接 | 依 §5 組出的 plan 對 AlphaBTC 等價計數得 `146/1001` 且 `NOT_ELIGIBLE` |
@@ -724,7 +743,7 @@ P12b-2b 在建立 attempts 的同一筆工作區交易內呼叫，不自行提�
 - desktop 與 service 共用 `runtime::open_workspace`：取得工作區 ownership 後，開啟使用者本機資料目錄中的共享 registry，檢查既有 binding；若 registry 遺失或鏈回退／分歧，停止開啟。第一次綁定會依家族回填現有 P05 attempt，registry 先提交，事件 ID 與鏈頭再由同一工作區交易提交；中斷後重試可重放原批次。
 - 對沒有 attempt 的 pre-P05 `validation_records`，啟動報告列出可辨識 snapshot 的受影響家族 `legacy_trials_unknown`。registry 已登記、工作區尚未有 attempt 的事件列為 orphan；兩類都保留證據，不補造歷史次數。
 - runner 於入隊前以 frozen lineage 登記本批 variant，並在同一工作區交易寫入 job、attempt、事件 ID 與鏈頭。恢復更早、沒有 P05 attempt 的 queued run 時，先補 legacy 事件再建 attempt。claim 前驗證 binding 與 registry 中的事件；工作區 claim 交易也拒絕 NULL 連結（`trial_not_registered`）。失敗／取消不刪除已登記事件。
-- 無唯一 dataset snapshot 時使用 `family_unknown`，不猜測 instrument 或 snapshot；舊 attempt 無法可靠還原的 split／seeds 保持 NULL。現行 discovery 每個 candidate 暫以一個檢定宣告 `testsPerTrial = 1`；P12d 必須在使用 P12a admission 前凍結並核對完整 campaign protocol，若要改變已釘選的家族 protocol，需先制定新契約版本。
+- 無唯一 dataset snapshot 時使用 `family_unknown`，不猜測 instrument 或 snapshot；舊 attempt 無法可靠還原的 split／seeds 保持 NULL。現行 discovery 每個 candidate 暫以一個檢定宣告 `testsPerTrial = 1`；P12d 必須在使用 P12a admission 前凍結並核對完整 campaign protocol，若要改變已釘選的家族 protocol，需先制定新契約版本。（§22 起改為 2，並以只升不降規則升級既有家族。）
 - 此切片只建立試驗登記與執行圍欄；P12a–c 的資格／確認阻擋仍由 P12d 接線，portable 非有效 benchmark 證明仍待後續契約。
 
 ---
@@ -803,3 +822,30 @@ dataset、候選 index 存在且其 strategy hash 相符時才填入；否則為
   [`research-campaign-declaration-v1.md`](research-campaign-declaration-v1.md) 的 P12d-2b 一節。
 - 圍欄回傳前已結束讀取交易，僅證明該次讀取的狀態；`Unchanged` 不是可延後使用的派送許可。
   P13 必須把最後圍欄與確認入隊同步，避免中間新增試驗或匯入後仍用舊判定。
+
+---
+
+## 22. 實作紀錄：P12e-0 檢定數只升不降（2026-10-01）
+
+**維護者決定（2026-10-01）**：每個 trial 做兩個檢定——淨報酬大於零，以及相對 buy-and-hold 的逐 bar 超額大於零，分開報告
+（P12e）。既有家族已被 discovery 釘在 `testsPerTrial = 1`，因此帳本改為「只升不降」，而不是開新家族版本：
+開新版本會讓計數從零開始，正是本規格要防止的重設。
+
+- **登記（§6.1 第 1 點之後）**：家族已釘選時，批次宣告的 `testsPerTrial` 小於家族有效值 → `family_protocol_mismatch`；
+  大於 → 在同一筆 `BEGIN IMMEDIATE` 交易追加一列 `family_protocol_upgrades`（只能追加），家族有效值變成新值；相等 → 照常。
+  非有效批次的重播仍不受檢查（§16 第 9 點）。有效值 = 首次釘選值與所有升級中的最大值；`admissionCount.testsPerTrial` 取有效值。
+- **registry migration `0003_family_protocol_upgrades`**：`(family_id, tests_per_trial)` 為主鍵，`tests_per_trial ≥ 2`，
+  有 UPDATE／DELETE 觸發器。每列都大於該家族的釘選值。
+- **匯出 v3／匯入**：新增 `protocolUpgrade` 紀錄；匯入時 protocol 不同不再隔離，而是把來源的釘選值與升級中大於本地釘選值者
+  記為本地升級（聯集取最大值，重複匯入冪等）。v1、v2 檔一律拒絕。
+- **圍欄（§21）**：有效 `testsPerTrial` 變大與家族變大一樣回傳 `Grew`（以新的 m 重算 P12a）；變小才是 `Inconsistent`。
+  因此升級前做出的 `ELIGIBLE` 判定在被使用前一定會重算。
+- **runner**：discovery 的變體、legacy 回填與 pre-P05 恢復改以 `DISCOVERY_TESTS_PER_TRIAL = 2` 登記。既有釘在 1 的家族在
+  下一次登記時升為 2，舊事件照常計數，m 從此以 2 計算。
+- **限制**：升級只能提高檢定數；若日後要降低或改用不同的多重比較校正，仍需新的契約版本。
+
+**測試**：`a17_a_family_test_count_only_rises`（降低拒絕、重播可升級、只記一列、釘選值不變、升級表只能追加）、
+`different_protocols_union_to_the_larger_test_count`（不隔離、取最大值、隨 v3 轉移、較小值不會降低、重複匯入冪等）、
+`v2_files_and_invalid_protocol_upgrades_are_refused`、`a_raised_test_count_makes_an_earlier_decision_stale`、
+`an_earlier_single_test_family_rises_to_two_tests_on_the_next_run`（runner 端到端，m 由 2 變 4）；
+原 `a15` 的 protocol 衝突部分依本節移除，收據衝突部分保留。

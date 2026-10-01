@@ -14,7 +14,10 @@ use crate::market::{
     snapshot::{self, SnapshotKind, SnapshotOutcome, SnapshotRequest},
 };
 use crate::research::artifacts::ArtifactStore;
-use crate::research::trial_ledger::{family_id_for, Admission, AdmissionBlocked};
+use crate::research::trial_ledger::{
+    family_id_for, Admission, AdmissionBlocked, TrialBatchInput, TrialEventInput, TrialKind,
+    TrialOrigin,
+};
 use alpha_factor_forge::discovery_core::market_foundation::{PriceBasis, SeriesRole};
 
 const BTC: &str = "crypto:binance:BTCUSDT";
@@ -302,6 +305,52 @@ fn an_eligible_campaign_run_stores_its_decision_with_the_enqueue() {
             .unwrap()
             .is_none()
     );
+}
+
+#[test]
+fn an_earlier_single_test_family_rises_to_two_tests_on_the_next_run() {
+    // trial-ledger-v1 §22: a pre-P12e build pinned this family at one test
+    // per trial. The next run registers two, raising the family's m.
+    let workspace = workspace();
+    workspace
+        .ledger
+        .register_batch(&TrialBatchInput {
+            workspace_id: "earlier-build".into(),
+            instrument_id: Some(BTC.into()),
+            tests_per_trial: 1,
+            events: vec![TrialEventInput {
+                kind: TrialKind::Variant,
+                origin: TrialOrigin::Request {
+                    request_id: "earlier".into(),
+                    candidate_index: 0,
+                },
+                hypothesis_hash: None,
+                strategy_hash: Some("strategy-earlier".into()),
+                dataset_hash: Some(workspace.dataset_hash.clone()),
+                snapshot_id: Some(workspace.snapshot_id.clone()),
+                split_hash: Some("split".into()),
+                seeds_hash: Some("seeds".into()),
+                engine_fingerprint_hash: Some("engine".into()),
+                benchmark_id: None,
+                benchmark_params_hash: None,
+                reproduction_of: None,
+                benchmark_evidence: None,
+            }],
+        })
+        .unwrap();
+    let config = walk_forward_runner_config(workspace.dataset_id, &workspace.dataset_hash);
+    let run_id = start(&workspace, config, declaration(&workspace, 100_000, 200_000), BTC).unwrap();
+    complete(&workspace, run_id);
+    let stored = crate::db::campaign::get_campaign_admission(&workspace.db.lock().unwrap(), run_id)
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        crate::research::trial_ledger_workspace::DISCOVERY_TESTS_PER_TRIAL,
+        2
+    );
+    assert_eq!(stored.report["ledger"]["testsPerTrial"], 2);
+    assert_eq!(stored.report["ledger"]["familyEffectiveTrials"], 2);
+    assert_eq!(stored.report["precision"]["familyTests"], 4, "m = 2 trials x 2 tests");
 }
 
 #[test]

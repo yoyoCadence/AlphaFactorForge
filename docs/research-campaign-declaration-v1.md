@@ -380,3 +380,13 @@ The DEV-only `?mock=1` seam simulates the typed methods for browser tests;
 canonical campaign identity, authoritative snapshot checks, SQLite writes and
 ledger admission remain Rust-owned. A real Tauri/service smoke with
 service-created snapshots remains an operator acceptance item.
+
+## Two tests per trial (P12e-0, 2026-10-01)
+
+Maintainer decision: every trial carries two hypothesis tests (net return above
+zero; excess over buy-and-hold above zero), so campaign and discovery runs now
+register `testsPerTrial = 2` and a family's count only rises
+([trial-ledger-v1 §22](trial-ledger-v1.md)). Admission reads the family's
+effective count, so P12a's `m` doubles for families first pinned at one test.
+The §6.4 fence reports a raised count as `grew`, so a decision made before the
+upgrade is re-evaluated with the larger `m` before anything acts on it.

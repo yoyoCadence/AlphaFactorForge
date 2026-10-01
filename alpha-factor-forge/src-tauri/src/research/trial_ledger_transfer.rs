@@ -15,14 +15,15 @@ use serde_json::{json, Value};
 
 use super::{
     batch_id_for, benchmark_params_hash, canonical_text, event_id_for, family_parts, genesis, head,
-    next_chain, prepare_batch, sha256_hex, verify_chain, LedgerError, LedgerIntegrity,
+    next_chain, prepare_batch, protocol_json, sha256_hex, verify_chain, LedgerError, LedgerIntegrity,
     TrialBatchInput, TrialEventInput, TrialKind, TrialLedger, TrialOrigin, REGISTRY_MIGRATIONS,
     REPRODUCTION_IDENTITY, TRIAL_FAMILY_VERSION,
 };
 
-/// v1 files cannot say whether their source had quarantined a family, so
-/// importing one could silently release that quarantine; they are refused.
-pub const TRIAL_LEDGER_EXPORT_VERSION: &str = "trial-ledger-export-v2";
+/// v1 files cannot say whether their source had quarantined a family, and v2
+/// files cannot carry a raised protocol (§22), so importing either could
+/// release a quarantine or shrink a family's test count; both are refused.
+pub const TRIAL_LEDGER_EXPORT_VERSION: &str = "trial-ledger-export-v3";
 
 /// Detail recorded when an import sees an origin checkpoint contradict one
 /// already held (or this registry's own chain).
@@ -55,6 +56,11 @@ enum ExportRecord {
         family_id: String,
         family_key: String,
         protocol_json: Option<String>,
+    },
+    /// v3 (§22): the family's test count was raised above its first pin.
+    ProtocolUpgrade {
+        family_id: String,
+        tests_per_trial: u64,
     },
     Batch {
         batch_id: String,
@@ -184,6 +190,14 @@ fn record_registry_conflict(
     Ok(())
 }
 
+/// `testsPerTrial` of a canonical, already validated family protocol.
+fn protocol_tests(protocol: &str) -> Result<u64, LedgerError> {
+    serde_json::from_str::<Value>(protocol)
+        .ok()
+        .and_then(|value| value["testsPerTrial"].as_u64())
+        .ok_or_else(|| integrity("family protocol has no testsPerTrial"))
+}
+
 fn record_line(record: &ExportRecord) -> Result<String, LedgerError> {
     canonical_text(&serde_json::to_value(record)?)
 }
@@ -222,6 +236,22 @@ impl TrialLedger {
                 body.push_str(&record_line(&row?)?);
                 body.push('\n');
                 family_count += 1;
+            }
+        }
+        {
+            let mut stmt = tx.prepare(
+                "SELECT family_id, tests_per_trial FROM family_protocol_upgrades
+                   ORDER BY family_id, tests_per_trial",
+            )?;
+            let rows = stmt.query_map([], |row| {
+                Ok(ExportRecord::ProtocolUpgrade {
+                    family_id: row.get(0)?,
+                    tests_per_trial: row.get::<_, i64>(1)? as u64,
+                })
+            })?;
+            for row in rows {
+                body.push_str(&record_line(&row?)?);
+                body.push('\n');
             }
         }
         {
@@ -393,6 +423,7 @@ struct ValidatedExport {
     header: ExportHeader,
     file_sha256: String,
     families: BTreeMap<String, (String, Option<String>)>,
+    upgrades: BTreeSet<(String, u64)>,
     batches: BTreeMap<String, BatchRecord>,
     events: Vec<(String, Value, String, String, u64, String)>,
     receipts: BTreeMap<(String, String), (u64, u64)>,
@@ -423,7 +454,8 @@ impl ValidatedExport {
             return Err(integrity("bodySha256 does not match"));
         }
 
-        let mut families = BTreeMap::new();
+        let mut families: BTreeMap<String, (String, Option<String>)> = BTreeMap::new();
+        let mut upgrades = BTreeSet::new();
         let mut batches = BTreeMap::new();
         let mut events = Vec::new();
         let mut receipts = BTreeMap::new();
@@ -446,13 +478,14 @@ impl ValidatedExport {
             }
             let order = match &record {
                 ExportRecord::Family { .. } => 0,
-                ExportRecord::Batch { .. } => 1,
-                ExportRecord::Event { .. } => 2,
-                ExportRecord::Receipt { .. } => 3,
-                ExportRecord::OriginCheckpoint { .. } => 4,
-                ExportRecord::OriginGenesis { .. } => 5,
-                ExportRecord::FamilyConflict { .. } => 6,
-                ExportRecord::RegistryConflict { .. } => 7,
+                ExportRecord::ProtocolUpgrade { .. } => 1,
+                ExportRecord::Batch { .. } => 2,
+                ExportRecord::Event { .. } => 3,
+                ExportRecord::Receipt { .. } => 4,
+                ExportRecord::OriginCheckpoint { .. } => 5,
+                ExportRecord::OriginGenesis { .. } => 6,
+                ExportRecord::FamilyConflict { .. } => 7,
+                ExportRecord::RegistryConflict { .. } => 8,
             };
             if order < section {
                 return Err(integrity("record types are not in FK order"));
@@ -498,6 +531,23 @@ impl ValidatedExport {
                         .is_some()
                     {
                         return Err(integrity("duplicate family"));
+                    }
+                }
+                ExportRecord::ProtocolUpgrade {
+                    family_id,
+                    tests_per_trial,
+                } => {
+                    let pinned = families
+                        .get(&family_id)
+                        .and_then(|(_, protocol)| protocol.as_deref())
+                        .map(protocol_tests)
+                        .transpose()?;
+                    if pinned.is_none_or(|pinned| tests_per_trial <= pinned)
+                        || tests_per_trial
+                            > alpha_factor_forge::discovery_core::precision::PRECISION_MAX_COUNT
+                        || !upgrades.insert((family_id, tests_per_trial))
+                    {
+                        return Err(integrity("invalid or duplicate protocol upgrade"));
                     }
                 }
                 ExportRecord::Batch {
@@ -684,6 +734,7 @@ impl ValidatedExport {
             header,
             file_sha256: sha256_hex(bytes),
             families,
+            upgrades,
             batches,
             events,
             receipts,
@@ -974,7 +1025,7 @@ impl TrialLedger {
             }
         }
         let mut family_conflicts: BTreeMap<String, Vec<String>> = BTreeMap::new();
-        for (family_id, (key, protocol)) in &source.families {
+        for (family_id, (key, _)) in &source.families {
             let existing: Option<(String, Option<String>)> = tx
                 .query_row(
                     "SELECT family_key, protocol_json FROM trial_families WHERE family_id = ?1",
@@ -982,17 +1033,14 @@ impl TrialLedger {
                     |row| Ok((row.get(0)?, row.get(1)?)),
                 )
                 .optional()?;
-            if let Some((old_key, old_protocol)) = existing {
-                if old_key != *key
-                    || old_protocol
-                        .as_ref()
-                        .zip(protocol.as_ref())
-                        .is_some_and(|(a, b)| a != b)
-                {
+            // A different protocol is not a conflict (§22): test counts only
+            // rise, so the union keeps the larger one below.
+            if let Some((old_key, _)) = existing {
+                if old_key != *key {
                     mark_family_conflict(
                         &mut family_conflicts,
                         Some(family_id),
-                        "family key or pinned protocol differs".into(),
+                        "family key differs".into(),
                     )?;
                 }
             }
@@ -1112,6 +1160,38 @@ impl TrialLedger {
                     "UPDATE trial_families SET protocol_json = ?2
                       WHERE family_id = ?1 AND protocol_json IS NULL",
                     params![family_id, protocol],
+                )?;
+            }
+            // Union of test counts: every source value above the local pin
+            // becomes an upgrade, so the effective count is the maximum.
+            let local_pin: Option<String> = tx.query_row(
+                "SELECT protocol_json FROM trial_families WHERE family_id = ?1",
+                [family_id],
+                |row| row.get(0),
+            )?;
+            let Some(local_pin) = local_pin.as_deref().map(protocol_tests).transpose()? else {
+                continue;
+            };
+            let raised: Vec<u64> = protocol
+                .as_deref()
+                .map(protocol_tests)
+                .transpose()?
+                .into_iter()
+                .chain(
+                    source
+                        .upgrades
+                        .iter()
+                        .filter(|(id, _)| id == family_id)
+                        .map(|(_, tests)| *tests),
+                )
+                .filter(|tests| *tests > local_pin)
+                .collect();
+            for tests in raised {
+                tx.execute(
+                    "INSERT OR IGNORE INTO family_protocol_upgrades
+                        (family_id, tests_per_trial, protocol_json, recorded_at)
+                     VALUES (?1, ?2, ?3, ?4)",
+                    params![family_id, tests as i64, protocol_json(tests)?, now],
                 )?;
             }
         }
@@ -1751,22 +1831,10 @@ mod tests {
     }
 
     #[test]
-    fn a15_protocol_and_receipt_conflicts_quarantine_without_overwriting() {
-        let a = Dirs::new();
-        let b = Dirs::new();
-        let source = a.open();
-        let target = b.open();
-        let mut other_protocol = batch("source");
-        other_protocol.tests_per_trial = 3;
-        source.register_batch(&other_protocol).unwrap();
-        target.register_batch(&batch("target")).unwrap();
-        let result = target
-            .import_json_lines(&source.export_json_lines().unwrap())
-            .unwrap();
-        assert_eq!(result.added_events, 0);
-        assert!(result.conflicts >= 1);
-        assert_eq!(event_rows(&target), 1);
-
+    fn a15_receipt_conflicts_quarantine_without_overwriting() {
+        // The former protocol half of this case is superseded by §22: a
+        // different test count is unioned to the larger one, not quarantined
+        // (`different_protocols_union_to_the_larger_test_count`).
         let c = Dirs::new();
         let d = Dirs::new();
         let source = c.open();
@@ -2414,6 +2482,138 @@ mod tests {
                 .unwrap()
                 .code(),
             "registry_state_invalid"
+        );
+    }
+
+    // ------------------------------------ P12e-0 §22 protocol only rises
+
+    fn tests_of(ledger: &TrialLedger, batch_id: &str) -> u64 {
+        match ledger.read_admission_count(batch_id).unwrap() {
+            Admission::Count(count) => count.tests_per_trial(),
+            other => panic!("expected a count, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn different_protocols_union_to_the_larger_test_count() {
+        let (a, b, c, d) = (Dirs::new(), Dirs::new(), Dirs::new(), Dirs::new());
+        let source = a.open();
+        let target = b.open();
+        let next = c.open();
+        let low = d.open();
+        let mut raised = batch("source");
+        raised.tests_per_trial = 3;
+        source.register_batch(&raised).unwrap();
+        let local = target.register_batch(&batch("target")).unwrap();
+        assert_eq!(tests_of(&target, &local.batch_id), 2);
+
+        let result = target
+            .import_json_lines(&source.export_json_lines().unwrap())
+            .unwrap();
+        assert_eq!((result.added_events, result.conflicts), (1, 0), "no quarantine");
+        assert_eq!(event_rows(&target), 2);
+        assert_eq!(tests_of(&target, &local.batch_id), 3, "the union keeps the larger count");
+
+        // The raised count travels as evidence to the next registry...
+        let export = target.export_json_lines().unwrap();
+        assert!(String::from_utf8(export.clone())
+            .unwrap()
+            .contains("\"type\":\"protocolUpgrade\""));
+        next.import_json_lines(&export).unwrap();
+        assert_eq!(tests_of(&next, &local.batch_id), 3);
+        // ...and a smaller count from anywhere never lowers it.
+        let mut one = batch("low");
+        one.tests_per_trial = 1;
+        low.register_batch(&one).unwrap();
+        next.import_json_lines(&low.export_json_lines().unwrap())
+            .unwrap();
+        assert_eq!(tests_of(&next, &local.batch_id), 3);
+        assert_eq!(rows(&next, "family_protocol_upgrades"), 1);
+        next.import_json_lines(&export).unwrap();
+        assert_eq!(rows(&next, "family_protocol_upgrades"), 1, "repeat import is a no-op");
+    }
+
+    #[test]
+    fn v2_files_and_invalid_protocol_upgrades_are_refused() {
+        let (a, b) = (Dirs::new(), Dirs::new());
+        let source = a.open();
+        let target = b.open();
+        source.register_batch(&batch("pin")).unwrap();
+        let mut raised = batch("raise");
+        raised.tests_per_trial = 3;
+        source.register_batch(&raised).unwrap();
+        let export = source.export_json_lines().unwrap();
+
+        let text = std::str::from_utf8(&export).unwrap();
+        let (header, body) = text.split_once('\n').unwrap();
+        let mut header: Value = serde_json::from_str(header).unwrap();
+        header["version"] = json!("trial-ledger-export-v2");
+        let v2 = format!("{}\n{body}", canonical_text(&header).unwrap());
+        assert_eq!(
+            target.import_json_lines(v2.as_bytes()).err().unwrap().code(),
+            "import_integrity_failed",
+            "a v2 file cannot carry a raised test count"
+        );
+
+        for (label, tests, family) in [
+            ("equal to the pin", json!(2), None),
+            ("below the pin", json!(1), None),
+            ("unknown family", json!(3), Some(format!("trial-family-v1:{}", "0".repeat(64)))),
+        ] {
+            let forged = rewrite_records(&export, |row| {
+                if row["type"] == "protocolUpgrade" {
+                    row["testsPerTrial"] = tests.clone();
+                    if let Some(family) = &family {
+                        row["familyId"] = json!(family);
+                    }
+                }
+            });
+            assert_eq!(
+                target.import_json_lines(&forged).err().unwrap().code(),
+                "import_integrity_failed",
+                "{label}"
+            );
+        }
+        assert_eq!(event_rows(&target), 0);
+        target.import_json_lines(&export).unwrap();
+        assert_eq!(rows(&target, "family_protocol_upgrades"), 1);
+    }
+
+    #[test]
+    fn a_raised_test_count_makes_an_earlier_decision_stale() {
+        let (a, b) = (Dirs::new(), Dirs::new());
+        let ledger = a.open();
+        let decided = ledger.register_batch(&many("req", 1)).unwrap();
+        let earlier = snapshot_of(&decided.admission);
+        assert_eq!(earlier.tests_per_trial, 2);
+        let mut raised = many("more", 1);
+        raised.tests_per_trial = 3;
+        ledger.register_batch(&raised).unwrap();
+        match ledger.fence_admission(&decided.batch_id, &earlier).unwrap() {
+            AdmissionFence::Grew(count) => {
+                assert_eq!(count.tests_per_trial(), 3);
+                assert_eq!(count.family_effective_trials(), 2);
+            }
+            other => panic!("expected Grew, got {other:?}"),
+        }
+
+        // A raised protocol alone, with no new trial, is stale too.
+        let alone = b.open();
+        let decided = alone.register_batch(&many("only", 1)).unwrap();
+        let earlier = snapshot_of(&decided.admission);
+        let mut replay = many("only", 1);
+        replay.tests_per_trial = 3;
+        assert!(alone.register_batch(&replay).unwrap().replayed);
+        assert!(matches!(
+            alone.fence_admission(&decided.batch_id, &earlier).unwrap(),
+            AdmissionFence::Grew(count) if count.tests_per_trial() == 3
+                && count.family_effective_trials() == 1
+        ));
+        let fallen = AdmissionSnapshot { tests_per_trial: 4, ..earlier };
+        assert_eq!(
+            alone.fence_admission(&decided.batch_id, &fallen).unwrap(),
+            AdmissionFence::Blocked(FenceBlocked::Inconsistent),
+            "a count can never fall"
         );
     }
 
