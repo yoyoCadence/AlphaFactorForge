@@ -40,7 +40,7 @@ integers (a float literal such as `1000.0` is rejected) no larger than
 | `correction` | `"holm"` | only correction in v1 |
 | `scheme` | `"circular-block"` | only resampling scheme in v1 |
 | `prng` | `"splitmix64"` | §4 |
-| `alphaPpm` | integer `[1, 999999]` | family-wise alpha allocated to **this** confirmation (P12e-2 will define the allocation) |
+| `alphaPpm` | integer `[1, 999999]` | family-wise alpha allocated to **this** confirmation — the share [`research-alpha-allocation-v1`](research-alpha-allocation-v1.md) (P12e-2) gives the family's next confirmation |
 | `blockLength` | integer `[1, MAX]` | bars per block, `L` |
 | `bootstrapSamples` | integer `[1, MAX]` | sample count `B` |
 | `seed` | integer `[0, MAX]` | §4 |
@@ -178,7 +178,9 @@ p-values — only the family differs); and a negative-mean series.
 
 ## 10. Remaining P12/P13 work
 
-P12e-2 (cross-batch alpha allocation that supplies `alphaPpm`), P12e-3
+P12e-2 (cross-batch alpha allocation that supplies `alphaPpm`) is done as the
+pure [`research-alpha-allocation-v1`](research-alpha-allocation-v1.md)
+(2026-10-01). Remaining: P12e-3
 (seeded noise-data false-positive simulation of this protocol), and P13
 (freezing a confirmation batch, the synchronized ledger fence that supplies
 `familyTests`, reserving alpha, revealing Validation/Test once, and the only
