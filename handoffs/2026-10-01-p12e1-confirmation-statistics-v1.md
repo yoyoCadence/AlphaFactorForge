@@ -79,3 +79,12 @@ runtime caller and cannot produce a confirmation `PASS`.
   pass. Clippy: the five existing warnings only. rustfmt on the new Rust
   files; `git diff --check` pass.
 - No UI change; Playwright not rerun locally.
+
+## Resolution (2026-10-01)
+
+- PR #133 passed all six CI jobs (one `cargo-check` rerun for the slow-runner
+  host-test flake; no code change) and was merged as `3452033`.
+- Required action 1 is done: P12e-2 is the pure
+  [`research-alpha-allocation-v1`](../docs/research-alpha-allocation-v1.md)
+  ([handoff](2026-10-01-p12e2-alpha-allocation-v1.md)).
+- Required actions 2 (P12e-3) and 3 (P13) remain open.

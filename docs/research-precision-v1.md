@@ -92,7 +92,9 @@ Assumptions and limits (PR #115 review):
   of statistical power, sufficient sample length, or a valid strategy, and a
   passing precheck must never by itself produce a confirmation `PASS`.
 - Alpha and the error limit must be frozen before any confirmation result is
-  read. Cross-batch alpha spending is not defined here.
+  read. Cross-batch alpha spending is not defined here; since P12e-2 it is
+  [`research-alpha-allocation-v1`](research-alpha-allocation-v1.md), and the
+  precheck must be run with the share that contract allocates.
 - The public typed API (`evaluate_precision_plan`) re-checks every field
   against the domain in §2 before any arithmetic, so a directly constructed
   out-of-domain plan returns an error instead of overflowing.
