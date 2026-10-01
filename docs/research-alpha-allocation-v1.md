@@ -23,6 +23,10 @@
    Once it is used up, that instrument cannot be confirmed again under this
    contract version.
 
+Three further decisions of the same day concern how P13 uses this contract
+(alpha mismatch with the campaign, reservation conflicts, and the lack of a
+cross-instrument guarantee); they are in §9.1.
+
 ## 1. Question it answers
 
 Given a family's frozen alpha budget and the confirmations it has already
@@ -186,7 +190,7 @@ The function is pure and trusts its inputs. For the budget to mean anything:
 4. **Reconcile with the campaign.** A campaign's `sampling.alphaPpm`
    ([`research-campaign-declaration-v1.md`](research-campaign-declaration-v1.md))
    is what admission planned with. If it differs from the allocated share,
-   P13 has to refuse or re-check; this contract does not choose (§9.1).
+   the allocated share wins and P12a is re-run with it (decision 1 in §9.1).
 5. **Verify identity and numbering before projecting records to amounts**
    (corrected after the PR #134 review; the earlier text wrongly claimed that
    a merged history with two "confirmation 1" reservations always contradicts
@@ -196,30 +200,33 @@ The function is pure and trusts its inputs. For the budget to mean anything:
    reservation is bound to, each reservation's identity, and its
    confirmation number — and it must detect conflicts there. Two independent
    reservations of one confirmation number must never be passed on as
-   confirmations `k` and `k + 1`. What P13 does with such a conflict is its
-   own design (§9.1); this module cannot see it.
+   confirmations `k` and `k + 1`. What P13 does with such a conflict is
+   decision 2 in §9.1; this module cannot see it.
 6. `NOT_ELIGIBLE` here blocks confirmation only; exploration may continue
    (maintainer decision of 2026-09-29).
 
-### 9.1 Acceptance-review recommendations for P13 (not adopted decisions)
+### 9.1 Maintainer decisions for P13 (2026-10-01)
 
-From the [PR #134 acceptance review](../handoffs/2026-10-01-pr134-alpha-allocation-acceptance-review-v1.md).
-They are recorded so P13 starts from them; each still needs a maintainer
-decision and its own contract text.
+Recommended by the [PR #134 acceptance review](../handoffs/2026-10-01-pr134-alpha-allocation-acceptance-review-v1.md)
+and adopted by the maintainer the same day. They bind P13; nothing in this
+pure module enforces them, and P13 still has to write its own contract text.
 
-1. **Alpha mismatch (item 4).** Use the allocated share and re-run P12a with
-   the latest fenced family count before anything is revealed, with the
-   frozen sample count and cap. If that is insufficient, block the
-   confirmation. Keep the original campaign as the audit record; never add
-   samples or change alpha after results are seen.
-2. **Reservation conflicts (item 5).** An exact replay of the same
-   reservation may be deduplicated. Different reservations for the same
-   confirmation number keep all records and the conflict evidence, and stop
-   further allocation for that family — no renumbering, no deleting failed
-   records, no new declaration, no cleared budget.
-3. **Across instruments (§10).** Keep per-family budgets and state the scope
-   of the guarantee. If an overall bound is wanted later, declare a
-   research-level total first and divide it among families.
+1. **Alpha mismatch (item 4).** The confirmation uses the share actually
+   allocated. P12a is re-run with that share before anything is revealed; if
+   the sample count or the budget is insufficient, the confirmation is
+   blocked. The original campaign is kept as the audit record.
+2. **Reservation conflicts (item 5).** A replay of the same reservation may
+   be deduplicated. Different reservations for the same confirmation number
+   keep their evidence, and the family's further confirmations stop.
+3. **Across instruments (§10).** Per-family budgets stay, and it is stated
+   explicitly that there is no overall false-positive guarantee. If an
+   overall bound is needed, a separate research-level budget is declared.
+
+The review adds detail the decision does not spell out — re-checking with the
+frozen sample count and cap, never adding samples or changing alpha after
+results are seen, and no renumbering, deleting failed records, redeclaring or
+clearing a budget after a conflict. That detail is input for the P13
+contract, where it must be stated and tested.
 
 ## 10. Limits
 

@@ -6,7 +6,7 @@ Branch: `feat/p12e2-alpha-allocation`
 PR: [#134](https://github.com/yoyoCadence/AlphaFactorForge/pull/134)
 Reviewed head: `a8a7626a953fba99a819536bdb042898e5981082`
 Base: `345203367ac5428a0445efd0aaadedd28c1fbd9b` (merged #133)
-Status: R1 resolved on the PR branch (2026-10-01, see Resolution); awaiting re-review/merge. Pure allocation arithmetic accepted. P13 advice below is a recommendation for the maintainer, not an adopted decision.
+Status: R1 resolved on the PR branch (2026-10-01, see Resolution); awaiting re-review/merge. Pure allocation arithmetic accepted. The three P13 recommendations below were adopted by the maintainer on 2026-10-01 (see the second Resolution).
 
 ## Summary
 
@@ -120,3 +120,20 @@ acted on here; it is input for that slice.
 Verification after the fix: 515 Rust (122 + 391 + 2), all-target check,
 clippy (five existing warnings), 1010 Vitest, typecheck and build pass. No
 product behaviour changed.
+
+## Resolution (2026-10-01) — maintainer decision on the three P13 recommendations
+
+The maintainer adopted all three recommendations of "給維護者的三項 P13 建議"
+as decisions: (1) confirm with the share actually allocated and re-run P12a
+before reveal, blocking the confirmation when samples or budget are
+insufficient and keeping the original campaign as the audit record; (2)
+deduplicate a replayed reservation, but keep the evidence and stop the
+family's further confirmations when one confirmation number has different
+reservations; (3) keep per-family budgets, state that there is no overall
+false-positive guarantee, and declare a separate research-level budget if an
+overall bound is needed.
+
+They are recorded as decisions in contract §9.1 and on the P13 row of the
+task board. The finer points of the recommendations that the decision does
+not spell out stay as input for the P13 contract. The P12e-3 advice is
+unchanged: input for that slice.

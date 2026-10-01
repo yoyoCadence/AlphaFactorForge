@@ -142,3 +142,23 @@ Verification after the fix: `cargo test --locked` **515 passed (122 library +
 --all-targets` pass; clippy the five existing warnings only; rustfmt on the
 two allocation Rust files; `git diff --check` pass. No TypeScript, fixture or
 UI change, so `npm test` stays at 1010 (rerun: pass).
+
+## Resolution (2026-10-01) — maintainer decisions on the three open P13 questions
+
+The maintainer adopted the acceptance review's three recommendations. They
+answer "Required Action / Decision" item 3 and supersede the line above that
+called them recommendations. Recorded in contract §9.1 and on the P13 row of
+the task board:
+
+1. **Alpha mismatch.** Use the share actually allocated and re-run P12a with
+   it before reveal; insufficient samples or budget blocks the confirmation;
+   the original campaign is kept as the audit record.
+2. **Merge conflicts.** A replay of the same reservation may be
+   deduplicated; different reservations for the same confirmation number keep
+   their evidence and the family's further confirmations stop.
+3. **Across instruments.** Per-family budgets stay, stated explicitly as
+   giving no overall false-positive guarantee; an overall bound, when needed,
+   is a separate research-level budget.
+
+Documentation only: no code, test or fixture changed, so the verification of
+the R1 Resolution above still describes this head.
