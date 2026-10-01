@@ -135,3 +135,8 @@ reproduction), inner walk-forward and sample-length feasibility, campaign
 freezing, the block-bootstrap/Holm implementation itself, alpha spending,
 and noise-data false-positive simulation. A TypeScript mirror is not needed
 until a frontend reads the report; the fixture is language-neutral for it.
+
+Update (2026-10-01): the block-bootstrap/Holm calculation is specified and
+implemented as [`research-confirmation-statistics-v1`](research-confirmation-statistics-v1.md)
+(P12e-1). Its best case — no extreme sample at Holm rank 1 — equals this
+contract's `bestAdjustedP`, which is tested there.

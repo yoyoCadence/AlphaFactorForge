@@ -1,0 +1,635 @@
+{
+  "contractVersion": "research-confirmation-statistics-v1",
+  "description": "Authored P12e-1 cases. Inputs are hand-written; every expected block and PRNG output is produced by src/parity/confirmationStatisticsFixture.ts (npm run fixtures:confirmation-statistics), an independent BigInt reference written from docs/research-confirmation-statistics-v1.md rather than by running the Rust module, and re-checked against this file by its Vitest. The two PRNG vectors are also the published SplitMix64 reference outputs for states 0 and 1234567. Alphas, block lengths and sample counts are fixture choices, not product defaults.",
+  "prngVectors": [
+    {
+      "state": "0",
+      "outputs": [
+        "16294208416658607535",
+        "7960286522194355700",
+        "487617019471545679"
+      ]
+    },
+    {
+      "state": "1234567",
+      "outputs": [
+        "6457827717110365317",
+        "3203168211198807973",
+        "9817491932198370423",
+        "4593380528125082431",
+        "16408922859458223821"
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "id": "four-bars-two-blocks",
+      "declaration": {
+        "contractVersion": "research-confirmation-statistics-v1",
+        "correction": "holm",
+        "scheme": "circular-block",
+        "prng": "splitmix64",
+        "alphaPpm": 500000,
+        "blockLength": 2,
+        "bootstrapSamples": 4,
+        "seed": 1,
+        "blockLengthRationale": "Fixture: the largest block a four-bar series allows."
+      },
+      "familyTests": 2,
+      "candidates": [
+        {
+          "candidateIndex": 0,
+          "returns": [
+            0.01,
+            -0.02,
+            0.03,
+            0.01
+          ],
+          "benchmarkReturns": [
+            0,
+            0.01,
+            0.01,
+            -0.01
+          ]
+        }
+      ],
+      "expected": {
+        "tests": [
+          {
+            "candidateIndex": 0,
+            "test": "net_return",
+            "observations": 4,
+            "observedMean": 0.0075,
+            "extremeCount": 1,
+            "rawP": {
+              "numerator": 2,
+              "denominator": 5
+            },
+            "rawPValue": 0.4,
+            "holmRank": 1,
+            "adjustedP": {
+              "numerator": 4,
+              "denominator": 5
+            },
+            "adjustedPValue": 0.8,
+            "rejectsNull": false
+          },
+          {
+            "candidateIndex": 0,
+            "test": "benchmark_excess",
+            "observations": 4,
+            "observedMean": 0.005,
+            "extremeCount": 2,
+            "rawP": {
+              "numerator": 3,
+              "denominator": 5
+            },
+            "rawPValue": 0.6,
+            "holmRank": 2,
+            "adjustedP": {
+              "numerator": 4,
+              "denominator": 5
+            },
+            "adjustedPValue": 0.8,
+            "rejectsNull": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "two-candidates-in-a-family-of-eight",
+      "declaration": {
+        "contractVersion": "research-confirmation-statistics-v1",
+        "correction": "holm",
+        "scheme": "circular-block",
+        "prng": "splitmix64",
+        "alphaPpm": 50000,
+        "blockLength": 4,
+        "bootstrapSamples": 199,
+        "seed": 20261001,
+        "blockLengthRationale": "Fixture: four-bar blocks over sixteen bars."
+      },
+      "familyTests": 8,
+      "candidates": [
+        {
+          "candidateIndex": 0,
+          "returns": [
+            0.012,
+            -0.004,
+            0.009,
+            0.015,
+            -0.002,
+            0.011,
+            0.006,
+            -0.007,
+            0.013,
+            0.004,
+            -0.001,
+            0.01,
+            0.008,
+            -0.003,
+            0.014,
+            0.005
+          ],
+          "benchmarkReturns": [
+            0.004,
+            -0.006,
+            0.002,
+            0.007,
+            -0.005,
+            0.003,
+            0.001,
+            -0.009,
+            0.006,
+            -0.002,
+            -0.004,
+            0.005,
+            0.002,
+            -0.006,
+            0.008,
+            0
+          ]
+        },
+        {
+          "candidateIndex": 3,
+          "returns": [
+            0.006,
+            -0.011,
+            0.004,
+            -0.008,
+            0.009,
+            -0.005,
+            0.002,
+            -0.01,
+            0.007,
+            -0.003,
+            0.001,
+            -0.006,
+            0.008,
+            -0.009,
+            0.003,
+            -0.002
+          ],
+          "benchmarkReturns": [
+            0.004,
+            -0.006,
+            0.002,
+            0.007,
+            -0.005,
+            0.003,
+            0.001,
+            -0.009,
+            0.006,
+            -0.002,
+            -0.004,
+            0.005,
+            0.002,
+            -0.006,
+            0.008,
+            0
+          ]
+        }
+      ],
+      "expected": {
+        "tests": [
+          {
+            "candidateIndex": 0,
+            "test": "net_return",
+            "observations": 16,
+            "observedMean": 0.005624999999999999,
+            "extremeCount": 0,
+            "rawP": {
+              "numerator": 1,
+              "denominator": 200
+            },
+            "rawPValue": 0.005,
+            "holmRank": 1,
+            "adjustedP": {
+              "numerator": 8,
+              "denominator": 200
+            },
+            "adjustedPValue": 0.04,
+            "rejectsNull": true
+          },
+          {
+            "candidateIndex": 0,
+            "test": "benchmark_excess",
+            "observations": 16,
+            "observedMean": 0.005250000000000001,
+            "extremeCount": 0,
+            "rawP": {
+              "numerator": 1,
+              "denominator": 200
+            },
+            "rawPValue": 0.005,
+            "holmRank": 2,
+            "adjustedP": {
+              "numerator": 8,
+              "denominator": 200
+            },
+            "adjustedPValue": 0.04,
+            "rejectsNull": true
+          },
+          {
+            "candidateIndex": 3,
+            "test": "net_return",
+            "observations": 16,
+            "observedMean": -0.000875,
+            "extremeCount": 199,
+            "rawP": {
+              "numerator": 200,
+              "denominator": 200
+            },
+            "rawPValue": 1,
+            "holmRank": 4,
+            "adjustedP": {
+              "numerator": 200,
+              "denominator": 200
+            },
+            "adjustedPValue": 1,
+            "rejectsNull": false
+          },
+          {
+            "candidateIndex": 3,
+            "test": "benchmark_excess",
+            "observations": 16,
+            "observedMean": -0.0012499999999999998,
+            "extremeCount": 190,
+            "rawP": {
+              "numerator": 191,
+              "denominator": 200
+            },
+            "rawPValue": 0.955,
+            "holmRank": 3,
+            "adjustedP": {
+              "numerator": 200,
+              "denominator": 200
+            },
+            "adjustedPValue": 1,
+            "rejectsNull": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "steady-positive-returns",
+      "declaration": {
+        "contractVersion": "research-confirmation-statistics-v1",
+        "correction": "holm",
+        "scheme": "circular-block",
+        "prng": "splitmix64",
+        "alphaPpm": 50000,
+        "blockLength": 3,
+        "bootstrapSamples": 999,
+        "seed": 7,
+        "blockLengthRationale": "Fixture: three-bar blocks over thirty-six bars."
+      },
+      "familyTests": 2,
+      "candidates": [
+        {
+          "candidateIndex": 5,
+          "returns": [
+            0.008,
+            0.011,
+            0.006,
+            0.009,
+            0.012,
+            0.007,
+            0.01,
+            0.005,
+            0.013,
+            0.008,
+            0.006,
+            0.011,
+            0.009,
+            0.007,
+            0.012,
+            0.01,
+            0.004,
+            0.008,
+            0.011,
+            0.009,
+            0.006,
+            0.013,
+            0.007,
+            0.01,
+            0.008,
+            0.012,
+            0.005,
+            0.009,
+            0.011,
+            0.006,
+            0.01,
+            0.007,
+            0.013,
+            0.008,
+            0.009,
+            0.011
+          ],
+          "benchmarkReturns": [
+            0.002,
+            -0.003,
+            0.001,
+            -0.002,
+            0.003,
+            -0.001,
+            0.002,
+            -0.003,
+            0.001,
+            -0.002,
+            0.003,
+            -0.001,
+            0.002,
+            -0.003,
+            0.001,
+            -0.002,
+            0.003,
+            -0.001,
+            0.002,
+            -0.003,
+            0.001,
+            -0.002,
+            0.003,
+            -0.001,
+            0.002,
+            -0.003,
+            0.001,
+            -0.002,
+            0.003,
+            -0.001,
+            0.002,
+            -0.003,
+            0.001,
+            -0.002,
+            0.003,
+            -0.001
+          ]
+        }
+      ],
+      "expected": {
+        "tests": [
+          {
+            "candidateIndex": 5,
+            "test": "net_return",
+            "observations": 36,
+            "observedMean": 0.008916666666666672,
+            "extremeCount": 0,
+            "rawP": {
+              "numerator": 1,
+              "denominator": 1000
+            },
+            "rawPValue": 0.001,
+            "holmRank": 1,
+            "adjustedP": {
+              "numerator": 2,
+              "denominator": 1000
+            },
+            "adjustedPValue": 0.002,
+            "rejectsNull": true
+          },
+          {
+            "candidateIndex": 5,
+            "test": "benchmark_excess",
+            "observations": 36,
+            "observedMean": 0.00891666666666667,
+            "extremeCount": 0,
+            "rawP": {
+              "numerator": 1,
+              "denominator": 1000
+            },
+            "rawPValue": 0.001,
+            "holmRank": 2,
+            "adjustedP": {
+              "numerator": 2,
+              "denominator": 1000
+            },
+            "adjustedPValue": 0.002,
+            "rejectsNull": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "the-same-returns-in-a-family-of-two-thousand",
+      "declaration": {
+        "contractVersion": "research-confirmation-statistics-v1",
+        "correction": "holm",
+        "scheme": "circular-block",
+        "prng": "splitmix64",
+        "alphaPpm": 50000,
+        "blockLength": 3,
+        "bootstrapSamples": 999,
+        "seed": 7,
+        "blockLengthRationale": "Fixture: three-bar blocks over thirty-six bars."
+      },
+      "familyTests": 2000,
+      "candidates": [
+        {
+          "candidateIndex": 5,
+          "returns": [
+            0.008,
+            0.011,
+            0.006,
+            0.009,
+            0.012,
+            0.007,
+            0.01,
+            0.005,
+            0.013,
+            0.008,
+            0.006,
+            0.011,
+            0.009,
+            0.007,
+            0.012,
+            0.01,
+            0.004,
+            0.008,
+            0.011,
+            0.009,
+            0.006,
+            0.013,
+            0.007,
+            0.01,
+            0.008,
+            0.012,
+            0.005,
+            0.009,
+            0.011,
+            0.006,
+            0.01,
+            0.007,
+            0.013,
+            0.008,
+            0.009,
+            0.011
+          ],
+          "benchmarkReturns": [
+            0.002,
+            -0.003,
+            0.001,
+            -0.002,
+            0.003,
+            -0.001,
+            0.002,
+            -0.003,
+            0.001,
+            -0.002,
+            0.003,
+            -0.001,
+            0.002,
+            -0.003,
+            0.001,
+            -0.002,
+            0.003,
+            -0.001,
+            0.002,
+            -0.003,
+            0.001,
+            -0.002,
+            0.003,
+            -0.001,
+            0.002,
+            -0.003,
+            0.001,
+            -0.002,
+            0.003,
+            -0.001,
+            0.002,
+            -0.003,
+            0.001,
+            -0.002,
+            0.003,
+            -0.001
+          ]
+        }
+      ],
+      "expected": {
+        "tests": [
+          {
+            "candidateIndex": 5,
+            "test": "net_return",
+            "observations": 36,
+            "observedMean": 0.008916666666666672,
+            "extremeCount": 0,
+            "rawP": {
+              "numerator": 1,
+              "denominator": 1000
+            },
+            "rawPValue": 0.001,
+            "holmRank": 1,
+            "adjustedP": {
+              "numerator": 1000,
+              "denominator": 1000
+            },
+            "adjustedPValue": 1,
+            "rejectsNull": false
+          },
+          {
+            "candidateIndex": 5,
+            "test": "benchmark_excess",
+            "observations": 36,
+            "observedMean": 0.00891666666666667,
+            "extremeCount": 0,
+            "rawP": {
+              "numerator": 1,
+              "denominator": 1000
+            },
+            "rawPValue": 0.001,
+            "holmRank": 2,
+            "adjustedP": {
+              "numerator": 1000,
+              "denominator": 1000
+            },
+            "adjustedPValue": 1,
+            "rejectsNull": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "negative-mean-returns",
+      "declaration": {
+        "contractVersion": "research-confirmation-statistics-v1",
+        "correction": "holm",
+        "scheme": "circular-block",
+        "prng": "splitmix64",
+        "alphaPpm": 50000,
+        "blockLength": 3,
+        "bootstrapSamples": 99,
+        "seed": 99,
+        "blockLengthRationale": "Fixture: three-bar blocks over nine bars."
+      },
+      "familyTests": 2,
+      "candidates": [
+        {
+          "candidateIndex": 1,
+          "returns": [
+            -0.01,
+            -0.004,
+            -0.012,
+            0.002,
+            -0.008,
+            -0.006,
+            -0.011,
+            0.001,
+            -0.009
+          ],
+          "benchmarkReturns": [
+            0.003,
+            0.001,
+            -0.002,
+            0.004,
+            0,
+            0.002,
+            -0.001,
+            0.003,
+            0.001
+          ]
+        }
+      ],
+      "expected": {
+        "tests": [
+          {
+            "candidateIndex": 1,
+            "test": "net_return",
+            "observations": 9,
+            "observedMean": -0.006333333333333333,
+            "extremeCount": 99,
+            "rawP": {
+              "numerator": 100,
+              "denominator": 100
+            },
+            "rawPValue": 1,
+            "holmRank": 1,
+            "adjustedP": {
+              "numerator": 100,
+              "denominator": 100
+            },
+            "adjustedPValue": 1,
+            "rejectsNull": false
+          },
+          {
+            "candidateIndex": 1,
+            "test": "benchmark_excess",
+            "observations": 9,
+            "observedMean": -0.007555555555555556,
+            "extremeCount": 99,
+            "rawP": {
+              "numerator": 100,
+              "denominator": 100
+            },
+            "rawPValue": 1,
+            "holmRank": 2,
+            "adjustedP": {
+              "numerator": 100,
+              "denominator": 100
+            },
+            "adjustedPValue": 1,
+            "rejectsNull": false
+          }
+        ]
+      }
+    }
+  ]
+}

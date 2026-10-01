@@ -4,6 +4,7 @@ pub mod backtest;
 pub mod benchmarks;
 pub mod campaign;
 pub mod config;
+pub mod confirmation;
 pub mod dsl;
 pub mod embargo;
 pub mod enumerate;
