@@ -3,8 +3,8 @@
 Date: 2026-10-01
 Repo: yoyoCadence/AlphaFactorForge
 Branch: `feat/p12e1-confirmation-statistics` (from merged PR #132, `cd244ef`)
-PR: pending
-Status: Implemented locally; P12e-2 (cross-batch alpha allocation) is next.
+PR: [#133](https://github.com/yoyoCadence/AlphaFactorForge/pull/133) (draft)
+Status: Published as draft PR #133 for CI and review; P12e-2 (cross-batch alpha allocation) is next.
 
 ## Summary
 
