@@ -267,6 +267,70 @@
           }
         ]
       }
+    },
+    {
+      "id": "strongest-supported-autocorrelation",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v1",
+        "confirmationContract": "research-confirmation-statistics-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 900000,
+        "bars": 36,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 6,
+        "bootstrapSamples": 29,
+        "simulations": 6,
+        "seed": 3,
+        "tolerancePpm": 0,
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 500000,
+          "schedule": [
+            250000,
+            250000
+          ]
+        }
+      },
+      "expected": {
+        "contractVersion": "research-noise-simulation-v1",
+        "confirmationContract": "research-confirmation-statistics-v1",
+        "allocationId": "fff56f038382263205c105cf6b6020d822d5f5e45853d738deff23f1bf079269",
+        "status": "EXCEEDS_TOLERANCE",
+        "simulations": 6,
+        "nominalAlphaPpm": 500000,
+        "tolerancePpm": 0,
+        "limitFalsePositives": 3,
+        "familyFalsePositives": 4,
+        "familyFalsePositiveRate": {
+          "numerator": 4,
+          "denominator": 6
+        },
+        "familyFalsePositiveRatePpm": 666666,
+        "nominalStandardErrorPpm": 204124,
+        "confirmations": [
+          {
+            "confirmationNumber": 1,
+            "alphaPpm": 250000,
+            "familyTests": 2,
+            "falsePositives": 2,
+            "falsePositiveRatePpm": 333333,
+            "netReturnRejections": 2,
+            "benchmarkExcessRejections": 2
+          },
+          {
+            "confirmationNumber": 2,
+            "alphaPpm": 250000,
+            "familyTests": 4,
+            "falsePositives": 4,
+            "falsePositiveRatePpm": 666666,
+            "netReturnRejections": 3,
+            "benchmarkExcessRejections": 3
+          }
+        ]
+      }
     }
   ],
   "acceptance": [

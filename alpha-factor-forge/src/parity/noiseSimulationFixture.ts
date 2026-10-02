@@ -14,6 +14,10 @@ import { referenceConfirmationTests } from './confirmationStatisticsFixture';
 const MASK = (1n << 64n) - 1n;
 const GOLDEN_GAMMA = 0x9e3779b97f4a7c15n;
 const WARMUP_BARS = 64;
+// A series starts at zero, so its first kept bar has 1 − φ^130 of the
+// stationary variance. 64 warm-up bars are enough only up to this coefficient
+// (shortfall about 1.1 ppm); the contract refuses anything larger (§3).
+export const MAX_AUTOCORRELATION_PPM = 900_000;
 const PPM = 1_000_000n;
 
 export interface NoiseSimulationDeclaration {
@@ -113,6 +117,13 @@ function floorSqrt(value: bigint): bigint {
 export function referenceNoiseCounts(declaration: NoiseSimulationDeclaration): NoiseSimulationCounts {
   const { schedule } = declaration.allocation;
   const candidates = declaration.candidatesPerConfirmation;
+  if (
+    !Number.isInteger(declaration.autocorrelationPpm) ||
+    declaration.autocorrelationPpm < 0 ||
+    declaration.autocorrelationPpm > MAX_AUTOCORRELATION_PPM
+  ) {
+    throw new Error('autocorrelationPpm is outside research-noise-simulation-v1');
+  }
   const phi = declaration.autocorrelationPpm / 1_000_000;
   const confirmations: NoiseConfirmationCounts[] = schedule.map(() => ({
     falsePositives: 0,

@@ -7,6 +7,8 @@
 import { describe, expect, it } from 'vitest';
 import fixture from '../../fixtures/rs-core/research-noise-simulation-v1.json';
 import {
+  MAX_AUTOCORRELATION_PPM,
+  referenceNoiseCounts,
   referenceNoiseReport,
   referenceNoiseSimulation,
   type NoiseSimulationDeclaration,
@@ -65,6 +67,25 @@ describe('research-noise-simulation-v1 fixture', () => {
       );
     },
   );
+
+  it('supports the autocorrelation range the fixed warm-up covers, and no more', () => {
+    // PR #135 review R1: the first kept bar has 1 − φ^130 of the stationary
+    // variance; at the supported maximum that is short by about 1.1 ppm.
+    expect(MAX_AUTOCORRELATION_PPM).toBe(900000);
+    const shortfall = (ppm: number) => (ppm / 1_000_000) ** 130;
+    expect(shortfall(MAX_AUTOCORRELATION_PPM)).toBeGreaterThan(1.0e-6);
+    expect(shortfall(MAX_AUTOCORRELATION_PPM)).toBeLessThan(1.2e-6);
+    expect(1 - shortfall(990000)).toBeCloseTo(0.72924574, 6);
+    expect(1 - shortfall(999999)).toBeCloseTo(0.00012999, 7);
+
+    const atLimit = cases.find((testCase) => testCase.id === 'strongest-supported-autocorrelation');
+    expect(atLimit?.declaration.autocorrelationPpm).toBe(MAX_AUTOCORRELATION_PPM);
+    const tiny = { ...cases[0].declaration, simulations: 1 };
+    expect(() => referenceNoiseCounts({ ...tiny, autocorrelationPpm: 900000 })).not.toThrow();
+    for (const refused of [900001, 990000, 999999, -1, 0.5]) {
+      expect(() => referenceNoiseCounts({ ...tiny, autocorrelationPpm: refused })).toThrow();
+    }
+  });
 
   it('covers both declared kinds of noise exactly once', () => {
     expect(acceptance.map((run) => [run.id, run.declaration.autocorrelationPpm])).toEqual([

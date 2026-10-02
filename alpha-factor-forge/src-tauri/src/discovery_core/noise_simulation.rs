@@ -34,9 +34,16 @@ use super::precision::{Ratio, PRECISION_MAX_COUNT};
 pub const NOISE_SIMULATION_VERSION: &str = "research-noise-simulation-v1";
 /// Zero-mean AR(1) noise whose innovations are sums of four uniforms.
 pub const NOISE_MODEL_AR1: &str = "ar1-uniform-sum";
-/// Bars generated and discarded before each series so it starts in its
-/// stationary regime rather than at zero.
+/// Bars generated and discarded before each series. A series starts at zero,
+/// so its first kept bar — the 65th value — has only `1 - phi^130` of the
+/// stationary variance. The warm-up is fixed, and the coefficient is capped
+/// instead (PR #135 review R1).
 pub const NOISE_WARMUP_BARS: usize = 64;
+/// Largest supported AR(1) coefficient, ppm. At 0.9 the first kept bar is
+/// short of the stationary variance by `0.9^130`, about 1.1 parts per
+/// million; at 0.99 it would have only 73% of it and at 0.999999 only 0.013%,
+/// which is not the stationary AR(1) the contract promises.
+pub const NOISE_MAX_AUTOCORRELATION_PPM: u64 = 900_000;
 pub const NOISE_MAX_BARS: u64 = 1_000_000;
 pub const NOISE_MAX_CANDIDATES: u64 = 1_024;
 pub const NOISE_MAX_SIMULATIONS: u64 = 1_000_000;
@@ -71,7 +78,7 @@ const FIELDS: [&str; 13] = [
 /// size and the tolerance, frozen before it runs.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct NoiseSimulationDeclaration {
-    /// AR(1) coefficient of every series, ppm, `[0, 999_999]`; `0` is
+    /// AR(1) coefficient of every series, ppm, `[0, 900_000]`; `0` is
     /// independent noise.
     pub autocorrelation_ppm: u64,
     /// Bars of each candidate's confirmation segment.
@@ -166,7 +173,7 @@ struct Domain {
 const AUTOCORRELATION: Domain = Domain {
     field: "autocorrelationPpm",
     min: 0,
-    max: 999_999,
+    max: NOISE_MAX_AUTOCORRELATION_PPM,
 };
 const BARS: Domain = Domain {
     field: "bars",
@@ -353,7 +360,9 @@ fn uniform(rng: &mut SplitMix64) -> f64 {
 }
 
 /// One zero-mean AR(1) series: `x = phi * x_prev + e`, with `e` the sum of
-/// four uniforms minus two. The warm-up bars are generated and dropped.
+/// four uniforms minus two. The warm-up bars are generated and dropped; the
+/// initial zero still shows as a variance shortfall of `phi^130` in the first
+/// kept bar, negligible only within [`NOISE_MAX_AUTOCORRELATION_PPM`].
 fn noise_series(rng: &mut SplitMix64, phi: f64, bars: usize) -> Vec<f64> {
     let mut series = Vec::with_capacity(bars);
     let mut value = 0.0f64;

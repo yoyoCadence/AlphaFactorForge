@@ -83,7 +83,7 @@ fn small_cases_reproduce_the_independent_reference() {
     let fixture = fixture();
     assert_eq!(fixture["contractVersion"], NOISE_SIMULATION_VERSION);
     let cases = fixture["cases"].as_array().unwrap();
-    assert_eq!(cases.len(), 4);
+    assert_eq!(cases.len(), 5);
     let mut statuses = Vec::new();
     for case in cases {
         let actual = report_json(&case["declaration"]);
@@ -196,7 +196,7 @@ fn the_declaration_is_parsed_strictly_in_a_fixed_rejection_order() {
 fn every_count_is_an_integer_inside_its_domain() {
     let max = PRECISION_MAX_COUNT;
     for (field, min, limit) in [
-        ("autocorrelationPpm", 0u64, 999_999u64),
+        ("autocorrelationPpm", 0u64, NOISE_MAX_AUTOCORRELATION_PPM),
         ("bars", 2, NOISE_MAX_BARS),
         ("candidatesPerConfirmation", 1, NOISE_MAX_CANDIDATES),
         ("priorTrials", 0, max),
@@ -224,7 +224,7 @@ fn every_count_is_an_integer_inside_its_domain() {
     }
     // Both ends of a cheap domain are accepted.
     for (field, value) in [
-        ("autocorrelationPpm", 999_999u64),
+        ("autocorrelationPpm", NOISE_MAX_AUTOCORRELATION_PPM),
         ("tolerancePpm", 999_999),
         ("seed", max),
         ("seed", 0),
@@ -265,8 +265,8 @@ fn a_directly_constructed_declaration_cannot_bypass_the_domain() {
         "simulation.simulations: must be an integer in [1, 1000000]"
     );
     assert_eq!(
-        refused(|declaration| declaration.autocorrelation_ppm = 1_000_000),
-        "simulation.autocorrelationPpm: must be an integer in [0, 999999]"
+        refused(|declaration| declaration.autocorrelation_ppm = 900_001),
+        "simulation.autocorrelationPpm: must be an integer in [0, 900000]"
     );
     assert_eq!(
         refused(|declaration| declaration.bars = 3),
@@ -326,6 +326,53 @@ fn the_noise_is_zero_mean_with_the_declared_autocorrelation() {
         all.push(value);
     }
     assert_eq!(kept, all[NOISE_WARMUP_BARS..]);
+}
+
+/// PR #135 review R1: a series starts at zero, so after `t` innovations it
+/// has `1 - phi^(2t)` of the stationary variance, and the first kept bar is
+/// the 65th value. The fixed warm-up is only good for a bounded coefficient.
+#[test]
+fn the_fixed_warm_up_covers_every_supported_coefficient_and_no_other() {
+    let shortfall = |ppm: u64| (ppm as f64 / 1_000_000.0).powi(2 * (NOISE_WARMUP_BARS as i32 + 1));
+    assert_eq!(shortfall(0), 0.0);
+    // The declared acceptance run: far below anything measurable.
+    assert!(shortfall(300_000) < 1e-60);
+    // The supported maximum: about one part per million.
+    let at_limit = shortfall(NOISE_MAX_AUTOCORRELATION_PPM);
+    assert!(at_limit > 1.0e-6 && at_limit < 1.2e-6, "{at_limit}");
+    // What the limit keeps out: 73% and 0.013% of the stationary variance.
+    assert!((1.0 - shortfall(990_000) - 0.729_245_74).abs() < 1e-6);
+    assert!((1.0 - shortfall(999_999) - 0.000_129_99).abs() < 1e-7);
+
+    assert_eq!(NOISE_MAX_AUTOCORRELATION_PPM, 900_000);
+    assert!(parse_noise_simulation(&with("autocorrelationPpm", json!(900_000))).is_ok());
+    for refused in [900_001u64, 990_000, 999_999] {
+        assert_eq!(
+            parse_error(&with("autocorrelationPpm", json!(refused))),
+            "simulation.autocorrelationPpm: must be an integer in [0, 900000]"
+        );
+    }
+
+    // Measured, not only derived: the first kept bar of many independent
+    // series, against the stationary variance (1/3) / (1 - phi^2).
+    let first_bar_variance_ratio = |phi: f64| {
+        let firsts: Vec<f64> = (0..40_000u64)
+            .map(|series| noise_series(&mut stream(5, &[DOMAIN_DATA, series]), phi, 1)[0])
+            .collect();
+        let n = firsts.len() as f64;
+        let mean = firsts.iter().sum::<f64>() / n;
+        let variance = firsts.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / n;
+        variance / ((1.0 / 3.0) / (1.0 - phi * phi))
+    };
+    let supported = first_bar_variance_ratio(0.9);
+    assert!((supported - 1.0).abs() < 0.03, "{supported}");
+    // The generator itself does not check the coefficient: at 0.999999 the
+    // first kept bar would have about 0.013% of the stationary variance.
+    let unsupported = first_bar_variance_ratio(0.999_999);
+    assert!(
+        unsupported > 1.2e-4 && unsupported < 1.4e-4,
+        "{unsupported}"
+    );
 }
 
 #[test]
