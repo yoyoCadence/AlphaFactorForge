@@ -215,7 +215,7 @@ fn published_service(dir: &std::path::Path) -> ServiceThread {
 
 /// The message a startup wait fails with.
 fn startup_failure(wait: impl FnOnce() -> ServiceThread) -> String {
-    let panic = std::panic::catch_unwind(std::panic::AssertUnwindSafe(wait)).err().expect("the startup wait must fail");
+    let panic = std::panic::catch_unwind(std::panic::AssertUnwindSafe(wait)).expect_err("the startup wait must fail");
     panic.downcast_ref::<String>().cloned().expect("a formatted panic message")
 }
 
