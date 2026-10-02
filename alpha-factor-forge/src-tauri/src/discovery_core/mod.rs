@@ -18,6 +18,7 @@ pub mod market_data;
 pub mod market_foundation;
 pub mod metrics;
 pub mod noise_simulation;
+pub mod noise_simulation_v2;
 pub mod precision;
 pub mod prng;
 pub mod random_entry;

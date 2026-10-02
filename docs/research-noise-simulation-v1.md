@@ -318,6 +318,11 @@ confirmation's and the family's rate is at most 1.2 × nominal. It needs a
 `research-noise-simulation-v2` engine; this v1 contract and its two
 acceptance runs stay as they are.
 
+That engine exists since P12e-5:
+[`research-noise-simulation-v2`](research-noise-simulation-v2.md). It reuses
+this contract's noise generator unchanged and, in the null scenario with the
+same statistic, counts exactly what this version counts.
+
 P13: freezing a confirmation batch, the synchronized ledger fence, alpha
 reservation (alpha-allocation §9), revealing Validation/Test once, and the
 only place a statistical `PASS` may be produced. P13 should also decide

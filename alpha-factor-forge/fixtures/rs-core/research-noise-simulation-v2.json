@@ -1,0 +1,617 @@
+{
+  "contractVersion": "research-noise-simulation-v2",
+  "description": "P12e-5 engine cases for research-noise-simulation-v2. Small hand-written declarations; every expected report is produced by the independent TypeScript/BigInt reference in src/parity/noiseSimulationV2Fixture.ts (npm run fixtures:noise-simulation-v2), not by the Rust module. None of these is a cell of confirmation-recalibration-plan-v1: the sizes are tiny and neither the plan's diagnostic seed (20261005) nor its acceptance seed (20261117) appears here.",
+  "cases": [
+    {
+      "id": "point-screen-a-confirmation-exceeds-while-the-family-is-within",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-statistics-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 0,
+        "effectMillionths": 0,
+        "bars": 16,
+        "candidatesPerConfirmation": 2,
+        "priorTrials": 1,
+        "blockLength": 2,
+        "bootstrapSamples": 19,
+        "simulations": 8,
+        "seed": 7,
+        "check": {
+          "rule": "point-screen",
+          "limitMultiplierPpm": 1200000
+        },
+        "checkpoints": [
+          3,
+          5
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 600000,
+          "schedule": [
+            300000,
+            300000
+          ]
+        }
+      },
+      "expected": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-statistics-v1",
+        "allocationId": "dc2c0ff11dc6732b79863ca419b896bc72661a29478f4c6935e306ef99a6cbdc",
+        "status": "EXCEEDS_LIMITS",
+        "simulations": 8,
+        "effectMillionths": 0,
+        "checkRule": "point-screen",
+        "limitMultiplierPpm": 1200000,
+        "family": {
+          "nominalPpm": 600000,
+          "limitPpm": 720000,
+          "count": 3,
+          "ratePpm": 375000,
+          "wilsonLowerPpm": 136841,
+          "wilsonUpperPpm": 694263,
+          "withinLimit": true
+        },
+        "confirmations": [
+          {
+            "confirmationNumber": 1,
+            "alphaPpm": 300000,
+            "familyTests": 6,
+            "check": {
+              "nominalPpm": 300000,
+              "limitPpm": 360000,
+              "count": 3,
+              "ratePpm": 375000,
+              "wilsonLowerPpm": 136841,
+              "wilsonUpperPpm": 694263,
+              "withinLimit": false
+            },
+            "counts": {
+              "rejectingSimulations": 3,
+              "netReturnRejectingSimulations": 2,
+              "benchmarkExcessRejectingSimulations": 3,
+              "netReturnExtremeTotal": 121,
+              "benchmarkExcessExtremeTotal": 86
+            }
+          },
+          {
+            "confirmationNumber": 2,
+            "alphaPpm": 300000,
+            "familyTests": 10,
+            "check": {
+              "nominalPpm": 300000,
+              "limitPpm": 360000,
+              "count": 0,
+              "ratePpm": 0,
+              "wilsonLowerPpm": 0,
+              "wilsonUpperPpm": 324416,
+              "withinLimit": true
+            },
+            "counts": {
+              "rejectingSimulations": 0,
+              "netReturnRejectingSimulations": 0,
+              "benchmarkExcessRejectingSimulations": 0,
+              "netReturnExtremeTotal": 137,
+              "benchmarkExcessExtremeTotal": 136
+            }
+          }
+        ],
+        "checkpoints": [
+          {
+            "simulations": 3,
+            "familyRejectingSimulations": 0,
+            "confirmations": [
+              {
+                "rejectingSimulations": 0,
+                "netReturnRejectingSimulations": 0,
+                "benchmarkExcessRejectingSimulations": 0,
+                "netReturnExtremeTotal": 59,
+                "benchmarkExcessExtremeTotal": 53
+              },
+              {
+                "rejectingSimulations": 0,
+                "netReturnRejectingSimulations": 0,
+                "benchmarkExcessRejectingSimulations": 0,
+                "netReturnExtremeTotal": 30,
+                "benchmarkExcessExtremeTotal": 44
+              }
+            ]
+          },
+          {
+            "simulations": 5,
+            "familyRejectingSimulations": 0,
+            "confirmations": [
+              {
+                "rejectingSimulations": 0,
+                "netReturnRejectingSimulations": 0,
+                "benchmarkExcessRejectingSimulations": 0,
+                "netReturnExtremeTotal": 92,
+                "benchmarkExcessExtremeTotal": 67
+              },
+              {
+                "rejectingSimulations": 0,
+                "netReturnRejectingSimulations": 0,
+                "benchmarkExcessRejectingSimulations": 0,
+                "netReturnExtremeTotal": 84,
+                "benchmarkExcessExtremeTotal": 101
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "wilson-bound-on-correlated-noise",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-statistics-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 300000,
+        "effectMillionths": 0,
+        "bars": 25,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 5,
+        "bootstrapSamples": 39,
+        "simulations": 12,
+        "seed": 11,
+        "check": {
+          "rule": "wilson-upper-bound",
+          "limitMultiplierPpm": 1500000
+        },
+        "checkpoints": [
+          4
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 400000,
+          "schedule": [
+            200000,
+            200000
+          ]
+        }
+      },
+      "expected": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-statistics-v1",
+        "allocationId": "bf9a23492243cfbda23b1e8d1f821c818d025ba870248ad80b97436cb729ad16",
+        "status": "EXCEEDS_LIMITS",
+        "simulations": 12,
+        "effectMillionths": 0,
+        "checkRule": "wilson-upper-bound",
+        "limitMultiplierPpm": 1500000,
+        "family": {
+          "nominalPpm": 400000,
+          "limitPpm": 600000,
+          "count": 4,
+          "ratePpm": 333333,
+          "wilsonLowerPpm": 138117,
+          "wilsonUpperPpm": 609383,
+          "withinLimit": false
+        },
+        "confirmations": [
+          {
+            "confirmationNumber": 1,
+            "alphaPpm": 200000,
+            "familyTests": 2,
+            "check": {
+              "nominalPpm": 200000,
+              "limitPpm": 300000,
+              "count": 4,
+              "ratePpm": 333333,
+              "wilsonLowerPpm": 138117,
+              "wilsonUpperPpm": 609383,
+              "withinLimit": false
+            },
+            "counts": {
+              "rejectingSimulations": 4,
+              "netReturnRejectingSimulations": 3,
+              "benchmarkExcessRejectingSimulations": 3,
+              "netReturnExtremeTotal": 255,
+              "benchmarkExcessExtremeTotal": 192
+            }
+          },
+          {
+            "confirmationNumber": 2,
+            "alphaPpm": 200000,
+            "familyTests": 4,
+            "check": {
+              "nominalPpm": 200000,
+              "limitPpm": 300000,
+              "count": 1,
+              "ratePpm": 83333,
+              "wilsonLowerPpm": 14864,
+              "wilsonUpperPpm": 353886,
+              "withinLimit": false
+            },
+            "counts": {
+              "rejectingSimulations": 1,
+              "netReturnRejectingSimulations": 1,
+              "benchmarkExcessRejectingSimulations": 1,
+              "netReturnExtremeTotal": 285,
+              "benchmarkExcessExtremeTotal": 290
+            }
+          }
+        ],
+        "checkpoints": [
+          {
+            "simulations": 4,
+            "familyRejectingSimulations": 1,
+            "confirmations": [
+              {
+                "rejectingSimulations": 1,
+                "netReturnRejectingSimulations": 1,
+                "benchmarkExcessRejectingSimulations": 1,
+                "netReturnExtremeTotal": 82,
+                "benchmarkExcessExtremeTotal": 59
+              },
+              {
+                "rejectingSimulations": 0,
+                "netReturnRejectingSimulations": 0,
+                "benchmarkExcessRejectingSimulations": 0,
+                "netReturnExtremeTotal": 105,
+                "benchmarkExcessExtremeTotal": 79
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "shifted-returns-measure-power-without-a-rule",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-statistics-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 0,
+        "effectMillionths": 400000,
+        "bars": 16,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 2,
+        "bootstrapSamples": 39,
+        "simulations": 10,
+        "seed": 5,
+        "check": {
+          "rule": "none"
+        },
+        "checkpoints": [],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 600000,
+          "schedule": [
+            300000,
+            300000
+          ]
+        }
+      },
+      "expected": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-statistics-v1",
+        "allocationId": "dc2c0ff11dc6732b79863ca419b896bc72661a29478f4c6935e306ef99a6cbdc",
+        "status": "MEASURED",
+        "simulations": 10,
+        "effectMillionths": 400000,
+        "checkRule": "none",
+        "limitMultiplierPpm": null,
+        "family": {
+          "nominalPpm": 600000,
+          "limitPpm": null,
+          "count": 10,
+          "ratePpm": 1000000,
+          "wilsonLowerPpm": 722459,
+          "wilsonUpperPpm": 1000000,
+          "withinLimit": null
+        },
+        "confirmations": [
+          {
+            "confirmationNumber": 1,
+            "alphaPpm": 300000,
+            "familyTests": 2,
+            "check": {
+              "nominalPpm": 300000,
+              "limitPpm": null,
+              "count": 10,
+              "ratePpm": 1000000,
+              "wilsonLowerPpm": 722459,
+              "wilsonUpperPpm": 1000000,
+              "withinLimit": null
+            },
+            "counts": {
+              "rejectingSimulations": 10,
+              "netReturnRejectingSimulations": 10,
+              "benchmarkExcessRejectingSimulations": 9,
+              "netReturnExtremeTotal": 0,
+              "benchmarkExcessExtremeTotal": 32
+            }
+          },
+          {
+            "confirmationNumber": 2,
+            "alphaPpm": 300000,
+            "familyTests": 4,
+            "check": {
+              "nominalPpm": 300000,
+              "limitPpm": null,
+              "count": 8,
+              "ratePpm": 800000,
+              "wilsonLowerPpm": 490156,
+              "wilsonUpperPpm": 943320,
+              "withinLimit": null
+            },
+            "counts": {
+              "rejectingSimulations": 8,
+              "netReturnRejectingSimulations": 6,
+              "benchmarkExcessRejectingSimulations": 7,
+              "netReturnExtremeTotal": 40,
+              "benchmarkExcessExtremeTotal": 45
+            }
+          }
+        ],
+        "checkpoints": []
+      }
+    },
+    {
+      "id": "no-rejection-is-within-a-point-screen",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-statistics-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 900000,
+        "effectMillionths": 0,
+        "bars": 9,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 3,
+        "blockLength": 3,
+        "bootstrapSamples": 1,
+        "simulations": 5,
+        "seed": 9007199254740991,
+        "check": {
+          "rule": "point-screen",
+          "limitMultiplierPpm": 1200000
+        },
+        "checkpoints": [
+          1,
+          2,
+          4
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      },
+      "expected": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-statistics-v1",
+        "allocationId": "0889c33c045696ebb8a77825120389f761229560b4b48ca80cac43754f78673e",
+        "status": "WITHIN_LIMITS",
+        "simulations": 5,
+        "effectMillionths": 0,
+        "checkRule": "point-screen",
+        "limitMultiplierPpm": 1200000,
+        "family": {
+          "nominalPpm": 50000,
+          "limitPpm": 60000,
+          "count": 0,
+          "ratePpm": 0,
+          "wilsonLowerPpm": 0,
+          "wilsonUpperPpm": 434492,
+          "withinLimit": true
+        },
+        "confirmations": [
+          {
+            "confirmationNumber": 1,
+            "alphaPpm": 25000,
+            "familyTests": 8,
+            "check": {
+              "nominalPpm": 25000,
+              "limitPpm": 30000,
+              "count": 0,
+              "ratePpm": 0,
+              "wilsonLowerPpm": 0,
+              "wilsonUpperPpm": 434492,
+              "withinLimit": true
+            },
+            "counts": {
+              "rejectingSimulations": 0,
+              "netReturnRejectingSimulations": 0,
+              "benchmarkExcessRejectingSimulations": 0,
+              "netReturnExtremeTotal": 3,
+              "benchmarkExcessExtremeTotal": 3
+            }
+          },
+          {
+            "confirmationNumber": 2,
+            "alphaPpm": 25000,
+            "familyTests": 10,
+            "check": {
+              "nominalPpm": 25000,
+              "limitPpm": 30000,
+              "count": 0,
+              "ratePpm": 0,
+              "wilsonLowerPpm": 0,
+              "wilsonUpperPpm": 434492,
+              "withinLimit": true
+            },
+            "counts": {
+              "rejectingSimulations": 0,
+              "netReturnRejectingSimulations": 0,
+              "benchmarkExcessRejectingSimulations": 0,
+              "netReturnExtremeTotal": 3,
+              "benchmarkExcessExtremeTotal": 1
+            }
+          }
+        ],
+        "checkpoints": [
+          {
+            "simulations": 1,
+            "familyRejectingSimulations": 0,
+            "confirmations": [
+              {
+                "rejectingSimulations": 0,
+                "netReturnRejectingSimulations": 0,
+                "benchmarkExcessRejectingSimulations": 0,
+                "netReturnExtremeTotal": 1,
+                "benchmarkExcessExtremeTotal": 0
+              },
+              {
+                "rejectingSimulations": 0,
+                "netReturnRejectingSimulations": 0,
+                "benchmarkExcessRejectingSimulations": 0,
+                "netReturnExtremeTotal": 0,
+                "benchmarkExcessExtremeTotal": 0
+              }
+            ]
+          },
+          {
+            "simulations": 2,
+            "familyRejectingSimulations": 0,
+            "confirmations": [
+              {
+                "rejectingSimulations": 0,
+                "netReturnRejectingSimulations": 0,
+                "benchmarkExcessRejectingSimulations": 0,
+                "netReturnExtremeTotal": 1,
+                "benchmarkExcessExtremeTotal": 1
+              },
+              {
+                "rejectingSimulations": 0,
+                "netReturnRejectingSimulations": 0,
+                "benchmarkExcessRejectingSimulations": 0,
+                "netReturnExtremeTotal": 1,
+                "benchmarkExcessExtremeTotal": 1
+              }
+            ]
+          },
+          {
+            "simulations": 4,
+            "familyRejectingSimulations": 0,
+            "confirmations": [
+              {
+                "rejectingSimulations": 0,
+                "netReturnRejectingSimulations": 0,
+                "benchmarkExcessRejectingSimulations": 0,
+                "netReturnExtremeTotal": 2,
+                "benchmarkExcessExtremeTotal": 3
+              },
+              {
+                "rejectingSimulations": 0,
+                "netReturnRejectingSimulations": 0,
+                "benchmarkExcessRejectingSimulations": 0,
+                "netReturnExtremeTotal": 2,
+                "benchmarkExcessExtremeTotal": 1
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "no-rejection-in-five-simulations-does-not-satisfy-the-wilson-bound",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-statistics-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 900000,
+        "effectMillionths": 0,
+        "bars": 9,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 3,
+        "blockLength": 3,
+        "bootstrapSamples": 1,
+        "simulations": 5,
+        "seed": 9007199254740991,
+        "check": {
+          "rule": "wilson-upper-bound",
+          "limitMultiplierPpm": 1200000
+        },
+        "checkpoints": [],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      },
+      "expected": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-statistics-v1",
+        "allocationId": "0889c33c045696ebb8a77825120389f761229560b4b48ca80cac43754f78673e",
+        "status": "EXCEEDS_LIMITS",
+        "simulations": 5,
+        "effectMillionths": 0,
+        "checkRule": "wilson-upper-bound",
+        "limitMultiplierPpm": 1200000,
+        "family": {
+          "nominalPpm": 50000,
+          "limitPpm": 60000,
+          "count": 0,
+          "ratePpm": 0,
+          "wilsonLowerPpm": 0,
+          "wilsonUpperPpm": 434492,
+          "withinLimit": false
+        },
+        "confirmations": [
+          {
+            "confirmationNumber": 1,
+            "alphaPpm": 25000,
+            "familyTests": 8,
+            "check": {
+              "nominalPpm": 25000,
+              "limitPpm": 30000,
+              "count": 0,
+              "ratePpm": 0,
+              "wilsonLowerPpm": 0,
+              "wilsonUpperPpm": 434492,
+              "withinLimit": false
+            },
+            "counts": {
+              "rejectingSimulations": 0,
+              "netReturnRejectingSimulations": 0,
+              "benchmarkExcessRejectingSimulations": 0,
+              "netReturnExtremeTotal": 3,
+              "benchmarkExcessExtremeTotal": 3
+            }
+          },
+          {
+            "confirmationNumber": 2,
+            "alphaPpm": 25000,
+            "familyTests": 10,
+            "check": {
+              "nominalPpm": 25000,
+              "limitPpm": 30000,
+              "count": 0,
+              "ratePpm": 0,
+              "wilsonLowerPpm": 0,
+              "wilsonUpperPpm": 434492,
+              "withinLimit": false
+            },
+            "counts": {
+              "rejectingSimulations": 0,
+              "netReturnRejectingSimulations": 0,
+              "benchmarkExcessRejectingSimulations": 0,
+              "netReturnExtremeTotal": 3,
+              "benchmarkExcessExtremeTotal": 1
+            }
+          }
+        ],
+        "checkpoints": []
+      }
+    }
+  ]
+}
