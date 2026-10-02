@@ -59,7 +59,7 @@ fn fixture_cases_reproduce_the_independent_reference() {
     let fixture = fixture();
     assert_eq!(fixture["contractVersion"], NOISE_SIMULATION_V2_VERSION);
     let cases = fixture["cases"].as_array().unwrap();
-    assert_eq!(cases.len(), 5);
+    assert_eq!(cases.len(), 7);
     let mut statuses = std::collections::BTreeSet::new();
     for case in cases {
         let actual = report_json(&case["declaration"]);
@@ -386,7 +386,7 @@ fn the_declaration_is_parsed_strictly_in_a_fixed_rejection_order() {
         )),
         "simulation.contractVersion: must be \"research-noise-simulation-v2\""
     );
-    // No candidate of the plan exists yet: only the baseline is selectable.
+    // The baseline and the two draft candidates are selectable, nothing else.
     for unknown in [
         json!("research-confirmation-statistics-v2"),
         json!("S1"),
@@ -394,7 +394,7 @@ fn the_declaration_is_parsed_strictly_in_a_fixed_rejection_order() {
     ] {
         assert_eq!(
             parse_error(&with("statistic", unknown)),
-            "simulation.statistic: must be \"research-confirmation-statistics-v1\""
+            "simulation.statistic: must be one of \"research-confirmation-statistics-v1\", \"research-confirmation-candidate-s1-v1\", \"research-confirmation-candidate-s2-v1\""
         );
     }
     assert_eq!(
@@ -575,6 +575,57 @@ fn a_directly_constructed_declaration_cannot_bypass_the_domain() {
     assert_eq!(
         refused(|declaration| declaration.allocation.schedule = vec![600_000, 1]),
         "simulation.allocation.schedule: allocates 600001 ppm, above totalAlphaPpm 600000"
+    );
+}
+
+/// P12e-6a: the draft candidates are reachable only through this engine.
+#[test]
+fn the_draft_candidates_are_selectable_and_differ_from_the_baseline() {
+    let s1 = fixture()["cases"][5]["declaration"].clone();
+    let s2 = fixture()["cases"][6]["declaration"].clone();
+    assert_eq!(s1["statistic"], "research-confirmation-candidate-s1-v1");
+    assert_eq!(s2["statistic"], "research-confirmation-candidate-s2-v1");
+    assert_eq!(
+        parse_noise_simulation_v2(&s1).unwrap().statistic,
+        SimulatedStatistic::CandidateS1
+    );
+    assert_eq!(
+        report_json(&s2)["statistic"],
+        "research-confirmation-candidate-s2-v1"
+    );
+
+    // Same noise and same block draws: only the statistic differs, and the
+    // extreme-count digest shows it.
+    let digests: Vec<Value> = [
+        "research-confirmation-statistics-v1",
+        "research-confirmation-candidate-s1-v1",
+        "research-confirmation-candidate-s2-v1",
+    ]
+    .into_iter()
+    .map(|statistic| {
+        let mut raw = s2.clone();
+        raw["statistic"] = json!(statistic);
+        report_json(&raw)["confirmations"][0]["counts"]["netReturnExtremeTotal"].clone()
+    })
+    .collect();
+    assert_ne!(digests[0], digests[1]);
+    assert_ne!(digests[0], digests[2]);
+    assert_ne!(digests[1], digests[2]);
+
+    // S2 reads blocks of twice the length, so its block rule is stricter:
+    // 36 bars admit L = 3 for S2 and up to L = 6 for the others.
+    let mut wide = s2.clone();
+    wide["blockLength"] = json!(4);
+    assert_eq!(
+        parse_error(&wide),
+        "simulation.blockLength: twice 4 squared exceeds bars 36"
+    );
+    wide["statistic"] = json!("research-confirmation-candidate-s1-v1");
+    assert!(parse_noise_simulation_v2(&wide).is_ok());
+    wide["blockLength"] = json!(7);
+    assert_eq!(
+        parse_error(&wide),
+        "simulation.blockLength: 7 squared exceeds bars 36"
     );
 }
 
