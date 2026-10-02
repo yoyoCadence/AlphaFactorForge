@@ -6,7 +6,7 @@ Branch: `feat/p12e2-alpha-allocation`
 PR: [#134](https://github.com/yoyoCadence/AlphaFactorForge/pull/134)
 Reviewed head: `a8a7626a953fba99a819536bdb042898e5981082`
 Base: `345203367ac5428a0445efd0aaadedd28c1fbd9b` (merged #133)
-Status: Re-review accepted at `56be681` (2026-10-02, see final Resolution); R1 closed, no merge-blocking findings. PR not merged by this review. The three P13 recommendations below were adopted by the maintainer on 2026-10-01 (see the second Resolution).
+Status: Re-review accepted at `56be681` (2026-10-02, see final Resolution); R1 closed, no merge-blocking findings. PR merged as `b5a3438`; CI-HOST-STARTUP-001 implemented on the next branch (see last Resolution). The three P13 recommendations below were adopted by the maintainer on 2026-10-01 (see the second Resolution).
 
 ## Summary
 
@@ -212,3 +212,28 @@ nit, not an acceptance blocker.
 
 Review record updated locally only; no production source change, PR review
 submission, commit, push or merge was performed by this re-review.
+
+## Resolution (2026-10-02) — merged; CI-HOST-STARTUP-001 and the P12e-3 advice acted on
+
+- PR #134 was merged as `b5a3438`. This handoff's re-review Resolution and
+  task board lines were committed unchanged on the next branch (`573e57a`).
+- **CI-HOST-STARTUP-001** is implemented on `feat/p12e3-noise-simulation`.
+  The maintainer asked for it to ship in the P12e-3 PR instead of a separate
+  one; it is its own commit (`4216126`). As recommended: a service that exits
+  early is reported with its error, a miss lists the workspace's startup
+  evidence and times a late publication, the service is stopped rather than
+  left running, the wait stays finite and test-only
+  (`AFF_TEST_SERVICE_STARTUP_SECS`, default 30 s), production timeouts are
+  unchanged and nothing is retried. The root cause on the runner is still
+  unknown and 30 s remains a candidate; details and the evidence gathered are
+  in the [P12e-3 handoff](2026-10-02-p12e3-noise-simulation-v1.md#ci-host-startup-001).
+- **P12e-3 advice** was followed: model, seed, size, block length, sample
+  count, family and schedule, and tolerance were committed before the run;
+  a family false positive is any rejection in any confirmation; the report
+  keeps per-confirmation and whole-schedule counts with the sampling error
+  and the limit; independent and serially correlated noise are both covered;
+  nothing was changed after the result. The correlated run exceeded its
+  tolerance and is recorded as an open finding, as this review anticipated
+  P12e-3 might show.
+- The PR-description nit (unchecked CI item) no longer applies: the PR is
+  merged.

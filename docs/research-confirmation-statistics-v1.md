@@ -168,6 +168,13 @@ p-values — only the family differs); and a negative-mean series.
   being roughly stationary; this contract enforces only the `L² ≤ n` floor on
   the number of blocks. P12e-3's noise simulation is the check on false
   positives for a declared protocol.
+- **Measured size (P12e-3, 2026-10-02).** In
+  [`research-noise-simulation-v1`](research-noise-simulation-v1.md) §7.1, a
+  family of two confirmations at 256 bars and block length 6 rejected a true
+  null in 4.85% of 2,000 simulations on independent noise (nominal 5%) and in
+  **6.45%** on AR(1) 0.3 noise, which exceeds the declared tolerance. This
+  test is therefore not shown to hold its alpha on serially correlated
+  returns; how the protocol responds is an open maintainer decision.
 - The buy-and-hold series is an input; this module does not derive it, and
   "excess over buy-and-hold" says nothing about other benchmarks.
 - The calculation is deterministic for a given declaration and data. Choosing
@@ -180,8 +187,9 @@ p-values — only the family differs); and a negative-mean series.
 
 P12e-2 (cross-batch alpha allocation that supplies `alphaPpm`) is done as the
 pure [`research-alpha-allocation-v1`](research-alpha-allocation-v1.md)
-(2026-10-01). Remaining: P12e-3
-(seeded noise-data false-positive simulation of this protocol), and P13
+(2026-10-01). P12e-3 (seeded noise-data false-positive simulation of this
+protocol) is done as [`research-noise-simulation-v1`](research-noise-simulation-v1.md)
+(2026-10-02) and left an open finding (§9). Remaining: that decision, and P13
 (freezing a confirmation batch, the synchronized ledger fence that supplies
 `familyTests`, reserving alpha, revealing Validation/Test once, and the only
 place a statistical `PASS` may be produced).

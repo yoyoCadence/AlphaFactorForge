@@ -1,7 +1,9 @@
 # Research noise simulation (`research-noise-simulation-v1`)
 
 > **Status: P12e-3, pure calculation plus two declared acceptance runs
-> (2026-10-02).** No runtime caller. It measures how often the declared
+> (2026-10-02). Result: independent noise within tolerance; serially
+> correlated noise exceeds it (§7.1) — an open finding against P12e-1.**
+> No runtime caller. It measures how often the declared
 > confirmation protocol rejects a true null hypothesis on seeded noise; it is
 > evidence about the test procedure on synthetic data, never a confirmation
 > `PASS`, and it says nothing about any strategy. Implementation:
@@ -164,9 +166,37 @@ Two declarations, identical except for `autocorrelationPpm` (`0` and
 With these, `nominalStandardErrorPpm = 4873` and
 `limitFalsePositives = 120` (6% of 2,000).
 
-The declarations were committed before the simulation was run at this size;
-the size was chosen from a timing measurement that did not print outcomes.
-The results are in §7.1 and are reproduced by `cargo test` on every run.
+The declarations were committed (`a0cd10a`) before the simulation was run at
+this size; the size was chosen from a timing measurement that did not print
+outcomes. The results below are reproduced by `cargo test` on every run.
+
+### 7.1 Results (run once, 2026-10-02)
+
+| Run | Family false positives | Rate | Limit | Status | Confirmation 1 (share 2.5%) | Confirmation 2 (share 2.5%) |
+| --- | --- | --- | --- | --- | --- | --- |
+| `independent-noise` | 97 / 2000 | 4.85% | 120 | `WITHIN_TOLERANCE` | 61 (3.05%) | 38 (1.90%) |
+| `serially-correlated-noise` | 129 / 2000 | 6.45% | 120 | **`EXCEEDS_TOLERANCE`** | 83 (4.15%) | 49 (2.45%) |
+
+- **Independent noise is within tolerance**, and within one standard error
+  (0.49 points) of the nominal 5%. Its first confirmation alone rejected in
+  3.05% of simulations against a 2.5% share — about 1.6 of that rate's own
+  standard errors (0.35 points) above it; the family total stayed near
+  nominal because the second confirmation, adjusted for a family of four
+  with only two tests run, stayed below its share.
+- **Moderately correlated noise exceeds the tolerance**: 6.45% is 1.45 points
+  (about three standard errors) above nominal and nine simulations above the
+  limit. Its first confirmation rejected in 4.15% against a 2.5% share.
+
+**What this means.** At 256 bars and block length 6, the P12e-1 test rejects
+true null hypotheses more often than its alpha when returns are moderately
+autocorrelated. The declared acceptance is **not met** for that case. Nothing
+was adjusted afterwards: the seed, the size, the block length and the
+tolerance are the ones committed beforehand, and this result stands as the
+record. What to do about it — a change to the P12e-1 statistic, a rule on
+sample length or block length, or a required per-confirmation simulation — is
+a maintainer decision and not part of this contract (§10). Until it is made,
+a confirmation under P12e-1 must not be described as controlling its
+false-positive rate on serially correlated returns.
 
 ## 8. Fixture and reference
 
@@ -207,6 +237,11 @@ The results are in §7.1 and are reproduced by `cargo test` on every run.
   path.
 
 ## 10. Remaining P12/P13 work
+
+**Open finding (P12e-FINDING-1).** The serially correlated acceptance run
+exceeds its tolerance (§7.1). P12e stays open until the maintainer decides
+how the confirmation protocol responds; any new acceptance run needs its own
+declaration committed before it is executed.
 
 P13: freezing a confirmation batch, the synchronized ledger fence, alpha
 reservation (alpha-allocation §9), revealing Validation/Test once, and the
