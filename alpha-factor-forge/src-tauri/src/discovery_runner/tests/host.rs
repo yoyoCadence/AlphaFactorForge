@@ -165,6 +165,48 @@ fn service_outcome(service: ServiceThread) -> String {
     }
 }
 
+/// Cleanups of failed startup waits, by workspace, so a test can wait for one.
+static STARTUP_CLEANUPS: Mutex<Vec<(PathBuf, JoinHandle<()>)>> = Mutex::new(Vec::new());
+
+/// PR #135 review R2. A service whose startup wait has already failed stays
+/// managed: an in-process `service::run` cannot be cancelled, so the workspace
+/// is fenced (its lock taken, if the service has not taken it yet, so a late
+/// start is refused as `NotOwner`) and a cleanup thread stops the service if
+/// it publishes after all, joins it, releases the fence and removes the
+/// directory. Nothing a failed wait started can own the workspace afterwards.
+fn supervise_failed_startup(dir: &std::path::Path, service: ServiceThread) {
+    let workspace = dir.to_path_buf();
+    // Taken here, before the caller fails, so the order is not a race.
+    let mut fence = lease::try_lock_workspace(&workspace).ok();
+    let cleanup = thread::spawn(move || {
+        while !service.is_finished() {
+            if is_published(&workspace) {
+                let _ = service::stop(&workspace, TEST_TIMEOUT);
+            } else if fence.is_none() {
+                fence = lease::try_lock_workspace(&workspace).ok();
+            }
+            thread::sleep(Duration::from_millis(20));
+        }
+        let _ = service.join();
+        drop(fence);
+        let _ = std::fs::remove_dir_all(&workspace);
+    });
+    STARTUP_CLEANUPS.lock().unwrap().push((dir.to_path_buf(), cleanup));
+}
+
+/// Waits for the cleanup of every failed startup wait on `dir`.
+fn wait_for_startup_cleanup(dir: &std::path::Path) {
+    let cleanups: Vec<JoinHandle<()>> = {
+        let mut all = STARTUP_CLEANUPS.lock().unwrap();
+        let (mine, others): (Vec<_>, Vec<_>) = all.drain(..).partition(|(workspace, _)| workspace.as_path() == dir);
+        *all = others;
+        mine.into_iter().map(|(_, cleanup)| cleanup).collect()
+    };
+    for cleanup in cleanups {
+        cleanup.join().expect("the startup cleanup thread");
+    }
+}
+
 /// Waits until `service` has published in `dir`. The service publishes a
 /// moment after it starts; a desktop that opens before that would simply own
 /// the free workspace.
@@ -172,8 +214,9 @@ fn service_outcome(service: ServiceThread) -> String {
 /// A failure says why instead of only "never published": a service that
 /// exits first is reported at once with its own error; at the deadline the
 /// message records what the workspace shows, and the wait goes on for `grace`
-/// so a late publication is timed and the service stopped rather than left
-/// holding the workspace. There is no retry: a miss still fails the test.
+/// so a late publication is timed. Whatever is still alive when the wait
+/// fails is handed to [`supervise_failed_startup`], never dropped. There is
+/// no retry: a miss still fails the test.
 fn await_publication(dir: &std::path::Path, service: ServiceThread, timeout: Duration, grace: Duration) -> ServiceThread {
     let started = Instant::now();
     // The deadline is checked first, so "published" always means "seen
@@ -198,9 +241,16 @@ fn await_publication(dir: &std::path::Path, service: ServiceThread, timeout: Dur
         thread::sleep(Duration::from_millis(20));
     };
     let aftermath = match late {
-        Some(elapsed) => format!("it published late, after {elapsed:?}, and was stopped ({:?})", service::stop(dir, TEST_TIMEOUT)),
+        Some(elapsed) => {
+            let stopped = service::stop(dir, TEST_TIMEOUT);
+            supervise_failed_startup(dir, service);
+            format!("it published late, after {elapsed:?}, and was stopped ({stopped:?})")
+        }
         None if service.is_finished() => format!("then {}", service_outcome(service)),
-        None => format!("it still had not published {grace:?} later and is left running"),
+        None => {
+            supervise_failed_startup(dir, service);
+            format!("it still had not published {grace:?} later; the workspace is fenced and a cleanup thread stops the service if it ever publishes")
+        }
     };
     panic!("the service never published in {} within {timeout:?} ({SERVICE_STARTUP_ENV}); at the deadline {at_deadline}; {aftermath}", dir.display());
 }
@@ -258,7 +308,71 @@ fn a_late_publication_is_timed_and_the_service_is_stopped() {
     assert!(message.contains("it published late, after "), "{message}");
     assert!(message.contains("and was stopped (Ok(Stopped))"), "{message}");
     assert_eq!(outcome_rx.recv_timeout(TEST_TIMEOUT).expect("the stopped service returned"), Ok(()));
-    assert!(lease::try_lock_workspace(&dir).is_ok(), "the stopped service released the workspace");
+    wait_for_startup_cleanup(&dir);
+    assert_nothing_is_left(&dir);
+}
+
+/// After a failed startup wait and its cleanup: no endpoint, no workspace
+/// directory, and nobody holding the workspace lock.
+fn assert_nothing_is_left(dir: &std::path::Path) {
+    assert!(!is_published(dir), "an endpoint is still published in {}", dir.display());
+    assert!(!dir.exists(), "the workspace directory was left behind: {}", startup_evidence(dir));
+    assert!(lease::try_lock_workspace(dir).is_ok(), "the workspace lock is still held");
+}
+
+/// PR #135 review R2: a real service that starts only after the deadline AND
+/// the grace have passed must not end up owning the workspace of a wait that
+/// already failed — and nothing but the helper cleans up.
+#[test]
+fn a_service_that_starts_after_a_failed_wait_cannot_take_the_workspace() {
+    let dir = fresh_dir();
+    let _guard = TempDir(dir.clone());
+    let service_dir = dir.clone();
+    let (go_tx, go_rx) = mpsc::channel::<()>();
+    let (outcome_tx, outcome_rx) = mpsc::channel();
+    let message = startup_failure(|| {
+        let service = thread::spawn(move || {
+            // Held back until the wait has given up for good.
+            let _ = go_rx.recv();
+            let outcome = service::run(&service_dir, fast_service());
+            let _ = outcome_tx.send(outcome.as_ref().map(|_| ()).map_err(ToString::to_string));
+            outcome
+        });
+        await_publication(&dir, service, Duration::from_millis(20), Duration::from_millis(20))
+    });
+    assert!(message.starts_with("the service never published in "), "{message}");
+    assert!(message.ends_with("the workspace is fenced and a cleanup thread stops the service if it ever publishes"), "{message}");
+
+    // Now the service really starts. It is refused the fenced workspace.
+    go_tx.send(()).unwrap();
+    let outcome = outcome_rx.recv_timeout(TEST_TIMEOUT).expect("the late service returned");
+    assert!(outcome.as_ref().is_err_and(|error| error.contains("another host owns this workspace")), "{outcome:?}");
+    wait_for_startup_cleanup(&dir);
+    assert_nothing_is_left(&dir);
+}
+
+/// PR #135 review R2: a real service already starting when the wait fails is
+/// either refused the fenced workspace or stopped once it publishes — the
+/// race decides which, the end state is the same.
+#[test]
+fn a_service_already_starting_when_the_wait_fails_is_brought_down() {
+    let dir = fresh_dir();
+    let _guard = TempDir(dir.clone());
+    let service_dir = dir.clone();
+    let (outcome_tx, outcome_rx) = mpsc::channel();
+    let message = startup_failure(|| {
+        let service = thread::spawn(move || {
+            let outcome = service::run(&service_dir, fast_service());
+            let _ = outcome_tx.send(outcome.as_ref().map(|_| ()).map_err(ToString::to_string));
+            outcome
+        });
+        await_publication(&dir, service, Duration::ZERO, Duration::ZERO)
+    });
+    assert!(message.starts_with("the service never published in "), "{message}");
+    let outcome = outcome_rx.recv_timeout(TEST_TIMEOUT).expect("the service returned");
+    assert!(outcome == Ok(()) || outcome.as_ref().is_err_and(|error| error.contains("another host owns this workspace")), "{outcome:?}");
+    wait_for_startup_cleanup(&dir);
+    assert_nothing_is_left(&dir);
 }
 
 /// CI-HOST-STARTUP-001: a service that never publishes is named as such,
@@ -282,8 +396,11 @@ fn a_service_that_never_publishes_fails_after_a_finite_wait_with_the_evidence() 
     assert!(started.elapsed() < TEST_TIMEOUT, "the wait is finite");
     assert!(message.starts_with("the service never published in "), "{message}");
     assert!(message.contains("at the deadline endpoint: no endpoint files; workspace: [half-started.marker 5B]"), "{message}");
-    assert!(message.ends_with("it still had not published 100ms later and is left running"), "{message}");
+    assert!(message.ends_with("it still had not published 100ms later; the workspace is fenced and a cleanup thread stops the service if it ever publishes"), "{message}");
+    // The stuck thread is still managed: once it ends, the cleanup finishes.
     drop(release_tx);
+    wait_for_startup_cleanup(&dir);
+    assert_nothing_is_left(&dir);
 }
 
 fn mode_kind(slot: &Mutex<HostMode>) -> &'static str {
