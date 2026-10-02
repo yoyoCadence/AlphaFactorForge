@@ -115,14 +115,292 @@ impl ServiceLauncher for FailingLauncher {
     }
 }
 
-/// The service publishes its endpoint a moment after it starts; a desktop
-/// that opens before that would simply own the free workspace, so wait.
-fn wait_for_published(dir: &std::path::Path) {
-    let deadline = Instant::now() + TEST_TIMEOUT;
-    while !matches!(crate::runtime::control_api::read_endpoint_files(dir), Ok(Some(_))) {
-        assert!(Instant::now() < deadline, "the service never published in {}", dir.display());
+type ServiceThread = JoinHandle<Result<(), ServiceError>>;
+
+/// CI-HOST-STARTUP-001. How long a host test waits for an in-process service
+/// to publish. Startup opens and migrates a real workspace file, so on a
+/// loaded machine it is far slower than the in-memory waits `TEST_TIMEOUT`
+/// covers: two CI runs whose desktop suite took ~190-210 s instead of ~45 s
+/// lost the same three tests to the former 10 s limit. Finite and test-only;
+/// `AFF_TEST_SERVICE_STARTUP_SECS` adjusts it. No production timeout uses it.
+const SERVICE_STARTUP_ENV: &str = "AFF_TEST_SERVICE_STARTUP_SECS";
+const DEFAULT_SERVICE_STARTUP: Duration = Duration::from_secs(30);
+
+fn service_startup_timeout() -> Duration {
+    match std::env::var(SERVICE_STARTUP_ENV) {
+        Ok(text) => Duration::from_secs(text.trim().parse().unwrap_or_else(|_| panic!("{SERVICE_STARTUP_ENV} must be whole seconds, got {text:?}"))),
+        Err(_) => DEFAULT_SERVICE_STARTUP,
+    }
+}
+
+fn is_published(dir: &std::path::Path) -> bool {
+    matches!(crate::runtime::control_api::read_endpoint_files(dir), Ok(Some(_)))
+}
+
+/// How far startup got, as far as the workspace directory shows it: the
+/// lock, the database and its sidecars, and the endpoint files appear in
+/// that order.
+fn startup_evidence(dir: &std::path::Path) -> String {
+    let endpoint = match crate::runtime::control_api::read_endpoint_files(dir) {
+        Ok(Some(_)) => "published".to_string(),
+        Ok(None) => "no endpoint files".to_string(),
+        Err(error) => format!("unreadable endpoint ({error})"),
+    };
+    let mut files = match std::fs::read_dir(dir) {
+        Ok(entries) => entries
+            .flatten()
+            .map(|entry| format!("{} {}B", entry.file_name().to_string_lossy(), entry.metadata().map(|meta| meta.len()).unwrap_or(0)))
+            .collect(),
+        Err(error) => vec![format!("unreadable directory ({error})")],
+    };
+    files.sort();
+    format!("endpoint: {endpoint}; workspace: [{}]", files.join(", "))
+}
+
+fn service_outcome(service: ServiceThread) -> String {
+    match service.join() {
+        Ok(Ok(())) => "it returned Ok".to_string(),
+        Ok(Err(error)) => format!("it failed: {error}"),
+        Err(_) => "its thread panicked".to_string(),
+    }
+}
+
+/// Cleanups of failed startup waits, by workspace, so a test can wait for one.
+static STARTUP_CLEANUPS: Mutex<Vec<(PathBuf, JoinHandle<()>)>> = Mutex::new(Vec::new());
+
+/// PR #135 review R2. A service whose startup wait has already failed stays
+/// managed: an in-process `service::run` cannot be cancelled, so the workspace
+/// is fenced (its lock taken, if the service has not taken it yet, so a late
+/// start is refused as `NotOwner`) and a cleanup thread stops the service if
+/// it publishes after all, joins it, releases the fence and removes the
+/// directory. Nothing a failed wait started can own the workspace afterwards.
+fn supervise_failed_startup(dir: &std::path::Path, service: ServiceThread) {
+    let workspace = dir.to_path_buf();
+    // Taken here, before the caller fails, so the order is not a race.
+    let mut fence = lease::try_lock_workspace(&workspace).ok();
+    let cleanup = thread::spawn(move || {
+        while !service.is_finished() {
+            if is_published(&workspace) {
+                let _ = service::stop(&workspace, TEST_TIMEOUT);
+            } else if fence.is_none() {
+                fence = lease::try_lock_workspace(&workspace).ok();
+            }
+            thread::sleep(Duration::from_millis(20));
+        }
+        let _ = service.join();
+        drop(fence);
+        let _ = std::fs::remove_dir_all(&workspace);
+    });
+    STARTUP_CLEANUPS.lock().unwrap().push((dir.to_path_buf(), cleanup));
+}
+
+/// Waits for the cleanup of every failed startup wait on `dir`.
+fn wait_for_startup_cleanup(dir: &std::path::Path) {
+    let cleanups: Vec<JoinHandle<()>> = {
+        let mut all = STARTUP_CLEANUPS.lock().unwrap();
+        let (mine, others): (Vec<_>, Vec<_>) = all.drain(..).partition(|(workspace, _)| workspace.as_path() == dir);
+        *all = others;
+        mine.into_iter().map(|(_, cleanup)| cleanup).collect()
+    };
+    for cleanup in cleanups {
+        cleanup.join().expect("the startup cleanup thread");
+    }
+}
+
+/// Waits until `service` has published in `dir`. The service publishes a
+/// moment after it starts; a desktop that opens before that would simply own
+/// the free workspace.
+///
+/// A failure says why instead of only "never published": a service that
+/// exits first is reported at once with its own error; at the deadline the
+/// message records what the workspace shows, and the wait goes on for `grace`
+/// so a late publication is timed. Whatever is still alive when the wait
+/// fails is handed to [`supervise_failed_startup`], never dropped. There is
+/// no retry: a miss still fails the test.
+fn await_publication(dir: &std::path::Path, service: ServiceThread, timeout: Duration, grace: Duration) -> ServiceThread {
+    let started = Instant::now();
+    // The deadline is checked first, so "published" always means "seen
+    // published before the limit".
+    while started.elapsed() < timeout {
+        if is_published(dir) {
+            return service;
+        }
+        if service.is_finished() {
+            panic!("the service exited before publishing in {} after {:?}: {}; {}", dir.display(), started.elapsed(), service_outcome(service), startup_evidence(dir));
+        }
         thread::sleep(Duration::from_millis(20));
     }
+    let at_deadline = startup_evidence(dir);
+    let late = loop {
+        if is_published(dir) {
+            break Some(started.elapsed());
+        }
+        if service.is_finished() || started.elapsed() >= timeout + grace {
+            break None;
+        }
+        thread::sleep(Duration::from_millis(20));
+    };
+    let aftermath = match late {
+        Some(elapsed) => {
+            let stopped = service::stop(dir, TEST_TIMEOUT);
+            supervise_failed_startup(dir, service);
+            format!("it published late, after {elapsed:?}, and was stopped ({stopped:?})")
+        }
+        None if service.is_finished() => format!("then {}", service_outcome(service)),
+        None => {
+            supervise_failed_startup(dir, service);
+            format!("it still had not published {grace:?} later; the workspace is fenced and a cleanup thread stops the service if it ever publishes")
+        }
+    };
+    panic!("the service never published in {} within {timeout:?} ({SERVICE_STARTUP_ENV}); at the deadline {at_deadline}; {aftermath}", dir.display());
+}
+
+/// The service, in this process, on a thread, once it has published.
+fn published_service(dir: &std::path::Path) -> ServiceThread {
+    let service_dir = dir.to_path_buf();
+    let service = thread::spawn(move || service::run(&service_dir, fast_service()));
+    let timeout = service_startup_timeout();
+    await_publication(dir, service, timeout, timeout.max(TEST_TIMEOUT))
+}
+
+/// The message a startup wait fails with.
+fn startup_failure(wait: impl FnOnce() -> ServiceThread) -> String {
+    let panic = std::panic::catch_unwind(std::panic::AssertUnwindSafe(wait)).expect_err("the startup wait must fail");
+    panic.downcast_ref::<String>().cloned().expect("a formatted panic message")
+}
+
+/// CI-HOST-STARTUP-001: a service that cannot start is reported with its own
+/// error as soon as it exits, not as a timeout.
+#[test]
+fn a_service_that_exits_before_publishing_is_reported_with_its_error() {
+    let dir = fresh_dir();
+    let _guard = TempDir(dir.clone());
+    // Someone else owns the workspace, so the service refuses to start.
+    let _foreign_lock = lease::try_lock_workspace(&dir).unwrap();
+    let started = Instant::now();
+    let message = startup_failure(|| published_service(&dir));
+    assert!(message.starts_with("the service exited before publishing in "), "{message}");
+    assert!(message.contains(&format!("it failed: {}", service::run(&dir, fast_service()).unwrap_err())), "{message}");
+    assert!(message.contains("endpoint: no endpoint files"), "{message}");
+    assert!(started.elapsed() < service_startup_timeout(), "an early exit must not wait out the limit");
+}
+
+/// CI-HOST-STARTUP-001: a service slower than the limit still fails the test,
+/// but the failure records how long startup really took and the service is
+/// stopped, so the workspace is released.
+#[test]
+fn a_late_publication_is_timed_and_the_service_is_stopped() {
+    let dir = fresh_dir();
+    let _guard = TempDir(dir.clone());
+    let service_dir = dir.clone();
+    let (outcome_tx, outcome_rx) = mpsc::channel();
+    let message = startup_failure(|| {
+        let service = thread::spawn(move || {
+            let outcome = service::run(&service_dir, fast_service());
+            let _ = outcome_tx.send(outcome.as_ref().map(|_| ()).map_err(ToString::to_string));
+            outcome
+        });
+        // A zero limit is always already over, whatever the machine's speed.
+        await_publication(&dir, service, Duration::ZERO, Duration::from_secs(60))
+    });
+    assert!(message.starts_with("the service never published in "), "{message}");
+    assert!(message.contains("within 0ns (AFF_TEST_SERVICE_STARTUP_SECS)"), "{message}");
+    assert!(message.contains("it published late, after "), "{message}");
+    assert!(message.contains("and was stopped (Ok(Stopped))"), "{message}");
+    assert_eq!(outcome_rx.recv_timeout(TEST_TIMEOUT).expect("the stopped service returned"), Ok(()));
+    wait_for_startup_cleanup(&dir);
+    assert_nothing_is_left(&dir);
+}
+
+/// After a failed startup wait and its cleanup: no endpoint, no workspace
+/// directory, and nobody holding the workspace lock.
+fn assert_nothing_is_left(dir: &std::path::Path) {
+    assert!(!is_published(dir), "an endpoint is still published in {}", dir.display());
+    assert!(!dir.exists(), "the workspace directory was left behind: {}", startup_evidence(dir));
+    assert!(lease::try_lock_workspace(dir).is_ok(), "the workspace lock is still held");
+}
+
+/// PR #135 review R2: a real service that starts only after the deadline AND
+/// the grace have passed must not end up owning the workspace of a wait that
+/// already failed — and nothing but the helper cleans up.
+#[test]
+fn a_service_that_starts_after_a_failed_wait_cannot_take_the_workspace() {
+    let dir = fresh_dir();
+    let _guard = TempDir(dir.clone());
+    let service_dir = dir.clone();
+    let (go_tx, go_rx) = mpsc::channel::<()>();
+    let (outcome_tx, outcome_rx) = mpsc::channel();
+    let message = startup_failure(|| {
+        let service = thread::spawn(move || {
+            // Held back until the wait has given up for good.
+            let _ = go_rx.recv();
+            let outcome = service::run(&service_dir, fast_service());
+            let _ = outcome_tx.send(outcome.as_ref().map(|_| ()).map_err(ToString::to_string));
+            outcome
+        });
+        await_publication(&dir, service, Duration::from_millis(20), Duration::from_millis(20))
+    });
+    assert!(message.starts_with("the service never published in "), "{message}");
+    assert!(message.ends_with("the workspace is fenced and a cleanup thread stops the service if it ever publishes"), "{message}");
+
+    // Now the service really starts. It is refused the fenced workspace.
+    go_tx.send(()).unwrap();
+    let outcome = outcome_rx.recv_timeout(TEST_TIMEOUT).expect("the late service returned");
+    assert!(outcome.as_ref().is_err_and(|error| error.contains("another host owns this workspace")), "{outcome:?}");
+    wait_for_startup_cleanup(&dir);
+    assert_nothing_is_left(&dir);
+}
+
+/// PR #135 review R2: a real service already starting when the wait fails is
+/// either refused the fenced workspace or stopped once it publishes — the
+/// race decides which, the end state is the same.
+#[test]
+fn a_service_already_starting_when_the_wait_fails_is_brought_down() {
+    let dir = fresh_dir();
+    let _guard = TempDir(dir.clone());
+    let service_dir = dir.clone();
+    let (outcome_tx, outcome_rx) = mpsc::channel();
+    let message = startup_failure(|| {
+        let service = thread::spawn(move || {
+            let outcome = service::run(&service_dir, fast_service());
+            let _ = outcome_tx.send(outcome.as_ref().map(|_| ()).map_err(ToString::to_string));
+            outcome
+        });
+        await_publication(&dir, service, Duration::ZERO, Duration::ZERO)
+    });
+    assert!(message.starts_with("the service never published in "), "{message}");
+    let outcome = outcome_rx.recv_timeout(TEST_TIMEOUT).expect("the service returned");
+    assert!(outcome == Ok(()) || outcome.as_ref().is_err_and(|error| error.contains("another host owns this workspace")), "{outcome:?}");
+    wait_for_startup_cleanup(&dir);
+    assert_nothing_is_left(&dir);
+}
+
+/// CI-HOST-STARTUP-001: a service that never publishes is named as such,
+/// with what its workspace shows, after a finite wait.
+#[test]
+fn a_service_that_never_publishes_fails_after_a_finite_wait_with_the_evidence() {
+    let dir = fresh_dir();
+    let _guard = TempDir(dir.clone());
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("half-started.marker"), b"12345").unwrap();
+    let (release_tx, release_rx) = mpsc::channel::<()>();
+    let started = Instant::now();
+    let message = startup_failure(|| {
+        let stuck = thread::spawn(move || {
+            let _ = release_rx.recv();
+            Ok(())
+        });
+        await_publication(&dir, stuck, Duration::from_millis(100), Duration::from_millis(100))
+    });
+    assert!(started.elapsed() >= Duration::from_millis(200), "both the limit and the grace were waited");
+    assert!(started.elapsed() < TEST_TIMEOUT, "the wait is finite");
+    assert!(message.starts_with("the service never published in "), "{message}");
+    assert!(message.contains("at the deadline endpoint: no endpoint files; workspace: [half-started.marker 5B]"), "{message}");
+    assert!(message.ends_with("it still had not published 100ms later; the workspace is fenced and a cleanup thread stops the service if it ever publishes"), "{message}");
+    // The stuck thread is still managed: once it ends, the cleanup finishes.
+    drop(release_tx);
+    wait_for_startup_cleanup(&dir);
+    assert_nothing_is_left(&dir);
 }
 
 fn mode_kind(slot: &Mutex<HostMode>) -> &'static str {
@@ -156,9 +434,7 @@ fn the_desktop_owns_a_free_workspace_and_connects_to_a_published_service() {
     drop(foreign_lock);
 
     // Owned by a service that answers: connect, proxy, follow.
-    let service_dir = dir.clone();
-    let service = thread::spawn(move || service::run(&service_dir, fast_service()));
-    wait_for_published(&dir);
+    let service = published_service(&dir);
     let connected = match host::open_or_connect(&dir) {
         Ok(HostMode::Connected(connected)) => connected,
         Ok(other) => panic!("expected connect mode, got {}", other.kind()),
@@ -327,9 +603,7 @@ fn a_hand_over_waits_for_admitted_commands_and_a_failed_launch_returns_to_embedd
 fn a_take_back_after_the_service_died_still_re_owns_the_workspace() {
     let dir = fresh_dir();
     let _guard = TempDir(dir.clone());
-    let service_dir = dir.clone();
-    let service = thread::spawn(move || service::run(&service_dir, fast_service()));
-    wait_for_published(&dir);
+    let service = published_service(&dir);
     let connected = match host::open_or_connect(&dir) {
         Ok(HostMode::Connected(connected)) => connected,
         Ok(other) => panic!("expected connect mode, got {}", other.kind()),
@@ -412,9 +686,7 @@ fn seeded_workspace(dir: &std::path::Path) -> (i64, String) {
 fn connected_and_following(
     dir: &std::path::Path,
 ) -> (JoinHandle<Result<(), ServiceError>>, crate::runtime::connect::ConnectedHost, Arc<RecordingLedgerSink>) {
-    let service_dir = dir.to_path_buf();
-    let service = thread::spawn(move || service::run(&service_dir, fast_service()));
-    wait_for_published(dir);
+    let service = published_service(dir);
     let connected = match host::open_or_connect(dir) {
         Ok(HostMode::Connected(connected)) => connected,
         Ok(other) => panic!("expected connect mode, got {}", other.kind()),
@@ -549,11 +821,7 @@ fn a_restarted_service_is_rediscovered_and_another_workspaces_endpoint_is_refuse
     // not be mistaken for ours.
     let other_dir = fresh_dir();
     let _other_guard = TempDir(other_dir.clone());
-    let other_service = {
-        let other = other_dir.clone();
-        thread::spawn(move || service::run(&other, fast_service()))
-    };
-    wait_for_published(&other_dir);
+    let other_service = published_service(&other_dir);
     for name in [crate::runtime::control_api::MANIFEST_FILE_NAME, crate::runtime::control_api::TOKEN_FILE_NAME] {
         std::fs::copy(other_dir.join(name), dir.join(name)).unwrap();
     }

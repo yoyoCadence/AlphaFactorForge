@@ -210,18 +210,19 @@ pub fn parse_confirmation_declaration(
 const GOLDEN_GAMMA: u64 = 0x9E37_79B9_7F4A_7C15;
 
 /// SplitMix64's output function (Steele, Lea & Flood; Vigna's reference).
-fn mix64(mut z: u64) -> u64 {
+pub(super) fn mix64(mut z: u64) -> u64 {
     z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
     z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
     z ^ (z >> 31)
 }
 
-struct SplitMix64 {
+/// Shared with `noise_simulation`, which keys its own streams the same way.
+pub(super) struct SplitMix64 {
     state: u64,
 }
 
 impl SplitMix64 {
-    fn new(state: u64) -> Self {
+    pub(super) fn new(state: u64) -> Self {
         Self { state }
     }
 
@@ -231,7 +232,7 @@ impl SplitMix64 {
         Self::new(mix64(seed ^ mix64(candidate_index.wrapping_add(1))))
     }
 
-    fn next_u64(&mut self) -> u64 {
+    pub(super) fn next_u64(&mut self) -> u64 {
         self.state = self.state.wrapping_add(GOLDEN_GAMMA);
         mix64(self.state)
     }

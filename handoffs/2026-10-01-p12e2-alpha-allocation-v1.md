@@ -3,8 +3,8 @@
 Date: 2026-10-01
 Repo: yoyoCadence/AlphaFactorForge
 Branch: `feat/p12e2-alpha-allocation` (from merged PR #133, `3452033`)
-PR: [#134](https://github.com/yoyoCadence/AlphaFactorForge/pull/134) (draft)
-Status: Published as draft PR #134; acceptance-review R1 fixed on the branch (see Resolution). P12e-3 (noise-data false-positive simulation) is next.
+PR: [#134](https://github.com/yoyoCadence/AlphaFactorForge/pull/134) (merged as `b5a3438`)
+Status: Merged (2026-10-02) after the acceptance-review R1 fix; P12e-3 followed (see the last Resolution). P13 requirements remain open.
 
 ## Summary
 
@@ -162,3 +162,15 @@ the task board:
 
 Documentation only: no code, test or fixture changed, so the verification of
 the R1 Resolution above still describes this head.
+
+## Resolution (2026-10-02) — merged; P12e-3 done
+
+- PR #134 was re-reviewed and accepted at `56be681` and merged as `b5a3438`.
+- Required action 1 is done: P12e-3 is
+  [`research-noise-simulation-v1`](../docs/research-noise-simulation-v1.md)
+  ([handoff](2026-10-02-p12e3-noise-simulation-v1.md)). It runs a family's
+  whole schedule through this allocator. Its serially correlated acceptance
+  run exceeded the declared tolerance; that is an open finding about the
+  P12e-1 bootstrap test (P12e-FINDING-1), not about the allocation
+  arithmetic.
+- Required action 2 (P13) remains open.

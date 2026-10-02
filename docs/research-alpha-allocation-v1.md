@@ -250,6 +250,11 @@ contract, where it must be stated and tested.
 ## 11. Remaining P12/P13 work
 
 P12e-3 (seeded noise-data false-positive simulation of the declared
-protocol) and P13 (§9, plus freezing a confirmation batch, the synchronized
+protocol) is done as [`research-noise-simulation-v1`](research-noise-simulation-v1.md)
+(2026-10-02). It simulates a family's whole schedule with this allocator and
+counts a family false positive when any confirmation rejects; its correlated
+run exceeded the declared tolerance, which is a finding about the bootstrap
+test, not about the allocation arithmetic (§7 assumes each confirmation holds
+its own share). Remaining: that open finding, and P13 (§9, plus freezing a confirmation batch, the synchronized
 ledger fence, revealing Validation/Test once, and the only place a
 statistical `PASS` may be produced).
