@@ -1,0 +1,128 @@
+{
+  "contractVersion": "research-noise-simulation-v1",
+  "description": "P12e-3 noise simulation. `cases` are small hand-written declarations whose expected reports are produced by the independent TypeScript/BigInt reference in src/parity/noiseSimulationFixture.ts (npm run fixtures:noise-simulation), not by the Rust module. `acceptance` holds the two declared acceptance runs of docs/research-noise-simulation-v1.md section 7; they were committed before being run, and their expected reports are produced by the Rust module because the BigInt reference is too slow at 2000 simulations.",
+  "cases": [
+    {
+      "id": "two-confirmations-two-candidates",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v1",
+        "confirmationContract": "research-confirmation-statistics-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 0,
+        "bars": 16,
+        "candidatesPerConfirmation": 2,
+        "priorTrials": 1,
+        "blockLength": 2,
+        "bootstrapSamples": 19,
+        "simulations": 8,
+        "seed": 7,
+        "tolerancePpm": 0,
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 600000,
+          "schedule": [300000, 300000]
+        }
+      }
+    },
+    {
+      "id": "correlated-noise-three-confirmations",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v1",
+        "confirmationContract": "research-confirmation-statistics-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 500000,
+        "bars": 25,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 5,
+        "bootstrapSamples": 39,
+        "simulations": 6,
+        "seed": 11,
+        "tolerancePpm": 100000,
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 900000,
+          "schedule": [400000, 300000, 200000]
+        }
+      }
+    },
+    {
+      "id": "one-sample-can-never-reject",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v1",
+        "confirmationContract": "research-confirmation-statistics-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 300000,
+        "bars": 9,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 3,
+        "blockLength": 3,
+        "bootstrapSamples": 1,
+        "simulations": 5,
+        "seed": 9007199254740991,
+        "tolerancePpm": 0,
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [16666, 16666, 16666]
+        }
+      }
+    }
+  ],
+  "acceptance": [
+    {
+      "id": "independent-noise",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v1",
+        "confirmationContract": "research-confirmation-statistics-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 0,
+        "bars": 256,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 6,
+        "bootstrapSamples": 799,
+        "simulations": 2000,
+        "seed": 20261002,
+        "tolerancePpm": 10000,
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [25000, 25000]
+        }
+      }
+    },
+    {
+      "id": "serially-correlated-noise",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v1",
+        "confirmationContract": "research-confirmation-statistics-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 300000,
+        "bars": 256,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 6,
+        "bootstrapSamples": 799,
+        "simulations": 2000,
+        "seed": 20261002,
+        "tolerancePpm": 10000,
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [25000, 25000]
+        }
+      }
+    }
+  ]
+}
