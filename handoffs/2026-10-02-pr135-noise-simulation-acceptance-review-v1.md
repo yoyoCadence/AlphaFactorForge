@@ -6,7 +6,7 @@ Branch: `feat/p12e3-noise-simulation`
 PR: [#135](https://github.com/yoyoCadence/AlphaFactorForge/pull/135)
 Reviewed head: `37e5a4ccccf46afbdfeb1441e0b946b91db1e3f0`
 Base: `b5a343840375179b91effff8b9c02cbd2f8e49fe` (merged #134)
-Status: R1 and R2 fixed on the PR branch (2026-10-02, see Resolution); awaiting re-review/merge. The declared simulation results reproduce; P12e-FINDING-1 remains open. The recommendations below were adopted by the maintainer on 2026-10-02.
+Status: Independent re-review accepted at `0125e6c` (2026-10-02); R1 and R2 resolved, no new merge-blocking findings. PR merged as `1764c48`; the recommended calibration plan is written (see last Resolution). The declared simulation results reproduce; P12e-FINDING-1 remains open and P13 blocked. The recommendations below were adopted by the maintainer on 2026-10-02.
 
 ## Summary
 
@@ -164,3 +164,75 @@ This handoff and its task board lines were committed unchanged first
 Verification after the fixes: 535 Rust (137 + 396 + 2, 1 ignored), 1019
 Vitest, typecheck, build, all-target check and clippy (five existing
 warnings) pass.
+
+## Resolution (2026-10-02) — Independent re-review at 0125e6c
+
+Reviewed immutable head `0125e6ca325387c2442bab6f34c594c56729c2b3`, against
+the original reviewed head `37e5a4c`; PR base remains `b5a3438`.
+**R1 and R2 are resolved. No new merge-blocking findings; PR #135 is accepted
+for merge within its declared scope.** This review did not merge the PR or
+submit a GitHub review.
+
+- **R1 (`dc6596d`):** the Rust parser and direct declaration validation now
+  refuse coefficients above 900000 ppm, and the TypeScript reference enforces
+  the same range. The fixed 64-bar warm-up has a maximum first-kept-bar
+  variance deficit of about 1.1 ppm in this supported domain. Boundary,
+  measured-variance and maximum-coefficient parity tests pass. The two
+  original acceptance declarations/reports and all four original small cases
+  are unchanged; the fixture diff only adds the fifth small case. Both full
+  acceptance simulations independently reproduce their committed reports,
+  including the correlated **129/2000 (6.45%), EXCEEDS_TOLERANCE** result.
+- **R2 (`3d5e0af`):** the surviving service handle is transferred to a cleanup
+  thread after a failed startup wait; the workspace is fenced when its lock
+  is free, and a service that already acquired it is stopped after publication
+  and joined. Independently ran all 13 host tests, including a real service
+  released after deadline plus grace, the already-starting case, late
+  publication and never-publication cleanup. They verify endpoint/directory
+  removal and lease release. The documented limit remains: an in-process
+  service that never publishes or exits cannot be forcibly cancelled, so its
+  managed thread/fence can persist until the test process ends. The tests do
+  not establish that 30 s covers a genuinely slow CI runner.
+- **Decisions:** the contract, task board and handoffs preserve the failed
+  original acceptance and the uncertainty of its interpretation. P12e remains
+  open and P13 blocked. P12e-4 remains the next task after merge: a calibration
+  plan only, with no statistic implementation or new simulation run. Its
+  requirements include separate method-selection/final-acceptance seed sets
+  and both per-confirmation and whole-family checks.
+- **CI cost correction (non-blocking):** latest CI library suite is **19.17 s**,
+  desktop **40.78 s**, service **5.57 s**. The previous library figure was
+  **8.17 s**. These are total suite durations, not isolated simulation timings
+  or a fixed cost guarantee. Updating the remaining “about 8 s” wording in
+  P12e-4 is acceptable; no timing-only CI rerun is needed.
+
+Independent local verification on this head:
+
+- `cargo test --locked --lib discovery_core::noise_simulation::tests`:
+  **15 passed, 1 ignored** (report printer); 21.18 s excluding compilation.
+- `cargo test --locked --bin alpha-factor-forge discovery_runner::tests::host`:
+  **13 passed**; 18.16 s excluding compilation.
+- `npm test`: **1019 passed, 59 files**; `npm run typecheck`: passed.
+- [CI run 37005074144](https://github.com/yoyoCadence/AlphaFactorForge/actions/runs/37005074144):
+  all six jobs passed on the exact head. Backend logs confirm **535 passed
+  (137 library + 396 desktop + 2 service), 1 ignored**. The full Rust suite,
+  build, native smoke and e2e results here are CI evidence, not additional
+  local reruns in this re-review.
+
+Only this review note and its task-board record were edited locally; product
+code, fixtures and tests were unchanged by the re-review.
+
+## Resolution (2026-10-02) — merged; plan written, timing wording corrected
+
+- PR #135 was merged as `1764c48`. The re-review Resolution and task board
+  lines above were committed unchanged on the next branch (`c20b52f`).
+- The recommended calibration plan is
+  [`confirmation-recalibration-plan-v1`](../docs/plans/confirmation-recalibration-plan-v1.md)
+  (P12e-4, plan only). It follows this review's minimum requirements:
+  per-confirmation and whole-family targets; models, lengths, family,
+  schedule, block rules, sample counts, Monte Carlo sizes, seeds and rules
+  declared before any run; separate seeds for method selection (20261005) and
+  final acceptance (20261117); synthetic data only; failures kept; a
+  pre-declared confidence-bound rule with the point estimates recorded; both
+  block rules tested rather than assumed; fat tails and volatility clustering
+  listed as outside this version.
+- The remaining "about 8 s" wording is corrected to the two measured library
+  suite totals, 8.17 s and 19.17 s, without a timing-only CI run.

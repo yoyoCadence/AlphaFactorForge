@@ -189,7 +189,14 @@ P12e-2 (cross-batch alpha allocation that supplies `alphaPpm`) is done as the
 pure [`research-alpha-allocation-v1`](research-alpha-allocation-v1.md)
 (2026-10-01). P12e-3 (seeded noise-data false-positive simulation of this
 protocol) is done as [`research-noise-simulation-v1`](research-noise-simulation-v1.md)
-(2026-10-02) and left an open finding (§9). Remaining: that decision, and P13
+(2026-10-02) and left an open finding (§9). The maintainer decided to revise
+this statistic; how a successor (`research-confirmation-statistics-v2`, or
+this version restricted to the tested configurations that pass) is chosen and
+accepted is fixed in
+[`confirmation-recalibration-plan-v1`](plans/confirmation-recalibration-plan-v1.md)
+(P12e-4). Until that plan's final acceptance passes, this version must not be
+described as controlling its false-positive rate on serially correlated
+returns. Remaining: P12e-5 to P12e-7 of that plan, and P13
 (freezing a confirmation batch, the synchronized ledger fence that supplies
 `familyTests`, reserving alpha, revealing Validation/Test once, and the only
 place a statistical `PASS` may be produced).
