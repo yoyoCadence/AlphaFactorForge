@@ -365,3 +365,36 @@ What P13 may do outside them is a separate decision (§11).
   tested configurations it names and is not a general validity proof.
 - **The release-build cost is unmeasured.** CI suite totals do not convert
   into a release runtime; P12e-5 measures it before the matrix is run.
+
+## Record — 2026-10-02, P12e-5 (engine slice; not an amendment)
+
+Nothing in §1–§12 changes: no cell, candidate, rule, seed or size was added
+or altered, and no diagnostic or acceptance cell has been run. This section
+records what §8 and §10 left to the engine slice.
+
+- **Engine.** [`research-noise-simulation-v2`](../research-noise-simulation-v2.md):
+  selectable statistic (only V1 exists so far), per-confirmation and family
+  checks with the screen of §6 and the rule of §7 in 128-bit integers, the
+  shifted scenario of §5, checkpoints, and the runner
+  `cargo run --release --locked --example noise_simulation_v2 -- [--timing-only] <runs.json>`.
+- **Declared prefix** (§8): every diagnostic and acceptance declaration
+  carries exactly one checkpoint, at `4096 / bars` simulations — 16 at 256
+  bars, 8 at 512, 4 at 1024. The normal test suite re-runs each committed
+  report's declaration cut at that checkpoint and compares the counts.
+- **Measured release-build cost, V1 only.** A timing-only run (statistic V1,
+  seed 1, AR(1) 0.3, the family shape of §3, block rule R3, 500 simulations
+  per cell; its outcomes were not printed or stored) took, one thread per
+  cell on the development machine:
+
+  | `n` | 500 simulations | per 4,000 (diagnostic cell) | per 20,000 (acceptance cell) |
+  | --- | --- | --- | --- |
+  | 256 | 0.366 s | 2.9 s | 14.6 s |
+  | 512 | 0.797 s | 6.4 s | 31.9 s |
+  | 1024 | 1.496 s | 12.0 s | 59.8 s |
+
+  One unit of §8 is therefore about 1.5 s. For V1 the size grid of one
+  candidate/rule pair is about 43 s of CPU and the whole final acceptance
+  about 3.5 minutes, before parallelism; the first release build took
+  5 min 37 s. The same run in a debug build was 5 to 13 times slower.
+- **Still unmeasured:** S1 and S2, which do not exist yet. Their extra
+  variance arithmetic is measured in P12e-6 before their grids are run.
