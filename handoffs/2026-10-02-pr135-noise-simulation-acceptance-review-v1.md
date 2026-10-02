@@ -6,7 +6,7 @@ Branch: `feat/p12e3-noise-simulation`
 PR: [#135](https://github.com/yoyoCadence/AlphaFactorForge/pull/135)
 Reviewed head: `37e5a4ccccf46afbdfeb1441e0b946b91db1e3f0`
 Base: `b5a343840375179b91effff8b9c02cbd2f8e49fe` (merged #134)
-Status: Independent re-review accepted at `0125e6c` (2026-10-02); R1 and R2 resolved, no new merge-blocking findings. PR remains unmerged by this review. The declared simulation results reproduce; P12e-FINDING-1 remains open and P13 blocked. The recommendations below were adopted by the maintainer on 2026-10-02.
+Status: Independent re-review accepted at `0125e6c` (2026-10-02); R1 and R2 resolved, no new merge-blocking findings. PR merged as `1764c48`; the recommended calibration plan is written (see last Resolution). The declared simulation results reproduce; P12e-FINDING-1 remains open and P13 blocked. The recommendations below were adopted by the maintainer on 2026-10-02.
 
 ## Summary
 
@@ -219,3 +219,20 @@ Independent local verification on this head:
 
 Only this review note and its task-board record were edited locally; product
 code, fixtures and tests were unchanged by the re-review.
+
+## Resolution (2026-10-02) — merged; plan written, timing wording corrected
+
+- PR #135 was merged as `1764c48`. The re-review Resolution and task board
+  lines above were committed unchanged on the next branch (`c20b52f`).
+- The recommended calibration plan is
+  [`confirmation-recalibration-plan-v1`](../docs/plans/confirmation-recalibration-plan-v1.md)
+  (P12e-4, plan only). It follows this review's minimum requirements:
+  per-confirmation and whole-family targets; models, lengths, family,
+  schedule, block rules, sample counts, Monte Carlo sizes, seeds and rules
+  declared before any run; separate seeds for method selection (20261005) and
+  final acceptance (20261117); synthetic data only; failures kept; a
+  pre-declared confidence-bound rule with the point estimates recorded; both
+  block rules tested rather than assumed; fat tails and volatility clustering
+  listed as outside this version.
+- The remaining "about 8 s" wording is corrected to the two measured library
+  suite totals, 8.17 s and 19.17 s, without a timing-only CI run.

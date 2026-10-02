@@ -39,8 +39,9 @@ After the result (§7.1) and the PR #135 acceptance review, the same day:
 5. **The new acceptance checks each confirmation and the whole family**, so
    that a conservative later batch cannot hide a first batch that is too
    loose.
-6. **These simulations stay in the normal test suite** (they take about 8 s
-   in CI).
+6. **These simulations stay in the normal test suite.** The whole library
+   suite, which contains them, took 8.17 s and 19.17 s in two CI runs — suite
+   totals that vary with the runner, not a fixed cost of the simulations.
 
 ## 1. Question it answers
 
@@ -307,6 +308,15 @@ rule; use separate fixed seed sets for choosing a method and for the final
 acceptance; synthetic data only; keep failures on record. The exploratory
 block-length runs in the P12e-3 handoff are a hypothesis, not evidence that
 the block choice is ruled out.
+
+That plan is [`confirmation-recalibration-plan-v1`](plans/confirmation-recalibration-plan-v1.md)
+(P12e-4, 2026-10-02): candidates V1, S1 (studentized) and S2 (flat-top
+variance correction); 256/512/1024 bars × independent and AR(1) 0.3 noise;
+diagnostics on seed 20261005; one final acceptance of 20,000 simulations per
+cell on seed 20261117, passing only when the 95% Wilson upper bound of every
+confirmation's and the family's rate is at most 1.2 × nominal. It needs a
+`research-noise-simulation-v2` engine; this v1 contract and its two
+acceptance runs stay as they are.
 
 P13: freezing a confirmation batch, the synchronized ledger fence, alpha
 reservation (alpha-allocation §9), revealing Validation/Test once, and the

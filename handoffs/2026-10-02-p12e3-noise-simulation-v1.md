@@ -3,8 +3,8 @@
 Date: 2026-10-02
 Repo: yoyoCadence/AlphaFactorForge
 Branch: `feat/p12e3-noise-simulation` (from merged PR #134, `b5a3438`)
-PR: [#135](https://github.com/yoyoCadence/AlphaFactorForge/pull/135) (draft)
-Status: Published as draft PR #135; acceptance-review R1 and R2 fixed on the branch (see Resolution). **One of the two declared acceptance runs exceeds its tolerance; the maintainer decided on 2026-10-02 to revise the statistic, starting with a calibration plan (P12e-4). P12e stays open and P13 stays blocked.**
+PR: [#135](https://github.com/yoyoCadence/AlphaFactorForge/pull/135) (merged as `1764c48`)
+Status: Merged (2026-10-02) after the acceptance-review R1 and R2 fixes (see Resolutions). **One of the two declared acceptance runs exceeds its tolerance; the maintainer decided on 2026-10-02 to revise the statistic, starting with a calibration plan (P12e-4). P12e stays open and P13 stays blocked.**
 
 ## Summary
 
@@ -257,3 +257,14 @@ tests; `npm test` **1019 passed (59 files)**; `npm run typecheck`,
 existing warnings only; rustfmt on the simulation files; `git diff --check`
 pass. The twelve engine mutation checks were run before R1 and not repeated
 (R1 changed one domain bound).
+
+## Resolution (2026-10-02) — merged; the calibration plan is written
+
+- PR #135 was re-reviewed and accepted at `0125e6c` and merged as `1764c48`.
+- Required Action 1 has its first step:
+  [`confirmation-recalibration-plan-v1`](../docs/plans/confirmation-recalibration-plan-v1.md)
+  (P12e-4, [handoff](2026-10-02-p12e4-recalibration-plan-v1.md)) — plan only,
+  nothing implemented or run. P12e-FINDING-1 stays open and P13 blocked until
+  that plan's final acceptance (P12e-7).
+- Timing correction: "in CI the whole library suite took 8.17 s" was one run;
+  the next took 19.17 s. They are suite totals that vary with the runner.
