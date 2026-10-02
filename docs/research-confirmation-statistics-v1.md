@@ -190,8 +190,9 @@ pure [`research-alpha-allocation-v1`](research-alpha-allocation-v1.md)
 (2026-10-01). P12e-3 (seeded noise-data false-positive simulation of this
 protocol) is done as [`research-noise-simulation-v1`](research-noise-simulation-v1.md)
 (2026-10-02) and left an open finding (§9). The maintainer decided to revise
-this statistic; how a successor (`research-confirmation-statistics-v2`, or a
-minimum length on this version) is chosen and accepted is fixed in
+this statistic; how a successor (`research-confirmation-statistics-v2`, or
+this version restricted to the tested configurations that pass) is chosen and
+accepted is fixed in
 [`confirmation-recalibration-plan-v1`](plans/confirmation-recalibration-plan-v1.md)
 (P12e-4). Until that plan's final acceptance passes, this version must not be
 described as controlling its false-positive rate on serially correlated

@@ -41,8 +41,8 @@ Decided for this plan:
 
 Fixed here, before anything runs: the targets, the simulated configurations,
 the candidates and the constraints on them, the seeds, the sizes, the
-selection rule, the acceptance rule and how the result becomes a condition of
-applicability.
+selection rule, the acceptance rule and what a passing result may and may not
+claim.
 
 Left to the slices of §10: the simulation engine that can express these
 rules, each candidate's full contract text (edge cases included), and the
@@ -117,26 +117,52 @@ v*   = (1 / n)     · Σ_j         ( U_j − take_j·S*/n )²      the same quan
 | **S2** | centered bootstrap with a flat-top variance correction | `c · (S* − S) ≥ S`, `c² = max(1, (2·B(2L) − B(L)) / B(L))` |
 
 - **S1** compares the studentized deviation of each resample with the
-  studentized observed mean, each scaled by its own block-based variance. To
-  avoid a division in the decision it is evaluated as
-  `(S* − S)·√B(L) ≥ S·√v*`.
+  studentized observed mean. To avoid a division in the decision it is
+  evaluated as `(S* − S)·√B(L) ≥ S·√v*`.
+
+  **The two sides use different estimators, on purpose** (PR #136 review).
+  The observed side uses `B(L)`, over all `n` overlapping circular blocks.
+  The resampled side uses `v*`, computed from the blocks that were **drawn**
+  (their sums and lengths) — it is *not* `B(L)` recomputed on the resampled
+  series. Example: `x = [0, 1, 2, 3]`, `L = 2`, blocks drawn at 0 and 2
+  reproduce `x` itself; `B(L) = 1`, a recomputed `B*(L)` would also be 1, and
+  the declared `v* = 2`. The drawn blocks are the independent units of the
+  resample, which is why their variance is the scale used there; `v*` is
+  centered on the resample's own mean, so its bootstrap expectation is about
+  `B(L)·(1 − 1/b)` for `b` blocks. S1 is this named variant — a
+  *block-variance studentized* bootstrap — and not a bootstrap-t with one
+  estimator on both series. Replacing `v*` by `B*(L)` would be a different
+  candidate and needs an amendment (§9); it must not happen silently in the
+  implementation.
 - **S2** keeps v1's comparison but stretches the resampled deviations by the
   ratio of a less biased long-run standard deviation to the one the block
-  bootstrap reproduces. `2·B(2L) − B(L)` is the flat-top (trapezoid) lag
-  window, which removes the Bartlett window's first-order downward bias under
-  positive autocorrelation. The correction never shrinks (`c ≥ 1`). It
+  bootstrap approximately reproduces. `2·B(2L) − B(L)` is the flat-top
+  (trapezoid) lag window: weight 1 up to lag `L`, then falling linearly to
+  zero at `2L`, which removes the Bartlett window's first-order downward bias
+  under positive autocorrelation. The correction never shrinks (`c ≥ 1`). It
   requires `(2L)² ≤ n`, which holds for every block length of §3.
 
-These are the plan's **proposed** definitions. Each candidate's complete
-contract — zero-variance cases, summation order, the exact integer or
-floating-point form of every comparison — is committed as a draft contract
-before its first diagnostic run (§10). A departure from this section is a
-plan amendment (§9), made before the run it affects.
+  **The denominator is an approximation** (PR #136 review). With `q` full
+  blocks and a last partial block of `r` bars, the exact conditional variance
+  of the resampled sum divided by `n` is `(q·L·B(L) + r·B(r)) / n`, not
+  `B(L)`; four of the six declared `n`/`L` combinations have a partial block.
+  S2 is the stated ratio as it stands. It is an experimental correction, and
+  nothing here claims that it restores the finite-sample variance exactly.
 
-V1 is a candidate too. If the unchanged statistic turns out to be supported
-from some length upward and no new statistic does better, the outcome is "v1
-with a minimum length", which decision 1 allows as a verified condition of
-applicability.
+These are the plan's **proposed** definitions, kept after the acceptance
+review as experimental variants; whether either improves calibration is
+decided by §6 and §7 and by nothing else. Each candidate's complete contract
+— zero or negative variance estimates, partial blocks, signs, summation
+order, the exact integer or floating-point form of every comparison — is
+committed as a draft contract before its first diagnostic run (§10). A
+departure from this section is a plan amendment (§9), made before the run it
+affects.
+
+V1 is a candidate too. If the unchanged statistic passes at some of the
+tested lengths and no new statistic does better, the outcome is "v1,
+restricted to the tested configurations that passed" (§7), which decision 1
+allows as a verified condition of applicability. That would not erase the
+failed 256-bar record.
 
 ## 5. Power scenario (reported; used only to choose)
 
@@ -163,7 +189,7 @@ eligible candidate of §6 and for the final method. It has no threshold.
 | seed | **20261005** |
 | simulations per cell | 4,000 |
 | grid | candidates {V1, S1, S2} × block rules {R3, R4} × the six cells |
-| runs | size (null) in every cell; power only for eligible pairs, in the cells at and above their supported minimum length (defined below) |
+| runs | size (null) in every cell; power only for eligible pairs, in the cells at and above their lowest supported tested length (defined below) |
 
 All candidates see the same noise, because the data streams depend only on
 the seed and the cell.
@@ -172,13 +198,13 @@ the seed and the cell.
 §7): a cell passes when each confirmation rejected in at most 120 simulations
 (3.0%) and the family in at most 240 (6.0%).
 
-**Supported minimum length on diagnostics** of a candidate/rule pair: the
+**Lowest supported tested length on diagnostics** of a candidate/rule pair: the
 smallest `n` of §3 such that both noise models pass the screen at that `n`
 and at every larger declared `n`. A pair with no such length is not eligible.
 
 **Selection**, in this order:
 
-1. the smallest supported minimum length;
+1. the smallest such length;
 2. then the larger power at that length, taken as the smaller of the two
    noise models' counts;
 3. then V1 before S1 before S2, and R3 before R4.
@@ -193,8 +219,8 @@ it has been added to this plan by an amendment (§9).
 ## 7. Final acceptance
 
 Run **once**, after the selected candidate and block rule have been frozen in
-a commit as `research-confirmation-statistics-v2` (or as a minimum-length
-condition on v1).
+a commit as `research-confirmation-statistics-v2` (or as v1 restricted to the
+tested configurations).
 
 | | |
 | --- | --- |
@@ -212,23 +238,44 @@ passes  iff  x·10⁶ < l·N   and   (l·N − x·10⁶)² · 10000  ≥  38416 
 ```
 
 (`38416 / 10000 = 1.96²`.) With `N = 20000` this allows at most **552**
-simulations (2.76%) for a confirmation and **1134** (5.67%) for the family. A
-method exactly at its nominal rate passes one confirmation check with
-probability about 99%; a method whose true rate equals the limit passes it
-with probability about 2.5%.
+simulations (2.76%) for a confirmation and **1134** (5.67%) for the family.
+
+- "95%" is the upper end of the **two-sided** 95% Wilson interval, `z = 1.96`
+  — not a one-sided 95% bound (`z = 1.645`). That convention and these
+  thresholds are fixed.
+- The intervals are per check. By exact binomial summation, one confirmation
+  check passes with probability 99.05% when the true rate is the nominal 2.5%
+  and 2.34% when it equals the 3% limit; the family check passes with 99.999%
+  at 5% and 2.48% at 6%. These are single-check figures, not a statement
+  about the whole grid of checks.
+- The limits (3% and 6%) are accepted simulation limits, not the nominal
+  alphas (2.5% and 5%). Meeting them is not proof of exact nominal-alpha
+  control.
 
 A cell passes when its three checks pass. Point estimates and the Wilson
 intervals are reported for every check whatever the outcome.
 
-**Supported range.** The supported minimum length `n*` is the smallest
-declared `n` such that both noise models pass at `n` and at every larger
-declared `n`.
+**Supported tested configurations** (corrected after the PR #136 review; the
+earlier text claimed more than the grid tests). The **lowest supported tested
+length** `n*` is the smallest declared `n` such that both noise models pass at
+`n` and at every larger declared `n`. The **supported set** is the declared
+lengths at or above `n*` — at most `{256, 512, 1024}` — and nothing else.
 
-- If `n*` exists, the new contract states: valid for at least `n*` bars, on
-  light-tailed noise with serial correlation up to 0.3, for the family shape
-  of §3. Shorter series are refused. P12e-FINDING-1 is then answered for that
-  range.
-- If it does not exist, the acceptance has failed. The result is recorded,
+- If `n*` exists, the evidence covers exactly: the lengths in the supported
+  set; the `ar1-uniform-sum` generator at coefficients 0 and 0.3; the family
+  shape and the 799 bootstrap samples of §3; the frozen candidate and block
+  rule. The new contract may state that, and only that. P12e-FINDING-1 is
+  then answered for those configurations.
+- **Not covered, and not to be inferred from passing:** any other length,
+  including lengths between or above the tested ones (700 or 2,048 bars are
+  as unvalidated as 100); coefficients between 0 and 0.3 or beyond; any other
+  noise distribution, light-tailed or not. No monotonicity is assumed in
+  length or in the coefficient. Widening the claim needs its own declared
+  justification or plan, not an assumption made after this grid passes.
+- A declared length below `n*` is not supported, whether it failed itself or
+  a longer one did. Whether a confirmation may run at an untested length at
+  all, and on what evidence, is not decided here (§11).
+- If `n*` does not exist, the acceptance has failed. The result is recorded,
   the finding stays open, P13 stays blocked, and a new plan version is
   needed. The seed is spent either way.
 
@@ -276,11 +323,12 @@ Anyone can reproduce a full report with the documented command.
 
 | Task | Content | Runs simulations? |
 | --- | --- | --- |
-| **P12e-5** | `research-noise-simulation-v2`: selectable statistic, per-confirmation and family checks with the rule of §7 and the screen of §6, the power scenario, prefix checkpoints, a release-build runner command. Measures the release-build cost. No new statistic. | only small fixture cases |
+| **P12e-5** | `research-noise-simulation-v2`: selectable statistic, per-confirmation and family checks with the rule of §7 and the screen of §6 (in integers wide enough — the products at `N = 20000` exceed 64 bits), the power scenario, prefix checkpoints declared before any report is committed, a release-build runner command. Measures the release-build cost before the diagnostic matrix is run. No new statistic. | only small fixture cases |
 | **P12e-6** | draft contracts and implementations of S1 and S2 with independent references; the diagnostic grid of §6 on seed 20261005; the selection, recorded | diagnostics |
-| **P12e-7** | freeze the selected method; the final acceptance of §7 on seed 20261117, once; record the result and the supported range; close or keep P12e-FINDING-1 | final acceptance |
+| **P12e-7** | freeze the selected method; the final acceptance of §7 on seed 20261117, once; record the result and the supported tested configurations; close or keep P12e-FINDING-1 | final acceptance |
 
-P13 remains blocked until P12e-7 records a supported range.
+P13 remains blocked until P12e-7 records supported tested configurations.
+What P13 may do outside them is a separate decision (§11).
 
 ## 11. Not in this version
 
@@ -292,9 +340,13 @@ P13 remains blocked until P12e-7 records a supported range.
   unequal schedules, more than two confirmations) and other bootstrap sample
   counts. The chosen shape is the least conservative one for Holm; it is not
   a proof for every shape.
-- Stronger autocorrelation than 0.3, negative autocorrelation, and lengths
-  other than the three declared.
-- A minimum power requirement.
+- Every coefficient other than 0 and 0.3 — values in between, stronger or
+  negative autocorrelation — and every length other than the three declared,
+  longer ones included. The grid's endpoints are not a proof for what lies
+  between or beyond them.
+- A minimum power requirement. The single power figure (first confirmation,
+  net-return test) is a chosen selection metric, not evidence of every kind
+  of power.
 - Whether P13 must also simulate each confirmation's own declared values
   before running it (noise-simulation contract §10) — a P13 decision.
 
@@ -309,5 +361,7 @@ P13 remains blocked until P12e-7 records a supported range.
 - **The exploratory block-length runs** in the P12e-3 handoff are a
   hypothesis only. This plan tests both block rules for every candidate
   rather than assuming the cause.
-- **One family shape and easy noise.** Passing here is necessary for the
-  range it names and is not a general validity proof.
+- **One family shape and easy noise.** Passing here is evidence for the
+  tested configurations it names and is not a general validity proof.
+- **The release-build cost is unmeasured.** CI suite totals do not convert
+  into a release runtime; P12e-5 measures it before the matrix is run.

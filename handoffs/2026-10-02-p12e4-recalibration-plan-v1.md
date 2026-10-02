@@ -3,8 +3,8 @@
 Date: 2026-10-02
 Repo: yoyoCadence/AlphaFactorForge
 Branch: `docs/p12e4-recalibration-plan` (from merged PR #135, `1764c48`)
-PR: opened from this branch as a draft (its number is recorded by the next slice; no follow-up docs commit)
-Status: Plan written; awaiting review. **No code, fixture or test changed and no simulation was run.** P12e-FINDING-1 stays open; P13 stays blocked.
+PR: [#136](https://github.com/yoyoCadence/AlphaFactorForge/pull/136) (draft)
+Status: Published as draft PR #136; acceptance-review R1 fixed on the branch (see Resolution); awaiting re-review. **No code, fixture or test changed and no simulation was run.** P12e-FINDING-1 stays open; P13 stays blocked.
 
 ## Summary
 
@@ -102,3 +102,63 @@ as `1764c48`.
   (normal approximation).
 - Not verified, because nothing is implemented: that S1 or S2 improves the
   calibration, and what a release build costs. The plan says so (§12, §8).
+
+## Resolution (2026-10-02) — PR #136 acceptance review, R1 and the clarifications
+
+Published as draft PR [#136](https://github.com/yoyoCadence/AlphaFactorForge/pull/136).
+The [acceptance review](2026-10-02-pr136-recalibration-plan-acceptance-review-v1.md)
+reproduced the plan's numbers and found one P2 defect, fixed on this branch on
+top of the reviewed head `c4ec35a`. Documentation only; still nothing
+implemented or run.
+
+**R1 — the supported range claimed more than the grid tests.** Design choice 9
+above and plan §7 said a passing result makes the method valid for "at least
+`n*` bars, on light-tailed noise with serial correlation up to 0.3". The grid
+tests three lengths, two coefficients and one generator; passing its
+endpoints proves nothing about 2,048 bars, a coefficient of 0.15 or another
+light-tailed process, and §11 already excluded other lengths.
+
+- Plan §7 now defines the **lowest supported tested length** and a
+  **supported set** made only of declared lengths at or above it. The
+  evidence covers exactly those lengths, the `ar1-uniform-sum` generator at
+  coefficients 0 and 0.3, the declared family shape, 799 samples and the
+  frozen candidate and block rule.
+- Not covered, and stated as such: any other length (between or above the
+  tested ones included), any other coefficient, any other distribution. No
+  monotonicity is assumed. Widening the claim needs its own declared
+  justification or plan.
+- The suffix rule for choosing the supported lengths is kept, as the review
+  allowed. §4, §10, §11, §12 and the P12e-7 task wording follow; the pointer
+  in `research-confirmation-statistics-v1.md` no longer says "minimum length".
+
+**Clarifications the review asked for (no change of method).**
+
+- **S1** keeps its formula and is now named for what it is: a block-variance
+  studentized bootstrap. The resampled side uses `v*`, the variance of the
+  blocks that were drawn; the observed side uses `B(L)` over all overlapping
+  circular blocks. `v*` is not `B(L)` recomputed on the resampled series —
+  the review's example (`x = [0,1,2,3]`, `L = 2`, blocks at 0 and 2:
+  `B(L) = 1`, `v* = 2`) is in the plan. Replacing it by `B*(L)` would be
+  another candidate and needs an amendment; it must not happen silently.
+- **S2** keeps its formula as an experimental correction. Its denominator is
+  an approximation: with a partial last block the exact conditional variance
+  is `(q·L·B(L) + r·B(r))/n`, and four of the six declared combinations have
+  one.
+- "95%" is the two-sided Wilson interval, `z = 1.96`. Pass probabilities are
+  per check: 99.05% at the nominal 2.5% and 2.34% at the 3% limit for a
+  confirmation; 99.999% and 2.48% for the family (exact binomial sums, which
+  replace my "about 99% / 2.5%" from a normal approximation).
+- The limits (3%, 6%) are accepted simulation limits, not the nominal alphas;
+  meeting them is not proof of exact nominal-alpha control.
+- Draft contracts must also settle negative variance estimates and partial
+  blocks; the v2 engine needs integers wider than 64 bits for the rule.
+
+**Kept as planned, with the review's agreement:** S2 as a candidate and no
+fourth method; V1 eligible; two block rules; one family shape; the diagnostic
+point screen; power as the selection metric; the fixed matrix; release cost
+measured in P12e-5. If no candidate passes, the failure is recorded,
+P12e-FINDING-1 stays open and P13 blocked.
+
+Verification: documentation only; `git diff --check` passes. The review's
+binomial figures and its S1 example were recomputed by script before being
+written into the plan.

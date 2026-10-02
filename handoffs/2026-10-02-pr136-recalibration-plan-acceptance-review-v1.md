@@ -6,7 +6,7 @@ Branch: `docs/p12e4-recalibration-plan`
 PR: [#136](https://github.com/yoyoCadence/AlphaFactorForge/pull/136)
 Reviewed head: `c4ec35aec160e12d697777effc7d06536f7f04f0`
 Base: `1764c4807e999cc18a23111bf182d19868e514d9` (merged #135)
-Status: One P2 scope clarification required before merge. Candidate definitions are acceptable as experimental variants, with the clarifications below. No calibration simulation was run; P12e-FINDING-1 remains open and P13 blocked.
+Status: R1 fixed on the PR branch (2026-10-02, see Resolution); awaiting re-review/merge. Original: one P2 scope clarification required before merge. Candidate definitions are acceptable as experimental variants, with the clarifications below. No calibration simulation was run; P12e-FINDING-1 remains open and P13 blocked.
 
 ## Summary
 
@@ -149,3 +149,34 @@ No product source, fixture or test was edited; no calibration grid,
 acceptance seed or new statistic was run. Only this review note and its
 task-board record were added. No GitHub review submission, commit, push or
 merge was performed.
+
+## Resolution (2026-10-02)
+
+R1 was acted on in PR #136, on top of the reviewed head `c4ec35a`. This
+handoff and its task board lines were committed unchanged first (`966bf19`).
+Documentation only; nothing was implemented or run.
+
+- **R1.** Plan §7 no longer extrapolates. It defines the lowest supported
+  tested length and a supported set of declared lengths only, lists exactly
+  what the evidence covers (those lengths, the `ar1-uniform-sum` generator at
+  coefficients 0 and 0.3, the family shape, 799 samples, the frozen candidate
+  and block rule), and states what is not covered: other lengths including
+  longer ones, intermediate or other coefficients, other distributions, with
+  no monotonicity assumed and a separately declared justification required
+  to widen the claim. The suffix rule is kept. §4, §10, §11, §12, the P12e-7
+  task and the contract pointer use the same wording.
+- **Answer 2 (S1).** The formula is kept and named a block-variance
+  studentized bootstrap; the plan states that `v*` uses the drawn blocks and
+  is not `B(L)` recomputed on the resample, with this review's example, and
+  that switching to `B*(L)` is a different candidate requiring an amendment.
+- **Answer 3 (S2).** The partial-block approximation is stated; S2 is
+  described as an experimental correction that does not claim to restore the
+  finite-sample variance exactly.
+- **Answer 6.** The two-sided `z = 1.96` convention, the per-check nature of
+  the intervals and the exact binomial pass probabilities are in §7, together
+  with the distinction between the limits and the nominal alphas.
+- **Answers 1, 4, 5, 7.** No change needed: S2 stays a candidate and no
+  fourth method is added; V1 stays eligible with the 256-bar failure
+  preserved; the block rules, family shape, screen, power metric, selection
+  order and cost workflow stand, with their restrictions stated in §11 and
+  §12. The draft-contract and wide-integer notes are in §4 and §10.
