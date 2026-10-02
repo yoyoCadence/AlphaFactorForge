@@ -76,7 +76,7 @@ function mix64(input: bigint): bigint {
 }
 
 /** A SplitMix64 stream keyed by a list of integers (contract §3). */
-function stream(seed: number, parts: readonly number[]): () => bigint {
+export function stream(seed: number, parts: readonly number[]): () => bigint {
   let state = BigInt(seed);
   for (const part of parts) state = mix64(state ^ mix64(BigInt(part) + 1n));
   return () => {
@@ -85,7 +85,7 @@ function stream(seed: number, parts: readonly number[]): () => bigint {
   };
 }
 
-function noiseSeries(next: () => bigint, phi: number, bars: number): number[] {
+export function noiseSeries(next: () => bigint, phi: number, bars: number): number[] {
   const uniform = () => Number(next() >> 11n) * 2 ** -53;
   const series: number[] = [];
   let value = 0;

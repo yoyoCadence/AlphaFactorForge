@@ -51,10 +51,11 @@ pub const NOISE_MAX_SIMULATIONS: u64 = 1_000_000;
 const PPM: u128 = 1_000_000;
 const UNIFORM_SCALE: f64 = 1.0 / 9_007_199_254_740_992.0;
 /// Stream domains, so data and bootstrap seeds never share a sequence.
-const DOMAIN_DATA: u64 = 0;
-const DOMAIN_CONFIRMATION_SEED: u64 = 1;
-const ROLE_RETURNS: u64 = 0;
-const ROLE_BENCHMARK: u64 = 1;
+/// Shared with `noise_simulation_v2`, which generates the same noise.
+pub(super) const DOMAIN_DATA: u64 = 0;
+pub(super) const DOMAIN_CONFIRMATION_SEED: u64 = 1;
+pub(super) const ROLE_RETURNS: u64 = 0;
+pub(super) const ROLE_BENCHMARK: u64 = 1;
 /// Not read by the calculation; a confirmation declaration requires one.
 const SIMULATED_RATIONALE: &str = "declared by research-noise-simulation-v1";
 
@@ -160,37 +161,37 @@ impl std::fmt::Display for NoiseSimulationError {
 
 impl std::error::Error for NoiseSimulationError {}
 
-fn fail<T>(message: impl Into<String>) -> Result<T, NoiseSimulationError> {
+pub(super) fn fail<T>(message: impl Into<String>) -> Result<T, NoiseSimulationError> {
     Err(NoiseSimulationError(message.into()))
 }
 
-struct Domain {
-    field: &'static str,
-    min: u64,
-    max: u64,
+pub(super) struct Domain {
+    pub(super) field: &'static str,
+    pub(super) min: u64,
+    pub(super) max: u64,
 }
 
-const AUTOCORRELATION: Domain = Domain {
+pub(super) const AUTOCORRELATION: Domain = Domain {
     field: "autocorrelationPpm",
     min: 0,
     max: NOISE_MAX_AUTOCORRELATION_PPM,
 };
-const BARS: Domain = Domain {
+pub(super) const BARS: Domain = Domain {
     field: "bars",
     min: 2,
     max: NOISE_MAX_BARS,
 };
-const CANDIDATES: Domain = Domain {
+pub(super) const CANDIDATES: Domain = Domain {
     field: "candidatesPerConfirmation",
     min: 1,
     max: NOISE_MAX_CANDIDATES,
 };
-const PRIOR_TRIALS: Domain = Domain {
+pub(super) const PRIOR_TRIALS: Domain = Domain {
     field: "priorTrials",
     min: 0,
     max: PRECISION_MAX_COUNT,
 };
-const BLOCK_LENGTH: Domain = Domain {
+pub(super) const BLOCK_LENGTH: Domain = Domain {
     field: "blockLength",
     min: 1,
     max: PRECISION_MAX_COUNT,
@@ -200,12 +201,12 @@ const BOOTSTRAP_SAMPLES: Domain = Domain {
     min: 1,
     max: PRECISION_MAX_COUNT,
 };
-const SIMULATIONS: Domain = Domain {
+pub(super) const SIMULATIONS: Domain = Domain {
     field: "simulations",
     min: 1,
     max: NOISE_MAX_SIMULATIONS,
 };
-const SEED: Domain = Domain {
+pub(super) const SEED: Domain = Domain {
     field: "seed",
     min: 0,
     max: PRECISION_MAX_COUNT,
@@ -217,7 +218,7 @@ const TOLERANCE: Domain = Domain {
 };
 
 impl Domain {
-    fn check(&self, value: u64) -> Result<u64, NoiseSimulationError> {
+    pub(super) fn check(&self, value: u64) -> Result<u64, NoiseSimulationError> {
         if (self.min..=self.max).contains(&value) {
             Ok(value)
         } else {
@@ -228,7 +229,7 @@ impl Domain {
         }
     }
 
-    fn read(&self, object: &Map<String, Value>) -> Result<u64, NoiseSimulationError> {
+    pub(super) fn read(&self, object: &Map<String, Value>) -> Result<u64, NoiseSimulationError> {
         let Some(value) = object.get(self.field) else {
             return fail(format!("simulation.{}: required", self.field));
         };
@@ -237,7 +238,7 @@ impl Domain {
     }
 }
 
-fn read_literal(
+pub(super) fn read_literal(
     object: &Map<String, Value>,
     field: &str,
     expected: &str,
@@ -347,7 +348,7 @@ pub fn parse_noise_simulation(
 
 /// A stream keyed by a list of small integers: each part is folded in the
 /// same way `research-confirmation-statistics-v1` keys a candidate's stream.
-fn stream(seed: u64, parts: &[u64]) -> SplitMix64 {
+pub(super) fn stream(seed: u64, parts: &[u64]) -> SplitMix64 {
     let state = parts.iter().fold(seed, |state, part| {
         mix64(state ^ mix64(part.wrapping_add(1)))
     });
@@ -363,7 +364,7 @@ fn uniform(rng: &mut SplitMix64) -> f64 {
 /// four uniforms minus two. The warm-up bars are generated and dropped; the
 /// initial zero still shows as a variance shortfall of `phi^130` in the first
 /// kept bar, negligible only within [`NOISE_MAX_AUTOCORRELATION_PPM`].
-fn noise_series(rng: &mut SplitMix64, phi: f64, bars: usize) -> Vec<f64> {
+pub(super) fn noise_series(rng: &mut SplitMix64, phi: f64, bars: usize) -> Vec<f64> {
     let mut series = Vec::with_capacity(bars);
     let mut value = 0.0f64;
     for bar in 0..NOISE_WARMUP_BARS + bars {
