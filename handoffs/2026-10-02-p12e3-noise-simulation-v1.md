@@ -3,8 +3,8 @@
 Date: 2026-10-02
 Repo: yoyoCadence/AlphaFactorForge
 Branch: `feat/p12e3-noise-simulation` (from merged PR #134, `b5a3438`)
-PR: opened from this branch as a draft (its number is recorded by the next slice; no follow-up docs commit)
-Status: Implemented and verified locally. **One of the two declared acceptance runs exceeds its tolerance — a maintainer decision is required (see Required Action 1). P12e stays open.**
+PR: [#135](https://github.com/yoyoCadence/AlphaFactorForge/pull/135) (draft)
+Status: Published as draft PR #135; acceptance-review R1 and R2 fixed on the branch (see Resolution). **One of the two declared acceptance runs exceeds its tolerance; the maintainer decided on 2026-10-02 to revise the statistic, starting with a calibration plan (P12e-4). P12e stays open and P13 stays blocked.**
 
 ## Summary
 
@@ -173,3 +173,87 @@ centered statistic at a few hundred bars and small tail probabilities.
   late-publication message and left no temp directory behind; a non-numeric
   value fails with a clear message.
 - No UI change; Playwright not rerun locally.
+
+## Resolution (2026-10-02) — PR #135 acceptance review: R1, R2 and the maintainer's decisions
+
+Published as draft PR [#135](https://github.com/yoyoCadence/AlphaFactorForge/pull/135).
+The [acceptance review](2026-10-02-pr135-noise-simulation-acceptance-review-v1.md)
+reproduced both declared results and found two P2 defects, fixed on this
+branch on top of the reviewed head `37e5a4c`.
+
+**R1 — warm-up versus the accepted coefficient range.** A series starts at
+zero, so the first kept bar has `1 − φ^130` of the stationary variance. With
+the coefficient allowed up to 0.999999 that was 0.013%: not the stationary
+AR(1) the contract promised.
+
+- `autocorrelationPpm` is now `[0, 900000]` (`NOISE_MAX_AUTOCORRELATION_PPM`);
+  at the maximum the shortfall is about 1.1 ppm. The warm-up stays a fixed 64
+  bars because changing it would change the declared acceptance runs; their
+  declarations and reports are byte-for-byte unchanged (at 0.3 the shortfall
+  is about 1e-68, so this cannot explain the 6.45%).
+- Contract §3 states the bias and the supported range; a larger coefficient
+  is refused and needs a new contract version.
+- Tests: boundary 900000 accepted, 900001 / 990000 / 999999 refused; the
+  analytic shortfall at 0.3, 0.9, 0.99 and 0.999999; measured over 40,000
+  independent series, the first kept bar has the stationary variance at 0.9
+  and about 0.013% of it at 0.999999. A fifth small fixture case sits at the
+  maximum, and the TypeScript reference refuses the same range.
+
+**R2 — a service left unmanaged after deadline plus grace.** The handle was
+dropped, and the service could still publish and own the workspace later.
+
+- Every failure path that leaves a live service now calls
+  `supervise_failed_startup`: the workspace lock is taken at once when it is
+  free (so a service that starts later is refused as `NotOwner`), and a
+  cleanup thread stops the service if it publishes after all, joins it,
+  releases the lock and removes the directory. `wait_for_startup_cleanup`
+  lets a test wait for that.
+- Unchanged: the wait is finite, the original failure message and the
+  production timeouts are kept, nothing is retried.
+- Tests: a real service held back until after deadline plus grace is refused
+  and leaves no endpoint, directory or lock, with nothing but the helper
+  cleaning up; a real service already starting when the wait fails is brought
+  down either way; the never-published and late-publication tests now also
+  assert the clean end state. Dropping the handle again fails three tests;
+  fifteen consecutive runs were clean.
+- Still true: an in-process `service::run` cannot be cancelled, so a service
+  that hangs without ever publishing or exiting keeps its thread (and the
+  fence) until the test process ends.
+
+**Corrections to what this handoff said above.**
+
+- "rejects true nulls somewhat too often at this sample size, and clearly
+  too often under moderate autocorrelation" overstated the evidence. The 95%
+  Wilson interval of 129/2000 is 5.45%–7.61%: above the nominal 5%, but it
+  contains 6%, so the true rate is not proven to exceed the limit. The
+  independent first confirmation (61/2000, 2.38%–3.90%) contains its 2.5%
+  share and does not by itself show miscalibration on independent noise. The
+  run still fails the threshold declared beforehand, and that record stays.
+- The exploratory block-length table is a hypothesis only. It does not rule
+  out the block choice or show that the cause is the unstudentized statistic.
+- "The acceptance runs take about 25 s" is the local debug build; in CI the
+  whole library suite took 8.17 s.
+
+**Maintainer decisions (2026-10-02), answering Required Action 1.**
+
+1. Take the first direction: revise the statistic. A new calibration plan is
+   submitted first; then a studentized bootstrap and a serial-correlation
+   variance correction are compared. A longer sample may become a condition
+   of applicability after it is verified; lowering alpha is not, on this
+   evidence, a way to close the finding.
+2. The 6.45% failure stays on record; P12e stays open; P13 stays blocked.
+3. The new acceptance checks each confirmation and the whole family, so a
+   conservative later batch cannot hide a loose first one.
+4. The simulations stay in the normal test suite. The 30 s startup wait
+   remains a candidate: cleanup first (R2), then collect startup timings and
+   failure causes.
+
+Next task: **P12e-4**, the recalibration plan (plan only), on the task board.
+
+Verification after the fixes: `cargo test --locked` **535 passed (137 library
++ 396 desktop + 2 service), 1 ignored** = 532 + 1 warm-up test + 2 cleanup
+tests; `npm test` **1019 passed (59 files)**; `npm run typecheck`,
+`npm run build`, `cargo check --locked --all-targets` pass; clippy the five
+existing warnings only; rustfmt on the simulation files; `git diff --check`
+pass. The twelve engine mutation checks were run before R1 and not repeated
+(R1 changed one domain bound).

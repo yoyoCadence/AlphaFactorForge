@@ -26,6 +26,22 @@
 Both are frozen in the declarations of §7 before any run. A threshold or a
 seed is never changed because a result is unwelcome.
 
+After the result (§7.1) and the PR #135 acceptance review, the same day:
+
+3. **The 6.45% failure stays on record.** P12e stays open and P13's
+   confirmation work stays blocked.
+4. **Direction for P12e-FINDING-1: revise the statistic.** First a new
+   calibration plan is submitted; then a studentized bootstrap and a
+   serial-correlation variance correction are compared as candidates for a
+   new P12e-1 contract version. A longer sample may become a condition of
+   applicability once verified. Lowering alpha is not, on this evidence, a way
+   to close the finding.
+5. **The new acceptance checks each confirmation and the whole family**, so
+   that a conservative later batch cannot hide a first batch that is too
+   loose.
+6. **These simulations stay in the normal test suite** (they take about 8 s
+   in CI).
+
 ## 1. Question it answers
 
 If nothing has an edge — every candidate's mean net return and mean excess
@@ -47,7 +63,7 @@ integers (a float literal such as `2000.0` is rejected).
 | `contractVersion` | `"research-noise-simulation-v1"` | exact |
 | `confirmationContract` | `"research-confirmation-statistics-v1"` | the statistics under test |
 | `noiseModel` | `"ar1-uniform-sum"` | only model in v1 (§3) |
-| `autocorrelationPpm` | integer `[0, 999999]` | AR(1) coefficient φ in ppm; `0` is independent noise |
+| `autocorrelationPpm` | integer `[0, 900000]` | AR(1) coefficient φ in ppm; `0` is independent noise. The upper bound is what the fixed warm-up supports (§3) |
 | `bars` | integer `[2, 1000000]` | bars of each candidate's confirmation segment, `n` |
 | `candidatesPerConfirmation` | integer `[1, 1024]` | candidates in every confirmation, `c` |
 | `priorTrials` | integer `[0, MAX]` | trials the family registered before its first confirmation and never confirms; they only enlarge the family count |
@@ -80,10 +96,30 @@ series(φ, n):         x = 0
                       keep the last n values
 ```
 
-`φ = autocorrelationPpm / 1e6` (one IEEE division). The 64 warm-up values put
-the series in its stationary regime. Innovations are symmetric about zero, so
-every series has mean exactly zero in expectation: light-tailed,
-homoscedastic noise (§9).
+`φ = autocorrelationPpm / 1e6` (one IEEE division). Innovations are symmetric
+about zero, so every series has mean exactly zero in expectation:
+light-tailed, homoscedastic noise (§9).
+
+**Warm-up and the supported coefficient** (PR #135 review R1). A series
+starts at zero, so after `t` innovations it has `1 − φ^(2t)` of the
+stationary variance; the first kept bar is the 65th value, short by `φ^130`.
+The warm-up is a fixed 64 bars — changing it would change the declared
+acceptance runs — so the coefficient is bounded instead:
+
+| φ | Variance of the first kept bar, of stationary |
+| --- | --- |
+| 0 | 100% exactly |
+| 0.3 (the acceptance run) | short by about `1e-68` |
+| **0.9, the maximum** | short by about `1.1e-6` |
+| 0.99 (refused) | 72.9% |
+| 0.999999 (refused) | 0.013% |
+
+Within `[0, 0.9]` the series is a stationary AR(1) to about one part per
+million, which is far below what any simulation of this size resolves. A
+larger coefficient is refused rather than simulated from a start that is not
+stationary; supporting one needs a new contract version with a different
+initialisation. The bias decays over the kept bars, so it is largest in the
+first one.
 
 For simulation `s` (from 0), confirmation `k` (from 1), candidate `j` (from 0):
 
@@ -187,16 +223,33 @@ outcomes. The results below are reproduced by `cargo test` on every run.
   (about three standard errors) above nominal and nine simulations above the
   limit. Its first confirmation rejected in 4.15% against a 2.5% share.
 
-**What this means.** At 256 bars and block length 6, the P12e-1 test rejects
-true null hypotheses more often than its alpha when returns are moderately
-autocorrelated. The declared acceptance is **not met** for that case. Nothing
-was adjusted afterwards: the seed, the size, the block length and the
+**What this means.** The declared acceptance is **not met** for the
+correlated run: 129 is above the limit of 120 that was fixed beforehand.
+Nothing was adjusted afterwards: the seed, the size, the block length and the
 tolerance are the ones committed beforehand, and this result stands as the
-record. What to do about it — a change to the P12e-1 statistic, a rule on
-sample length or block length, or a required per-confirmation simulation — is
-a maintainer decision and not part of this contract (§10). Until it is made,
-a confirmation under P12e-1 must not be described as controlling its
-false-positive rate on serially correlated returns.
+record (decision 3). Until the finding is resolved, a confirmation under
+P12e-1 must not be described as controlling its false-positive rate on
+serially correlated returns.
+
+**How far the numbers go** (95% Wilson intervals, each computed on its own
+row, no multiplicity adjustment; from the PR #135 acceptance review):
+
+| Measurement | Rate | 95% interval |
+| --- | --- | --- |
+| independent, family 97/2000 | 4.85% | 3.99% – 5.88% |
+| AR(1) 0.3, family 129/2000 | 6.45% | 5.45% – 7.61% |
+| independent, confirmation 1, 61/2000 | 3.05% | 2.38% – 3.90% |
+| AR(1) 0.3, confirmation 1, 83/2000 | 4.15% | 3.36% – 5.12% |
+
+- The correlated family interval lies above the nominal 5%, which supports
+  the concern that the test is miscalibrated there. It also **contains 6%**:
+  the run fails the declared threshold, but it does not prove that the true
+  rate is above 6%.
+- The independent first-confirmation interval contains its 2.5% share, so 61
+  rejections alone do not show the test is miscalibrated on independent
+  noise.
+- These intervals are not a new acceptance rule for this run. A later plan
+  may declare a confidence-bound rule in advance.
 
 ## 8. Fixture and reference
 
@@ -239,9 +292,21 @@ false-positive rate on serially correlated returns.
 ## 10. Remaining P12/P13 work
 
 **Open finding (P12e-FINDING-1).** The serially correlated acceptance run
-exceeds its tolerance (§7.1). P12e stays open until the maintainer decides
-how the confirmation protocol responds; any new acceptance run needs its own
-declaration committed before it is executed.
+exceeds its tolerance (§7.1). The maintainer's direction (§0, decisions 3–5):
+keep this record; submit a **new calibration plan** first; then compare a
+studentized bootstrap and a serial-correlation variance correction as
+candidates for a new P12e-1 contract version; treat a longer sample as a
+condition of applicability only after it is verified; do not close the
+finding by lowering alpha. P12e stays open until then.
+
+The acceptance review's minimum requirements for that plan — to be settled
+when the plan itself is submitted — are: declare, before anything is run, the
+per-confirmation and whole-family targets, models, sample lengths, family and
+schedule, block rule, sample counts, Monte Carlo size, seeds and acceptance
+rule; use separate fixed seed sets for choosing a method and for the final
+acceptance; synthetic data only; keep failures on record. The exploratory
+block-length runs in the P12e-3 handoff are a hypothesis, not evidence that
+the block choice is ruled out.
 
 P13: freezing a confirmation batch, the synchronized ledger fence, alpha
 reservation (alpha-allocation §9), revealing Validation/Test once, and the

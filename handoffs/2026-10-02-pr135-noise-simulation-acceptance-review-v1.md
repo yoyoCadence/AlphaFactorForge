@@ -6,7 +6,7 @@ Branch: `feat/p12e3-noise-simulation`
 PR: [#135](https://github.com/yoyoCadence/AlphaFactorForge/pull/135)
 Reviewed head: `37e5a4ccccf46afbdfeb1441e0b946b91db1e3f0`
 Base: `b5a343840375179b91effff8b9c02cbd2f8e49fe` (merged #134)
-Status: Needs two P2 fixes before merge. The declared simulation results reproduce; P12e-FINDING-1 remains open. Recommendations below are not adopted maintainer decisions.
+Status: R1 and R2 fixed on the PR branch (2026-10-02, see Resolution); awaiting re-review/merge. The declared simulation results reproduce; P12e-FINDING-1 remains open. The recommendations below were adopted by the maintainer on 2026-10-02.
 
 ## Summary
 
@@ -121,3 +121,46 @@ cargo test --locked --bin alpha-factor-forge pr135_review_timeout_must_not_leave
 - 作者的 mutation checks 與 clippy 沒有在本次重跑；本機未重跑 Playwright，遠端 e2e 成功。
 
 本次只新增 review handoff 與 task board 記錄，未修正產品程式、未採用上述政策建議，也未 commit／push／張貼 GitHub review 或合併 PR。
+
+## Resolution (2026-10-02)
+
+R1 and R2 were acted on in PR #135, on top of the reviewed head `37e5a4c`.
+This handoff and its task board lines were committed unchanged first
+(`d97a78b`).
+
+- **R1.** The coefficient is bounded instead of the warm-up changed:
+  `autocorrelationPpm ∈ [0, 900000]`, where the first kept bar is short of the
+  stationary variance by about 1.1 ppm. The fixed 64-bar warm-up and both
+  declared acceptance runs are untouched (reports byte-for-byte the same).
+  Contract §3 now states the initialisation bias and the supported range and
+  refuses larger coefficients; a boundary test covers 900000 / 900001 /
+  990000 / 999999 analytically and by measurement over 40,000 series; the
+  fixture has a case at the maximum and the TypeScript reference enforces the
+  same range.
+- **R2.** A failed wait no longer drops a live service. The workspace is
+  fenced with its own lock when free, and a cleanup thread stops a service
+  that publishes late, joins it, releases the lock and removes the directory.
+  The reviewer's scenario — a real service released only after deadline plus
+  grace — is now a test: the service is refused, and no endpoint, directory or
+  lock remains, without the test stopping anything itself. A second test
+  covers a service already starting when the wait fails. The wait stays
+  finite, the failure message and production timeouts are unchanged, nothing
+  is retried. The in-process approach was kept rather than a separate
+  terminable process; its remaining limit (a service that hangs without ever
+  publishing or exiting keeps its thread until the process ends) is recorded
+  in the P12e-3 handoff.
+- **Recommendations.** The maintainer adopted them on 2026-10-02: revise the
+  statistic, starting with a new calibration plan and then comparing a
+  studentized bootstrap with a serial-correlation variance correction; keep
+  the 6.45% failure on record with P12e open and P13 blocked; make the new
+  acceptance check each confirmation and the whole family; keep the
+  simulations in the normal suite and treat 30 s as a candidate until startup
+  timings are collected. The Wilson intervals and their reading are in
+  contract §7.1, and the over-strong wording in the P12e-3 handoff is
+  corrected in its Resolution. The plan's minimum requirements are carried
+  into contract §10 and task `P12e-4`.
+- **PR description.** Rewritten: CI run linked, cost corrected to 8.17 s.
+
+Verification after the fixes: 535 Rust (137 + 396 + 2, 1 ignored), 1019
+Vitest, typecheck, build, all-target check and clippy (five existing
+warnings) pass.
