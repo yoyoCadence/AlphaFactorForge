@@ -3,10 +3,10 @@
 > **Status: P12e-5, engine only (2026-10-02).** No runtime caller. It is the
 > simulation engine that
 > [`confirmation-recalibration-plan-v1`](plans/confirmation-recalibration-plan-v1.md)
-> runs on. **No new statistic is implemented and no diagnostic or acceptance
-> cell of that plan has been run**: the only selectable statistic is the
-> baseline, the fixture holds tiny cases that are not plan cells, and the
-> plan's seeds (20261005, 20261117) have not been used.
+> runs on. **No diagnostic or acceptance cell of that plan has been run**:
+> the fixture holds tiny cases that are not plan cells, and the plan's seeds
+> (20261005, 20261117) have not been used. Since P12e-6a the plan's two draft
+> candidates are selectable next to the baseline (§3).
 > Implementation: `alpha-factor-forge/src-tauri/src/discovery_core/noise_simulation_v2.rs`;
 > runner: `alpha-factor-forge/src-tauri/examples/noise_simulation_v2.rs`.
 > [`research-noise-simulation-v1`](research-noise-simulation-v1.md) and its
@@ -19,7 +19,7 @@ rejecting simulation are the same. v2 adds what the plan needs:
 
 | | v1 | v2 |
 | --- | --- | --- |
-| statistic | fixed: `research-confirmation-statistics-v1` | declared; today only that one (§3) |
+| statistic | fixed: `research-confirmation-statistics-v1` | declared: the baseline or one of two draft candidates (§3) |
 | what is judged | the family rate | every confirmation **and** the family (§5) |
 | rule | observed rate ≤ nominal + tolerance | none, a point screen, or the 95% Wilson upper bound (§5) |
 | limit | nominal + `tolerancePpm` | nominal × `limitMultiplierPpm` |
@@ -37,14 +37,14 @@ integers.
 | Field | Domain | Meaning |
 | --- | --- | --- |
 | `contractVersion` | `"research-noise-simulation-v2"` | exact |
-| `statistic` | `"research-confirmation-statistics-v1"` | the confirmation statistic under test (§3) |
+| `statistic` | one of the three names of §3 | the confirmation statistic under test |
 | `noiseModel` | `"ar1-uniform-sum"` | v1 §3 |
 | `autocorrelationPpm` | integer `[0, 900000]` | v1 §3, including its supported range |
 | `effectMillionths` | integer `[0, 1000000000]` | shift of the strategy's returns, in millionths; `0` is the null scenario (§4) |
 | `bars` | integer `[2, 1000000]` | as v1 |
 | `candidatesPerConfirmation` | integer `[1, 1024]` | as v1 |
 | `priorTrials` | integer `[0, MAX]` | as v1 |
-| `blockLength` | integer `[1, MAX]`, `L² ≤ bars` | as v1 |
+| `blockLength` | integer `[1, MAX]`, `L² ≤ bars` (`(2L)² ≤ bars` for S2) | as v1 |
 | `bootstrapSamples` | integer `[1, 1000000]` | `B` |
 | `simulations` | integer `[1, 1000000]` | `N` |
 | `seed` | integer `[0, MAX]` | as v1 |
@@ -54,7 +54,8 @@ integers.
 
 Rejection order (part of the contract): not an object → first unknown field
 in sorted order → the fields in table order (`check` and `allocation` by
-their own order, prefixed `simulation.`) → `blockLength² > bars` → the last
+their own order, prefixed `simulation.`) → `blockLength² > bars` (twice the
+block length for S2) → the last
 confirmation's family count above `MAX` → a rule together with a non-zero
 `effectMillionths` → a limit that is not a whole number of ppm below 1000000
 (§5).
@@ -66,9 +67,17 @@ confirmation runs. The engine calls that calculation unchanged and reads only
 its public result: per test, the bootstrap extreme count and whether the null
 is rejected.
 
-Today the only value is the plan's baseline **V1**. The plan's candidates S1
-and S2 are added in P12e-6, each with its own committed draft contract; until
-then any other name is refused.
+| Plan id | `statistic` | Contract |
+| --- | --- | --- |
+| V1 | `research-confirmation-statistics-v1` | [the current statistic](research-confirmation-statistics-v1.md) |
+| S1 | `research-confirmation-candidate-s1-v1` | [draft](research-confirmation-candidates-draft-v1.md) §3 |
+| S2 | `research-confirmation-candidate-s2-v1` | [draft](research-confirmation-candidates-draft-v1.md) §4 |
+
+Any other name is refused. S1 and S2 (P12e-6a) are experimental: this engine
+is the only caller they have, and selecting one here says nothing about its
+calibration. All three draw the same resampled bars, so their reports differ
+only through the statistic. S2 also reads blocks of `2L`, so its declaration
+must satisfy `(2L)² ≤ bars`.
 
 ## 4. Scenarios
 
@@ -187,7 +196,8 @@ includes it.
 ## 9. Fixture and reference
 
 [`research-noise-simulation-v2.json`](../alpha-factor-forge/fixtures/rs-core/research-noise-simulation-v2.json)
-holds five small hand-written declarations. Their `expected` reports come from
+holds seven small hand-written declarations (five from P12e-5, and one for
+each draft candidate). Their `expected` reports come from
 an independent TypeScript/BigInt reference
 (`src/parity/noiseSimulationV2Fixture.ts`,
 `npm run fixtures:noise-simulation-v2`), which finds the Wilson bounds by

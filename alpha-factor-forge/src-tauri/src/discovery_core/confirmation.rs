@@ -126,7 +126,7 @@ impl std::fmt::Display for ConfirmationError {
 
 impl std::error::Error for ConfirmationError {}
 
-fn fail<T>(message: impl Into<String>) -> Result<T, ConfirmationError> {
+pub(super) fn fail<T>(message: impl Into<String>) -> Result<T, ConfirmationError> {
     Err(ConfirmationError(message.into()))
 }
 
@@ -228,7 +228,7 @@ impl SplitMix64 {
 
     /// One independent stream per candidate, so a result does not depend on
     /// which other candidates share its batch or on their order.
-    fn for_candidate(seed: u64, candidate_index: u64) -> Self {
+    pub(super) fn for_candidate(seed: u64, candidate_index: u64) -> Self {
         Self::new(mix64(seed ^ mix64(candidate_index.wrapping_add(1))))
     }
 
@@ -239,7 +239,7 @@ impl SplitMix64 {
 
     /// Uniform in `[0, n)` without modulo bias: draws below `2^64 mod n` are
     /// discarded, leaving a range whose size is a multiple of `n`.
-    fn below(&mut self, n: u64) -> u64 {
+    pub(super) fn below(&mut self, n: u64) -> u64 {
         let threshold = n.wrapping_neg() % n;
         loop {
             let draw = self.next_u64();
@@ -252,16 +252,19 @@ impl SplitMix64 {
 
 /// Left-to-right `f64` sum: part of the contract, so any reader reproduces
 /// the same bits.
-fn ordered_sum(values: &[f64]) -> f64 {
+pub(super) fn ordered_sum(values: &[f64]) -> f64 {
     values.iter().fold(0.0, |total, value| total + value)
 }
 
-struct Observed {
-    candidate_index: u64,
-    test: ConfirmationTest,
-    observations: u64,
-    observed_mean: f64,
-    extreme_count: u64,
+/// One test's bootstrap outcome before the Holm adjustment. Shared with
+/// `confirmation_candidates`, whose statistics differ only in what counts as
+/// an extreme resample.
+pub(super) struct Observed {
+    pub(super) candidate_index: u64,
+    pub(super) test: ConfirmationTest,
+    pub(super) observations: u64,
+    pub(super) observed_mean: f64,
+    pub(super) extreme_count: u64,
 }
 
 fn declaration_in_domain(declaration: &ConfirmationDeclaration) -> bool {
@@ -373,6 +376,30 @@ pub fn evaluate_confirmation(
     family_tests: u64,
     candidates: &[CandidateSeries<'_>],
 ) -> Result<ConfirmationReport, ConfirmationError> {
+    evaluate_with(
+        CONFIRMATION_STATISTICS_VERSION,
+        declaration,
+        family_tests,
+        candidates,
+        bootstrap_candidate,
+    )
+}
+
+/// Everything around the bootstrap — input checks, the exact p-values and
+/// Holm against the whole family — for a given way of counting extreme
+/// resamples. `research-confirmation-statistics-v1` is this with
+/// [`bootstrap_candidate`]; the recalibration plan's draft candidates pass
+/// their own.
+pub(super) fn evaluate_with(
+    contract_version: &'static str,
+    declaration: &ConfirmationDeclaration,
+    family_tests: u64,
+    candidates: &[CandidateSeries<'_>],
+    bootstrap: impl Fn(
+        &ConfirmationDeclaration,
+        &CandidateSeries<'_>,
+    ) -> Result<[Observed; 2], ConfirmationError>,
+) -> Result<ConfirmationReport, ConfirmationError> {
     if !declaration_in_domain(declaration) {
         return fail(
             "confirmation: declaration is outside the research-confirmation-statistics-v1 domain",
@@ -404,7 +431,7 @@ pub fn evaluate_confirmation(
 
     let mut observed = Vec::with_capacity(candidates.len() * 2);
     for candidate in candidates {
-        observed.extend(bootstrap_candidate(declaration, candidate)?);
+        observed.extend(bootstrap(declaration, candidate)?);
     }
 
     // Ascending raw p == ascending extreme count (one shared denominator).
@@ -459,7 +486,7 @@ pub fn evaluate_confirmation(
         .collect();
     tests.sort_by_key(|row| (row.candidate_index, row.test));
     Ok(ConfirmationReport {
-        contract_version: CONFIRMATION_STATISTICS_VERSION,
+        contract_version,
         correction: CONFIRMATION_CORRECTION_HOLM,
         scheme: CONFIRMATION_SCHEME,
         prng: CONFIRMATION_PRNG,

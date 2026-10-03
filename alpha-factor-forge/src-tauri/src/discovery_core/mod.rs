@@ -6,6 +6,7 @@ pub mod benchmarks;
 pub mod campaign;
 pub mod config;
 pub mod confirmation;
+pub mod confirmation_candidates;
 pub mod dsl;
 pub mod embargo;
 pub mod enumerate;

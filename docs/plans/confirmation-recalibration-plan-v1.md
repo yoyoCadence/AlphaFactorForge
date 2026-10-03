@@ -398,3 +398,37 @@ records what §8 and §10 left to the engine slice.
   5 min 37 s. The same run in a debug build was 5 to 13 times slower.
 - **Still unmeasured:** S1 and S2, which do not exist yet. Their extra
   variance arithmetic is measured in P12e-6 before their grids are run.
+
+## Record — 2026-10-02, P12e-6a (candidate contracts; not an amendment)
+
+Nothing in §1–§12 changes, and no diagnostic or acceptance cell has been run.
+
+- **P12e-6 is done in two steps.** P12e-6a: the candidates' draft contracts,
+  implementations and references, so they can be reviewed before any result
+  exists. P12e-6b: the diagnostic grid of §6 and the selection. The content
+  and order of §10 are unchanged.
+- **Draft contracts committed before any diagnostic run** (§4, §10):
+  [`research-confirmation-candidates-draft-v1`](../research-confirmation-candidates-draft-v1.md),
+  with the names `research-confirmation-candidate-s1-v1` and
+  `research-confirmation-candidate-s2-v1`. They state the definitions of §4
+  unchanged — S1 with `v*` from the drawn blocks, S2 with
+  `c² = max(1, (2·B(2L) − B(L)) / B(L))` — and settle what §4 left open: the
+  summation order of `B(ℓ)` and `v*`, a comparison `a·√p ≥ s·√q` evaluated
+  without a square root or a division, the zero-variance cases, a partial
+  last block, and refused inputs.
+- **Measured release-build cost** (timing-only, seed 1, AR(1) 0.3, the family
+  shape of §3, block rule R3, 500 simulations per cell; outcomes not printed
+  or stored):
+
+  | `n` | V1 | S1 | S2 |
+  | --- | --- | --- | --- |
+  | 256 | 0.402 s | 0.731 s | 0.451 s |
+  | 512 | 0.832 s | 1.259 s | 0.870 s |
+  | 1024 | 1.547 s | 2.238 s | 1.626 s |
+
+  Measured on the final draft (after the PR #138 review added normalization
+  and range checks; S1 became about 20% slower). S1 costs about 1.45 to 1.8
+  times V1 and S2 about 1.05 to 1.1 times. One candidate/rule pair's size
+  grid (two noise models, 4,000 simulations per cell) is therefore about 45 s
+  of CPU for V1, 68 s for S1 and 47 s for S2; the whole size grid of §6 about
+  five and a half minutes of CPU, and the power runs at most as much again.

@@ -7,6 +7,11 @@
 // fixtures/rs-core/research-noise-simulation-v2.json. Test support only.
 
 import { referenceAllocationId, type AlphaAllocationDeclaration } from './alphaAllocationFixture';
+import {
+  CANDIDATE_S1,
+  CANDIDATE_S2,
+  referenceCandidateTests,
+} from './confirmationCandidatesFixture';
 import { referenceConfirmationTests } from './confirmationStatisticsFixture';
 import { MAX_AUTOCORRELATION_PPM, noiseSeries, stream } from './noiseSimulationFixture';
 
@@ -14,6 +19,7 @@ const PPM = 1_000_000n;
 // z = 1.96 = 49/25 (two-sided 95%): z² = 2401/625 = 38416/10000.
 const Z2_NUMERATOR = 38_416n;
 const Z2_DENOMINATOR = 10_000n;
+const STATISTIC_V1 = 'research-confirmation-statistics-v1';
 
 export type NoiseCheckRule = 'none' | 'point-screen' | 'wilson-upper-bound';
 
@@ -163,7 +169,7 @@ function assertDeclared(declaration: NoiseSimulationV2Declaration): void {
   );
   if (
     declaration.contractVersion !== 'research-noise-simulation-v2' ||
-    declaration.statistic !== 'research-confirmation-statistics-v1' ||
+    ![STATISTIC_V1, CANDIDATE_S1, CANDIDATE_S2].includes(declaration.statistic) ||
     !Number.isInteger(autocorrelationPpm) ||
     autocorrelationPpm < 0 ||
     autocorrelationPpm > MAX_AUTOCORRELATION_PPM ||
@@ -218,7 +224,7 @@ export async function referenceNoiseSimulationV2(
           benchmarkReturns: noise(1),
         };
       });
-      const tests = referenceConfirmationTests({
+      const confirmation = {
         declaration: {
           alphaPpm,
           blockLength: declaration.blockLength,
@@ -227,7 +233,12 @@ export async function referenceNoiseSimulationV2(
         },
         familyTests: familyTests(confirmationNumber),
         candidates: series,
-      });
+      };
+      // The declared statistic: the baseline, or one of the draft candidates.
+      const tests =
+        declaration.statistic === CANDIDATE_S1 || declaration.statistic === CANDIDATE_S2
+          ? referenceCandidateTests(declaration.statistic, confirmation)
+          : referenceConfirmationTests(confirmation);
       const row = counts[position];
       const net = tests.filter((test) => test.test === 'net_return');
       const excess = tests.filter((test) => test.test === 'benchmark_excess');

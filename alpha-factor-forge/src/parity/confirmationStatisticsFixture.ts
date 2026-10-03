@@ -72,7 +72,7 @@ export function splitmix64Outputs(state: string, count: number): string[] {
 }
 
 /** Uniform in `[0, n)`: draws below `2^64 mod n` are discarded. */
-function below(next: () => bigint, n: number): number {
+export function below(next: () => bigint, n: number): number {
   const size = BigInt(n);
   const threshold = (1n << 64n) % size;
   for (;;) {
@@ -82,18 +82,23 @@ function below(next: () => bigint, n: number): number {
 }
 
 /** Left-to-right sum: the order is part of the contract. */
-function orderedSum(values: number[]): number {
+export function orderedSum(values: number[]): number {
   let total = 0;
   for (const value of values) total += value;
   return total;
 }
 
-interface Observed {
+export interface Observed {
   candidateIndex: number;
   test: ConfirmationTestName;
   observations: number;
   observedMean: number;
   extremeCount: number;
+}
+
+/** One SplitMix64 stream per candidate, keyed by its index. */
+export function candidateStream(seed: number, candidateIndex: number): () => bigint {
+  return splitmix64(mix64(BigInt(seed) ^ mix64((BigInt(candidateIndex) + 1n) & MASK)));
 }
 
 function bootstrapCandidate(
@@ -105,10 +110,7 @@ function bootstrapCandidate(
   const excess = returns.map((value, bar) => value - candidate.benchmarkReturns[bar]);
   const observed = [orderedSum(returns), orderedSum(excess)];
   const series = [returns, excess];
-  // One stream per candidate, keyed by its index.
-  const next = splitmix64(
-    mix64(BigInt(declaration.seed) ^ mix64((BigInt(candidate.candidateIndex) + 1n) & MASK)),
-  );
+  const next = candidateStream(declaration.seed, candidate.candidateIndex);
   const blocks = Math.ceil(n / declaration.blockLength);
   const extreme = [0, 0];
   for (let sample = 0; sample < declaration.bootstrapSamples; sample += 1) {
@@ -139,9 +141,20 @@ function bootstrapCandidate(
 
 /** The `expected.tests` block of one fixture case. */
 export function referenceConfirmationTests(testCase: ConfirmationFixtureCase): ConfirmationFixtureTest[] {
-  const observed = testCase.candidates.flatMap((candidate) =>
-    bootstrapCandidate(testCase.declaration, candidate),
+  return referenceHolm(
+    testCase,
+    testCase.candidates.flatMap((candidate) => bootstrapCandidate(testCase.declaration, candidate)),
   );
+}
+
+/**
+ * Exact p-values and Holm against the whole family, for the extreme counts of
+ * any statistic that keeps the `(1 + extreme) / (B + 1)` form.
+ */
+export function referenceHolm(
+  testCase: Pick<ConfirmationFixtureCase, 'declaration' | 'familyTests'>,
+  observed: Observed[],
+): ConfirmationFixtureTest[] {
   const denominator = BigInt(testCase.declaration.bootstrapSamples) + 1n;
   const order = observed
     .map((_, position) => position)

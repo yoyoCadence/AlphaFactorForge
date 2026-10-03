@@ -196,7 +196,10 @@ accepted is fixed in
 [`confirmation-recalibration-plan-v1`](plans/confirmation-recalibration-plan-v1.md)
 (P12e-4). Until that plan's final acceptance passes, this version must not be
 described as controlling its false-positive rate on serially correlated
-returns. Remaining: P12e-5 to P12e-7 of that plan, and P13
+returns. Its two draft candidates are written out in
+[`research-confirmation-candidates-draft-v1`](research-confirmation-candidates-draft-v1.md)
+(P12e-6a); they are experimental and replace nothing here. Remaining: the
+diagnostics and the final acceptance of that plan, and P13
 (freezing a confirmation batch, the synchronized ledger fence that supplies
 `familyTests`, reserving alpha, revealing Validation/Test once, and the only
 place a statistical `PASS` may be produced).

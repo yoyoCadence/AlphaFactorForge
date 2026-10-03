@@ -23,6 +23,7 @@
     "fixtures:alpha-allocation": "vite-node scripts/generate-alpha-allocation-fixtures.ts",
     "fixtures:noise-simulation": "vite-node scripts/generate-noise-simulation-fixtures.ts",
     "fixtures:noise-simulation-v2": "vite-node scripts/generate-noise-simulation-v2-fixtures.ts",
+    "fixtures:confirmation-candidates": "vite-node scripts/generate-confirmation-candidates-fixtures.ts",
     "e2e": "playwright test",
     "tauri": "tauri"
   },
