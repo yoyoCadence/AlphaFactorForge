@@ -1,0 +1,2569 @@
+{
+  "plan": "confirmation-recalibration-plan-v1",
+  "phase": "diagnostics (§6)",
+  "description": "Declarations of the diagnostic grid, written from the plan tables and committed before any of them was run. Size runs are all executed. Power runs are executed only for candidate/rule pairs that are eligible on the size screen, in the cells at and above their lowest supported tested length (plan §6); the others stay declared and unrun. Reports are added under `reports` by scripts/record-recalibration-diagnostics.ts after the runs; nothing here may be edited in response to a result.",
+  "screen": {
+    "confirmationLimitCount": 120,
+    "familyLimitCount": 240
+  },
+  "size": [
+    {
+      "id": "size-V1-R3-phi0-n256",
+      "candidate": "V1",
+      "rule": "R3",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-statistics-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 0,
+        "effectMillionths": 0,
+        "bars": 256,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 6,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "point-screen",
+          "limitMultiplierPpm": 1200000
+        },
+        "checkpoints": [
+          16
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "size-V1-R3-phi0-n512",
+      "candidate": "V1",
+      "rule": "R3",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-statistics-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 0,
+        "effectMillionths": 0,
+        "bars": 512,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 8,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "point-screen",
+          "limitMultiplierPpm": 1200000
+        },
+        "checkpoints": [
+          8
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "size-V1-R3-phi0-n1024",
+      "candidate": "V1",
+      "rule": "R3",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-statistics-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 0,
+        "effectMillionths": 0,
+        "bars": 1024,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 10,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "point-screen",
+          "limitMultiplierPpm": 1200000
+        },
+        "checkpoints": [
+          4
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "size-V1-R3-phi300-n256",
+      "candidate": "V1",
+      "rule": "R3",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-statistics-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 300000,
+        "effectMillionths": 0,
+        "bars": 256,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 6,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "point-screen",
+          "limitMultiplierPpm": 1200000
+        },
+        "checkpoints": [
+          16
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "size-V1-R3-phi300-n512",
+      "candidate": "V1",
+      "rule": "R3",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-statistics-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 300000,
+        "effectMillionths": 0,
+        "bars": 512,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 8,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "point-screen",
+          "limitMultiplierPpm": 1200000
+        },
+        "checkpoints": [
+          8
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "size-V1-R3-phi300-n1024",
+      "candidate": "V1",
+      "rule": "R3",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-statistics-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 300000,
+        "effectMillionths": 0,
+        "bars": 1024,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 10,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "point-screen",
+          "limitMultiplierPpm": 1200000
+        },
+        "checkpoints": [
+          4
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "size-V1-R4-phi0-n256",
+      "candidate": "V1",
+      "rule": "R4",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-statistics-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 0,
+        "effectMillionths": 0,
+        "bars": 256,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 4,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "point-screen",
+          "limitMultiplierPpm": 1200000
+        },
+        "checkpoints": [
+          16
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "size-V1-R4-phi0-n512",
+      "candidate": "V1",
+      "rule": "R4",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-statistics-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 0,
+        "effectMillionths": 0,
+        "bars": 512,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 5,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "point-screen",
+          "limitMultiplierPpm": 1200000
+        },
+        "checkpoints": [
+          8
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "size-V1-R4-phi0-n1024",
+      "candidate": "V1",
+      "rule": "R4",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-statistics-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 0,
+        "effectMillionths": 0,
+        "bars": 1024,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 6,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "point-screen",
+          "limitMultiplierPpm": 1200000
+        },
+        "checkpoints": [
+          4
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "size-V1-R4-phi300-n256",
+      "candidate": "V1",
+      "rule": "R4",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-statistics-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 300000,
+        "effectMillionths": 0,
+        "bars": 256,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 4,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "point-screen",
+          "limitMultiplierPpm": 1200000
+        },
+        "checkpoints": [
+          16
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "size-V1-R4-phi300-n512",
+      "candidate": "V1",
+      "rule": "R4",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-statistics-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 300000,
+        "effectMillionths": 0,
+        "bars": 512,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 5,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "point-screen",
+          "limitMultiplierPpm": 1200000
+        },
+        "checkpoints": [
+          8
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "size-V1-R4-phi300-n1024",
+      "candidate": "V1",
+      "rule": "R4",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-statistics-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 300000,
+        "effectMillionths": 0,
+        "bars": 1024,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 6,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "point-screen",
+          "limitMultiplierPpm": 1200000
+        },
+        "checkpoints": [
+          4
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "size-S1-R3-phi0-n256",
+      "candidate": "S1",
+      "rule": "R3",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-candidate-s1-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 0,
+        "effectMillionths": 0,
+        "bars": 256,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 6,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "point-screen",
+          "limitMultiplierPpm": 1200000
+        },
+        "checkpoints": [
+          16
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "size-S1-R3-phi0-n512",
+      "candidate": "S1",
+      "rule": "R3",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-candidate-s1-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 0,
+        "effectMillionths": 0,
+        "bars": 512,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 8,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "point-screen",
+          "limitMultiplierPpm": 1200000
+        },
+        "checkpoints": [
+          8
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "size-S1-R3-phi0-n1024",
+      "candidate": "S1",
+      "rule": "R3",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-candidate-s1-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 0,
+        "effectMillionths": 0,
+        "bars": 1024,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 10,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "point-screen",
+          "limitMultiplierPpm": 1200000
+        },
+        "checkpoints": [
+          4
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "size-S1-R3-phi300-n256",
+      "candidate": "S1",
+      "rule": "R3",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-candidate-s1-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 300000,
+        "effectMillionths": 0,
+        "bars": 256,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 6,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "point-screen",
+          "limitMultiplierPpm": 1200000
+        },
+        "checkpoints": [
+          16
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "size-S1-R3-phi300-n512",
+      "candidate": "S1",
+      "rule": "R3",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-candidate-s1-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 300000,
+        "effectMillionths": 0,
+        "bars": 512,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 8,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "point-screen",
+          "limitMultiplierPpm": 1200000
+        },
+        "checkpoints": [
+          8
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "size-S1-R3-phi300-n1024",
+      "candidate": "S1",
+      "rule": "R3",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-candidate-s1-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 300000,
+        "effectMillionths": 0,
+        "bars": 1024,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 10,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "point-screen",
+          "limitMultiplierPpm": 1200000
+        },
+        "checkpoints": [
+          4
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "size-S1-R4-phi0-n256",
+      "candidate": "S1",
+      "rule": "R4",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-candidate-s1-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 0,
+        "effectMillionths": 0,
+        "bars": 256,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 4,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "point-screen",
+          "limitMultiplierPpm": 1200000
+        },
+        "checkpoints": [
+          16
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "size-S1-R4-phi0-n512",
+      "candidate": "S1",
+      "rule": "R4",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-candidate-s1-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 0,
+        "effectMillionths": 0,
+        "bars": 512,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 5,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "point-screen",
+          "limitMultiplierPpm": 1200000
+        },
+        "checkpoints": [
+          8
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "size-S1-R4-phi0-n1024",
+      "candidate": "S1",
+      "rule": "R4",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-candidate-s1-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 0,
+        "effectMillionths": 0,
+        "bars": 1024,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 6,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "point-screen",
+          "limitMultiplierPpm": 1200000
+        },
+        "checkpoints": [
+          4
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "size-S1-R4-phi300-n256",
+      "candidate": "S1",
+      "rule": "R4",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-candidate-s1-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 300000,
+        "effectMillionths": 0,
+        "bars": 256,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 4,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "point-screen",
+          "limitMultiplierPpm": 1200000
+        },
+        "checkpoints": [
+          16
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "size-S1-R4-phi300-n512",
+      "candidate": "S1",
+      "rule": "R4",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-candidate-s1-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 300000,
+        "effectMillionths": 0,
+        "bars": 512,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 5,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "point-screen",
+          "limitMultiplierPpm": 1200000
+        },
+        "checkpoints": [
+          8
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "size-S1-R4-phi300-n1024",
+      "candidate": "S1",
+      "rule": "R4",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-candidate-s1-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 300000,
+        "effectMillionths": 0,
+        "bars": 1024,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 6,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "point-screen",
+          "limitMultiplierPpm": 1200000
+        },
+        "checkpoints": [
+          4
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "size-S2-R3-phi0-n256",
+      "candidate": "S2",
+      "rule": "R3",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-candidate-s2-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 0,
+        "effectMillionths": 0,
+        "bars": 256,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 6,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "point-screen",
+          "limitMultiplierPpm": 1200000
+        },
+        "checkpoints": [
+          16
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "size-S2-R3-phi0-n512",
+      "candidate": "S2",
+      "rule": "R3",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-candidate-s2-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 0,
+        "effectMillionths": 0,
+        "bars": 512,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 8,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "point-screen",
+          "limitMultiplierPpm": 1200000
+        },
+        "checkpoints": [
+          8
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "size-S2-R3-phi0-n1024",
+      "candidate": "S2",
+      "rule": "R3",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-candidate-s2-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 0,
+        "effectMillionths": 0,
+        "bars": 1024,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 10,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "point-screen",
+          "limitMultiplierPpm": 1200000
+        },
+        "checkpoints": [
+          4
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "size-S2-R3-phi300-n256",
+      "candidate": "S2",
+      "rule": "R3",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-candidate-s2-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 300000,
+        "effectMillionths": 0,
+        "bars": 256,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 6,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "point-screen",
+          "limitMultiplierPpm": 1200000
+        },
+        "checkpoints": [
+          16
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "size-S2-R3-phi300-n512",
+      "candidate": "S2",
+      "rule": "R3",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-candidate-s2-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 300000,
+        "effectMillionths": 0,
+        "bars": 512,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 8,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "point-screen",
+          "limitMultiplierPpm": 1200000
+        },
+        "checkpoints": [
+          8
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "size-S2-R3-phi300-n1024",
+      "candidate": "S2",
+      "rule": "R3",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-candidate-s2-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 300000,
+        "effectMillionths": 0,
+        "bars": 1024,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 10,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "point-screen",
+          "limitMultiplierPpm": 1200000
+        },
+        "checkpoints": [
+          4
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "size-S2-R4-phi0-n256",
+      "candidate": "S2",
+      "rule": "R4",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-candidate-s2-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 0,
+        "effectMillionths": 0,
+        "bars": 256,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 4,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "point-screen",
+          "limitMultiplierPpm": 1200000
+        },
+        "checkpoints": [
+          16
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "size-S2-R4-phi0-n512",
+      "candidate": "S2",
+      "rule": "R4",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-candidate-s2-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 0,
+        "effectMillionths": 0,
+        "bars": 512,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 5,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "point-screen",
+          "limitMultiplierPpm": 1200000
+        },
+        "checkpoints": [
+          8
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "size-S2-R4-phi0-n1024",
+      "candidate": "S2",
+      "rule": "R4",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-candidate-s2-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 0,
+        "effectMillionths": 0,
+        "bars": 1024,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 6,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "point-screen",
+          "limitMultiplierPpm": 1200000
+        },
+        "checkpoints": [
+          4
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "size-S2-R4-phi300-n256",
+      "candidate": "S2",
+      "rule": "R4",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-candidate-s2-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 300000,
+        "effectMillionths": 0,
+        "bars": 256,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 4,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "point-screen",
+          "limitMultiplierPpm": 1200000
+        },
+        "checkpoints": [
+          16
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "size-S2-R4-phi300-n512",
+      "candidate": "S2",
+      "rule": "R4",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-candidate-s2-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 300000,
+        "effectMillionths": 0,
+        "bars": 512,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 5,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "point-screen",
+          "limitMultiplierPpm": 1200000
+        },
+        "checkpoints": [
+          8
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "size-S2-R4-phi300-n1024",
+      "candidate": "S2",
+      "rule": "R4",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-candidate-s2-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 300000,
+        "effectMillionths": 0,
+        "bars": 1024,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 6,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "point-screen",
+          "limitMultiplierPpm": 1200000
+        },
+        "checkpoints": [
+          4
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    }
+  ],
+  "power": [
+    {
+      "id": "power-V1-R3-phi0-n256",
+      "candidate": "V1",
+      "rule": "R3",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-statistics-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 0,
+        "effectMillionths": 108253,
+        "bars": 256,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 6,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "none"
+        },
+        "checkpoints": [
+          16
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "power-V1-R3-phi0-n512",
+      "candidate": "V1",
+      "rule": "R3",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-statistics-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 0,
+        "effectMillionths": 76547,
+        "bars": 512,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 8,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "none"
+        },
+        "checkpoints": [
+          8
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "power-V1-R3-phi0-n1024",
+      "candidate": "V1",
+      "rule": "R3",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-statistics-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 0,
+        "effectMillionths": 54127,
+        "bars": 1024,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 10,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "none"
+        },
+        "checkpoints": [
+          4
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "power-V1-R3-phi300-n256",
+      "candidate": "V1",
+      "rule": "R3",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-statistics-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 300000,
+        "effectMillionths": 154647,
+        "bars": 256,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 6,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "none"
+        },
+        "checkpoints": [
+          16
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "power-V1-R3-phi300-n512",
+      "candidate": "V1",
+      "rule": "R3",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-statistics-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 300000,
+        "effectMillionths": 109352,
+        "bars": 512,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 8,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "none"
+        },
+        "checkpoints": [
+          8
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "power-V1-R3-phi300-n1024",
+      "candidate": "V1",
+      "rule": "R3",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-statistics-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 300000,
+        "effectMillionths": 77324,
+        "bars": 1024,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 10,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "none"
+        },
+        "checkpoints": [
+          4
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "power-V1-R4-phi0-n256",
+      "candidate": "V1",
+      "rule": "R4",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-statistics-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 0,
+        "effectMillionths": 108253,
+        "bars": 256,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 4,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "none"
+        },
+        "checkpoints": [
+          16
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "power-V1-R4-phi0-n512",
+      "candidate": "V1",
+      "rule": "R4",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-statistics-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 0,
+        "effectMillionths": 76547,
+        "bars": 512,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 5,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "none"
+        },
+        "checkpoints": [
+          8
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "power-V1-R4-phi0-n1024",
+      "candidate": "V1",
+      "rule": "R4",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-statistics-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 0,
+        "effectMillionths": 54127,
+        "bars": 1024,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 6,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "none"
+        },
+        "checkpoints": [
+          4
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "power-V1-R4-phi300-n256",
+      "candidate": "V1",
+      "rule": "R4",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-statistics-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 300000,
+        "effectMillionths": 154647,
+        "bars": 256,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 4,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "none"
+        },
+        "checkpoints": [
+          16
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "power-V1-R4-phi300-n512",
+      "candidate": "V1",
+      "rule": "R4",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-statistics-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 300000,
+        "effectMillionths": 109352,
+        "bars": 512,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 5,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "none"
+        },
+        "checkpoints": [
+          8
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "power-V1-R4-phi300-n1024",
+      "candidate": "V1",
+      "rule": "R4",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-statistics-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 300000,
+        "effectMillionths": 77324,
+        "bars": 1024,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 6,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "none"
+        },
+        "checkpoints": [
+          4
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "power-S1-R3-phi0-n256",
+      "candidate": "S1",
+      "rule": "R3",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-candidate-s1-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 0,
+        "effectMillionths": 108253,
+        "bars": 256,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 6,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "none"
+        },
+        "checkpoints": [
+          16
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "power-S1-R3-phi0-n512",
+      "candidate": "S1",
+      "rule": "R3",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-candidate-s1-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 0,
+        "effectMillionths": 76547,
+        "bars": 512,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 8,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "none"
+        },
+        "checkpoints": [
+          8
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "power-S1-R3-phi0-n1024",
+      "candidate": "S1",
+      "rule": "R3",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-candidate-s1-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 0,
+        "effectMillionths": 54127,
+        "bars": 1024,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 10,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "none"
+        },
+        "checkpoints": [
+          4
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "power-S1-R3-phi300-n256",
+      "candidate": "S1",
+      "rule": "R3",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-candidate-s1-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 300000,
+        "effectMillionths": 154647,
+        "bars": 256,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 6,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "none"
+        },
+        "checkpoints": [
+          16
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "power-S1-R3-phi300-n512",
+      "candidate": "S1",
+      "rule": "R3",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-candidate-s1-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 300000,
+        "effectMillionths": 109352,
+        "bars": 512,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 8,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "none"
+        },
+        "checkpoints": [
+          8
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "power-S1-R3-phi300-n1024",
+      "candidate": "S1",
+      "rule": "R3",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-candidate-s1-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 300000,
+        "effectMillionths": 77324,
+        "bars": 1024,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 10,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "none"
+        },
+        "checkpoints": [
+          4
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "power-S1-R4-phi0-n256",
+      "candidate": "S1",
+      "rule": "R4",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-candidate-s1-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 0,
+        "effectMillionths": 108253,
+        "bars": 256,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 4,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "none"
+        },
+        "checkpoints": [
+          16
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "power-S1-R4-phi0-n512",
+      "candidate": "S1",
+      "rule": "R4",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-candidate-s1-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 0,
+        "effectMillionths": 76547,
+        "bars": 512,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 5,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "none"
+        },
+        "checkpoints": [
+          8
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "power-S1-R4-phi0-n1024",
+      "candidate": "S1",
+      "rule": "R4",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-candidate-s1-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 0,
+        "effectMillionths": 54127,
+        "bars": 1024,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 6,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "none"
+        },
+        "checkpoints": [
+          4
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "power-S1-R4-phi300-n256",
+      "candidate": "S1",
+      "rule": "R4",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-candidate-s1-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 300000,
+        "effectMillionths": 154647,
+        "bars": 256,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 4,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "none"
+        },
+        "checkpoints": [
+          16
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "power-S1-R4-phi300-n512",
+      "candidate": "S1",
+      "rule": "R4",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-candidate-s1-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 300000,
+        "effectMillionths": 109352,
+        "bars": 512,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 5,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "none"
+        },
+        "checkpoints": [
+          8
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "power-S1-R4-phi300-n1024",
+      "candidate": "S1",
+      "rule": "R4",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-candidate-s1-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 300000,
+        "effectMillionths": 77324,
+        "bars": 1024,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 6,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "none"
+        },
+        "checkpoints": [
+          4
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "power-S2-R3-phi0-n256",
+      "candidate": "S2",
+      "rule": "R3",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-candidate-s2-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 0,
+        "effectMillionths": 108253,
+        "bars": 256,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 6,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "none"
+        },
+        "checkpoints": [
+          16
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "power-S2-R3-phi0-n512",
+      "candidate": "S2",
+      "rule": "R3",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-candidate-s2-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 0,
+        "effectMillionths": 76547,
+        "bars": 512,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 8,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "none"
+        },
+        "checkpoints": [
+          8
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "power-S2-R3-phi0-n1024",
+      "candidate": "S2",
+      "rule": "R3",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-candidate-s2-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 0,
+        "effectMillionths": 54127,
+        "bars": 1024,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 10,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "none"
+        },
+        "checkpoints": [
+          4
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "power-S2-R3-phi300-n256",
+      "candidate": "S2",
+      "rule": "R3",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-candidate-s2-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 300000,
+        "effectMillionths": 154647,
+        "bars": 256,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 6,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "none"
+        },
+        "checkpoints": [
+          16
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "power-S2-R3-phi300-n512",
+      "candidate": "S2",
+      "rule": "R3",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-candidate-s2-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 300000,
+        "effectMillionths": 109352,
+        "bars": 512,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 8,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "none"
+        },
+        "checkpoints": [
+          8
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "power-S2-R3-phi300-n1024",
+      "candidate": "S2",
+      "rule": "R3",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-candidate-s2-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 300000,
+        "effectMillionths": 77324,
+        "bars": 1024,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 10,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "none"
+        },
+        "checkpoints": [
+          4
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "power-S2-R4-phi0-n256",
+      "candidate": "S2",
+      "rule": "R4",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-candidate-s2-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 0,
+        "effectMillionths": 108253,
+        "bars": 256,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 4,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "none"
+        },
+        "checkpoints": [
+          16
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "power-S2-R4-phi0-n512",
+      "candidate": "S2",
+      "rule": "R4",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-candidate-s2-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 0,
+        "effectMillionths": 76547,
+        "bars": 512,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 5,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "none"
+        },
+        "checkpoints": [
+          8
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "power-S2-R4-phi0-n1024",
+      "candidate": "S2",
+      "rule": "R4",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-candidate-s2-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 0,
+        "effectMillionths": 54127,
+        "bars": 1024,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 6,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "none"
+        },
+        "checkpoints": [
+          4
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "power-S2-R4-phi300-n256",
+      "candidate": "S2",
+      "rule": "R4",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-candidate-s2-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 300000,
+        "effectMillionths": 154647,
+        "bars": 256,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 4,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "none"
+        },
+        "checkpoints": [
+          16
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "power-S2-R4-phi300-n512",
+      "candidate": "S2",
+      "rule": "R4",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-candidate-s2-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 300000,
+        "effectMillionths": 109352,
+        "bars": 512,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 5,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "none"
+        },
+        "checkpoints": [
+          8
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "power-S2-R4-phi300-n1024",
+      "candidate": "S2",
+      "rule": "R4",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-candidate-s2-v1",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 300000,
+        "effectMillionths": 77324,
+        "bars": 1024,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 6,
+        "bootstrapSamples": 799,
+        "simulations": 4000,
+        "seed": 20261005,
+        "check": {
+          "rule": "none"
+        },
+        "checkpoints": [
+          4
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    }
+  ]
+}
