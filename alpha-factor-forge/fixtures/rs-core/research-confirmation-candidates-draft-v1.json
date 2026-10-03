@@ -341,7 +341,7 @@
       }
     },
     {
-      "id": "s1-constant-series-never-rejects",
+      "id": "s1-constant-positive-series-is-rejected",
       "statistic": "research-confirmation-candidate-s1-v1",
       "declaration": {
         "contractVersion": "research-confirmation-statistics-v1",
@@ -389,38 +389,38 @@
             "test": "net_return",
             "observations": 9,
             "observedMean": 0.01,
-            "extremeCount": 9,
+            "extremeCount": 0,
             "rawP": {
-              "numerator": 10,
+              "numerator": 1,
               "denominator": 10
             },
-            "rawPValue": 1,
+            "rawPValue": 0.1,
             "holmRank": 1,
             "adjustedP": {
-              "numerator": 10,
+              "numerator": 2,
               "denominator": 10
             },
-            "adjustedPValue": 1,
-            "rejectsNull": false
+            "adjustedPValue": 0.2,
+            "rejectsNull": true
           },
           {
             "candidateIndex": 0,
             "test": "benchmark_excess",
             "observations": 9,
             "observedMean": 0.01,
-            "extremeCount": 9,
+            "extremeCount": 0,
             "rawP": {
-              "numerator": 10,
+              "numerator": 1,
               "denominator": 10
             },
-            "rawPValue": 1,
+            "rawPValue": 0.1,
             "holmRank": 2,
             "adjustedP": {
-              "numerator": 10,
+              "numerator": 2,
               "denominator": 10
             },
-            "adjustedPValue": 1,
-            "rejectsNull": false
+            "adjustedPValue": 0.2,
+            "rejectsNull": true
           }
         ]
       }
@@ -1074,6 +1074,303 @@
             "adjustedP": {
               "numerator": 20,
               "denominator": 20
+            },
+            "adjustedPValue": 1,
+            "rejectsNull": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "s1-constant-decimal-series-is-rejected",
+      "statistic": "research-confirmation-candidate-s1-v1",
+      "declaration": {
+        "contractVersion": "research-confirmation-statistics-v1",
+        "correction": "holm",
+        "scheme": "circular-block",
+        "prng": "splitmix64",
+        "alphaPpm": 25000,
+        "blockLength": 2,
+        "bootstrapSamples": 99,
+        "seed": 17,
+        "blockLengthRationale": "fixture input for a draft candidate"
+      },
+      "familyTests": 2,
+      "candidates": [
+        {
+          "candidateIndex": 0,
+          "returns": [
+            0.1,
+            0.1,
+            0.1,
+            0.1,
+            0.1,
+            0.1,
+            0.1,
+            0.1,
+            0.1,
+            0.1,
+            0.1,
+            0.1,
+            0.1,
+            0.1,
+            0.1,
+            0.1
+          ],
+          "benchmarkReturns": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "expected": {
+        "tests": [
+          {
+            "candidateIndex": 0,
+            "test": "net_return",
+            "observations": 16,
+            "observedMean": 0.10000000000000002,
+            "extremeCount": 0,
+            "rawP": {
+              "numerator": 1,
+              "denominator": 100
+            },
+            "rawPValue": 0.01,
+            "holmRank": 1,
+            "adjustedP": {
+              "numerator": 2,
+              "denominator": 100
+            },
+            "adjustedPValue": 0.02,
+            "rejectsNull": true
+          },
+          {
+            "candidateIndex": 0,
+            "test": "benchmark_excess",
+            "observations": 16,
+            "observedMean": 0.10000000000000002,
+            "extremeCount": 0,
+            "rawP": {
+              "numerator": 1,
+              "denominator": 100
+            },
+            "rawPValue": 0.01,
+            "holmRank": 2,
+            "adjustedP": {
+              "numerator": 2,
+              "denominator": 100
+            },
+            "adjustedPValue": 0.02,
+            "rejectsNull": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "s1-all-zero-net-returns-are-never-rejected",
+      "statistic": "research-confirmation-candidate-s1-v1",
+      "declaration": {
+        "contractVersion": "research-confirmation-statistics-v1",
+        "correction": "holm",
+        "scheme": "circular-block",
+        "prng": "splitmix64",
+        "alphaPpm": 500000,
+        "blockLength": 2,
+        "bootstrapSamples": 39,
+        "seed": 5,
+        "blockLengthRationale": "fixture input for a draft candidate"
+      },
+      "familyTests": 2,
+      "candidates": [
+        {
+          "candidateIndex": 3,
+          "returns": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "benchmarkReturns": [
+            -0.0116,
+            0.0115,
+            0.0149,
+            0.0138,
+            -0.0155,
+            -0.0012,
+            0.0093,
+            -0.0054,
+            -0.0088,
+            -0.0053,
+            0.0167,
+            0.0148,
+            -0.0032,
+            -0.0029,
+            0.0128,
+            -0.0131
+          ]
+        }
+      ],
+      "expected": {
+        "tests": [
+          {
+            "candidateIndex": 3,
+            "test": "net_return",
+            "observations": 16,
+            "observedMean": 0,
+            "extremeCount": 39,
+            "rawP": {
+              "numerator": 40,
+              "denominator": 40
+            },
+            "rawPValue": 1,
+            "holmRank": 2,
+            "adjustedP": {
+              "numerator": 40,
+              "denominator": 40
+            },
+            "adjustedPValue": 1,
+            "rejectsNull": false
+          },
+          {
+            "candidateIndex": 3,
+            "test": "benchmark_excess",
+            "observations": 16,
+            "observedMean": -0.0016749999999999998,
+            "extremeCount": 25,
+            "rawP": {
+              "numerator": 26,
+              "denominator": 40
+            },
+            "rawPValue": 0.65,
+            "holmRank": 1,
+            "adjustedP": {
+              "numerator": 40,
+              "denominator": 40
+            },
+            "adjustedPValue": 1,
+            "rejectsNull": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "s2-constant-negative-series-is-never-rejected",
+      "statistic": "research-confirmation-candidate-s2-v1",
+      "declaration": {
+        "contractVersion": "research-confirmation-statistics-v1",
+        "correction": "holm",
+        "scheme": "circular-block",
+        "prng": "splitmix64",
+        "alphaPpm": 500000,
+        "blockLength": 2,
+        "bootstrapSamples": 39,
+        "seed": 5,
+        "blockLengthRationale": "fixture input for a draft candidate"
+      },
+      "familyTests": 2,
+      "candidates": [
+        {
+          "candidateIndex": 1,
+          "returns": [
+            -0.02,
+            -0.02,
+            -0.02,
+            -0.02,
+            -0.02,
+            -0.02,
+            -0.02,
+            -0.02,
+            -0.02,
+            -0.02,
+            -0.02,
+            -0.02,
+            -0.02,
+            -0.02,
+            -0.02,
+            -0.02
+          ],
+          "benchmarkReturns": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "expected": {
+        "tests": [
+          {
+            "candidateIndex": 1,
+            "test": "net_return",
+            "observations": 16,
+            "observedMean": -0.02,
+            "extremeCount": 39,
+            "rawP": {
+              "numerator": 40,
+              "denominator": 40
+            },
+            "rawPValue": 1,
+            "holmRank": 1,
+            "adjustedP": {
+              "numerator": 40,
+              "denominator": 40
+            },
+            "adjustedPValue": 1,
+            "rejectsNull": false
+          },
+          {
+            "candidateIndex": 1,
+            "test": "benchmark_excess",
+            "observations": 16,
+            "observedMean": -0.02,
+            "extremeCount": 39,
+            "rawP": {
+              "numerator": 40,
+              "denominator": 40
+            },
+            "rawPValue": 1,
+            "holmRank": 2,
+            "adjustedP": {
+              "numerator": 40,
+              "denominator": 40
             },
             "adjustedPValue": 1,
             "rejectsNull": false

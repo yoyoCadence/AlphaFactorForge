@@ -23,24 +23,68 @@ export const CANDIDATE_S1 = 'research-confirmation-candidate-s1-v1';
 export const CANDIDATE_S2 = 'research-confirmation-candidate-s2-v1';
 export type CandidateStatistic = typeof CANDIDATE_S1 | typeof CANDIDATE_S2;
 
+const MIN_NORMAL = 2.2250738585072014e-308;
+
+/** Draft §2: an intermediate that overflows, or a non-zero one that underflows, is refused. */
+function checked(result: number, operandsNonzero: boolean): number {
+  if (!Number.isFinite(result) || (operandsNonzero && Math.abs(result) < MIN_NORMAL)) {
+    throw new RangeError('outside the candidates\' numeric range');
+  }
+  return result;
+}
+const product = (x: number, y: number) => checked(x * y, x !== 0 && y !== 0);
+const quotient = (x: number, y: number) => checked(x / y, x !== 0);
+
+/** `floor(log2 m)` for a finite `m > 0`, read from its bits. */
+export function referenceBinaryExponent(m: number): number {
+  const view = new DataView(new ArrayBuffer(8));
+  view.setFloat64(0, m);
+  const field = (view.getUint32(0) >>> 20) & 0x7ff;
+  if (field !== 0) return field - 1023;
+  const mantissa = (BigInt(view.getUint32(0) & 0xfffff) << 32n) | BigInt(view.getUint32(4));
+  return mantissa.toString(2).length - 1 - 1074;
+}
+
+/** `2^k` for `-1022 <= k <= 1023`, built from its bits. */
+function powerOfTwo(k: number): number {
+  const view = new DataView(new ArrayBuffer(8));
+  view.setUint32(0, (k + 1023) * 2 ** 20);
+  view.setUint32(4, 0);
+  return view.getFloat64(0);
+}
+
+function timesPowerOfTwo(x: number, k: number): number {
+  if (k >= -1022 && k <= 1023) return x * powerOfTwo(k);
+  const half = Math.trunc(k / 2);
+  return x * powerOfTwo(half) * powerOfTwo(k - half);
+}
+
+/** Draft §2: scaled by an exact power of two so the largest magnitude is in [1, 2). */
+export function referenceNormalized(series: readonly number[]): number[] {
+  const largest = series.reduce((max, x) => Math.max(max, Math.abs(x)), 0);
+  if (largest === 0) return [...series];
+  const exponent = referenceBinaryExponent(largest);
+  return series.map((x) => checked(timesPowerOfTwo(x, -exponent), x !== 0));
+}
+
 /** `B(ℓ)`: the block variance over all `n` circular blocks (draft §2). */
 export function referenceBlockVariance(series: readonly number[], sum: number, block: number): number {
   const n = series.length;
-  const centre = block * (sum / n);
+  const centre = product(block, quotient(sum, n));
   let total = 0;
   for (let start = 0; start < n; start += 1) {
     let blockSum = 0;
     for (let offset = 0; offset < block; offset += 1) blockSum += series[(start + offset) % n];
     const deviation = blockSum - centre;
-    total += deviation * deviation;
+    total += product(deviation, deviation);
   }
-  return total / (n * block);
+  return quotient(checked(total, false), n * block);
 }
 
 /** `a·√p ≥ s·√q` without a square root (draft §2). */
 export function referenceScaledAtLeast(a: number, p: number, s: number, q: number): boolean {
-  const left = a * a * p;
-  const right = s * s * q;
+  const left = product(product(a, a), p);
+  const right = product(product(s, s), q);
   if (a >= 0) return s >= 0 ? left >= right : true;
   return s >= 0 ? left === 0 && right === 0 : left <= right;
 }
@@ -104,32 +148,45 @@ function candidateObserved(
     throw new Error('series is outside the candidate draft contract');
   }
   const excess = returns.map((value, bar) => value - candidate.benchmarkReturns[bar]);
-  const series = [returns, excess] as const;
-  const sums = [orderedSum(returns), orderedSum(excess)] as const;
+  const observedSums = [orderedSum(returns), orderedSum(excess)] as const;
+  // Draft §3/§4: a test whose bars are all equal reads no variance.
+  const constant = [returns, excess].map((values) =>
+    values.every((value) => value === values[0])
+      ? values[0] > 0
+        ? 0
+        : declaration.bootstrapSamples
+      : null,
+  );
+  const series = [referenceNormalized(returns), referenceNormalized(excess)] as const;
+  const sums = [orderedSum(series[0]), orderedSum(series[1])] as const;
 
   // The left and right scales of §2's comparison that do not depend on the
   // resample: S1's observed block variance, S2's stretch.
-  const narrow = series.map((values, test) => referenceBlockVariance(values, sums[test], length));
+  const narrow = series.map((values, test) =>
+    constant[test] === null ? referenceBlockVariance(values, sums[test], length) : 0,
+  );
   const stretch = series.map((values, test): [number, number] => {
-    if (statistic !== CANDIDATE_S2) return [1, 1];
-    const flatTop = 2 * referenceBlockVariance(values, sums[test], 2 * length) - narrow[test];
+    if (statistic !== CANDIDATE_S2 || constant[test] !== null) return [1, 1];
+    const flatTop = checked(2 * referenceBlockVariance(values, sums[test], 2 * length) - narrow[test], false);
     return narrow[test] > 0 && flatTop > narrow[test] ? [flatTop, narrow[test]] : [1, 1];
   });
 
   const extreme = [0, 0];
   for (const resample of resamples(declaration, candidate.candidateIndex, series)) {
     for (const test of [0, 1] as const) {
+      if (constant[test] !== null) continue;
       const deviation = resample.totals[test] - sums[test];
       let isExtreme: boolean;
       if (statistic === CANDIDATE_S1) {
         // v*: the variance of the blocks that were drawn.
-        const mean = resample.totals[test] / n;
+        const mean = quotient(resample.totals[test], n);
         let spread = 0;
         for (const block of resample.blocks) {
-          const difference = block.sums[test] - block.take * mean;
-          spread += difference * difference;
+          const difference = block.sums[test] - product(block.take, mean);
+          spread += product(difference, difference);
         }
-        isExtreme = referenceScaledAtLeast(deviation, narrow[test], sums[test], spread / n);
+        const resampled = quotient(checked(spread, false), n);
+        isExtreme = referenceScaledAtLeast(deviation, narrow[test], sums[test], resampled);
       } else {
         isExtreme = referenceScaledAtLeast(
           deviation,
@@ -145,8 +202,8 @@ function candidateObserved(
     candidateIndex: candidate.candidateIndex,
     test,
     observations: n,
-    observedMean: sums[position] / n,
-    extremeCount: extreme[position],
+    observedMean: observedSums[position] / n,
+    extremeCount: constant[position] ?? extreme[position],
   }));
 }
 

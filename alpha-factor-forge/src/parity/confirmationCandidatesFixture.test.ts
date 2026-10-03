@@ -7,8 +7,10 @@ import fixture from '../../fixtures/rs-core/research-confirmation-candidates-dra
 import {
   CANDIDATE_S1,
   CANDIDATE_S2,
+  referenceBinaryExponent,
   referenceBlockVariance,
   referenceCandidateTests,
+  referenceNormalized,
   referenceScaledAtLeast,
   type CandidateStatistic,
 } from './confirmationCandidatesFixture';
@@ -77,6 +79,65 @@ describe('research-confirmation-candidates-draft-v1 fixture', () => {
         }
       });
     }
+  });
+
+  /** 2^k by repeated exact doubling or halving. */
+  const power = (k: number) => {
+    let value = 1;
+    for (let step = 0; step < Math.abs(k); step += 1) value = k > 0 ? value * 2 : value / 2;
+    return value;
+  };
+  const probe = (returns: number[]): ConfirmationFixtureCase => ({
+    declaration: { alphaPpm: 25000, blockLength: 2, bootstrapSamples: 799, seed: 17 },
+    familyTests: 2,
+    candidates: [{ candidateIndex: 0, returns, benchmarkReturns: returns.map(() => 0) }],
+  });
+  const decisions = (tests: ConfirmationFixtureTest[]) =>
+    tests.map((test) => [test.extremeCount, test.rejectsNull]);
+
+  it('decides the same at any exact power-of-two scale (PR #138 review R1)', () => {
+    const base = [0.75, 0.375, 1.0, 0.25, 0.625, 0.875, 0.375, 0.5, 0.75, 0.375, 1.0, 0.25, 0.625, 0.875, 0.375, 0.5];
+    for (const statistic of [CANDIDATE_S1, CANDIDATE_S2] as const) {
+      const reference = decisions(referenceCandidateTests(statistic, probe(base)));
+      expect(reference[0]).toEqual([0, true]);
+      for (const exponent of [400, -400, 1000, -1000]) {
+        const scaled = base.map((value) => value * power(exponent));
+        expect(decisions(referenceCandidateTests(statistic, probe(scaled)))).toEqual(reference);
+      }
+    }
+    // The guard behind it: squares that leave the double range are refused.
+    const huge = power(400);
+    const tiny = power(-400);
+    expect(() => referenceScaledAtLeast(huge, huge * huge, 2 * huge, huge * huge)).toThrow(RangeError);
+    expect(() => referenceScaledAtLeast(tiny, tiny * tiny, 2 * tiny, tiny * tiny)).toThrow(RangeError);
+    expect(referenceScaledAtLeast(0, tiny, 0, 0)).toBe(true);
+  });
+
+  it('decides a constant series by its sign (PR #138 review R2)', () => {
+    for (const statistic of [CANDIDATE_S1, CANDIDATE_S2] as const) {
+      for (const [value, expected] of [
+        [0.1, [0, true]],
+        [0.125, [0, true]],
+        [0, [799, false]],
+        [-0.1, [799, false]],
+      ] as const) {
+        const tests = referenceCandidateTests(statistic, probe(Array(16).fill(value)));
+        expect(decisions(tests)).toEqual([expected, expected]);
+      }
+    }
+  });
+
+  it('normalizes exactly into [1, 2) and refuses an underflowing value', () => {
+    expect(referenceBinaryExponent(1)).toBe(0);
+    expect(referenceBinaryExponent(0.1)).toBe(-4);
+    expect(referenceBinaryExponent(Number.MAX_VALUE)).toBe(1023);
+    expect(referenceBinaryExponent(Number.MIN_VALUE)).toBe(-1074);
+    expect(referenceNormalized([0.75, -0.375, 0])).toEqual([1.5, -0.75, 0]);
+    expect(referenceNormalized([Number.MIN_VALUE])).toEqual([1]);
+    expect(() => referenceNormalized([Number.MAX_VALUE, 1])).toThrow(RangeError);
+    const wide = Array(16).fill(1e-300);
+    wide[5] = 1e300;
+    expect(() => referenceCandidateTests(CANDIDATE_S1, probe(wide))).toThrow(RangeError);
   });
 
   it('refuses a series too short for the candidate', () => {
