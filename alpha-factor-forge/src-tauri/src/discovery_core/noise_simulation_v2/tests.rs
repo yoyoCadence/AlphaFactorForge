@@ -7,6 +7,9 @@ const FIXTURE: &str =
     include_str!("../../../../fixtures/rs-core/research-noise-simulation-v2.json");
 const V1_FIXTURE: &str =
     include_str!("../../../../fixtures/rs-core/research-noise-simulation-v1.json");
+/// P12e-6b: the recalibration plan's diagnostic declarations and reports.
+const DIAGNOSTICS: &str =
+    include_str!("../../../../fixtures/research/recalibration-plan-v1-diagnostics.json");
 
 fn fixture() -> Value {
     serde_json::from_str(FIXTURE).unwrap()
@@ -663,4 +666,90 @@ fn the_report_is_a_measurement_and_never_a_pass() {
         assert!(["MEASURED", "WITHIN_LIMITS", "EXCEEDS_LIMITS"]
             .contains(&report["status"].as_str().unwrap()));
     }
+}
+
+/// Plan §8: every committed diagnostic report is re-checked by re-running its
+/// declaration cut at its one declared checkpoint (`4096 / bars` simulations)
+/// and comparing the counts. The full runs stay outside the suite.
+#[test]
+fn every_committed_diagnostic_report_reproduces_its_declared_prefix() {
+    let diagnostics: Value = serde_json::from_str(DIAGNOSTICS).unwrap();
+    let mut checked = Vec::new();
+    for kind in ["size", "power"] {
+        let reports = diagnostics["reports"][kind].as_object().unwrap();
+        let declared: Vec<&Value> = diagnostics[kind].as_array().unwrap().iter().collect();
+        for id in reports.keys() {
+            assert!(
+                declared.iter().any(|run| run["id"] == id.as_str()),
+                "{id} is not a declared {kind} run"
+            );
+        }
+        for run in declared {
+            let id = run["id"].as_str().unwrap();
+            if let Some(report) = reports.get(id) {
+                checked.push((id, &run["declaration"], report));
+            }
+        }
+    }
+    // 36 size reports and the power runs the plan required.
+    let required = diagnostics["requiredPowerRuns"].as_array().unwrap().len();
+    assert_eq!(checked.len(), 36 + required);
+
+    let check = |(id, raw, report): &(&str, &Value, &Value)| {
+        let declaration = parse_noise_simulation_v2(raw).unwrap();
+        // The diagnostic seed, never the acceptance one.
+        assert_eq!(declaration.seed, 20_261_005, "{id}");
+        assert_eq!(declaration.simulations, 4000, "{id}");
+        assert_eq!(declaration.checkpoints, [4096 / declaration.bars], "{id}");
+        let committed = &report["checkpoints"];
+        assert_eq!(committed.as_array().unwrap().len(), 1, "{id}");
+        assert_eq!(
+            committed[0]["simulations"],
+            json!(declaration.checkpoints[0])
+        );
+        let mut prefix = declaration.clone();
+        prefix.simulations = declaration.checkpoints[0];
+        prefix.checkpoints.clear();
+        let cut = serde_json::to_value(simulate_noise_v2(&prefix).unwrap()).unwrap();
+        assert_eq!(
+            cut["family"]["count"], committed[0]["familyRejectingSimulations"],
+            "{id}"
+        );
+        let counts: Vec<&Value> = cut["confirmations"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|row| &row["counts"])
+            .collect();
+        assert_eq!(
+            counts,
+            committed[0]["confirmations"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .collect::<Vec<_>>(),
+            "{id}"
+        );
+        // What the report echoes from its declaration.
+        for field in [
+            "contractVersion",
+            "statistic",
+            "allocationId",
+            "effectMillionths",
+            "checkRule",
+            "limitMultiplierPpm",
+        ] {
+            assert_eq!(cut[field], report[field], "{id} {field}");
+        }
+        assert_eq!(report["simulations"], json!(4000), "{id}");
+    };
+    // About 4,096 bar-simulations per report; spread over the cores so the
+    // debug-build total stays within the plan's budget.
+    let workers = std::thread::available_parallelism().map_or(1, usize::from);
+    let chunk = checked.len().div_ceil(workers);
+    std::thread::scope(|scope| {
+        for part in checked.chunks(chunk) {
+            scope.spawn(move || part.iter().for_each(check));
+        }
+    });
 }
