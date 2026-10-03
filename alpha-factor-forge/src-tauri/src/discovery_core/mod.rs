@@ -7,6 +7,7 @@ pub mod campaign;
 pub mod config;
 pub mod confirmation;
 pub mod confirmation_candidates;
+pub mod confirmation_v2;
 pub mod dsl;
 pub mod embargo;
 pub mod enumerate;

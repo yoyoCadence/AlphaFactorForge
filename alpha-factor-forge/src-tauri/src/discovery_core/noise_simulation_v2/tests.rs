@@ -10,6 +10,9 @@ const V1_FIXTURE: &str =
 /// P12e-6b: the recalibration plan's diagnostic declarations and reports.
 const DIAGNOSTICS: &str =
     include_str!("../../../../fixtures/research/recalibration-plan-v1-diagnostics.json");
+/// P12e-7a: the final acceptance's declarations, committed before the run.
+const ACCEPTANCE: &str =
+    include_str!("../../../../fixtures/research/recalibration-plan-v1-acceptance.json");
 
 fn fixture() -> Value {
     serde_json::from_str(FIXTURE).unwrap()
@@ -62,7 +65,7 @@ fn fixture_cases_reproduce_the_independent_reference() {
     let fixture = fixture();
     assert_eq!(fixture["contractVersion"], NOISE_SIMULATION_V2_VERSION);
     let cases = fixture["cases"].as_array().unwrap();
-    assert_eq!(cases.len(), 7);
+    assert_eq!(cases.len(), 8);
     let mut statuses = std::collections::BTreeSet::new();
     for case in cases {
         let actual = report_json(&case["declaration"]);
@@ -389,15 +392,16 @@ fn the_declaration_is_parsed_strictly_in_a_fixed_rejection_order() {
         )),
         "simulation.contractVersion: must be \"research-noise-simulation-v2\""
     );
-    // The baseline and the two draft candidates are selectable, nothing else.
+    // The baseline, the two draft candidates and the frozen v2 are
+    // selectable, nothing else.
     for unknown in [
-        json!("research-confirmation-statistics-v2"),
+        json!("research-confirmation-statistics-v3"),
         json!("S1"),
         json!(1),
     ] {
         assert_eq!(
             parse_error(&with("statistic", unknown)),
-            "simulation.statistic: must be one of \"research-confirmation-statistics-v1\", \"research-confirmation-candidate-s1-v1\", \"research-confirmation-candidate-s2-v1\""
+            "simulation.statistic: must be one of \"research-confirmation-statistics-v1\", \"research-confirmation-candidate-s1-v1\", \"research-confirmation-candidate-s2-v1\", \"research-confirmation-statistics-v2\""
         );
     }
     assert_eq!(
@@ -633,6 +637,63 @@ fn the_draft_candidates_are_selectable_and_differ_from_the_baseline() {
 }
 
 #[test]
+fn the_frozen_v2_is_s2_under_block_rule_r3() {
+    let v2 = fixture()["cases"][7]["declaration"].clone();
+    assert_eq!(v2["statistic"], "research-confirmation-statistics-v2");
+    assert_eq!(
+        parse_noise_simulation_v2(&v2).unwrap().statistic,
+        SimulatedStatistic::ConfirmationV2
+    );
+    // The same declaration under the draft S2 reports the same counts.
+    let mut s2 = v2.clone();
+    s2["statistic"] = json!("research-confirmation-candidate-s2-v1");
+    let (mut v2_report, s2_report) = (report_json(&v2), report_json(&s2));
+    assert_eq!(
+        v2_report["statistic"],
+        "research-confirmation-statistics-v2"
+    );
+    v2_report["statistic"] = s2_report["statistic"].clone();
+    assert_eq!(v2_report, s2_report);
+
+    // The block length must be R3 of the bars: 64 bars give 4. The draft S2
+    // takes any length its own rule admits.
+    for wrong in [3, 5] {
+        let mut raw = v2.clone();
+        raw["blockLength"] = json!(wrong);
+        assert_eq!(
+            parse_error(&raw),
+            format!(
+                "simulation.blockLength: research-confirmation-statistics-v2 requires 4 (round of the cube root of bars 64), not {wrong}"
+            )
+        );
+    }
+    let mut draft = s2.clone();
+    draft["blockLength"] = json!(3);
+    assert!(parse_noise_simulation_v2(&draft).is_ok());
+    // R3 is checked before S2's wider-block rule: at 92 bars R3 is 5, and
+    // twice 5 squared exceeds 92.
+    let mut short = v2.clone();
+    short["bars"] = json!(92);
+    short["blockLength"] = json!(4);
+    assert_eq!(
+        parse_error(&short),
+        "simulation.blockLength: research-confirmation-statistics-v2 requires 5 (round of the cube root of bars 92), not 4"
+    );
+    short["blockLength"] = json!(5);
+    assert_eq!(
+        parse_error(&short),
+        "simulation.blockLength: twice 5 squared exceeds bars 92"
+    );
+    // The rule holds for a directly constructed declaration too.
+    let mut direct = parse_noise_simulation_v2(&v2).unwrap();
+    direct.block_length = 3;
+    assert_eq!(
+        simulate_noise_v2(&direct).unwrap_err().0,
+        "simulation.blockLength: research-confirmation-statistics-v2 requires 4 (round of the cube root of bars 64), not 3"
+    );
+}
+
+#[test]
 fn the_report_is_a_measurement_and_never_a_pass() {
     let report = report_json(&declaration_json());
     let mut keys: Vec<&str> = report
@@ -752,4 +813,117 @@ fn every_committed_diagnostic_report_reproduces_its_declared_prefix() {
             scope.spawn(move || part.iter().for_each(check));
         }
     });
+}
+
+/// P12e-7a: the frozen v2 is the method the diagnostics selected. Under v2,
+/// each of the selected pair's six size declarations, cut at its checkpoint,
+/// reproduces the counts committed for S2 with block rule R3.
+#[test]
+fn the_frozen_v2_reproduces_the_selected_pairs_diagnostic_prefixes() {
+    let diagnostics: Value = serde_json::from_str(DIAGNOSTICS).unwrap();
+    assert_eq!(
+        diagnostics["selection"],
+        json!({ "candidate": "S2", "rule": "R3" })
+    );
+    let runs: Vec<&Value> = diagnostics["size"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|run| run["candidate"] == "S2" && run["rule"] == "R3")
+        .collect();
+    assert_eq!(runs.len(), 6);
+    let check = |run: &&Value| {
+        let id = run["id"].as_str().unwrap();
+        let mut raw = run["declaration"].clone();
+        raw["statistic"] = json!("research-confirmation-statistics-v2");
+        let mut prefix = parse_noise_simulation_v2(&raw).unwrap();
+        prefix.simulations = prefix.checkpoints[0];
+        prefix.checkpoints.clear();
+        let cut = serde_json::to_value(simulate_noise_v2(&prefix).unwrap()).unwrap();
+        let committed = &diagnostics["reports"]["size"][id]["checkpoints"][0];
+        assert_eq!(
+            cut["family"]["count"], committed["familyRejectingSimulations"],
+            "{id}"
+        );
+        for (row, counts) in cut["confirmations"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .zip(committed["confirmations"].as_array().unwrap())
+        {
+            assert_eq!(&row["counts"], counts, "{id}");
+        }
+    };
+    std::thread::scope(|scope| {
+        for run in &runs {
+            scope.spawn(move || check(run));
+        }
+    });
+}
+
+/// P12e-7a: the six declarations of plan §7 parse as the engine will run
+/// them, and none has been run. Nothing here simulates: the acceptance seed is
+/// used once, by P12e-7b, and only then do its prefixes join the suite.
+#[test]
+fn the_final_acceptance_is_declared_for_v2_and_not_yet_run() {
+    let acceptance: Value = serde_json::from_str(ACCEPTANCE).unwrap();
+    assert!(acceptance.get("reports").is_none());
+    let runs = acceptance["runs"].as_array().unwrap();
+    let mut cells = Vec::new();
+    for run in runs {
+        let id = run["id"].as_str().unwrap();
+        let declaration = parse_noise_simulation_v2(&run["declaration"]).unwrap();
+        assert_eq!(
+            declaration.statistic,
+            SimulatedStatistic::ConfirmationV2,
+            "{id}"
+        );
+        assert_eq!(declaration.seed, 20_261_117, "{id}");
+        assert_eq!(declaration.simulations, 20_000, "{id}");
+        assert_eq!(declaration.effect_millionths, 0, "{id}");
+        assert_eq!(
+            declaration.check,
+            rule(NoiseCheckRule::WilsonUpperBound, Some(1_200_000)),
+            "{id}"
+        );
+        assert_eq!(declaration.checkpoints, [4096 / declaration.bars], "{id}");
+        assert_eq!(declaration.block_length, r3_block_length(declaration.bars));
+        assert_eq!(
+            (
+                declaration.candidates_per_confirmation,
+                declaration.prior_trials,
+                declaration.bootstrap_samples,
+                declaration.allocation.schedule.clone(),
+            ),
+            (1, 0, 799, vec![25_000, 25_000]),
+            "{id}"
+        );
+        cells.push((declaration.autocorrelation_ppm, declaration.bars));
+    }
+    // All six cells of §3, each once.
+    cells.sort_unstable();
+    assert_eq!(
+        cells,
+        [
+            (0, 256),
+            (0, 512),
+            (0, 1024),
+            (300_000, 256),
+            (300_000, 512),
+            (300_000, 1024)
+        ]
+    );
+    // The documented maxima are the rule's (552 and 1134 of 20,000).
+    let limits = &acceptance["rule"];
+    for (limit, maximum) in [
+        (
+            &limits["confirmationLimitPpm"],
+            &limits["maximumConfirmationCount"],
+        ),
+        (&limits["familyLimitPpm"], &limits["maximumFamilyCount"]),
+    ] {
+        let (limit, maximum) = (limit.as_u64().unwrap(), maximum.as_u64().unwrap());
+        assert!(wilson_upper_within(maximum, 20_000, limit));
+        assert!(!wilson_upper_within(maximum + 1, 20_000, limit));
+    }
 }
