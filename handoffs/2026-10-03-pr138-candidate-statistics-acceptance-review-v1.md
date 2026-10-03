@@ -6,7 +6,7 @@ Branch: `feat/p12e6a-candidate-statistics`
 PR: [#138](https://github.com/yoyoCadence/AlphaFactorForge/pull/138)
 Reviewed head: `7a988aa949a34694c7ed7bc8b8e4bd9e700e81dc`
 Base: `50b20e5a561d2b369d48679f1a7d893b44b84cfd` (merged #137)
-Status: R1 and R2 fixed on the PR branch (2026-10-03, see Resolution); awaiting re-review/merge. Original: two P2 numerical/contract fixes before merge and P12e-6b. Existing suites and six exact-head CI jobs pass. No diagnostic or final-acceptance seed was used. P12e-FINDING-1 remains open and P13 blocked.
+Status: Independently re-reviewed and accepted at `276765a` (2026-10-03); R1 and R2 closed, with no new merge-blocking findings. PR remains draft/unmerged by this review. No diagnostic or final-acceptance seed was used. P12e-FINDING-1 remains open and P13 blocked. See the independent re-review Resolution below; the original findings are retained.
 
 ## Summary
 
@@ -198,3 +198,64 @@ re-review Resolution were committed unchanged first (`ac66a6b`).
 
 Every non-constant fixture result and the engine fixture are unchanged. 556
 Rust (1 ignored) and 1052 Vitest pass locally; 21 mutation checks are caught.
+
+## Resolution (2026-10-03) — independent re-review at `276765a`
+
+Reviewed immutable head `276765a90409c8bc56a2018e3cc0a2cb43b272a5`,
+against the original reviewed head `7a988aa` and the unchanged PR base
+`50b20e5`. **R1 and R2 are resolved; this head is accepted for merge.**
+No new merge-blocking correctness or contract finding was identified.
+
+- **R1 closed.** The actual Rust evaluator regressions now reproduce the
+  original binary-exact probe with identical extreme counts and decisions
+  at scales 1, 2^±400, 2^±1000 and 2^±52. Every existing fixture also keeps
+  its extreme counts at 2^±400, including S2 with its correction active.
+  Normalization reads the exponent from bits, handles subnormal inputs,
+  and refuses a non-zero normalized value outside the declared normal
+  range. Products and quotients in the comparison and variance calculations
+  distinguish genuine zero factors from underflow; the original direct
+  overflow/underflow counterexamples return `OutOfRange`. The error names
+  the candidate, and the draft/reference state the same supported range.
+- **R2 closed.** An explicit rule now handles exactly equal bars per test,
+  without consulting rounded variance or adding a tolerance. Sixteen 0.1
+  and sixteen 0.125 bars both give zero extreme resamples; zero and negative
+  constants give all resamples extreme. Both S1 and S2 regressions pass.
+  Precisely, a positive constant produces `rawP = 1 / (B + 1)` and still
+  goes through the shared exact Holm/alpha comparison: it does not bypass
+  family size or Monte Carlo resolution. The fixture also verifies that a
+  constant net-return test leaves a varying benchmark-excess test active.
+- **Design decisions accepted.** Keep the six declared choices, including
+  fixed sum order, the square-root-free comparison within its explicit
+  range, per-test constant handling, S2's non-shrinking correction, and the
+  shared v1 report/Holm scaffolding. The seven original non-constant
+  candidate fixture cases are unchanged in full. v1's fixture and both
+  original acceptance reports pass independently; no runtime integration
+  or dependency/identity change was introduced by these repairs.
+
+Independent verification:
+
+- `cargo test --locked --lib`: **158 passed, 1 ignored**, 25.53 s excluding
+  compilation; includes candidate regressions and both v1 acceptance runs.
+- `npm test`: **1052 passed across 61 files**; `npm run typecheck` passes.
+- `rustfmt --check` for the candidate module/tests and `git diff --check`
+  for the repaired commit range pass.
+- All six jobs for this exact head pass in
+  [CI run 37084566037](https://github.com/yoyoCadence/AlphaFactorForge/actions/runs/37084566037):
+  test, typecheck, build, cargo-check, e2e and native-smoke. The logs confirm
+  **556 Rust (158 + 396 + 2), 1 ignored**, and **1052 Vitest**. Local full
+  desktop tests, build, Playwright, timing measurements and mutation checks
+  were not repeated; the relevant remote jobs and author evidence cover
+  those checks separately.
+
+Proceed with **P12e-6b after merge**: commit the diagnostic declarations
+before executing the release runner, retain every outcome, and record the
+selection and failures under the existing plan. This re-review used neither
+diagnostic seed 20261005 nor final seed 20261117 and establishes no new
+calibration claim. NUMERIC-JSON-001 remains a separate open audit; any later
+change that affects declared diagnostic arithmetic must be recorded before
+execution (or as a plan amendment after execution). P12e-FINDING-1 remains
+open and P13 blocked until the planned acceptance is completed.
+
+Only this handoff and `tasks.md` were updated by the re-review. No product
+changes, commit, push, GitHub review submission, draft conversion or merge
+were performed.
