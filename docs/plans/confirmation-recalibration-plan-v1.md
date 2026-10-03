@@ -432,3 +432,88 @@ Nothing in §1–§12 changes, and no diagnostic or acceptance cell has been run
   grid (two noise models, 4,000 simulations per cell) is therefore about 45 s
   of CPU for V1, 68 s for S1 and 47 s for S2; the whole size grid of §6 about
   five and a half minutes of CPU, and the power runs at most as much again.
+
+## Record — 2026-10-03, P12e-6b (diagnostic grid run; not an amendment)
+
+Nothing in §1–§12 changes: no cell, candidate, rule, seed, size or threshold
+was added or altered. The acceptance seed 20261117 has not been used.
+
+- **Declarations first.** All 72 declarations of §6 (36 size, 36 power) were
+  generated from this plan's tables by
+  `alpha-factor-forge/scripts/declare-recalibration-diagnostics.ts` and
+  committed in `41d68eb` before any of them was run:
+  [`fixtures/research/recalibration-plan-v1-diagnostics.json`](../../alpha-factor-forge/fixtures/research/recalibration-plan-v1-diagnostics.json).
+  Seed 20261005, 4,000 simulations, the family of §3, one checkpoint at
+  `4096 / bars`, the screen of §6 on size runs and no rule on power runs.
+- **Runs.** Release runner, 16 threads on the development machine: the 36
+  size runs in 395.6 s wall, then the 18 power runs that the size screen
+  required in 304.9 s wall. The other 18 power declarations stay declared and
+  unrun, as §6 says. Every report is committed in the same file, unedited
+  (each equals the runner's output); `scripts/record-recalibration-diagnostics.ts`
+  adds them and applies the rule of §6.
+- **Size** — rejecting simulations of confirmation 1 / confirmation 2 / the
+  family, out of 4,000; the screen allows 120 / 120 / 240; ✗ marks a cell
+  that fails it:
+
+  | Pair | φ | n = 256 | n = 512 | n = 1024 | Lowest supported tested length |
+  | --- | --- | --- | --- | --- | --- |
+  | V1-R3 | 0 | 121 / 71 / 190 ✗ | 109 / 57 / 164 | 98 / 47 / 144 | 1024 |
+  |  | 0.3 | 156 / 100 / 253 ✗ | 124 / 73 / 194 ✗ | 116 / 55 / 169 |  |
+  | V1-R4 | 0 | 117 / 63 / 178 | 98 / 48 / 145 | 97 / 53 / 149 | 1024 |
+  |  | 0.3 | 172 / 100 / 268 ✗ | 143 / 79 / 219 ✗ | 118 / 70 / 185 |  |
+  | S1-R3 | 0 | 96 / 54 / 149 | 92 / 44 / 136 | 86 / 40 / 126 | 512 |
+  |  | 0.3 | 127 / 71 / 196 ✗ | 112 / 61 / 173 | 101 / 51 / 151 |  |
+  | S1-R4 | 0 | 105 / 48 / 151 | 89 / 44 / 132 | 93 / 47 / 139 | 1024 |
+  |  | 0.3 | 145 / 86 / 227 ✗ | 136 / 72 / 206 ✗ | 113 / 70 / 180 |  |
+  | S2-R3 | 0 | 104 / 64 / 166 | 91 / 49 / 139 | 89 / 43 / 131 | 512 |
+  |  | 0.3 | 127 / 82 / 206 ✗ | 100 / 57 / 156 | 98 / 47 / 143 |  |
+  | S2-R4 | 0 | 102 / 54 / 154 | 83 / 41 / 123 | 87 / 48 / 135 | 512 |
+  |  | 0.3 | 132 / 74 / 203 ✗ | 103 / 65 / 166 | 100 / 56 / 155 |  |
+
+  The ten failed cells: every pair at 256 bars with φ = 0.3; V1-R3 at 256
+  bars with φ = 0 (121, one over the screen); V1-R3, V1-R4 and S1-R4 at 512
+  bars with φ = 0.3. Confirmation 1 fails in all ten; the family check also
+  fails in two (V1-R3 and V1-R4 at 256 bars, φ = 0.3: 253 and 268);
+  confirmation 2 fails in none. All six pairs are eligible; none supports
+  256 bars.
+- **Power** — confirmation 1, net-return test, simulations that rejected out
+  of 4,000, in the cells at and above each pair's lowest supported tested
+  length (← the length that ranks the pair):
+
+  | Pair | n | φ = 0 | φ = 0.3 | Smaller of the two |
+  | --- | --- | --- | --- | --- |
+  | V1-R3 | 1024 | 3162 | 3260 | 3162 ← |
+  | V1-R4 | 1024 | 3147 | 3296 | 3147 ← |
+  | S1-R3 | 512 | 3066 | 3187 | 3066 ← |
+  | S1-R3 | 1024 | 3100 | 3203 | 3100 |
+  | S1-R4 | 1024 | 3112 | 3279 | 3112 ← |
+  | S2-R3 | 512 | 3067 | 3116 | 3067 ← |
+  | S2-R3 | 1024 | 3083 | 3118 | 3083 |
+  | S2-R4 | 512 | 3061 | 3130 | 3061 ← |
+  | S2-R4 | 1024 | 3080 | 3143 | 3080 |
+
+- **Selection (§6): S2 with block rule R3** (block lengths 6 / 8 / 10 at
+  256 / 512 / 1024 bars). Step 1 leaves the three pairs whose lowest supported
+  tested length is 512 — S1-R3, S2-R3, S2-R4; step 2 ranks them 3067
+  (S2-R3), 3066 (S1-R3), 3061 (S2-R4); step 3 is not reached.
+- **What the selection does not show.** The three counts differ by 1 and 6
+  simulations out of 4,000, all candidates saw the same simulated data (§6),
+  and no confidence interval for the differences was computed: this record does not
+  claim that S2-R3 has more power than S1-R3 or S2-R4. The rule was declared
+  to pick one method, and it did. The screen is a point estimate (§6), so a
+  passing cell here is not a pass of §7; the 256-bar, φ = 0.3 cell failed the
+  screen for every pair, S2-R3 included (127 on confirmation 1). Which lengths
+  S2-R3 supports is decided by §7 on its own seed, and only there.
+- **The normal suite** re-runs each of the 54 committed reports' declarations
+  cut at its checkpoint and compares the counts (§8, P12e-5 record), and a
+  Vitest re-derives the screen, the required power runs, the lowest supported
+  lengths and the selection from the committed counts. Counts after the
+  checkpoint are covered only by re-running the documented command. **Cost
+  above the estimate of §8:** the 54 prefixes take 16.6 s of debug time on
+  one thread on the development machine (1.25 s on its 16 threads; the test
+  spreads them across the available cores), against "about ten seconds". The
+  prefix and the reports cannot change after the run; the time it takes in
+  CI is read from this slice's CI run and recorded with P12e-7.
+- **Next (§10): P12e-7** freezes S2 with R3 as
+  `research-confirmation-statistics-v2` and runs the final acceptance of §7
+  once, on seed 20261117.

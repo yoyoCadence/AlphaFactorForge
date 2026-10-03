@@ -11,6 +11,12 @@
 > runner: `alpha-factor-forge/src-tauri/examples/noise_simulation_v2.rs`.
 > [`research-noise-simulation-v1`](research-noise-simulation-v1.md) and its
 > two declared acceptance runs are unchanged and stay in the test suite.
+>
+> **Update (2026-10-03, P12e-6b):** the plan's diagnostic seed 20261005 has
+> now been used — the size grid and the power runs it required, committed in
+> `alpha-factor-forge/fixtures/research/recalibration-plan-v1-diagnostics.json`
+> with every report's prefix re-checked in the test suite (§6). The
+> acceptance seed 20261117 has not been used.
 
 ## 1. What changes from v1
 
