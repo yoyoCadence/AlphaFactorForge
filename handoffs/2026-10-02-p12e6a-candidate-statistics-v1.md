@@ -3,8 +3,8 @@
 Date: 2026-10-02
 Repo: yoyoCadence/AlphaFactorForge
 Branch: `feat/p12e6a-candidate-statistics` (from merged PR #137, `50b20e5`)
-PR: opened from this branch as a draft (its number is recorded by the next slice; no follow-up docs commit)
-Status: Implemented and verified locally. **No diagnostic or acceptance cell of the recalibration plan was run**; nothing is known yet about either candidate's calibration. P12e-FINDING-1 stays open; P13 stays blocked.
+PR: [#138](https://github.com/yoyoCadence/AlphaFactorForge/pull/138) (draft)
+Status: Published as draft PR #138; acceptance-review R1 and R2 fixed on the branch before any diagnostic run (see Resolution). **No diagnostic or acceptance cell of the recalibration plan was run**; nothing is known yet about either candidate's calibration. P12e-FINDING-1 stays open; P13 stays blocked.
 
 ## Summary
 
@@ -139,3 +139,62 @@ CPU. Recorded in the plan.
   pass. Clippy: the five existing warnings only. rustfmt on the new Rust
   files; `git diff --check` pass.
 - No UI change; Playwright not rerun locally.
+
+## Resolution (2026-10-03) — PR #138 acceptance review, R1 and R2
+
+Published as draft PR [#138](https://github.com/yoyoCadence/AlphaFactorForge/pull/138).
+The [acceptance review](2026-10-03-pr138-candidate-statistics-acceptance-review-v1.md)
+found two P2 defects through the real evaluators; both are fixed on this
+branch on top of the reviewed head `7a988aa`, before any diagnostic run, as
+edits of the draft (plan §9 allows that until the first run).
+
+**R1 — the square-free comparison was not valid over its inputs.** Squaring
+could overflow to infinity or underflow to zero and silently change a
+decision: the same binary-exact series gave 0, 384 and 799 extreme resamples
+at scales 1, 2^400 and 2^-400.
+
+- Each test series is now multiplied by an exact power of two (from the bits
+  of its largest magnitude) so that magnitude lies in `[1, 2)`. A power of
+  two scales the arithmetic exactly, so decisions no longer depend on the
+  overall scale: the review's probe gives identical counts and rejections at
+  2^±400, 2^±1000 and 2^±52, for both candidates, in Rust and in TypeScript,
+  and every fixture case keeps its counts at 2^±400.
+- Every product and quotient must be a finite normal double when its
+  operands are non-zero; otherwise the candidate is **refused** with an
+  error, never rounded to infinity or zero. That covers squares, the
+  comparison, `B(ℓ)`, `v*`, the flat-top estimate and normalization itself
+  (a value more than about 2^1022 times smaller than the largest).
+- Design choice 1 above ("matches the square-root form") still holds on the
+  grid; the guard is new.
+
+**R2 — the constant-series promise was false.** The draft said a constant
+series gets `rawP = 1`; sixteen bars of 0.1 were in fact rejected (rounding
+residue made `v*` positive), and sixteen bars of 0.125 were not.
+
+- A test whose bars are all equal now reads no variance: every resample is
+  extreme when the value is `≤ 0` (`rawP = 1`), and none is when it is `> 0`
+  (`rawP = 1/(B + 1)`). This is the studentized statistic's limit as the
+  variance goes to zero and what v1 does, and it no longer depends on the
+  value's representation. Design choice 3 above is replaced by this rule.
+- Near-constant series are still decided by the arithmetic; the draft says
+  so instead of adding a tolerance.
+
+**Unchanged on purpose:** every non-constant fixture result (the reference
+regenerated to the same reports), the engine fixture, v1 and its acceptance
+runs, the 6a → 6b order, the unused plan seeds. NUMERIC-JSON-001 is recorded
+separately and not acted on here.
+
+Verification: `cargo test --locked` **556 passed (158 library + 396
+desktop + 2 service), 1 ignored**; `npm test` **1052 passed (61 files)**;
+typecheck, build, all-target check, clippy (five existing warnings), rustfmt,
+`git diff --check` pass. Mutation checks: nine new ones (normalization
+removed or off by one exponent, underflow or overflow detection removed, the
+constant rule removed or reversed in two ways, a wrong subnormal exponent,
+the reported mean from the normalized sum) and the twelve earlier ones
+re-anchored to the revised code — all 21 caught by failing tests.
+
+Cost re-measured on the final draft (release, timing-only, seed 1, per 500
+simulations): V1 0.402 / 0.832 / 1.547 s, S1 0.731 / 1.259 / 2.238 s, S2
+0.451 / 0.870 / 1.626 s at 256 / 512 / 1024 bars. The range checks make S1
+about 20% slower than the table above; the whole size grid is about five and
+a half minutes of CPU. The plan record carries the new numbers.

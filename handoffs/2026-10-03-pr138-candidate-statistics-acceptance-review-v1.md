@@ -6,7 +6,7 @@ Branch: `feat/p12e6a-candidate-statistics`
 PR: [#138](https://github.com/yoyoCadence/AlphaFactorForge/pull/138)
 Reviewed head: `7a988aa949a34694c7ed7bc8b8e4bd9e700e81dc`
 Base: `50b20e5a561d2b369d48679f1a7d893b44b84cfd` (merged #137)
-Status: Two P2 numerical/contract fixes before merge and P12e-6b. Existing suites and six exact-head CI jobs pass. No diagnostic or final-acceptance seed was used. P12e-FINDING-1 remains open and P13 blocked.
+Status: R1 and R2 fixed on the PR branch (2026-10-03, see Resolution); awaiting re-review/merge. Original: two P2 numerical/contract fixes before merge and P12e-6b. Existing suites and six exact-head CI jobs pass. No diagnostic or final-acceptance seed was used. P12e-FINDING-1 remains open and P13 blocked.
 
 ## Summary
 
@@ -168,3 +168,33 @@ made before P12e-6b.
 - Temporary example source was removed. Product code/tests/fixtures and
   Cargo features remain unchanged. Only review handoffs and task records
   persist locally; no commit, push, GitHub review submission or merge.
+
+## Resolution (2026-10-03)
+
+R1 and R2 were acted on in PR #138, on top of the reviewed head `7a988aa`,
+before any diagnostic run. This handoff, its task board lines and the PR #136
+re-review Resolution were committed unchanged first (`ac66a6b`).
+
+- **R1.** The candidates now normalize each test series by an exact power of
+  two (largest magnitude in `[1, 2)`), so no decision depends on the overall
+  scale, and they refuse — with an error naming the candidate — any product
+  or quotient that would overflow or underflow, including the squares of the
+  comparison, `B(ℓ)`, `v*`, the flat-top estimate and normalization itself.
+  An arithmetic zero is only a zero when an operand was zero. The review's
+  probe series gives identical counts and rejections at scales 1, 2^±400,
+  2^±1000 and 2^±52 for S1 and S2, in Rust and in the TypeScript reference;
+  the direct comparison counterexamples are refused. Draft §2 states the
+  normalization and the range rule; §5 lists the refusal.
+- **R2.** An explicit, representation-independent rule: a test whose bars
+  are all equal reads no variance; it is rejected when the value is positive
+  and never when it is zero or negative — the limit of the studentized
+  statistic and v1's behaviour. Sixteen bars of 0.1 and of 0.125 now give
+  the same result; zero and negative constants give `rawP = 1`. No tolerance
+  was introduced; near-constant series remain decided by the arithmetic and
+  the draft says so. Fixture cases cover decimal, positive, zero and
+  negative constants for both candidates and both references.
+- **Answers.** The 6a → 6b order is kept and seed 20261117 stays unused;
+  NUMERIC-JSON-001 stays a separate task and was not acted on here.
+
+Every non-constant fixture result and the engine fixture are unchanged. 556
+Rust (1 ignored) and 1052 Vitest pass locally; 21 mutation checks are caught.

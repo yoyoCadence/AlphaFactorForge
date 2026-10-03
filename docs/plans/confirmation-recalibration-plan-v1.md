@@ -422,12 +422,13 @@ Nothing in §1–§12 changes, and no diagnostic or acceptance cell has been run
 
   | `n` | V1 | S1 | S2 |
   | --- | --- | --- | --- |
-  | 256 | 0.373 s | 0.599 s | 0.393 s |
-  | 512 | 0.797 s | 1.069 s | 0.844 s |
-  | 1024 | 1.491 s | 1.845 s | 1.589 s |
+  | 256 | 0.402 s | 0.731 s | 0.451 s |
+  | 512 | 0.832 s | 1.259 s | 0.870 s |
+  | 1024 | 1.547 s | 2.238 s | 1.626 s |
 
-  S1 costs about 1.2 to 1.6 times V1 and S2 about 1.05 times. One
-  candidate/rule pair's size grid (two noise models, 4,000 simulations per
-  cell) is therefore about 43 s of CPU for V1, 56 s for S1 and 45 s for S2;
-  the whole size grid of §6 about five minutes of CPU, and the power runs at
-  most as much again.
+  Measured on the final draft (after the PR #138 review added normalization
+  and range checks; S1 became about 20% slower). S1 costs about 1.45 to 1.8
+  times V1 and S2 about 1.05 to 1.1 times. One candidate/rule pair's size
+  grid (two noise models, 4,000 simulations per cell) is therefore about 45 s
+  of CPU for V1, 68 s for S1 and 47 s for S2; the whole size grid of §6 about
+  five and a half minutes of CPU, and the power runs at most as much again.
