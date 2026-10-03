@@ -6,7 +6,7 @@ Branch: `docs/p12e4-recalibration-plan`
 PR: [#136](https://github.com/yoyoCadence/AlphaFactorForge/pull/136)
 Reviewed head: `c4ec35aec160e12d697777effc7d06536f7f04f0`
 Base: `1764c4807e999cc18a23111bf182d19868e514d9` (merged #135)
-Status: R1 fixed on the PR branch (2026-10-02, see Resolution); awaiting re-review/merge. Original: one P2 scope clarification required before merge. Candidate definitions are acceptable as experimental variants, with the clarifications below. No calibration simulation was run; P12e-FINDING-1 remains open and P13 blocked.
+Status: Independent re-review accepted at `58e7404` (2026-10-03); R1 resolved. PR #136 has already been merged by the maintainer as `556a397`. Candidate definitions remain experimental; P12e-FINDING-1 remains open and P13 blocked.
 
 ## Summary
 
@@ -180,3 +180,23 @@ Documentation only; nothing was implemented or run.
   preserved; the block rules, family shape, screen, power metric, selection
   order and cost workflow stand, with their restrictions stated in §11 and
   §12. The draft-contract and wide-integer notes are in §4 and §10.
+
+## Resolution (2026-10-03) — Independent re-review at 58e7404
+
+Reviewed `58e7404bde3153926c087611f99a5b21d235bf60` against the original
+`c4ec35a`. R1 is resolved: §7 limits the evidence to the supported tested
+lengths, coefficients 0/0.3, the declared generator/family, 799 bootstrap
+samples and the frozen method/block rule; untested lengths, coefficients and
+distributions are explicitly excluded, with no monotonicity assumption.
+The pointers/task wording and §4/§10–§12 are consistent. The S1 drawn-block
+estimator, S2 partial-block approximation and two-sided Wilson convention
+are clarified without silently replacing either formula.
+
+[Exact-head CI run 37013969053](https://github.com/yoyoCadence/AlphaFactorForge/actions/runs/37013969053)
+passed all six jobs. This was a documentation-only repair, so no extra local
+suite or calibration run was needed for it. PR #136 was already merged by
+the maintainer as `556a397`; this review did not perform that merge.
+
+The mathematical candidate proposals remain accepted as experiments. The
+later numerical implementations are reviewed separately in the
+[PR #138 acceptance review](2026-10-03-pr138-candidate-statistics-acceptance-review-v1.md).
