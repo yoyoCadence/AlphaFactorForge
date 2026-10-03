@@ -12,6 +12,14 @@
 > [`research-confirmation-statistics-v1`](research-confirmation-statistics-v1.md)
 > is decided by the plan's §6 and §7 and by nothing else.
 > Implementation: `alpha-factor-forge/src-tauri/src/discovery_core/confirmation_candidates.rs`.
+>
+> **Update (2026-10-03, P12e-6b):** the plan's diagnostic grid has now been
+> run (seed 20261005) and **S2 with block rule R3** was selected by plan §6;
+> S1 was not. A selection is not a calibration result: both candidates stay
+> drafts until P12e-7 freezes S2 as
+> `research-confirmation-statistics-v2` and runs plan §7. From the first
+> diagnostic run on, a change to either draft is a plan amendment. Record:
+> [plan, P12e-6b](plans/confirmation-recalibration-plan-v1.md).
 
 ## 1. What is shared with v1
 
