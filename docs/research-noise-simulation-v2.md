@@ -12,6 +12,12 @@
 > [`research-noise-simulation-v1`](research-noise-simulation-v1.md) and its
 > two declared acceptance runs are unchanged and stay in the test suite.
 >
+> **Update (2026-10-03, P12e-7a):** the frozen
+> [`research-confirmation-statistics-v2`](research-confirmation-statistics-v2.md)
+> is selectable (§3), and the final acceptance's six declarations are
+> committed, not run, in
+> `alpha-factor-forge/fixtures/research/recalibration-plan-v1-acceptance.json`.
+>
 > **Update (2026-10-03, P12e-6b):** the plan's diagnostic seed 20261005 has
 > now been used — the size grid and the power runs it required, committed in
 > `alpha-factor-forge/fixtures/research/recalibration-plan-v1-diagnostics.json`
@@ -25,7 +31,7 @@ rejecting simulation are the same. v2 adds what the plan needs:
 
 | | v1 | v2 |
 | --- | --- | --- |
-| statistic | fixed: `research-confirmation-statistics-v1` | declared: the baseline or one of two draft candidates (§3) |
+| statistic | fixed: `research-confirmation-statistics-v1` | declared: the baseline, one of two draft candidates, or the frozen v2 (§3) |
 | what is judged | the family rate | every confirmation **and** the family (§5) |
 | rule | observed rate ≤ nominal + tolerance | none, a point screen, or the 95% Wilson upper bound (§5) |
 | limit | nominal + `tolerancePpm` | nominal × `limitMultiplierPpm` |
@@ -43,14 +49,14 @@ integers.
 | Field | Domain | Meaning |
 | --- | --- | --- |
 | `contractVersion` | `"research-noise-simulation-v2"` | exact |
-| `statistic` | one of the three names of §3 | the confirmation statistic under test |
+| `statistic` | one of the four names of §3 | the confirmation statistic under test |
 | `noiseModel` | `"ar1-uniform-sum"` | v1 §3 |
 | `autocorrelationPpm` | integer `[0, 900000]` | v1 §3, including its supported range |
 | `effectMillionths` | integer `[0, 1000000000]` | shift of the strategy's returns, in millionths; `0` is the null scenario (§4) |
 | `bars` | integer `[2, 1000000]` | as v1 |
 | `candidatesPerConfirmation` | integer `[1, 1024]` | as v1 |
 | `priorTrials` | integer `[0, MAX]` | as v1 |
-| `blockLength` | integer `[1, MAX]`, `L² ≤ bars` (`(2L)² ≤ bars` for S2) | as v1 |
+| `blockLength` | integer `[1, MAX]`, `L² ≤ bars` (`(2L)² ≤ bars` for S2 and v2; for v2 also `L = round(bars^(1/3))`) | as v1 |
 | `bootstrapSamples` | integer `[1, 1000000]` | `B` |
 | `simulations` | integer `[1, 1000000]` | `N` |
 | `seed` | integer `[0, MAX]` | as v1 |
@@ -60,8 +66,9 @@ integers.
 
 Rejection order (part of the contract): not an object → first unknown field
 in sorted order → the fields in table order (`check` and `allocation` by
-their own order, prefixed `simulation.`) → `blockLength² > bars` (twice the
-block length for S2) → the last
+their own order, prefixed `simulation.`) → for v2, a `blockLength` other than
+`round(bars^(1/3))` → `blockLength² > bars` (twice the block length for S2
+and v2) → the last
 confirmation's family count above `MAX` → a rule together with a non-zero
 `effectMillionths` → a limit that is not a whole number of ppm below 1000000
 (§5).
@@ -78,12 +85,20 @@ is rejected.
 | V1 | `research-confirmation-statistics-v1` | [the current statistic](research-confirmation-statistics-v1.md) |
 | S1 | `research-confirmation-candidate-s1-v1` | [draft](research-confirmation-candidates-draft-v1.md) §3 |
 | S2 | `research-confirmation-candidate-s2-v1` | [draft](research-confirmation-candidates-draft-v1.md) §4 |
+| S2-R3, selected | `research-confirmation-statistics-v2` | [frozen, not yet accepted](research-confirmation-statistics-v2.md) |
 
 Any other name is refused. S1 and S2 (P12e-6a) are experimental: this engine
 is the only caller they have, and selecting one here says nothing about its
-calibration. All three draw the same resampled bars, so their reports differ
+calibration. All of them draw the same resampled bars, so their reports differ
 only through the statistic. S2 also reads blocks of `2L`, so its declaration
 must satisfy `(2L)² ≤ bars`.
+
+v2 (P12e-7a) is S2 with block rule R3 fixed: its `blockLength` must equal
+`round(bars^(1/3))`, computed in exact integers (v2 contract §3) and checked
+before the wider-block rule. For the same declaration it reports exactly
+what S2 reports, apart from `statistic` (tested), and it is the statistic of
+the plan's final acceptance. Being selectable says nothing about its
+calibration until that acceptance passes.
 
 ## 4. Scenarios
 

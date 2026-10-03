@@ -324,8 +324,11 @@ fn bootstrap_s1(
     Ok(observed(&prepared, extreme))
 }
 
-/// S2: both tests of one candidate on the same resampled bars.
-fn bootstrap_s2(
+/// S2: both tests of one candidate on the same resampled bars. Also the
+/// computation of the frozen `research-confirmation-statistics-v2`
+/// (`confirmation_v2`), which adds only its block rule: a change here is a
+/// change to that contract.
+pub(super) fn bootstrap_s2(
     declaration: &ConfirmationDeclaration,
     candidate: &CandidateSeries<'_>,
 ) -> Result<[Observed; 2], ConfirmationError> {

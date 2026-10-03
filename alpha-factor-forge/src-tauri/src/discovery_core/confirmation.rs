@@ -169,6 +169,16 @@ fn rationale_is_valid(text: &str) -> bool {
 pub fn parse_confirmation_declaration(
     raw: &Value,
 ) -> Result<ConfirmationDeclaration, ConfirmationError> {
+    parse_declaration_as(raw, CONFIRMATION_STATISTICS_VERSION)
+}
+
+/// [`parse_confirmation_declaration`] for a contract whose declaration has
+/// the same fields under its own `contractVersion`
+/// (`research-confirmation-statistics-v2`).
+pub(super) fn parse_declaration_as(
+    raw: &Value,
+    contract_version: &str,
+) -> Result<ConfirmationDeclaration, ConfirmationError> {
     let Some(object) = raw.as_object() else {
         return fail("confirmation: must be an object");
     };
@@ -181,7 +191,7 @@ pub fn parse_confirmation_declaration(
     if let Some(first) = unknown.first() {
         return fail(format!("confirmation.{first}: unknown field"));
     }
-    read_literal(object, "contractVersion", CONFIRMATION_STATISTICS_VERSION)?;
+    read_literal(object, "contractVersion", contract_version)?;
     read_literal(object, "correction", CONFIRMATION_CORRECTION_HOLM)?;
     read_literal(object, "scheme", CONFIRMATION_SCHEME)?;
     read_literal(object, "prng", CONFIRMATION_PRNG)?;

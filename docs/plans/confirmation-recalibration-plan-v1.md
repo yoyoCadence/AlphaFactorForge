@@ -517,3 +517,46 @@ was added or altered. The acceptance seed 20261117 has not been used.
 - **Next (§10): P12e-7** freezes S2 with R3 as
   `research-confirmation-statistics-v2` and runs the final acceptance of §7
   once, on seed 20261117.
+
+## Record — 2026-10-03, P12e-7a (freeze and acceptance declarations; not an amendment)
+
+Nothing in §1–§12 changes: no cell, rule, seed, size or threshold was added
+or altered. The acceptance seed 20261117 has not been used.
+
+- **P12e-6b merged** as PR #139 (`e9e73e8`) after an independent review that
+  replayed all 54 reports in full. The CI time the P12e-6b record left open:
+  in the reviewed head's CI run the library tests took 21.16 s, and the
+  prefix test finished 10.44 s after the library suite started (a bound on
+  its completion, not an isolated measurement). The review kept all 54
+  prefixes.
+- **P12e-7 is done in two steps** (maintainer decision 2026-10-03), as P12e-6
+  was: **P12e-7a** freezes the method and commits the six declarations of §7,
+  to be reviewed and merged before anything runs; **P12e-7b** runs them once
+  on seed 20261117 and records the result and the supported tested
+  configurations. The content and order of §7 and §10 are unchanged.
+- **Frozen method** (§7: "frozen in a commit as
+  `research-confirmation-statistics-v2`"):
+  [`research-confirmation-statistics-v2`](../research-confirmation-statistics-v2.md),
+  the draft S2 with block rule R3. Maintainer decision 2026-10-03: the
+  block length stays a declared integer and must equal `round(n^(1/3))` of
+  every series — the smallest `L` with `(2L + 1)³ > 8n`, in exact integers —
+  so only the rule the acceptance tests can be used. Its computation is the
+  draft S2's own code path; tests show it reports exactly what S2 reports on
+  every fixture input and, in the engine, reproduces the committed
+  checkpoint counts of the six S2-R3 size runs.
+- **Power of the final method** (§5 records power "for the final method"):
+  v2 is S2-R3 on the same code path, so the power runs of P12e-6b above are
+  its power — 3067 / 3116 at 512 bars and 3083 / 3118 at 1024 bars (φ = 0 /
+  0.3, of 4,000); 256 bars was not run because S2-R3 did not pass the screen
+  there. No power cell is added to §7.
+- **Declarations**:
+  [`fixtures/research/recalibration-plan-v1-acceptance.json`](../../alpha-factor-forge/fixtures/research/recalibration-plan-v1-acceptance.json),
+  written by `alpha-factor-forge/scripts/declare-recalibration-acceptance.ts`
+  from §3 and §7: the six cells (φ 0 and 0.3 × 256, 512, 1024 bars),
+  statistic v2, block lengths 6 / 8 / 10, 799 bootstrap samples, the family
+  of §3, 20,000 simulations, seed 20261117, the Wilson rule with limits
+  30000 and 60000 ppm (at most 552 and 1134 of 20,000), and one checkpoint at
+  `4096 / bars`. The suite parses them with the engine and checks them
+  against §3 and §7; nothing simulates them, not even a prefix, before
+  P12e-7b. Its run time is measured and recorded there (§8 caps the matrix,
+  not the time).
