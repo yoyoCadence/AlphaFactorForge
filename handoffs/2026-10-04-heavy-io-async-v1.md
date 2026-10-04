@@ -3,7 +3,7 @@
 Date: 2026-10-04
 Repo: yoyoCadence/AlphaFactorForge
 Branch: `fix/heavy-io-async`, from merged PR #153 (`d1bf8e2`)
-Status: Complete locally; publishing for final-head CI and merge.
+Status: Resolved; PR #155 merged after all six final-head CI jobs passed.
 
 ## Scope / agreed task
 
@@ -65,3 +65,11 @@ Local rendered/native interaction checks were not rerun; six CI jobs gate merge.
 head `fix/heavy-io-async`, implementation `418ab68`, verification `947e3a8`.
 The PR records final-head CI and merge status; all six jobs must pass before
 the authorized merge.
+
+## Resolution
+
+PR #155 merged as `448c7f4274063f086b7cd3100f417f56a434edf7` after all six
+jobs in [run 37214012035](https://github.com/yoyoCadence/AlphaFactorForge/actions/runs/37214012035)
+passed on final head `b2d6ecf9951df025eedfd1c4f4a4cbbacdb8f97c`.
+DB-ASYNC-001c continues the remaining Phase A mutex waits using the same helper;
+DB-ASYNC-001 remains open for separately reviewable command groups.

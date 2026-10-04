@@ -10,7 +10,7 @@ use crate::db::repositories::{
 use crate::error::{AppError, AppResult};
 use crate::AppState;
 
-/// Heavy command work owns the existing DB mutex on a blocking worker, never
+/// Database work owns the existing DB mutex on a blocking worker, never
 /// on the thread polling the Tauri command. Repository transactions stay intact.
 async fn database_task<T: Send + 'static>(
     db: crate::runtime::SharedDb,
@@ -34,23 +34,23 @@ pub fn init_database(_state: State<AppState>) -> AppResult<String> {
 }
 
 #[tauri::command]
-pub fn run_migrations(state: State<AppState>) -> AppResult<String> {
+pub async fn run_migrations(state: State<'_, AppState>) -> AppResult<String> {
     // P04b: only the lease holder migrates (contract §1.1); in connect mode
     // the service already did, and this build was checked against it.
     if state.mode_kind()? != crate::runtime::host::DESKTOP_EMBEDDED {
         return Ok("connected to a background service; its build migrated the workspace".into());
     }
-    let db = state.db()?;
-    let conn = db.lock().map_err(|_| AppError::Other("db lock poisoned".into()))?;
-    crate::db::apply_migrations(&conn)?;
-    Ok("migrations up to date".into())
+    let _admitted = state.admission.admit()?;
+    database_task(state.db()?, |conn| {
+        crate::db::apply_migrations(conn)?;
+        Ok("migrations up to date".into())
+    })
+    .await
 }
 
 #[tauri::command]
-pub fn get_datasets(state: State<AppState>) -> AppResult<Vec<Dataset>> {
-    let db = state.db()?;
-    let conn = db.lock().map_err(|_| AppError::Other("db lock poisoned".into()))?;
-    repositories::list_datasets(&conn)
+pub async fn get_datasets(state: State<'_, AppState>) -> AppResult<Vec<Dataset>> {
+    database_task(state.db()?, |conn| repositories::list_datasets(conn)).await
 }
 
 #[tauri::command]
@@ -82,17 +82,17 @@ pub async fn import_candles(
 }
 
 #[tauri::command]
-pub fn save_strategy(state: State<AppState>, strategy: StrategyDef) -> AppResult<i64> {
-    let db = state.db()?;
-    let conn = db.lock().map_err(|_| AppError::Other("db lock poisoned".into()))?;
-    repositories::insert_verified_strategy(&conn, &strategy)
+pub async fn save_strategy(state: State<'_, AppState>, strategy: StrategyDef) -> AppResult<i64> {
+    let _admitted = state.admission.admit()?;
+    database_task(state.db()?, move |conn| {
+        repositories::insert_verified_strategy(conn, &strategy)
+    })
+    .await
 }
 
 #[tauri::command]
-pub fn get_strategies(state: State<AppState>) -> AppResult<Vec<StrategyDef>> {
-    let db = state.db()?;
-    let conn = db.lock().map_err(|_| AppError::Other("db lock poisoned".into()))?;
-    repositories::list_strategies(&conn)
+pub async fn get_strategies(state: State<'_, AppState>) -> AppResult<Vec<StrategyDef>> {
+    database_task(state.db()?, |conn| repositories::list_strategies(conn)).await
 }
 
 /// Persist one backtest summary and its closed trades atomically.
@@ -112,13 +112,14 @@ pub async fn save_backtest_result(
 }
 
 #[tauri::command]
-pub fn get_backtest_results(
-    state: State<AppState>,
+pub async fn get_backtest_results(
+    state: State<'_, AppState>,
     strategy_id: Option<i64>,
 ) -> AppResult<Vec<BacktestSummary>> {
-    let db = state.db()?;
-    let conn = db.lock().map_err(|_| AppError::Other("db lock poisoned".into()))?;
-    repositories::list_backtest_summaries(&conn, strategy_id)
+    database_task(state.db()?, move |conn| {
+        repositories::list_backtest_summaries(conn, strategy_id)
+    })
+    .await
 }
 
 /// P01 Results Explorer: one summary row and its stored trades, read in one
@@ -126,13 +127,14 @@ pub fn get_backtest_results(
 /// (see `repositories::get_backtest_result_detail`). Read only; None when the
 /// summary no longer exists.
 #[tauri::command]
-pub fn get_backtest_result_detail(
-    state: State<AppState>,
+pub async fn get_backtest_result_detail(
+    state: State<'_, AppState>,
     summary_id: i64,
 ) -> AppResult<Option<BacktestResultDetail>> {
-    let db = state.db()?;
-    let conn = db.lock().map_err(|_| AppError::Other("db lock poisoned".into()))?;
-    repositories::get_backtest_result_detail(&conn, summary_id)
+    database_task(state.db()?, move |conn| {
+        repositories::get_backtest_result_detail(conn, summary_id)
+    })
+    .await
 }
 
 /// PERSIST-001 (PR #64 handoff Resolution): atomically persist one validation
@@ -165,20 +167,25 @@ pub async fn save_validation_record(
 }
 
 #[tauri::command]
-pub fn list_validation_records(
-    state: State<AppState>,
+pub async fn list_validation_records(
+    state: State<'_, AppState>,
     strategy_id: Option<i64>,
 ) -> AppResult<Vec<ValidationRecordRow>> {
-    let db = state.db()?;
-    let conn = db.lock().map_err(|_| AppError::Other("db lock poisoned".into()))?;
-    repositories::list_validation_records(&conn, strategy_id)
+    database_task(state.db()?, move |conn| {
+        repositories::list_validation_records(conn, strategy_id)
+    })
+    .await
 }
 
 #[tauri::command]
-pub fn get_validation_record(state: State<AppState>, id: i64) -> AppResult<ValidationRecordRow> {
-    let db = state.db()?;
-    let conn = db.lock().map_err(|_| AppError::Other("db lock poisoned".into()))?;
-    repositories::get_validation_record(&conn, id)
+pub async fn get_validation_record(
+    state: State<'_, AppState>,
+    id: i64,
+) -> AppResult<ValidationRecordRow> {
+    database_task(state.db()?, move |conn| {
+        repositories::get_validation_record(conn, id)
+    })
+    .await
 }
 
 #[cfg(test)]
