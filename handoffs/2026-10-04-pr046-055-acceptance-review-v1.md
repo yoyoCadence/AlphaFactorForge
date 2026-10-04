@@ -77,3 +77,7 @@ Pending for H-R1.
 本檔的發現已整理進 [驗收後續工作單](2026-10-04-acceptance-followups-work-order-v1.md)，請接手的 agent 從那裡開始：
 
 - H-R1 → **FU-3**，含每個套件的目前版本、引入路徑與需要的最低版本；需要 **D4**（Vitest 升到哪一版、是否另開 PR）與 **D5**（CI 是否加 `npm audit --omit=dev`）。
+
+### Resolution — FU-3a（2026-10-04）
+
+H-R1 的四個間接依賴已在 `chore/dev-deps-audit-2026-10` 於相容範圍內更新（postcss 8.5.28、nanoid 3.3.19、browserslist 4.29.3、baseline-browser-mapping 2.11.27；browserslist 連帶更新四個自身依賴），未使用 `npm audit fix`，`package.json` 不變，lockfile 逐行審查。`npm audit` 只剩 vitest／@vitest/mocker（交給 FU-3b 升到 4.1.11），`--omit=dev` 為 0；typecheck、1073 Vitest、build、82/82 Playwright 通過，dev server 仍只綁本機。紀錄見 `docs/security-audit-npm.md`。
