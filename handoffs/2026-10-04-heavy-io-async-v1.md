@@ -61,4 +61,7 @@ Local rendered/native interaction checks were not rerun; six CI jobs gate merge.
 
 ## PR / CI
 
-Pending publication; final-head CI and merge status will be linked here.
+[PR #155](https://github.com/yoyoCadence/AlphaFactorForge/pull/155), base main,
+head `fix/heavy-io-async`, implementation `418ab68`, verification `947e3a8`.
+The PR records final-head CI and merge status; all six jobs must pass before
+the authorized merge.
