@@ -1,6 +1,10 @@
 //! Versioned durable identity contracts shared byte-for-byte with TypeScript.
 //! This module is pure: it owns validation/encoding/hashing, not persistence.
 
+#[cfg(test)]
+#[path = "identity/numeric_json_audit_tests.rs"]
+mod numeric_json_audit_tests;
+
 use serde_json::{Map, Value};
 use sha2::{Digest, Sha256};
 
