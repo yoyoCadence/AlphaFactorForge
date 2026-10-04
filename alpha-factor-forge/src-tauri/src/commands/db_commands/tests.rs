@@ -2,7 +2,7 @@ use super::*;
 use std::{
     future::Future,
     sync::{mpsc, Arc, Mutex},
-    task::{Context, Poll, Wake, Waker},
+    task::{Context, Poll, Waker},
     time::Duration,
 };
 
@@ -10,11 +10,6 @@ fn database() -> crate::runtime::SharedDb {
     let conn = rusqlite::Connection::open_in_memory().unwrap();
     crate::db::apply_migrations(&conn).unwrap();
     Arc::new(Mutex::new(conn))
-}
-
-struct NoopWake;
-impl Wake for NoopWake {
-    fn wake(self: Arc<Self>) {}
 }
 
 #[test]
@@ -26,8 +21,7 @@ fn a_busy_database_does_not_block_the_command_polling_thread() {
     let worker_db = db.clone();
     let polling_thread = std::thread::spawn(move || {
         let mut command = Box::pin(database_task(worker_db, |_| Ok(7)));
-        let waker = Waker::from(Arc::new(NoopWake));
-        let mut context = Context::from_waker(&waker);
+        let mut context = Context::from_waker(Waker::noop());
         match command.as_mut().poll(&mut context) {
             Poll::Pending => {
                 sent.send(true).unwrap();
@@ -44,7 +38,10 @@ fn a_busy_database_does_not_block_the_command_polling_thread() {
     let yielded = received.recv_timeout(Duration::from_secs(5));
     drop(held);
     assert_eq!(polling_thread.join().unwrap().unwrap(), 7);
-    assert!(yielded.unwrap(), "the first poll must yield while DB is busy");
+    assert!(
+        yielded.unwrap(),
+        "the first poll must yield while DB is busy"
+    );
 }
 
 #[test]
