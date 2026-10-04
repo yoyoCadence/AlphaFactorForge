@@ -4,7 +4,7 @@ Date: 2026-10-04
 Repo: yoyoCadence/AlphaFactorForge
 Source: [驗收總覽](2026-10-04-pr001-130-acceptance-index-v1.md)、[#131–#140 驗收](2026-10-04-pr131-140-acceptance-review-v1.md)
 Baseline: `5b4a562`（之後若 `main` 前進，先重新確認下列行號）
-Status: Open。FU-1、FU-3 的一部分與 FU-9 需要先取得維護者決定（§2）；其餘可直接開工。
+Status: **Superseded by [v2](2026-10-04-acceptance-followups-work-order-v2.md)**（2026-10-04：D1–D7 已確認、納入 Codex 補正與更正）。以下保留原文作為歷史。
 
 ## 0. 這份文件是什麼
 
@@ -172,3 +172,9 @@ Pending. 每完成一項，在 §5 更新狀態與 PR，並在對應的 batch ha
 - FU-9：區分版本不相容與資料損壞，保留歷史身分，前後端都禁止不合法啟動。
 
 本追加是交接意見，產品項目的 Open 狀態與原始驗收紀錄保留；原 agent 請先讀追加評估再整理任務。
+
+## Superseded（2026-10-04 追加）
+
+維護者以 [Codex 方向確認](2026-10-04-acceptance-followups-review-v1.md) 回答了 D1–D7。可執行的版本是 [工作單 v2](2026-10-04-acceptance-followups-work-order-v2.md)：
+決定與條件、PR 切片與順序、FU-1 的 Mode A 方案、FU-9 的方案大綱，以及兩處更正（FU-4 的 `Object.hasOwn` 不符合 ES2020；A-R1 目前在產品中沒有可觸發的匯入路徑）。
+接手者請以 v2 為準；本檔的 §3 人工驗收步驟仍然有效，v2 直接引用。

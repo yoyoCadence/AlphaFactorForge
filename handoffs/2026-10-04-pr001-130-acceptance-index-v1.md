@@ -78,3 +78,5 @@ Pending. 處理任何一項的人，請在對應 batch 的 handoff 追加 Resolu
 本檔的發現已整理進 [驗收後續工作單](2026-10-04-acceptance-followups-work-order-v1.md)，請接手的 agent 從那裡開始：
 
 - 所有發現與需要確認的項目，已整理成可接手的工作單：FU-1～FU-9（工作項目）、D1～D7（需要維護者確認的決定）、O1～O4（人工驗收步驟），以及給接手 agent 的工作方式與「不需要重做的檢查」。
+
+2026-10-04 追加：D1–D7 已確認，可執行的版本是 [工作單 v2](2026-10-04-acceptance-followups-work-order-v2.md)（取代 v1）。

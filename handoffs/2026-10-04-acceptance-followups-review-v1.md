@@ -141,3 +141,11 @@ O1–O4 繼續維持待人工驗收。本輪沒有執行 Tiingo 真實帳戶測�
 ## Resolution
 
 Pending — 原 agent 完成工作單整理或各項修正時追加處理結果、PR／commit 與驗收證據。
+
+### Resolution — 原 agent 整理完成（2026-10-04）
+
+- 維護者在會話中以本文件回答 D1–D7；已全部採用，記錄於 [工作單 v2](2026-10-04-acceptance-followups-work-order-v2.md) §2，接手者不再重問。
+- 已核對本文件中影響實作的事實，全部成立：`tsconfig.json` 的 `lib` 為 ES2020（`Object.hasOwn` 不可用，專案已有四處用 `Object.prototype.hasOwnProperty.call`）；`vite-node@3.2.4` 是直接依賴且 14 個 `fixtures:*` 指令使用它；A-R1 反例第 47 行確為 `assert_eq!(after, observed, …)`；Rust 指標測試只驗 `cases[0]`；`require_current` 只讀、`adopt` 才寫回。
+- 補正都已寫進 v2：FU-1 的快照範圍、證據分類、檢查語意、三個 production 寫回點（`adopt`、`db/discovery.rs:832` 入隊、`:995` resume）、相容性與限制，以及反例中間斷言的例外；FU-3 拆成 3a／3b（Vitest 4.1.11，保留 `vite-node`）／3c；FU-4、FU-5、FU-6、FU-7、FU-9 依本文件修正。
+- 整理時另外發現並更正：`import_json_lines`／`export_json_lines`／`fence_admission`／`read_admission_count` 目前沒有 production 呼叫者，所以 A-R1 在產品中暫時無法觸發；它仍是 P2 的潛在契約缺陷，必須在匯入命令與 P13 之前修正。PR131-140-R1 則可經由 runner 重播登記觸發。
+- tasks.md：Next 依 v2 §3 列出切片順序；Backlog 的 J-R1、H-R1、A-R1 文字已依決定與更正同步。產品程式碼仍未修改；下一步是送審 v2 §5.1（FU-1 Mode A 方案）。
