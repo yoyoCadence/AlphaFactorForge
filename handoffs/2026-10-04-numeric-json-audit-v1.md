@@ -69,3 +69,12 @@ Playwright not rerun, existing full e2e/native suites remain CI gates.
 head `audit/numeric-json-roundtrip`; audit commit `8efdf63` after rebase,
 verification record `de49dc6`. The PR records final-head CI and merge status;
 merge requires all six jobs to pass on its final head.
+
+## Resolution — 2026-10-04, CI and merge
+
+Final head `a310be5b6c8c54a7a8e93c444c4740dea7e1259b` passed all six jobs
+(typecheck, test, build, cargo-check, e2e, native-smoke) in
+[CI run 37212880656](https://github.com/yoyoCadence/AlphaFactorForge/actions/runs/37212880656).
+PR #154 was marked ready and merged on that head as
+`78912188d634e0c3bd70f916e91cdaff02197ceb`. Audit done; NUMERIC-JSON-002
+remains the separately scoped compatibility design/repair task.
