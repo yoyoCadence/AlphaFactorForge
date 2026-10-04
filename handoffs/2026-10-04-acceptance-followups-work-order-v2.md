@@ -210,8 +210,8 @@ O1–O4 本次都沒有執行，不能當成已驗證。
 | 3 | FU-4 | PR001-035-J-R1 | **Done** | #144（`b395121`） | |
 | 4 | FU-5 | DB-ASYNC-001 | **Done** | #145（`ce3ca94`） | 逐 instrument 鎖；10 年小時線約 27 ms／instrument（release） |
 | 5 | FU-3a | PR046-055-H-R1 | **Done** | #146（`0eb8cd9`） | audit 只剩 vitest／@vitest/mocker |
-| 6 | FU-3b | PR046-055-H-R1 | **Done**（待 PR 合併） | 由 `chore/vitest-4` 開出 | 兩種 audit 都為 0 |
-| 7 | FU-3c | PR046-055-H-R1 | After FU-3a | — | |
+| 6 | FU-3b | PR046-055-H-R1 | **Done** | #147（`c710b94`） | 兩種 audit 都為 0 |
+| 7 | FU-3c | PR046-055-H-R1 | **Done**（待 PR 合併） | 由 `ci/npm-audit-production` 開出 | 定期完整 audit 另列 `SEC-NPM-AUDIT-SCHEDULE-001` |
 | 8 | FU-2＋FU-8 | PR106-115-B-R1、DOC-STATE-002 | Ready | — | |
 | 9 | FU-6 | Low | Ready | — | |
 | 10 | FU-7 | Low | Ready | — | |

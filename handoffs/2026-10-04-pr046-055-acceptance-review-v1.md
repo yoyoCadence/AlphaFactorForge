@@ -85,3 +85,7 @@ H-R1 的四個間接依賴已在 `chore/dev-deps-audit-2026-10` 於相容範圍�
 ### Resolution — FU-3b（2026-10-04）
 
 Vitest 已在 `chore/vitest-4` 升到 4.1.11（GHSA-82fw-gwwq-j7x9 的最低修補版本），保留 fixture 指令使用的直接 `vite-node@3.2.4`；三個代表性 fixture 重新產生內容完全相同。`npm audit` 與 `--omit=dev` 都回到 **0**，H-R1 的依賴部分完成（CI 檢查 FU-3c 另行處理）。
+
+### Resolution — FU-3c（2026-10-04）
+
+CI 的 `typecheck` job 在 typecheck 之後加上 `npm audit --omit=dev`（只守 production 依賴，任何 advisory 或 registry 失敗都讓 job 失敗；devDependencies 仍依 `docs/security-audit-npm.md` 人工處理）。以暫時專案驗證：production 有漏洞 exit 1、只有 dev 漏洞 exit 0。H-R1 完成；定期完整 audit 另列 Backlog `SEC-NPM-AUDIT-SCHEDULE-001`。
