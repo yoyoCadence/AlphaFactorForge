@@ -54,4 +54,4 @@ registry 中不新增事件就寫入的限制性證據——import 偵測到的�
 
 ## Resolution
 
-Pending — 合併後在下一個切片記錄 PR 編號與合併 commit。
+Merged as PR #143（merge commit `398c226`，2026-10-04；六項 CI 通過）。

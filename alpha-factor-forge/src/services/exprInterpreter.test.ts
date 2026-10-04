@@ -101,6 +101,22 @@ describe('exprInterpreter — security: rejects everything off-whitelist', () =>
     expect(() => compileExpression('crossUp(a)', ['a'])).toThrow(/invalid expression/);
   });
 
+  it('rejects inherited Object.prototype names as unknown functions', () => {
+    // The whitelist is an own-property check: names found only on the
+    // prototype chain must fail as unknown, not by accident later.
+    for (const [name, args] of [
+      ['constructor', 'price'],
+      ['toString', ''],
+      ['valueOf', ''],
+      ['hasOwnProperty', 'price'],
+      ['__proto__', 'price'],
+    ]) {
+      const source = `${name}(${args})`;
+      expect(() => compileExpression(source, ['price']), source).toThrow(`unknown function "${name}"`);
+      expect(() => compileExpression(source, ['price']), source).not.toThrow(/native code/);
+    }
+  });
+
   it('rejects nested time-shift (max 1-bar lookback)', () => {
     expect(() => compileExpression('prev(prev(price))', ['price'])).toThrow(/1-bar|nested/);
     expect(() => compileExpression('crossUp(prev(a), b)', ['a', 'b'])).toThrow(/1-bar|nested/);

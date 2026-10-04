@@ -82,3 +82,7 @@ Pending for J-R1 (optional hardening).
 本檔的發現已整理進 [驗收後續工作單](2026-10-04-acceptance-followups-work-order-v1.md)，請接手的 agent 從那裡開始：
 
 - J-R1 → **FU-4**，不需要決定，可直接實作。
+
+### Resolution — FU-4（2026-10-04）
+
+J-R1 已在 `fix/expr-whitelist-own-property` 修正：`exprInterpreter.ts` 的函式白名單改用 `Object.prototype.hasOwnProperty.call(FN_ARITY, name)`（專案型別庫為 ES2020，不用 `Object.hasOwn`）。新測試斷言 `constructor`、`toString`、`valueOf`、`hasOwnProperty`、`__proto__` 都以 `unknown function` 被拒絕且訊息不含 `native code`；修正前失敗、修正後通過。

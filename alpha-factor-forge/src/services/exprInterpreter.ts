@@ -225,7 +225,8 @@ function parse(toks: Tok[], allowedVars: Set<string>): ExprNode {
       pos++;
       if (peek()?.t === 'lparen') {
         const name = t.v;
-        if (!(name in FN_ARITY)) fail(`unknown function "${name}"`);
+        // Own properties only: `in` would also accept Object.prototype names.
+        if (!Object.prototype.hasOwnProperty.call(FN_ARITY, name)) fail(`unknown function "${name}"`);
         pos++; // consume "("
         const args: ExprNode[] = [];
         if (peek()?.t !== 'rparen') {
