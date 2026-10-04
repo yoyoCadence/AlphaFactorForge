@@ -87,6 +87,10 @@ function operandLookback(id: OperandId, strat: ParamsStrategy): number {
     case 'bbMid':
     case 'bbLower':
       return period(strat.bbPeriod, 'bbPeriod');
+    default:
+      // Unreachable for typed callers; a rule loaded as data with an unknown,
+      // numeric or padded left operand fails closed instead of becoming NaN.
+      throw new RangeError(`unknown operand "${String(id)}" cannot derive an embargo`);
   }
 }
 

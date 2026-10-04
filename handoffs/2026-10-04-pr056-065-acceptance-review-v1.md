@@ -67,3 +67,7 @@ Informational; G-N1 is optional hardening.
 本檔的發現已整理進 [驗收後續工作單](2026-10-04-acceptance-followups-work-order-v1.md)，請接手的 agent 從那裡開始：
 
 - G-N1 → **FU-6**（可選），需要 **D7**。
+
+### Resolution — FU-6（2026-10-04）
+
+G-N1 已在 `fix/embargo-invalid-operand` 修正：`operandLookback` 加上 default 分支，對 OperandId 以外的左運算元 throw `RangeError`（`unknown operand …`）。新測試涵蓋 `'50'`、`'atr'`、`' maFast '`，修正前失敗、修正後通過。signals-split fixture 只更新 `generator.sourceHashes.embargo` 一行（期望值不變），TS 與 Rust parity 測試都通過；沒有把 blocks 錯誤案例塞進 params-only 的 Rust fixture。
