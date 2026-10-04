@@ -55,6 +55,8 @@ binding 只錨定事件鏈，而隔離、升級這類「不新增事件的證據
   而且持有 DB mutex，執行中的 discovery 寫入也得等。**耗時沒有實測**；這是依程式碼與文件做出的判斷。
   AGENTS.md 把「長時間工作離開 UI thread」列為高風險項目。
 - 修正方向：改成 `async` + `spawn_blocking`（與同檔案的寫入命令相同），或標成 `#[tauri::command(async)]`；DB 鎖範圍維持不變。
+- 既有任務：同類問題已在 tasks.md Backlog 的 **`DB-ASYNC-001`（P2，未完成）** 中，那是 PR #76 稽核留下的項目（大型匯入、結果保存、檔案寫入都是同步且持有 DB mutex）。
+  建議把這個預覽命令加進 `DB-ASYNC-001` 的範圍，不另開任務；它是該任務建立後才新增的一個實例。
 
 ## Review Notes
 

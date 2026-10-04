@@ -4,7 +4,17 @@ Date: 2026-10-04
 Repo: yoyoCadence/AlphaFactorForge
 Branch: `review/pr001-130-acceptance`
 Reviewed baseline: `5b4a562`
-Status: 驗收完成；十個 PR 都可以接受，本次**沒有新的缺陷**。各階段在合併前都有驗收與修正紀錄；本次針對它們較少碰到的高風險邊界做了重點檢查。仍有三項 operator acceptance 未完成（見下）。
+Status: 驗收完成；十個 PR 都可以接受。各階段在合併前都有驗收與修正紀錄；本次針對它們較少碰到的高風險邊界做了重點檢查，程式碼沒有新的缺陷，但找到一項文件矛盾（B-R1，P3）。仍有三項 operator acceptance 未完成（見下）。
+
+## Required Action / Decision
+
+### B-R1 — P3：文件寫的 Rust 最低版本與 `Cargo.toml` 矛盾
+
+- 來源：PR #106（P03a，commit `e8f6934` 把 `alpha-factor-forge/src-tauri/Cargo.toml:8` 改成 `rust-version = "1.89"`）。
+- 文件仍寫舊版本：`README.md:148,330,502`（三語都寫 Rust 1.77.2+）、`alpha-factor-forge/README.md:39`（≥ 1.77）、`AGENTS.md:12`（Rust 1.77+）。
+- 影響：照文件準備 1.77–1.88 工具鏈的人，`cargo build` 會直接因 `rust-version` 被拒；AGENTS.md 是給所有 agent 的協作契約，寫錯版本也會誤導 agent。
+- 修正：把上述文件改成 1.89（或改寫為「見 `Cargo.toml` 的 `rust-version`」）。AGENTS.md 屬於協作契約，請維護者決定措辭。
+  既有的 `TOOLCHAIN-001`（P3，在 CI 證明 MSRV）是相關但不同的任務：那是「證明」，這裡是「文件已經和設定矛盾」。
 
 ## Summary
 
@@ -27,7 +37,7 @@ Status: 驗收完成；十個 PR 都可以接受，本次**沒有新的缺陷**�
 
 | PR | 階段 | 驗收紀錄 | 結論 |
 | --- | --- | --- | --- |
-| [#106](https://github.com/yoyoCadence/AlphaFactorForge/pull/106) | P00–P04 | [P01 驗收](2026-09-17-p01-acceptance-review-v1.md)；P04a、P04b 的驗收修正記在 [P04a](2026-09-17-p04a-headless-service-v1.md)、[P04b](2026-09-18-p04b-desktop-connect-v1.md) handoff 與 tasks.md Done | 可接受 |
+| [#106](https://github.com/yoyoCadence/AlphaFactorForge/pull/106) | P00–P04 | [P01 驗收](2026-09-17-p01-acceptance-review-v1.md)；P04a、P04b 的驗收修正記在 [P04a](2026-09-17-p04a-headless-service-v1.md)、[P04b](2026-09-18-p04b-desktop-connect-v1.md) handoff 與 tasks.md Done | 可接受；附 B-R1（文件） |
 | [#107](https://github.com/yoyoCadence/AlphaFactorForge/pull/107) | P05 研究歷史 | Codex 的兩項發現已修正（[handoff Resolution](2026-09-19-p05-research-history-v1.md)） | 可接受 |
 | [#108](https://github.com/yoyoCadence/AlphaFactorForge/pull/108) | P06 市場資料基礎 | [P06 驗收](2026-09-20-p06-acceptance-review-v1.md)，四項發現已修正 | 可接受 |
 | [#109](https://github.com/yoyoCadence/AlphaFactorForge/pull/109) | P07 Binance | [PR #109 驗收](2026-09-20-pr109-p07-acceptance-review-v1.md)，兩項修正與回歸 | 可接受 |
@@ -49,8 +59,8 @@ Status: 驗收完成；十個 PR 都可以接受，本次**沒有新的缺陷**�
 
 - 十組 `git diff <head> <merge>` 都是空的；十個 head 的六項 CI 都是 SUCCESS（runs：35406102547、35454791809、35485112915、35500938087、35510972639、35593606965、35596929477、35604499351、35733301726、35856386609）。
 - 全套測試沿用整合 baseline 的結果（566 Rust、1072 Vitest、82/82 Playwright 等，見 [#131–#140 驗收](2026-10-04-pr131-140-acceptance-review-v1.md)）。
-- 本次沒有新增反例：上表的檢查都是讀程式碼確認，沒有發現值得重現的缺口。
+- 本次沒有新增反例：上表的檢查都是讀程式碼確認。B-R1 以 `grep` 比對 `Cargo.toml` 與文件確認，並以 `git log -S` 找到引入的 commit。
 
 ## Resolution
 
-Informational; nothing to act on beyond the operator acceptance items above.
+Pending for B-R1 (documentation). The operator acceptance items above are informational.
