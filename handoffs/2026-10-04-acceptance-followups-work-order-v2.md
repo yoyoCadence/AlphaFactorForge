@@ -207,8 +207,8 @@ O1–O4 本次都沒有執行，不能當成已驗證。
 | --- | --- | --- | --- | --- | --- |
 | 1 | FU-1-design | PR126-130-A-R1、PR131-140-R1 | **Done**（2026-10-04 核可；狀態碼採新增 `registry_evidence_rolled_back`） | — | 維護者另提醒：圍欄不得組出帶空證據的綁定 |
 | 2 | FU-1 | 同上 | **Done** | #143（`398c226`） | [handoff](2026-10-04-fu1-ledger-evidence-snapshot-v1.md) |
-| 3 | FU-4 | PR001-035-J-R1 | **Done**（待 PR 合併） | 由 `fix/expr-whitelist-own-property` 開出 | |
-| 4 | FU-5 | DB-ASYNC-001 | Ready | — | |
+| 3 | FU-4 | PR001-035-J-R1 | **Done** | #144（`b395121`） | |
+| 4 | FU-5 | DB-ASYNC-001 | **Done**（待 PR 合併） | 由 `fix/campaign-preview-async` 開出 | 逐 instrument 鎖；10 年小時線約 27 ms／instrument（release） |
 | 5 | FU-3a | PR046-055-H-R1 | Ready | — | |
 | 6 | FU-3b | PR046-055-H-R1 | After FU-3a | — | |
 | 7 | FU-3c | PR046-055-H-R1 | After FU-3a | — | |

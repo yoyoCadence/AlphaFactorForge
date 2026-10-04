@@ -118,3 +118,8 @@ Pending.
 ### Resolution — FU-1（2026-10-04）
 
 A-R1 已在 `fix/ledger-evidence-rollback` 修正（trial-ledger §23）：工作區綁定改為 `trial-ledger-binding-v2`，帶著隔離家族、分歧來源與家族檢定數高水位的快照；還原較舊的 registry 複本會得到新的 `registry_evidence_rolled_back`。本檔的反例已改名為 `r23_*` 納入正式測試，最終斷言直接比對該狀態碼。另加 5 項測試；573 Rust 通過；7 個突變都被抓到。詳見 [FU-1 handoff](2026-10-04-fu1-ledger-evidence-snapshot-v1.md)。
+
+### Resolution — FU-5（2026-10-04）
+
+A-R2 已在 `fix/campaign-preview-async` 處理（`DB-ASYNC-001` 的第一個切片）：`preview_research_campaign` 改為 `async` + `spawn_blocking`，參數名稱不變；實作抽成 `preview_campaign`，並改為**逐 instrument 取得 DB 鎖**，另一個命令最多只等一個 instrument 的驗證，而不是整個 campaign。本機量測（release build、檔案型 SQLite／WAL，暫時測試、未提交）：10 年小時線（87,600 根）單一 instrument 的解析約 **27 ms**，其中讀取 candle 約 19 ms；1–5 個 instrument 的典型 campaign 約 30–140 ms，上限 128 個約 3.4 秒。
+其他同步命令若在主執行緒等同一把鎖，仍可能等到這段時間；這屬於 `DB-ASYNC-001` 其餘命令的範圍，本切片沒有宣稱它已完成。native 視窗互動驗收仍列在工作單 O3。

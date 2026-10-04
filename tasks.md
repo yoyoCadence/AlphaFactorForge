@@ -137,7 +137,7 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
   1. [x] **FU-1-design** — approved 2026-10-04 (new status code `registry_evidence_rolled_back`; the fence uses the shared event prefix, no empty evidence).
   2. [x] **FU-1** — done 2026-10-04 on `fix/ledger-evidence-rollback` (trial-ledger §23; see Done and [handoff](handoffs/2026-10-04-fu1-ledger-evidence-snapshot-v1.md)).
   3. [x] **FU-4** — done 2026-10-04 on `fix/expr-whitelist-own-property` (own-property whitelist check; see Done).
-  4. [ ] **FU-5** — async campaign preview, first `DB-ASYNC-001` slice.
+  4. [x] **FU-5** — done 2026-10-04 on `fix/campaign-preview-async` (async preview, per-instrument DB lock; see Done).
   5. [ ] **FU-3a** — four transitive dev dependencies; then **FU-3b** Vitest 4.1.11 and **FU-3c** CI `npm audit --omit=dev` (PR046-055-H-R1).
   6. [ ] **FU-2 + FU-8** — documented Rust minimum and README progress (PR106-115-B-R1, DOC-STATE-002).
   7. [ ] **FU-6**, **FU-7** — embargo throw; per-case indicator fixture edges.
@@ -307,7 +307,7 @@ The detailed evidence, shortest reproductions, contract cautions, and per-task a
 
 - **PERSIST-INVARIANT-001 (P2)** — completed on `fix/persist-bundle-invariants`; see the Done section.
 - **IO-ROBUSTNESS-001 (P2)** — completed on `fix/atomic-report-filenames`; see the Done section.
-- [ ] **DB-ASYNC-001 (P2)** — move large dataset import, result persistence, and filesystem writes behind async Tauri commands plus `spawn_blocking`; retain the single SQLite coordinator boundary and add a controlled slow-operation responsiveness test before considering pagination/batching. 2026-10-04: also `preview_research_campaign` (PR #130), a sync command that loads and re-verifies every declared snapshot's candles on the main thread ([PR126-130 A-R2](handoffs/2026-10-04-pr126-130-acceptance-review-v1.md)).
+- [ ] **DB-ASYNC-001 (P2)** — move large dataset import, result persistence, and filesystem writes behind async Tauri commands plus `spawn_blocking`; retain the single SQLite coordinator boundary and add a controlled slow-operation responsiveness test before considering pagination/batching. 2026-10-04: also `preview_research_campaign` (PR #130), a sync command that loads and re-verifies every declared snapshot's candles on the main thread ([PR126-130 A-R2](handoffs/2026-10-04-pr126-130-acceptance-review-v1.md)). First slice done 2026-10-04 (FU-5): the preview is async with a per-instrument lock (~27 ms per instrument for 10 years of hourly bars, release); the remaining sync commands stay open here.
 - [ ] **CI-TAURI-SMOKE-001b (P2)** — script one real invoke/event round trip through the native bridge. Blocked on a **maintainer dependency decision**: it needs a WebDriver stack (`tauri-driver` + `msedgedriver`), which the no-new-dependencies rule reserves for explicit approval. Slice a (below) already builds and starts the binary, so this is the remaining half. Spec: `docs/improvement-backlog.md` → CI-TAURI-SMOKE-001.
   - **CI-TAURI-SMOKE-001a** — completed on `feat/native-tauri-smoke-lane`; see the Done section.
 - [ ] **TEST-MOCK-PARITY-001 (P2)** — make mock `saveStrategy` reproduce SQLite same-hash UPSERT identity/name/source semantics and add a regression proving repeated saves keep one stable row/id.
@@ -405,6 +405,8 @@ These were named inside the UI port entry and must not be buried by closing it. 
 - [ ] Full closed-loop AI automation. (Specification: ABC-14.)
 
 ## Done
+
+- [x] **FU-5 — Campaign preview off the main thread (first `DB-ASYNC-001` slice)** (2026-10-04, branch `fix/campaign-preview-async`; FU-4 merged as PR #144, `b395121`). `preview_research_campaign` is `async` + `spawn_blocking` with the same `declaration` argument; the work moved to `preview_campaign`, which takes the shared DB mutex per instrument instead of for the whole campaign. Measured in release on a file-backed WAL database: ~27 ms per instrument for 87,600 hourly bars (~19 ms of it reading candles). One new Rust test; 574 Rust, command pinning tests, clippy unchanged. Other sync commands and the native interaction check (O3) remain open. [Review](handoffs/2026-10-04-pr126-130-acceptance-review-v1.md).
 
 - [x] **FU-4 — Code-mode function whitelist is an own-property check** (2026-10-04, branch `fix/expr-whitelist-own-property`; FU-1 merged as PR #143, `398c226`). `exprInterpreter.ts` uses `Object.prototype.hasOwnProperty.call(FN_ARITY, name)` instead of `in`, so `constructor`/`toString`/`valueOf`/`hasOwnProperty`/`__proto__` fail as `unknown function` without leaking native function text. One regression test (fails before, passes after); Vitest and typecheck pass. Closes PR001-035-J-R1. [Review](handoffs/2026-10-04-pr001-035-acceptance-review-v1.md).
 
