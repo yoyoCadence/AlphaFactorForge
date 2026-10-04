@@ -213,8 +213,8 @@ O1–O4 本次都沒有執行，不能當成已驗證。
 | 6 | FU-3b | PR046-055-H-R1 | **Done** | #147（`c710b94`） | 兩種 audit 都為 0 |
 | 7 | FU-3c | PR046-055-H-R1 | **Done** | #148（`c13cd2d`） | 定期完整 audit 另列 `SEC-NPM-AUDIT-SCHEDULE-001` |
 | 8 | FU-2＋FU-8 | PR106-115-B-R1、DOC-STATE-002 | **Done** | #149（`aa7a011`） | DOC-STATE-002 的其他文件仍開放 |
-| 9 | FU-6 | Low | **Done**（待 PR 合併） | 由 `fix/embargo-invalid-operand` 開出 | fixture 只更新來源 hash |
-| 10 | FU-7 | Low | Ready | — | |
+| 9 | FU-6 | Low | **Done** | #150（`07b42cf`） | fixture 只更新來源 hash |
+| 10 | FU-7 | Low | **Done**（待 PR 合併） | 由 `test/indicator-fixture-edges` 開出 | 新案例能抓到原本抓不到的 RSI 突變 |
 | 11 | FU-9 | Low／design | Design first | — | 下次升級釘選合約版本前 |
 | — | O1–O4 | — | 待人工 | — | |
 

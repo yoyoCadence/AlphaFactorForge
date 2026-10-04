@@ -88,3 +88,7 @@ Informational.
 本檔的發現已整理進 [驗收後續工作單](2026-10-04-acceptance-followups-work-order-v1.md)，請接手的 agent 從那裡開始：
 
 - 指標 fixture 覆蓋建議 → **FU-7**（可選），需要 **D7**；新增案例的輸入值必須能被 Rust 精確讀回，理由見本檔的「測試工具的陷阱」。
+
+### Resolution — FU-7（2026-10-04）
+
+指標 fixture 已在 `test/indicator-fixture-edges` 補上四個手寫邊界案例（`flat-30-bars`、`single-bar`、`period-one-12-bars`、`periods-longer-than-series`），輸入只用整數或 .5，Rust 能精確讀回；原 seed-42 案例逐位元不變。Rust 測試改為逐案執行全部指標（精確案例清單），TS 測試加上各案例的語意斷言。突變驗證：把 Rust RSI 在零損失時的 100 改成 NaN，新案例 `flat-30-bars.rsi[15]` 會失敗——原本只有一個案例時抓不到。
