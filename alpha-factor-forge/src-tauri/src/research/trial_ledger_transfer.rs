@@ -2654,4 +2654,256 @@ mod tests {
             ))
         );
     }
+
+    // §23, from the PR #126-#130 acceptance review A-R1 counterexample: §20
+    // makes an import conflict a permanent quarantine, and the import that
+    // detects it adds no event, so the chain head does not move. Restoring a
+    // copy taken before that import, as
+    // `r4_the_reopen_watermark_detects_a_later_rollback` does, keeps the event
+    // prefix but loses the quarantine: the evidence snapshot must refuse it.
+    #[test]
+    fn r23_a_restored_registry_cannot_release_an_import_quarantine_unseen() {
+        use super::super::{BindingCheck, REGISTRY_FILE_NAME};
+        let (a, b) = (Dirs::new(), Dirs::new());
+        let source = a.open();
+        let conflicting = b.open();
+        let registered = source.register_batch(&batch("same")).unwrap();
+        let BindingCheck::Current(observed) = source.check_binding(None).unwrap() else {
+            panic!("expected a current binding");
+        };
+        drop(source);
+        let file = a.registry.join(REGISTRY_FILE_NAME);
+        let backup = a.root.join("registry-before-import.sqlite3");
+        std::fs::copy(&file, &backup).unwrap();
+
+        let mut changed = batch("same");
+        changed.events[0].strategy_hash = Some("different-strategy".into());
+        conflicting.register_batch(&changed).unwrap();
+        let source = a.open();
+        let summary = source
+            .import_json_lines(&conflicting.export_json_lines().unwrap())
+            .unwrap();
+        assert_eq!(summary.added_events, 0, "the conflicting event is withheld");
+        assert_eq!(
+            source.read_admission_count(&registered.batch_id).unwrap(),
+            Admission::Blocked(AdmissionBlocked::FamilyQuarantined)
+        );
+        let BindingCheck::Current(after) = source.check_binding(Some(&observed)).unwrap() else {
+            panic!("expected a current binding");
+        };
+        // The event chain did not move, but the evidence snapshot did.
+        assert_eq!(
+            (after.seq, &after.chain_head),
+            (observed.seq, &observed.chain_head)
+        );
+        let family = match &registered.admission {
+            Admission::Count(count) => count.family_id().to_string(),
+            other => panic!("expected a count, got {other:?}"),
+        };
+        assert!(!observed
+            .evidence
+            .as_ref()
+            .unwrap()
+            .quarantined_families
+            .contains(&family));
+        assert!(after
+            .evidence
+            .as_ref()
+            .unwrap()
+            .quarantined_families
+            .contains(&family));
+        drop(source);
+
+        for suffix in ["-wal", "-shm"] {
+            let mut sidecar = file.clone().into_os_string();
+            sidecar.push(suffix);
+            let _ = std::fs::remove_file(PathBuf::from(sidecar));
+        }
+        std::fs::copy(&backup, &file).unwrap();
+        let restored = a.open();
+        // The copy predates the quarantine: a binding persisted after it
+        // refuses the copy. A binding persisted before it still accepts the
+        // copy — protection starts at the observation that was saved (§23).
+        assert_eq!(
+            restored.check_binding(Some(&after)).unwrap(),
+            BindingCheck::RegistryEvidenceRolledBack
+        );
+        assert!(matches!(
+            restored.check_binding(Some(&observed)).unwrap(),
+            BindingCheck::Current(_)
+        ));
+    }
+
+    fn evidence_of(binding: &super::super::LedgerBinding) -> &super::super::LedgerEvidence {
+        binding
+            .evidence
+            .as_ref()
+            .expect("a checked binding carries evidence")
+    }
+
+    fn checked(
+        ledger: &TrialLedger,
+        saved: Option<&super::super::LedgerBinding>,
+    ) -> super::super::LedgerBinding {
+        match ledger.check_binding(saved).unwrap() {
+            super::super::BindingCheck::Current(binding) => binding,
+            other => panic!("expected a current binding, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn r23_each_kind_of_saved_evidence_is_required() {
+        use super::super::{BindingCheck, LedgerBinding};
+        let dirs = Dirs::new();
+        let ledger = dirs.open();
+        let registered = ledger.register_batch(&batch("pin")).unwrap();
+        let family = match &registered.admission {
+            Admission::Count(count) => count.family_id().to_string(),
+            other => panic!("expected a count, got {other:?}"),
+        };
+        let current = checked(&ledger, None);
+        assert_eq!(evidence_of(&current).family_tests[&family], 2);
+        assert!(evidence_of(&current).quarantined_families.is_empty());
+        assert!(evidence_of(&current).conflicted_origins.is_empty());
+
+        let with = |change: &dyn Fn(&mut super::super::LedgerEvidence)| {
+            let mut saved = current.clone();
+            change(saved.evidence.as_mut().unwrap());
+            saved
+        };
+        let other_family = format!("trial-family-v1:{}", "a".repeat(64));
+        for (label, saved) in [
+            (
+                "a higher test count",
+                with(&|e| {
+                    e.family_tests.insert(family.clone(), 3);
+                }),
+            ),
+            (
+                "a family the registry no longer pins",
+                with(&|e| {
+                    e.family_tests.insert(other_family.clone(), 2);
+                }),
+            ),
+            (
+                "a quarantine",
+                with(&|e| {
+                    e.quarantined_families.insert(other_family.clone());
+                }),
+            ),
+            (
+                "a conflicted origin",
+                with(&|e| {
+                    e.conflicted_origins.insert("b".repeat(32));
+                }),
+            ),
+        ] {
+            assert_eq!(
+                ledger.check_binding(Some(&saved)).unwrap(),
+                BindingCheck::RegistryEvidenceRolledBack,
+                "{label} that the registry lost"
+            );
+        }
+
+        // Evidence that grows is not a rollback; the snapshot grows with it.
+        let mut raised = batch("raise");
+        raised.tests_per_trial = 3;
+        ledger.register_batch(&raised).unwrap();
+        let grown = checked(&ledger, Some(&current));
+        assert_eq!(evidence_of(&grown).family_tests[&family], 3);
+        assert_eq!(
+            ledger
+                .check_binding(Some(&LedgerBinding {
+                    seq: current.seq,
+                    chain_head: current.chain_head.clone(),
+                    ..grown.clone()
+                }))
+                .unwrap(),
+            BindingCheck::Current(grown.clone()),
+            "an older event prefix with the newer evidence is still covered"
+        );
+
+        // A family quarantined now satisfies any saved test count for it.
+        ledger
+            .lock()
+            .unwrap()
+            .execute(
+                "INSERT INTO family_conflicts (family_id, kind, detail_json, recorded_at)
+                 VALUES (?1, 'test', '{}', 'now')",
+                [&family],
+            )
+            .unwrap();
+        let quarantined_later = with(&|e| {
+            e.family_tests.insert(family.clone(), 9);
+        });
+        assert!(matches!(
+            ledger.check_binding(Some(&quarantined_later)).unwrap(),
+            BindingCheck::Current(binding) if evidence_of(&binding).quarantined_families.contains(&family)
+        ));
+
+        // A binding without evidence (pre-§23) proves only its event prefix.
+        let legacy = LedgerBinding {
+            evidence: None,
+            ..current
+        };
+        assert!(matches!(
+            ledger.check_binding(Some(&legacy)).unwrap(),
+            BindingCheck::Current(_)
+        ));
+    }
+
+    #[test]
+    fn r23_a_replacement_must_carry_the_saved_evidence() {
+        use super::super::BindingCheck;
+        let (a, b, c, d, e) = (
+            Dirs::new(),
+            Dirs::new(),
+            Dirs::new(),
+            Dirs::new(),
+            Dirs::new(),
+        );
+        let source = a.open();
+        let conflicting = b.open();
+        let registered = source.register_batch(&batch("same")).unwrap();
+        let family = match &registered.admission {
+            Admission::Count(count) => count.family_id().to_string(),
+            other => panic!("expected a count, got {other:?}"),
+        };
+        let before_quarantine = source.export_json_lines().unwrap();
+        let mut changed = batch("same");
+        changed.events[0].strategy_hash = Some("different-strategy".into());
+        conflicting.register_batch(&changed).unwrap();
+        source
+            .import_json_lines(&conflicting.export_json_lines().unwrap())
+            .unwrap();
+        let saved = checked(&source, None);
+        assert!(evidence_of(&saved).quarantined_families.contains(&family));
+
+        // A complete transfer carries the quarantine: accepted, over two hops.
+        let first_hop = c.open();
+        first_hop
+            .import_json_lines(&source.export_json_lines().unwrap())
+            .unwrap();
+        let accepted = checked(&first_hop, Some(&saved));
+        assert!(evidence_of(&accepted)
+            .quarantined_families
+            .contains(&family));
+        let second_hop = d.open();
+        second_hop
+            .import_json_lines(&first_hop.export_json_lines().unwrap())
+            .unwrap();
+        assert!(matches!(
+            second_hop.check_binding(Some(&accepted)).unwrap(),
+            BindingCheck::Current(_)
+        ));
+
+        // A replacement built from the export taken before the quarantine has
+        // the same event prefix and a valid checkpoint, but not the quarantine.
+        let stale = e.open();
+        stale.import_json_lines(&before_quarantine).unwrap();
+        assert_eq!(
+            stale.check_binding(Some(&saved)).unwrap(),
+            BindingCheck::RegistryEvidenceRolledBack
+        );
+    }
 }

@@ -205,8 +205,8 @@ O1–O4 本次都沒有執行，不能當成已驗證。
 
 | 順序 | 切片 | 對應 Backlog | 狀態 | PR | 備註 |
 | --- | --- | --- | --- | --- | --- |
-| 1 | FU-1-design | PR126-130-A-R1、PR131-140-R1 | Ready for review（本文件 §5.1） | — | |
-| 2 | FU-1 | 同上 | Blocked on 1 | — | |
+| 1 | FU-1-design | PR126-130-A-R1、PR131-140-R1 | **Done**（2026-10-04 核可；狀態碼採新增 `registry_evidence_rolled_back`） | — | 維護者另提醒：圍欄不得組出帶空證據的綁定 |
+| 2 | FU-1 | 同上 | **Done**（實作完成，待 PR 合併） | 由 `fix/ledger-evidence-rollback` 開出 | [handoff](2026-10-04-fu1-ledger-evidence-snapshot-v1.md) |
 | 3 | FU-4 | PR001-035-J-R1 | Ready | — | |
 | 4 | FU-5 | DB-ASYNC-001 | Ready | — | |
 | 5 | FU-3a | PR046-055-H-R1 | Ready | — | |
@@ -226,3 +226,7 @@ O1–O4 本次都沒有執行，不能當成已驗證。
 ## Resolution
 
 Pending. 每完成一個切片，在 §7 更新狀態與 PR，並在對應的 batch handoff 追加 Resolution。
+
+### Resolution — FU-1（2026-10-04）
+
+§5.1 方案經維護者核可（回退使用新增的 `RegistryEvidenceRolledBack`；`fence_admission` 改用共用的事件前綴判定，不從 `AdmissionSnapshot` 組出空證據綁定），已實作。詳見 [FU-1 handoff](2026-10-04-fu1-ledger-evidence-snapshot-v1.md)。

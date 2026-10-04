@@ -335,7 +335,7 @@ chain_seq = sha256(chain_{seq-1} || eventId_seq)          # seq = 本 registry �
 
 ### 7.2 工作區綁定
 
-工作區在 `app_settings` 保存 `trial_ledger_binding = {registryId, seq, chainHead}`，並在寫入 attempts 的
+工作區在 `app_settings` 保存 `trial_ledger_binding = {registryId, seq, chainHead}`（自 §23 起為 `trial-ledger-binding-v2`，另帶證據快照），並在寫入 attempts 的
 同一筆工作區交易（§6.2 步驟 3）中更新為 `register_batch` 回傳之 `admissionCount` 的 `(seq, chainHead)`
 （與計數同一筆 registry 交易讀出，§6.4）。這個鏈頭涵蓋本工作區當時看得到的所有事件，包括其他工作區的事件。
 
@@ -347,6 +347,7 @@ chain_seq = sha256(chain_{seq-1} || eventId_seq)          # seq = 本 registry �
 | `registryId` 相同，`binding.seq` 位置的 `chain` ≠ `binding.chainHead` | **分歧**：`registry_diverged`（同計數、內容不同的副本在此被擋下） |
 | registry 不存在，但工作區有綁定 | **缺失**：`registry_missing`；**不自動新建空 registry 取代** |
 | `registryId` 不同 | 見 §7.3；不成立 → `registry_replaced` |
+| 事件前綴成立，但已保存的隔離家族或分歧來源消失，或某家族的檢定數低於已保存的高水位 | **證據回退**：`registry_evidence_rolled_back`（§23） |
 
 以上除第一、二列外都停止資格判定。
 
@@ -849,3 +850,40 @@ dataset、候選 index 存在且其 strategy hash 相符時才填入；否則為
 `v2_files_and_invalid_protocol_upgrades_are_refused`、`a_raised_test_count_makes_an_earlier_decision_stale`、
 `an_earlier_single_test_family_rises_to_two_tests_on_the_next_run`（runner 端到端，m 由 2 變 4）；
 原 `a15` 的 protocol 衝突部分依本節移除，收據衝突部分保留。
+
+
+## 23. 實作紀錄：綁定的證據快照（2026-10-04，FU-1）
+
+**來源**：PR #126–#130 驗收 A-R1 與 PR #131–#140 驗收 R1 是同一個缺口：隔離（§20）、來源分歧（§20）與檢定數升級（§22）
+都可能不新增事件就寫入 registry，§7 的綁定只錨定事件鏈，把 registry 檔還原成較舊複本時看不出它們消失。
+**維護者決定（2026-10-04）**：D1 選 (a)——工作區綁定加入版本化、單調的證據快照；D2 隔離與檢定數一起修；
+回退時使用新的狀態碼 `registry_evidence_rolled_back`（與事件鏈回退的 `registry_rolled_back` 區分）。
+完整方案見 [`handoffs/2026-10-04-acceptance-followups-work-order-v2.md`](../handoffs/2026-10-04-acceptance-followups-work-order-v2.md) §5.1。
+
+- **格式 `trial-ledger-binding-v2`**：`{version, registryId, seq, chainHead, evidence: {quarantinedFamilies, conflictedOrigins, familyTests}}`。
+  兩個集合以排序、不重複的陣列保存；`familyTests` 是每個已釘選家族的有效 `testsPerTrial`（釘選值與所有升級的最大值），
+  是**觀察到的高水位**，不是允許的上限。
+- **檢查（§7.2 第 7 列）**：事件前綴先依 §7.2／§7.3 判定；成立後在**同一筆 registry 讀取交易**中由 registry 表算出目前證據，
+  要求「已保存的隔離家族 ⊆ 目前」「已保存的分歧來源 ⊆ 目前」「每個已保存家族的檢定數 ≤ 目前」；
+  目前已隔離的家族視為滿足其檢定數（任何計數都不能取得 admission）。不比對整份證據的雜湊——正常新增證據也會改變雜湊。
+  替換 registry（不同 `registryId`）在 §7.3 接受後同樣檢查；完整匯出會帶出這三類證據，所以正常替換與多次轉移仍為 `Current`。
+- **證據分類**：`origin_checkpoints`、`origin_genesis` 遺失只會讓替換證明失敗而被拒絕（`registry_replaced`），不會放寬；
+  `registry_imports` 只被寫入（另由 migration `0002` 回填 genesis 時讀取一次），不參與任何判定，因此都不放進快照。
+- **寫回**：`check_binding` 的 `Current` 帶著**目前**證據；production 中寫入綁定的三處都直接寫這個值——
+  開啟工作區（`adopt`）、啟動 run 的入隊交易、繼續 run 的 resume 交易。只檢查不寫入的呼叫（逐候選 claim／commit、登記前）不擴大保護。
+  未來若加入匯入命令，必須在同一個 owner 交易中寫回新的綁定，否則匯入產生的證據要到下一次寫回才受保護。
+- **相容性**：沒有 `version` 的舊格式 `{registryId, seq, chainHead}` 仍可讀取，視為「證據未知」，只證明事件前綴；
+  下一次成功採納時寫回 v2。舊格式沒有留下的歷史證據無法追溯復原。未知 `version`、缺欄位、未排序或格式錯誤的 v2 一律
+  `registry_state_invalid`，不會退回空快照；沒有證據的綁定不能寫入。檢查失敗時不覆蓋最後一個有效綁定。
+  **降級**：寫入 v2 之後，舊版程式讀不懂綁定，會以 `registry_state_invalid` 拒絕開啟工作區（fail closed，與 registry 的
+  `registry_schema_newer` 相同性質）。
+- **圍欄不變**：`fence_admission` 只檢查事件前綴（與 `check_binding` 共用前綴判定，不從 `AdmissionSnapshot` 組出帶空證據的綁定）；
+  它自己的計數比較已涵蓋該批次的家族——隔離會讓 admission 被擋，檢定數下降是 `Inconsistent`。P13 的最終 admission 同步要求不變。
+- **限制**：只保護已持久保存的觀察；registry 與工作區一起還原到舊狀態時仍無法偵測（§7.3 的離線限制）；不宣稱防竄改。
+
+**測試**：`r23_a_restored_registry_cannot_drop_a_protocol_upgrade_unseen`、
+`r23_a_restored_registry_cannot_release_an_import_quarantine_unseen`（兩份驗收反例；後者的中間斷言改為「事件鏈不變、快照加入隔離」，
+最終斷言為 `registry_evidence_rolled_back`）、`r23_each_kind_of_saved_evidence_is_required`、`r23_a_replacement_must_carry_the_saved_evidence`
+（完整替換與兩次轉移接受、隔離前的匯出被拒）、`r23_the_stored_binding_is_versioned_and_never_defaults_its_evidence`、
+`r23_a_persisted_upgrade_refuses_a_restored_registry_and_keeps_the_last_good_binding`、`r23_a_pre_evidence_binding_is_upgraded_on_the_next_adoption`。
+七個突變（快照比較恆真、忽略分歧來源、取消隔離優先、忽略升級、接受任何版本、允許無證據寫入、接受未排序集合）都被測試抓到。
