@@ -11,7 +11,7 @@
     "referenceRuntime": "typescript",
     "sourceHashEncoding": "utf8-lf-v1",
     "sourceHashes": {
-      "generator": "sha256:80295651b41f4dec30b2da93b2b4185fcad3b8d8ab623f9de8da1ad742225fad",
+      "generator": "sha256:4b9b3160e8cc9031870d825a76c9c8dca1b42a1c579d994620417d25527c8ac1",
       "indicators": "sha256:046dd9b97ee52d091ce69ff8f4809f59fc6ef049cb8fcdf129f7b0b9603583b5",
       "sampleData": "sha256:7f4d2bc3a8a1a3d542bb1d522e3da29edcf318eec863d0bb5def798e1c205100"
     }
@@ -1249,6 +1249,1414 @@
           0.4987922192251474,
           1.493748961504231,
           2.3182088528506695
+        ]
+      }
+    },
+    {
+      "id": "flat-30-bars",
+      "input": {
+        "provenance": {
+          "kind": "authored-edge-case",
+          "generator": "authoredCandles"
+        },
+        "candles": [
+          {
+            "timestamp": 1704067200000,
+            "open": 100,
+            "high": 101,
+            "low": 99,
+            "close": 100,
+            "volume": 10
+          },
+          {
+            "timestamp": 1704070800000,
+            "open": 100,
+            "high": 101,
+            "low": 99,
+            "close": 100,
+            "volume": 10
+          },
+          {
+            "timestamp": 1704074400000,
+            "open": 100,
+            "high": 101,
+            "low": 99,
+            "close": 100,
+            "volume": 10
+          },
+          {
+            "timestamp": 1704078000000,
+            "open": 100,
+            "high": 101,
+            "low": 99,
+            "close": 100,
+            "volume": 10
+          },
+          {
+            "timestamp": 1704081600000,
+            "open": 100,
+            "high": 101,
+            "low": 99,
+            "close": 100,
+            "volume": 10
+          },
+          {
+            "timestamp": 1704085200000,
+            "open": 100,
+            "high": 101,
+            "low": 99,
+            "close": 100,
+            "volume": 10
+          },
+          {
+            "timestamp": 1704088800000,
+            "open": 100,
+            "high": 101,
+            "low": 99,
+            "close": 100,
+            "volume": 10
+          },
+          {
+            "timestamp": 1704092400000,
+            "open": 100,
+            "high": 101,
+            "low": 99,
+            "close": 100,
+            "volume": 10
+          },
+          {
+            "timestamp": 1704096000000,
+            "open": 100,
+            "high": 101,
+            "low": 99,
+            "close": 100,
+            "volume": 10
+          },
+          {
+            "timestamp": 1704099600000,
+            "open": 100,
+            "high": 101,
+            "low": 99,
+            "close": 100,
+            "volume": 10
+          },
+          {
+            "timestamp": 1704103200000,
+            "open": 100,
+            "high": 101,
+            "low": 99,
+            "close": 100,
+            "volume": 10
+          },
+          {
+            "timestamp": 1704106800000,
+            "open": 100,
+            "high": 101,
+            "low": 99,
+            "close": 100,
+            "volume": 10
+          },
+          {
+            "timestamp": 1704110400000,
+            "open": 100,
+            "high": 101,
+            "low": 99,
+            "close": 100,
+            "volume": 10
+          },
+          {
+            "timestamp": 1704114000000,
+            "open": 100,
+            "high": 101,
+            "low": 99,
+            "close": 100,
+            "volume": 10
+          },
+          {
+            "timestamp": 1704117600000,
+            "open": 100,
+            "high": 101,
+            "low": 99,
+            "close": 100,
+            "volume": 10
+          },
+          {
+            "timestamp": 1704121200000,
+            "open": 100,
+            "high": 101,
+            "low": 99,
+            "close": 100,
+            "volume": 10
+          },
+          {
+            "timestamp": 1704124800000,
+            "open": 100,
+            "high": 101,
+            "low": 99,
+            "close": 100,
+            "volume": 10
+          },
+          {
+            "timestamp": 1704128400000,
+            "open": 100,
+            "high": 101,
+            "low": 99,
+            "close": 100,
+            "volume": 10
+          },
+          {
+            "timestamp": 1704132000000,
+            "open": 100,
+            "high": 101,
+            "low": 99,
+            "close": 100,
+            "volume": 10
+          },
+          {
+            "timestamp": 1704135600000,
+            "open": 100,
+            "high": 101,
+            "low": 99,
+            "close": 100,
+            "volume": 10
+          },
+          {
+            "timestamp": 1704139200000,
+            "open": 100,
+            "high": 101,
+            "low": 99,
+            "close": 100,
+            "volume": 10
+          },
+          {
+            "timestamp": 1704142800000,
+            "open": 100,
+            "high": 101,
+            "low": 99,
+            "close": 100,
+            "volume": 10
+          },
+          {
+            "timestamp": 1704146400000,
+            "open": 100,
+            "high": 101,
+            "low": 99,
+            "close": 100,
+            "volume": 10
+          },
+          {
+            "timestamp": 1704150000000,
+            "open": 100,
+            "high": 101,
+            "low": 99,
+            "close": 100,
+            "volume": 10
+          },
+          {
+            "timestamp": 1704153600000,
+            "open": 100,
+            "high": 101,
+            "low": 99,
+            "close": 100,
+            "volume": 10
+          },
+          {
+            "timestamp": 1704157200000,
+            "open": 100,
+            "high": 101,
+            "low": 99,
+            "close": 100,
+            "volume": 10
+          },
+          {
+            "timestamp": 1704160800000,
+            "open": 100,
+            "high": 101,
+            "low": 99,
+            "close": 100,
+            "volume": 10
+          },
+          {
+            "timestamp": 1704164400000,
+            "open": 100,
+            "high": 101,
+            "low": 99,
+            "close": 100,
+            "volume": 10
+          },
+          {
+            "timestamp": 1704168000000,
+            "open": 100,
+            "high": 101,
+            "low": 99,
+            "close": 100,
+            "volume": 10
+          },
+          {
+            "timestamp": 1704171600000,
+            "open": 100,
+            "high": 101,
+            "low": 99,
+            "close": 100,
+            "volume": 10
+          }
+        ],
+        "parameters": {
+          "smaPeriod": 7,
+          "emaPeriod": 9,
+          "wmaPeriod": 6,
+          "rsiPeriod": 14,
+          "macdFast": 12,
+          "macdSlow": 26,
+          "macdSignal": 9,
+          "atrPeriod": 14,
+          "bbandsPeriod": 20,
+          "bbandsMult": 2,
+          "stddevPeriod": 10,
+          "extremaPeriod": 8,
+          "rocPeriod": 5
+        }
+      },
+      "expected": {
+        "sma": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100
+        ],
+        "ema": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100
+        ],
+        "wma": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100
+        ],
+        "rsi": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100
+        ],
+        "macd": {
+          "macd": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "signal": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          "hist": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ]
+        },
+        "trueRange": [
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2
+        ],
+        "atr": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2
+        ],
+        "bbands": {
+          "middle": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100
+          ],
+          "upper": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100
+          ],
+          "lower": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100
+          ]
+        },
+        "stddev": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "highest": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          101,
+          101,
+          101,
+          101,
+          101,
+          101,
+          101,
+          101,
+          101,
+          101,
+          101,
+          101,
+          101,
+          101,
+          101,
+          101,
+          101,
+          101,
+          101,
+          101,
+          101,
+          101,
+          101
+        ],
+        "lowest": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          99,
+          99,
+          99,
+          99,
+          99,
+          99,
+          99,
+          99,
+          99,
+          99,
+          99,
+          99,
+          99,
+          99,
+          99,
+          99,
+          99,
+          99,
+          99,
+          99,
+          99,
+          99,
+          99
+        ],
+        "roc": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "id": "single-bar",
+      "input": {
+        "provenance": {
+          "kind": "authored-edge-case",
+          "generator": "authoredCandles"
+        },
+        "candles": [
+          {
+            "timestamp": 1704067200000,
+            "open": 100,
+            "high": 101,
+            "low": 99,
+            "close": 100,
+            "volume": 10
+          }
+        ],
+        "parameters": {
+          "smaPeriod": 7,
+          "emaPeriod": 9,
+          "wmaPeriod": 6,
+          "rsiPeriod": 14,
+          "macdFast": 12,
+          "macdSlow": 26,
+          "macdSignal": 9,
+          "atrPeriod": 14,
+          "bbandsPeriod": 20,
+          "bbandsMult": 2,
+          "stddevPeriod": 10,
+          "extremaPeriod": 8,
+          "rocPeriod": 5
+        }
+      },
+      "expected": {
+        "sma": [
+          null
+        ],
+        "ema": [
+          null
+        ],
+        "wma": [
+          null
+        ],
+        "rsi": [
+          null
+        ],
+        "macd": {
+          "macd": [
+            null
+          ],
+          "signal": [
+            null
+          ],
+          "hist": [
+            null
+          ]
+        },
+        "trueRange": [
+          2
+        ],
+        "atr": [
+          null
+        ],
+        "bbands": {
+          "middle": [
+            null
+          ],
+          "upper": [
+            null
+          ],
+          "lower": [
+            null
+          ]
+        },
+        "stddev": [
+          null
+        ],
+        "highest": [
+          null
+        ],
+        "lowest": [
+          null
+        ],
+        "roc": [
+          null
+        ]
+      }
+    },
+    {
+      "id": "period-one-12-bars",
+      "input": {
+        "provenance": {
+          "kind": "authored-edge-case",
+          "generator": "authoredCandles"
+        },
+        "candles": [
+          {
+            "timestamp": 1704067200000,
+            "open": 100,
+            "high": 101,
+            "low": 99,
+            "close": 100,
+            "volume": 10
+          },
+          {
+            "timestamp": 1704070800000,
+            "open": 100,
+            "high": 102,
+            "low": 99,
+            "close": 101,
+            "volume": 10
+          },
+          {
+            "timestamp": 1704074400000,
+            "open": 101,
+            "high": 102,
+            "low": 98.5,
+            "close": 99.5,
+            "volume": 10
+          },
+          {
+            "timestamp": 1704078000000,
+            "open": 99.5,
+            "high": 103,
+            "low": 98.5,
+            "close": 102,
+            "volume": 10
+          },
+          {
+            "timestamp": 1704081600000,
+            "open": 102,
+            "high": 103,
+            "low": 101,
+            "close": 102,
+            "volume": 10
+          },
+          {
+            "timestamp": 1704085200000,
+            "open": 102,
+            "high": 103,
+            "low": 97.5,
+            "close": 98.5,
+            "volume": 10
+          },
+          {
+            "timestamp": 1704088800000,
+            "open": 98.5,
+            "high": 101,
+            "low": 97.5,
+            "close": 100,
+            "volume": 10
+          },
+          {
+            "timestamp": 1704092400000,
+            "open": 100,
+            "high": 104.5,
+            "low": 99,
+            "close": 103.5,
+            "volume": 10
+          },
+          {
+            "timestamp": 1704096000000,
+            "open": 103.5,
+            "high": 104.5,
+            "low": 100,
+            "close": 101,
+            "volume": 10
+          },
+          {
+            "timestamp": 1704099600000,
+            "open": 101,
+            "high": 102,
+            "low": 100,
+            "close": 101,
+            "volume": 10
+          },
+          {
+            "timestamp": 1704103200000,
+            "open": 101,
+            "high": 102,
+            "low": 96,
+            "close": 97,
+            "volume": 10
+          },
+          {
+            "timestamp": 1704106800000,
+            "open": 97,
+            "high": 100,
+            "low": 96,
+            "close": 99,
+            "volume": 10
+          }
+        ],
+        "parameters": {
+          "smaPeriod": 1,
+          "emaPeriod": 1,
+          "wmaPeriod": 1,
+          "rsiPeriod": 1,
+          "macdFast": 1,
+          "macdSlow": 1,
+          "macdSignal": 1,
+          "atrPeriod": 1,
+          "bbandsPeriod": 1,
+          "bbandsMult": 2,
+          "stddevPeriod": 1,
+          "extremaPeriod": 1,
+          "rocPeriod": 1
+        }
+      },
+      "expected": {
+        "sma": [
+          100,
+          101,
+          99.5,
+          102,
+          102,
+          98.5,
+          100,
+          103.5,
+          101,
+          101,
+          97,
+          99
+        ],
+        "ema": [
+          100,
+          101,
+          99.5,
+          102,
+          102,
+          98.5,
+          100,
+          103.5,
+          101,
+          101,
+          97,
+          99
+        ],
+        "wma": [
+          100,
+          101,
+          99.5,
+          102,
+          102,
+          98.5,
+          100,
+          103.5,
+          101,
+          101,
+          97,
+          99
+        ],
+        "rsi": [
+          null,
+          100,
+          0,
+          100,
+          100,
+          0,
+          100,
+          100,
+          0,
+          100,
+          0,
+          100
+        ],
+        "macd": {
+          "macd": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "signal": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "hist": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "trueRange": [
+          2,
+          3,
+          3.5,
+          4.5,
+          2,
+          5.5,
+          3.5,
+          5.5,
+          4.5,
+          2,
+          6,
+          4
+        ],
+        "atr": [
+          2,
+          3,
+          3.5,
+          4.5,
+          2,
+          5.5,
+          3.5,
+          5.5,
+          4.5,
+          2,
+          6,
+          4
+        ],
+        "bbands": {
+          "middle": [
+            100,
+            101,
+            99.5,
+            102,
+            102,
+            98.5,
+            100,
+            103.5,
+            101,
+            101,
+            97,
+            99
+          ],
+          "upper": [
+            100,
+            101,
+            99.5,
+            102,
+            102,
+            98.5,
+            100,
+            103.5,
+            101,
+            101,
+            97,
+            99
+          ],
+          "lower": [
+            100,
+            101,
+            99.5,
+            102,
+            102,
+            98.5,
+            100,
+            103.5,
+            101,
+            101,
+            97,
+            99
+          ]
+        },
+        "stddev": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "highest": [
+          101,
+          102,
+          102,
+          103,
+          103,
+          103,
+          101,
+          104.5,
+          104.5,
+          102,
+          102,
+          100
+        ],
+        "lowest": [
+          99,
+          99,
+          98.5,
+          98.5,
+          101,
+          97.5,
+          97.5,
+          99,
+          100,
+          100,
+          96,
+          96
+        ],
+        "roc": [
+          null,
+          1,
+          -1.4851485148514851,
+          2.512562814070352,
+          0,
+          -3.431372549019608,
+          1.5228426395939088,
+          3.5000000000000004,
+          -2.4154589371980677,
+          0,
+          -3.9603960396039604,
+          2.0618556701030926
+        ]
+      }
+    },
+    {
+      "id": "periods-longer-than-series",
+      "input": {
+        "provenance": {
+          "kind": "authored-edge-case",
+          "generator": "authoredCandles"
+        },
+        "candles": [
+          {
+            "timestamp": 1704067200000,
+            "open": 100,
+            "high": 101,
+            "low": 99,
+            "close": 100,
+            "volume": 10
+          },
+          {
+            "timestamp": 1704070800000,
+            "open": 100,
+            "high": 101.5,
+            "low": 99,
+            "close": 100.5,
+            "volume": 10
+          },
+          {
+            "timestamp": 1704074400000,
+            "open": 100.5,
+            "high": 102,
+            "low": 99.5,
+            "close": 101,
+            "volume": 10
+          },
+          {
+            "timestamp": 1704078000000,
+            "open": 101,
+            "high": 102,
+            "low": 99,
+            "close": 100,
+            "volume": 10
+          },
+          {
+            "timestamp": 1704081600000,
+            "open": 100,
+            "high": 101,
+            "low": 98.5,
+            "close": 99.5,
+            "volume": 10
+          }
+        ],
+        "parameters": {
+          "smaPeriod": 7,
+          "emaPeriod": 9,
+          "wmaPeriod": 6,
+          "rsiPeriod": 14,
+          "macdFast": 12,
+          "macdSlow": 26,
+          "macdSignal": 9,
+          "atrPeriod": 14,
+          "bbandsPeriod": 20,
+          "bbandsMult": 2,
+          "stddevPeriod": 10,
+          "extremaPeriod": 8,
+          "rocPeriod": 5
+        }
+      },
+      "expected": {
+        "sma": [
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "ema": [
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "wma": [
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "rsi": [
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "macd": {
+          "macd": [
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          "signal": [
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          "hist": [
+            null,
+            null,
+            null,
+            null,
+            null
+          ]
+        },
+        "trueRange": [
+          2,
+          2.5,
+          2.5,
+          3,
+          2.5
+        ],
+        "atr": [
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "bbands": {
+          "middle": [
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          "upper": [
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          "lower": [
+            null,
+            null,
+            null,
+            null,
+            null
+          ]
+        },
+        "stddev": [
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "highest": [
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "lowest": [
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "roc": [
+          null,
+          null,
+          null,
+          null,
+          null
         ]
       }
     }

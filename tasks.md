@@ -140,7 +140,7 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
   4. [x] **FU-5** — done 2026-10-04 on `fix/campaign-preview-async` (async preview, per-instrument DB lock; see Done).
   5. [x] **FU-3a** (PR #146), **FU-3b** (PR #147) and **FU-3c** (2026-10-04 on `ci/npm-audit-production`: CI `npm audit --omit=dev`) — PR046-055-H-R1 closed; see Done.
   6. [x] **FU-2 + FU-8** — done 2026-10-04 on `docs/rust-msrv-and-progress` (Rust minimum points to `Cargo.toml`; README P12 progress; see Done).
-  7. [ ] **FU-6** done 2026-10-04 on `fix/embargo-invalid-operand` (see Done); **FU-7** per-case indicator fixture edges next.
+  7. [x] **FU-6** (PR #150) and **FU-7** (2026-10-04 on `test/indicator-fixture-edges`: four authored edge cases, Rust test runs every case) — see Done.
   8. [ ] **FU-9** — design then implement per-row campaign status, before the next pinned contract version bump.
 
 ## In Progress
@@ -206,7 +206,7 @@ Evidence and per-batch handoffs: [index](handoffs/2026-10-04-pr001-130-acceptanc
 - [x] **PR046-055-H-R1 (P3) — Clear the new dev-dependency audit findings** — done 2026-10-04 (FU-3a/3b/3c; both audits 0, CI guards production). Original entry: — `npm audit`: 6 (postcss, browserslist, nanoid high; baseline-browser-mapping, @vitest/mocker, vitest moderate); `--omit=dev`: 0. Per `docs/security-audit-npm.md`: no `npm audit fix`, explicit versions and a reviewed lockfile; Vitest goes to 4.1.11 in its own PR (D4), keeping the direct `vite-node` dependency the fixture scripts use; CI gains `npm audit --omit=dev` (D5). Slices FU-3a/3b/3c in work order v2 §5.3. [Evidence](handoffs/2026-10-04-pr046-055-acceptance-review-v1.md).
 - [x] **PR001-035-J-R1 (P3) — Make the code-mode function whitelist an own-property check** — done 2026-10-04 (FU-4). Original entry: — `exprInterpreter.ts:228` uses `name in FN_ARITY`, so `constructor`/`toString`/`__proto__` pass and are refused only by a type mismatch (error text leaks native function source). Use `Object.prototype.hasOwnProperty.call` (the project lib is ES2020, so not `Object.hasOwn`) and add a regression test (work order v2 §5.4). [Evidence](handoffs/2026-10-04-pr001-035-acceptance-review-v1.md).
 - [ ] **SEC-NPM-AUDIT-SCHEDULE-001 (low)** — decide how the full `npm audit` (including devDependencies) is tracked periodically now that CI guards production dependencies only (D5, 2026-10-04): e.g. a scheduled workflow that reports without blocking PRs, its frequency, and who triages per `docs/security-audit-npm.md`. Not started.
-- [ ] **Low / optional** — G-N1 `deriveEmbargoBars` returns NaN instead of throwing for an invalid left operand (unreachable); add precisely representable edge cases (flat, length 1, period > length) to `indicators-v1.json`; README progress stops at P11 (fold into `DOC-STATE-002`); decide how stored campaigns behave after a pinned contract version bump. [Index](handoffs/2026-10-04-pr001-130-acceptance-index-v1.md).
+- [ ] **Low / optional** — ~~G-N1 `deriveEmbargoBars` NaN~~ (done 2026-10-04, FU-6, PR #150); ~~add precisely representable edge cases to `indicators-v1.json`~~ (done 2026-10-04, FU-7); README progress stops at P11 (fold into `DOC-STATE-002`); decide how stored campaigns behave after a pinned contract version bump. [Index](handoffs/2026-10-04-pr001-130-acceptance-index-v1.md).
 
 ### PR #131–#140 acceptance follow-ups (2026-10-04)
 
@@ -406,6 +406,8 @@ These were named inside the UI port entry and must not be buried by closing it. 
 - [ ] Full closed-loop AI automation. (Specification: ABC-14.)
 
 ## Done
+
+- [x] **FU-7 — Indicator parity fixture edge cases** (2026-10-04, branch `test/indicator-fixture-edges`; FU-6 merged as PR #150, `07b42cf`). `indicators-v1.json` keeps the byte-identical seed-42 case and adds `flat-30-bars`, `single-bar`, `period-one-12-bars` and `periods-longer-than-series` with integer/half inputs Rust reads exactly; the TS builder computes every case through one `expectedFor`; the Rust test checks an exact case inventory and every indicator of every case; the TS test pins each edge case's warm-up semantics. A mutant (Rust RSI returning NaN on zero loss) is now caught by `flat-30-bars`, which the single original case could not do. 1075 Vitest, 168 library Rust. [Review](handoffs/2026-10-04-pr066-075-acceptance-review-v1.md).
 
 - [x] **FU-6 — `deriveEmbargoBars` fails closed on an unknown left operand** (2026-10-04, branch `fix/embargo-invalid-operand`; FU-2 + FU-8 merged as PR #149, `aa7a011`). `operandLookback` throws `RangeError` for a value outside `OperandId` instead of returning undefined → NaN; one regression test (`'50'`, `'atr'`, `' maFast '`) fails before and passes after. The signals-split fixture changes only its `embargo` source hash; TS and Rust parity tests pass. Closes G-N1. [Review](handoffs/2026-10-04-pr056-065-acceptance-review-v1.md).
 

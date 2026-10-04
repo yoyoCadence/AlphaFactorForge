@@ -43,4 +43,35 @@ describe('RS-CORE indicator parity fixture', () => {
     expect(parityCase.expected.rsi.slice(0, 14)).toEqual(Array(14).fill(null));
     expect(parityCase.expected.macd.signal.slice(0, 33)).toEqual(Array(33).fill(null));
   });
+
+  it('pins the authored edge cases by exact id and their warm-up semantics', () => {
+    expect(fixture.cases.map((c) => c.id)).toEqual([
+      'sample-seed-42-48-bars',
+      'flat-30-bars',
+      'single-bar',
+      'period-one-12-bars',
+      'periods-longer-than-series',
+    ]);
+    for (const c of fixture.cases) {
+      const n = c.input.candles.length;
+      for (const series of [c.expected.sma, c.expected.rsi, c.expected.macd.hist, c.expected.bbands.lower, c.expected.roc]) {
+        expect(series, c.id).toHaveLength(n);
+      }
+    }
+    const byId = Object.fromEntries(fixture.cases.map((c) => [c.id, c]));
+    const flat = byId['flat-30-bars'].expected;
+    expect(flat.stddev.filter((v) => v !== null)).toEqual(Array(21).fill(0));
+    expect(flat.bbands.upper.slice(19)).toEqual(flat.bbands.middle.slice(19));
+    expect(flat.rsi.slice(14)).toEqual(Array(16).fill(100));
+    const single = byId['single-bar'].expected;
+    expect(single.trueRange).toEqual([2]);
+    expect([single.sma, single.ema, single.rsi, single.atr, single.roc]).toEqual(Array(5).fill([null]));
+    const one = byId['period-one-12-bars'];
+    expect(one.expected.sma).toEqual(one.input.candles.map((candle) => candle.close));
+    expect(one.expected.stddev.slice(0)).toEqual(Array(12).fill(0));
+    const longer = byId['periods-longer-than-series'].expected;
+    for (const series of [longer.sma, longer.ema, longer.wma, longer.rsi, longer.macd.macd, longer.atr, longer.bbands.middle, longer.stddev, longer.highest, longer.lowest, longer.roc]) {
+      expect(series).toEqual(Array(5).fill(null));
+    }
+  });
 });

@@ -144,15 +144,37 @@ fn rust_indicators_match_the_committed_typescript_fixture() {
         .exact
         .iter()
         .any(|rule| rule.contains("warm-up null")));
-    assert_eq!(fixture.cases.len(), 1);
-
-    let parity_case = &fixture.cases[0];
-    assert_eq!(parity_case.id, "sample-seed-42-48-bars");
-    assert_eq!(parity_case.input.candles.len(), 48);
-    for pair in parity_case.input.candles.windows(2) {
-        assert_eq!(pair[1].timestamp - pair[0].timestamp, 3_600_000);
+    // Exact inventory (FU-7): the generated sample case plus four authored
+    // edge cases whose inputs Rust reads exactly (integers and halves).
+    let ids: Vec<&str> = fixture.cases.iter().map(|case| case.id.as_str()).collect();
+    assert_eq!(
+        ids,
+        [
+            "sample-seed-42-48-bars",
+            "flat-30-bars",
+            "single-bar",
+            "period-one-12-bars",
+            "periods-longer-than-series",
+        ]
+    );
+    assert_eq!(fixture.cases[0].input.candles.len(), 48);
+    let tolerance = fixture.tolerance.default;
+    for parity_case in &fixture.cases {
+        for pair in parity_case.input.candles.windows(2) {
+            assert_eq!(
+                pair[1].timestamp - pair[0].timestamp,
+                3_600_000,
+                "{}",
+                parity_case.id
+            );
+        }
+        assert_case(parity_case, tolerance);
     }
+}
 
+/// Every indicator of one case, compared with its exact warm-up positions.
+fn assert_case(parity_case: &ParityCase, tolerance: NumericTolerance) {
+    let id = &parity_case.id;
     let close: Vec<_> = parity_case
         .input
         .candles
@@ -173,28 +195,27 @@ fn rust_indicators_match_the_committed_typescript_fixture() {
         .collect();
     let parameters = &parity_case.input.parameters;
     let expected = &parity_case.expected;
-    let tolerance = fixture.tolerance.default;
 
     assert_series(
-        "sma",
+        &format!("{id}.sma"),
         &sma(&close, parameters.sma_period),
         &expected.sma,
         tolerance,
     );
     assert_series(
-        "ema",
+        &format!("{id}.ema"),
         &ema(&close, parameters.ema_period),
         &expected.ema,
         tolerance,
     );
     assert_series(
-        "wma",
+        &format!("{id}.wma"),
         &wma(&close, parameters.wma_period),
         &expected.wma,
         tolerance,
     );
     assert_series(
-        "rsi",
+        &format!("{id}.rsi"),
         &rsi(&close, parameters.rsi_period),
         &expected.rsi,
         tolerance,
@@ -207,32 +228,32 @@ fn rust_indicators_match_the_committed_typescript_fixture() {
         parameters.macd_signal,
     );
     assert_series(
-        "macd.macd",
+        &format!("{id}.macd.macd"),
         &macd_output.macd,
         &expected.macd.macd,
         tolerance,
     );
     assert_series(
-        "macd.signal",
+        &format!("{id}.macd.signal"),
         &macd_output.signal,
         &expected.macd.signal,
         tolerance,
     );
     assert_series(
-        "macd.hist",
+        &format!("{id}.macd.hist"),
         &macd_output.hist,
         &expected.macd.hist,
         tolerance,
     );
 
     assert_series(
-        "trueRange",
+        &format!("{id}.trueRange"),
         &true_range(&high, &low, &close).expect("aligned fixture OHLC"),
         &expected.true_range,
         tolerance,
     );
     assert_series(
-        "atr",
+        &format!("{id}.atr"),
         &atr(&high, &low, &close, parameters.atr_period).expect("aligned fixture OHLC"),
         &expected.atr,
         tolerance,
@@ -240,44 +261,44 @@ fn rust_indicators_match_the_committed_typescript_fixture() {
 
     let bands = bbands(&close, parameters.bbands_period, parameters.bbands_mult);
     assert_series(
-        "bbands.middle",
+        &format!("{id}.bbands.middle"),
         &bands.middle,
         &expected.bbands.middle,
         tolerance,
     );
     assert_series(
-        "bbands.upper",
+        &format!("{id}.bbands.upper"),
         &bands.upper,
         &expected.bbands.upper,
         tolerance,
     );
     assert_series(
-        "bbands.lower",
+        &format!("{id}.bbands.lower"),
         &bands.lower,
         &expected.bbands.lower,
         tolerance,
     );
 
     assert_series(
-        "stddev",
+        &format!("{id}.stddev"),
         &stddev(&close, parameters.stddev_period),
         &expected.stddev,
         tolerance,
     );
     assert_series(
-        "highest",
+        &format!("{id}.highest"),
         &highest(&high, parameters.extrema_period),
         &expected.highest,
         tolerance,
     );
     assert_series(
-        "lowest",
+        &format!("{id}.lowest"),
         &lowest(&low, parameters.extrema_period),
         &expected.lowest,
         tolerance,
     );
     assert_series(
-        "roc",
+        &format!("{id}.roc"),
         &roc(&close, parameters.roc_period),
         &expected.roc,
         tolerance,

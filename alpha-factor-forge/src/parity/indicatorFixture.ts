@@ -17,6 +17,7 @@ import {
   type Series,
 } from '../core/indicators';
 import { makeSampleCandles, type SampleOptions } from '../services/sampleData';
+import type { Candle as DbCandle } from '../tauri-client/commands';
 
 export const PARITY_FIXTURE_SCHEMA_VERSION = 'rs-core-parity-fixture-v1';
 export const INDICATOR_CONTRACT_VERSION = 'indicator-v1';
@@ -81,6 +82,42 @@ export const INDICATOR_FIXTURE_PARAMETERS = {
   rocPeriod: 5,
 } as const;
 
+export type IndicatorParameters = { [K in keyof typeof INDICATOR_FIXTURE_PARAMETERS]: number };
+
+/** Every period 1 (the smallest valid one). */
+const PERIOD_ONE_PARAMETERS: IndicatorParameters = {
+  smaPeriod: 1,
+  emaPeriod: 1,
+  wmaPeriod: 1,
+  rsiPeriod: 1,
+  macdFast: 1,
+  macdSlow: 1,
+  macdSignal: 1,
+  atrPeriod: 1,
+  bbandsPeriod: 1,
+  bbandsMult: 2,
+  stddevPeriod: 1,
+  extremaPeriod: 1,
+  rocPeriod: 1,
+};
+
+/** Hourly candles for authored edge cases. Every value is an integer or a
+ *  half: Rust's serde_json (no float_roundtrip) may read a long decimal one
+ *  ulp off, which would turn a flat series into a non-flat one. */
+function authoredCandles(closes: number[]): DbCandle[] {
+  return closes.map((close, index) => {
+    const open = index === 0 ? close : closes[index - 1];
+    return {
+      timestamp: INDICATOR_FIXTURE_OPTIONS.startTime + index * INDICATOR_FIXTURE_OPTIONS.intervalMs,
+      open,
+      high: Math.max(open, close) + 1,
+      low: Math.min(open, close) - 1,
+      close,
+      volume: 10,
+    };
+  });
+}
+
 function encodeSeries(series: Series): Array<number | null> {
   return series.map((value) => {
     if (Number.isNaN(value)) return null;
@@ -91,12 +128,10 @@ function encodeSeries(series: Series): Array<number | null> {
   });
 }
 
-export function buildIndicatorParityFixture(sourceHashes: FixtureSourceHashes) {
-  const candles = makeSampleCandles(INDICATOR_FIXTURE_OPTIONS);
+function expectedFor(candles: DbCandle[], parameters: IndicatorParameters): EncodedIndicatorOutput {
   const close = candles.map((candle) => candle.close);
   const high = candles.map((candle) => candle.high);
   const low = candles.map((candle) => candle.low);
-  const parameters = INDICATOR_FIXTURE_PARAMETERS;
   const macdOutput = macd(
     close,
     parameters.macdFast,
@@ -104,8 +139,7 @@ export function buildIndicatorParityFixture(sourceHashes: FixtureSourceHashes) {
     parameters.macdSignal,
   );
   const bbandsOutput = bbands(close, parameters.bbandsPeriod, parameters.bbandsMult);
-
-  const expected: EncodedIndicatorOutput = {
+  return {
     sma: encodeSeries(sma(close, parameters.smaPeriod)),
     ema: encodeSeries(ema(close, parameters.emaPeriod)),
     wma: encodeSeries(wma(close, parameters.wmaPeriod)),
@@ -127,6 +161,27 @@ export function buildIndicatorParityFixture(sourceHashes: FixtureSourceHashes) {
     lowest: encodeSeries(lowest(low, parameters.extremaPeriod)),
     roc: encodeSeries(roc(close, parameters.rocPeriod)),
   };
+}
+
+/** Authored edge cases (FU-7, 2026-10-04): semantics the random-input
+ *  differential of the PR #66-#75 acceptance review confirmed, pinned here. */
+function authoredCase(id: string, closes: number[], parameters: IndicatorParameters) {
+  const candles = authoredCandles(closes);
+  return {
+    id,
+    input: {
+      provenance: { kind: 'authored-edge-case', generator: 'authoredCandles' },
+      candles,
+      parameters,
+    },
+    expected: expectedFor(candles, parameters),
+  };
+}
+
+export function buildIndicatorParityFixture(sourceHashes: FixtureSourceHashes) {
+  const candles = makeSampleCandles(INDICATOR_FIXTURE_OPTIONS);
+  const parameters = INDICATOR_FIXTURE_PARAMETERS;
+  const expected = expectedFor(candles, parameters);
 
   return {
     schemaVersion: PARITY_FIXTURE_SCHEMA_VERSION,
@@ -165,6 +220,14 @@ export function buildIndicatorParityFixture(sourceHashes: FixtureSourceHashes) {
         },
         expected,
       },
+      authoredCase('flat-30-bars', Array.from({ length: 30 }, () => 100), INDICATOR_FIXTURE_PARAMETERS),
+      authoredCase('single-bar', [100], INDICATOR_FIXTURE_PARAMETERS),
+      authoredCase(
+        'period-one-12-bars',
+        [100, 101, 99.5, 102, 102, 98.5, 100, 103.5, 101, 101, 97, 99],
+        PERIOD_ONE_PARAMETERS,
+      ),
+      authoredCase('periods-longer-than-series', [100, 100.5, 101, 100, 99.5], INDICATOR_FIXTURE_PARAMETERS),
     ],
   };
 }
