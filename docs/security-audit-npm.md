@@ -22,6 +22,13 @@ New advisories after SEC-002 brought `npm audit` back to 6 findings (3 high, 3 m
 - Typecheck, 1073 unit tests, the production build and 82/82 Playwright tests pass; a fresh Vite dev server still listens on loopback only (`[::1]:5199`, "use --host to expose").
 - The prohibition on `npm audit fix` and `npm audit fix --force` stays in force.
 
+## Remediation status — 2026-10-04 follow-up (FU-3b, complete)
+
+- `vitest` 3.2.6 → **4.1.11** (`npm install -D --save-exact vitest@4.1.11`), the lowest release fixing GHSA-82fw-gwwq-j7x9; 3.x has no backport. Vitest 4.1.11 declares `vite ^6 || ^7 || ^8` and Node `^20 || ^22 || >=24`, both met (`vite@6.4.3`, CI Node 20).
+- The direct `vite-node@3.2.4` dependency stays: Vitest 4 no longer depends on it, but the 14 `fixtures:*` scripts do. `fixtures:indicators`, `fixtures:backtest` and `fixtures:gate-score` regenerate byte-identical fixtures (no content diff).
+- The lockfile changes stay inside Vitest's own tree (all `dev`): the `@vitest/*` packages, chai 6, std-env 4, tinyexec 1, tinyrainbow 3, new obug and `@standard-schema/spec`, and removed tinypool, tinyspy, loupe, deep-eql, check-error, pathval and strip-literal. `vite` and `vite-node` are unchanged; `npm ls --all` is clean.
+- `npm audit --json` and `npm audit --omit=dev --json` both report **0** again, so the acceptance gates of this document hold. Typecheck, 1073 unit tests (now on Vitest 4.1.11), the production build and 82/82 Playwright pass; the dev server still listens on loopback only.
+
 The remainder of this document preserves the original SEC-001 evidence and decision trail that led to the remediation.
 
 ## Executive summary
