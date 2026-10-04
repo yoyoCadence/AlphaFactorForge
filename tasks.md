@@ -138,7 +138,7 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
   2. [x] **FU-1** — done 2026-10-04 on `fix/ledger-evidence-rollback` (trial-ledger §23; see Done and [handoff](handoffs/2026-10-04-fu1-ledger-evidence-snapshot-v1.md)).
   3. [x] **FU-4** — done 2026-10-04 on `fix/expr-whitelist-own-property` (own-property whitelist check; see Done).
   4. [x] **FU-5** — done 2026-10-04 on `fix/campaign-preview-async` (async preview, per-instrument DB lock; see Done).
-  5. [ ] **FU-3a** — four transitive dev dependencies; then **FU-3b** Vitest 4.1.11 and **FU-3c** CI `npm audit --omit=dev` (PR046-055-H-R1).
+  5. [ ] **FU-3a** — done 2026-10-04 on `chore/dev-deps-audit-2026-10` (four transitive dev dependencies; see Done); next **FU-3b** Vitest 4.1.11 and **FU-3c** CI `npm audit --omit=dev` (PR046-055-H-R1).
   6. [ ] **FU-2 + FU-8** — documented Rust minimum and README progress (PR106-115-B-R1, DOC-STATE-002).
   7. [ ] **FU-6**, **FU-7** — embargo throw; per-case indicator fixture edges.
   8. [ ] **FU-9** — design then implement per-row campaign status, before the next pinned contract version bump.
@@ -405,6 +405,8 @@ These were named inside the UI port entry and must not be buried by closing it. 
 - [ ] Full closed-loop AI automation. (Specification: ABC-14.)
 
 ## Done
+
+- [x] **FU-3a — Transitive dev-dependency advisories** (2026-10-04, branch `chore/dev-deps-audit-2026-10`; FU-5 merged as PR #145, `ce3ca94`). `npm update` of postcss, nanoid, browserslist and baseline-browser-mapping inside their dependents' ranges (plus four browserslist dependencies it raised); no `npm audit fix`, no `package.json` change, lockfile reviewed line by line, engines admit Node 20, `npm ls --all` clean. `npm audit`: only vitest/@vitest/mocker left (FU-3b); production audit 0. Typecheck, 1073 Vitest, build, 82/82 Playwright; dev server still loopback-only. [Record](docs/security-audit-npm.md).
 
 - [x] **FU-5 — Campaign preview off the main thread (first `DB-ASYNC-001` slice)** (2026-10-04, branch `fix/campaign-preview-async`; FU-4 merged as PR #144, `b395121`). `preview_research_campaign` is `async` + `spawn_blocking` with the same `declaration` argument; the work moved to `preview_campaign`, which takes the shared DB mutex per instrument instead of for the whole campaign. Measured in release on a file-backed WAL database: ~27 ms per instrument for 87,600 hourly bars (~19 ms of it reading candles). One new Rust test; 574 Rust, command pinning tests, clippy unchanged. Other sync commands and the native interaction check (O3) remain open. [Review](handoffs/2026-10-04-pr126-130-acceptance-review-v1.md).
 

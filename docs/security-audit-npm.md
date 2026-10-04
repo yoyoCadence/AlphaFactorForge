@@ -12,6 +12,16 @@ SEC-002 completed the minimum coordinated upgrade on 2026-07-16 without using an
 - Both `npm audit --json` and `npm audit --omit=dev --json` report zero findings.
 - Typecheck, 196 unit tests, production build, and 25 Playwright E2E tests pass; a short-lived local Vite smoke confirmed that the dev server still listens on loopback only (`::1`).
 
+## Remediation status — 2026-10-04 follow-up (FU-3a, partial)
+
+New advisories after SEC-002 brought `npm audit` back to 6 findings (3 high, 3 moderate), all development dependencies; `npm audit --omit=dev` stayed at 0 (PR #46–#55 acceptance review, H-R1). Handled without any form of `npm audit fix`:
+
+- `npm update postcss nanoid browserslist baseline-browser-mapping` inside the existing ranges of their dependents (`vite@6.4.3` needs `postcss ^8.5.3`, postcss needs `nanoid ^3.3.12`, `@babel/helper-compilation-targets` needs `browserslist ^4.24.0`): postcss 8.5.15 → 8.5.28, nanoid 3.3.15 → 3.3.19, browserslist 4.28.4 → 4.29.3, baseline-browser-mapping 2.10.40 → 2.11.27. browserslist 4.29.3 raises its own minimums, which also moved caniuse-lite, electron-to-chromium, node-releases and update-browserslist-db.
+- `package.json` is unchanged; the lockfile diff contains only those eight packages' versions, URLs, integrity hashes and the dependency ranges recorded inside them (reviewed line by line). The resulting `package-lock.json` Git blob is `8ec872663b3dccf91d102d716df7d7146e0c7c25`. Every updated package's `engines` range admits the CI Node 20 line; `npm ls --all` reports no invalid or missing packages.
+- `npm audit --json` now reports only `vitest` and `@vitest/mocker` (2 moderate, GHSA-82fw-gwwq-j7x9, fixed in 4.1.11 with no 3.x backport); `npm audit --omit=dev` reports 0. The Vitest major upgrade is a separate task (FU-3b), and a CI step for `npm audit --omit=dev` is FU-3c.
+- Typecheck, 1073 unit tests, the production build and 82/82 Playwright tests pass; a fresh Vite dev server still listens on loopback only (`[::1]:5199`, "use --host to expose").
+- The prohibition on `npm audit fix` and `npm audit fix --force` stays in force.
+
 The remainder of this document preserves the original SEC-001 evidence and decision trail that led to the remediation.
 
 ## Executive summary
