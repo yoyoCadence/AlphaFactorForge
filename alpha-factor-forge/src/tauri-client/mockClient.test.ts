@@ -8,6 +8,7 @@ import type { Metrics } from '../core/metrics';
 import { planValidationSplit } from '../core/validation/split';
 import { deriveEmbargoBars } from '../services/embargo';
 import { defaultStrategy } from '../services/strategy';
+import { buildStrategyDef } from '../services/strategyRecord';
 import { DEFAULT_GATE_CONFIG, type GateVerdict } from '../services/gate';
 import { scoreCandidate } from '../services/score';
 import type { BenchmarkRun } from '../services/benchmarks';
@@ -83,6 +84,66 @@ const makeBundle = (): ValidationBundle => {
 
 const save = (db: ReturnType<typeof makeMockClient>['db'], b: ValidationBundle) =>
   db.saveValidationRecord(b.trainSummary, b.trainTrades, b.validationSummary, b.validationTrades, b.record);
+
+describe('mockClient strategy UPSERT parity', () => {
+  it.each(['validated', 'rejected'] as const)(
+    'keeps one stable row and its %s lifecycle when re-saved with a new name/source',
+    async (lifecycle) => {
+      const { db } = makeMockClient();
+      const original = {
+        ...await buildStrategyDef(defaultStrategy(), 'Original name'),
+        lifecycle,
+        param_schema_json: '{"version":1}',
+        ai_prompt_hash: 'original-provenance',
+      };
+      const id = await db.saveStrategy(original);
+      const reordered = JSON.stringify(Object.fromEntries(
+        Object.entries(JSON.parse(original.original_definition_json) as Record<string, unknown>).reverse(),
+      ));
+      expect(reordered).not.toBe(original.original_definition_json);
+      const resave = {
+        ...original,
+        id: 999,
+        name: 'Renamed strategy',
+        source: 'sweep' as const,
+        lifecycle: 'candidate' as const,
+        original_definition_json: reordered,
+        dsl_json: '{"replacement":true}',
+        param_schema_json: '{"version":2}',
+        ai_prompt_hash: 'replacement-provenance',
+        parent_strategy_id: 999,
+      };
+      expect(await db.saveStrategy(resave)).toBe(id);
+      expect(await db.saveStrategy(resave)).toBe(id);
+      expect(await db.getStrategies()).toEqual([
+        { ...original, id, name: 'Renamed strategy', source: 'sweep' },
+      ]);
+    },
+  );
+
+  it('rejects a forged hash or mismatched type before changing a stored row', async () => {
+    const { db } = makeMockClient();
+    const original = await buildStrategyDef(defaultStrategy(), 'Stored name');
+    const id = await db.saveStrategy(original);
+    await expect(db.saveStrategy({ ...original, name: 'Forged', strategy_hash: 'legacy-hash' }))
+      .rejects.toThrow(/identity/);
+    await expect(db.saveStrategy({ ...original, name: 'Wrong mode', type: 'blocks' }))
+      .rejects.toThrow(/identity/);
+    expect(await db.getStrategies()).toEqual([{ ...original, id }]);
+  });
+
+  it('keeps distinct strategy hashes in separate rows while retaining the first id', async () => {
+    const { db } = makeMockClient();
+    const first = await buildStrategyDef(defaultStrategy(), 'First');
+    const second = await buildStrategyDef({ ...defaultStrategy(), fastMA: 10 }, 'Second');
+    const firstId = await db.saveStrategy(first);
+    const secondId = await db.saveStrategy(second);
+    expect(first.strategy_hash).not.toBe(second.strategy_hash);
+    expect(firstId).not.toBe(secondId);
+    expect(await db.saveStrategy({ ...first, name: 'First renamed' })).toBe(firstId);
+    expect(await db.getStrategies()).toHaveLength(2);
+  });
+});
 
 describe('mockClient validation records', () => {
   it('saves composer bundles, appends on re-save, and reads back detached rows', async () => {

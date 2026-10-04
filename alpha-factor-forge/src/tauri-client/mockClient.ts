@@ -349,6 +349,14 @@ export function makeMockClient() {
       if (def.strategy_hash !== expectedHash || def.type !== parsed.mode) {
         throw new Error('strategy identity mismatch');
       }
+      const existing = strategies.find((row) => row.strategy_hash === def.strategy_hash);
+      if (existing) {
+        // SQLite's manual-save UPSERT changes only name/source/updated_at.
+        // Definition metadata and validation-owned lifecycle retain their row.
+        existing.name = def.name;
+        existing.source = def.source;
+        return existing.id!;
+      }
       const id = nextId++;
       strategies.push({ ...def, id });
       return id;
