@@ -3,7 +3,7 @@
 Date: 2026-10-04
 Repo: yoyoCadence/AlphaFactorForge
 Branch: `feat/p12e7b-final-acceptance-results` (from merged PR #152, `f0459b0`)
-Status: Complete locally; publishing the result for final-head CI and merge.
+Status: Merged as PR #153, `d1bf8e2`, after all six final-head CI jobs passed.
 
 ## Scope and authorization
 
@@ -85,3 +85,14 @@ must not rerun this full acceptance or revise results to fit a new method.
 head `feat/p12e7b-final-acceptance-results`; implementation commit `00b909e`.
 The PR records final-head CI, job timing and merge status before merging.
 Merge requires all six jobs to succeed on the unchanged final head.
+
+## Resolution — 2026-10-04, CI and merge
+
+Final head `4344519e80571f3015e465081e6b41dd3b578213` passed typecheck, test,
+build, cargo-check, e2e and native-smoke in
+[CI run 37211472263](https://github.com/yoyoCadence/AlphaFactorForge/actions/runs/37211472263).
+CI Rust: 170 library + 407 desktop + 2 service pass, 1 ignored; suite timings
+20.40 / 53.13 / 5.66 s respectively. The PR was marked ready and merged on
+that verified head as `d1bf8e2e1cd4677ea8ee32a17ad88e5801301b7c`.
+No full acceptance was rerun. Continuation moved to the separately recorded
+NUMERIC-JSON-001 audit while operator acceptance remains pending.
