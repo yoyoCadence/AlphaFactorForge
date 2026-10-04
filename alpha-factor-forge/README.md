@@ -36,7 +36,7 @@
 | 工具 | 版本 | 用途 |
 |---|---|---|
 | Node.js | ≥ 18 | 前端 build（Vite） |
-| Rust | ≥ 1.77（stable） | Tauri backend |
+| Rust | ≥ 1.89（stable；以 `src-tauri/Cargo.toml` 的 `rust-version` 為準） | Tauri backend |
 | Tauri CLI | v2 | `cargo tauri dev/build` |
 | 平台依賴 | 見 Tauri 官方 | macOS: Xcode CLT；Windows: WebView2 + MSVC；Linux: webkit2gtk 等 |
 
