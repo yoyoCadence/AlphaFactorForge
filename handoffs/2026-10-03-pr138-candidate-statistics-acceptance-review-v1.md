@@ -259,3 +259,16 @@ open and P13 blocked until the planned acceptance is completed.
 Only this handoff and `tasks.md` were updated by the re-review. No product
 changes, commit, push, GitHub review submission, draft conversion or merge
 were performed.
+
+## Resolution — 2026-10-04, NUMERIC-JSON-001 audit
+
+The separately scheduled audit is complete: six-case frontend/default/feature
+evidence and real backend hash, SQLite save/read and artifact tests reproduce
+the one-ULP identity mismatch and demonstrate why a global parser feature
+change would invalidate a legacy interpretation. A release microbenchmark
+measures 1.445× median parsing cost on its declared array. Product parser,
+identity versions, established fixtures and user data remain unchanged.
+See the [audit report](../docs/numeric-json-identity-audit-v1.md) and
+[handoff](2026-10-04-numeric-json-audit-v1.md). NUMERIC-JSON-002 (P2) owns the
+separate parser-policy/legacy-compatibility repair design; this resolution
+closes the audit only and does not claim the numeric problem is fixed.
