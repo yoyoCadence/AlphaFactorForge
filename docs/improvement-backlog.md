@@ -2406,6 +2406,18 @@ creates a run and then reloads the window inside one e2e.
 
 ## CI-TAURI-SMOKE-001 — native Windows build and startup smoke
 
+**Slice b update (2026-10-05)**: the WebDriver dependency assumption in the
+original slice table below is superseded by [official Playwright WebView2 CDP support](https://playwright.dev/docs/webview2),
+using the repository's existing Playwright installation. The scoped harness
+uses a hidden debug binary, isolated temp workspace/registry/browser profile,
+loopback-only CDP and verified process/path cleanup. It preserves clean DB/WAL
+startup assertions and checks rendered content, real SQLite-backed invoke
+results, wrong-key argument rejection and a nonce-bearing Rust event-plugin
+listen/emit_to/unlisten round trip. No dependency, lockfile, capability or
+product-code change. This is builtin bridge coverage; discovery event ordering,
+service reconnect and campaign operator acceptance remain separate.
+[Current plan and evidence](../handoffs/2026-10-04-native-bridge-smoke-v1.md).
+
 Expanded on 2026-08-16, after `RUNNER-UI-001b-2` merged as PR #102 (`1c5d4f0`)
 finally gave the runner a real invoke/event caller. Audit evidence: §10 of
 `../handoffs/2026-07-31-pr76-post-merge-audit-v1.md` ("CI 只有 cargo check/test 與
