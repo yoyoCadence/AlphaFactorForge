@@ -89,3 +89,29 @@ and captures app/DB/WAL/WebView profile/debug-port flags before teardown on
 failure. No process environment or unrelated browser command line is dumped.
 User authorization to autonomously complete/verify PRs covers this CI fix;
 the working GitHub connector follows AGENTS.md over the gh-fix-ci CLI preference.
+
+## Elevated runner browser flags (2026-10-05)
+
+The second run, [37244841303](https://github.com/yoyoCadence/AlphaFactorForge/actions/runs/37244841303),
+again passed five jobs but timed out before CDP: the desktop stayed alive, DB/WAL
+existed and six WebView processes matched the isolated profile, while none had
+the requested debug-port argument. [Microsoft's elevated-host rules](https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/security)
+say environment and HKCU browser overrides are ignored for elevated hosts;
+HKLM overrides are honored. This is a plausible explanation, pending runner
+elevation diagnostics and a passing native run.
+
+The launcher now detects an enabled administrator token. Only when both
+GITHUB_ACTIONS=true and RUNNER_ENVIRONMENT=github-hosted does an elevated launch
+set the documented AdditionalBrowserArguments policy for the exact executable
+name. It saves any existing value/type and restores them in finally, or deletes
+only the added value; no wildcard policy or registry-tree deletion. Policy
+restoration runs before process/temp cleanup and errors still fail the smoke.
+An elevated local/self-hosted launch is refused before allocating temp paths;
+the local non-elevated environment path is unchanged. This changes no user's
+registry, product code, capability or dependency, and preserves the 45-second
+deadline and all bridge assertions. Native CI remains required before merge.
+
+Local non-elevated verification passed in 7.0 s (`elevated=False`,
+`hostedPolicy=False`), including real commands/event and complete cleanup; no
+local policy write was performed. PowerShell 5 parsing, Node syntax and diff
+checks pass. The elevated policy path is exercised only on the hosted CI runner.

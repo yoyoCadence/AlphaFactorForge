@@ -12,6 +12,16 @@ if ($exe.Name -ne 'alpha-factor-forge.exe' -or $exe.Directory.Name -ne 'debug') 
 if (Get-Process -Name 'alpha-factor-forge' -ErrorAction SilentlyContinue) {
     throw 'An AlphaFactorForge desktop is already running; the smoke will not reuse or stop it.'
 }
+$nativeIdentity = [Security.Principal.WindowsIdentity]::GetCurrent()
+try {
+    $nativePrincipal = [Security.Principal.WindowsPrincipal]::new($nativeIdentity)
+    $elevated = $nativePrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+}
+finally { $nativeIdentity.Dispose() }
+$hostedRunner = $env:GITHUB_ACTIONS -eq 'true' -and $env:RUNNER_ENVIRONMENT -eq 'github-hosted'
+if ($elevated -and -not $hostedRunner) {
+    throw 'Run the local smoke from a non-elevated terminal; machine policy is only changed on a GitHub-hosted runner.'
+}
 $artifacts = [IO.Path]::GetFullPath($ArtifactDirectory)
 New-Item -ItemType Directory -Path $artifacts -Force | Out-Null
 $tempRoot = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\', '/')
@@ -35,12 +45,33 @@ foreach ($name in $variables) {
     $original[$name] = [Environment]::GetEnvironmentVariable($name, 'Process')
 }
 $app = $null
+$launch = @{}
+$dbPath = Join-Path $workspace 'alphafactorforge.sqlite3'
+$policyKey = $null
+$policyChanged = $false
+$hadPolicyValue = $false
 try {
     $env:AFF_DATA_DIR = $workspace
     $env:AFF_TEST_TRIAL_REGISTRY_DIR = $registry
     $env:WEBVIEW2_USER_DATA_FOLDER = $nativeProfileDir
     $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS = "--remote-debugging-port=$port --remote-debugging-address=127.0.0.1"
-    $dbPath = Join-Path $workspace 'alphafactorforge.sqlite3'
+    # Elevated WebView2 hosts ignore environment/HKCU browser arguments:
+    # https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/security
+    # Only the disposable hosted runner gets a temporary HKLM value for this
+    # exact executable (never '*'). Preserve its original value/type in finally.
+    if ($elevated) {
+        $policyKey = [Microsoft.Win32.Registry]::LocalMachine.CreateSubKey(
+            'SOFTWARE\Policies\Microsoft\Edge\WebView2\AdditionalBrowserArguments')
+        $hadPolicyValue = $policyKey.GetValueNames() -contains $exe.Name
+        if ($hadPolicyValue) {
+            $oldPolicyValue = $policyKey.GetValue($exe.Name, $null,
+                [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)
+            $oldPolicyKind = $policyKey.GetValueKind($exe.Name)
+        }
+        $policyKey.SetValue($exe.Name, $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS,
+            [Microsoft.Win32.RegistryValueKind]::String)
+        $policyChanged = $true
+    }
     if (Test-Path -LiteralPath $dbPath) { throw 'The smoke database must start absent.' }
     $launch = @{
         FilePath = $exe.FullName
@@ -58,7 +89,7 @@ try {
         }
     }
     $app = Start-Process @launch
-    Write-Host "Native smoke PID $($app.Id), loopback CDP port $port"
+    Write-Host "Native smoke PID $($app.Id), loopback CDP port $port, elevated=$elevated, hostedPolicy=$policyChanged"
 
     $deadline = [DateTime]::UtcNow.AddSeconds(45)
     $listeners = @()
@@ -107,6 +138,9 @@ catch {
         walExists = [bool](Test-Path -LiteralPath "$dbPath-wal")
         webviews = $startupWebviews
         explicitChildEnvironment = $launch.ContainsKey('Environment')
+        elevated = $elevated
+        hostedRunner = $hostedRunner
+        hostedPolicy = $policyChanged
     }
     $diagnostic | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $artifacts 'native-launch-failure.json')
     Write-Host ($diagnostic | ConvertTo-Json -Depth 4 -Compress)
@@ -115,6 +149,20 @@ catch {
 finally {
     foreach ($name in $variables) {
         [Environment]::SetEnvironmentVariable($name, $original[$name], 'Process')
+    }
+    $policyRestoreError = $null
+    if ($null -ne $policyKey) {
+        try {
+            if ($policyChanged) {
+                if ($hadPolicyValue) {
+                    $policyKey.SetValue($exe.Name, $oldPolicyValue, $oldPolicyKind)
+                }
+                else { $policyKey.DeleteValue($exe.Name, $false) }
+                Write-Host 'Native smoke restored the exact hosted-runner browser policy value.'
+            }
+        }
+        catch { $policyRestoreError = $_ }
+        finally { $policyKey.Dispose() }
     }
     # Snapshot descendants before stopping the app: utility/render children
     # may omit the profile argument and become orphaned when their parent exits.
@@ -163,5 +211,6 @@ finally {
             } while ($true)
         }
     }
+    if ($null -ne $policyRestoreError) { throw $policyRestoreError }
 }
 Write-Host 'Native smoke cleanup complete: owned processes stopped and temp directories removed.'
