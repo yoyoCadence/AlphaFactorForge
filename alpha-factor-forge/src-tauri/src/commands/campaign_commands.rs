@@ -111,13 +111,31 @@ pub struct CampaignPreview {
 /// Validate a draft without storing it: the campaign ID `freeze` would give
 /// and, per instrument, whether its declared snapshot resolves (P12d-2a). A
 /// declaration that does not freeze is an error.
+///
+/// Async (FU-5, `DB-ASYNC-001`): resolving re-reads and re-hashes every
+/// declared dataset, and Tauri runs a non-async command on the main thread.
 #[tauri::command]
-pub fn preview_research_campaign(
+pub async fn preview_research_campaign(
     state: State<'_, AppState>,
     declaration: Value,
 ) -> AppResult<CampaignPreview> {
+    let db = state.db()?;
+    tauri::async_runtime::spawn_blocking(move || preview_campaign(&db, &declaration))
+        .await
+        .map_err(join_error)?
+}
+
+/// The preview itself, off the main thread. The shared DB mutex is taken per
+/// instrument, so another command waits for one instrument's verification at
+/// most, not for the whole campaign. Each instrument is still resolved inside
+/// one lock; `freeze` and `start` re-verify everything, so a write landing
+/// between two instruments cannot reach a frozen or started campaign.
+fn preview_campaign(
+    db: &crate::runtime::SharedDb,
+    declaration: &Value,
+) -> AppResult<CampaignPreview> {
     let frozen =
-        freeze_campaign(&declaration).map_err(|error| AppError::Other(error.to_string()))?;
+        freeze_campaign(declaration).map_err(|error| AppError::Other(error.to_string()))?;
     let ids: Vec<String> = frozen.document()["instruments"]
         .as_array()
         .map(|instruments| {
@@ -127,27 +145,27 @@ pub fn preview_research_campaign(
                 .collect()
         })
         .unwrap_or_default();
-    let db = state.db()?;
-    let conn = locked(&db)?;
-    let instruments = ids
-        .into_iter()
-        .map(
-            |instrument_id| match resolve_campaign_instrument(&conn, &frozen, &instrument_id) {
-                Ok(resolved) => InstrumentPreview {
-                    instrument_id,
-                    resolved: true,
-                    bar_count: Some(resolved.bar_count),
-                    error: None,
-                },
-                Err(error) => InstrumentPreview {
-                    instrument_id,
-                    resolved: false,
-                    bar_count: None,
-                    error: Some(error.to_string()),
-                },
+    let mut instruments = Vec::with_capacity(ids.len());
+    for instrument_id in ids {
+        let resolved = {
+            let conn = locked(db)?;
+            resolve_campaign_instrument(&conn, &frozen, &instrument_id)
+        };
+        instruments.push(match resolved {
+            Ok(resolved) => InstrumentPreview {
+                instrument_id,
+                resolved: true,
+                bar_count: Some(resolved.bar_count),
+                error: None,
             },
-        )
-        .collect();
+            Err(error) => InstrumentPreview {
+                instrument_id,
+                resolved: false,
+                bar_count: None,
+                error: Some(error.to_string()),
+            },
+        });
+    }
     Ok(CampaignPreview {
         campaign_id: frozen.campaign_id().to_string(),
         instruments,
@@ -239,4 +257,43 @@ pub fn get_campaign_admission(
     let db = state.db()?;
     let conn = locked(&db)?;
     campaign::get_campaign_admission(&conn, run_id)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The extracted preview resolves each declared instrument on its own and
+    /// reports a missing snapshot per instrument instead of failing the call.
+    #[test]
+    fn the_preview_reports_each_instrument_without_holding_the_whole_campaign() {
+        let conn = rusqlite::Connection::open_in_memory().unwrap();
+        crate::db::apply_migrations(&conn).unwrap();
+        let db: crate::runtime::SharedDb = std::sync::Arc::new(std::sync::Mutex::new(conn));
+        let declaration: Value = serde_json::from_str(include_str!(
+            "../../../fixtures/rs-core/research-campaign-declaration-v1.json"
+        ))
+        .unwrap();
+        let preview = preview_campaign(&db, &declaration).unwrap();
+        assert_eq!(
+            preview.campaign_id,
+            freeze_campaign(&declaration).unwrap().campaign_id()
+        );
+        assert!(!preview.instruments.is_empty());
+        for instrument in &preview.instruments {
+            assert!(!instrument.resolved, "{}", instrument.instrument_id);
+            assert!(
+                instrument
+                    .error
+                    .as_deref()
+                    .is_some_and(|error| error.contains("snapshot")),
+                "{:?}",
+                instrument.error
+            );
+        }
+        // The lock is free again once the preview returns.
+        assert!(db.try_lock().is_ok());
+        // A declaration that does not freeze is still an error.
+        assert!(preview_campaign(&db, &serde_json::json!({})).is_err());
+    }
 }
