@@ -1,4 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
+import { chartBounds, observeThemeFonts } from './chartLayout';
+
+test.beforeEach(async ({ page }) => { await observeThemeFonts(page); });
 
 // Slice 10-1 — cursor-anchored wheel zoom + reset. Canvas pixels are not
 // asserted; anchor/window arithmetic is unit-tested in scale.test.ts. These
@@ -31,8 +34,7 @@ test('mouse wheel zooms the chart and reset returns to fit', async ({ page }) =>
   await expect(status).toContainText('顯示 500 根');
   await expect(reset).toBeDisabled();
 
-  const box = await canvas.boundingBox();
-  if (!box) throw new Error('chart canvas has no bounding box');
+  const box = await chartBounds(canvas);
   const restingScroll = await scrollOffsets(page);
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.wheel(0, 100); // already at max fit: remains a true reset state
@@ -60,8 +62,7 @@ test('zoom follows the replay cursor without exposing future bars', async ({ pag
   const status = page.getByTestId('chart-zoom-status');
   await expect(status).toContainText('顯示 301 根');
 
-  const box = await canvas.boundingBox();
-  if (!box) throw new Error('chart canvas has no bounding box');
+  const box = await chartBounds(canvas);
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.wheel(0, -100);
   await expect(status).toContainText('顯示 241 根');

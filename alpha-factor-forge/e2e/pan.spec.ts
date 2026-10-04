@@ -1,4 +1,7 @@
 import { test, expect, type Locator, type Page } from '@playwright/test';
+import { chartBounds, observeThemeFonts } from './chartLayout';
+
+test.beforeEach(async ({ page }) => { await observeThemeFonts(page); });
 
 async function windowBounds(status: Locator): Promise<{ start: number; end: number }> {
   return {
@@ -8,8 +11,7 @@ async function windowBounds(status: Locator): Promise<{ start: number; end: numb
 }
 
 async function zoomInAtCentre(page: Page, canvas: Locator): Promise<{ x: number; y: number }> {
-  const box = await canvas.boundingBox();
-  if (!box) throw new Error('chart canvas has no bounding box');
+  const box = await chartBounds(canvas);
   const point = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
   await page.mouse.move(point.x, point.y);
   await page.mouse.wheel(0, -100);
