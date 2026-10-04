@@ -76,3 +76,9 @@ Status: 驗收完成；35 個 PR 都可以接受。一項 P3 防禦性強化（J
 ## Resolution
 
 Pending for J-R1 (optional hardening).
+
+## Follow-up work order（2026-10-04 追加）
+
+本檔的發現已整理進 [驗收後續工作單](2026-10-04-acceptance-followups-work-order-v1.md)，請接手的 agent 從那裡開始：
+
+- J-R1 → **FU-4**，不需要決定，可直接實作。

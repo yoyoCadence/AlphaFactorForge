@@ -54,3 +54,9 @@ Windows native smoke CI（#103），以及行銷文件（#96、#97）。
 ## Resolution
 
 Informational.
+
+## Follow-up work order（2026-10-04 追加）
+
+本檔的發現已整理進 [驗收後續工作單](2026-10-04-acceptance-followups-work-order-v1.md)，請接手的 agent 從那裡開始：
+
+- README 進度停在 P11 → **FU-8**（併入 `DOC-STATE-002`，可與 FU-2 同一個 PR）。

@@ -71,3 +71,9 @@ npm audit 盤點與 Vite 6／Vitest 3 升級（#53、#54），以及 Train／Val
 ## Resolution
 
 Pending for H-R1.
+
+## Follow-up work order（2026-10-04 追加）
+
+本檔的發現已整理進 [驗收後續工作單](2026-10-04-acceptance-followups-work-order-v1.md)，請接手的 agent 從那裡開始：
+
+- H-R1 → **FU-3**，含每個套件的目前版本、引入路徑與需要的最低版本；需要 **D4**（Vitest 升到哪一版、是否另開 PR）與 **D5**（CI 是否加 `npm audit --omit=dev`）。

@@ -82,3 +82,9 @@ cargo test --locked --lib review_rust_ -- --nocapture
 ## Resolution
 
 Informational.
+
+## Follow-up work order（2026-10-04 追加）
+
+本檔的發現已整理進 [驗收後續工作單](2026-10-04-acceptance-followups-work-order-v1.md)，請接手的 agent 從那裡開始：
+
+- 指標 fixture 覆蓋建議 → **FU-7**（可選），需要 **D7**；新增案例的輸入值必須能被 Rust 精確讀回，理由見本檔的「測試工具的陷阱」。

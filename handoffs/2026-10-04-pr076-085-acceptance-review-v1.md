@@ -67,3 +67,9 @@ DATA-QUALITY-001（#94）、BUG-SWEEP-CONTEXT-001（#98）、STRATEGY-VALIDATION
 ## Resolution
 
 Informational. 上表的既有 Backlog 項目照原本的任務處理，本次不另開任務。
+
+## Follow-up work order（2026-10-04 追加）
+
+本檔的發現已整理進 [驗收後續工作單](2026-10-04-acceptance-followups-work-order-v1.md)，請接手的 agent 從那裡開始：
+
+- 本檔列出的 PR #76 稽核既有項目不在工作單範圍內，照原本的 Backlog 處理；其中 `DB-ASYNC-001` 已加入 **FU-5**（campaign 預覽）。

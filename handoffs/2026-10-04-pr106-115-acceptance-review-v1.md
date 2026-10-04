@@ -64,3 +64,10 @@ Status: 驗收完成；十個 PR 都可以接受。各階段在合併前都有�
 ## Resolution
 
 Pending for B-R1 (documentation). The operator acceptance items above are informational.
+
+## Follow-up work order（2026-10-04 追加）
+
+本檔的發現已整理進 [驗收後續工作單](2026-10-04-acceptance-followups-work-order-v1.md)，請接手的 agent 從那裡開始：
+
+- B-R1 → **FU-2**；AGENTS.md 的措辭需要 **D3**。
+- 三項 operator acceptance → 工作單 §3 的 **O1**（P01 native 重開）、**O2**（P09 Tiingo）、**O4**（`control-token` 權限）。

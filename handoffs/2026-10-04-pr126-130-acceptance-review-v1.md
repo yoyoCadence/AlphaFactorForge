@@ -106,3 +106,11 @@ cargo test --locked --bin alpha-factor-forge review_a_restored_registry_releases
 ## Resolution
 
 Pending.
+
+## Follow-up work order（2026-10-04 追加）
+
+本檔的發現已整理進 [驗收後續工作單](2026-10-04-acceptance-followups-work-order-v1.md)，請接手的 agent 從那裡開始：
+
+- A-R1 → **FU-1**（與 PR131-140-R1 合併處理）；開工前需要維護者確認 **D1**（binding 保護方式）與 **D2**。
+- A-R2 → **FU-5**（併入 `DB-ASYNC-001`），不需要決定。
+- 已保存 campaign 遇到合約升級的設計注意事項 → **FU-9**，需要 **D6**。

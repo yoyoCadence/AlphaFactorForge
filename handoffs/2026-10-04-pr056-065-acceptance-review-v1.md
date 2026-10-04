@@ -61,3 +61,9 @@ AGENTS.md 把「回測正確、不得使用未來資料」列為最高風險。�
 ## Resolution
 
 Informational; G-N1 is optional hardening.
+
+## Follow-up work order（2026-10-04 追加）
+
+本檔的發現已整理進 [驗收後續工作單](2026-10-04-acceptance-followups-work-order-v1.md)，請接手的 agent 從那裡開始：
+
+- G-N1 → **FU-6**（可選），需要 **D7**。
