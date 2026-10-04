@@ -617,7 +617,8 @@ fn freezing_saves_once_and_runs_start_from_the_saved_list() {
         let listed = crate::db::campaign::list_campaigns(&conn).unwrap();
         assert_eq!(listed.len(), 1);
         assert_eq!(listed[0].campaign_id, expected);
-        assert_eq!(listed[0].document, *freeze_campaign(&declared).unwrap().document());
+        assert_eq!(listed[0].status, crate::db::campaign::CampaignRowStatus::Valid);
+        assert_eq!(listed[0].document.as_ref(), Some(freeze_campaign(&declared).unwrap().document()));
         assert!(listed[0].runs.is_empty());
         assert!(crate::db::campaign::get_campaign(&conn, &"0".repeat(64)).unwrap().is_none());
     }
@@ -670,7 +671,7 @@ fn freezing_saves_once_and_runs_start_from_the_saved_list() {
 }
 
 #[test]
-fn a_stored_campaign_that_no_longer_refreezes_is_an_error() {
+fn a_stored_campaign_that_no_longer_refreezes_is_listed_as_corrupt_but_cannot_be_loaded() {
     let workspace = workspace();
     let declared = declaration(&workspace, 100_000, 200_000);
     let document = String::from_utf8(
@@ -678,14 +679,233 @@ fn a_stored_campaign_that_no_longer_refreezes_is_an_error() {
     )
     .unwrap();
     let conn = workspace.db.lock().unwrap();
-    // A row whose ID is not its document's: listing must not skip or trust it.
+    // A row whose ID is not its document's is visible but never trusted.
     conn.execute(
         "INSERT INTO research_campaigns (campaign_id, version, document_json) VALUES (?1, ?2, ?3)",
         rusqlite::params!["a".repeat(64), "research-campaign-declaration-v1", document],
     )
     .unwrap();
-    let error = crate::db::campaign::list_campaigns(&conn).unwrap_err();
-    assert!(error.to_string().contains("no longer re-freezes"), "{error}");
+    let listed = crate::db::campaign::list_campaigns(&conn).unwrap();
+    assert_eq!(listed.len(), 1);
+    assert_eq!(
+        listed[0].status,
+        crate::db::campaign::CampaignRowStatus::Corrupt
+    );
+    assert!(listed[0].document.is_none());
+    assert!(listed[0]
+        .reason
+        .as_ref()
+        .unwrap()
+        .contains("no longer re-freezes"));
+    assert_eq!(listed[0].raw_document_json, document);
     let error = crate::db::campaign::get_campaign(&conn, &"a".repeat(64)).unwrap_err();
-    assert!(error.to_string().contains("no longer re-freezes"), "{error}");
+    assert!(
+        error.to_string().contains("no longer re-freezes"),
+        "{error}"
+    );
+}
+
+#[test]
+fn mixed_campaign_rows_preserve_raw_documents_and_refuse_invalid_starts_without_writes() {
+    use crate::db::campaign::{self, CampaignRowStatus};
+    let workspace = workspace();
+    let declared = declaration(&workspace, 100_000, 200_000);
+    let valid_id = {
+        let conn = workspace.db.lock().unwrap();
+        campaign::freeze_and_store_campaign(&conn, Some(workspace.epoch), &declared).unwrap()
+    };
+    let mut incompatible = declared.clone();
+    incompatible["contracts"]["metrics"] = json!("unknown-v9");
+    let mut unsupported = declared.clone();
+    unsupported["contractVersion"] = json!("research-campaign-declaration-v9");
+    unsupported["futureField"] = json!(true);
+    let mut invalid = declared.clone();
+    invalid["instruments"][0]["snapshotId"] = json!("invalid");
+    let cases = [
+        (
+            "a".repeat(64),
+            "research-campaign-declaration-v1",
+            serde_json::to_string(&incompatible).unwrap(),
+            CampaignRowStatus::Incompatible,
+        ),
+        (
+            "b".repeat(64),
+            "research-campaign-declaration-v9",
+            serde_json::to_string(&unsupported).unwrap(),
+            CampaignRowStatus::Incompatible,
+        ),
+        (
+            "c".repeat(64),
+            "research-campaign-declaration-v1",
+            "{\"instruments\":42".into(),
+            CampaignRowStatus::Corrupt,
+        ),
+        (
+            "d".repeat(64),
+            "research-campaign-declaration-v1",
+            serde_json::to_string(&declared).unwrap(),
+            CampaignRowStatus::Corrupt,
+        ),
+        (
+            "e".repeat(64),
+            "research-campaign-declaration-v1",
+            serde_json::to_string(&invalid).unwrap(),
+            CampaignRowStatus::Corrupt,
+        ),
+    ];
+    {
+        let conn = workspace.db.lock().unwrap();
+        for (id, version, raw, _) in &cases {
+            conn.execute("INSERT INTO research_campaigns (campaign_id, version, document_json) VALUES (?1, ?2, ?3)", rusqlite::params![id, version, raw]).unwrap();
+        }
+        let listed = campaign::list_campaigns(&conn).unwrap();
+        assert_eq!(listed.len(), cases.len() + 1);
+        let valid = listed
+            .iter()
+            .find(|row| row.campaign_id == valid_id)
+            .unwrap();
+        assert_eq!(valid.status, CampaignRowStatus::Valid);
+        assert!(valid.reason.is_none());
+        assert_eq!(
+            valid.document.as_ref(),
+            Some(freeze_campaign(&declared).unwrap().document())
+        );
+        for (id, _, raw, status) in &cases {
+            let row = listed.iter().find(|row| &row.campaign_id == id).unwrap();
+            assert_eq!(&row.status, status);
+            assert!(row.reason.as_ref().is_some_and(|reason| !reason.is_empty()));
+            assert!(row.document.is_none());
+            assert_eq!(&row.raw_document_json, raw);
+            assert!(campaign::get_campaign(&conn, id).is_err());
+        }
+    }
+    let payloads = registered_payloads(&workspace);
+    let config = walk_forward_runner_config(workspace.dataset_id, &workspace.dataset_hash);
+    for (id, _, _, _) in &cases {
+        assert!(workspace
+            .runner
+            .start_stored_campaign_for_request(
+                workspace.db.clone(),
+                Arc::new(RecordingSink::new(workspace.db.clone())),
+                config.clone(),
+                id,
+                BTC,
+                None,
+            )
+            .is_err());
+    }
+    assert_eq!(
+        count(&workspace.db, "SELECT COUNT(*) FROM discovery_runs"),
+        0
+    );
+    assert_eq!(
+        count(
+            &workspace.db,
+            "SELECT COUNT(*) FROM campaign_run_admissions"
+        ),
+        0
+    );
+    assert_eq!(
+        registered_payloads(&workspace),
+        payloads,
+        "refused starts register no trials"
+    );
+    assert_eq!(
+        campaign::list_campaigns(&workspace.db.lock().unwrap())
+            .unwrap()
+            .len(),
+        cases.len() + 1
+    );
+    let run_id = workspace
+        .runner
+        .start_stored_campaign_for_request(
+            workspace.db.clone(),
+            Arc::new(RecordingSink::new(workspace.db.clone())),
+            config,
+            &valid_id,
+            BTC,
+            None,
+        )
+        .unwrap();
+    complete(&workspace, run_id);
+}
+
+#[test]
+fn historical_campaign_decisions_survive_incompatible_and_corrupt_declarations() {
+    use crate::db::campaign::{self, CampaignRowStatus};
+    let workspace = workspace();
+    let config = walk_forward_runner_config(workspace.dataset_id, &workspace.dataset_hash);
+    let declared = declaration(&workspace, 100_000, 200_000);
+    let run_id = start(&workspace, config.clone(), declared.clone(), BTC).unwrap();
+    complete(&workspace, run_id);
+    let original = serde_json::to_value(
+        campaign::get_campaign_admission(&workspace.db.lock().unwrap(), run_id)
+            .unwrap()
+            .unwrap(),
+    )
+    .unwrap();
+    let id = original["campaignId"].as_str().unwrap();
+    let mut incompatible = declared;
+    incompatible["contracts"]["metrics"] = json!("unknown-v9");
+    // Test-only fixture damage / old-build declaration. Product writes and
+    // the separate append-only regression retain the database trigger.
+    workspace
+        .db
+        .lock()
+        .unwrap()
+        .execute_batch("DROP TRIGGER research_campaigns_no_update")
+        .unwrap();
+    for (raw, status) in [
+        (
+            serde_json::to_string(&incompatible).unwrap(),
+            CampaignRowStatus::Incompatible,
+        ),
+        ("not JSON".into(), CampaignRowStatus::Corrupt),
+    ] {
+        {
+            let conn = workspace.db.lock().unwrap();
+            conn.execute(
+                "UPDATE research_campaigns SET document_json = ?1 WHERE campaign_id = ?2",
+                rusqlite::params![raw, id],
+            )
+            .unwrap();
+            let listed = campaign::list_campaigns(&conn).unwrap();
+            assert_eq!(listed[0].status, status);
+            assert_eq!(listed[0].runs[0].run_id, run_id);
+            assert_eq!(
+                serde_json::to_value(
+                    campaign::get_campaign_admission(&conn, run_id)
+                        .unwrap()
+                        .unwrap()
+                )
+                .unwrap(),
+                original
+            );
+        }
+        assert!(workspace
+            .runner
+            .start_stored_campaign_for_request(
+                workspace.db.clone(),
+                Arc::new(RecordingSink::new(workspace.db.clone())),
+                config.clone(),
+                id,
+                BTC,
+                None,
+            )
+            .is_err());
+        assert_eq!(
+            count(&workspace.db, "SELECT COUNT(*) FROM discovery_runs"),
+            1
+        );
+    }
+}
+
+#[test]
+fn campaign_list_database_query_errors_still_fail_the_read() {
+    let conn = rusqlite::Connection::open_in_memory().unwrap();
+    assert!(crate::db::campaign::list_campaigns(&conn).is_err());
+    crate::db::apply_migrations(&conn).unwrap();
+    conn.execute_batch("DROP TABLE campaign_run_admissions")
+        .unwrap();
+    assert!(crate::db::campaign::list_campaigns(&conn).is_err());
 }

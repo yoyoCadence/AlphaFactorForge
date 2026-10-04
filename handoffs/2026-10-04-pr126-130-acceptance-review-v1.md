@@ -123,3 +123,14 @@ A-R1 已在 `fix/ledger-evidence-rollback` 修正（trial-ledger §23）：工�
 
 A-R2 已在 `fix/campaign-preview-async` 處理（`DB-ASYNC-001` 的第一個切片）：`preview_research_campaign` 改為 `async` + `spawn_blocking`，參數名稱不變；實作抽成 `preview_campaign`，並改為**逐 instrument 取得 DB 鎖**，另一個命令最多只等一個 instrument 的驗證，而不是整個 campaign。本機量測（release build、檔案型 SQLite／WAL，暫時測試、未提交）：10 年小時線（87,600 根）單一 instrument 的解析約 **27 ms**，其中讀取 candle 約 19 ms；1–5 個 instrument 的典型 campaign 約 30–140 ms，上限 128 個約 3.4 秒。
 其他同步命令若在主執行緒等同一把鎖，仍可能等到這段時間；這屬於 `DB-ASYNC-001` 其餘命令的範圍，本切片沒有宣稱它已完成。native 視窗互動驗收仍列在工作單 O3。
+
+### Resolution — FU-9（2026-10-04）
+
+已保存 campaign 遇到合約版本升級的設計觀察，依維護者確認的 D6 在
+`feat/campaign-row-status` 實作完成：清單逐列區分有效、版本不相容與資料損壞；
+原 ID／原始宣告／歷史 run 不改寫。只有有效列回傳已驗證 document，其他列
+顯示未驗證 raw JSON 與原因，UI 禁止啟動且後端直接啟動也拒絕。歷史判定仍可讀取。
+混合清單、零寫入的拒絕、歷史報告與真正 DB 錯誤都有 Rust 測試；瀏覽器覆蓋
+同一清單中的正常啟動、不合法列、原始內容與歷史判定。
+1075 Vitest／578 Rust（1 ignored）／83 Playwright，typecheck、build、check、
+clippy 通過（五個既有 warning）。[交接](2026-10-04-fu9-campaign-row-status-v1.md)。

@@ -52,6 +52,7 @@ function errorText(error: unknown): string {
 }
 
 function savedBindings(row: CampaignSummary): SavedBinding[] {
+  if (row.status !== 'valid') return [];
   const value = row.document.instruments;
   if (!Array.isArray(value)) throw new Error('已保存的 campaign 缺少 instruments');
   return value as SavedBinding[];
@@ -152,6 +153,7 @@ export function CampaignPanel({ strategy }: { strategy: ParamsStrategy }): React
   });
 
   const start = (row: CampaignSummary, binding: SavedBinding) => act('start', async () => {
+    if (row.status !== 'valid') throw new Error(row.reason);
     const active = await discovery.getActiveRun();
     if (active != null) throw new Error('已有探索任務執行中，請等它完成後再啟動下一個 instrument');
     if (strategy.mode !== 'params') throw new Error('目前 campaign 啟動需使用參數模式策略');
@@ -245,6 +247,15 @@ export function CampaignPanel({ strategy }: { strategy: ParamsStrategy }): React
         {saved.length === 0 && <span style={{ color: t.color.muted }}>尚無已保存的宣告</span>}
         {saved.map((row) => <div key={row.campaignId} data-testid={`campaign-saved-${row.campaignId}`} style={{ ...S.card, display: 'grid', gap: 6 }}>
           <div style={{ overflowWrap: 'anywhere', fontFamily: t.font.mono }}>{row.campaignId}</div>
+          <div data-testid="campaign-row-status" style={{ color: row.status === 'valid' ? t.color.muted : t.color.warn }}>
+            {row.status === 'valid' ? '宣告有效' : row.status === 'incompatible' ? '版本不相容' : '資料損壞／身分不符'}
+            {row.reason && <div>{row.reason}</div>}
+          </div>
+          {row.status !== 'valid' && <button style={S.btnGhost} disabled>無法啟動此宣告</button>}
+          <details>
+            <summary>原始宣告（未驗證）</summary>
+            <pre style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', fontSize: t.font.size }}>{row.rawDocumentJson}</pre>
+          </details>
           {savedBindings(row).map((binding) => <div key={binding.instrumentId} style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
             <span>{binding.instrumentId}</span>
             <button data-testid={`campaign-start-${binding.instrumentId}`} style={S.btnGhost} disabled={busy != null} onClick={() => start(row, binding)}>啟動此 instrument</button>
@@ -255,6 +266,7 @@ export function CampaignPanel({ strategy }: { strategy: ParamsStrategy }): React
         </div>)}
       </div>
       {decision && <div data-testid="campaign-decision-view" style={S.card}>
+        <div style={{ color: t.color.muted }}>歷史判定；啟動新 run 時會重新驗證。</div>
         <h3 style={{ ...S.h2, fontSize: t.font.size }}>run #{decision.runId} · Admission：{decision.value.status}</h3>
         <div>原因：{reasons.length ? reasons.map((reason) => `${REASON_LABEL[String(reason)] ?? String(reason)}（${String(reason)}）`).join('、') : '無'}</div>
         <div>精度：{precisionValues == null ? '尚無可用的帳本計數' : <>

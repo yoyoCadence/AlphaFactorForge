@@ -388,15 +388,19 @@ export interface CampaignRunSummary {
   createdAt: string;
 }
 
-/** A stored, re-validated campaign and the runs started for it. */
-export interface CampaignSummary {
+/** Saved row metadata and history. Raw JSON is always unverified display data. */
+interface CampaignSummaryBase {
   campaignId: string;
   version: string;
   createdAt: string;
-  /** The canonical `research-campaign-declaration-v1` document. */
-  document: Record<string, unknown>;
+  rawDocumentJson: string;
   runs: CampaignRunSummary[];
 }
+
+export type CampaignSummary = CampaignSummaryBase & (
+  | { status: 'valid'; reason: null; document: Record<string, unknown> }
+  | { status: 'incompatible' | 'corrupt'; reason: string; document: null }
+);
 
 /** A campaign run's stored decision (`research-campaign-admission-v1`).
  *  `ELIGIBLE` is never a confirmation PASS. */

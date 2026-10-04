@@ -80,3 +80,11 @@ Pending. 處理任何一項的人，請在對應 batch 的 handoff 追加 Resolu
 - 所有發現與需要確認的項目，已整理成可接手的工作單：FU-1～FU-9（工作項目）、D1～D7（需要維護者確認的決定）、O1～O4（人工驗收步驟），以及給接手 agent 的工作方式與「不需要重做的檢查」。
 
 2026-10-04 追加：D1–D7 已確認，可執行的版本是 [工作單 v2](2026-10-04-acceptance-followups-work-order-v2.md)（取代 v1）。
+
+### Resolution — 接續完成驗收後續工作（2026-10-04）
+
+FU-1–FU-8 已經由 #143–#151 合併；FU-9 的逐列 campaign 狀態已完成本機驗證，
+最後的發布與 CI 紀錄見 [FU-9 handoff](2026-10-04-fu9-campaign-row-status-v1.md)。
+目前 1075 Vitest／578 Rust（1 ignored）／83 Playwright。
+O1–O4 的人工驗收、既有技術債與統計最終驗收仍保持原狀；不把本段修正的完成
+等同整個 P12 完成。

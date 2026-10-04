@@ -985,8 +985,28 @@ export function makeMockClient() {
       if (!storedCampaigns.has(campaignId)) {
         storedCampaigns.set(campaignId, {
           campaignId, version: 'research-campaign-declaration-v1', createdAt: new Date().toISOString(),
+          status: 'valid', reason: null, rawDocumentJson: JSON.stringify(document),
           document: structuredClone(document) as unknown as Record<string, unknown>, runs: [],
         });
+        if (mockSearchParam('campaignMixedRows') === '1') {
+          const incompatible = structuredClone(document);
+          incompatible.contracts.metrics = 'metrics-unsupported-v9';
+          const historicalRun = { runId: 900001, instrumentId: btc, status: 'ELIGIBLE' as const, createdAt: '2026-09-30' };
+          storedCampaigns.set('incompatible-campaign', {
+            campaignId: 'incompatible-campaign', version: 'research-campaign-declaration-v1', createdAt: '2026-09-30',
+            status: 'incompatible', reason: 'campaign declaration: contracts.metrics must be metrics-v1',
+            document: null, rawDocumentJson: JSON.stringify(incompatible), runs: [historicalRun],
+          });
+          storedCampaigns.set('corrupt-campaign', {
+            campaignId: 'corrupt-campaign', version: 'research-campaign-declaration-v1', createdAt: '2026-09-30',
+            status: 'corrupt', reason: 'invalid JSON', document: null, rawDocumentJson: '{"instruments":42', runs: [],
+          });
+          mockAdmissions.set(historicalRun.runId, {
+            campaignId: 'incompatible-campaign', instrumentId: btc, batchId: 'trial-batch-v1:historical',
+            status: 'ELIGIBLE', feePct: 0.05, slipPct: 0.02,
+            report: { reasons: [], snapshot: { snapshotId: document.instruments[0].snapshotId, barCount: 8760 } },
+          });
+        }
       }
       return campaignId;
     },
@@ -994,6 +1014,7 @@ export function makeMockClient() {
     start: async (config: unknown, campaignId: string, instrumentId: string) => {
       const row = storedCampaigns.get(campaignId);
       if (!row) throw new Error('campaign not found');
+      if (row.status !== 'valid') throw new Error(row.reason);
       const binding = (row.document as unknown as MockDocument).instruments.find((item) => item.instrumentId === instrumentId);
       if (!binding) throw new Error('instrument is not declared');
       const option = marketSnapshots.find((item) => item.snapshot.snapshotId === binding.snapshotId);
