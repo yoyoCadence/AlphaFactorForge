@@ -209,3 +209,9 @@ R3 (P12e-6b), frozen as
 [`research-confirmation-statistics-v2`](research-confirmation-statistics-v2.md)
 (P12e-7a); its final acceptance (P12e-7b) has not been run. This version is
 unchanged.
+
+Update (2026-10-04): P12e-7b executed the frozen v2 final acceptance once;
+all six cells passed plan §7. v2 supports only the declared tested lengths
+{256, 512, 1024}, coefficients {0, 0.3}, generator/family and B=799. This does
+not revise v1 or erase its 6.45% correlated failure. See the
+[final result](plans/confirmation-recalibration-plan-v1.md).

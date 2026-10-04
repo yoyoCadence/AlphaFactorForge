@@ -1,0 +1,532 @@
+{
+  "runs": [
+    {
+      "id": "acceptance-v2-phi0-n256",
+      "report": {
+        "allocationId": "0889c33c045696ebb8a77825120389f761229560b4b48ca80cac43754f78673e",
+        "checkRule": "wilson-upper-bound",
+        "checkpoints": [
+          {
+            "confirmations": [
+              {
+                "benchmarkExcessExtremeTotal": 5978,
+                "benchmarkExcessRejectingSimulations": 0,
+                "netReturnExtremeTotal": 6633,
+                "netReturnRejectingSimulations": 0,
+                "rejectingSimulations": 0
+              },
+              {
+                "benchmarkExcessExtremeTotal": 5617,
+                "benchmarkExcessRejectingSimulations": 0,
+                "netReturnExtremeTotal": 5306,
+                "netReturnRejectingSimulations": 0,
+                "rejectingSimulations": 0
+              }
+            ],
+            "familyRejectingSimulations": 0,
+            "simulations": 16
+          }
+        ],
+        "confirmations": [
+          {
+            "alphaPpm": 25000,
+            "check": {
+              "count": 435,
+              "limitPpm": 30000,
+              "nominalPpm": 25000,
+              "ratePpm": 21750,
+              "wilsonLowerPpm": 19818,
+              "wilsonUpperPpm": 23866,
+              "withinLimit": true
+            },
+            "confirmationNumber": 1,
+            "counts": {
+              "benchmarkExcessExtremeTotal": 7989342,
+              "benchmarkExcessRejectingSimulations": 290,
+              "netReturnExtremeTotal": 8017029,
+              "netReturnRejectingSimulations": 282,
+              "rejectingSimulations": 435
+            },
+            "familyTests": 2
+          },
+          {
+            "alphaPpm": 25000,
+            "check": {
+              "count": 256,
+              "limitPpm": 30000,
+              "nominalPpm": 25000,
+              "ratePpm": 12800,
+              "wilsonLowerPpm": 11332,
+              "wilsonUpperPpm": 14455,
+              "withinLimit": true
+            },
+            "confirmationNumber": 2,
+            "counts": {
+              "benchmarkExcessExtremeTotal": 8010738,
+              "benchmarkExcessRejectingSimulations": 147,
+              "netReturnExtremeTotal": 7926782,
+              "netReturnRejectingSimulations": 144,
+              "rejectingSimulations": 256
+            },
+            "familyTests": 4
+          }
+        ],
+        "contractVersion": "research-noise-simulation-v2",
+        "effectMillionths": 0,
+        "family": {
+          "count": 682,
+          "limitPpm": 60000,
+          "nominalPpm": 50000,
+          "ratePpm": 34100,
+          "wilsonLowerPpm": 31672,
+          "wilsonUpperPpm": 36707,
+          "withinLimit": true
+        },
+        "limitMultiplierPpm": 1200000,
+        "simulations": 20000,
+        "statistic": "research-confirmation-statistics-v2",
+        "status": "WITHIN_LIMITS"
+      }
+    },
+    {
+      "id": "acceptance-v2-phi0-n512",
+      "report": {
+        "allocationId": "0889c33c045696ebb8a77825120389f761229560b4b48ca80cac43754f78673e",
+        "checkRule": "wilson-upper-bound",
+        "checkpoints": [
+          {
+            "confirmations": [
+              {
+                "benchmarkExcessExtremeTotal": 1993,
+                "benchmarkExcessRejectingSimulations": 0,
+                "netReturnExtremeTotal": 2607,
+                "netReturnRejectingSimulations": 0,
+                "rejectingSimulations": 0
+              },
+              {
+                "benchmarkExcessExtremeTotal": 2841,
+                "benchmarkExcessRejectingSimulations": 0,
+                "netReturnExtremeTotal": 2966,
+                "netReturnRejectingSimulations": 0,
+                "rejectingSimulations": 0
+              }
+            ],
+            "familyRejectingSimulations": 0,
+            "simulations": 8
+          }
+        ],
+        "confirmations": [
+          {
+            "alphaPpm": 25000,
+            "check": {
+              "count": 391,
+              "limitPpm": 30000,
+              "nominalPpm": 25000,
+              "ratePpm": 19550,
+              "wilsonLowerPpm": 17721,
+              "wilsonUpperPpm": 21564,
+              "withinLimit": true
+            },
+            "confirmationNumber": 1,
+            "counts": {
+              "benchmarkExcessExtremeTotal": 7978876,
+              "benchmarkExcessRejectingSimulations": 257,
+              "netReturnExtremeTotal": 7975167,
+              "netReturnRejectingSimulations": 248,
+              "rejectingSimulations": 391
+            },
+            "familyTests": 2
+          },
+          {
+            "alphaPpm": 25000,
+            "check": {
+              "count": 234,
+              "limitPpm": 30000,
+              "nominalPpm": 25000,
+              "ratePpm": 11700,
+              "wilsonLowerPpm": 10300,
+              "wilsonUpperPpm": 13287,
+              "withinLimit": true
+            },
+            "confirmationNumber": 2,
+            "counts": {
+              "benchmarkExcessExtremeTotal": 7993306,
+              "benchmarkExcessRejectingSimulations": 144,
+              "netReturnExtremeTotal": 7921559,
+              "netReturnRejectingSimulations": 123,
+              "rejectingSimulations": 234
+            },
+            "familyTests": 4
+          }
+        ],
+        "contractVersion": "research-noise-simulation-v2",
+        "effectMillionths": 0,
+        "family": {
+          "count": 618,
+          "limitPpm": 60000,
+          "nominalPpm": 50000,
+          "ratePpm": 30900,
+          "wilsonLowerPpm": 28590,
+          "wilsonUpperPpm": 33390,
+          "withinLimit": true
+        },
+        "limitMultiplierPpm": 1200000,
+        "simulations": 20000,
+        "statistic": "research-confirmation-statistics-v2",
+        "status": "WITHIN_LIMITS"
+      }
+    },
+    {
+      "id": "acceptance-v2-phi0-n1024",
+      "report": {
+        "allocationId": "0889c33c045696ebb8a77825120389f761229560b4b48ca80cac43754f78673e",
+        "checkRule": "wilson-upper-bound",
+        "checkpoints": [
+          {
+            "confirmations": [
+              {
+                "benchmarkExcessExtremeTotal": 1213,
+                "benchmarkExcessRejectingSimulations": 0,
+                "netReturnExtremeTotal": 1406,
+                "netReturnRejectingSimulations": 0,
+                "rejectingSimulations": 0
+              },
+              {
+                "benchmarkExcessExtremeTotal": 1384,
+                "benchmarkExcessRejectingSimulations": 0,
+                "netReturnExtremeTotal": 1099,
+                "netReturnRejectingSimulations": 0,
+                "rejectingSimulations": 0
+              }
+            ],
+            "familyRejectingSimulations": 0,
+            "simulations": 4
+          }
+        ],
+        "confirmations": [
+          {
+            "alphaPpm": 25000,
+            "check": {
+              "count": 410,
+              "limitPpm": 30000,
+              "nominalPpm": 25000,
+              "ratePpm": 20500,
+              "wilsonLowerPpm": 18626,
+              "wilsonUpperPpm": 22558,
+              "withinLimit": true
+            },
+            "confirmationNumber": 1,
+            "counts": {
+              "benchmarkExcessExtremeTotal": 8001751,
+              "benchmarkExcessRejectingSimulations": 261,
+              "netReturnExtremeTotal": 7993325,
+              "netReturnRejectingSimulations": 288,
+              "rejectingSimulations": 410
+            },
+            "familyTests": 2
+          },
+          {
+            "alphaPpm": 25000,
+            "check": {
+              "count": 212,
+              "limitPpm": 30000,
+              "nominalPpm": 25000,
+              "ratePpm": 10600,
+              "wilsonLowerPpm": 9271,
+              "wilsonUpperPpm": 12117,
+              "withinLimit": true
+            },
+            "confirmationNumber": 2,
+            "counts": {
+              "benchmarkExcessExtremeTotal": 8029838,
+              "benchmarkExcessRejectingSimulations": 121,
+              "netReturnExtremeTotal": 7965075,
+              "netReturnRejectingSimulations": 130,
+              "rejectingSimulations": 212
+            },
+            "familyTests": 4
+          }
+        ],
+        "contractVersion": "research-noise-simulation-v2",
+        "effectMillionths": 0,
+        "family": {
+          "count": 618,
+          "limitPpm": 60000,
+          "nominalPpm": 50000,
+          "ratePpm": 30900,
+          "wilsonLowerPpm": 28590,
+          "wilsonUpperPpm": 33390,
+          "withinLimit": true
+        },
+        "limitMultiplierPpm": 1200000,
+        "simulations": 20000,
+        "statistic": "research-confirmation-statistics-v2",
+        "status": "WITHIN_LIMITS"
+      }
+    },
+    {
+      "id": "acceptance-v2-phi300-n256",
+      "report": {
+        "allocationId": "0889c33c045696ebb8a77825120389f761229560b4b48ca80cac43754f78673e",
+        "checkRule": "wilson-upper-bound",
+        "checkpoints": [
+          {
+            "confirmations": [
+              {
+                "benchmarkExcessExtremeTotal": 5940,
+                "benchmarkExcessRejectingSimulations": 0,
+                "netReturnExtremeTotal": 6653,
+                "netReturnRejectingSimulations": 0,
+                "rejectingSimulations": 0
+              },
+              {
+                "benchmarkExcessExtremeTotal": 5581,
+                "benchmarkExcessRejectingSimulations": 0,
+                "netReturnExtremeTotal": 5292,
+                "netReturnRejectingSimulations": 0,
+                "rejectingSimulations": 0
+              }
+            ],
+            "familyRejectingSimulations": 0,
+            "simulations": 16
+          }
+        ],
+        "confirmations": [
+          {
+            "alphaPpm": 25000,
+            "check": {
+              "count": 541,
+              "limitPpm": 30000,
+              "nominalPpm": 25000,
+              "ratePpm": 27050,
+              "wilsonLowerPpm": 24890,
+              "wilsonUpperPpm": 29391,
+              "withinLimit": true
+            },
+            "confirmationNumber": 1,
+            "counts": {
+              "benchmarkExcessExtremeTotal": 7988308,
+              "benchmarkExcessRejectingSimulations": 357,
+              "netReturnExtremeTotal": 8016621,
+              "netReturnRejectingSimulations": 350,
+              "rejectingSimulations": 541
+            },
+            "familyTests": 2
+          },
+          {
+            "alphaPpm": 25000,
+            "check": {
+              "count": 320,
+              "limitPpm": 30000,
+              "nominalPpm": 25000,
+              "ratePpm": 16000,
+              "wilsonLowerPpm": 14351,
+              "wilsonUpperPpm": 17835,
+              "withinLimit": true
+            },
+            "confirmationNumber": 2,
+            "counts": {
+              "benchmarkExcessExtremeTotal": 8010149,
+              "benchmarkExcessRejectingSimulations": 187,
+              "netReturnExtremeTotal": 7925677,
+              "netReturnRejectingSimulations": 185,
+              "rejectingSimulations": 320
+            },
+            "familyTests": 4
+          }
+        ],
+        "contractVersion": "research-noise-simulation-v2",
+        "effectMillionths": 0,
+        "family": {
+          "count": 850,
+          "limitPpm": 60000,
+          "nominalPpm": 50000,
+          "ratePpm": 42500,
+          "wilsonLowerPpm": 39790,
+          "wilsonUpperPpm": 45385,
+          "withinLimit": true
+        },
+        "limitMultiplierPpm": 1200000,
+        "simulations": 20000,
+        "statistic": "research-confirmation-statistics-v2",
+        "status": "WITHIN_LIMITS"
+      }
+    },
+    {
+      "id": "acceptance-v2-phi300-n512",
+      "report": {
+        "allocationId": "0889c33c045696ebb8a77825120389f761229560b4b48ca80cac43754f78673e",
+        "checkRule": "wilson-upper-bound",
+        "checkpoints": [
+          {
+            "confirmations": [
+              {
+                "benchmarkExcessExtremeTotal": 1994,
+                "benchmarkExcessRejectingSimulations": 0,
+                "netReturnExtremeTotal": 2604,
+                "netReturnRejectingSimulations": 0,
+                "rejectingSimulations": 0
+              },
+              {
+                "benchmarkExcessExtremeTotal": 2805,
+                "benchmarkExcessRejectingSimulations": 0,
+                "netReturnExtremeTotal": 2940,
+                "netReturnRejectingSimulations": 0,
+                "rejectingSimulations": 0
+              }
+            ],
+            "familyRejectingSimulations": 0,
+            "simulations": 8
+          }
+        ],
+        "confirmations": [
+          {
+            "alphaPpm": 25000,
+            "check": {
+              "count": 456,
+              "limitPpm": 30000,
+              "nominalPpm": 25000,
+              "ratePpm": 22800,
+              "wilsonLowerPpm": 20821,
+              "wilsonUpperPpm": 24963,
+              "withinLimit": true
+            },
+            "confirmationNumber": 1,
+            "counts": {
+              "benchmarkExcessExtremeTotal": 7978085,
+              "benchmarkExcessRejectingSimulations": 294,
+              "netReturnExtremeTotal": 7975233,
+              "netReturnRejectingSimulations": 299,
+              "rejectingSimulations": 456
+            },
+            "familyTests": 2
+          },
+          {
+            "alphaPpm": 25000,
+            "check": {
+              "count": 273,
+              "limitPpm": 30000,
+              "nominalPpm": 25000,
+              "ratePpm": 13650,
+              "wilsonLowerPpm": 12132,
+              "wilsonUpperPpm": 15355,
+              "withinLimit": true
+            },
+            "confirmationNumber": 2,
+            "counts": {
+              "benchmarkExcessExtremeTotal": 7992908,
+              "benchmarkExcessRejectingSimulations": 170,
+              "netReturnExtremeTotal": 7920885,
+              "netReturnRejectingSimulations": 155,
+              "rejectingSimulations": 273
+            },
+            "familyTests": 4
+          }
+        ],
+        "contractVersion": "research-noise-simulation-v2",
+        "effectMillionths": 0,
+        "family": {
+          "count": 721,
+          "limitPpm": 60000,
+          "nominalPpm": 50000,
+          "ratePpm": 36050,
+          "wilsonLowerPpm": 33554,
+          "wilsonUpperPpm": 38724,
+          "withinLimit": true
+        },
+        "limitMultiplierPpm": 1200000,
+        "simulations": 20000,
+        "statistic": "research-confirmation-statistics-v2",
+        "status": "WITHIN_LIMITS"
+      }
+    },
+    {
+      "id": "acceptance-v2-phi300-n1024",
+      "report": {
+        "allocationId": "0889c33c045696ebb8a77825120389f761229560b4b48ca80cac43754f78673e",
+        "checkRule": "wilson-upper-bound",
+        "checkpoints": [
+          {
+            "confirmations": [
+              {
+                "benchmarkExcessExtremeTotal": 1199,
+                "benchmarkExcessRejectingSimulations": 0,
+                "netReturnExtremeTotal": 1432,
+                "netReturnRejectingSimulations": 0,
+                "rejectingSimulations": 0
+              },
+              {
+                "benchmarkExcessExtremeTotal": 1372,
+                "benchmarkExcessRejectingSimulations": 0,
+                "netReturnExtremeTotal": 1087,
+                "netReturnRejectingSimulations": 0,
+                "rejectingSimulations": 0
+              }
+            ],
+            "familyRejectingSimulations": 0,
+            "simulations": 4
+          }
+        ],
+        "confirmations": [
+          {
+            "alphaPpm": 25000,
+            "check": {
+              "count": 461,
+              "limitPpm": 30000,
+              "nominalPpm": 25000,
+              "ratePpm": 23050,
+              "wilsonLowerPpm": 21060,
+              "wilsonUpperPpm": 25224,
+              "withinLimit": true
+            },
+            "confirmationNumber": 1,
+            "counts": {
+              "benchmarkExcessExtremeTotal": 8001489,
+              "benchmarkExcessRejectingSimulations": 303,
+              "netReturnExtremeTotal": 7991475,
+              "netReturnRejectingSimulations": 317,
+              "rejectingSimulations": 461
+            },
+            "familyTests": 2
+          },
+          {
+            "alphaPpm": 25000,
+            "check": {
+              "count": 243,
+              "limitPpm": 30000,
+              "nominalPpm": 25000,
+              "ratePpm": 12150,
+              "wilsonLowerPpm": 10722,
+              "wilsonUpperPpm": 13765,
+              "withinLimit": true
+            },
+            "confirmationNumber": 2,
+            "counts": {
+              "benchmarkExcessExtremeTotal": 8030049,
+              "benchmarkExcessRejectingSimulations": 143,
+              "netReturnExtremeTotal": 7965561,
+              "netReturnRejectingSimulations": 144,
+              "rejectingSimulations": 243
+            },
+            "familyTests": 4
+          }
+        ],
+        "contractVersion": "research-noise-simulation-v2",
+        "effectMillionths": 0,
+        "family": {
+          "count": 699,
+          "limitPpm": 60000,
+          "nominalPpm": 50000,
+          "ratePpm": 34950,
+          "wilsonLowerPpm": 32492,
+          "wilsonUpperPpm": 37586,
+          "withinLimit": true
+        },
+        "limitMultiplierPpm": 1200000,
+        "simulations": 20000,
+        "statistic": "research-confirmation-statistics-v2",
+        "status": "WITHIN_LIMITS"
+      }
+    }
+  ]
+}

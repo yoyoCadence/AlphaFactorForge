@@ -861,13 +861,11 @@ fn the_frozen_v2_reproduces_the_selected_pairs_diagnostic_prefixes() {
     });
 }
 
-/// P12e-7a: the six declarations of plan §7 parse as the engine will run
-/// them, and none has been run. Nothing here simulates: the acceptance seed is
-/// used once, by P12e-7b, and only then do its prefixes join the suite.
+/// P12e-7a's declarations remain frozen after the P12e-7b full run. The normal
+/// suite replays only the already declared checkpoints in the next test.
 #[test]
-fn the_final_acceptance_is_declared_for_v2_and_not_yet_run() {
+fn the_final_acceptance_declarations_remain_frozen_for_v2() {
     let acceptance: Value = serde_json::from_str(ACCEPTANCE).unwrap();
-    assert!(acceptance.get("reports").is_none());
     let runs = acceptance["runs"].as_array().unwrap();
     let mut cells = Vec::new();
     for run in runs {
@@ -926,4 +924,69 @@ fn the_final_acceptance_is_declared_for_v2_and_not_yet_run() {
         assert!(wilson_upper_within(maximum, 20_000, limit));
         assert!(!wilson_upper_within(maximum + 1, 20_000, limit));
     }
+}
+
+/// Plan §8: only the six declared prefixes are replayed. The 20,000-run
+/// acceptance is executed once outside the test suite; failed reports stay.
+#[test]
+fn every_final_acceptance_report_reproduces_its_declared_prefix() {
+    let acceptance: Value = serde_json::from_str(ACCEPTANCE).unwrap();
+    let runs = acceptance["runs"].as_array().unwrap();
+    let reports = acceptance["reports"].as_object().unwrap();
+    assert_eq!(runs.len(), 6);
+    assert_eq!(reports.len(), runs.len());
+    let check = |run: &Value| {
+        let id = run["id"].as_str().unwrap();
+        let report = reports.get(id).expect("every declaration has its report");
+        let mut prefix = parse_noise_simulation_v2(&run["declaration"]).unwrap();
+        assert_eq!(prefix.seed, 20_261_117, "{id}");
+        assert_eq!(prefix.simulations, 20_000, "{id}");
+        assert_eq!(prefix.checkpoints, [4096 / prefix.bars], "{id}");
+        assert_eq!(report["simulations"], json!(20_000), "{id}");
+        let checkpoint = &report["checkpoints"];
+        assert_eq!(checkpoint.as_array().unwrap().len(), 1, "{id}");
+        assert_eq!(
+            checkpoint[0]["simulations"],
+            json!(prefix.checkpoints[0]),
+            "{id}"
+        );
+        prefix.simulations = prefix.checkpoints[0];
+        prefix.checkpoints.clear();
+        let cut = serde_json::to_value(simulate_noise_v2(&prefix).unwrap()).unwrap();
+        assert_eq!(
+            cut["family"]["count"], checkpoint[0]["familyRejectingSimulations"],
+            "{id}"
+        );
+        let counts: Vec<&Value> = cut["confirmations"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|row| &row["counts"])
+            .collect();
+        assert_eq!(
+            counts,
+            checkpoint[0]["confirmations"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .collect::<Vec<_>>(),
+            "{id}"
+        );
+        for field in [
+            "contractVersion",
+            "statistic",
+            "allocationId",
+            "effectMillionths",
+            "checkRule",
+            "limitMultiplierPpm",
+        ] {
+            assert_eq!(cut[field], report[field], "{id} {field}");
+        }
+    };
+    std::thread::scope(|scope| {
+        for run in runs {
+            let check = &check;
+            scope.spawn(move || check(run));
+        }
+    });
 }

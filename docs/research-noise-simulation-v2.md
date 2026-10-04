@@ -242,3 +242,11 @@ evidence.
 - A checkpoint re-check covers a few simulations per report. It detects
   drift; it does not re-establish a rate.
 - Rust only. The reference in `src/parity` is test support.
+
+Update (2026-10-04, P12e-7b): the six frozen v2 final declarations ran once,
+all 18 plan §7 checks passed, and reports/checkpoints were committed. Exact
+supported tested lengths are {256, 512, 1024} at coefficients {0, 0.3}, with
+the declared generator/family/B=799 only. The engine is unchanged; only the
+six predeclared acceptance checkpoints are replayed in normal tests. The
+original diagnostic grid and v1 failures remain. See the
+[plan record](plans/confirmation-recalibration-plan-v1.md).

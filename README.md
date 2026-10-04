@@ -218,7 +218,7 @@ Phase D 明確不屬於第一輪實作範圍。
 
 P11 更新（2026-09-22）：`strategy-dsl-v1` 已完成 TS／Rust parity 與嚴格型別、arity、lookback、因果驗證；固定 DSL 只會經驗證過的 `discovery-config-v2` 進 runner，且執行前保存 DSL 與研究 lineage（見 `docs/strategy-dsl-contract.md`）。AI provider／自動 approve 仍待 P15。
 
-P12 更新（2026-10-04，進行中）：研究可行性與試驗帳本。已完成：統計精度預檢（`docs/research-precision-v1.md`）；跨工作區共用、只能追加的試驗帳本，含匯出／匯入、回退偵測與證據快照（`docs/trial-ledger-v1.md`）；Train 內的 walk-forward 與樣本長度預檢（`docs/research-walk-forward-v1.md`）；凍結的研究 campaign 宣告、admission 與撰寫 UI，結果只會是 ELIGIBLE／NOT_ELIGIBLE，**不是確認 PASS**（`docs/research-campaign-declaration-v1.md`）。確認統計 `research-confirmation-statistics-v2` 已凍結，但**最終驗收尚未執行**，目前沒有受支援的設定；P13 確認流程仍阻擋。詳細狀態以 `tasks.md` 為準。
+P12 更新（2026-10-04，進行中）：研究可行性與試驗帳本。已完成：統計精度預檢（`docs/research-precision-v1.md`）；跨工作區共用、只能追加的試驗帳本，含匯出／匯入、回退偵測與證據快照（`docs/trial-ledger-v1.md`）；Train 內的 walk-forward 與樣本長度預檢（`docs/research-walk-forward-v1.md`）；凍結的研究 campaign 宣告、admission 與撰寫 UI，結果只會是 ELIGIBLE／NOT_ELIGIBLE，**不是確認 PASS**（`docs/research-campaign-declaration-v1.md`）。確認統計 `research-confirmation-statistics-v2` 的**最終驗收已通過**，僅支持已測試的 256／512／1024 bars、係數 0 和 0.3 與宣告的家族／生成器。P13 的統計前置條件已滿足，確認執行仍未實作；native campaign 人工驗收仍待完成。詳細狀態以 `tasks.md` 為準。
 
 ### 已知問題與待確認
 
@@ -402,7 +402,7 @@ Continuous research plan (from 2026-09-16): `docs/plans/active-plan.md` re-seque
 
 P11 update (2026-09-22): `strategy-dsl-v1` now has TypeScript/Rust parity plus strict type, arity, lookback, and causality validation. A fixed DSL reaches the runner only through validated `discovery-config-v2`, with its DSL and research lineage persisted before execution (`docs/strategy-dsl-contract.md`). The AI provider and approval flow remain P15.
 
-P12 update (2026-10-04, in progress): research feasibility and the trial ledger. Done: the statistical precision precheck (`docs/research-precision-v1.md`); a shared, append-only trial ledger across workspaces with export/import, rollback detection and an evidence snapshot (`docs/trial-ledger-v1.md`); walk-forward inside Train with sample-length feasibility (`docs/research-walk-forward-v1.md`); frozen research campaign declarations, admission and an authoring UI whose outcome is only ELIGIBLE/NOT_ELIGIBLE, **never a confirmation PASS** (`docs/research-campaign-declaration-v1.md`). The confirmation statistic `research-confirmation-statistics-v2` is frozen, but its **final acceptance has not been run**, so it has no supported configuration yet and P13 confirmation stays blocked. `tasks.md` is authoritative for status.
+P12 update (2026-10-04, in progress): research feasibility and the trial ledger. Done: the statistical precision precheck (`docs/research-precision-v1.md`); a shared, append-only trial ledger across workspaces with export/import, rollback detection and an evidence snapshot (`docs/trial-ledger-v1.md`); walk-forward inside Train with sample-length feasibility (`docs/research-walk-forward-v1.md`); frozen research campaign declarations, admission and an authoring UI whose outcome is only ELIGIBLE/NOT_ELIGIBLE, **never a confirmation PASS** (`docs/research-campaign-declaration-v1.md`). The confirmation statistic `research-confirmation-statistics-v2` passed **final acceptance**, only for the tested 256/512/1024-bar lengths, coefficients 0 and 0.3, and the declared family/generator. P13 calibration is satisfied; runtime confirmation and native campaign acceptance remain unfinished. `tasks.md` is authoritative for status.
 
 ### Known Issues And Open Questions
 
@@ -576,7 +576,7 @@ Phase D は最初の実装範囲には含めません。
 
 P11 更新（2026-09-22）：`strategy-dsl-v1` は TypeScript／Rust parity と厳格な type・arity・lookback・causality 検証を備えます。固定 DSL は検証済み `discovery-config-v2` のみから runner に入り、実行前に DSL と research lineage を保存します（`docs/strategy-dsl-contract.md`）。AI provider／approve は P15 のままです。
 
-P12 更新（2026-10-04、進行中）：研究の実現可能性と試行台帳。完了：統計精度の事前確認（`docs/research-precision-v1.md`）、ワークスペース間で共有する追記専用の試行台帳（エクスポート／インポート、ロールバック検出、証拠スナップショット。`docs/trial-ledger-v1.md`）、Train 内の walk-forward とサンプル長の事前確認（`docs/research-walk-forward-v1.md`）、凍結された研究 campaign 宣言・admission・作成 UI（結果は ELIGIBLE／NOT_ELIGIBLE のみで、**確認 PASS ではありません**。`docs/research-campaign-declaration-v1.md`）。確認統計 `research-confirmation-statistics-v2` は凍結済みですが、**最終検証はまだ実行していない**ため、サポートされる設定はまだなく、P13 の確認フローはブロックされたままです。状況は `tasks.md` が正です。
+P12 更新（2026-10-04、進行中）：研究の実現可能性と試行台帳。完了：統計精度の事前確認（`docs/research-precision-v1.md`）、ワークスペース間で共有する追記専用の試行台帳（エクスポート／インポート、ロールバック検出、証拠スナップショット。`docs/trial-ledger-v1.md`）、Train 内の walk-forward とサンプル長の事前確認（`docs/research-walk-forward-v1.md`）、凍結された研究 campaign 宣言・admission・作成 UI（結果は ELIGIBLE／NOT_ELIGIBLE のみで、**確認 PASS ではありません**。`docs/research-campaign-declaration-v1.md`）。確認統計 `research-confirmation-statistics-v2` は**最終検証に合格**しました。対応範囲は検証した 256／512／1024 bars、係数 0 と 0.3、宣言された生成器と family のみです。P13 の統計前提は満たされましたが、確認の実行と native campaign の手動検証は未完了です。状況は `tasks.md` が正です。
 
 ### 既知の問題と確認事項
 
