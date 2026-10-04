@@ -560,3 +560,65 @@ or altered. The acceptance seed 20261117 has not been used.
   against §3 and §7; nothing simulates them, not even a prefix, before
   P12e-7b. Its run time is measured and recorded there (§8 caps the matrix,
   not the time).
+
+## Record — 2026-10-04, P12e-7b (final acceptance; not an amendment)
+
+PR #140 merged as `b9b63a3` (reviewed head `759ecde`). The six declarations
+were byte-identical to that head (Git blob `ae3f1e9d73fe2baac83e5ed64090f21c6a10c1aa`)
+before this run. No method, rule, cell, seed, sample count or limit changed.
+The maintainer requested continued autonomous task-board work after FU-9;
+P12e-7b was the next unfinished implementation slice.
+
+The full matrix ran once on seed **20261117**, 20,000 simulations per cell,
+with the unchanged release runner on six threads. Build command:
+
+```powershell
+$env:CARGO_TARGET_DIR='C:/tmp/aff-target'
+cargo build --release --locked --example noise_simulation_v2
+```
+
+The built `C:/tmp/aff-target/release/examples/noise_simulation_v2.exe` was
+launched once with the frozen `fixtures/research/recalibration-plan-v1-acceptance.json`
+path; stdout was redirected directly to the committed
+[`recalibration-plan-v1-acceptance-output.json`](../../alpha-factor-forge/fixtures/research/recalibration-plan-v1-acceptance-output.json).
+An exclusive pre-launch marker prevented repeating the full run. Start:
+2026-10-04 14:46:01 UTC. Raw input SHA-256:
+`9436c5b8986cc93efac0bc6a12450d58a6142c55228a2b022733d8eb1bc44bd0`;
+raw stdout SHA-256:
+`347c857286c41e608a52415ccea07a1cb25f0092f7114491857d34810e05e5e6`.
+`scripts/record-recalibration-acceptance.ts` attaches those exact report values
+under the preplanned `reports` field and records §7's supported set; it runs
+no simulation. Vitest checks raw-output equality, original declarations,
+all rates/Wilson bounds, and every decision via independent BigInt inequalities.
+
+Every entry below is **count / 20,000; rate%; [95% Wilson lower%, upper%]**.
+Intervals use the unchanged two-sided 95% convention and outward whole-ppm
+rounding. Each confirmation must have at most 552 rejecting simulations;
+the family at most 1134. All 18 checks pass.
+
+| φ | bars | confirmation 1 | confirmation 2 | family |
+| --- | --- | --- | --- | --- |
+| 0 | 256 | 435; 2.1750%; [1.9818, 2.3866] | 256; 1.2800%; [1.1332, 1.4455] | 682; 3.4100%; [3.1672, 3.6707] |
+| 0 | 512 | 391; 1.9550%; [1.7721, 2.1564] | 234; 1.1700%; [1.0300, 1.3287] | 618; 3.0900%; [2.8590, 3.3390] |
+| 0 | 1024 | 410; 2.0500%; [1.8626, 2.2558] | 212; 1.0600%; [0.9271, 1.2117] | 618; 3.0900%; [2.8590, 3.3390] |
+| 0.3 | 256 | 541; 2.7050%; [2.4890, 2.9391] | 320; 1.6000%; [1.4351, 1.7835] | 850; 4.2500%; [3.9790, 4.5385] |
+| 0.3 | 512 | 456; 2.2800%; [2.0821, 2.4963] | 273; 1.3650%; [1.2132, 1.5355] | 721; 3.6050%; [3.3554, 3.8724] |
+| 0.3 | 1024 | 461; 2.3050%; [2.1060, 2.5224] | 243; 1.2150%; [1.0722, 1.3765] | 699; 3.4950%; [3.2492, 3.7586] |
+
+**Lowest supported tested length: 256. Supported tested set: {256, 512, 1024}**,
+each at φ 0 and 0.3, the `ar1-uniform-sum` generator, two confirmations of
+one candidate, no prior trials, 799 bootstrap samples, frozen v2 and R3.
+No other length (including 700 or 2048), coefficient, distribution or family
+shape is supported by this result. The 3%/6% acceptance limits do not prove
+exact nominal-alpha control. P12e-FINDING-1 is answered **only for this set**;
+the original v1 129/2000 (6.45%) failure remains unchanged and tested.
+This closes the calibration blocker for P13; runtime reveal/alpha/fence
+implementation and native campaign acceptance remain separate work.
+
+Measured per-cell release time: φ0 at 256/512/1024 = **17.769 / 35.234 /
+66.214 s**, φ0.3 = **17.646 / 35.320 / 66.162 s**; total **66.217 s wall**
+on six threads. Release incremental build: 33.59 s. All six declared
+checkpoints (16 / 8 / 4 simulations by length) join the Rust suite; they
+reproduce full counts and extreme-total digests, not just rejection status.
+The full acceptance is never rerun by tests. CI timing is recorded on this
+slice's PR and in its handoff after the final head finishes.

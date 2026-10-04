@@ -1,12 +1,14 @@
 # Research confirmation statistics, version 2 (`research-confirmation-statistics-v2`)
 
-> **Status: P12e-7a, FROZEN — NOT YET ACCEPTED (2026-10-03).** The method
+> **Status: P12e-7b, FROZEN — ACCEPTED FOR THE DECLARED TESTED SET (2026-10-04).** The method
 > that [`confirmation-recalibration-plan-v1`](plans/confirmation-recalibration-plan-v1.md)
 > §6 selected in P12e-6b — the draft candidate S2 with block rule R3 — frozen
-> here before its final acceptance (plan §7, P12e-7b). The acceptance seed
-> 20261117 has not been used. Until that acceptance passes, this statistic has
-> **no supported configuration** and must not be described as controlling its
-> false-positive rate. No runtime caller: only the simulation engine
+> here before its final acceptance (plan §7, P12e-7b). The single final run on
+> seed 20261117 passed all three checks in all six cells. Support is limited to
+> **256, 512 and 1024 bars**, coefficients **0 and 0.3**, and the exact generator,
+> family shape and bootstrap count in §6. The accepted limits are 3% per
+> confirmation and 6% per family, not proof of exact nominal-alpha control.
+> No runtime caller: only the simulation engine
 > ([`research-noise-simulation-v2`](research-noise-simulation-v2.md)) selects
 > it, and P13 decides how a confirmation consumes it.
 > Implementation: `alpha-factor-forge/src-tauri/src/discovery_core/confirmation_v2.rs`,
@@ -148,12 +150,13 @@ reproduces the committed checkpoint counts of the six S2-R3 diagnostic runs.
 
 ## 6. Status and limits
 
-- **Not accepted.** P12e-7b runs plan §7 once (seed 20261117, 20,000
-  simulations in each of the six cells). The supported tested configurations
-  come from that run alone; until then there are none.
-- **Even if it passes**, the evidence covers only what §7 names: the declared
-  lengths at or above the lowest supported tested length (at most 256, 512
-  and 1024), the `ar1-uniform-sum` generator at coefficients 0 and 0.3, two
+- **Accepted for the tested set.** P12e-7b ran plan §7 once (seed 20261117,
+  20,000 simulations per cell). All 18 checks passed; the lowest supported
+  tested length is 256 and the exact supported lengths are {256, 512, 1024}.
+  The [plan result](plans/confirmation-recalibration-plan-v1.md#record--2026-10-04-p12e-7b-final-acceptance-not-an-amendment)
+  records every count, estimate and Wilson interval. Reports and their
+  predeclared checkpoints are committed; only checkpoints join normal tests.
+- **Scope:** the `ar1-uniform-sum` generator at coefficients 0 and 0.3, two
   confirmations of one candidate with no prior trials, 799 bootstrap samples,
   and this statistic. Not other lengths, coefficients or distributions, and
   not other family shapes (plan §7, §11).
@@ -164,8 +167,8 @@ reproduces the committed checkpoint counts of the six S2-R3 diagnostic runs.
 - `B(L)` is only approximately the variance the block bootstrap reproduces
   when the last block is partial; the draft states the exact form.
 - **Frozen.** A change to the computation — the shared S2 code path, the
-  block rule or the comparison — is a new contract version, and before
-  P12e-7b runs it would also be a plan amendment.
+  block rule or the comparison — is a new contract version and requires
+  separately declared calibration.
 - Rust only; the reference in `src/parity` is test support. Whether a
   confirmation may run at a length outside the supported set is a P13
   decision (plan §11).
