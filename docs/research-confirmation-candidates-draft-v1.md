@@ -20,6 +20,11 @@
 > `research-confirmation-statistics-v2` and runs plan §7. From the first
 > diagnostic run on, a change to either draft is a plan amendment. Record:
 > [plan, P12e-6b](plans/confirmation-recalibration-plan-v1.md).
+>
+> **Update (2026-10-03, P12e-7a):** S2 with block rule R3 is frozen as
+> [`research-confirmation-statistics-v2`](research-confirmation-statistics-v2.md),
+> which runs S2's own code path; a change to S2's computation is therefore
+> also a change to that frozen contract. S1 stays an unselected draft.
 
 ## 1. What is shared with v1
 

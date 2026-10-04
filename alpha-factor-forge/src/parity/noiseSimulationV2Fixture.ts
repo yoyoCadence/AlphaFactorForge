@@ -13,6 +13,7 @@ import {
   referenceCandidateTests,
 } from './confirmationCandidatesFixture';
 import { referenceConfirmationTests } from './confirmationStatisticsFixture';
+import { referenceR3BlockLength, STATISTICS_V2 } from './confirmationStatisticsV2Fixture';
 import { MAX_AUTOCORRELATION_PPM, noiseSeries, stream } from './noiseSimulationFixture';
 
 const PPM = 1_000_000n;
@@ -169,7 +170,9 @@ function assertDeclared(declaration: NoiseSimulationV2Declaration): void {
   );
   if (
     declaration.contractVersion !== 'research-noise-simulation-v2' ||
-    ![STATISTIC_V1, CANDIDATE_S1, CANDIDATE_S2].includes(declaration.statistic) ||
+    ![STATISTIC_V1, CANDIDATE_S1, CANDIDATE_S2, STATISTICS_V2].includes(declaration.statistic) ||
+    (declaration.statistic === STATISTICS_V2 &&
+      declaration.blockLength !== referenceR3BlockLength(declaration.bars)) ||
     !Number.isInteger(autocorrelationPpm) ||
     autocorrelationPpm < 0 ||
     autocorrelationPpm > MAX_AUTOCORRELATION_PPM ||
@@ -234,11 +237,14 @@ export async function referenceNoiseSimulationV2(
         familyTests: familyTests(confirmationNumber),
         candidates: series,
       };
-      // The declared statistic: the baseline, or one of the draft candidates.
+      // The declared statistic: the baseline, a draft candidate, or v2 — S2
+      // with block rule R3, checked above.
       const tests =
         declaration.statistic === CANDIDATE_S1 || declaration.statistic === CANDIDATE_S2
           ? referenceCandidateTests(declaration.statistic, confirmation)
-          : referenceConfirmationTests(confirmation);
+          : declaration.statistic === STATISTICS_V2
+            ? referenceCandidateTests(CANDIDATE_S2, confirmation)
+            : referenceConfirmationTests(confirmation);
       const row = counts[position];
       const net = tests.filter((test) => test.test === 'net_return');
       const excess = tests.filter((test) => test.test === 'benchmark_excess');

@@ -1,0 +1,217 @@
+{
+  "plan": "confirmation-recalibration-plan-v1",
+  "phase": "final acceptance (§7)",
+  "description": "Declarations of the final acceptance, written from the plan tables for the frozen research-confirmation-statistics-v2 (S2 with block rule R3) and committed before the run. P12e-7b runs all six once on seed 20261117 with the release runner and adds the reports under `reports`; a cell passes when its two confirmation checks and its family check pass, and the supported tested configurations follow from §7 alone. Nothing here may be edited in response to a result.",
+  "rule": {
+    "confirmationLimitPpm": 30000,
+    "familyLimitPpm": 60000,
+    "maximumConfirmationCount": 552,
+    "maximumFamilyCount": 1134
+  },
+  "runs": [
+    {
+      "id": "acceptance-v2-phi0-n256",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-statistics-v2",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 0,
+        "effectMillionths": 0,
+        "bars": 256,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 6,
+        "bootstrapSamples": 799,
+        "simulations": 20000,
+        "seed": 20261117,
+        "check": {
+          "rule": "wilson-upper-bound",
+          "limitMultiplierPpm": 1200000
+        },
+        "checkpoints": [
+          16
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "acceptance-v2-phi0-n512",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-statistics-v2",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 0,
+        "effectMillionths": 0,
+        "bars": 512,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 8,
+        "bootstrapSamples": 799,
+        "simulations": 20000,
+        "seed": 20261117,
+        "check": {
+          "rule": "wilson-upper-bound",
+          "limitMultiplierPpm": 1200000
+        },
+        "checkpoints": [
+          8
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "acceptance-v2-phi0-n1024",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-statistics-v2",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 0,
+        "effectMillionths": 0,
+        "bars": 1024,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 10,
+        "bootstrapSamples": 799,
+        "simulations": 20000,
+        "seed": 20261117,
+        "check": {
+          "rule": "wilson-upper-bound",
+          "limitMultiplierPpm": 1200000
+        },
+        "checkpoints": [
+          4
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "acceptance-v2-phi300-n256",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-statistics-v2",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 300000,
+        "effectMillionths": 0,
+        "bars": 256,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 6,
+        "bootstrapSamples": 799,
+        "simulations": 20000,
+        "seed": 20261117,
+        "check": {
+          "rule": "wilson-upper-bound",
+          "limitMultiplierPpm": 1200000
+        },
+        "checkpoints": [
+          16
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "acceptance-v2-phi300-n512",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-statistics-v2",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 300000,
+        "effectMillionths": 0,
+        "bars": 512,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 8,
+        "bootstrapSamples": 799,
+        "simulations": 20000,
+        "seed": 20261117,
+        "check": {
+          "rule": "wilson-upper-bound",
+          "limitMultiplierPpm": 1200000
+        },
+        "checkpoints": [
+          8
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    },
+    {
+      "id": "acceptance-v2-phi300-n1024",
+      "declaration": {
+        "contractVersion": "research-noise-simulation-v2",
+        "statistic": "research-confirmation-statistics-v2",
+        "noiseModel": "ar1-uniform-sum",
+        "autocorrelationPpm": 300000,
+        "effectMillionths": 0,
+        "bars": 1024,
+        "candidatesPerConfirmation": 1,
+        "priorTrials": 0,
+        "blockLength": 10,
+        "bootstrapSamples": 799,
+        "simulations": 20000,
+        "seed": 20261117,
+        "check": {
+          "rule": "wilson-upper-bound",
+          "limitMultiplierPpm": 1200000
+        },
+        "checkpoints": [
+          4
+        ],
+        "allocation": {
+          "contractVersion": "research-alpha-allocation-v1",
+          "rule": "declared-schedule",
+          "scope": "trial-family",
+          "totalAlphaPpm": 50000,
+          "schedule": [
+            25000,
+            25000
+          ]
+        }
+      }
+    }
+  ]
+}

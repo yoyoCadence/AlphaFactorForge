@@ -30,6 +30,9 @@ use super::confirmation_candidates::{
     evaluate_confirmation_candidate_s1, evaluate_confirmation_candidate_s2,
     CONFIRMATION_CANDIDATE_S1, CONFIRMATION_CANDIDATE_S2,
 };
+use super::confirmation_v2::{
+    evaluate_confirmation_v2, r3_block_length, CONFIRMATION_STATISTICS_V2_VERSION,
+};
 use super::noise_simulation::{
     fail, noise_series, read_literal, stream, Domain, NoiseSimulationError, AUTOCORRELATION, BARS,
     BLOCK_LENGTH, CANDIDATES, DOMAIN_CONFIRMATION_SEED, DOMAIN_DATA, NOISE_MODEL_AR1, PRIOR_TRIALS,
@@ -100,25 +103,35 @@ pub enum SimulatedStatistic {
     /// DRAFT candidate S2, the flat-top variance-corrected centred bootstrap.
     #[serde(rename = "research-confirmation-candidate-s2-v1")]
     CandidateS2,
+    /// `research-confirmation-statistics-v2`: S2 frozen with block rule R3,
+    /// the method of the plan's final acceptance.
+    #[serde(rename = "research-confirmation-statistics-v2")]
+    ConfirmationV2,
 }
 
 impl SimulatedStatistic {
-    const ALL: [Self; 3] = [Self::ConfirmationV1, Self::CandidateS1, Self::CandidateS2];
+    const ALL: [Self; 4] = [
+        Self::ConfirmationV1,
+        Self::CandidateS1,
+        Self::CandidateS2,
+        Self::ConfirmationV2,
+    ];
 
     pub fn contract(self) -> &'static str {
         match self {
             Self::ConfirmationV1 => CONFIRMATION_STATISTICS_VERSION,
             Self::CandidateS1 => CONFIRMATION_CANDIDATE_S1,
             Self::CandidateS2 => CONFIRMATION_CANDIDATE_S2,
+            Self::ConfirmationV2 => CONFIRMATION_STATISTICS_V2_VERSION,
         }
     }
 
-    /// The widest block the statistic reads, in block lengths: S2 also uses
-    /// blocks of `2L`.
+    /// The widest block the statistic reads, in block lengths: S2 (and v2,
+    /// which is S2) also uses blocks of `2L`.
     fn widest_block(self) -> u128 {
         match self {
             Self::ConfirmationV1 | Self::CandidateS1 => 1,
-            Self::CandidateS2 => 2,
+            Self::CandidateS2 | Self::ConfirmationV2 => 2,
         }
     }
 
@@ -136,6 +149,7 @@ impl SimulatedStatistic {
             Self::CandidateS2 => {
                 evaluate_confirmation_candidate_s2(declaration, family_tests, candidates)
             }
+            Self::ConfirmationV2 => evaluate_confirmation_v2(declaration, family_tests, candidates),
         }
     }
 }
@@ -335,6 +349,16 @@ fn validated(declaration: &NoiseSimulationV2Declaration) -> Result<u64, NoiseSim
     }
     alpha_allocation_id(&declaration.allocation).map_err(wrap)?;
 
+    // v2 fixes the block rule; the other statistics take any declared length.
+    if declaration.statistic == SimulatedStatistic::ConfirmationV2 {
+        let required = r3_block_length(declaration.bars);
+        if declaration.block_length != required {
+            return fail(format!(
+                "simulation.blockLength: {CONFIRMATION_STATISTICS_V2_VERSION} requires {required} (round of the cube root of bars {}), not {}",
+                declaration.bars, declaration.block_length
+            ));
+        }
+    }
     let widest = declaration.statistic.widest_block();
     let block = u128::from(declaration.block_length) * widest;
     if block * block > u128::from(declaration.bars) {
@@ -472,7 +496,7 @@ pub fn parse_noise_simulation_v2(
     };
     let Some(statistic) = statistic else {
         return fail(format!(
-            "simulation.statistic: must be one of \"{CONFIRMATION_STATISTICS_VERSION}\", \"{CONFIRMATION_CANDIDATE_S1}\", \"{CONFIRMATION_CANDIDATE_S2}\""
+            "simulation.statistic: must be one of \"{CONFIRMATION_STATISTICS_VERSION}\", \"{CONFIRMATION_CANDIDATE_S1}\", \"{CONFIRMATION_CANDIDATE_S2}\", \"{CONFIRMATION_STATISTICS_V2_VERSION}\""
         ));
     };
     read_literal(object, "noiseModel", NOISE_MODEL_AR1)?;

@@ -203,3 +203,9 @@ diagnostics and the final acceptance of that plan, and P13
 (freezing a confirmation batch, the synchronized ledger fence that supplies
 `familyTests`, reserving alpha, revealing Validation/Test once, and the only
 place a statistical `PASS` may be produced).
+
+Update (2026-10-03): the diagnostics selected the draft S2 with block rule
+R3 (P12e-6b), frozen as
+[`research-confirmation-statistics-v2`](research-confirmation-statistics-v2.md)
+(P12e-7a); its final acceptance (P12e-7b) has not been run. This version is
+unchanged.
