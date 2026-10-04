@@ -63,6 +63,16 @@ describe('maxSignalLookbackBars — blocks mode', () => {
     expect(maxSignalLookbackBars(blocks([{ l: 'price', op: '>', r: 'nonsense' }], []))).toBe(1);
     expect(maxSignalLookbackBars(blocks([], []))).toBe(1);
   });
+  it('fails closed on a left operand outside OperandId instead of returning NaN', () => {
+    // The UI and the library loader only produce known left operands, but the
+    // derivation is a contract of its own: unknown, numeric or padded names
+    // must throw, never become a NaN embargo.
+    for (const l of ['50', 'atr', ' maFast ']) {
+      const strat = blocks([{ l: l as ParamsStrategy['entryRules'][number]['l'], op: '>', r: '0' }], []);
+      expect(() => maxSignalLookbackBars(strat), JSON.stringify(l)).toThrow(RangeError);
+      expect(() => deriveEmbargoBars(strat, 0), JSON.stringify(l)).toThrow(/unknown operand/);
+    }
+  });
 });
 
 describe('maxSignalLookbackBars — code mode', () => {

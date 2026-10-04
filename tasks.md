@@ -140,7 +140,7 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
   4. [x] **FU-5** — done 2026-10-04 on `fix/campaign-preview-async` (async preview, per-instrument DB lock; see Done).
   5. [x] **FU-3a** (PR #146), **FU-3b** (PR #147) and **FU-3c** (2026-10-04 on `ci/npm-audit-production`: CI `npm audit --omit=dev`) — PR046-055-H-R1 closed; see Done.
   6. [x] **FU-2 + FU-8** — done 2026-10-04 on `docs/rust-msrv-and-progress` (Rust minimum points to `Cargo.toml`; README P12 progress; see Done).
-  7. [ ] **FU-6**, **FU-7** — embargo throw; per-case indicator fixture edges.
+  7. [ ] **FU-6** done 2026-10-04 on `fix/embargo-invalid-operand` (see Done); **FU-7** per-case indicator fixture edges next.
   8. [ ] **FU-9** — design then implement per-row campaign status, before the next pinned contract version bump.
 
 ## In Progress
@@ -406,6 +406,8 @@ These were named inside the UI port entry and must not be buried by closing it. 
 - [ ] Full closed-loop AI automation. (Specification: ABC-14.)
 
 ## Done
+
+- [x] **FU-6 — `deriveEmbargoBars` fails closed on an unknown left operand** (2026-10-04, branch `fix/embargo-invalid-operand`; FU-2 + FU-8 merged as PR #149, `aa7a011`). `operandLookback` throws `RangeError` for a value outside `OperandId` instead of returning undefined → NaN; one regression test (`'50'`, `'atr'`, `' maFast '`) fails before and passes after. The signals-split fixture changes only its `embargo` source hash; TS and Rust parity tests pass. Closes G-N1. [Review](handoffs/2026-10-04-pr056-065-acceptance-review-v1.md).
 
 - [x] **FU-2 + FU-8 — Documented Rust minimum and README P12 progress** (2026-10-04, branch `docs/rust-msrv-and-progress`; FU-3c merged as PR #148, `c13cd2d`). README (zh/en/ja) says Rust 1.89+ with `Cargo.toml` `rust-version` authoritative; `alpha-factor-forge/README.md` ≥ 1.89; `AGENTS.md` points at the manifest (D3). README gains a P12 progress paragraph in all three languages (confirmation v2 frozen, final acceptance not run, P13 blocked; `tasks.md` authoritative). Closes PR106-115-B-R1; `DOC-STATE-002` stays open for `TODO.md` and `PHASE_A_VERIFY.md`.
 
