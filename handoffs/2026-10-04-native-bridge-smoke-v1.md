@@ -3,7 +3,7 @@
 Date: 2026-10-04
 Repo: yoyoCadence/AlphaFactorForge
 Branch: `ci/native-bridge-smoke`
-Status: Complete locally; publishing for final-head native CI and merge.
+Status: Local bridge verified; PR #157 native CI startup under investigation.
 
 ## Scope / dependency reassessment
 
@@ -73,3 +73,19 @@ no bypass or failure switch is committed. Node syntax, PowerShell 5 parser and
 diff checks pass. The working source/manifest/capabilities/lockfiles are unchanged.
 Full unit/mock E2E suites are exercised by final-head CI, not repeated locally
 for this harness-only change. No native discovery/service/campaign claim is made.
+
+## CI startup investigation (2026-10-05)
+
+[PR #157](https://github.com/yoyoCadence/AlphaFactorForge/pull/157), initial head
+`ef9b93f7`, [run 37244064242](https://github.com/yoyoCadence/AlphaFactorForge/actions/runs/37244064242):
+five jobs passed; native build linked successfully, but the live desktop did
+not expose the CDP port within the existing 45-second readiness deadline.
+This does not establish a root cause or bridge acceptance on the runner.
+
+The scoped CI fix retains the assertions/deadline, uses explicit child test
+environment values when Start-Process supports them (PowerShell 7.4+, with the
+existing inherited path for PS5), avoids the automatic PROFILE variable name,
+and captures app/DB/WAL/WebView profile/debug-port flags before teardown on
+failure. No process environment or unrelated browser command line is dumped.
+User authorization to autonomously complete/verify PRs covers this CI fix;
+the working GitHub connector follows AGENTS.md over the gh-fix-ci CLI preference.

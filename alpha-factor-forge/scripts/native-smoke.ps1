@@ -18,8 +18,8 @@ $tempRoot = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\', '/')
 $runId = [guid]::NewGuid().ToString('N')
 $workspace = Join-Path $tempRoot "aff-native-smoke-$runId"
 $registry = Join-Path $tempRoot "aff-native-registry-$runId"
-$profile = Join-Path $tempRoot "aff-native-webview-$runId"
-$ownedDirectories = @($workspace, $registry, $profile)
+$nativeProfileDir = Join-Path $tempRoot "aff-native-webview-$runId"
+$ownedDirectories = @($workspace, $registry, $nativeProfileDir)
 foreach ($directory in $ownedDirectories) {
     New-Item -ItemType Directory -Path $directory | Out-Null
 }
@@ -38,13 +38,26 @@ $app = $null
 try {
     $env:AFF_DATA_DIR = $workspace
     $env:AFF_TEST_TRIAL_REGISTRY_DIR = $registry
-    $env:WEBVIEW2_USER_DATA_FOLDER = $profile
+    $env:WEBVIEW2_USER_DATA_FOLDER = $nativeProfileDir
     $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS = "--remote-debugging-port=$port --remote-debugging-address=127.0.0.1"
     $dbPath = Join-Path $workspace 'alphafactorforge.sqlite3'
     if (Test-Path -LiteralPath $dbPath) { throw 'The smoke database must start absent.' }
-    $app = Start-Process -FilePath $exe.FullName -WindowStyle Hidden -PassThru `
-        -RedirectStandardOutput (Join-Path $artifacts 'native-stdout.log') `
-        -RedirectStandardError (Join-Path $artifacts 'native-stderr.log')
+    $launch = @{
+        FilePath = $exe.FullName
+        WindowStyle = 'Hidden'
+        PassThru = $true
+        RedirectStandardOutput = (Join-Path $artifacts 'native-stdout.log')
+        RedirectStandardError = (Join-Path $artifacts 'native-stderr.log')
+    }
+    # PowerShell 7.4+ supports an explicit child environment; retain the existing
+    # inherited-environment path for Windows PowerShell 5.
+    if ((Get-Command Start-Process).Parameters.ContainsKey('Environment')) {
+        $launch.Environment = @{}
+        foreach ($name in $variables) {
+            $launch.Environment[$name] = [Environment]::GetEnvironmentVariable($name, 'Process')
+        }
+    }
+    $app = Start-Process @launch
     Write-Host "Native smoke PID $($app.Id), loopback CDP port $port"
 
     $deadline = [DateTime]::UtcNow.AddSeconds(45)
@@ -59,7 +72,7 @@ try {
     foreach ($listener in $listeners) {
         if ($listener.LocalAddress -notin @('127.0.0.1', '::1')) { throw 'CDP must listen only on loopback.' }
         $owner = Get-CimInstance Win32_Process -Filter "ProcessId=$($listener.OwningProcess)"
-        if ($owner.Name -ne 'msedgewebview2.exe' -or -not $owner.CommandLine.Contains($profile)) {
+        if ($owner.Name -ne 'msedgewebview2.exe' -or -not $owner.CommandLine.Contains($nativeProfileDir)) {
             throw 'CDP belongs to a different process/profile; refusing to attach.'
         }
     }
@@ -72,6 +85,33 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "Native bridge assertions failed with code $LASTEXITCODE." }
     if ($app.HasExited) { throw 'The app exited during the native bridge smoke.' }
 }
+catch {
+    # Preserve useful pre-teardown state for CI failures without dumping process
+    # environments or unrelated browser command lines.
+    $startupWebviews = @(Get-CimInstance Win32_Process -Filter "Name='msedgewebview2.exe'" |
+        Where-Object {
+            ($_.CommandLine -and $_.CommandLine.Contains($nativeProfileDir)) -or
+            ($app -and $_.ParentProcessId -eq $app.Id)
+        } | ForEach-Object {
+            @{
+                pid = $_.ProcessId
+                parentPid = $_.ParentProcessId
+                profileMatches = [bool]($_.CommandLine -and $_.CommandLine.Contains($nativeProfileDir))
+                debugPortMatches = [bool]($_.CommandLine -and $_.CommandLine.Contains("--remote-debugging-port=$port"))
+            }
+        })
+    $diagnostic = @{
+        error = $_.Exception.Message
+        appAlive = [bool]($app -and -not $app.HasExited)
+        databaseExists = [bool](Test-Path -LiteralPath $dbPath)
+        walExists = [bool](Test-Path -LiteralPath "$dbPath-wal")
+        webviews = $startupWebviews
+        explicitChildEnvironment = $launch.ContainsKey('Environment')
+    }
+    $diagnostic | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $artifacts 'native-launch-failure.json')
+    Write-Host ($diagnostic | ConvertTo-Json -Depth 4 -Compress)
+    throw
+}
 finally {
     foreach ($name in $variables) {
         [Environment]::SetEnvironmentVariable($name, $original[$name], 'Process')
@@ -79,7 +119,7 @@ finally {
     # Snapshot descendants before stopping the app: utility/render children
     # may omit the profile argument and become orphaned when their parent exits.
     $allWebviews = @(Get-CimInstance Win32_Process -Filter "Name='msedgewebview2.exe'")
-    $ownedWebviews = @($allWebviews | Where-Object { $_.CommandLine -and $_.CommandLine.Contains($profile) })
+    $ownedWebviews = @($allWebviews | Where-Object { $_.CommandLine -and $_.CommandLine.Contains($nativeProfileDir) })
     do {
         $ownedIds = @($ownedWebviews | ForEach-Object { $_.ProcessId })
         $children = @($allWebviews | Where-Object {
