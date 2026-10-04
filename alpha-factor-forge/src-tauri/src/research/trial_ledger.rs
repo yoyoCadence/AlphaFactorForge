@@ -34,7 +34,7 @@ mod transfer;
 #[allow(unused_imports)]
 pub use binding::{
     read_workspace_binding, write_workspace_binding, AdmissionFence, AdmissionSnapshot,
-    BindingCheck, FenceBlocked, LedgerBinding,
+    BindingCheck, FenceBlocked, LedgerBinding, LedgerEvidence, LEDGER_BINDING_VERSION,
 };
 // Public for the P12b-2 command surface; no runtime caller exists yet.
 #[allow(unused_imports)]
@@ -2868,5 +2868,69 @@ mod tests {
             assert!(hashes.insert(hash), "{id} hash is unique");
         }
         assert_eq!(benchmark_params_hash("momentum"), None);
+    }
+
+    // §23, from the PR #131-#140 acceptance review R1 counterexample: a
+    // protocol upgrade recorded without a new event (the replay the runner's
+    // recovery sends, now with 2 tests) leaves the chain head where it was. A
+    // copy of the registry taken before the upgrade, restored the way
+    // `r4_the_reopen_watermark_detects_a_later_rollback` restores one, keeps
+    // the event prefix but has lost the raised test count: the binding's
+    // evidence snapshot must refuse it.
+    #[test]
+    fn r23_a_restored_registry_cannot_drop_a_protocol_upgrade_unseen() {
+        let dirs = scratch();
+        let ledger = open(&dirs);
+        let mut old = batch("r1", 1);
+        old.tests_per_trial = 1;
+        let first = ledger.register_batch(&old).unwrap();
+        assert_eq!(count(&first.admission).tests_per_trial(), 1);
+        drop(ledger);
+        let file = dirs.registry.join(REGISTRY_FILE_NAME);
+        let backup = dirs.root.join("registry-before-upgrade.sqlite3");
+        std::fs::copy(&file, &backup).unwrap();
+
+        let ledger = open(&dirs);
+        let mut replay = batch("r1", 1);
+        replay.tests_per_trial = 2;
+        let replayed = ledger.register_batch(&replay).unwrap();
+        assert!(replayed.replayed);
+        let decided = count(&replayed.admission).snapshot();
+        assert_eq!(decided.tests_per_trial, 2);
+        let BindingCheck::Current(observed) = ledger.check_binding(None).unwrap() else {
+            panic!("expected a current binding");
+        };
+        assert_eq!(
+            (observed.seq, &observed.chain_head),
+            (decided.seq, &decided.chain_head),
+            "the upgrade did not move the head"
+        );
+        drop(ledger);
+
+        for suffix in ["-wal", "-shm"] {
+            let mut sidecar = file.clone().into_os_string();
+            sidecar.push(suffix);
+            let _ = std::fs::remove_file(PathBuf::from(sidecar));
+        }
+        std::fs::copy(&backup, &file).unwrap();
+        let restored = open(&dirs);
+
+        // Existing mitigation (passes): a decision taken after the upgrade
+        // is fenced, because its stored count is larger than the current one.
+        assert_eq!(
+            restored.fence_admission(&first.batch_id, &decided).unwrap(),
+            AdmissionFence::Blocked(FenceBlocked::Inconsistent)
+        );
+
+        // Before §23 the binding still proved this copy while a fresh count
+        // read 1 again; now the saved high-water mark refuses it.
+        assert_eq!(
+            observed.evidence.as_ref().unwrap().family_tests[count(&first.admission).family_id()],
+            2
+        );
+        assert_eq!(
+            restored.check_binding(Some(&observed)).unwrap(),
+            BindingCheck::RegistryEvidenceRolledBack
+        );
     }
 }

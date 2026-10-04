@@ -143,3 +143,7 @@ Pending. 處理 R1 的人請追加決定、變更 commit 與對應的回歸結�
 - R1 → **FU-1**（與 PR126-130-A-R1 同一個根因，一起處理）；需要 **D1、D2**。
 - O1（#131 native campaign smoke）→ 工作單 §3 的 **O3**，含完整步驟；注意服務 `fetch` 要帶 `--cost-profile`，否則 snapshot 為 degraded、預覽會拒絕。
 - O2（兩個常數未綁定、奇數檢定數會讓確認 fail closed）留給 P13 設計時處理，未列為獨立工作項目。
+
+### Resolution — FU-1（2026-10-04）
+
+R1 已在 `fix/ledger-evidence-rollback` 修正（trial-ledger §23）：工作區綁定改為 `trial-ledger-binding-v2`，帶著隔離家族、分歧來源與家族檢定數高水位的快照；還原較舊的 registry 複本會得到新的 `registry_evidence_rolled_back`。本檔的反例已改名為 `r23_*` 納入正式測試，最終斷言直接比對該狀態碼。另加 5 項測試；573 Rust 通過；7 個突變都被抓到。詳見 [FU-1 handoff](2026-10-04-fu1-ledger-evidence-snapshot-v1.md)。

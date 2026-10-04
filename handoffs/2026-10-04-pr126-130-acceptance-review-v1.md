@@ -114,3 +114,7 @@ Pending.
 - A-R1 → **FU-1**（與 PR131-140-R1 合併處理）；開工前需要維護者確認 **D1**（binding 保護方式）與 **D2**。
 - A-R2 → **FU-5**（併入 `DB-ASYNC-001`），不需要決定。
 - 已保存 campaign 遇到合約升級的設計注意事項 → **FU-9**，需要 **D6**。
+
+### Resolution — FU-1（2026-10-04）
+
+A-R1 已在 `fix/ledger-evidence-rollback` 修正（trial-ledger §23）：工作區綁定改為 `trial-ledger-binding-v2`，帶著隔離家族、分歧來源與家族檢定數高水位的快照；還原較舊的 registry 複本會得到新的 `registry_evidence_rolled_back`。本檔的反例已改名為 `r23_*` 納入正式測試，最終斷言直接比對該狀態碼。另加 5 項測試；573 Rust 通過；7 個突變都被抓到。詳見 [FU-1 handoff](2026-10-04-fu1-ledger-evidence-snapshot-v1.md)。

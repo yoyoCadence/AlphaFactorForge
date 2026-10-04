@@ -859,4 +859,118 @@ mod tests {
         std::fs::remove_dir_all(registry).unwrap();
         std::fs::remove_dir_all(root).unwrap();
     }
+
+    fn family_batch(tests_per_trial: u64) -> TrialBatchInput {
+        TrialBatchInput {
+            workspace_id: "another-workspace".into(),
+            instrument_id: Some("crypto:binance:BTCUSDT".into()),
+            tests_per_trial,
+            events: vec![TrialEventInput {
+                kind: TrialKind::Variant,
+                origin: TrialOrigin::Request {
+                    request_id: "family-request".into(),
+                    candidate_index: 0,
+                },
+                hypothesis_hash: None,
+                strategy_hash: Some("strategy".into()),
+                dataset_hash: Some("dataset".into()),
+                snapshot_id: Some("snapshot".into()),
+                split_hash: Some("split".into()),
+                seeds_hash: Some("seeds".into()),
+                engine_fingerprint_hash: Some("engine".into()),
+                benchmark_id: None,
+                benchmark_params_hash: None,
+                reproduction_of: None,
+                benchmark_evidence: None,
+            }],
+        }
+    }
+
+    fn restore(scratch: &Scratch, backup: &Path) {
+        for suffix in ["-wal", "-shm"] {
+            let mut sidecar = scratch.registry_file().into_os_string();
+            sidecar.push(suffix);
+            let _ = std::fs::remove_file(PathBuf::from(sidecar));
+        }
+        std::fs::copy(backup, scratch.registry_file()).unwrap();
+    }
+
+    #[test]
+    fn r23_a_persisted_upgrade_refuses_a_restored_registry_and_keeps_the_last_good_binding() {
+        let scratch = Scratch::new();
+        let mut conn = crate::db::open_at(&scratch.root.join(crate::db::DB_FILE_NAME)).unwrap();
+        let id = crate::db::runtime_ledger::workspace_id(&conn).unwrap();
+        let bound = adopt(&mut conn, &scratch.root, &id, None).unwrap();
+        bound.ledger.register_batch(&family_batch(1)).unwrap();
+        drop(bound);
+        drop(adopt(&mut conn, &scratch.root, &id, None).unwrap());
+        let backup = scratch.root.join("registry-before-upgrade.sqlite3");
+        std::fs::copy(scratch.registry_file(), &backup).unwrap();
+
+        // An event-less upgrade, persisted by the next adoption (a write point).
+        let bound = adopt(&mut conn, &scratch.root, &id, None).unwrap();
+        assert!(
+            bound
+                .ledger
+                .register_batch(&family_batch(2))
+                .unwrap()
+                .replayed
+        );
+        drop(bound);
+        drop(adopt(&mut conn, &scratch.root, &id, None).unwrap());
+        let saved = read_workspace_binding(&conn).unwrap().unwrap();
+        assert_eq!(
+            saved
+                .evidence
+                .as_ref()
+                .unwrap()
+                .family_tests
+                .values()
+                .copied()
+                .collect::<Vec<_>>(),
+            [2]
+        );
+
+        restore(&scratch, &backup);
+        let error = adopt(&mut conn, &scratch.root, &id, None)
+            .err()
+            .expect("the older copy keeps the events but lost the raised test count");
+        assert!(
+            error.to_string().contains("registry_evidence_rolled_back"),
+            "{error}"
+        );
+        assert_eq!(
+            read_workspace_binding(&conn).unwrap().unwrap(),
+            saved,
+            "a failed check never overwrites the last good binding"
+        );
+    }
+
+    #[test]
+    fn r23_a_pre_evidence_binding_is_upgraded_on_the_next_adoption() {
+        let scratch = Scratch::new();
+        let mut conn = crate::db::open_at(&scratch.root.join(crate::db::DB_FILE_NAME)).unwrap();
+        let id = crate::db::runtime_ledger::workspace_id(&conn).unwrap();
+        let bound = adopt(&mut conn, &scratch.root, &id, None).unwrap();
+        bound.ledger.register_batch(&family_batch(2)).unwrap();
+        drop(bound);
+        drop(adopt(&mut conn, &scratch.root, &id, None).unwrap());
+        let saved = read_workspace_binding(&conn).unwrap().unwrap();
+
+        // What a pre-§23 build stored for the same head.
+        let legacy = serde_json::json!({
+            "registryId": saved.registry_id, "seq": saved.seq, "chainHead": saved.chain_head
+        });
+        conn.execute(
+            "UPDATE app_settings SET value_json = ?1 WHERE key = 'trial_ledger_binding'",
+            [legacy.to_string()],
+        )
+        .unwrap();
+        assert_eq!(
+            read_workspace_binding(&conn).unwrap().unwrap().evidence,
+            None
+        );
+        drop(adopt(&mut conn, &scratch.root, &id, None).unwrap());
+        assert_eq!(read_workspace_binding(&conn).unwrap().unwrap(), saved);
+    }
 }
