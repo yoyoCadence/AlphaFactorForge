@@ -158,3 +158,17 @@ Status: Open。FU-1、FU-3 的一部分與 FU-9 需要先取得維護者決定�
 ## Resolution
 
 Pending. 每完成一項，在 §5 更新狀態與 PR，並在對應的 batch handoff 追加 Resolution。
+
+## Follow-up direction review（2026-10-04 追加）
+
+維護者請 Codex 獨立確認 D1–D7 的方向，並要求將意見交回原 agent 整理後開始修正。
+[方向確認與實作補正](2026-10-04-acceptance-followups-review-v1.md) 記錄建議方向及接手條件：
+
+- FU-1：快照涵蓋隔離家族、衝突來源與家族檢定數高水位；明訂持久保存時機、舊格式相容性與圍欄邊界。
+- FU-1 反例不能完全原樣採用：加入快照後，只斷言事件鏈不變，不再斷言整個 binding 不變；最終回退斷言保留。
+- FU-3：Vitest 4.1.11 另開 PR，保留 fixture 指令使用的直接 `vite-node` 依賴，補 peers 與產生指令驗收。
+- FU-4：使用 ES2020 相容的 `Object.prototype.hasOwnProperty.call`。
+- FU-5：非同步預覽補 DB mutex 等待期間的互動驗收；FU-7 的 Rust 測試必須逐案執行。
+- FU-9：區分版本不相容與資料損壞，保留歷史身分，前後端都禁止不合法啟動。
+
+本追加是交接意見，產品項目的 Open 狀態與原始驗收紀錄保留；原 agent 請先讀追加評估再整理任務。
