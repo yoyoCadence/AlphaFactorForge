@@ -5,7 +5,7 @@ Repo: yoyoCadence/AlphaFactorForge
 Supersedes: [工作單 v1](2026-10-04-acceptance-followups-work-order-v1.md)（保留作歷史；本版取代其中的建議欄與被修正的細節）
 Inputs: [Codex 方向確認與實作補正](2026-10-04-acceptance-followups-review-v1.md)、[驗收總覽](2026-10-04-pr001-130-acceptance-index-v1.md)
 Baseline: `5b4a562`（若 `main` 前進，開工前重新確認行號）
-Status: **FU-1–FU-9 已實作與本機驗證**；#143–#151 已合併，FU-9 待發布／CI／合併。D1–D7 與 FU-1／FU-9 方案依既有授權執行，詳見 §7 與追加 Resolution。O1–O4 仍待人工驗收。
+Status: **FU-1–FU-9 程式修正與自動化驗證完成**；PR #143–#152，最後 CI／合併證據記於 [#152](https://github.com/yoyoCadence/AlphaFactorForge/pull/152)。D1–D7 與 FU-1／FU-9 方案依既有授權執行，詳見 §7 與追加 Resolution。O1–O4 仍待人工驗收。
 
 ## 0. 這一版改了什麼
 
@@ -215,7 +215,7 @@ O1–O4 本次都沒有執行，不能當成已驗證。
 | 8 | FU-2＋FU-8 | PR106-115-B-R1、DOC-STATE-002 | **Done** | #149（`aa7a011`） | DOC-STATE-002 的其他文件仍開放 |
 | 9 | FU-6 | Low | **Done** | #150（`07b42cf`） | fixture 只更新來源 hash |
 | 10 | FU-7 | Low | **Done** | #151（`275c43a`） | 六項 CI 通過後合併；新案例能抓到原本抓不到的 RSI 突變 |
-| 11 | FU-9 | Low／design | **Done**（本機；待 PR 合併） | `feat/campaign-row-status` | 維護者要求接續並再次指示繼續；D6／§5.9 範圍不變 |
+| 11 | FU-9 | Low／design | **Done** | [#152](https://github.com/yoyoCadence/AlphaFactorForge/pull/152) | 維護者要求接續並再次指示繼續；D6／§5.9 範圍不變 |
 | — | O1–O4 | — | 待人工 | — | |
 
 ## 8. 已確認、不需要重做的檢查

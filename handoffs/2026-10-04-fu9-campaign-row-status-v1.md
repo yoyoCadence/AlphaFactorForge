@@ -3,7 +3,8 @@
 Date: 2026-10-04
 Repo: yoyoCadence/AlphaFactorForge
 Branch: `feat/campaign-row-status` (from merged PR #151, `275c43a`)
-Status: Implementation and full local verification complete; publication/CI/merge pending.
+PR: [#152](https://github.com/yoyoCadence/AlphaFactorForge/pull/152)
+Status: Implementation and full local verification complete; see PR #152 for final CI/merge evidence.
 
 ## Summary
 
@@ -63,3 +64,11 @@ Current-schema structural/field/identity failures are corrupt.
 New Rust tests cover structured version errors, mixed rows, invalid direct
 starts with zero run/admission/trial writes, continued valid starts, exact
 historical reports and database query failures.
+
+## Resolution
+
+Implementation commit `0044269`; PR #152 created with base `main`, head
+`feat/campaign-row-status`. After fetching/rebasing (already up to date),
+typecheck and all 32 campaign Rust tests pass again. This documentation update
+records the concrete PR; final-head CI and merge are checked on GitHub before
+the agent reports the continuation complete. O1–O4 remain explicitly open.
