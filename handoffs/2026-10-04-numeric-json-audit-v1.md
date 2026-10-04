@@ -65,4 +65,7 @@ production build, all-target check and targeted rustfmt/diff checks pass;
 clippy retains the five existing warnings. No rendered UI changed; local
 Playwright not rerun, existing full e2e/native suites remain CI gates.
 
-PR publication pending; merge requires all six jobs to pass on its final head.
+[PR #154](https://github.com/yoyoCadence/AlphaFactorForge/pull/154), base main,
+head `audit/numeric-json-roundtrip`; audit commit `8efdf63` after rebase,
+verification record `de49dc6`. The PR records final-head CI and merge status;
+merge requires all six jobs to pass on its final head.
