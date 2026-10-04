@@ -81,5 +81,7 @@ must not rerun this full acceptance or revise results to fit a new method.
 
 ## PR / CI
 
-Pending publication. Record the verified final head, six CI jobs and timing
-here before merging.
+[PR #153](https://github.com/yoyoCadence/AlphaFactorForge/pull/153), base main,
+head `feat/p12e7b-final-acceptance-results`; implementation commit `00b909e`.
+The PR records final-head CI, job timing and merge status before merging.
+Merge requires all six jobs to succeed on the unchanged final head.
