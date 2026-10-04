@@ -3,7 +3,7 @@
 Date: 2026-10-04
 Repo: yoyoCadence/AlphaFactorForge
 Branch: `ci/native-bridge-smoke`
-Status: In Progress; scoped plan recorded before implementation.
+Status: Complete locally; publishing for final-head native CI and merge.
 
 ## Scope / dependency reassessment
 
@@ -56,3 +56,20 @@ check was then added; final verification follows after rebase onto PR #156.
 
 Screenshot/result/log artifacts are under ignored test-results/native-smoke;
 CI uploads them on success or failure. No artifact or user data is committed.
+
+## Final local verification (2026-10-05)
+
+Rebased onto merged PR #156 (`863adaf7`), preserving its DB-ASYNC-001c task
+status and this task's dependency reassessment in the task-board conflict.
+Rebuilt the real debug binary with the same CI command (production typecheck/
+build also pass). The final native smoke passed in 8.9 s, including the
+wrong-key error `missing required key datasetId`, full event payload equality,
+zero console/runtime errors, verified process shutdown and temp deletion.
+
+A temporary test-only assertion mutation then forced a genuine failure. The
+launcher propagated failure, captured its screenshot/JSON and left no native
+app or new aff-native-* temp directory. The mutation was immediately restored;
+no bypass or failure switch is committed. Node syntax, PowerShell 5 parser and
+diff checks pass. The working source/manifest/capabilities/lockfiles are unchanged.
+Full unit/mock E2E suites are exercised by final-head CI, not repeated locally
+for this harness-only change. No native discovery/service/campaign claim is made.
