@@ -24,8 +24,12 @@ pub const CAMPAIGN_DECLARATION_VERSION: &str = "research-campaign-declaration-v1
 pub const CAMPAIGN_MAX_INSTRUMENTS: usize = 128;
 
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
-#[error("campaign declaration: {0}")]
-pub struct CampaignError(pub String);
+pub enum CampaignError {
+    #[error("campaign declaration: {0}")]
+    ContractVersion(String),
+    #[error("campaign declaration: {0}")]
+    InvalidDeclaration(String),
+}
 
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -112,7 +116,7 @@ fn require(condition: bool, message: impl Into<String>) -> Result<(), CampaignEr
     if condition {
         Ok(())
     } else {
-        Err(CampaignError(message.into()))
+        Err(CampaignError::InvalidDeclaration(message.into()))
     }
 }
 
@@ -127,8 +131,18 @@ fn hash_is_valid(value: &str) -> bool {
 /// domain-separated canonical identity encoding. Does not read a database,
 /// candles, results, ledger counts, time, or randomness; writes nothing.
 pub fn freeze_campaign(raw: &Value) -> Result<FrozenCampaignDeclaration, CampaignError> {
-    let mut declaration: Declaration =
-        serde_json::from_value(raw.clone()).map_err(|e| CampaignError(e.to_string()))?;
+    // An unsupported top-level version may have a different shape entirely.
+    if raw
+        .get("contractVersion")
+        .and_then(Value::as_str)
+        .is_some_and(|version| version != CAMPAIGN_DECLARATION_VERSION)
+    {
+        return Err(CampaignError::ContractVersion(
+            "unsupported contractVersion".into(),
+        ));
+    }
+    let mut declaration: Declaration = serde_json::from_value(raw.clone())
+        .map_err(|e| CampaignError::InvalidDeclaration(e.to_string()))?;
     require(
         declaration.contract_version == CAMPAIGN_DECLARATION_VERSION,
         "unsupported contractVersion",
@@ -166,10 +180,11 @@ pub fn freeze_campaign(raw: &Value) -> Result<FrozenCampaignDeclaration, Campaig
             WALK_FORWARD_EVIDENCE_VERSION,
         ),
     ] {
-        require(
-            value == expected,
-            format!("contracts.{name} must be {expected}"),
-        )?;
+        if value != expected {
+            return Err(CampaignError::ContractVersion(format!(
+                "contracts.{name} must be {expected}"
+            )));
+        }
     }
 
     // Reuse P12a's domains/cross-field validation, with synthetic counts ONLY
@@ -185,7 +200,7 @@ pub fn freeze_campaign(raw: &Value) -> Result<FrozenCampaignDeclaration, Campaig
         "maxBootstrapSamples": sampling.max_bootstrap_samples,
         "priorTrials": 0, "plannedTrials": 1, "testsPerTrial": 1
     }))
-    .map_err(|e| CampaignError(e.to_string()))?;
+    .map_err(|e| CampaignError::InvalidDeclaration(e.to_string()))?;
 
     require(
         (1..=CAMPAIGN_MAX_INSTRUMENTS).contains(&declaration.instruments.len()),
@@ -245,13 +260,15 @@ pub fn freeze_campaign(raw: &Value) -> Result<FrozenCampaignDeclaration, Campaig
             "foldValidationBars": policy.fold_validation_bars,
             "foldCount": policy.fold_count
         }))
-        .map_err(|e| CampaignError(e.to_string()))?;
+        .map_err(|e| CampaignError::InvalidDeclaration(e.to_string()))?;
     }
     declaration
         .instruments
         .sort_by(|a, b| a.instrument_id.cmp(&b.instrument_id));
-    let document = serde_json::to_value(declaration).map_err(|e| CampaignError(e.to_string()))?;
-    let encoded = canonical_bytes(&document).map_err(|e| CampaignError(e.to_string()))?;
+    let document = serde_json::to_value(declaration)
+        .map_err(|e| CampaignError::InvalidDeclaration(e.to_string()))?;
+    let encoded =
+        canonical_bytes(&document).map_err(|e| CampaignError::InvalidDeclaration(e.to_string()))?;
     let mut digest = Sha256::new();
     digest.update(CAMPAIGN_DECLARATION_VERSION.as_bytes());
     digest.update([0]);

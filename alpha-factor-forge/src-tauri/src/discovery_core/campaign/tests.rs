@@ -8,6 +8,39 @@ fn fixture() -> Value {
 }
 
 #[test]
+fn unsupported_versions_have_structured_errors_distinct_from_invalid_declarations() {
+    let mut raw = fixture();
+    raw["contractVersion"] = json!("research-campaign-declaration-v9");
+    raw["futureField"] = json!(true);
+    assert!(matches!(
+        freeze_campaign(&raw),
+        Err(CampaignError::ContractVersion(_))
+    ));
+    let original = fixture();
+    for key in original["contracts"].as_object().unwrap().keys() {
+        let mut raw = original.clone();
+        raw["contracts"][key] = json!("unknown-v9");
+        assert!(
+            matches!(
+                freeze_campaign(&raw),
+                Err(CampaignError::ContractVersion(_))
+            ),
+            "{key}"
+        );
+    }
+    for raw in [json!({}), json!({ "contractVersion": 9 }), {
+        let mut raw = original;
+        raw["instruments"][0]["snapshotId"] = json!("invalid");
+        raw
+    }] {
+        assert!(matches!(
+            freeze_campaign(&raw),
+            Err(CampaignError::InvalidDeclaration(_))
+        ));
+    }
+}
+
+#[test]
 fn freeze_round_trip_is_immutable_and_has_no_admission_claim() {
     let mut raw = fixture();
     let frozen = freeze_campaign(&raw).unwrap();
@@ -148,7 +181,7 @@ fn instrument_set_is_bounded_and_duplicates_cannot_hide_behind_other_fields() {
     duplicate["instruments"].as_array_mut().unwrap().push(other);
     assert!(freeze_campaign(&duplicate)
         .unwrap_err()
-        .0
+        .to_string()
         .contains("duplicate"));
     let mut empty = raw.clone();
     empty["instruments"] = json!([]);

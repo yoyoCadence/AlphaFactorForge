@@ -331,7 +331,7 @@ envelope commands below).
 | `list_market_snapshots` | newest 500 snapshots with dataset bounds, bar count and `qualificationEligible` | the snapshot's own rule; freezing still verifies |
 | `preview_research_campaign` (`declaration`) | `{campaignId, instruments[{instrumentId, resolved, barCount, error}]}` | stores nothing; a declaration that does not freeze is an error |
 | `freeze_research_campaign` (`declaration`) | `campaignId` | owner write; storing the same document again returns the same ID |
-| `list_research_campaigns` | stored campaigns, newest first, each re-frozen, with its runs and decision statuses | a row that no longer re-freezes is an error, never skipped |
+| `list_research_campaigns` | stored campaigns, newest first, with per-row validation status, raw declarations and historical runs | invalid rows stay visible; only database query failures fail the list (FU-9 below) |
 | `start_campaign_discovery` (`config`, `campaignId`, `instrumentId`) | run ID | `DiscoveryRunner::start_stored_campaign_for_request`: loads and re-freezes the stored campaign, then the P12d-2c path |
 | `get_campaign_admission` (`runId`) | the stored decision or `null` | `report` is the full `research-campaign-admission-v1` document |
 
@@ -390,3 +390,29 @@ register `testsPerTrial = 2` and a family's count only rises
 effective count, so P12a's `m` doubles for families first pinned at one test.
 The §6.4 fence reports a raised count as `grew`, so a decision made before the
 upgrade is re-evaluated with the larger `m` before anything acts on it.
+
+## FU-9 stored declaration compatibility (2026-10-04)
+
+The saved list diagnoses each row independently without updating SQLite.
+`status` is `valid`, `incompatible` (an unsupported declaration or pinned
+contract version), or `corrupt` (malformed JSON, invalid fields, an identity
+mismatch, or inconsistent stored version metadata). Version errors are typed
+`CampaignError::ContractVersion`, never classified by matching message text.
+`reason` is null for valid rows and contains the validation error otherwise.
+Actual SQLite query failures still fail the whole command.
+
+Every row retains its original `campaignId`, `version`, `createdAt`, exact
+`rawDocumentJson` and historical `runs`. `document` contains a re-validated
+canonical declaration only for `valid`; other rows return null. The UI labels
+raw JSON as unverified display data, displays the reason and disables invalid
+starts without reading raw JSON as run configuration. A valid declaration is
+not proof that its snapshot or ledger still qualifies.
+
+`get_campaign` and the shared embedded/service stored-campaign start path
+continue to re-freeze and check identity and version metadata before any run
+or trial write. `get_campaign_admission` reads the original historical report
+independently of declaration compatibility; displaying a past decision grants
+no present admission. Report JSON/database errors still fail that read.
+No schema, pinned version or saved record changes. A future migration must
+create a new declaration and ID while preserving the original and its lineage;
+that migration is outside FU-9.

@@ -77,3 +77,32 @@ test('starts a saved campaign after its snapshot ages out of the authoring list'
   await page.getByTestId(`campaign-start-${btc}`).click();
   await expect(page.getByTestId('campaign-decision-view')).toContainText('Admission：ELIGIBLE');
 });
+
+test('isolates incompatible and corrupt saved rows while preserving valid starts and history', async ({ page }) => {
+  await page.goto('/?mock=1&campaignMixedRows=1&discoveryStep=30', { waitUntil: 'domcontentloaded' });
+  await page.getByTestId('campaign-toggle').click();
+  await add(page, 'a'.repeat(64), 'Policy authored before the result.');
+  await page.getByTestId('campaign-preview-button').click();
+  await expect(page.getByTestId('campaign-freeze')).toBeEnabled();
+  await page.getByTestId('campaign-freeze').click();
+  const incompatible = page.getByTestId('campaign-saved-incompatible-campaign');
+  const corrupt = page.getByTestId('campaign-saved-corrupt-campaign');
+  await expect(incompatible.getByTestId('campaign-row-status')).toContainText('版本不相容');
+  await expect(incompatible).toContainText('contracts.metrics');
+  await expect(corrupt.getByTestId('campaign-row-status')).toContainText('資料損壞／身分不符');
+  for (const row of [incompatible, corrupt]) {
+    await expect(row.getByRole('button', { name: '無法啟動此宣告' })).toBeDisabled();
+    await row.getByText('原始宣告（未驗證）', { exact: true }).click();
+  }
+  await expect(incompatible.locator('pre')).toContainText('metrics-unsupported-v9');
+  await expect(corrupt.locator('pre')).toHaveText('{"instruments":42');
+  await incompatible.getByTestId('campaign-decision-900001').click();
+  await expect(page.getByTestId('campaign-decision-view')).toContainText('Admission：ELIGIBLE');
+  await page.getByTestId(`campaign-start-${btc}`).click();
+  await expect(page.getByTestId('campaign-message')).toContainText('探索任務 #1');
+  await expect(page.getByTestId('campaign-decision-view')).toContainText('run #1');
+  await expect(page.getByTestId('campaign-error')).toHaveCount(0);
+  await page.getByTestId('campaign-refresh').click();
+  await expect(incompatible.getByTestId('campaign-row-status')).toContainText('版本不相容');
+  await expect(corrupt.getByTestId('campaign-row-status')).toContainText('資料損壞／身分不符');
+});

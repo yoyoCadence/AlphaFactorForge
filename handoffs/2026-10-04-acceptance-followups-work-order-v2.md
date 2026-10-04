@@ -5,7 +5,7 @@ Repo: yoyoCadence/AlphaFactorForge
 Supersedes: [工作單 v1](2026-10-04-acceptance-followups-work-order-v1.md)（保留作歷史；本版取代其中的建議欄與被修正的細節）
 Inputs: [Codex 方向確認與實作補正](2026-10-04-acceptance-followups-review-v1.md)、[驗收總覽](2026-10-04-pr001-130-acceptance-index-v1.md)
 Baseline: `5b4a562`（若 `main` 前進，開工前重新確認行號）
-Status: **決定已確認（D1–D7）**，依 §3 的順序執行。FU-1 與 FU-9 先以本文件的 Mode A 方案送審，核可後實作；其餘可直接實作。產品修正尚未開始。
+Status: **FU-1–FU-9 已實作與本機驗證**；#143–#151 已合併，FU-9 待發布／CI／合併。D1–D7 與 FU-1／FU-9 方案依既有授權執行，詳見 §7 與追加 Resolution。O1–O4 仍待人工驗收。
 
 ## 0. 這一版改了什麼
 
@@ -214,8 +214,8 @@ O1–O4 本次都沒有執行，不能當成已驗證。
 | 7 | FU-3c | PR046-055-H-R1 | **Done** | #148（`c13cd2d`） | 定期完整 audit 另列 `SEC-NPM-AUDIT-SCHEDULE-001` |
 | 8 | FU-2＋FU-8 | PR106-115-B-R1、DOC-STATE-002 | **Done** | #149（`aa7a011`） | DOC-STATE-002 的其他文件仍開放 |
 | 9 | FU-6 | Low | **Done** | #150（`07b42cf`） | fixture 只更新來源 hash |
-| 10 | FU-7 | Low | **Done**（待 PR 合併） | 由 `test/indicator-fixture-edges` 開出 | 新案例能抓到原本抓不到的 RSI 突變 |
-| 11 | FU-9 | Low／design | Design first | — | 下次升級釘選合約版本前 |
+| 10 | FU-7 | Low | **Done** | #151（`275c43a`） | 六項 CI 通過後合併；新案例能抓到原本抓不到的 RSI 突變 |
+| 11 | FU-9 | Low／design | **Done**（本機；待 PR 合併） | `feat/campaign-row-status` | 維護者要求接續並再次指示繼續；D6／§5.9 範圍不變 |
 | — | O1–O4 | — | 待人工 | — | |
 
 ## 8. 已確認、不需要重做的檢查
@@ -230,3 +230,17 @@ Pending. 每完成一個切片，在 §7 更新狀態與 PR，並在對應的 ba
 ### Resolution — FU-1（2026-10-04）
 
 §5.1 方案經維護者核可（回退使用新增的 `RegistryEvidenceRolledBack`；`fence_admission` 改用共用的事件前綴判定，不從 `AdmissionSnapshot` 組出空證據綁定），已實作。詳見 [FU-1 handoff](2026-10-04-fu1-ledger-evidence-snapshot-v1.md)。
+
+### Resolution — FU-7／FU-9 接續（2026-10-04）
+
+前一個 agent 停在 #151，Codex 核對該 head `8416dce` 的六項 CI 通過後，
+依維護者的接續／合併指示合併為 `275c43a`。FU-9 延續已確認的 D6／§5.9；
+維護者在方案與進度說明後再次指示「繼續吧」。沒有新增遷移或釘選版本決策。
+
+FU-9 已實作：結構化版本錯誤，逐列 `valid`／`incompatible`／`corrupt`；
+`document` 只給有效列，不合法列為 null，原始 JSON 保存在 `rawDocumentJson`
+供未驗證內容的顯示。後端仍拒絕直接啟動，歷史判定獨立讀取。SQLite 查詢失敗
+仍整體回報。1075 Vitest、578 Rust（1 ignored）、83 Playwright、typecheck、
+build、all-target check／clippy 通過，五個既有 warning 不變。
+詳見 [FU-9 handoff](2026-10-04-fu9-campaign-row-status-v1.md)。
+O1–O4 未執行；其他 Backlog 與 P12 產品順序不變，未使用保留最終 seed。
