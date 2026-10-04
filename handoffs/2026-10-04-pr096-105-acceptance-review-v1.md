@@ -60,3 +60,7 @@ Informational.
 本檔的發現已整理進 [驗收後續工作單](2026-10-04-acceptance-followups-work-order-v1.md)，請接手的 agent 從那裡開始：
 
 - README 進度停在 P11 → **FU-8**（併入 `DOC-STATE-002`，可與 FU-2 同一個 PR）。
+
+### Resolution — FU-8（2026-10-04）
+
+README 三語在 P11 段落後補上 P12 進度（精度預檢、試驗帳本含證據快照、walk-forward、campaign 宣告與 admission；確認統計 v2 已凍結但最終驗收未執行、P13 仍阻擋），並註明狀態以 `tasks.md` 為準。`DOC-STATE-002` 的其他文件（`alpha-factor-forge/TODO.md`、`PHASE_A_VERIFY.md`）不在本切片範圍。

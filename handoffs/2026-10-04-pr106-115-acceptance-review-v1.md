@@ -71,3 +71,7 @@ Pending for B-R1 (documentation). The operator acceptance items above are inform
 
 - B-R1 → **FU-2**；AGENTS.md 的措辭需要 **D3**。
 - 三項 operator acceptance → 工作單 §3 的 **O1**（P01 native 重開）、**O2**（P09 Tiingo）、**O4**（`control-token` 權限）。
+
+### Resolution — FU-2（2026-10-04）
+
+B-R1 已在 `docs/rust-msrv-and-progress` 修正：README 三語改為 Rust 1.89+ 並註明以 `Cargo.toml` 的 `rust-version` 為準；`alpha-factor-forge/README.md` 改為 ≥ 1.89；`AGENTS.md` 依 D3 改為「最低版本 = `alpha-factor-forge/src-tauri/Cargo.toml` 的 `rust-version`」。`grep 1.77` 已無結果。
