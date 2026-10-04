@@ -29,6 +29,10 @@ New advisories after SEC-002 brought `npm audit` back to 6 findings (3 high, 3 m
 - The lockfile changes stay inside Vitest's own tree (all `dev`): the `@vitest/*` packages, chai 6, std-env 4, tinyexec 1, tinyrainbow 3, new obug and `@standard-schema/spec`, and removed tinypool, tinyspy, loupe, deep-eql, check-error, pathval and strip-literal. `vite` and `vite-node` are unchanged; `npm ls --all` is clean.
 - `npm audit --json` and `npm audit --omit=dev --json` both report **0** again, so the acceptance gates of this document hold. Typecheck, 1073 unit tests (now on Vitest 4.1.11), the production build and 82/82 Playwright pass; the dev server still listens on loopback only.
 
+## CI guard — 2026-10-04 (FU-3c)
+
+The `typecheck` job now runs `npm audit --omit=dev` after the typecheck. It guards **production dependencies only**: any advisory npm reports for them fails the job, and a registry outage fails it too (rerun; do not skip). devDependencies are not covered by CI and stay triaged by hand under this document — including the ban on `npm audit fix`. A scratch project confirmed the behaviour: a vulnerable production dependency exits 1, a vulnerable devDependency alone exits 0. Periodic full-audit tracking is a separate Backlog item (`SEC-NPM-AUDIT-SCHEDULE-001`).
+
 The remainder of this document preserves the original SEC-001 evidence and decision trail that led to the remediation.
 
 ## Executive summary

@@ -31,6 +31,14 @@ jobs:
       - name: Run TypeScript typecheck
         run: npm run typecheck
 
+      # Production dependencies only (maintainer decision 2026-10-04, FU-3c):
+      # fails on any advisory npm reports for them. devDependencies are not
+      # covered here; they are triaged by hand per docs/security-audit-npm.md,
+      # which also forbids `npm audit fix`. A registry outage fails this step
+      # too: rerun the job rather than skipping the check.
+      - name: Audit production dependencies
+        run: npm audit --omit=dev
+
   test:
     name: test
     runs-on: ubuntu-latest
