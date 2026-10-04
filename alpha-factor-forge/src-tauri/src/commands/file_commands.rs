@@ -10,7 +10,7 @@ use tauri::{AppHandle, Manager};
 use crate::error::{AppError, AppResult};
 
 #[tauri::command]
-pub fn save_report(
+pub async fn save_report(
     app: AppHandle,
     suggested_filename: String,
     contents: String,
@@ -19,11 +19,14 @@ pub fn save_report(
         .path()
         .download_dir()
         .map_err(|e| AppError::Other(format!("no downloads dir: {e}")))?;
-    std::fs::create_dir_all(&dir)?;
-
-    let file_name = safe_report_filename(&suggested_filename)?;
-    let path = write_new_report(&dir, &file_name, &contents)?;
-    Ok(path.to_string_lossy().into_owned())
+    tauri::async_runtime::spawn_blocking(move || {
+        std::fs::create_dir_all(&dir)?;
+        let file_name = safe_report_filename(&suggested_filename)?;
+        let path = write_new_report(&dir, &file_name, &contents)?;
+        Ok(path.to_string_lossy().into_owned())
+    })
+    .await
+    .map_err(|error| AppError::Other(format!("report command task failed: {error}")))?
 }
 
 /// TODO(local): render a backtest result to a report file (JSON/CSV/HTML) and

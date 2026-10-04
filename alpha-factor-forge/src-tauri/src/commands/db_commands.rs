@@ -10,6 +10,22 @@ use crate::db::repositories::{
 use crate::error::{AppError, AppResult};
 use crate::AppState;
 
+/// Heavy command work owns the existing DB mutex on a blocking worker, never
+/// on the thread polling the Tauri command. Repository transactions stay intact.
+async fn database_task<T: Send + 'static>(
+    db: crate::runtime::SharedDb,
+    operation: impl FnOnce(&mut rusqlite::Connection) -> AppResult<T> + Send + 'static,
+) -> AppResult<T> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut conn = db
+            .lock()
+            .map_err(|_| AppError::Other("db lock poisoned".into()))?;
+        operation(&mut conn)
+    })
+    .await
+    .map_err(|error| AppError::Other(format!("database command task failed: {error}")))?
+}
+
 /// Migrations run automatically at startup (runtime::open_workspace). These two are
 /// exposed for explicit re-trigger / health-check from Settings.
 #[tauri::command]
@@ -38,28 +54,31 @@ pub fn get_datasets(state: State<AppState>) -> AppResult<Vec<Dataset>> {
 }
 
 #[tauri::command]
-pub fn get_candles(
-    state: State<AppState>,
+pub async fn get_candles(
+    state: State<'_, AppState>,
     dataset_id: i64,
     from: i64,
     to: i64,
 ) -> AppResult<Vec<Candle>> {
-    let db = state.db()?;
-    let conn = db.lock().map_err(|_| AppError::Other("db lock poisoned".into()))?;
-    repositories::get_candles(&conn, dataset_id, from, to)
+    database_task(state.db()?, move |conn| {
+        repositories::get_candles(conn, dataset_id, from, to)
+    })
+    .await
 }
 
 /// Import a batch of candles. Rust recomputes the v2 content identity and owns
 /// the single transaction for the dataset row plus every candle.
 #[tauri::command]
-pub fn import_candles(
-    state: State<AppState>,
+pub async fn import_candles(
+    state: State<'_, AppState>,
     dataset: Dataset,
     candles: Vec<Candle>,
 ) -> AppResult<i64> {
-    let db = state.db()?;
-    let mut conn = db.lock().map_err(|_| AppError::Other("db lock poisoned".into()))?;
-    repositories::import_dataset_with_candles(&mut conn, &dataset, &candles)
+    let _admitted = state.admission.admit()?;
+    database_task(state.db()?, move |conn| {
+        repositories::import_dataset_with_candles(conn, &dataset, &candles)
+    })
+    .await
 }
 
 #[tauri::command]
@@ -80,14 +99,16 @@ pub fn get_strategies(state: State<AppState>) -> AppResult<Vec<StrategyDef>> {
 /// Phase A stores the metric columns; gate/score/benchmark stay null until
 /// Phase B. Re-saving the same summary key replaces its prior trade rows.
 #[tauri::command]
-pub fn save_backtest_result(
-    state: State<AppState>,
+pub async fn save_backtest_result(
+    state: State<'_, AppState>,
     summary: BacktestSummary,
     trades: Vec<TradeRow>,
 ) -> AppResult<i64> {
-    let db = state.db()?;
-    let mut conn = db.lock().map_err(|_| AppError::Other("db lock poisoned".into()))?;
-    repositories::save_backtest_result(&mut conn, &summary, &trades)
+    let _admitted = state.admission.admit()?;
+    database_task(state.db()?, move |conn| {
+        repositories::save_backtest_result(conn, &summary, &trades)
+    })
+    .await
 }
 
 #[tauri::command]
@@ -120,25 +141,27 @@ pub fn get_backtest_result_detail(
 /// is fully validated BEFORE the transaction opens; any write failure rolls
 /// everything back. Returns the new record id.
 #[tauri::command]
-pub fn save_validation_record(
-    state: State<AppState>,
+pub async fn save_validation_record(
+    state: State<'_, AppState>,
     train_summary: BacktestSummary,
     train_trades: Vec<TradeRow>,
     validation_summary: BacktestSummary,
     validation_trades: Vec<TradeRow>,
     record: ValidationRecordRow,
 ) -> AppResult<i64> {
-    repositories::validate_validation_bundle(&train_summary, &validation_summary, &record)?;
-    let db = state.db()?;
-    let mut conn = db.lock().map_err(|_| AppError::Other("db lock poisoned".into()))?;
-    repositories::save_validation_bundle(
-        &mut conn,
-        &train_summary,
-        &train_trades,
-        &validation_summary,
-        &validation_trades,
-        &record,
-    )
+    let _admitted = state.admission.admit()?;
+    database_task(state.db()?, move |conn| {
+        repositories::validate_validation_bundle(&train_summary, &validation_summary, &record)?;
+        repositories::save_validation_bundle(
+            conn,
+            &train_summary,
+            &train_trades,
+            &validation_summary,
+            &validation_trades,
+            &record,
+        )
+    })
+    .await
 }
 
 #[tauri::command]
@@ -157,3 +180,7 @@ pub fn get_validation_record(state: State<AppState>, id: i64) -> AppResult<Valid
     let conn = db.lock().map_err(|_| AppError::Other("db lock poisoned".into()))?;
     repositories::get_validation_record(&conn, id)
 }
+
+#[cfg(test)]
+#[path = "db_commands/tests.rs"]
+mod tests;
