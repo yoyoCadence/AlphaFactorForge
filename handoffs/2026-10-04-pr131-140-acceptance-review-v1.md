@@ -135,3 +135,11 @@ cargo test --locked --bin alpha-factor-forge review_a_restored -- --nocapture
 ## Resolution
 
 Pending. 處理 R1 的人請追加決定、變更 commit 與對應的回歸結果，並保留本次的原始證據。
+
+## Follow-up work order（2026-10-04 追加）
+
+本檔的發現已整理進 [驗收後續工作單](2026-10-04-acceptance-followups-work-order-v1.md)，請接手的 agent 從那裡開始：
+
+- R1 → **FU-1**（與 PR126-130-A-R1 同一個根因，一起處理）；需要 **D1、D2**。
+- O1（#131 native campaign smoke）→ 工作單 §3 的 **O3**，含完整步驟；注意服務 `fetch` 要帶 `--cost-profile`，否則 snapshot 為 degraded、預覽會拒絕。
+- O2（兩個常數未綁定、奇數檢定數會讓確認 fail closed）留給 P13 設計時處理，未列為獨立工作項目。

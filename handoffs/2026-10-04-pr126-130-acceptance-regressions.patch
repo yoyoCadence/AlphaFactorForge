@@ -1,0 +1,67 @@
+diff --git a/alpha-factor-forge/src-tauri/src/research/trial_ledger_transfer.rs b/alpha-factor-forge/src-tauri/src/research/trial_ledger_transfer.rs
+index 9a7f416..969b423 100644
+--- a/alpha-factor-forge/src-tauri/src/research/trial_ledger_transfer.rs
++++ b/alpha-factor-forge/src-tauri/src/research/trial_ledger_transfer.rs
+@@ -2654,4 +2654,62 @@ mod tests {
+             ))
+         );
+     }
++
++    // -------------- PR #126-#130 acceptance review R1 (counterexample only)
++    //
++    // §20 makes an import conflict a permanent quarantine. The import that
++    // detects it adds no event (the conflicting row is withheld), so the chain
++    // head does not move. Restoring a copy of the registry taken before that
++    // import, as `r4_the_reopen_watermark_detects_a_later_rollback` does,
++    // still proves the saved binding and the quarantine is gone.
++    #[test]
++    fn review_a_restored_registry_releases_an_import_quarantine_unseen() {
++        use super::super::{BindingCheck, REGISTRY_FILE_NAME};
++        let (a, b) = (Dirs::new(), Dirs::new());
++        let source = a.open();
++        let conflicting = b.open();
++        let registered = source.register_batch(&batch("same")).unwrap();
++        let BindingCheck::Current(observed) = source.check_binding(None).unwrap() else {
++            panic!("expected a current binding");
++        };
++        drop(source);
++        let file = a.registry.join(REGISTRY_FILE_NAME);
++        let backup = a.root.join("registry-before-import.sqlite3");
++        std::fs::copy(&file, &backup).unwrap();
++
++        let mut changed = batch("same");
++        changed.events[0].strategy_hash = Some("different-strategy".into());
++        conflicting.register_batch(&changed).unwrap();
++        let source = a.open();
++        let summary = source
++            .import_json_lines(&conflicting.export_json_lines().unwrap())
++            .unwrap();
++        assert_eq!(summary.added_events, 0, "the conflicting event is withheld");
++        assert_eq!(
++            source.read_admission_count(&registered.batch_id).unwrap(),
++            Admission::Blocked(AdmissionBlocked::FamilyQuarantined)
++        );
++        let BindingCheck::Current(after) = source.check_binding(Some(&observed)).unwrap() else {
++            panic!("expected a current binding");
++        };
++        assert_eq!(after, observed, "the quarantine did not move the head");
++        drop(source);
++
++        for suffix in ["-wal", "-shm"] {
++            let mut sidecar = file.clone().into_os_string();
++            sidecar.push(suffix);
++            let _ = std::fs::remove_file(PathBuf::from(sidecar));
++        }
++        std::fs::copy(&backup, &file).unwrap();
++        let restored = a.open();
++        let check = restored.check_binding(Some(&after)).unwrap();
++        let admission = restored.read_admission_count(&registered.batch_id).unwrap();
++        // Desired: the restored copy is not Current, or it is still
++        // quarantined. Observed on 5b4a562: Current and a plain count.
++        assert!(
++            !matches!(check, BindingCheck::Current(_))
++                || admission == Admission::Blocked(AdmissionBlocked::FamilyQuarantined),
++            "restored copy is {check:?} with admission {admission:?}"
++        );
++    }
+ }

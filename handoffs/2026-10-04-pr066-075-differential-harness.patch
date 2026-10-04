@@ -1,0 +1,296 @@
+diff --git a/alpha-factor-forge/scripts/_review-diff-backtest.ts b/alpha-factor-forge/scripts/_review-diff-backtest.ts
+new file mode 100644
+index 0000000..237ceea
+--- /dev/null
++++ b/alpha-factor-forge/scripts/_review-diff-backtest.ts
+@@ -0,0 +1,74 @@
++// TEMPORARY (PR acceptance review): random TS-reference cases for a Rust
++// differential run. Not committed.
++import { writeFileSync } from 'node:fs';
++import { runBacktest, type BacktestConfig } from '../src/core/backtest';
++import { encodeMetricsForParity } from '../src/parity/parityEncode';
++
++function mulberry32(seed: number) {
++  return () => {
++    seed |= 0; seed = (seed + 0x6d2b79f5) | 0;
++    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
++    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
++    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
++  };
++}
++const rnd = mulberry32(Number(process.env.SEED ?? 20261004));
++const pick = <T,>(xs: T[]): T => xs[Math.floor(rnd() * xs.length)];
++const N = Number(process.env.CASES ?? 600);
++const cases: unknown[] = [];
++const errors: unknown[] = [];
++let skipped = 0;
++for (let k = 0; k < N; k++) {
++  const n = pick([2, 3, 5, 10, 40, 120, 300]);
++  const step = pick([3_600_000, 86_400_000]);
++  const t0 = Date.UTC(2024, pick([0, 1, 5, 11]), pick([1, 15, 28]), 0, 0, 0);
++  let price = pick([0.5, 20, 100, 30_000]);
++  const candles = [];
++  for (let i = 0; i < n; i++) {
++    const gap = rnd() < 0.1 ? (rnd() - 0.5) * 0.2 : 0;
++    const open = i === 0 ? price : price * (1 + gap);
++    const close = open * (1 + (rnd() - 0.5) * 0.06);
++    const high = Math.max(open, close) * (1 + rnd() * 0.03);
++    const low = Math.min(open, close) * (1 - rnd() * 0.03);
++    candles.push({ timestamp: t0 + i * step, open, high, low, close, volume: Math.round(rnd() * 1000) });
++    price = close;
++  }
++  const p = pick([0.05, 0.2, 0.5]);
++  const signals = {
++    entry: Array.from({ length: n }, () => rnd() < p),
++    exit: Array.from({ length: n }, () => rnd() < p),
++  };
++  const config: BacktestConfig = {
++    exec: {
++      direction: pick(['long', 'short', 'both'] as const),
++      sizingPct: pick([1, 1, 0.5, 0.25, 0.001, 0]),
++      fillMode: pick(['close', 'nextOpen'] as const),
++    },
++    cost: { feePct: pick([0, 0.0005, 0.001, 0.01]), slippagePct: pick([0, 0.0002, 0.002]) },
++    barsPerYear: pick([8760, 365, 252]),
++  };
++  if (rnd() < 0.5) {
++    const risk: NonNullable<BacktestConfig['risk']> = {};
++    if (rnd() < 0.7) risk.stopLossPct = pick([0.005, 0.02, 0.1]);
++    if (rnd() < 0.7) risk.takeProfitPct = pick([0.005, 0.03, 0.2]);
++    config.risk = risk;
++  }
++  if (rnd() < 0.3) config.startEquity = pick([1, 1000, 123456.78]);
++  if (rnd() < 0.25 && n > 2) {
++    const a = Math.floor(rnd() * n), b = Math.floor(rnd() * n);
++    config.from = Math.min(a, b); config.to = Math.max(a, b);
++  }
++  const core = candles.map((c) => ({ t: c.timestamp, o: c.open, h: c.high, l: c.low, c: c.close, v: c.volume }));
++  try {
++    const result = runBacktest(core, signals, config);
++    const finite = result.trades.every((t) => [t.entryPrice, t.exitPrice, t.pnl, t.pnlPct].every(Number.isFinite))
++      && result.equity.every((e) => Number.isFinite(e.equity));
++    if (!finite) { skipped++; continue; }
++    cases.push({ id: `rand-${k}`, input: { candles, signals, config }, expected: {
++      trades: result.trades, equity: result.equity, metrics: encodeMetricsForParity(result.metrics) } });
++  } catch (error) {
++    errors.push({ id: `rand-err-${k}`, input: { candles, signals, config }, expectedErrorIncludes: '' , message: String(error) });
++  }
++}
++writeFileSync(process.env.OUT!, JSON.stringify({ cases, errorCases: errors }));
++console.log(`cases=${cases.length} errors=${errors.length} skippedNonFinite=${skipped}`);
+diff --git a/alpha-factor-forge/scripts/_review-diff-indicators.ts b/alpha-factor-forge/scripts/_review-diff-indicators.ts
+new file mode 100644
+index 0000000..1747e7d
+--- /dev/null
++++ b/alpha-factor-forge/scripts/_review-diff-indicators.ts
+@@ -0,0 +1,35 @@
++// TEMPORARY (PR acceptance review): random TS-reference indicator cases.
++import { writeFileSync } from 'node:fs';
++import { sma, ema, wma, rsi, macd, trueRange, atr, bbands, stddev, highest, lowest, roc } from '../src/core/indicators';
++
++function mulberry32(seed: number) {
++  return () => { seed |= 0; seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
++    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
++}
++const rnd = mulberry32(Number(process.env.SEED ?? 11));
++const pick = <T,>(xs: T[]): T => xs[Math.floor(rnd() * xs.length)];
++const bits = (xs: number[]) => xs.map((x) => { const b = Buffer.alloc(8); b.writeDoubleBE(x); return b.toString("hex"); });
++const enc = (xs: number[]) => xs.map((x) => (Number.isFinite(x) ? x : String(x)));
++const cases = [];
++for (let k = 0; k < Number(process.env.CASES ?? 800); k++) {
++  const n = pick([1, 2, 3, 5, 8, 15, 30, 60, 200]);
++  let p = pick([0.001, 1, 100, 50000]);
++  const close: number[] = [], high: number[] = [], low: number[] = [];
++  const flat = rnd() < 0.3;
++  for (let i = 0; i < n; i++) {
++    if (!(flat && rnd() < 0.6)) p = p * (1 + (rnd() - 0.5) * pick([0, 0.02, 0.2]));
++    close.push(p); high.push(p * (1 + rnd() * 0.01)); low.push(p * (1 - rnd() * 0.01));
++  }
++  const per = () => pick([1, 2, 3, 5, 7, 14, 20, 26, 50, 250]);
++  const prm = { sma: per(), ema: per(), wma: per(), rsi: per(), macdFast: per(), macdSlow: per(), macdSignal: per(),
++    atr: per(), bb: per(), bbMult: pick([0.5, 2, 3]), sd: per(), ext: per(), roc: per() };
++  const m = macd(close, prm.macdFast, prm.macdSlow, prm.macdSignal);
++  const b = bbands(close, prm.bb, prm.bbMult);
++  cases.push({ id: `ind-${k}`, close: bits(close), high: bits(high), low: bits(low), prm, expected: {
++    sma: enc(sma(close, prm.sma)), ema: enc(ema(close, prm.ema)), wma: enc(wma(close, prm.wma)), rsi: enc(rsi(close, prm.rsi)),
++    macd: enc(m.macd), macdSignal: enc(m.signal), macdHist: enc(m.hist), trueRange: enc(trueRange(high, low, close)),
++    atr: enc(atr(high, low, close, prm.atr)), bbMiddle: enc(b.middle), bbUpper: enc(b.upper), bbLower: enc(b.lower),
++    stddev: enc(stddev(close, prm.sd)), highest: enc(highest(close, prm.ext)), lowest: enc(lowest(close, prm.ext)), roc: enc(roc(close, prm.roc)) } });
++}
++writeFileSync(process.env.OUT!, JSON.stringify({ cases }));
++console.log(`cases=${cases.length}`);
+diff --git a/alpha-factor-forge/src-tauri/src/discovery_core/mod.rs b/alpha-factor-forge/src-tauri/src/discovery_core/mod.rs
+index b127696..4eee275 100644
+--- a/alpha-factor-forge/src-tauri/src/discovery_core/mod.rs
++++ b/alpha-factor-forge/src-tauri/src/discovery_core/mod.rs
+@@ -34,6 +34,8 @@ pub mod walk_forward;
+ #[cfg(test)]
+ mod backtest_parity_tests;
+ #[cfg(test)]
++mod review_diff_tests;
++#[cfg(test)]
+ mod benchmark_parity_tests;
+ #[cfg(test)]
+ mod etf_parity_tests;
+diff --git a/alpha-factor-forge/src-tauri/src/discovery_core/review_diff_tests.rs b/alpha-factor-forge/src-tauri/src/discovery_core/review_diff_tests.rs
+new file mode 100644
+index 0000000..8f48f17
+--- /dev/null
++++ b/alpha-factor-forge/src-tauri/src/discovery_core/review_diff_tests.rs
+@@ -0,0 +1,156 @@
++// TEMPORARY (PR acceptance review): Rust engine vs random TS-reference cases.
++use serde::Deserialize;
++
++use super::backtest::{run_backtest, BacktestConfig, Signals};
++use super::parity_support::{
++    assert_equity, assert_metrics, assert_trades, ExpectedEquity, ExpectedMetrics, ExpectedTrade,
++    NumericTolerance,
++};
++use super::types::Candle;
++
++#[derive(Debug, Deserialize)]
++#[serde(rename_all = "camelCase")]
++struct Fixture {
++    cases: Vec<ParityCase>,
++}
++
++#[derive(Debug, Deserialize)]
++struct ParityCase {
++    id: String,
++    input: CaseInput,
++    expected: ExpectedOutput,
++}
++
++#[derive(Debug, Deserialize)]
++struct CaseInput {
++    candles: Vec<Candle>,
++    signals: Signals,
++    config: BacktestConfig,
++}
++
++#[derive(Debug, Deserialize)]
++#[serde(rename_all = "camelCase")]
++struct ExpectedOutput {
++    trades: Vec<ExpectedTrade>,
++    equity: Vec<ExpectedEquity>,
++    metrics: ExpectedMetrics,
++}
++
++#[test]
++fn review_rust_backtest_matches_random_typescript_cases() {
++    let Ok(path) = std::env::var("AFF_REVIEW_DIFF_JSON") else {
++        return;
++    };
++    let fixture: Fixture =
++        serde_json::from_str(&std::fs::read_to_string(path).unwrap()).expect("parse");
++    let tolerance = NumericTolerance { absolute: 1e-12, relative: 1e-10 };
++    let mut failures = Vec::new();
++    std::panic::set_hook(Box::new(|_| {}));
++    for case in &fixture.cases {
++        let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
++            let result = run_backtest(&case.input.candles, &case.input.signals, &case.input.config)
++                .unwrap_or_else(|error| panic!("{}: engine failed: {error}", case.id));
++            assert_trades(&case.id, &result.trades, &case.expected.trades, tolerance);
++            assert_equity(&case.id, &result.equity, &case.expected.equity, tolerance);
++            assert_metrics(&case.id, &result.metrics, &case.expected.metrics, tolerance);
++        }));
++        if let Err(payload) = outcome {
++            let message = payload
++                .downcast_ref::<String>()
++                .cloned()
++                .or_else(|| payload.downcast_ref::<&str>().map(|s| s.to_string()))
++                .unwrap_or_default();
++            failures.push(format!("{}: {}", case.id, message.lines().next().unwrap_or("")));
++        }
++    }
++    let _ = std::panic::take_hook();
++    println!("checked {} cases, {} differ", fixture.cases.len(), failures.len());
++    for failure in failures.iter().take(25) {
++        println!("  {failure}");
++    }
++    assert!(failures.is_empty());
++}
++
++// ---- indicators
++use super::indicators::{atr, bbands, ema, highest, lowest, macd, roc, rsi, sma, stddev, true_range, wma};
++
++#[derive(Debug, Deserialize)]
++#[serde(rename_all = "camelCase")]
++struct IndFixture {
++    cases: Vec<IndCase>,
++}
++
++#[derive(Debug, Deserialize)]
++#[serde(rename_all = "camelCase")]
++struct IndPrm {
++    sma: usize, ema: usize, wma: usize, rsi: usize, macd_fast: usize, macd_slow: usize,
++    macd_signal: usize, atr: usize, bb: usize, bb_mult: f64, sd: usize, ext: usize, roc: usize,
++}
++
++#[derive(Debug, Deserialize)]
++struct IndCase {
++    id: String,
++    close: Vec<String>,
++    high: Vec<String>,
++    low: Vec<String>,
++    prm: IndPrm,
++    expected: std::collections::BTreeMap<String, Vec<serde_json::Value>>,
++}
++
++fn same(actual: f64, expected: &serde_json::Value) -> bool {
++    match expected {
++        serde_json::Value::String(s) => match s.as_str() {
++            "NaN" => actual.is_nan(),
++            "Infinity" => actual == f64::INFINITY,
++            "-Infinity" => actual == f64::NEG_INFINITY,
++            _ => false,
++        },
++        serde_json::Value::Number(n) => {
++            let e = n.as_f64().unwrap();
++            if !actual.is_finite() { return false; }
++            let d = (actual - e).abs();
++            d <= 1e-12 || d <= 1e-10 * actual.abs().max(e.abs())
++        }
++        _ => false,
++    }
++}
++
++#[test]
++fn review_rust_indicators_match_random_typescript_cases() {
++    let Ok(path) = std::env::var("AFF_REVIEW_DIFF_IND_JSON") else { return; };
++    let fixture: IndFixture = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
++    let mut failures: Vec<String> = Vec::new();
++    let mut by_series: std::collections::BTreeMap<String, usize> = Default::default();
++    let de = |xs: &[String]| -> Vec<f64> { xs.iter().map(|h| f64::from_bits(u64::from_str_radix(h, 16).unwrap())).collect() };
++    for case in &fixture.cases {
++        let p = &case.prm;
++        let (close, high, low) = (de(&case.close), de(&case.high), de(&case.low));
++        let m = macd(&close, p.macd_fast, p.macd_slow, p.macd_signal);
++        let b = bbands(&close, p.bb, p.bb_mult);
++        let actual: Vec<(&str, Vec<f64>)> = vec![
++            ("sma", sma(&close, p.sma)), ("ema", ema(&close, p.ema)),
++            ("wma", wma(&close, p.wma)), ("rsi", rsi(&close, p.rsi)),
++            ("macd", m.macd), ("macdSignal", m.signal), ("macdHist", m.hist),
++            ("trueRange", true_range(&high, &low, &close).unwrap()),
++            ("atr", atr(&high, &low, &close, p.atr).unwrap()),
++            ("bbMiddle", b.middle), ("bbUpper", b.upper), ("bbLower", b.lower),
++            ("stddev", stddev(&close, p.sd)), ("highest", highest(&close, p.ext)),
++            ("lowest", lowest(&close, p.ext)), ("roc", roc(&close, p.roc)),
++        ];
++        for (name, series) in actual {
++            let expected = &case.expected[name];
++            let detail = match (series.len() != expected.len(), series.iter().zip(expected).position(|(a, e)| !same(*a, e))) {
++                (true, _) => Some(format!("length {} vs {}", series.len(), expected.len())),
++                (false, Some(i)) => Some(format!("[{i}] rust={} ts={}", series[i], expected[i])),
++                _ => None,
++            };
++            if let Some(detail) = detail {
++                *by_series.entry(name.to_string()).or_default() += 1;
++                failures.push(format!("{} {name} (n={}, prm={:?}): {detail}", case.id, close.len(), p));
++            }
++        }
++    }
++    println!("checked {} indicator cases, {} series differ, by series {:?}", fixture.cases.len(), failures.len(), by_series);
++    for failure in failures.iter().take(20) { println!("  {failure}"); }
++    assert!(failures.is_empty());
++}
