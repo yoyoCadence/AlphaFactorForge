@@ -115,3 +115,17 @@ Local non-elevated verification passed in 7.0 s (`elevated=False`,
 `hostedPolicy=False`), including real commands/event and complete cleanup; no
 local policy write was performed. PowerShell 5 parsing, Node syntax and diff
 checks pass. The elevated policy path is exercised only on the hosted CI runner.
+
+## Startup readiness ordering (2026-10-05)
+
+[Run 37245718679](https://github.com/yoyoCadence/AlphaFactorForge/actions/runs/37245718679)
+confirmed `elevated=True` and `hostedPolicy=True`: the profile-owned WebView
+received the debug-port flag and exposed loopback CDP. The exact policy value
+was restored during failure cleanup. The smoke then checked DB/WAL immediately,
+1.9 s after launch, before those files existed; earlier 45-second failures had
+both files. CDP availability alone is therefore insufficient startup readiness.
+
+The launcher now waits for CDP and both non-empty SQLite/WAL files within the
+same existing 45-second deadline before inspecting ownership and invoking the
+bridge. No assertion or timeout is weakened. CI must still prove the complete
+bridge/cleanup path; the newly observed readiness ordering is not acceptance.

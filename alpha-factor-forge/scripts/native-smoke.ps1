@@ -96,7 +96,12 @@ try {
     do {
         if ($app.HasExited) { throw "The app exited before readiness with code $($app.ExitCode)." }
         $listeners = @(Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue)
-        if ($listeners.Count -gt 0) { break }
+        # WebView2 can expose CDP before Tauri's user setup opens the database.
+        # Both startup conditions must meet the same finite deadline.
+        $readyFiles = @(@($dbPath, "$dbPath-wal") | Where-Object {
+            (Test-Path -LiteralPath $_) -and (Get-Item -LiteralPath $_).Length -gt 0
+        })
+        if ($listeners.Count -gt 0 -and $readyFiles.Count -eq 2) { break }
         Start-Sleep -Milliseconds 200
     } while ([DateTime]::UtcNow -lt $deadline)
     if ($listeners.Count -eq 0) { throw 'The isolated WebView2 did not expose CDP within 45 seconds.' }
@@ -112,6 +117,7 @@ try {
             throw "Startup did not create a non-empty SQLite/WAL file: $file"
         }
     }
+    Write-Host 'Native launch ready: isolated CDP and non-empty SQLite/WAL.'
     & node (Join-Path $PSScriptRoot 'native-bridge-smoke.mjs') "http://127.0.0.1:$port" $artifacts
     if ($LASTEXITCODE -ne 0) { throw "Native bridge assertions failed with code $LASTEXITCODE." }
     if ($app.HasExited) { throw 'The app exited during the native bridge smoke.' }
