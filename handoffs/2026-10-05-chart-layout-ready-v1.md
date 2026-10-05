@@ -3,7 +3,7 @@
 Date: 2026-10-05
 Repo: yoyoCadence/AlphaFactorForge
 Branch: `test/chart-layout-ready`, from merged PR #156 (`863adaf7`)
-Status: Complete locally; rebased onto checked #157/#158 merges, ready for PR/CI.
+Status: Resolved; PR #159 merged after six green CI jobs.
 
 ## Scope / agreed plan
 
@@ -61,3 +61,12 @@ avoiding obsolete duplicate native status. The four Chromium flows pass in
 9.4 s; strict E2E typecheck passes. Verified Vite PID 35836 was stopped and
 port 5201 is clear. The product code and original assertions remain unchanged;
 six final-head CI jobs still gate merge.
+
+## Resolution (2026-10-05)
+
+[PR #159](https://github.com/yoyoCadence/AlphaFactorForge/pull/159) merged as
+`9b43978d27bcdf1af55d6fb8f48e68af369b3046` after all six jobs passed on head
+`05e893e0787c5baf3b49d7d8e77de06ea8cbd609`,
+[run 37298624576](https://github.com/yoyoCadence/AlphaFactorForge/actions/runs/37298624576).
+Full E2E passed with every original assertion intact. This closes
+TEST-E2E-LAYOUT-001; no product or native campaign acceptance claim.

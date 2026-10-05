@@ -101,7 +101,7 @@ AlphaFactorForge 最初來自 Claude Design 產出的單檔 PWA，用於加密�
 目前工作區同時保留兩個層次：
 
 - `AlphaFactorForge.dc.html`：既有 browser-only PWA prototype，是 UI 與功能行為的參考。
-- `alpha-factor-forge/`：Tauri v2 + React + TypeScript + Rust + SQLite 的 Phase A desktop scaffold，是長期本機優先 app 的目標。
+- `alpha-factor-forge/`：Tauri v2 + React + TypeScript + Rust + SQLite 本機工作站；已從 Phase A scaffold 演進至回測 UI、Discovery runner 與研究 service。
 
 目前方向：保留既有 Web UI 概念，把耐久資料、長時間任務與安全敏感操作移到 Tauri/Rust；SQLite 作為主要資料庫；AI/API key 由 backend 與 OS keychain 管理，不能留在 frontend。
 
@@ -113,13 +113,13 @@ AlphaFactorForge 最初來自 Claude Design 產出的單檔 PWA，用於加密�
 - 專案已初始化 Git，並持續透過 PR 在 `yoyoCadence/AlphaFactorForge` 開發。
 - 前端 baseline 驗證指令皆通過：`npm install` → `npm test` → `npm run typecheck` → `npm run build`（實際測試數見 `tasks.md`）。
 - Native Tauri 已在本機驗證：Rust/Cargo 就緒，`cargo check` 與 `cargo tauri dev` 皆通過，多尺寸 icon 已生成。
-- CI 於每個 PR 執行 typecheck / test / build / cargo-check（含 `cargo test`）/ e2e。
-- 2026-07-16 的 [npm audit 盤點與修復](docs/security-audit-npm.md) 已以 Vite 6.4.3 + Vitest 3.2.6 清除 5 個 dev-tool findings；full / production audit 皆為 0。後續仍**不要直接跑 `npm audit fix --force`**。
+- CI 於每個 PR 執行 typecheck（含 production npm audit）/ test / build / cargo-check（含 `cargo test`）/ mock e2e / native-smoke。各 lane 的驗證範圍見 tasks.md。
+- 2026-07-16 的 [npm audit 盤點與修復](docs/security-audit-npm.md) 當時清除 5 個 dev-tool findings；目前工具版本、未修項與 audit 政策以該文件為準。後續仍**不要直接跑 `npm audit fix --force`**。
 
 ### 工作區內容
 
 - `AlphaFactorForge.dc.html`, `Canvas.dc.html`, `support.js`, `manifest.webmanifest`：legacy PWA prototype 與 runtime files。
-- `alpha-factor-forge/`：Tauri desktop scaffold。
+- `alpha-factor-forge/`：Tauri desktop 工作站；[模組對照](alpha-factor-forge/TODO.md)、[本機驗證](alpha-factor-forge/PHASE_A_VERIFY.md)。
 - `STRATEGY_DISCOVERY.md`：Strategy Discovery Engine v3 設計，Tauri Desktop 架構已定案。
 - `STRATEGY_GUIDE.md`：策略編輯器使用指南，包含 params、rule blocks、code mode。
 - `HISTORY.md`：前次 agent 工作的高層次交接摘要。
@@ -151,7 +151,7 @@ Target desktop app `alpha-factor-forge/`：
 - Heavy jobs：Strategy Discovery 應在 Rust backend job runner 執行。
 - AI：由 backend 管理 keychain/secure storage；frontend 不可儲存或讀取 API keys。
 
-SQLite schema 來源：`alpha-factor-forge/src-tauri/migrations/0001_init.sql`
+SQLite schema 來源：`alpha-factor-forge/src-tauri/src/db/mod.rs` 的有序 MIGRATIONS 清單與 `migrations/`（目前 0001–0010）；初始表在 0001、驗證紀錄在 0002、runner 在 0003，後續只追加。工作區外的 trial registry 使用獨立 `registry_migrations/`。
 
 - `datasets`
 - `candles`
@@ -230,11 +230,12 @@ Legacy PWA：
 - `manifest.webmanifest` 已存在；Service Worker 尚未實作。
 - Optional product features：walk-forward analysis、multi-asset portfolio backtesting、alerts/webhooks。
 
-Tauri scaffold：
+Tauri 工作站：
 
 - `save_backtest_result`／`get_backtest_results` 已實作：持久化到 `backtest_summary`（依 strategy+dataset+segment upsert）。已通過本機 `cargo check` 與 CI `cargo test`。
 - `export_report`（依 result_id 產報告）仍是 stub；實際匯出走 Slice 7-2 的 `save_report`。
-- AI、secrets、discovery commands 仍是 stubs（Phase B/C）。
+- Discovery commands／backend runner 已實作，含 checkpoint、Train／Validation、Gate／Score、benchmarks 與事件；摘要／交易／驗證可保存並由 Results Explorer 讀回。
+- DSL 驗證／固定 DSL 執行已完成；AI generation／approve 與通用 secrets commands 仍待 P15。P12 原生 campaign/operator 驗收、P13 confirmation runtime 與 numeric identity 相容性修復仍開放，見 tasks.md。
 - App icon 已就位：`icons/icon.png`（另有 `app-icon-source.png` 1254×1254 原圖）。
 - Rust/Cargo 已就緒；`cargo check` 與 `cargo tauri dev` 均已通過。
 
@@ -285,7 +286,7 @@ AlphaFactorForge began as a Claude Design single-file PWA for crypto market data
 This workspace keeps two layers:
 
 - `AlphaFactorForge.dc.html`: the existing browser-only PWA prototype, used as the UI and behavior reference.
-- `alpha-factor-forge/`: the Phase A desktop scaffold built with Tauri v2, React, TypeScript, Rust, and SQLite.
+- `alpha-factor-forge/`: the local Tauri v2/React/TypeScript/Rust/SQLite workstation, evolved from the Phase A scaffold with backtest UI, Discovery runner and research service.
 
 Current direction: preserve the useful Web UI concepts, move durable storage, long-running jobs, and security-sensitive operations into Tauri/Rust, use SQLite as the main database, and keep AI/API-key handling in the backend and OS keychain.
 
@@ -297,13 +298,13 @@ Current direction: preserve the useful Web UI concepts, move durable storage, lo
 - The project is a Git repository developed via PRs in `yoyoCadence/AlphaFactorForge`.
 - The frontend baseline commands all pass: `npm install` → `npm test` → `npm run typecheck` → `npm run build` (see `tasks.md` for the current test count).
 - Native Tauri has been verified locally: Rust/Cargo are set up, `cargo check` and `cargo tauri dev` both pass, and multi-size icons are generated.
-- CI runs typecheck / test / build / cargo-check (incl. `cargo test`) / e2e on every PR.
-- The [2026-07-16 npm audit triage and remediation](docs/security-audit-npm.md) cleared all five dev-tool findings with Vite 6.4.3 + Vitest 3.2.6; both full and production audits now report zero. **Do not run `npm audit fix --force` for future advisories.**
+- CI runs typecheck (with production npm audit) / test / build / cargo-check (incl. `cargo test`) / mock e2e / native-smoke on every PR. See tasks.md for each lane's scope.
+- The [2026-07-16 npm audit triage](docs/security-audit-npm.md) cleared five dev-tool findings at that time; that document records current versions, open items and audit policy. **Do not run `npm audit fix --force` for future advisories.**
 
 ### Workspace Contents
 
 - `AlphaFactorForge.dc.html`, `Canvas.dc.html`, `support.js`, `manifest.webmanifest`: legacy PWA prototype and runtime files.
-- `alpha-factor-forge/`: Tauri desktop scaffold.
+- `alpha-factor-forge/`: Tauri desktop workstation; [module map](alpha-factor-forge/TODO.md), [local verification](alpha-factor-forge/PHASE_A_VERIFY.md).
 - `STRATEGY_DISCOVERY.md`: Strategy Discovery Engine v3 design with the Tauri Desktop architecture finalized.
 - `STRATEGY_GUIDE.md`: strategy editor guide for params, rule blocks, and code mode.
 - `HISTORY.md`: handoff summary from previous agent work.
@@ -335,7 +336,7 @@ The target desktop app is `alpha-factor-forge/`:
 - Heavy jobs: Strategy Discovery belongs in the Rust backend job runner.
 - AI: backend-managed keychain/secure storage only; the frontend must never store or read API keys.
 
-SQLite schema source: `alpha-factor-forge/src-tauri/migrations/0001_init.sql`
+SQLite schema source: the ordered MIGRATIONS in `alpha-factor-forge/src-tauri/src/db/mod.rs` and `migrations/` (currently 0001–0010). 0001 defines initial tables, 0002 validation records, 0003 the runner; later migrations append. The trial registry outside workspaces has separate `registry_migrations/`.
 
 - `datasets`
 - `candles`
@@ -414,11 +415,12 @@ Legacy PWA:
 - `manifest.webmanifest` exists; Service Worker is not implemented.
 - Optional product features: walk-forward analysis, multi-asset portfolio backtesting, alerts/webhooks.
 
-Tauri scaffold:
+Tauri workstation:
 
 - `save_backtest_result` / `get_backtest_results` are implemented: they persist to `backtest_summary` (upsert on strategy+dataset+segment). Verified via local `cargo check` and CI `cargo test`.
 - `export_report` (render-by-result_id) is still a stub; actual export goes through the Slice 7-2 `save_report` command.
-- AI, secrets, and discovery commands are stubs (Phase B/C).
+- Discovery commands/backend runner implement checkpointing, Train/Validation, Gate/Score, benchmarks and events. Summaries/trades/validation records persist and can be re-opened in Results Explorer.
+- DSL validation/fixed DSL execution exist; AI generation/approval and generic secrets commands await P15. P12 native campaign/operator acceptance, P13 confirmation runtime and numeric identity compatibility repair remain open in tasks.md.
 - App icon is in place: `icons/icon.png` (plus `app-icon-source.png`, 1254×1254 source).
 - Rust/Cargo are set up; `cargo check` and `cargo tauri dev` both pass.
 
@@ -459,7 +461,7 @@ AlphaFactorForge は、もともと Claude Design で作られた暗号資産マ
 このワークスペースには 2 つの層があります。
 
 - `AlphaFactorForge.dc.html`：既存の browser-only PWA prototype。UI と挙動の参照元です。
-- `alpha-factor-forge/`：Tauri v2 + React + TypeScript + Rust + SQLite による Phase A desktop scaffold。長期的な local-first app の本体です。
+- `alpha-factor-forge/`：Tauri v2 + React + TypeScript + Rust + SQLite のローカル workstation。Phase A scaffold から UI、Discovery runner、research service へ実装が進んでいます。
 
 現在の方向性：既存 Web UI の良い部分を残しつつ、永続データ、長時間ジョブ、セキュリティ上重要な処理を Tauri/Rust に移します。SQLite を主要データベースとし、AI/API key は backend と OS keychain で管理します。
 
@@ -471,13 +473,13 @@ AlphaFactorForge は、もともと Claude Design で作られた暗号資産マ
 - Git repository として `yoyoCadence/AlphaFactorForge` で PR ベースに開発中です。
 - Frontend baseline コマンドはすべて通過：`npm install` → `npm test` → `npm run typecheck` → `npm run build`（テスト数は `tasks.md` 参照）。
 - Native Tauri はローカル検証済み：Rust/Cargo 準備済み、`cargo check` と `cargo tauri dev` が通り、マルチサイズ icon も生成済みです。
-- CI は各 PR で typecheck / test / build / cargo-check（`cargo test` 含む）/ e2e を実行します。
-- [2026-07-16 の npm audit 調査と修正](docs/security-audit-npm.md)では Vite 6.4.3 + Vitest 3.2.6 により dev-tool findings 5 件を解消し、full / production audit はともに 0 件になりました。今後も **`npm audit fix --force` は実行しないでください**。
+- CI は各 PR で typecheck（production npm audit 含む）/ test / build / cargo-check（`cargo test` 含む）/ mock e2e / native-smoke を実行します。各 lane の範囲は tasks.md を参照してください。
+- [2026-07-16 の npm audit 調査](docs/security-audit-npm.md)は当時の dev-tool findings 5 件を解消しました。現在のバージョン、未修正項目、audit 方針は同文書が正です。**`npm audit fix --force` は実行しないでください**。
 
 ### ワークスペース内容
 
 - `AlphaFactorForge.dc.html`, `Canvas.dc.html`, `support.js`, `manifest.webmanifest`：legacy PWA prototype と runtime files。
-- `alpha-factor-forge/`：Tauri desktop scaffold。
+- `alpha-factor-forge/`：Tauri desktop workstation。[モジュール対応表](alpha-factor-forge/TODO.md)、[ローカル検証](alpha-factor-forge/PHASE_A_VERIFY.md)。
 - `STRATEGY_DISCOVERY.md`：Strategy Discovery Engine v3 設計。Tauri Desktop architecture は確定済みです。
 - `STRATEGY_GUIDE.md`：params、rule blocks、code mode を含む strategy editor guide。
 - `HISTORY.md`：以前の agent 作業の handoff summary。
@@ -509,7 +511,7 @@ Target desktop app は `alpha-factor-forge/` です。
 - Heavy jobs：Strategy Discovery は Rust backend job runner で実行します。
 - AI：keychain/secure storage は backend 管理のみ。frontend は API keys を保存・閲覧してはいけません。
 
-SQLite schema source：`alpha-factor-forge/src-tauri/migrations/0001_init.sql`
+SQLite schema は `alpha-factor-forge/src-tauri/src/db/mod.rs` の有序 MIGRATIONS と `migrations/`（現在 0001–0010）が正です。0001 は初期表、0002 は validation、0003 は runner、以降は追記です。workspace 外の trial registry は独立した `registry_migrations/` を使います。
 
 - `datasets`
 - `candles`
@@ -588,11 +590,12 @@ Legacy PWA：
 - `manifest.webmanifest` はありますが、Service Worker は未実装です。
 - Optional product features：walk-forward analysis、multi-asset portfolio backtesting、alerts/webhooks。
 
-Tauri scaffold：
+Tauri workstation：
 
 - `save_backtest_result` / `get_backtest_results` は実装済みです：`backtest_summary` に永続化します（strategy+dataset+segment で upsert）。ローカル `cargo check` と CI `cargo test` で検証済みです。
 - `export_report`（result_id からのレポート生成）は依然 stub です。実際のエクスポートは Slice 7-2 の `save_report` を使います。
-- AI、secrets、discovery commands は stubs です（Phase B/C）。
+- Discovery commands/backend runner は checkpoint、Train/Validation、Gate/Score、benchmarks、イベントを実装済みです。摘要・trades・validation records は保存して Results Explorer で再読できます。
+- DSL 検証・固定 DSL 実行は提供済みですが、AI generation/approve と汎用 secrets commands は P15 待ちです。P12 native campaign/operator 検証、P13 confirmation runtime、numeric identity 互換修正は tasks.md で未完了です。
 - App icon は配置済みです：`icons/icon.png`（`app-icon-source.png` 1254×1254 原図あり）。
 - Rust/Cargo は準備済みで、`cargo check` と `cargo tauri dev` は通過します。
 
