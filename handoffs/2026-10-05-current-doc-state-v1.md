@@ -3,7 +3,7 @@
 Date: 2026-10-05
 Repo: yoyoCadence/AlphaFactorForge
 Branch: `docs/current-implementation-state`
-Status: Local documentation complete; publish after native/mock/layout PRs.
+Status: Complete locally; rebased onto checked #157/#158/#159, ready for PR/CI.
 
 ## Scope
 
@@ -40,3 +40,12 @@ P15 provider, numeric parser compatibility repair or all-input correctness claim
 
 The initial local branch is based on merged #156; rebase onto the preceding
 checked merges before opening this PR and retain their task-board evidence.
+
+## Final publish verification (2026-10-05)
+
+Rebased onto #159's checked merge `9b43978d`. Replayed only the documentation
+task records onto latest main and retained native/mock/layout completion
+evidence. Verified 64 local links/module references and balanced Markdown
+fences; diff/conflict checks pass. No source, migration, lockfile or runtime
+change. Final-head CI remains the merge gate; later PERF-001 implementation
+is a separate branch and is not part of this documentation PR.
