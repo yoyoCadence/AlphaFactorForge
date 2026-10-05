@@ -3,7 +3,7 @@
 Date: 2026-10-05
 Repo: yoyoCadence/AlphaFactorForge
 Branch: `fix/mock-strategy-upsert`, from merged PR #156 (`863adaf7`)
-Status: Complete locally; waiting for the preceding PR #157 before publishing.
+Status: Complete locally; rebased onto merged PR #157, ready for PR/CI.
 
 ## Scope / agreed plan
 
@@ -43,3 +43,11 @@ Rust and the real SQLite UPSERT/lifecycle repository tests are unchanged; their
 last full baseline passes **585 Rust / 1 ignored**. The existing library E2E
 and full native/unit/E2E gates run in final-head CI before the authorized merge.
 No local rendered interaction or new E2E test is claimed here.
+
+## Rebase / publish verification (2026-10-05)
+
+Rebased onto #157's checked merge `e8627065`. The only conflicts were two
+task-board insertions; both native and mock records were retained with no
+markers. Focused mock/DB tests pass 12/12 and typecheck passes again. Full
+1087 Vitest/build evidence above remains scoped to the same product change;
+six final-head CI jobs, including the now-real native bridge lane, gate merge.
