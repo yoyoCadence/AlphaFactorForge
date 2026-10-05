@@ -6,6 +6,8 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Current Snapshot
 
+- **DOC-STATE-002 documentation reconciled locally (2026-10-05)**: root/local READMEs, module map and verification guide match the implemented UI, persistence, runner/service, typed commands/events and complete ordered schema (0001–0010, separate trial registry). Rust floor follows Cargo.toml; Node follows current CI/tool requirements. Historical scaffold/audit claims corrected; no product/contract edits or new qualification claim. tasks.md remains the status owner. [Handoff](handoffs/2026-10-05-current-doc-state-v1.md).
+
 - **TEST-E2E-LAYOUT-001 completed locally (2026-10-05)**: pan/zoom coordinate reads now wait for theme stylesheet load/error, used fonts and layout frames. Existing assertions unchanged; four flows pass, and two pan flows also pass with controlled delayed font loading and stylesheet failure. Probes restored, verified background server stopped; strict E2E TypeScript check passes. Product/dependencies unchanged. Publication follows the native CI and mock UPSERT fixes. [Handoff](handoffs/2026-10-05-chart-layout-ready-v1.md).
 
 - **TEST-MOCK-PARITY-001 merged as [PR #158](https://github.com/yoyoCadence/AlphaFactorForge/pull/158)** (`2c2362bb`, final head `f7232a8`, six green CI jobs): same-hash mock saves retain one row/id and immutable definition/metadata/lifecycle, updating only name/source like SQLite. Four behavioral regressions pass; **1087 Vitest / 65 files**, typecheck/build, library E2E and native bridge pass. Production JS asset and Rust unchanged (**585 passing / 1 ignored**). [Handoff](handoffs/2026-10-05-mock-strategy-upsert-v1.md).
@@ -163,7 +165,6 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## In Progress
 
-- **DOC-STATE-002** (started 2026-10-05 under autonomous continuation, Backlog → Next → In Progress): reconcile root/local READMEs, the file map and verification guide against current UI, commands and ordered migrations. Documentation only; preserve open P12/operator, numeric compatibility and AI work, with tasks.md as status owner.
 
 
 - **P12 — Research feasibility & trial ledger** (started 2026-09-23; plan phase row below is the status owner). Split into one-session sub-items (AGENTS.md §9); the phase is Done only when the plan acceptance holds: insufficient samples and the AlphaBTC precision counterexample are blocked, and trial counts cannot be reset.
@@ -341,7 +342,7 @@ The detailed evidence, shortest reproductions, contract cautions, and per-task a
 - [ ] **PERF-001 (P2)** — execute the existing `docs/improvement-backlog.md` plan to move the maximum-256-combination parameter sweep into the Web Worker with job id, cancellation, stale-result protection, and sync/worker determinism coverage; do not create a duplicate performance specification.
 - [ ] **PERF-CHART-COMPUTE-001 (P2)** — memoize full-series indicators and the trade map independently of hover/replay repaint, then throttle pointer rendering with `requestAnimationFrame`; benchmark a large dataset before and after.
 - [ ] **PERF-CHART-BRIDGE-001 (P2)** — split native chart-window dataset transfer from lightweight view-state updates so strategy/overlay/trade changes do not repeatedly serialize all candles; retain the ready-handshake and targeted-event permissions.
-- [ ] **DOC-STATE-002 (P2)** — In Progress 2026-10-05; reconcile root/local READMEs, `alpha-factor-forge/TODO.md`, and `alpha-factor-forge/PHASE_A_VERIFY.md` with current ordered migrations and the completed backend runner while keeping `tasks.md` as the sole status source. Documentation-only PR; do not edit contracts to claim unimplemented audit fixes.
+- **DOC-STATE-002 (P2)** — completed locally 2026-10-05; root/local READMEs, module map and verification guide reconciled without contract/product edits. See Done and [handoff](handoffs/2026-10-05-current-doc-state-v1.md).
 - [ ] **TOOLCHAIN-001 (P3)** — pin the supported Rust toolchain in repository/CI and either prove the declared MSRV in a lane or update the claim; keep the native Tauri dependency floor explicit.
 - [ ] **CI-RUSTFMT-001 (P3)** — format the existing `db_commands.rs` drift and add repo-wide `cargo fmt --all -- --check` to CI without mixing unrelated Rust cleanup.
 - [ ] **DB-MIGRATION-DIAGNOSTIC-001 (P3)** — replace migration existence-query `unwrap_or(false)` with `OptionalExtension`-style not-found handling while propagating real SQLite errors; add the diagnostic regression without changing append-only migration semantics.
@@ -428,6 +429,8 @@ These were named inside the UI port entry and must not be buried by closing it. 
 - [ ] Full closed-loop AI automation. (Specification: ABC-14.)
 
 ## Done
+
+- [x] **DOC-STATE-002 — Current implementation docs** (2026-10-05), Backlog → Next → In Progress → Done under autonomous continuation. Preserved languages/sections; corrected stale scaffold, stub, trade, schema, tool floor and event/argument descriptions. tasks.md remains sole status owner; P12/operator, P13, P15 and numeric compatibility work stay open. Documentation only. [Handoff](handoffs/2026-10-05-current-doc-state-v1.md).
 
 - [x] **TEST-E2E-LAYOUT-001 — Chart coordinate readiness** (2026-10-05), promoted Backlog → Next → In Progress → Done under autonomous continuation. Shared stylesheet load/error observer, used-font readiness and layout frames before the three pan/zoom bounding-box reads; all original assertions retained. Four normal flows and both pan flows under delayed-font/failed-stylesheet probes pass; probes restored, owned server stopped, strict E2E TypeScript check passes. Full E2E CI gates merge; no product/dependency change. [Handoff](handoffs/2026-10-05-chart-layout-ready-v1.md).
 

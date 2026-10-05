@@ -90,14 +90,14 @@ alpha-factor-forge/
       indicators/               技術指標
       backtest/                 回測引擎（deterministic）
       metrics/                  績效指標
-      scoring/                  Gate + Score（Phase B）
+      market-data/              市場資料／ETF 純契約
       strategy-dsl/             DSL schema + whitelist validator + evaluator
       validation/               Train/Val/Test split（Phase B）
-      benchmarks/               benchmark（Phase B）
       hashing/                  strategy_hash / dataset_hash
     tauri-client/             前端 → backend 的正式橋接
     workers/                  單次回測 worker 協定；UI sweep 移入 worker 仍待 PERF-001
-    components/ charts/ services/ theme/     已移植 UI 與純服務
+    components/ charts/ theme/     已移植 UI
+    services/                 純服務、Gate／Score／benchmarks、DTO 映射
   src-tauri/                  Rust backend
     src/
       main.rs
@@ -112,5 +112,5 @@ alpha-factor-forge/
 ```
 
 Schema 由 `src-tauri/src/db/mod.rs` 的 MIGRATIONS 順序及 `migrations/` 共同定義：
-0001 初始表、0002 驗證紀錄、0003 runner；後续追加 ownership、事件／請求、研究歷史、市場、ledger binding、campaign（目前至 0010）。
+0001 初始表、0002 驗證紀錄、0003 runner；後續追加 ownership、事件／請求、研究歷史、市場、ledger binding、campaign（目前至 0010）。
 詳見 [TODO.md](TODO.md) 與 [PHASE_A_VERIFY.md](PHASE_A_VERIFY.md)；API keys 不進 SQLite。
