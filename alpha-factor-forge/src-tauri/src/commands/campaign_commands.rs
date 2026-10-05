@@ -14,6 +14,7 @@ use tauri::{AppHandle, State};
 
 use alpha_factor_forge::discovery_core::campaign::freeze_campaign;
 
+use super::db_commands::database_task;
 use crate::db::campaign::{self, CampaignSummary, StoredCampaignAdmission};
 use crate::db::repositories;
 use crate::desktop::discovery_events::TauriDiscoveryEventSink;
@@ -60,35 +61,34 @@ pub struct SnapshotOption {
 }
 
 #[tauri::command]
-pub fn list_market_instruments(
+pub async fn list_market_instruments(
     state: State<'_, AppState>,
 ) -> AppResult<Vec<registry::InstrumentRow>> {
-    let db = state.db()?;
-    let conn = locked(&db)?;
-    registry::list_instruments(&conn)
+    database_task(state.db()?, |conn| registry::list_instruments(conn)).await
 }
 
 #[tauri::command]
-pub fn list_market_snapshots(state: State<'_, AppState>) -> AppResult<Vec<SnapshotOption>> {
-    let db = state.db()?;
-    let conn = locked(&db)?;
-    snapshot::list_snapshots(&conn, SNAPSHOT_LIST_LIMIT)?
-        .into_iter()
-        .map(|row| {
-            let dataset = repositories::get_dataset_by_id(&conn, row.dataset_id)?;
-            Ok(SnapshotOption {
-                qualification_eligible: row.qualification_eligible(),
-                dataset: SnapshotDataset {
-                    id: row.dataset_id,
-                    interval: dataset.interval,
-                    start_time: dataset.start_time,
-                    end_time: dataset.end_time,
-                    candle_count: dataset.candle_count,
-                },
-                snapshot: row,
+pub async fn list_market_snapshots(state: State<'_, AppState>) -> AppResult<Vec<SnapshotOption>> {
+    database_task(state.db()?, |conn| {
+        snapshot::list_snapshots(conn, SNAPSHOT_LIST_LIMIT)?
+            .into_iter()
+            .map(|row| {
+                let dataset = repositories::get_dataset_by_id(conn, row.dataset_id)?;
+                Ok(SnapshotOption {
+                    qualification_eligible: row.qualification_eligible(),
+                    dataset: SnapshotDataset {
+                        id: row.dataset_id,
+                        interval: dataset.interval,
+                        start_time: dataset.start_time,
+                        end_time: dataset.end_time,
+                        candle_count: dataset.candle_count,
+                    },
+                    snapshot: row,
+                })
             })
-        })
-        .collect()
+            .collect()
+    })
+    .await
 }
 
 /// One declared instrument checked against its exact snapshot now.
@@ -198,10 +198,10 @@ pub async fn freeze_research_campaign(
 }
 
 #[tauri::command]
-pub fn list_research_campaigns(state: State<'_, AppState>) -> AppResult<Vec<CampaignSummary>> {
-    let db = state.db()?;
-    let conn = locked(&db)?;
-    campaign::list_campaigns(&conn)
+pub async fn list_research_campaigns(
+    state: State<'_, AppState>,
+) -> AppResult<Vec<CampaignSummary>> {
+    database_task(state.db()?, |conn| campaign::list_campaigns(conn)).await
 }
 
 /// Start one declared instrument's run of a stored campaign with a
@@ -250,13 +250,14 @@ pub async fn start_campaign_discovery(
 
 /// A run's admission decision, or `null` for a run that is not campaign-bound.
 #[tauri::command]
-pub fn get_campaign_admission(
+pub async fn get_campaign_admission(
     state: State<'_, AppState>,
     run_id: i64,
 ) -> AppResult<Option<StoredCampaignAdmission>> {
-    let db = state.db()?;
-    let conn = locked(&db)?;
-    campaign::get_campaign_admission(&conn, run_id)
+    database_task(state.db()?, move |conn| {
+        campaign::get_campaign_admission(conn, run_id)
+    })
+    .await
 }
 
 #[cfg(test)]

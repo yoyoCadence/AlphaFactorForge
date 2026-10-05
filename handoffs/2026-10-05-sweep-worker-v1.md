@@ -3,7 +3,7 @@
 Date: 2026-10-05
 Repo: yoyoCadence/AlphaFactorForge
 Branch: `perf/sweep-in-worker`, rebased onto checked #160 merge `700b76e1`
-Status: Complete locally; final-head six-green CI is the publication gate.
+Status: Resolved; PR #161 merged after all six final-head CI jobs passed.
 
 ## Scope / implementation plan
 
@@ -88,3 +88,15 @@ only when the next run starts. Native campaign/operator, numeric versioning
 and other DB command groups remain their own tasks. Publish only after rebase
 verification and all six checks for the submitted head; append merge evidence
 in the next handoff update.
+
+## Resolution (2026-10-05)
+
+[PR #161](https://github.com/yoyoCadence/AlphaFactorForge/pull/161) merged as
+`880b668000be53b3e02da1d3000d7ad6f7331541`. All six jobs in
+[run 37302558882](https://github.com/yoyoCadence/AlphaFactorForge/actions/runs/37302558882)
+passed on final head `07db8db38312daf1818e121de502b71ce20e9c48`.
+The continuation checked the clean matching worktree, current main, worker
+ownership/context/error paths and empty review threads; 69 focused tests and
+typecheck pass again. The unchanged test command needed escalation after
+the sandbox denied esbuild child startup (`spawn EPERM`). No product change
+was required to close the PR. The PR body now records the final CI evidence.
