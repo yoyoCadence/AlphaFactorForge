@@ -3,7 +3,7 @@
 Date: 2026-10-05
 Repo: yoyoCadence/AlphaFactorForge
 Branch: `test/chart-layout-ready`, from merged PR #156 (`863adaf7`)
-Status: Complete locally; publication follows PR #157 and the mock UPSERT fix.
+Status: Complete locally; rebased onto checked #157/#158 merges, ready for PR/CI.
 
 ## Scope / agreed plan
 
@@ -52,3 +52,12 @@ Rebased onto merged #157 (`e8627065`), preserving both task-board insertions.
 Four existing Chromium flows pass again in 16.8 s and the strict E2E typecheck
 passes. Verified hidden Vite PID 35132 was stopped and port 5201 is clear.
 Publication/rebase onto the subsequent checked mock merge remains pending.
+
+## Final publish verification (2026-10-05)
+
+Rebased onto #158's checked merge `2c2362bb`. Replayed only this task's three
+board entries onto latest main, preserving #157/#158 completion evidence and
+avoiding obsolete duplicate native status. The four Chromium flows pass in
+9.4 s; strict E2E typecheck passes. Verified Vite PID 35836 was stopped and
+port 5201 is clear. The product code and original assertions remain unchanged;
+six final-head CI jobs still gate merge.
