@@ -3,7 +3,7 @@
 Date: 2026-10-04
 Repo: yoyoCadence/AlphaFactorForge
 Branch: `ci/native-bridge-smoke`
-Status: Local bridge verified; PR #157 native CI startup under investigation.
+Status: Resolved; PR #157 merged after six green CI jobs.
 
 ## Scope / dependency reassessment
 
@@ -129,3 +129,16 @@ The launcher now waits for CDP and both non-empty SQLite/WAL files within the
 same existing 45-second deadline before inspecting ownership and invoking the
 bridge. No assertion or timeout is weakened. CI must still prove the complete
 bridge/cleanup path; the newly observed readiness ordering is not acceptance.
+
+## Resolution (2026-10-05)
+
+[PR #157](https://github.com/yoyoCadence/AlphaFactorForge/pull/157) merged as
+`e86270652848e5a9f12e85fbe174dd95356de258` after all six jobs passed on final
+head `b6093ab8ea726ebb1a445ee2ffe269c0de2dc6f4`,
+[run 37246153488](https://github.com/yoyoCadence/AlphaFactorForge/actions/runs/37246153488).
+The native runner confirmed elevated=True/hostedPolicy=True, then CDP plus
+SQLite/WAL readiness, real invoke/event assertions, exact policy restoration
+and verified process/temp cleanup. The hosted smoke completed in about 4.3 s
+after launch. Earlier failed runs and their diagnostics remain above.
+This closes CI-TAURI-SMOKE-001b only; native campaign/discovery/service operator
+acceptance remains separate.

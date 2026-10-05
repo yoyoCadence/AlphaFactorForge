@@ -6,7 +6,9 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Current Snapshot
 
-- **CI-TAURI-SMOKE-001b native bridge completed locally (2026-10-05)**: existing Playwright attaches to an isolated native WebView2 on loopback; real SQLite invokes, wrong argument-key rejection and Rust event-plugin payload round trip pass with zero console/runtime errors. Verified app/profile/temp cleanup passes on success and a controlled assertion failure. No new dependency, lockfile, capability or product-code change. Six CI jobs gate merge; campaign/discovery/service operator acceptance remains separate. [Handoff](handoffs/2026-10-04-native-bridge-smoke-v1.md).
+- **TEST-MOCK-PARITY-001 completed locally (2026-10-05)**: same-hash mock strategy saves retain one row/id and immutable definition/metadata/lifecycle, changing only name/source like SQLite's manual-save UPSERT. Four behavioral regressions pass, including validated/rejected state and rejected writes. **1087 Vitest / 65 files**, typecheck/build pass; production JS asset remains unchanged. Rust unchanged (**585 passing / 1 ignored** at merged PR #156). [Handoff](handoffs/2026-10-05-mock-strategy-upsert-v1.md).
+
+- **CI-TAURI-SMOKE-001b merged as [PR #157](https://github.com/yoyoCadence/AlphaFactorForge/pull/157)** (`e8627065`, final head `b6093ab`, six green CI jobs): isolated native WebView2 verifies real SQLite invokes, wrong argument-key rejection and exact Rust event payload. Hosted elevated-runner browser policy is restored; CDP/SQLite readiness, owned process/profile/temp cleanup pass. No dependency/capability/product-code change; campaign/discovery/service operator acceptance remains separate. [Handoff](handoffs/2026-10-04-native-bridge-smoke-v1.md).
 
 - **DB-ASYNC-001c remaining Phase A DB handlers completed locally (2026-10-04)**: all eight remaining SQLite handlers in db_commands use the shared blocking worker; strategy/migration writes retain admission through completion, connected-mode migrations still skip. **585 Rust (170 + 413 + 2, 1 ignored)** and 17 focused typed-client tests pass; all-target check and clippy pass with five existing warnings. Parent DB-ASYNC-001 remains open for other command groups. [Handoff](handoffs/2026-10-04-database-query-async-v1.md).
 
@@ -158,6 +160,7 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
   8. [x] **FU-9** — done 2026-10-04, [PR #152](https://github.com/yoyoCadence/AlphaFactorForge/pull/152); per-row validation, raw declarations, preserved history and refused invalid starts; see Done.
 
 ## In Progress
+
 
 
 - **P12 — Research feasibility & trial ledger** (started 2026-09-23; plan phase row below is the status owner). Split into one-session sub-items (AGENTS.md §9); the phase is Done only when the plan acceptance holds: insufficient samples and the AlphaBTC precision counterexample are blocked, and trial counts cannot be reset.
@@ -327,7 +330,7 @@ The detailed evidence, shortest reproductions, contract cautions, and per-task a
 - [ ] **DB-ASYNC-001 (P2)** — move large dataset import, result persistence, and filesystem writes behind async Tauri commands plus `spawn_blocking`; retain the single SQLite coordinator boundary and add a controlled slow-operation responsiveness test before considering pagination/batching. 2026-10-04: also `preview_research_campaign` (PR #130), a sync command that loads and re-verifies every declared snapshot's candles on the main thread ([PR126-130 A-R2](handoffs/2026-10-04-pr126-130-acceptance-review-v1.md)). First slice done 2026-10-04 (FU-5): the preview is async with a per-instrument lock (~27 ms per instrument for 10 years of hourly bars, release); DB-ASYNC-001b also completed 2026-10-04: async bulk candle reads/import, result/validation saves and report writing with controlled responsiveness tests. DB-ASYNC-001c completed locally 2026-10-04: remaining Phase A DB handlers, including read/list mutex waits, strategy save and explicit migrations. Other command groups remain separately reviewable.
 - **CI-TAURI-SMOKE-001b (P2)** — completed locally 2026-10-05: existing Playwright WebView2 CDP removes the original WebDriver dependency blocker; real invoke/event round trip and success/failure cleanup verified. See Done and [handoff](handoffs/2026-10-04-native-bridge-smoke-v1.md).
   - **CI-TAURI-SMOKE-001a** — completed on `feat/native-tauri-smoke-lane`; see the Done section.
-- [ ] **TEST-MOCK-PARITY-001 (P2)** — make mock `saveStrategy` reproduce SQLite same-hash UPSERT identity/name/source semantics and add a regression proving repeated saves keep one stable row/id.
+- **TEST-MOCK-PARITY-001 (P2)** — completed locally 2026-10-05: same-hash mock saves retain one stable row/id, update name/source and preserve immutable definition/lifecycle. See Done and [handoff](handoffs/2026-10-05-mock-strategy-upsert-v1.md).
 - [ ] **TEST-E2E-LAYOUT-001 (P3)** — harden the chart e2e specs that derive mouse coordinates from a `boundingBox()` taken right after load: `pan.spec.ts:11` and `zoom.spec.ts` (replay case). The skin layer loads its web fonts from a CDN, so on a cold runner they swap in after first paint and reflow the rows above the chart (measured ~4px down on CI's Ubuntu fallback, ~6px up on Windows); a swap landing between the box read and the drag can put the pointer off the canvas. Found while fixing the wheel-zoom case in PR #81, which no longer asserts on position at all — these two only compute coordinates, so they are latent, not failing. Wait for the layout to settle before reading the box; do not weaken what the specs assert.
 
 #### Performance, documentation, and tooling debt
@@ -422,6 +425,8 @@ These were named inside the UI port entry and must not be buried by closing it. 
 - [ ] Full closed-loop AI automation. (Specification: ABC-14.)
 
 ## Done
+
+- [x] **TEST-MOCK-PARITY-001 — Strategy UPSERT identity** (2026-10-05), promoted Backlog → Next → In Progress → Done under autonomous continuation. Eight-line mock fix plus four regressions for repeat identity, mutable fields, immutable raw definition/metadata and validated/rejected lifecycle, no-write rejection and distinct hashes. **1087 Vitest / 65 files**, typecheck/build pass; production bundle unchanged. Existing native SQLite UPSERT remains untouched; library E2E and all six CI jobs gate merge. [Handoff](handoffs/2026-10-05-mock-strategy-upsert-v1.md).
 
 - [x] **CI-TAURI-SMOKE-001b — Native invoke/event round trip** (2026-10-05), promoted Backlog → Next → In Progress → Done under autonomous continuation. Existing Playwright WebView2 CDP, hidden debug app, isolated workspace/registry/profile, loopback/process verification and scoped cleanup. Real SQLite invoke, camelCase argument rejection and exact Rust event-plugin payload pass; controlled failure propagates and cleans up. CI uploads screenshots/results/logs. No product/dependency/capability change; no campaign/service/discovery acceptance claim. [Handoff](handoffs/2026-10-04-native-bridge-smoke-v1.md).
 
