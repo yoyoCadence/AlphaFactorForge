@@ -3,7 +3,7 @@
 Date: 2026-10-04
 Repo: yoyoCadence/AlphaFactorForge
 Branch: `fix/database-query-async`, from merged PR #155 (`448c7f4`)
-Status: Complete locally; publishing for final-head CI and merge.
+Status: Resolved; PR #156 merged after all six final-head CI jobs passed.
 
 ## Scope / agreed plan
 
@@ -41,3 +41,12 @@ The three typed-client/mock/campaign test files pass **17 tests**. Targeted
 rustfmt and git diff --check pass. Frontend source was unchanged, so local
 frontend build/full Vitest/native interaction were not repeated; all six CI
 jobs must pass on the final pushed head before merge.
+
+## Resolution (2026-10-05)
+
+[PR #156](https://github.com/yoyoCadence/AlphaFactorForge/pull/156) merged as
+`863adaf7e10163fde5da72e4f87f228a111e4287`. All six jobs in
+[run 37214990026](https://github.com/yoyoCadence/AlphaFactorForge/actions/runs/37214990026)
+passed on final head `10999a5671a7a435a66bf97a8e7da8556d6640d2`.
+The subsequent isolated native smoke on this baseline also verifies the
+registered get_datasets/get_candles handlers through the real Tauri bridge.
