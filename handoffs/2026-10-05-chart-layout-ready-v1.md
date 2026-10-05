@@ -45,3 +45,10 @@ explicit strict TypeScript check; diff checks pass.
 Full E2E CI remains the merge gate after rebase onto preceding checked merges.
 Unit/native/product builds are unchanged and not repeated locally for this
 test-only slice. No browser UI redesign or native campaign acceptance claim.
+
+## Rebase verification (2026-10-05)
+
+Rebased onto merged #157 (`e8627065`), preserving both task-board insertions.
+Four existing Chromium flows pass again in 16.8 s and the strict E2E typecheck
+passes. Verified hidden Vite PID 35132 was stopped and port 5201 is clear.
+Publication/rebase onto the subsequent checked mock merge remains pending.
