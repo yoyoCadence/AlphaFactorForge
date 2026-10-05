@@ -526,10 +526,12 @@ Verify: (1) only repositories.rs changed; (2) lifecycle intentionally excluded w
 - **Risk level**: Medium-High（併發、React 生命週期、e2e 時序）
 - **Validation plan**: 全套 + 手動：掃 256 組合時拖動 replay slider 應流暢；點取消即停；連續快速點掃描兩次無殘留結果錯亂。
 - **Acceptance criteria**:
-  - [ ] 掃描期間 UI 可互動；取消鈕生效
-  - [ ] 掃描結果與同步版本 bit-for-bit 相同（用固定 seed 樣本比對一次並寫入 PR）
-  - [ ] worker 檔頭硬規則注釋保留
-  - [ ] e2e 全綠（僅允許輪詢化修改）
+  - [x] 掃描期間 UI 可互動；取消鈕生效
+  - [x] 掃描結果與同步版本 bit-for-bit 相同（固定 seed 42、256 格完整 DTO 比對，最佳格原始值記入 handoff／PR）
+  - [x] worker 檔頭硬規則注釋保留
+  - [x] 83 個既有 e2e 全綠、零 spec 修改
+
+2026-10-05 本機驗收：20,000 根合成 K 線／256 組掃描中可拖動 replay slider；取消關閉 worker，立即重啟使用新 worker 並完整完成，策略變更拒絕舊結果。新 worker 在下一次執行時建立，不保留空閒 replacement。[證據與限制](../handoffs/2026-10-05-sweep-worker-v1.md)；最終 head CI 仍是合併門檻。
 
 ### Suggested prompt for coding agent
 

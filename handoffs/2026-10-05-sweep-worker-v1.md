@@ -2,8 +2,8 @@
 
 Date: 2026-10-05
 Repo: yoyoCadence/AlphaFactorForge
-Branch: `perf/sweep-in-worker`, from checked #158 merge `2c2362bb`
-Status: In Progress; existing PERF-001 plan, publish after layout/doc PRs.
+Branch: `perf/sweep-in-worker`, rebased onto checked #160 merge `700b76e1`
+Status: Complete locally; final-head six-green CI is the publication gate.
 
 ## Scope / implementation plan
 
@@ -43,6 +43,48 @@ structured-clone input/output boundaries (not a real browser thread). The
 fixed seed-42, 500-bar 16×16 grid matches the synchronous engine exactly and the
 declared 0–399 Holdout prefix is unchanged by a tenfold unseen suffix. Full
 Vitest passes 1098 tests/67 files; typecheck/build pass. Vite emits the actual
-17.83 kB module-worker chunk. Full E2E and browser interactivity/cancellation
-are still pending; no acceptance claim yet. No code under paramSweep/core or
-the existing E2E specs was edited.
+17.83 kB module-worker chunk. No code under paramSweep/core or the existing
+E2E specs was edited.
+
+## Acceptance evidence (2026-10-05)
+
+All 83 existing E2E tests pass unchanged in 1.2 minutes. The registered Chrome
+control connection repeatedly disappeared, so the Playwright skill's separate
+`aff-sweep-acceptance` browser session exercised the actual Vite module worker
+through normal UI actions, with 20,000 synthetic hourly candles and 256 combos
+(fastMA 5–20, slowMA 20–35, step 1, net). This is automated browser interaction,
+not a manual operator or native campaign acceptance claim.
+
+- A physical replay slider drag changed cursor 12041 → 7957 while aria-busy
+  remained true. Cancel returned the UI to idle, removed its worker (close
+  event observed), and left zero grid/apply actions. A first probe's fixed
+  200 ms observer wait was too short; bounded polling confirmed removal. No
+  product timeout or test assertion was weakened.
+- Cancel followed immediately by another run created a distinct worker,
+  completed exactly 256 cells, and left zero workers. Synthetic best display:
+  fastMA=5, slowMA=20, net=57284.8%, 187 trades. These artificial prices only
+  exercise behavior and are not market performance evidence.
+- Changing strategy RSI period to 15 while a sweep was busy prevented that
+  old context's result from appearing at completion. The strategy and chart
+  both expose an RSI control, so the probe used the strategy section explicitly.
+- Browser errors contained only the existing `/favicon.ico` 404, with no worker
+  errors. The named CLI session was closed; Vite port 5203/PID 38832 was checked
+  by TCP owner and command line, stopped, and verified absent. Temporary probes
+  are archived under ignored `test-results/sweep-worker-acceptance-20261005/`;
+  no E2E spec was changed.
+
+Determinism: seed 42, 500 bars, startTime 1704067200000, same 256-cell grid.
+The unchanged synchronous engine and actual worker handler (with structured
+clone input/output) return strictly identical full DTOs. Both raw best cells:
+`{ "x": 5, "y": 22, "metric": 0.17778163629629207, "trades": 11 }`.
+This handler comparison is separate from the actual browser-thread acceptance
+above; it does not claim a native runtime or all-input proof. Existing prefix
+Holdout and stale-context regressions pass. No resampling acceptance seed or
+calibration artifact was rerun or regenerated.
+
+Remaining limits: single UI backtests still run synchronously; Discovery stays
+in Rust. There is no progress percentage. Each cancelled worker is replaced
+only when the next run starts. Native campaign/operator, numeric versioning
+and other DB command groups remain their own tasks. Publish only after rebase
+verification and all six checks for the submitted head; append merge evidence
+in the next handoff update.

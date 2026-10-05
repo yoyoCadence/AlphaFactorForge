@@ -25,7 +25,7 @@
 - ✅ `src/tauri-client/events.ts` — discovery-event-v1 版本／payload 驗證與訂閱；UI 以 sequence 處理更新
 - ✅ `src/tauri-client/dbClient.ts` — importDataset（含 hash）
 - ✅ `src/main.tsx`、`components/`、`charts/`、`services/` — 回測、圖表、Holdout、sweep、replay、策略庫／匯出與研究 UI 已移植
-- 🟡 `src/workers/backtest.worker.ts` — 單次 run/result/error 協定可執行；sweep 的 job id／取消／stale-result UI 接線仍待 PERF-001
+- ✅ `src/workers/backtest.worker.ts` — run/result/error 與 runSweep/sweepResult 的 job id 協定；UI sweep 已接可取消 module worker，保留 context／generation guard；單次 UI 回測仍同步
 
 ### Rust backend（需 Rust／Tauri 環境驗證）
 - ✅ `src-tauri/src/main.rs` — desktop setup、ownership／service connect 與 invoke handlers
