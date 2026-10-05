@@ -16,7 +16,6 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  runParamSweep,
   countSweepCombos,
   SWEEP_PARAM_KEYS,
   SWEEP_METRIC_IDS,
@@ -27,6 +26,7 @@ import {
   type SweepParamKey,
   type SweepResult,
 } from '../services/paramSweep';
+import { runSweepInWorker, type SweepWorkerJob } from '../services/sweepWorkerClient';
 import {
   createSweepArtifact,
   describeSweepContext,
@@ -231,6 +231,14 @@ export function SweepSection({
   const ownerRef = useRef(0);
   const [sweepingGen, setSweepingGen] = useState<number | null>(null);
   const sweeping = sweepingGen != null;
+  const workerJobRef = useRef<{ generation: number; job: SweepWorkerJob } | null>(null);
+
+  function cancelOwnedSweep(): void {
+    ownerRef.current = ++generationRef.current;
+    workerJobRef.current?.job.cancel();
+    workerJobRef.current = null;
+    setSweepingGen(null);
+  }
 
   // Clear the shown result when the panel signals a strategy load (the heatmap
   // was computed for the previous strategy). Mirrors the old inline reset in
@@ -238,9 +246,16 @@ export function SweepSection({
   // hard clear on top of the context gate below, matching the panel's own
   // loadSavedStrategy, which likewise drops `completed` outright.
   useEffect(() => {
+    cancelOwnedSweep();
     setCompletedSweep(null);
     setAppliedCell(null);
   }, [resetSignal]);
+
+  useEffect(() => () => {
+    ownerRef.current = ++generationRef.current;
+    workerJobRef.current?.job.cancel();
+    workerJobRef.current = null;
+  }, []);
 
   const sweepConfig: SweepConfig = useMemo(
     () => ({ x: sweepX, y: sweepUse2d ? sweepY : null, metric: sweepMetric }),
@@ -276,6 +291,7 @@ export function SweepSection({
   // otherwise describe a different sweep than the heatmap / 套用最佳 still acts on.
   // The applied-cell highlight is tied to that result, so it clears too.
   const clearSweep = () => {
+    cancelOwnedSweep();
     setCompletedSweep(null);
     setSweepErr(null);
     setAppliedCell(null);
@@ -291,7 +307,7 @@ export function SweepSection({
       setSweepErr('請先選擇資料集');
       return;
     }
-    generationRef.current += 1;
+    cancelOwnedSweep();
     const generation = generationRef.current;
     ownerRef.current = generation;
     setSweepingGen(generation);
@@ -299,34 +315,36 @@ export function SweepSection({
     setCompletedSweep(null);
     setAppliedCell(null);
     onClearApplied();
-    // Let "掃描中…" paint before the (synchronous, up-to-256-backtest) run.
-    await new Promise((r) => setTimeout(r, 20));
     try {
       const cs = await ensureCandles();
+      if (!sweepResultIsWritable({ started: context, live: liveSweepContextRef.current, generation, owner: ownerRef.current })) return;
       if (!cs.length) throw new Error('此資料集沒有 K 線');
       // BUG-001: when holdout is on, optimise on the IN-SAMPLE segment only so
       // the out-of-sample tail stays untouched for honest validation. The range
       // now comes from the recorded context, which derives it from the same
       // holdoutSplitIndex run() uses — so the bars the grid is labelled with are
       // the bars it actually traded.
-      const result = runParamSweep({
+      const job = runSweepInWorker({
         candles: cs,
         strat: run.strategy,
         interval: context.dataset.interval,
         sweep: context.config,
         from: context.range.from,
         to: context.range.to,
-      });
+      }, `sweep-${generation}`);
+      workerJobRef.current = { generation, job };
+      const result = await job.promise;
       // Both halves of the guard: still the newest sweep, and the inputs it was
       // started for are still the live ones. A superseded sweep is discarded
       // silently — it must leave neither a grid nor an error behind.
       if (!sweepResultIsWritable({ started: context, live: liveSweepContextRef.current, generation, owner: ownerRef.current })) return;
       setCompletedSweep(createSweepArtifact({ context, result }));
     } catch (e) {
-      if (ownerRef.current !== generation) return;
+      if (!sweepResultIsWritable({ started: context, live: liveSweepContextRef.current, generation, owner: ownerRef.current })) return;
       setSweepErr(e instanceof Error ? e.message : String(e));
     } finally {
-      setSweepingGen((cur) => (cur === generation ? null : cur));
+      if (workerJobRef.current?.generation === generation) workerJobRef.current = null;
+      if (ownerRef.current === generation) setSweepingGen(null);
     }
   }
 
@@ -395,6 +413,7 @@ export function SweepSection({
             <button data-testid="run-sweep" style={S.btn} onClick={runSweep} disabled={sweeping || sweepTooMany || sweepDupKey} aria-busy={sweeping}>
               {sweeping ? '掃描中…' : '▶ 執行掃描'}
             </button>
+            {sweeping && <button data-testid="cancel-sweep" style={S.btnGhost} onClick={clearSweep}>取消</button>}
             <HelpTip id="run-sweep" label="執行掃描" text={help.runSweep} />
             {sweepResult?.best && (
               <>

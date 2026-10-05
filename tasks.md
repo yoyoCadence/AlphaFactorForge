@@ -165,6 +165,7 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## In Progress
 
+- **PERF-001 — Sweep worker** (started 2026-10-05, Backlog → Next → In Progress under autonomous continuation): execute the existing [plan](docs/improvement-backlog.md#perf-001--參數掃描移入-web-worker含取消). Job-ID protocol, cancellation, stale-context/generation guards and sync/worker determinism; single backtests, sweep engine, contracts and dependencies unchanged. Publish after the prepared layout/doc PRs. [Handoff](handoffs/2026-10-05-sweep-worker-v1.md).
 
 
 - **P12 — Research feasibility & trial ledger** (started 2026-09-23; plan phase row below is the status owner). Split into one-session sub-items (AGENTS.md §9); the phase is Done only when the plan acceptance holds: insufficient samples and the AlphaBTC precision counterexample are blocked, and trial counts cannot be reset.
@@ -339,7 +340,7 @@ The detailed evidence, shortest reproductions, contract cautions, and per-task a
 
 #### Performance, documentation, and tooling debt
 
-- [ ] **PERF-001 (P2)** — execute the existing `docs/improvement-backlog.md` plan to move the maximum-256-combination parameter sweep into the Web Worker with job id, cancellation, stale-result protection, and sync/worker determinism coverage; do not create a duplicate performance specification.
+- [ ] **PERF-001 (P2)** — In Progress 2026-10-05; execute the existing `docs/improvement-backlog.md` plan to move the maximum-256-combination parameter sweep into the Web Worker with job id, cancellation, stale-result protection, and sync/worker determinism coverage; do not create a duplicate performance specification.
 - [ ] **PERF-CHART-COMPUTE-001 (P2)** — memoize full-series indicators and the trade map independently of hover/replay repaint, then throttle pointer rendering with `requestAnimationFrame`; benchmark a large dataset before and after.
 - [ ] **PERF-CHART-BRIDGE-001 (P2)** — split native chart-window dataset transfer from lightweight view-state updates so strategy/overlay/trade changes do not repeatedly serialize all candles; retain the ready-handshake and targeted-event permissions.
 - **DOC-STATE-002 (P2)** — completed locally 2026-10-05; root/local READMEs, module map and verification guide reconciled without contract/product edits. See Done and [handoff](handoffs/2026-10-05-current-doc-state-v1.md).
