@@ -3,7 +3,7 @@
 Date: 2026-10-05
 Repo: yoyoCadence/AlphaFactorForge
 Branch: `docs/current-implementation-state`
-Status: Complete locally; rebased onto checked #157/#158/#159, ready for PR/CI.
+Status: Resolved; merged as PR #160 after six green final-head CI jobs.
 
 ## Scope
 
@@ -49,3 +49,10 @@ evidence. Verified 64 local links/module references and balanced Markdown
 fences; diff/conflict checks pass. No source, migration, lockfile or runtime
 change. Final-head CI remains the merge gate; later PERF-001 implementation
 is a separate branch and is not part of this documentation PR.
+
+## Resolution (2026-10-05)
+
+PR #160 final head `647f2e520cb3cec08e3f817c24acf952966b019d` passed
+typecheck/test/build/cargo-check/e2e/native-smoke (run `37300186896`) and
+merged as `700b76e1c46190851bd57165d9896baae6954fca`. PERF-001's later
+worker implementation updates its two module-map references separately.

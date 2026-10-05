@@ -95,7 +95,7 @@ alpha-factor-forge/
       validation/               Train/Val/Test split（Phase B）
       hashing/                  strategy_hash / dataset_hash
     tauri-client/             前端 → backend 的正式橋接
-    workers/                  單次回測 worker 協定；UI sweep 移入 worker 仍待 PERF-001
+    workers/                  回測與掃描 worker 協定；UI sweep 使用可取消的 module worker
     components/ charts/ theme/     已移植 UI
     services/                 純服務、Gate／Score／benchmarks、DTO 映射
   src-tauri/                  Rust backend

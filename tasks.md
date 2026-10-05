@@ -6,7 +6,9 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Current Snapshot
 
-- **DOC-STATE-002 documentation reconciled locally (2026-10-05)**: root/local READMEs, module map and verification guide match the implemented UI, persistence, runner/service, typed commands/events and complete ordered schema (0001–0010, separate trial registry). Rust floor follows Cargo.toml; Node follows current CI/tool requirements. Historical scaffold/audit claims corrected; no product/contract edits or new qualification claim. tasks.md remains the status owner. [Handoff](handoffs/2026-10-05-current-doc-state-v1.md).
+- **PERF-001 completed locally (2026-10-05)**: bounded UI sweeps run in an owned Vite module worker with job id, cancellation and context/generation guards. Fixed seed-42 full 256-cell DTO matches the unchanged synchronous engine; real browser thread supports replay dragging, cancellation, immediate fresh-worker restart and stale-context rejection on 20,000 synthetic bars. **1098 Vitest / 67 files**, typecheck/build and all **83 existing E2E** pass unchanged. Worker chunk 17.83 kB; owned server/session stopped. Single UI backtests remain synchronous. Final-head six-green CI gates publication. [Handoff](handoffs/2026-10-05-sweep-worker-v1.md).
+
+- **DOC-STATE-002 merged as [PR #160](https://github.com/yoyoCadence/AlphaFactorForge/pull/160)** (`700b76e1`, final head `647f2e5`, six green CI jobs): root/local READMEs, module map and verification guide match the implemented UI, persistence, runner/service, typed commands/events and complete ordered schema (0001–0010, separate trial registry). Rust floor follows Cargo.toml; Node follows current CI/tool requirements. Historical scaffold/audit claims corrected; no product/contract edits or new qualification claim. tasks.md remains the status owner. [Handoff](handoffs/2026-10-05-current-doc-state-v1.md).
 
 - **TEST-E2E-LAYOUT-001 merged as [PR #159](https://github.com/yoyoCadence/AlphaFactorForge/pull/159)** (`9b43978d`, final head `05e893e`, six green CI jobs): pan/zoom coordinate reads wait for stylesheet load/error, used fonts and layout frames with all assertions unchanged. Four normal flows and controlled delayed-font/failed-stylesheet pan probes pass; probes restored, owned server stopped, strict E2E typecheck and full E2E CI pass. Product/dependencies unchanged. [Handoff](handoffs/2026-10-05-chart-layout-ready-v1.md).
 
@@ -164,8 +166,6 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
   8. [x] **FU-9** — done 2026-10-04, [PR #152](https://github.com/yoyoCadence/AlphaFactorForge/pull/152); per-row validation, raw declarations, preserved history and refused invalid starts; see Done.
 
 ## In Progress
-
-
 
 - **P12 — Research feasibility & trial ledger** (started 2026-09-23; plan phase row below is the status owner). Split into one-session sub-items (AGENTS.md §9); the phase is Done only when the plan acceptance holds: insufficient samples and the AlphaBTC precision counterexample are blocked, and trial counts cannot be reset.
   - [x] **P12a** — `research-precision-v1` precision precheck (pure Rust + authored fixture); AlphaBTC `146/1001` case is `NOT_ELIGIBLE`. See Done.
@@ -339,7 +339,7 @@ The detailed evidence, shortest reproductions, contract cautions, and per-task a
 
 #### Performance, documentation, and tooling debt
 
-- [ ] **PERF-001 (P2)** — execute the existing `docs/improvement-backlog.md` plan to move the maximum-256-combination parameter sweep into the Web Worker with job id, cancellation, stale-result protection, and sync/worker determinism coverage; do not create a duplicate performance specification.
+- [x] **PERF-001 (P2)** — Done locally 2026-10-05; see Done and the existing `docs/improvement-backlog.md` plan. Maximum-256-combination worker sweep, cancellation, stale-result protection and sync/worker determinism verified; final-head CI gates merge.
 - [ ] **PERF-CHART-COMPUTE-001 (P2)** — memoize full-series indicators and the trade map independently of hover/replay repaint, then throttle pointer rendering with `requestAnimationFrame`; benchmark a large dataset before and after.
 - [ ] **PERF-CHART-BRIDGE-001 (P2)** — split native chart-window dataset transfer from lightweight view-state updates so strategy/overlay/trade changes do not repeatedly serialize all candles; retain the ready-handshake and targeted-event permissions.
 - **DOC-STATE-002 (P2)** — completed locally 2026-10-05; root/local READMEs, module map and verification guide reconciled without contract/product edits. See Done and [handoff](handoffs/2026-10-05-current-doc-state-v1.md).
@@ -429,6 +429,8 @@ These were named inside the UI port entry and must not be buried by closing it. 
 - [ ] Full closed-loop AI automation. (Specification: ABC-14.)
 
 ## Done
+
+- [x] **PERF-001 — Cancellable sweep worker** (2026-10-05), Backlog → Next → In Progress → Done under autonomous continuation. Data-only runSweep/sweepResult protocol, one worker per job, terminate on every terminal path/fresh next run, reset/unmount cancellation and guarded async load/result/error/finally; removed the 20 ms paint delay. Eight client and three actual-handler regressions added; fixed seed-42 best `{x:5,y:22,metric:0.17778163629629207,trades:11}`, full 256-cell DTO identical. **1098 Vitest / 67 files**, typecheck/build, unchanged **83 E2E**, real-browser replay drag/cancel/restart/context probes pass. No core/engine/contract/dependency/schema edits; no separate agent review or native operator acceptance claim. [Handoff](handoffs/2026-10-05-sweep-worker-v1.md).
 
 - [x] **DOC-STATE-002 — Current implementation docs** (2026-10-05), Backlog → Next → In Progress → Done under autonomous continuation. Preserved languages/sections; corrected stale scaffold, stub, trade, schema, tool floor and event/argument descriptions. tasks.md remains sole status owner; P12/operator, P13, P15 and numeric compatibility work stay open. Documentation only. [Handoff](handoffs/2026-10-05-current-doc-state-v1.md).
 
