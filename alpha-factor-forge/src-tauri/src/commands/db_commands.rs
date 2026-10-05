@@ -12,7 +12,8 @@ use crate::AppState;
 
 /// Database work owns the existing DB mutex on a blocking worker, never
 /// on the thread polling the Tauri command. Repository transactions stay intact.
-async fn database_task<T: Send + 'static>(
+/// Sibling command modules reuse this boundary for their SQLite reads.
+pub(super) async fn database_task<T: Send + 'static>(
     db: crate::runtime::SharedDb,
     operation: impl FnOnce(&mut rusqlite::Connection) -> AppResult<T> + Send + 'static,
 ) -> AppResult<T> {
