@@ -163,6 +163,7 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## In Progress
 
+- **DOC-STATE-002** (started 2026-10-05 under autonomous continuation, Backlog → Next → In Progress): reconcile root/local READMEs, the file map and verification guide against current UI, commands and ordered migrations. Documentation only; preserve open P12/operator, numeric compatibility and AI work, with tasks.md as status owner.
 
 
 - **P12 — Research feasibility & trial ledger** (started 2026-09-23; plan phase row below is the status owner). Split into one-session sub-items (AGENTS.md §9); the phase is Done only when the plan acceptance holds: insufficient samples and the AlphaBTC precision counterexample are blocked, and trial counts cannot be reset.
@@ -340,7 +341,7 @@ The detailed evidence, shortest reproductions, contract cautions, and per-task a
 - [ ] **PERF-001 (P2)** — execute the existing `docs/improvement-backlog.md` plan to move the maximum-256-combination parameter sweep into the Web Worker with job id, cancellation, stale-result protection, and sync/worker determinism coverage; do not create a duplicate performance specification.
 - [ ] **PERF-CHART-COMPUTE-001 (P2)** — memoize full-series indicators and the trade map independently of hover/replay repaint, then throttle pointer rendering with `requestAnimationFrame`; benchmark a large dataset before and after.
 - [ ] **PERF-CHART-BRIDGE-001 (P2)** — split native chart-window dataset transfer from lightweight view-state updates so strategy/overlay/trade changes do not repeatedly serialize all candles; retain the ready-handshake and targeted-event permissions.
-- [ ] **DOC-STATE-002 (P2)** — 2026-10-04: the root README progress now covers P12 (FU-8); the remaining files below are still open. — reconcile root/local READMEs, `alpha-factor-forge/TODO.md`, and `PHASE_A_VERIFY.md` with migrations 0001–0003 and the completed backend runner while keeping `tasks.md` as the sole status source. Documentation-only PR; do not edit contracts to claim unimplemented audit fixes.
+- [ ] **DOC-STATE-002 (P2)** — In Progress 2026-10-05; reconcile root/local READMEs, `alpha-factor-forge/TODO.md`, and `alpha-factor-forge/PHASE_A_VERIFY.md` with current ordered migrations and the completed backend runner while keeping `tasks.md` as the sole status source. Documentation-only PR; do not edit contracts to claim unimplemented audit fixes.
 - [ ] **TOOLCHAIN-001 (P3)** — pin the supported Rust toolchain in repository/CI and either prove the declared MSRV in a lane or update the claim; keep the native Tauri dependency floor explicit.
 - [ ] **CI-RUSTFMT-001 (P3)** — format the existing `db_commands.rs` drift and add repo-wide `cargo fmt --all -- --check` to CI without mixing unrelated Rust cleanup.
 - [ ] **DB-MIGRATION-DIAGNOSTIC-001 (P3)** — replace migration existence-query `unwrap_or(false)` with `OptionalExtension`-style not-found handling while propagating real SQLite errors; add the diagnostic regression without changing append-only migration semantics.
