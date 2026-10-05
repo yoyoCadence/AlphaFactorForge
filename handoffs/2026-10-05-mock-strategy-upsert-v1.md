@@ -3,7 +3,7 @@
 Date: 2026-10-05
 Repo: yoyoCadence/AlphaFactorForge
 Branch: `fix/mock-strategy-upsert`, from merged PR #156 (`863adaf7`)
-Status: Complete locally; rebased onto merged PR #157, ready for PR/CI.
+Status: Resolved; PR #158 merged after six green CI jobs.
 
 ## Scope / agreed plan
 
@@ -51,3 +51,12 @@ task-board insertions; both native and mock records were retained with no
 markers. Focused mock/DB tests pass 12/12 and typecheck passes again. Full
 1087 Vitest/build evidence above remains scoped to the same product change;
 six final-head CI jobs, including the now-real native bridge lane, gate merge.
+
+## Resolution (2026-10-05)
+
+[PR #158](https://github.com/yoyoCadence/AlphaFactorForge/pull/158) merged as
+`2c2362bb66f48670cf9e1defd09d2badbd3a3677` after all six jobs passed on
+head `f7232a8b1292c3664a3d2af276cbf55e79a83507`,
+[run 37297346065](https://github.com/yoyoCadence/AlphaFactorForge/actions/runs/37297346065).
+The full unit, library E2E and real native bridge lanes passed; this closes
+TEST-MOCK-PARITY-001 within its strategy-save scope.

@@ -6,7 +6,9 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Current Snapshot
 
-- **TEST-MOCK-PARITY-001 completed locally (2026-10-05)**: same-hash mock strategy saves retain one row/id and immutable definition/metadata/lifecycle, changing only name/source like SQLite's manual-save UPSERT. Four behavioral regressions pass, including validated/rejected state and rejected writes. **1087 Vitest / 65 files**, typecheck/build pass; production JS asset remains unchanged. Rust unchanged (**585 passing / 1 ignored** at merged PR #156). [Handoff](handoffs/2026-10-05-mock-strategy-upsert-v1.md).
+- **TEST-E2E-LAYOUT-001 completed locally (2026-10-05)**: pan/zoom coordinate reads now wait for theme stylesheet load/error, used fonts and layout frames. Existing assertions unchanged; four flows pass, and two pan flows also pass with controlled delayed font loading and stylesheet failure. Probes restored, verified background server stopped; strict E2E TypeScript check passes. Product/dependencies unchanged. Publication follows the native CI and mock UPSERT fixes. [Handoff](handoffs/2026-10-05-chart-layout-ready-v1.md).
+
+- **TEST-MOCK-PARITY-001 merged as [PR #158](https://github.com/yoyoCadence/AlphaFactorForge/pull/158)** (`2c2362bb`, final head `f7232a8`, six green CI jobs): same-hash mock saves retain one row/id and immutable definition/metadata/lifecycle, updating only name/source like SQLite. Four behavioral regressions pass; **1087 Vitest / 65 files**, typecheck/build, library E2E and native bridge pass. Production JS asset and Rust unchanged (**585 passing / 1 ignored**). [Handoff](handoffs/2026-10-05-mock-strategy-upsert-v1.md).
 
 - **CI-TAURI-SMOKE-001b merged as [PR #157](https://github.com/yoyoCadence/AlphaFactorForge/pull/157)** (`e8627065`, final head `b6093ab`, six green CI jobs): isolated native WebView2 verifies real SQLite invokes, wrong argument-key rejection and exact Rust event payload. Hosted elevated-runner browser policy is restored; CDP/SQLite readiness, owned process/profile/temp cleanup pass. No dependency/capability/product-code change; campaign/discovery/service operator acceptance remains separate. [Handoff](handoffs/2026-10-04-native-bridge-smoke-v1.md).
 
@@ -331,7 +333,7 @@ The detailed evidence, shortest reproductions, contract cautions, and per-task a
 - **CI-TAURI-SMOKE-001b (P2)** — completed locally 2026-10-05: existing Playwright WebView2 CDP removes the original WebDriver dependency blocker; real invoke/event round trip and success/failure cleanup verified. See Done and [handoff](handoffs/2026-10-04-native-bridge-smoke-v1.md).
   - **CI-TAURI-SMOKE-001a** — completed on `feat/native-tauri-smoke-lane`; see the Done section.
 - **TEST-MOCK-PARITY-001 (P2)** — completed locally 2026-10-05: same-hash mock saves retain one stable row/id, update name/source and preserve immutable definition/lifecycle. See Done and [handoff](handoffs/2026-10-05-mock-strategy-upsert-v1.md).
-- [ ] **TEST-E2E-LAYOUT-001 (P3)** — harden the chart e2e specs that derive mouse coordinates from a `boundingBox()` taken right after load: `pan.spec.ts:11` and `zoom.spec.ts` (replay case). The skin layer loads its web fonts from a CDN, so on a cold runner they swap in after first paint and reflow the rows above the chart (measured ~4px down on CI's Ubuntu fallback, ~6px up on Windows); a swap landing between the box read and the drag can put the pointer off the canvas. Found while fixing the wheel-zoom case in PR #81, which no longer asserts on position at all — these two only compute coordinates, so they are latent, not failing. Wait for the layout to settle before reading the box; do not weaken what the specs assert.
+- **TEST-E2E-LAYOUT-001 (P3)** — completed locally 2026-10-05: all pan/zoom coordinate reads wait for stylesheet/font/layout completion with unchanged assertions; delayed font and failed stylesheet checks pass. Original cold-CDN font-swap finding from PR #81 retained in [handoff](handoffs/2026-10-05-chart-layout-ready-v1.md); see Done.
 
 #### Performance, documentation, and tooling debt
 
@@ -425,6 +427,8 @@ These were named inside the UI port entry and must not be buried by closing it. 
 - [ ] Full closed-loop AI automation. (Specification: ABC-14.)
 
 ## Done
+
+- [x] **TEST-E2E-LAYOUT-001 — Chart coordinate readiness** (2026-10-05), promoted Backlog → Next → In Progress → Done under autonomous continuation. Shared stylesheet load/error observer, used-font readiness and layout frames before the three pan/zoom bounding-box reads; all original assertions retained. Four normal flows and both pan flows under delayed-font/failed-stylesheet probes pass; probes restored, owned server stopped, strict E2E TypeScript check passes. Full E2E CI gates merge; no product/dependency change. [Handoff](handoffs/2026-10-05-chart-layout-ready-v1.md).
 
 - [x] **TEST-MOCK-PARITY-001 — Strategy UPSERT identity** (2026-10-05), promoted Backlog → Next → In Progress → Done under autonomous continuation. Eight-line mock fix plus four regressions for repeat identity, mutable fields, immutable raw definition/metadata and validated/rejected lifecycle, no-write rejection and distinct hashes. **1087 Vitest / 65 files**, typecheck/build pass; production bundle unchanged. Existing native SQLite UPSERT remains untouched; library E2E and all six CI jobs gate merge. [Handoff](handoffs/2026-10-05-mock-strategy-upsert-v1.md).
 
