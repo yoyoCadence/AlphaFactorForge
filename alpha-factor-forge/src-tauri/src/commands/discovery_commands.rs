@@ -37,6 +37,18 @@ fn to_json<T: serde::Serialize>(value: T) -> AppResult<Value> {
     serde_json::to_value(value).map_err(AppError::from)
 }
 
+/// DB-ASYNC-001f: a progress read — the embedded DB mutex, which a running
+/// discovery also takes for its commits, or the connect-mode round trip to
+/// the service — on a blocking worker, never on the thread polling the
+/// command. The window polls these readers while a run is active.
+async fn read_task(
+    operation: impl FnOnce() -> AppResult<Value> + Send + 'static,
+) -> AppResult<Value> {
+    tauri::async_runtime::spawn_blocking(operation)
+        .await
+        .map_err(join_error)?
+}
+
 #[tauri::command]
 pub async fn start_discovery(
     app: AppHandle,
@@ -115,10 +127,12 @@ pub async fn cancel_discovery(
 /// `discovery-progress-v1`, as JSON (`DiscoveryProgressSnapshot` in embedded
 /// mode; the service's identical snapshot in connect mode).
 #[tauri::command]
-pub fn get_discovery_progress(state: State<'_, AppState>, run_id: i64) -> AppResult<Value> {
+pub async fn get_discovery_progress(state: State<'_, AppState>, run_id: i64) -> AppResult<Value> {
     match state.snapshot()? {
-        HostSnapshot::Embedded { db, discovery, .. } => to_json(discovery.progress(&db, run_id)?),
-        HostSnapshot::Connected(proxy) => proxy.progress(run_id),
+        HostSnapshot::Embedded { db, discovery, .. } => {
+            read_task(move || to_json(discovery.progress(&db, run_id)?)).await
+        }
+        HostSnapshot::Connected(proxy) => read_task(move || proxy.progress(run_id)).await,
     }
 }
 
@@ -127,9 +141,88 @@ pub fn get_discovery_progress(state: State<'_, AppState>, run_id: i64) -> AppRes
 /// connect mode this is also how a reopened desktop adopts the service's
 /// run (contract §3: snapshot first, then the forwarded ledger).
 #[tauri::command]
-pub fn get_active_discovery_run(state: State<'_, AppState>) -> AppResult<Value> {
+pub async fn get_active_discovery_run(state: State<'_, AppState>) -> AppResult<Value> {
     match state.snapshot()? {
-        HostSnapshot::Embedded { db, discovery, .. } => to_json(discovery.active_progress(&db)?),
-        HostSnapshot::Connected(proxy) => proxy.active(),
+        HostSnapshot::Embedded { db, discovery, .. } => {
+            read_task(move || to_json(discovery.active_progress(&db)?)).await
+        }
+        HostSnapshot::Connected(proxy) => read_task(move || proxy.active()).await,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::future::Future;
+    use std::sync::{mpsc, Mutex};
+    use std::task::{Context, Poll, Waker};
+    use std::time::Duration;
+
+    use super::*;
+    use crate::discovery_runner::DiscoveryRunner;
+
+    fn database() -> crate::runtime::SharedDb {
+        let conn = rusqlite::Connection::open_in_memory().unwrap();
+        crate::db::apply_migrations(&conn).unwrap();
+        Arc::new(Mutex::new(conn))
+    }
+
+    #[test]
+    fn a_progress_read_does_not_block_the_command_polling_thread() {
+        let db = database();
+        let runner = DiscoveryRunner::default();
+        // Deliberately keep SQLite busy, as a committing run does, until
+        // after the first command poll.
+        let held = db.lock().unwrap();
+        let (sent, received) = mpsc::channel();
+        let worker_db = db.clone();
+        let polling_thread = std::thread::spawn(move || {
+            let mut command = Box::pin(read_task(move || {
+                to_json(runner.active_progress(&worker_db)?)
+            }));
+            let mut context = Context::from_waker(Waker::noop());
+            match command.as_mut().poll(&mut context) {
+                Poll::Pending => {
+                    sent.send(true).unwrap();
+                    tauri::async_runtime::block_on(command)
+                }
+                Poll::Ready(result) => {
+                    sent.send(false).unwrap();
+                    result
+                }
+            }
+        });
+        // Finite test-only deadline; release the lock before asserting.
+        let yielded = received.recv_timeout(Duration::from_secs(5));
+        drop(held);
+        assert_eq!(polling_thread.join().unwrap().unwrap(), Value::Null);
+        assert!(
+            yielded.unwrap(),
+            "the first poll must yield while DB is busy"
+        );
+    }
+
+    #[test]
+    fn reader_results_and_errors_cross_the_worker_unchanged() {
+        let db = database();
+        let runner = DiscoveryRunner::default();
+        let active = tauri::async_runtime::block_on(read_task({
+            let (db, runner) = (db.clone(), runner.clone());
+            move || to_json(runner.active_progress(&db)?)
+        }))
+        .unwrap();
+        assert_eq!(active, Value::Null, "no active run is still `null`");
+        let error =
+            tauri::async_runtime::block_on(read_task(move || to_json(runner.progress(&db, 404)?)))
+                .unwrap_err();
+        assert_eq!(error.to_string(), "discovery run 404 not found");
+    }
+
+    #[test]
+    fn a_panicking_reader_returns_an_explicit_command_error() {
+        let error = tauri::async_runtime::block_on(read_task(|| {
+            panic!("controlled test-only worker failure")
+        }))
+        .unwrap_err();
+        assert!(error.to_string().contains("discovery command task failed"));
     }
 }
