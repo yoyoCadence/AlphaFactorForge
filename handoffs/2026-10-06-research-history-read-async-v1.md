@@ -3,8 +3,8 @@
 Date: 2026-10-06
 Repo: yoyoCadence/AlphaFactorForge
 Branch: `fix/research-history-read-async`, from merged PR #162 (`ac9ea41`)
-PR: opened from this branch
-Status: Complete locally; final-head six-green CI gates merge.
+PR: #163
+Status: Resolved; PR #163 merged after all six final-head CI jobs passed.
 
 ## Scope / implementation plan
 
@@ -81,3 +81,15 @@ polled during runs — move to `spawn_blocking` for the embedded DB read and the
 connect-mode proxy round trip, preserving the `discovery-progress-v1` JSON in
 both modes. After that, re-run the command inventory and decide whether the
 DB-ASYNC-001 parent can close.
+
+## Resolution (2026-10-06)
+
+[PR #163](https://github.com/yoyoCadence/AlphaFactorForge/pull/163) merged as
+`201b434dc6646ca71e7e8fb7a34d30f870dcd56f` (2026-10-06T13:24:55Z), pinned to the
+verified head with `--match-head-commit`. All six jobs (typecheck, test,
+build, cargo-check, native-smoke, e2e) in
+[run 37469573739](https://github.com/yoyoCadence/AlphaFactorForge/actions/runs/37469573739)
+passed on final head `7402e9ff1e6e0a16ce9d429a4ad2e8e321dc9274`; the PR had no
+reviews or comments. A later `cargo clippy --all-targets` run (DB-ASYNC-001f)
+reports no warning in this module. Recorded by the next slice
+([handoff](2026-10-06-discovery-progress-read-async-v1.md)).
