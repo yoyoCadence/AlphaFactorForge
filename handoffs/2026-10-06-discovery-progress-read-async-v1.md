@@ -3,8 +3,8 @@
 Date: 2026-10-06
 Repo: yoyoCadence/AlphaFactorForge
 Branch: `fix/discovery-progress-read-async`, from merged PR #163 (`201b434`)
-PR: opened from this branch
-Status: Complete locally; final-head six-green CI gates merge.
+PR: #164
+Status: Resolved; PR #164 merged after all six final-head CI jobs passed.
 
 ## Scope / implementation plan
 
@@ -94,3 +94,14 @@ candidates in the same "Performance, documentation, and tooling debt" group:
 `DB-MIGRATION-DIAGNOSTIC-001` (P3, migration existence-query error handling)
 and `CI-RUSTFMT-001` (P3, format drift + CI check), or the P2
 `PERF-CHART-COMPUTE-001` / `PERF-CHART-BRIDGE-001` items.
+
+## Resolution (2026-10-06)
+
+[PR #164](https://github.com/yoyoCadence/AlphaFactorForge/pull/164) merged as
+`616f34c36eda4ff3f3f0bd91a34cc4d162cd5f67` (2026-10-06T13:41:20Z), pinned to the
+verified head with `--match-head-commit`. All six jobs (typecheck, test,
+build, cargo-check, native-smoke, e2e) in
+[run 37471527229](https://github.com/yoyoCadence/AlphaFactorForge/actions/runs/37471527229)
+passed on final head `8c46151bece2fd977303c041654477f2bb5070eb`; the PR had no
+reviews or comments. DB-ASYNC-001 is closed. Recorded by the next slice
+(PERF-CHART-COMPUTE-001, [handoff](2026-10-06-chart-compute-memo-v1.md)).
