@@ -7,14 +7,22 @@
 // cursor clips the window to bars [.., upto] for bar replay (a dashed playhead
 // marks it). Slice 10 adds cursor-anchored wheel zoom, reset, and drag-pan with
 // replay-safe bounds. Pure drawing — no IO.
+//
+// PERF-CHART-COMPUTE-001: the full-series indicators and trade-marker indices
+// are memoized on data/periods/toggles (chartSeries.ts), so hover, replay,
+// zoom and pan repaints only paint. Pointer moves are coalesced to at most one
+// per animation frame (frameThrottle.ts), always the latest position.
 
-import React, { useEffect, useRef, useState } from 'react';
-import { sma, ema, bbands, rsi, type Series } from '../core/indicators';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
+import type { Series } from '../core/indicators';
 import type { Candle as CoreCandle } from '../core/backtest';
 import type { ClosedTrade } from '../core/metrics';
 import type { ParamsStrategy } from '../services/strategy';
-import { extentOf, padExtent, valueToY, tradeLegs, replayWindow, barAtX, reconcileBarWindow, zoomBarWindow, panBarWindow, type BarWindow } from './scale';
+import { extentOf, padExtent, valueToY, replayWindow, barAtX, reconcileBarWindow, zoomBarWindow, panBarWindow, type BarWindow, type TradeLeg } from './scale';
 import { paintGrid, paintBars, paintSeries, paintLine, type Bar, type Geom } from './chartPaint';
+import { computeChartSeries, tradeMarkers, type ChartSeries } from './chartSeries';
+import { animationFrames, createFrameThrottle } from './frameThrottle';
 import { useTheme } from '../theme/ThemeProvider';
 import type { ChartTheme } from '../theme/theme';
 
@@ -65,6 +73,19 @@ export function CandleChart({ candles, strat, show, trades, upto, onHoverBar, he
   // Latest bar geometry, written by draw(), read by the hover handler to map a
   // mouse x back to a bar index (avoids re-deriving the layout on every move).
   const layoutRef = useRef<Layout | null>(null);
+  // The hover index as last set, read by handlers that may run before the
+  // re-render that would refresh `hoverIndex` (a flushed pointer frame).
+  const hoverRef = useRef<number | null>(null);
+
+  // Full-series data depends only on these inputs — not on hover, replay,
+  // zoom or pan — so repaints reuse it. Keyed on the primitive periods and
+  // toggles, not on the `strat` / `show` object identities.
+  const { fastMA, slowMA, emaPeriod, bbPeriod, bbMult, rsiPeriod } = strat;
+  const series = useMemo(
+    () => computeChartSeries(candles, { fastMA, slowMA, emaPeriod, bbPeriod, bbMult, rsiPeriod }, { ma: show.ma, ema: show.ema, bb: show.bb, rsi: show.rsi }),
+    [candles, fastMA, slowMA, emaPeriod, bbPeriod, bbMult, rsiPeriod, show.ma, show.ema, show.bb, show.rsi],
+  );
+  const markers = useMemo(() => (show.trades ? tradeMarkers(candles, trades) : []), [candles, trades, show.trades]);
 
   useEffect(() => {
     const el = wrapRef.current;
@@ -103,26 +124,23 @@ export function CandleChart({ candles, strat, show, trades, upto, onHoverBar, he
       layoutRef.current = null;
       return;
     }
-    layoutRef.current = draw(canvas, width, height, candles, strat, show, visibleWindow, trades, upto, hoverIndex, C);
-  }, [candles, strat, show, width, height, trades, upto, hoverIndex, visibleWindow.start, visibleWindow.end, C]);
+    layoutRef.current = draw(canvas, width, height, candles, series, show, visibleWindow, markers, upto, hoverIndex, C);
+  }, [candles, series, show, width, height, markers, upto, hoverIndex, visibleWindow.start, visibleWindow.end, C]);
 
+  const setHover = (idx: number | null) => {
+    if (idx === hoverRef.current) return;
+    hoverRef.current = idx;
+    setHoverIndex(idx);
+    onHoverBar?.(idx);
+  };
   const updateHover = (clientX: number) => {
     const lay = layoutRef.current;
     const canvas = canvasRef.current;
     if (!lay || !canvas) return;
     const x = clientX - canvas.getBoundingClientRect().left;
-    const idx = barAtX(x, lay.padL, lay.plotW, lay.start, lay.n);
-    if (idx !== hoverIndex) {
-      setHoverIndex(idx);
-      onHoverBar?.(idx);
-    }
+    setHover(barAtX(x, lay.padL, lay.plotW, lay.start, lay.n));
   };
-  const handleLeave = () => {
-    if (hoverIndex !== null) {
-      setHoverIndex(null);
-      onHoverBar?.(null);
-    }
-  };
+  const handleLeave = () => setHover(null);
 
   const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const lay = layoutRef.current;
@@ -138,33 +156,50 @@ export function CandleChart({ candles, strat, show, trades, upto, onHoverBar, he
     };
   };
 
-  const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+  // One pointer position: hover, or pan once a drag crosses the 4px threshold.
+  // Reassigned every render so a frame always runs the current handler.
+  const applyMoveRef = useRef<(move: PointerMove) => void>(() => undefined);
+  applyMoveRef.current = ({ clientX, pointerId }) => {
     const drag = dragRef.current;
-    if (!drag || drag.pointerId !== e.pointerId) {
-      updateHover(e.clientX);
+    if (!drag || drag.pointerId !== pointerId) {
+      updateHover(clientX);
       return;
     }
-    const dx = e.clientX - drag.startX;
+    const dx = clientX - drag.startX;
     if (!drag.moved && Math.abs(dx) < 4) {
-      updateHover(e.clientX);
+      updateHover(clientX);
       return;
     }
-    e.preventDefault();
     if (!drag.moved) {
       drag.moved = true;
       setDragging(true);
-      setHoverIndex(null);
-      onHoverBar?.(null);
+      setHover(null);
     }
     // Dragging content right reveals older bars; dragging left reveals newer.
     const next = panBarWindow(drag.window, -dx / drag.barWidth, boundsEnd);
     setViewWindow(next);
     if (replayMode) setFollowReplay(next.end === boundsEnd);
   };
+  // Moves arrive faster than the screen repaints: apply at most one per frame,
+  // the latest. flushSync renders and paints that update within the frame.
+  const [pointerMoves] = useState(() =>
+    createFrameThrottle<PointerMove>((move) => flushSync(() => applyMoveRef.current(move)), animationFrames),
+  );
+  useEffect(() => () => pointerMoves.cancel(), [pointerMoves]);
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    // preventDefault belongs to the event itself; the move is applied later.
+    const drag = dragRef.current;
+    if (drag && drag.pointerId === e.pointerId && (drag.moved || Math.abs(e.clientX - drag.startX) >= 4)) e.preventDefault();
+    pointerMoves.schedule({ clientX: e.clientX, pointerId: e.pointerId });
+  };
 
   const finishPointer = (e: React.PointerEvent<HTMLCanvasElement>, cancelled = false) => {
     const drag = dragRef.current;
     if (!drag || drag.pointerId !== e.pointerId) return;
+    // Apply the gesture's last move before ending it, so a release (or cancel)
+    // inside the same frame keeps the final pan position.
+    pointerMoves.flush();
     if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
     dragRef.current = null;
     setDragging(false);
@@ -203,7 +238,7 @@ export function CandleChart({ candles, strat, show, trades, upto, onHoverBar, he
         onPointerMove={handlePointerMove}
         onPointerUp={finishPointer}
         onPointerCancel={(e) => finishPointer(e, true)}
-        onPointerLeave={() => { if (!dragRef.current) handleLeave(); }}
+        onPointerLeave={() => { if (!dragRef.current) { pointerMoves.cancel(); handleLeave(); } }}
         style={{ width: '100%', height, display: 'block', cursor: dragging ? 'grabbing' : viewWindow != null ? 'grab' : 'crosshair', touchAction: 'none', userSelect: 'none' }}
       />
       <div style={{ position: 'absolute', top: 8, right: 62, display: 'flex', alignItems: 'center', gap: 5, padding: '2px 4px', background: C.bg, border: `1px solid ${C.grid}`, color: C.label, fontFamily: 'ui-monospace, monospace', fontSize: 10 }}>
@@ -246,6 +281,12 @@ function drawMarker(ctx: CanvasRenderingContext2D, x: number, apexY: number, dir
   ctx.stroke();
 }
 
+/** The latest pointer position waiting for its animation frame. */
+interface PointerMove {
+  clientX: number;
+  pointerId: number;
+}
+
 /** Bar geometry returned by draw() so the hover handler can invert x -> bar. */
 interface Layout {
   padL: number;
@@ -260,10 +301,10 @@ function draw(
   w: number,
   h: number,
   candles: CoreCandle[],
-  strat: ParamsStrategy,
+  series: ChartSeries,
   show: OverlayToggles,
   visibleWindow: BarWindow,
-  trades: ClosedTrade[] | undefined,
+  markers: TradeLeg[],
   upto: number | undefined,
   hoverIndex: number | null,
   C: ChartTheme,
@@ -293,18 +334,13 @@ function draw(
   const rsiTop = (show.vol ? volTop + volH : priceTop + priceH) + gap;
 
   // Visible bar window is owned by the component's fit/zoom state. `end` is
-  // inclusive; indicators are still computed over the full series below.
+  // inclusive; the memoized indicators cover the full series.
   const { start, end } = visibleWindow;
   const n = end - start + 1;
   const bw = plotW / n;
   const xc = (i: number) => padL + (i - start + 0.5) * bw;
 
-  const closes = candles.map((c) => c.c);
-  const maFast = show.ma ? sma(closes, strat.fastMA) : null;
-  const maSlow = show.ma ? sma(closes, strat.slowMA) : null;
-  const emaArr = show.ema ? ema(closes, strat.emaPeriod) : null;
-  const bb = show.bb ? bbands(closes, strat.bbPeriod, strat.bbMult) : null;
-  const rsiArr = show.rsi ? rsi(closes, strat.rsiPeriod) : null;
+  const { maFast, maSlow, ema: emaArr, bb, rsi: rsiArr } = series;
 
   // price extent over the visible window (candles + overlays)
   const vals: number[] = [];
@@ -356,10 +392,8 @@ function draw(
   overlay(emaArr, C.ema);
 
   // trade markers: buy ▲ below the low (green), sell ▼ above the high (red)
-  if (show.trades && trades && trades.length) {
-    const timeToIndex = new Map<number, number>();
-    for (let i = 0; i < candles.length; i++) timeToIndex.set(candles[i].t, i);
-    for (const lg of tradeLegs(trades, timeToIndex)) {
+  if (show.trades && markers.length) {
+    for (const lg of markers) {
       if (lg.index < start || lg.index > end) continue;
       const c = candles[lg.index];
       const x = xc(lg.index);
