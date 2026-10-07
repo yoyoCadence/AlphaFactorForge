@@ -34,6 +34,7 @@ export interface ResultsSectionProps {
    *  identity, so renaming after a run must not force a re-run. */
   stratName: string;
   saving: boolean;
+  saveAsNewVersion?: boolean;
   onSave: () => void;
   /** The panel's setErr / setMsg (stable). */
   onError: (message: string | null) => void;
@@ -46,6 +47,7 @@ export function ResultsSection({
   stale,
   stratName,
   saving,
+  saveAsNewVersion = false,
   onSave,
   onError,
   onMessage,
@@ -200,10 +202,15 @@ export function ResultsSection({
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 12 }}>
               <button data-testid="save-result" style={{ ...S.btn, flex: 1 }} onClick={onSave} disabled={saving} aria-busy={saving}>
-                {saving ? '儲存中…' : '儲存結果'}
+                {saving ? '儲存中…' : saveAsNewVersion ? '另存新版本' : '儲存結果'}
               </button>
               <HelpTip id="save" label="儲存結果" text={help.save} align="right" />
             </div>
+            {saveAsNewVersion && (
+              <p data-testid="save-new-version-note" style={{ color: t.color.muted, fontSize: 11, marginTop: 8 }}>
+                此次儲存會建立新策略版本，並保留原策略及其歷史結果。
+              </p>
+            )}
             <p style={{ color: t.color.muted, fontSize: 11, marginTop: 8 }}>
               儲存會寫入 strategy_def + backtest_summary + trades（segment=full）。
             </p>

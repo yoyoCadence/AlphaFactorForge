@@ -4,8 +4,8 @@
 use tauri::State;
 
 use crate::db::repositories::{
-    self, BacktestResultDetail, BacktestSummary, Candle, Dataset, StrategyDef, TradeRow,
-    ValidationRecordRow,
+    self, BacktestResultDetail, BacktestSummary, Candle, Dataset, PreparedSavedStrategy,
+    StrategyDef, TradeRow, ValidationRecordRow,
 };
 use crate::error::{AppError, AppResult};
 use crate::AppState;
@@ -94,6 +94,19 @@ pub async fn save_strategy(state: State<'_, AppState>, strategy: StrategyDef) ->
 #[tauri::command]
 pub async fn get_strategies(state: State<'_, AppState>) -> AppResult<Vec<StrategyDef>> {
     database_task(state.db()?, |conn| repositories::list_strategies(conn)).await
+}
+
+/// Prepare a verified definition under its declared numeric policy. A string
+/// carries the resolved binary64 values through the frontend JSON boundary.
+#[tauri::command]
+pub async fn prepare_saved_strategy(
+    state: State<'_, AppState>,
+    strategy_id: i64,
+) -> AppResult<PreparedSavedStrategy> {
+    database_task(state.db()?, move |conn| {
+        repositories::prepare_saved_strategy(conn, strategy_id)
+    })
+    .await
 }
 
 /// Persist one backtest summary and its closed trades atomically.

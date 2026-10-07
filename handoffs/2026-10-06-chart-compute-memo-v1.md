@@ -3,8 +3,8 @@
 Date: 2026-10-06
 Repo: yoyoCadence/AlphaFactorForge
 Branch: `perf/chart-compute-memo`, from merged PR #164 (`616f34c`)
-PR: opened from this branch
-Status: Complete locally; final-head six-green CI gates merge.
+PR: [#165](https://github.com/yoyoCadence/AlphaFactorForge/pull/165)
+Status: Resolved — merged after all six final-head CI jobs passed; closure recorded 2026-10-07.
 
 ## Scope / implementation plan
 
@@ -93,3 +93,19 @@ Per the user's instruction, work stops after this PR merges. For the next
 session: `PERF-CHART-BRIDGE-001` (P2) is the natural follow-up; the P3 tooling
 items (`DB-MIGRATION-DIAGNOSTIC-001`, `CI-RUSTFMT-001`, `TOOLCHAIN-001`,
 `SEC-RUST-001`) remain open.
+
+## Resolution — 2026-10-07, verified merge record
+
+PR #165 merged on 2026-10-06 at 22:07 (Asia/Taipei), with final head
+`8de16acefd849f271e4414d8f234382f242a1a25` and merge commit
+`060f3d68f2dd2dd5cf9f4d016b951222de0308c8`. All six final-head jobs
+(typecheck, test, build, cargo-check, e2e and native-smoke) passed in
+[CI run 37475179586](https://github.com/yoyoCadence/AlphaFactorForge/actions/runs/37475179586).
+The merge tree equals the checked head tree.
+
+The [2026-10-07 acceptance review](2026-10-07-pr146-165-acceptance-review-v1.md)
+confirmed 1105 Vitest, 591 Rust (1 ignored), 83 E2E, typecheck/build and
+all-target cargo check on the merged baseline. Its P3 documentation finding
+is resolved by this append and the updated task snapshot. Original benchmark
+and validation evidence above is preserved; the native chart bridge and
+operator acceptance keep their existing scope/status.

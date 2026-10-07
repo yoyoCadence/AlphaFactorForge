@@ -5,6 +5,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { chromium } from '@playwright/test';
+import { verifyManualStrategyNumbers } from './native-manual-strategy-smoke.mjs';
 
 const [endpoint, artifactDirectory] = process.argv.slice(2);
 assert(endpoint && artifactDirectory, 'usage: node native-bridge-smoke.mjs <CDP endpoint> <artifacts>');
@@ -59,6 +60,8 @@ try {
   assert.deepEqual(commands.candles, [], 'a nonexistent dataset must return no candles');
   assert.match(commands.rejectedArguments, /datasetId/, 'Rust must reject the wrong invoke argument key');
 
+  const manualStrategyNumbers = await verifyManualStrategyNumbers(page);
+
   const nonce = randomUUID();
   const event = await page.evaluate(async ({ nonce }) => {
     // Match the installed @tauri-apps/api/event wire protocol. withGlobalTauri
@@ -100,7 +103,7 @@ try {
 
   await page.screenshot({ path: path.join(artifactDirectory, 'native-success.png') });
   await writeFile(path.join(artifactDirectory, 'native-result.json'), JSON.stringify({
-    status: 'passed', url: page.url(), commands, event, errors,
+    status: 'passed', url: page.url(), commands, event, manualStrategyNumbers, errors,
   }, null, 2) + '\n');
   console.log('Native smoke passed: rendered app, SQLite invokes and Rust event-plugin round trip.');
 } catch (error) {

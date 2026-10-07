@@ -163,6 +163,7 @@ fn main() {
             commands::db_commands::import_candles,
             commands::db_commands::save_strategy,
             commands::db_commands::get_strategies,
+            commands::db_commands::prepare_saved_strategy,
             commands::db_commands::save_backtest_result,
             commands::db_commands::get_backtest_results,
             // --- Results Explorer (Phase B, P01) ---

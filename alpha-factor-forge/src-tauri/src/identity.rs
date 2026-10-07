@@ -5,6 +5,8 @@
 #[path = "identity/numeric_json_audit_tests.rs"]
 mod numeric_json_audit_tests;
 
+pub mod manual_definition;
+
 use serde_json::{Map, Value};
 use sha2::{Digest, Sha256};
 
@@ -116,8 +118,13 @@ pub fn canonical_bytes(value: &Value) -> AppResult<Vec<u8>> {
     Ok(writer.finish())
 }
 
+#[cfg(test)]
 pub fn strategy_hash_from_definition_json(definition_json: &str) -> AppResult<String> {
-    let definition: Value = serde_json::from_str(definition_json)?;
+    let (_, definition) = manual_definition::parse_definition_json(definition_json)?;
+    strategy_hash_from_definition(definition)
+}
+
+fn strategy_hash_from_definition(definition: Value) -> AppResult<String> {
     let object = definition
         .as_object()
         .ok_or_else(|| AppError::Other("strategy definition must be a JSON object".into()))?;
@@ -148,7 +155,16 @@ fn numeric_field<'a>(object: &'a Map<String, Value>, key: &str) -> AppResult<&'a
 }
 
 pub fn verify_strategy_identity(strategy: &StrategyDef) -> AppResult<()> {
-    let definition: Value = serde_json::from_str(&strategy.original_definition_json)?;
+    verified_strategy_definition(strategy).map(|_| ())
+}
+
+/// Verify under the document's declared numeric policy before returning an
+/// executable interpretation. The original JSON and stored identity stay intact.
+pub fn verified_strategy_definition(
+    strategy: &StrategyDef,
+) -> AppResult<(manual_definition::DefinitionPolicy, Value)> {
+    let (policy, definition) =
+        manual_definition::parse_definition_json(&strategy.original_definition_json)?;
     let mode = definition
         .as_object()
         .and_then(|object| object.get("mode"))
@@ -160,13 +176,13 @@ pub fn verify_strategy_identity(strategy: &StrategyDef) -> AppResult<()> {
             strategy.kind
         )));
     }
-    let expected = strategy_hash_from_definition_json(&strategy.original_definition_json)?;
+    let expected = strategy_hash_from_definition(definition.clone())?;
     if strategy.strategy_hash != expected {
         return Err(AppError::Other(format!(
             "strategy identity mismatch: expected {expected}"
         )));
     }
-    Ok(())
+    Ok((policy, definition))
 }
 
 fn require_metadata<'a>(value: &'a str, field: &str) -> AppResult<&'a str> {

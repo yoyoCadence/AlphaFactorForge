@@ -403,10 +403,40 @@ pub fn get_candles(
 
 // ---------- strategy_def ----------
 
-/// Product write boundary: reject legacy/forged hashes before persistence.
+/// Product write boundary: verify identity under the declared numeric policy.
 pub fn insert_verified_strategy(conn: &Connection, strategy: &StrategyDef) -> AppResult<i64> {
-    crate::identity::verify_strategy_identity(strategy)?;
-    insert_strategy(conn, strategy)
+    let (policy, _) = crate::identity::verified_strategy_definition(strategy)?;
+    if policy != crate::identity::manual_definition::DefinitionPolicy::Rounded
+        || strategy.parent_strategy_id.is_none()
+    {
+        return insert_strategy(conn, strategy);
+    }
+    // A manual re-freeze records its source without altering either frozen
+    // definition. Serialize the lineage checks with the destination insertion.
+    let tx = conn.unchecked_transaction()?;
+    let parent_id = strategy.parent_strategy_id.expect("checked parent id");
+    let parent = get_strategy_by_id(&tx, parent_id)?;
+    crate::identity::verify_strategy_identity(&parent)?;
+    if parent.strategy_hash == strategy.strategy_hash {
+        return Err(AppError::Other(
+            "a strategy copy cannot link to itself".into(),
+        ));
+    }
+    let existing_parent: Option<Option<i64>> = tx
+        .query_row(
+            "SELECT parent_strategy_id FROM strategy_def WHERE strategy_hash = ?1",
+            [&strategy.strategy_hash],
+            |row| row.get(0),
+        )
+        .optional()?;
+    if existing_parent.is_some_and(|existing| existing != strategy.parent_strategy_id) {
+        return Err(AppError::Other(
+            "strategy copy identity already exists with different source lineage".into(),
+        ));
+    }
+    let id = insert_strategy(&tx, strategy)?;
+    tx.commit()?;
+    Ok(id)
 }
 
 /// Runner write boundary: verify the durable strategy identity, insert a new
@@ -486,6 +516,59 @@ fn insert_strategy(conn: &Connection, s: &StrategyDef) -> AppResult<i64> {
     Ok(id)
 }
 
+fn strategy_from_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<StrategyDef> {
+    Ok(StrategyDef {
+        id: Some(r.get(0)?),
+        name: r.get(1)?,
+        kind: r.get(2)?,
+        dsl_json: r.get(3)?,
+        original_definition_json: r.get(4)?,
+        param_schema_json: r.get(5)?,
+        source: r.get(6)?,
+        ai_prompt_hash: r.get(7)?,
+        strategy_hash: r.get(8)?,
+        lifecycle: r.get(9)?,
+        parent_strategy_id: r.get(10)?,
+    })
+}
+
+pub fn get_strategy_by_id(conn: &Connection, strategy_id: i64) -> AppResult<StrategyDef> {
+    conn.query_row(
+        "SELECT id, name, type, dsl_json, original_definition_json, param_schema_json,
+                source, ai_prompt_hash, strategy_hash, lifecycle, parent_strategy_id
+         FROM strategy_def WHERE id = ?1",
+        [strategy_id],
+        strategy_from_row,
+    )
+    .optional()?
+    .ok_or_else(|| AppError::Other(format!("strategy {strategy_id} not found")))
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PreparedSavedStrategy {
+    pub source_strategy_id: i64,
+    pub source_strategy_hash: String,
+    pub numeric_policy: &'static str,
+    pub interpreted_definition_json: String,
+}
+
+/// Read-only executable preparation. Invalid or unresolved rows remain in
+/// `list_strategies`, but their original text cannot become execution input.
+pub fn prepare_saved_strategy(
+    conn: &Connection,
+    strategy_id: i64,
+) -> AppResult<PreparedSavedStrategy> {
+    let strategy = get_strategy_by_id(conn, strategy_id)?;
+    let (policy, definition) = crate::identity::verified_strategy_definition(&strategy)?;
+    Ok(PreparedSavedStrategy {
+        source_strategy_id: strategy_id,
+        source_strategy_hash: strategy.strategy_hash,
+        numeric_policy: policy.as_str(),
+        interpreted_definition_json: serde_json::to_string(&definition)?,
+    })
+}
+
 pub fn list_strategies(conn: &Connection) -> AppResult<Vec<StrategyDef>> {
     let mut stmt = conn.prepare(
         "SELECT id, name, type, dsl_json, original_definition_json, param_schema_json,
@@ -493,21 +576,7 @@ pub fn list_strategies(conn: &Connection) -> AppResult<Vec<StrategyDef>> {
          FROM strategy_def ORDER BY updated_at DESC",
     )?;
     let rows = stmt
-        .query_map([], |r| {
-            Ok(StrategyDef {
-                id: Some(r.get(0)?),
-                name: r.get(1)?,
-                kind: r.get(2)?,
-                dsl_json: r.get(3)?,
-                original_definition_json: r.get(4)?,
-                param_schema_json: r.get(5)?,
-                source: r.get(6)?,
-                ai_prompt_hash: r.get(7)?,
-                strategy_hash: r.get(8)?,
-                lifecycle: r.get(9)?,
-                parent_strategy_id: r.get(10)?,
-            })
-        })?
+        .query_map([], strategy_from_row)?
         .collect::<Result<Vec<_>, _>>()?;
     Ok(rows)
 }

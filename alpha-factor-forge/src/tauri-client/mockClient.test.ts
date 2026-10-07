@@ -9,6 +9,9 @@ import { planValidationSplit } from '../core/validation/split';
 import { deriveEmbargoBars } from '../services/embargo';
 import { defaultStrategy } from '../services/strategy';
 import { buildStrategyDef } from '../services/strategyRecord';
+import { strategyHashFromDefinitionJson } from '../core/hashing';
+import { MANUAL_NUMERIC_POLICY } from '../services/manualStrategyDefinition';
+import { strategyFromPrepared } from '../services/strategyLibrary';
 import { DEFAULT_GATE_CONFIG, type GateVerdict } from '../services/gate';
 import { scoreCandidate } from '../services/score';
 import type { BenchmarkRun } from '../services/benchmarks';
@@ -86,12 +89,46 @@ const save = (db: ReturnType<typeof makeMockClient>['db'], b: ValidationBundle) 
   db.saveValidationRecord(b.trainSummary, b.trainTrades, b.validationSummary, b.validationTrades, b.record);
 
 describe('mockClient strategy UPSERT parity', () => {
+  it('prepares a detached exact view for a marked long-decimal row and preserves original lineage on re-save', async () => {
+    const { db } = makeMockClient();
+    const strategy = { ...defaultStrategy(), feePct: 0.0036944444444444438 };
+    const def = await buildStrategyDef(strategy, 'Exact');
+    const id = await db.saveStrategy(def);
+    const stored = (await db.getStrategies())[0];
+    const prepared = await db.prepareSavedStrategy(id);
+    expect(prepared).toEqual({ sourceStrategyId: id, sourceStrategyHash: def.strategy_hash, numericPolicy: MANUAL_NUMERIC_POLICY, interpretedDefinitionJson: def.original_definition_json });
+    expect(strategyFromPrepared(stored, prepared)).toEqual(strategy);
+    prepared.interpretedDefinitionJson = '{}';
+    expect((await db.getStrategies())[0].original_definition_json).toBe(def.original_definition_json);
+    const changed = await buildStrategyDef({ ...strategy, fastMA: 10 }, 'Changed', stored);
+    const childId = await db.saveStrategy(changed);
+    const child = (await db.getStrategies()).find((row) => row.id === childId)!;
+    expect(child.parent_strategy_id).toBe(id);
+    await db.saveStrategy(await buildStrategyDef({ ...strategy, fastMA: 10 }, 'Renamed', child));
+    expect((await db.getStrategies()).find((row) => row.id === childId)?.parent_strategy_id).toBe(id);
+    expect(await db.getStrategies()).toHaveLength(2);
+    await expect(db.prepareSavedStrategy(999)).rejects.toThrow(/找不到/);
+  });
+
+  it('refuses to guess the Rust interpretation for unproven legacy decimals or incomplete markers', async () => {
+    const { db } = makeMockClient();
+    const json = JSON.stringify({ ...defaultStrategy(), feePct: 0.0036944444444444438 });
+    const def = { ...await buildStrategyDef(defaultStrategy(), 'Legacy'), original_definition_json: json, strategy_hash: await strategyHashFromDefinitionJson(json) };
+    await expect(db.saveStrategy(def)).rejects.toThrow(/桌面程式/);
+    const partialJson = JSON.stringify({ ...defaultStrategy(), numericPolicy: MANUAL_NUMERIC_POLICY });
+    await expect(db.saveStrategy({ ...def, original_definition_json: partialJson, strategy_hash: await strategyHashFromDefinitionJson(partialJson) })).rejects.toThrow(/數值版本/);
+    expect(await db.getStrategies()).toEqual([]);
+  });
+
   it.each(['validated', 'rejected'] as const)(
     'keeps one stable row and its %s lifecycle when re-saved with a new name/source',
     async (lifecycle) => {
       const { db } = makeMockClient();
+      const legacyJson = JSON.stringify(defaultStrategy());
       const original = {
         ...await buildStrategyDef(defaultStrategy(), 'Original name'),
+        original_definition_json: legacyJson,
+        strategy_hash: await strategyHashFromDefinitionJson(legacyJson),
         lifecycle,
         param_schema_json: '{"version":1}',
         ai_prompt_hash: 'original-provenance',
@@ -120,6 +157,25 @@ describe('mockClient strategy UPSERT parity', () => {
       ]);
     },
   );
+
+  it('refuses missing, self and conflicting copy parents before changing rows', async () => {
+    const { db } = makeMockClient();
+    const first = await buildStrategyDef(defaultStrategy(), 'First');
+    const firstId = await db.saveStrategy(first);
+    const second = await buildStrategyDef({ ...defaultStrategy(), fastMA: 10 }, 'Second');
+    const secondId = await db.saveStrategy(second);
+    const before = structuredClone(await db.getStrategies());
+    await expect(db.saveStrategy({ ...first, name: 'Bad self', parent_strategy_id: firstId })).rejects.toThrow(/own parent/);
+    await expect(db.saveStrategy({ ...second, name: 'Bad parent', parent_strategy_id: firstId })).rejects.toThrow(/different parent/);
+    await expect(db.saveStrategy({ ...first, name: 'Missing', parent_strategy_id: 999 })).rejects.toThrow(/not found/);
+    expect(await db.getStrategies()).toEqual(before);
+    const child = { ...await buildStrategyDef({ ...defaultStrategy(), fastMA: 12 }, 'Child'), parent_strategy_id: firstId };
+    const childId = await db.saveStrategy(child);
+    const withChild = structuredClone(await db.getStrategies());
+    await expect(db.saveStrategy({ ...child, name: 'Wrong lineage', parent_strategy_id: secondId })).rejects.toThrow(/different parent/);
+    expect(await db.getStrategies()).toEqual(withChild);
+    expect(await db.saveStrategy({ ...child, name: 'Renamed' })).toBe(childId);
+  });
 
   it('rejects a forged hash or mismatched type before changing a stored row', async () => {
     const { db } = makeMockClient();

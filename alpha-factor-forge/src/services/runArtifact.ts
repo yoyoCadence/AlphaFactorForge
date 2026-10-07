@@ -25,6 +25,7 @@ import { canonicalize } from '../core/hashing';
 import type { BacktestResult } from '../core/backtest';
 import { holdoutSplitIndex } from './holdout';
 import type { ParamsStrategy } from './strategy';
+import type { StrategyDef } from '../tauri-client/commands';
 
 /** Bump when the field set that defines "same run inputs" changes. */
 export const RUN_CONTEXT_VERSION = 'run-context-v1';
@@ -76,6 +77,9 @@ export interface CompletedRun {
   /** Durable `strategy-v2` identity of `context.strategy`, computed by the same
    *  helper Save persists with, so the artifact can never disagree with its row. */
   strategyHash: string;
+  /** Immutable source row for an explicit new-version save; never read from
+   * the current library selection after a run has completed. */
+  sourceStrategy?: StrategyDef | null;
   result: BacktestResult;
   holdoutResult: RunHoldoutResult | null;
 }
@@ -90,6 +94,7 @@ export interface DescribeRunContextInput {
 export interface CreateRunArtifactInput {
   context: RunContext;
   strategyHash: string;
+  sourceStrategy?: StrategyDef | null;
   result: BacktestResult;
   holdoutResult: RunHoldoutResult | null;
 }
@@ -159,6 +164,7 @@ export function createRunArtifact(input: CreateRunArtifactInput): CompletedRun {
       holdoutPct: input.context.range.holdout?.pct ?? 0,
     }),
     strategyHash: input.strategyHash,
+    ...(input.sourceStrategy !== undefined ? { sourceStrategy: cloneDeep(input.sourceStrategy) } : {}),
     result: cloneDeep(input.result),
     holdoutResult: input.holdoutResult == null ? null : cloneDeep(input.holdoutResult),
   });
