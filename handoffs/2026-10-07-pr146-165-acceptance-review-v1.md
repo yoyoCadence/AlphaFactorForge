@@ -123,3 +123,16 @@ Tauri invoke + SQLite 數值 smoke。#165 的文件結案已補齊。詳見
 [repair handoff](2026-10-07-manual-strategy-numeric-policy-v1.md)。
 PR publication／最終 head CI／merge 仍是交付步驟；parent 數值 rollout 與
 operator acceptance 並未因這個切片而完成。
+
+## Resolution — 2026-10-07, final-head CI and merge
+
+[PR #166](https://github.com/yoyoCadence/AlphaFactorForge/pull/166) was marked
+ready and merged at 20:56 Asia/Taipei on the verified final head
+`a7f0783481681057ea1b545d3231edaa49021f2d`. All six checks passed in
+[CI run 37623643276](https://github.com/yoyoCadence/AlphaFactorForge/actions/runs/37623643276).
+Merge commit `0dafef5811282c5b711ae8e7b6725c8d8186046d` has the same tree
+`335bec9e77b6796d34a71bee9c469e835654bc38` as that head; local main was
+fetched and fast-forwarded. NUMERIC-JSON-002a and PR146-165-DOC-R1 are delivered.
+The parent NUMERIC-JSON-002 and outstanding operator acceptance remain open.
+The requested previous-20 review is recorded in
+[PR126–145 acceptance](2026-10-07-pr126-145-acceptance-review-v1.md).

@@ -1,7 +1,7 @@
 # Manual strategy numeric policy v1
 
 Date: 2026-10-07
-Status: Implementation and local verification complete; PR publication and final-head CI/merge pending under the maintainer's authorization.
+Status: Implemented and merged in PR #166 on 2026-10-07; six final-head CI checks passed. Parent NUMERIC-JSON-002 remains open.
 Task: NUMERIC-JSON-002a; parent NUMERIC-JSON-002 retains the broader research/runtime rollout.
 
 ## Problem and scope

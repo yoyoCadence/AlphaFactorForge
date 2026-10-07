@@ -3,7 +3,7 @@
 Date: 2026-10-07
 Repo: yoyoCadence/AlphaFactorForge
 Branch: `fix/versioned-strategy-numeric-policy`, from main `060f3d6`
-Status: Implementation and local verification complete; final-head CI and PR merge pending.
+Status: Resolved — merged PR #166 on verified head, six CI checks successful.
 Task: NUMERIC-JSON-002a; maintainer authorized repair, PR publication and merge.
 
 ## Change and reason
@@ -69,3 +69,16 @@ claim a global numerical rollout. The single immutable parent schema refuses
 multiple copy origins for an existing destination hash; load that existing row
 instead. O1–O4, P12 native campaign acceptance and P13 runtime reveal remain
 separate. After verified PR merge, complete the requested #126–#145 review.
+
+## Resolution — 2026-10-07, final-head CI and merge
+
+[PR #166](https://github.com/yoyoCadence/AlphaFactorForge/pull/166) was marked
+ready and merged at 20:56 Asia/Taipei on the verified final head
+`a7f0783481681057ea1b545d3231edaa49021f2d`. All six checks passed in
+[CI run 37623643276](https://github.com/yoyoCadence/AlphaFactorForge/actions/runs/37623643276).
+Merge commit `0dafef5811282c5b711ae8e7b6725c8d8186046d` has the same tree
+`335bec9e77b6796d34a71bee9c469e835654bc38` as that head; local main was
+fetched and fast-forwarded. NUMERIC-JSON-002a and PR146-165-DOC-R1 are delivered.
+The parent NUMERIC-JSON-002 and outstanding operator acceptance remain open.
+The requested previous-20 review is recorded in
+[PR126–145 acceptance](2026-10-07-pr126-145-acceptance-review-v1.md).
