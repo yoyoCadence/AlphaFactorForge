@@ -48,6 +48,14 @@ export interface StrategyDef {
   parent_strategy_id?: number | null;
 }
 
+/** A verified editor view. Original row text/hash remain in getStrategies. */
+export interface PreparedSavedStrategy {
+  sourceStrategyId: number;
+  sourceStrategyHash: string;
+  numericPolicy: 'serde-json-default-v1' | 'json-f64-roundtrip-v1';
+  interpretedDefinitionJson: string;
+}
+
 // One backtest_summary row. snake_case mirrors the SQLite columns / Rust DTO.
 // NOTE: core/metrics emits a camelCase `Metrics`; map it onto these fields when
 // saving (e.g. netReturn -> net_return). gate_passed/score/*_json are Phase B.
@@ -130,6 +138,8 @@ export const db = {
     invoke<number>('import_candles', { dataset, candles }),
   saveStrategy: (strategy: StrategyDef) => invoke<number>('save_strategy', { strategy }),
   getStrategies: () => invoke<StrategyDef[]>('get_strategies'),
+  prepareSavedStrategy: (strategyId: number) =>
+    invoke<PreparedSavedStrategy>('prepare_saved_strategy', { strategyId }),
   saveBacktestResult: (summary: BacktestSummary, trades: TradeRow[]) =>
     invoke<number>('save_backtest_result', { summary, trades }),
   getBacktestResults: (strategyId?: number) =>

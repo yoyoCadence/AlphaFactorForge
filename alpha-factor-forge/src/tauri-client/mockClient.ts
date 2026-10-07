@@ -27,6 +27,7 @@ import type {
   CampaignSummary,
   MarketInstrument,
   MarketSnapshotOption,
+  PreparedSavedStrategy,
 } from './commands';
 import {
   DISCOVERY_EVENTS,
@@ -56,6 +57,7 @@ import { canonicalize, sha256BytesHex } from '../core/hashing';
 import { CAMPAIGN_CONTRACTS } from '../services/campaignAuthoring';
 import { DISCOVERY_CONFIG_VERSION_V3, parseDiscoveryConfig } from '../services/discoveryConfig';
 import { seedHistory } from './mockHistorySeed';
+import { assertMockLegacyNumericSupport, LEGACY_NUMERIC_POLICY, manualNumericPolicy } from '../services/manualStrategyDefinition';
 
 /**
  * `?mock=1&seedHistory=1` pre-fills saved history (P01 Results Explorer).
@@ -252,6 +254,9 @@ export function makeMockClient() {
   let failNextResultsRead = mockExplorerFailOnce();
   const explorerRefreshDelayMs = mockExplorerRefreshDelayMs();
   const researchDetailDelay = mockResearchDetailDelay();
+  // E2E-only async preparation race; the mock remains absent from production.
+  const requestedStrategyDelay = Number(mockSearchParam('strategyPrepareDelay') ?? 0);
+  const strategyPrepareDelayMs = Number.isFinite(requestedStrategyDelay) ? Math.min(5000, Math.max(0, requestedStrategyDelay)) : 0;
   let resultsReadCount = 0;
 
   // P12d-2d-2: snapshots represent records created earlier by the service CLI.
@@ -344,12 +349,27 @@ export function makeMockClient() {
       return id;
     },
     saveStrategy: async (def: StrategyDef) => {
-      const expectedHash = await strategyHashFromDefinitionJson(def.original_definition_json);
       const parsed = JSON.parse(def.original_definition_json) as Record<string, unknown>;
+      const numericPolicy = manualNumericPolicy(parsed);
+      if (numericPolicy === LEGACY_NUMERIC_POLICY) assertMockLegacyNumericSupport(def.original_definition_json);
+      const expectedHash = await strategyHashFromDefinitionJson(def.original_definition_json);
       if (def.strategy_hash !== expectedHash || def.type !== parsed.mode) {
         throw new Error('strategy identity mismatch');
       }
       const existing = strategies.find((row) => row.strategy_hash === def.strategy_hash);
+      if (numericPolicy !== LEGACY_NUMERIC_POLICY && def.parent_strategy_id != null) {
+        const parent = strategies.find((row) => row.id === def.parent_strategy_id);
+        if (!parent) throw new Error('manual strategy source row was not found');
+        const parentDefinition = JSON.parse(parent.original_definition_json) as Record<string, unknown>;
+        if (manualNumericPolicy(parentDefinition) === LEGACY_NUMERIC_POLICY) assertMockLegacyNumericSupport(parent.original_definition_json);
+        if (parentDefinition.mode !== parent.type || await strategyHashFromDefinitionJson(parent.original_definition_json) !== parent.strategy_hash) {
+          throw new Error('manual strategy source identity mismatch');
+        }
+        if (parent.strategy_hash === def.strategy_hash) throw new Error('manual strategy cannot be its own parent');
+        if (existing && existing.parent_strategy_id !== def.parent_strategy_id) {
+          throw new Error('existing manual strategy has a different parent; load the existing strategy');
+        }
+      }
       if (existing) {
         // SQLite's manual-save UPSERT changes only name/source/updated_at.
         // Definition metadata and validation-owned lifecycle retain their row.
@@ -360,6 +380,23 @@ export function makeMockClient() {
       const id = nextId++;
       strategies.push({ ...def, id });
       return id;
+    },
+    prepareSavedStrategy: async (strategyId: number): Promise<PreparedSavedStrategy> => {
+      if (strategyPrepareDelayMs > 0) await new Promise((resolve) => globalThis.setTimeout(resolve, strategyPrepareDelayMs));
+      const row = strategies.find((strategy) => strategy.id === strategyId);
+      if (!row) throw new Error('找不到來源策略');
+      const definition = JSON.parse(row.original_definition_json) as Record<string, unknown>;
+      const numericPolicy = manualNumericPolicy(definition);
+      if (numericPolicy === LEGACY_NUMERIC_POLICY) assertMockLegacyNumericSupport(row.original_definition_json);
+      if (definition.mode !== row.type || await strategyHashFromDefinitionJson(row.original_definition_json) !== row.strategy_hash) {
+        throw new Error('strategy identity mismatch');
+      }
+      return {
+        sourceStrategyId: strategyId,
+        sourceStrategyHash: row.strategy_hash,
+        numericPolicy,
+        interpretedDefinitionJson: JSON.stringify(definition),
+      };
     },
     getStrategies: async () => strategies.slice(),
     saveBacktestResult: async (summary: BacktestSummary, trades: TradeRow[]) => {

@@ -24,7 +24,7 @@ import { toCoreCandles } from '../services/candleAdapter';
 import { firstMarketDataIssue } from '../core/market-data/quality';
 import { makeSampleCandles } from '../services/sampleData';
 import { buildStrategyDef } from '../services/strategyRecord';
-import { strategyFromDef } from '../services/strategyLibrary';
+import { strategyFromPrepared } from '../services/strategyLibrary';
 import { metricsToBacktestSummary } from '../services/metricsMapper';
 import { tradesToRows } from '../services/tradesMapper';
 import { SweepSection } from './SweepSection';
@@ -91,9 +91,18 @@ export function BacktestPanel(): React.ReactElement {
   const [savedStrategies, setSavedStrategies] = useState<StrategyDef[]>([]);
   const [savedStrategyId, setSavedStrategyId] = useState<number | null>(null);
   const [loadingStrategies, setLoadingStrategies] = useState(false);
+  const [sourceStrategy, setSourceStrategy] = useState<StrategyDef | null>(null);
+  const [preparingStrategyGen, setPreparingStrategyGen] = useState<number | null>(null);
+  const strategyLoadOwnerRef = useRef(0);
+  const savedStrategyIdRef = useRef(savedStrategyId);
+  savedStrategyIdRef.current = savedStrategyId;
+  const savedStrategiesRef = useRef(savedStrategies);
+  savedStrategiesRef.current = savedStrategies;
   // BUG-RESULT-CONTEXT-001 — a finished backtest is kept as an immutable
   // artifact bound to the inputs that produced it, never as a bare result.
   const [completed, setCompleted] = useState<CompletedRun | null>(null);
+  const completedRef = useRef(completed);
+  completedRef.current = completed;
   const [saving, setSaving] = useState(false);
   const [busyData, setBusyData] = useState(false);
   const [importText, setImportText] = useState('');
@@ -144,9 +153,26 @@ export function BacktestPanel(): React.ReactElement {
   /** The one strategy-mutation entry point: mode, signals, rules, code, periods,
    *  exec/risk fields, library load, and Sweep apply all route through it. */
   const changeStrategy = useCallback((update: React.SetStateAction<ParamsStrategy>) => {
+    strategyLoadOwnerRef.current = nextGeneration();
+    setPreparingStrategyGen(null);
     invalidateRun();
     setStrat(update);
-  }, [invalidateRun]);
+  }, [invalidateRun, nextGeneration]);
+
+  const selectSavedStrategy = (id: number | null) => {
+    strategyLoadOwnerRef.current = nextGeneration();
+    setPreparingStrategyGen(null);
+    savedStrategyIdRef.current = id;
+    setSavedStrategyId(id);
+  };
+
+  const changeStrategyName = (name: string) => {
+    strategyLoadOwnerRef.current = nextGeneration();
+    setPreparingStrategyGen(null);
+    setStratName(name);
+  };
+
+  useEffect(() => () => { strategyLoadOwnerRef.current = ++generationRef.current; }, []);
 
   const refresh = useCallback(async () => {
     const ds = await db.getDatasets();
@@ -319,6 +345,7 @@ export function BacktestPanel(): React.ReactElement {
     // The run executes the context, so nothing downstream can disagree about
     // which strategy / dataset / range produced the result.
     const context = liveContext;
+    const source = sourceStrategy == null ? null : structuredClone(sourceStrategy);
     if (!context) {
       setErr(selected == null ? '請先選擇資料集' : '此資料集沒有 K 線');
       return;
@@ -343,11 +370,11 @@ export function BacktestPanel(): React.ReactElement {
         : null;
       // Durable identity comes from the same helper Save persists with, so an
       // artifact can never carry an identity that disagrees with its stored row.
-      const strategyHash = (await buildStrategyDef(strategy, stratName)).strategy_hash;
+      const strategyHash = (await buildStrategyDef(strategy, stratName, source)).strategy_hash;
       // Both halves of the guard: still the newest run, and the inputs it was
       // started for are still the live ones.
       if (runOwnerRef.current !== gen || !sameRunContext(context, liveContextRef.current)) return;
-      setCompleted(createRunArtifact({ context, strategyHash, result, holdoutResult }));
+      setCompleted(createRunArtifact({ context, strategyHash, sourceStrategy: source, result, holdoutResult }));
     } catch (e) {
       if (runOwnerRef.current !== gen) return;
       setErr(String(e));
@@ -365,7 +392,7 @@ export function BacktestPanel(): React.ReactElement {
       // The strategy NAME is the only live editor value Save reads: it is a
       // display label that changes neither the result nor the strategy-v2
       // identity, which the equality check below proves before any write.
-      const def = await buildStrategyDef(strategy, stratName);
+      const def = await buildStrategyDef(strategy, stratName, artifact.sourceStrategy);
       if (def.strategy_hash !== artifact.strategyHash) {
         throw new Error('策略識別碼與此回測結果不符，請重新執行回測後再儲存');
       }
@@ -378,8 +405,15 @@ export function BacktestPanel(): React.ReactElement {
         endTime: dataset.endTime,
       });
       await db.saveBacktestResult(summary, tradesToRows(artifact.result.trades));
-      await refreshStrategies();
+      const rows = await refreshStrategies();
       setSavedStrategyId(strategyId);
+      const saved = rows.find((row) => row.id === strategyId && row.strategy_hash === artifact.strategyHash);
+      if (saved && completedRef.current === artifact && sameRunContext(artifact.context, liveContextRef.current)) {
+        // The new version is now the source of subsequent same-hash saves.
+        // A late save must not replace a newer editor/result's provenance.
+        setSourceStrategy(structuredClone(saved));
+        setCompleted(createRunArtifact({ ...artifact, sourceStrategy: saved }));
+      }
       setMsg(`已存檔：strategy #${strategyId}（type=${def.type}）· dataset #${dataset.id} · ${artifact.result.trades.length} trades`);
     } catch (e) {
       setErr(String(e));
@@ -388,20 +422,33 @@ export function BacktestPanel(): React.ReactElement {
     }
   }
 
-  function loadSavedStrategy() {
+  async function loadSavedStrategy() {
     const def = savedStrategies.find((row) => row.id === savedStrategyId);
-    if (!def) return;
+    if (!def || def.id == null) return;
+    const source = structuredClone(def);
+    const generation = nextGeneration();
+    strategyLoadOwnerRef.current = generation;
+    setPreparingStrategyGen(generation);
+    const stillSelected = () => strategyLoadOwnerRef.current === generation
+      && savedStrategyIdRef.current === source.id
+      && savedStrategiesRef.current.some((row) => row.id === source.id && row.strategy_hash === source.strategy_hash);
     setErr(null);
     try {
-      const loaded = strategyFromDef(def);
-      changeStrategy(loaded);
-      setStratName(def.name);
+      const prepared = await db.prepareSavedStrategy(source.id!);
+      if (!stillSelected()) return;
+      const loaded = strategyFromPrepared(source, prepared);
+      invalidateRun();
+      setStrat(loaded);
+      setSourceStrategy(source);
+      setStratName(source.name);
       setCompleted(null);
       setSweepResetSignal((n) => n + 1); // clear the (now-stale) sweep heatmap in SweepSection
       setAppliedKeys([]);
-      setMsg(`已載入策略：${def.name}（${def.type}）；請重新執行回測。`);
+      setMsg(`已載入策略：${source.name}（${source.type}）；請重新執行回測。`);
     } catch (e) {
-      setErr(`無法載入「${def.name}」：${String(e)}`);
+      if (stillSelected()) setErr(`無法載入「${source.name}」：${String(e)}`);
+    } finally {
+      setPreparingStrategyGen((current) => current === generation ? null : current);
     }
   }
 
@@ -450,11 +497,11 @@ export function BacktestPanel(): React.ReactElement {
             strat={strat}
             onStratChange={changeStrategy}
             stratName={stratName}
-            onStratNameChange={setStratName}
+            onStratNameChange={changeStrategyName}
             savedStrategies={savedStrategies}
             savedStrategyId={savedStrategyId}
-            loadingStrategies={loadingStrategies}
-            onSelectSaved={setSavedStrategyId}
+            loadingStrategies={loadingStrategies || preparingStrategyGen != null}
+            onSelectSaved={selectSavedStrategy}
             onLoadStrategy={loadSavedStrategy}
             onRefreshStrategies={() => refreshStrategies().catch((e) => setErr(String(e)))}
             appliedKeys={appliedKeys}
@@ -470,7 +517,7 @@ export function BacktestPanel(): React.ReactElement {
               setHoldoutPct(n);
             }}
             running={running}
-            canRun={liveContext != null && !loadingCandles}
+            canRun={liveContext != null && !loadingCandles && preparingStrategyGen == null}
             onRun={run}
             help={{ strategy: HELP.strategy, exec: HELP.exec, holdout: HELP.holdout, run: HELP.run }}
           />
@@ -482,6 +529,7 @@ export function BacktestPanel(): React.ReactElement {
           stale={staleResult}
           stratName={stratName}
           saving={saving}
+          saveAsNewVersion={artifact?.sourceStrategy != null && artifact.strategyHash !== artifact.sourceStrategy.strategy_hash}
           onSave={save}
           onError={setErr}
           onMessage={setMsg}

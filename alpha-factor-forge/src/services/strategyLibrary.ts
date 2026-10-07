@@ -4,7 +4,8 @@
 // historical shapes from before blocks/code fields were added; active fields
 // and present persisted fields remain strictly validated.
 
-import type { StrategyDef } from '../tauri-client/commands';
+import type { PreparedSavedStrategy, StrategyDef } from '../tauri-client/commands';
+import { manualNumericPolicy } from './manualStrategyDefinition';
 import {
   defaultStrategy,
   OPERAND_IDS,
@@ -61,6 +62,7 @@ export function strategyFromDef(def: StrategyDef): ParamsStrategy {
     throw new Error('策略定義不是有效 JSON');
   }
   if (!isRecord(value)) throw new Error('策略定義必須是物件');
+  manualNumericPolicy(value);
   if (!isOneOf(value.mode, MODES)) throw new Error('策略 mode 無效');
   if (value.mode !== def.type) throw new Error('策略 type 與定義 mode 不一致');
 
@@ -108,4 +110,18 @@ export function strategyFromDef(def: StrategyDef): ParamsStrategy {
     fillMode: value.fillMode,
     direction: value.direction,
   };
+}
+
+/** Resolve the backend's verified numeric view only for the requested row.
+ * The legacy raw JSON must not be parsed by JS as a substitute for this view. */
+export function strategyFromPrepared(def: StrategyDef, prepared: PreparedSavedStrategy): ParamsStrategy {
+  if (def.id !== prepared.sourceStrategyId || def.strategy_hash !== prepared.sourceStrategyHash) {
+    throw new Error('載入回應與所選來源策略不一致');
+  }
+  const declared = manualNumericPolicy(JSON.parse(def.original_definition_json));
+  const interpreted = manualNumericPolicy(JSON.parse(prepared.interpretedDefinitionJson));
+  if (prepared.numericPolicy !== declared || interpreted !== declared) {
+    throw new Error('載入回應與來源策略數值版本不一致');
+  }
+  return strategyFromDef({ ...def, original_definition_json: prepared.interpretedDefinitionJson });
 }

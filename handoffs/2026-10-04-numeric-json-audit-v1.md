@@ -78,3 +78,19 @@ Final head `a310be5b6c8c54a7a8e93c444c4740dea7e1259b` passed all six jobs
 PR #154 was marked ready and merged on that head as
 `78912188d634e0c3bd70f916e91cdaff02197ceb`. Audit done; NUMERIC-JSON-002
 remains the separately scoped compatibility design/repair task.
+
+## Resolution — 2026-10-07, bounded manual repair
+
+NUMERIC-JSON-002a implements and locally verifies the manual params/blocks/code
+save/load boundary with hash-covered definition/policy markers, isolated raw-token
+binary64 parsing and verified policy-preserving edit preparation. Legacy rows keep
+their original parser, JSON, identities and provenance; explicit copies add a new
+row with an immutable parent. Original audit fixtures remain unchanged. Full
+1131 Vitest / 600 Rust (1 ignored) / 85 E2E, typecheck/build/all-target check and
+real isolated Tauri 18-case numeric plus legacy/copy/rejection smoke pass.
+[Contract](../docs/manual-strategy-numeric-policy-v1.md),
+[repair handoff](2026-10-07-manual-strategy-numeric-policy-v1.md).
+
+PR delivery/CI/merge are pending at this record. The parent NUMERIC-JSON-002
+remains open for discovery/runtime request/dataset/artifact versioning; this
+manual slice does not close the audit's remaining transport/replay boundaries.
