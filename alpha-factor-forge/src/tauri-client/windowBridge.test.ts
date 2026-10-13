@@ -1,11 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { defaultStrategy } from '../services/strategy';
+import type { Metrics } from '../core/metrics';
 import {
+  decodeMetricsSnapshot,
+  encodeMetricsSnapshot,
   mergeChartSnapshot,
   popoutWindows,
   type ChartWindowSnapshot,
   type MetricsWindowSnapshot,
   type MetricsWindowUpdate,
+  type MetricsWindowWire,
 } from './windowBridge';
 
 const tauriMocks = vi.hoisted(() => ({
@@ -56,9 +60,19 @@ describe('mergeChartSnapshot', () => {
   });
 });
 
+function metrics(over: Partial<Metrics> = {}): Metrics {
+  return {
+    netReturn: 0.1, cagr: 0.2, maxDrawdown: 0.05, sharpe: 1.5, sortino: 2, calmar: 4,
+    winRate: 0.5, tradeCount: 3, profitFactor: 1.8, avgTradeReturn: 0.01, medianTradeReturn: 0.01,
+    avgHoldingBars: 4, exposure: 0.4, turnover: 0.02, largestWin: 0.05, largestLoss: -0.02,
+    consecutiveLosses: 1, monthlyReturns: { '2024-01': 0.1 },
+    ...over,
+  };
+}
+
 describe('metrics window updates', () => {
   it('transports both a clear update and the latest snapshot', async () => {
-    let eventHandler: ((event: { payload: MetricsWindowUpdate }) => void) | undefined;
+    let eventHandler: ((event: { payload: MetricsWindowWire | null }) => void) | undefined;
     tauriMocks.listen.mockImplementation(async (_event, handler) => {
       eventHandler = handler;
       return () => undefined;
@@ -66,14 +80,72 @@ describe('metrics window updates', () => {
     const received: MetricsWindowUpdate[] = [];
     await popoutWindows.onMetricsSnapshot((update) => received.push(update));
 
-    eventHandler?.({ payload: null });
-    const latest = { title: 'latest', full: { tradeCount: 3 } } as MetricsWindowSnapshot;
-    eventHandler?.({ payload: latest });
+    const latest: MetricsWindowSnapshot = { title: 'latest', full: metrics() };
     await popoutWindows.publishMetrics(null);
     await popoutWindows.publishMetrics(latest);
 
-    expect(received).toEqual([null, latest]);
     expect(tauriMocks.emitTo).toHaveBeenNthCalledWith(1, 'metrics-popout-window', 'aff:metrics-snapshot', null);
-    expect(tauriMocks.emitTo).toHaveBeenNthCalledWith(2, 'metrics-popout-window', 'aff:metrics-snapshot', latest);
+    const [label, event, wire] = tauriMocks.emitTo.mock.calls[1];
+    expect([label, event]).toEqual(['metrics-popout-window', 'aff:metrics-snapshot']);
+
+    // Deliver what was emitted, the way the event system does: as JSON.
+    eventHandler?.({ payload: null });
+    eventHandler?.({ payload: JSON.parse(JSON.stringify(wire)) });
+    expect(received).toEqual([null, latest]);
+  });
+
+  // METRIC-DISPLAY-001: a bare Metrics object lost its infinite ratios to
+  // JSON, so the pop-out showed a dash where the main window showed a value.
+  it('carries non-finite metrics across the JSON boundary', async () => {
+    let eventHandler: ((event: { payload: MetricsWindowWire | null }) => void) | undefined;
+    tauriMocks.listen.mockImplementation(async (_event, handler) => {
+      eventHandler = handler;
+      return () => undefined;
+    });
+    const received: MetricsWindowUpdate[] = [];
+    await popoutWindows.onMetricsSnapshot((update) => received.push(update));
+
+    const sent: MetricsWindowSnapshot = {
+      title: 'no losing trade',
+      full: metrics({ sortino: Number.POSITIVE_INFINITY, calmar: Number.POSITIVE_INFINITY, profitFactor: Number.POSITIVE_INFINITY }),
+      inSample: metrics({ cagr: Number.NaN }),
+      outSample: metrics({ sharpe: Number.NEGATIVE_INFINITY }),
+    };
+    await popoutWindows.publishMetrics(sent);
+    const wire = tauriMocks.emitTo.mock.calls[0][2] as MetricsWindowWire;
+
+    // On the wire every number is finite or null, with an explicit status.
+    const json = JSON.stringify(wire);
+    expect(json).not.toMatch(/Infinity|NaN/);
+    expect(wire.full.values.sortino).toBeNull();
+    expect(wire.full.nonFinite).toEqual({ sortino: 'positive_infinity', calmar: 'positive_infinity', profitFactor: 'positive_infinity' });
+
+    eventHandler?.({ payload: JSON.parse(json) });
+    const arrived = received[0] as MetricsWindowSnapshot;
+    expect(arrived.full.sortino).toBe(Number.POSITIVE_INFINITY);
+    expect(arrived.full.calmar).toBe(Number.POSITIVE_INFINITY);
+    expect(arrived.full.profitFactor).toBe(Number.POSITIVE_INFINITY);
+    expect(arrived.inSample?.cagr).toBeNaN();
+    expect(arrived.outSample?.sharpe).toBe(Number.NEGATIVE_INFINITY);
+    expect(arrived).toEqual(sent);
+  });
+
+  it('omits the holdout columns when the run has none', () => {
+    const wire = encodeMetricsSnapshot({ title: 'full only', full: metrics() });
+    expect(Object.keys(wire).sort()).toEqual(['full', 'title']);
+    expect(Object.keys(decodeMetricsSnapshot(wire)).sort()).toEqual(['full', 'title']);
+  });
+
+  it('leaves a null without a status as null rather than inventing a value', () => {
+    const wire = encodeMetricsSnapshot({ title: 't', full: metrics() });
+    (wire.full.values as { sharpe: number | null }).sharpe = null;
+    expect(decodeMetricsSnapshot(wire).full.sharpe).toBeNull();
+  });
+
+  it('does not alias the wire payload', () => {
+    const wire = encodeMetricsSnapshot({ title: 't', full: metrics() });
+    const decoded = decodeMetricsSnapshot(wire);
+    decoded.full.monthlyReturns['2024-02'] = 1;
+    expect(wire.full.values.monthlyReturns).toEqual({ '2024-01': 0.1 });
   });
 });

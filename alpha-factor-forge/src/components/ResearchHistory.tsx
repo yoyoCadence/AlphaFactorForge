@@ -9,7 +9,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { research } from '../tauri-client/dataClient';
 import type { ResearchAttempt, ResearchAttemptDetail, ResearchAttemptStatus } from '../tauri-client/commands';
-import { DASH, fmtNum, fmtPct, shortHash } from '../services/resultsExplorer';
+import { DASH, fmtNum, fmtPct, fmtStamp, shortHash } from '../services/resultsExplorer';
 import { HelpTip } from './HelpTip';
 import { makeStyles } from './panelStyles';
 import { useTheme } from '../theme/ThemeProvider';
@@ -47,11 +47,6 @@ function outcomeText(attempt: ResearchAttempt): string {
   if (typeof outcome.error === 'string') return outcome.error;
   if (typeof outcome.reason === 'string') return outcome.reason;
   return JSON.stringify(outcome);
-}
-
-function fmtStamp(iso: string | null): string {
-  if (iso == null) return DASH;
-  return iso.replace('T', ' ').slice(0, 16);
 }
 
 export function ResearchHistory(): React.ReactElement {
@@ -143,7 +138,7 @@ export function ResearchHistory(): React.ReactElement {
             <table data-testid="research-history-attempts" style={{ borderCollapse: 'collapse', fontSize: 11, fontFamily: t.font.mono }}>
               <thead>
                 <tr>
-                  {['#', '工作', '候選', '狀態', '結果', '策略', '提交', '完成'].map((head) => (
+                  {['#', '工作', '候選', '狀態', '結果', '策略', '提交（UTC）', '完成（UTC）'].map((head) => (
                     <th key={head} style={{ ...S.tableHead, padding: '3px 8px', textAlign: 'left' }}>{head}</th>
                   ))}
                 </tr>

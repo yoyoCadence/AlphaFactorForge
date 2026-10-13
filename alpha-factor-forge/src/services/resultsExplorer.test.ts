@@ -16,6 +16,8 @@ import {
   describeStrategy,
   filterRecords,
   fmtPct,
+  fmtGateValue,
+  fmtStamp,
   fmtTime,
   hideTestSegments,
   latestSummariesFor,
@@ -241,5 +243,51 @@ describe('sameSummaryRow', () => {
     expect(sameSummaryRow(base, { ...base, net_return: 0.6 })).toBe(false);
     expect(sameSummaryRow({ ...base, net_return: Number.NaN }, { ...base, net_return: Number.NaN })).toBe(true);
     expect(sameSummaryRow({ ...base, net_return: 0 }, { ...base, net_return: -0 })).toBe(false);
+  });
+});
+
+// METRIC-DISPLAY-001
+describe('fmtStamp', () => {
+  it('reads SQLite and ISO timestamps the same way', () => {
+    expect(fmtStamp('2026-10-13 13:19:40')).toBe('2026-10-13 13:19');
+    expect(fmtStamp('2026-10-13T13:19:40.830Z')).toBe('2026-10-13 13:19');
+  });
+
+  it('shows a dash for a missing stamp and leaves an unexpected text as stored', () => {
+    expect(fmtStamp(null)).toBe('—');
+    expect(fmtStamp(undefined)).toBe('—');
+    expect(fmtStamp('')).toBe('—');
+    expect(fmtStamp('yesterday')).toBe('yesterday');
+  });
+});
+
+describe('fmtGateValue', () => {
+  it('formats each gate-v1 criterion in its own unit', () => {
+    expect(fmtGateValue('minTrades', 9, 'gate-v1')).toBe('9');
+    expect(fmtGateValue('benchmarkWins', 4, 'gate-v1')).toBe('4');
+    expect(fmtGateValue('avgTradeReturn', 0.0054, 'gate-v1')).toBe('0.54%');
+    expect(fmtGateValue('rollingConsistency', 0.6092, 'gate-v1')).toBe('60.92%');
+    expect(fmtGateValue('maxDrawdown', 0.027, 'gate-v1')).toBe('2.70%');
+    expect(fmtGateValue('monthlyConcentration', 1, 'gate-v1')).toBe('100.00%');
+    expect(fmtGateValue('tradeConcentration', 0.3066, 'gate-v1')).toBe('30.66%');
+    expect(fmtGateValue('randomEntryPercentile', 95, 'gate-v1')).toBe('95.0');
+  });
+
+  it('keeps the raw reading for anything it cannot type', () => {
+    expect(fmtGateValue('minTrades', 9, 'gate-v2')).toBe('9.0000');
+    expect(fmtGateValue('minTrades', 9, null)).toBe('9.0000');
+    expect(fmtGateValue('someNewCriterion', 0.5, 'gate-v1')).toBe('0.5000');
+    expect(fmtGateValue('constructor', 0.5, 'gate-v1')).toBe('0.5000');
+  });
+
+  it('does not round a fractional count to an integer', () => {
+    expect(fmtGateValue('minTrades', 9.5, 'gate-v1')).toBe('9.50');
+  });
+
+  it('shows a dash for a missing or non-finite value', () => {
+    expect(fmtGateValue('maxDrawdown', null, 'gate-v1')).toBe('—');
+    expect(fmtGateValue('maxDrawdown', undefined, 'gate-v1')).toBe('—');
+    expect(fmtGateValue('maxDrawdown', Number.NaN, 'gate-v1')).toBe('—');
+    expect(fmtGateValue('maxDrawdown', Number.POSITIVE_INFINITY, 'gate-v1')).toBe('—');
   });
 });

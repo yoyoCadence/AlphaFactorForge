@@ -14,15 +14,24 @@ export interface MetricColumn {
   metrics: Metrics;
 }
 
+/** METRIC-DISPLAY-001: a non-finite metric reads as what it is. An infinite
+ *  ratio (no downside, no losing trade, no drawdown) is `∞` in every row, and
+ *  anything else that is not a number is a dash — never `NaN%`. */
+function nonFiniteText(x: unknown): string {
+  if (x === Number.POSITIVE_INFINITY) return '∞';
+  if (x === Number.NEGATIVE_INFINITY) return '−∞';
+  return '—';
+}
+
 function pct(x: number): string {
-  return `${(x * 100).toFixed(2)}%`;
+  return Number.isFinite(x) ? `${(x * 100).toFixed(2)}%` : nonFiniteText(x);
 }
 
 function num(x: number): string {
-  return Number.isFinite(x) ? x.toFixed(2) : '—';
+  return Number.isFinite(x) ? x.toFixed(2) : nonFiniteText(x);
 }
 
-const METRIC_ROWS: { label: string; fmt: (metrics: Metrics) => string }[] = [
+export const METRIC_ROWS: { label: string; fmt: (metrics: Metrics) => string }[] = [
   { label: '淨報酬', fmt: (metrics) => pct(metrics.netReturn) },
   { label: 'CAGR', fmt: (metrics) => pct(metrics.cagr) },
   { label: '最大回撤', fmt: (metrics) => pct(metrics.maxDrawdown) },
@@ -31,7 +40,7 @@ const METRIC_ROWS: { label: string; fmt: (metrics: Metrics) => string }[] = [
   { label: 'Calmar', fmt: (metrics) => num(metrics.calmar) },
   { label: '勝率', fmt: (metrics) => pct(metrics.winRate) },
   { label: '交易數', fmt: (metrics) => String(metrics.tradeCount) },
-  { label: 'Profit Factor', fmt: (metrics) => (Number.isFinite(metrics.profitFactor) ? num(metrics.profitFactor) : '∞') },
+  { label: 'Profit Factor', fmt: (metrics) => num(metrics.profitFactor) },
   { label: '平均每筆', fmt: (metrics) => pct(metrics.avgTradeReturn) },
   { label: '曝險', fmt: (metrics) => pct(metrics.exposure) },
   { label: '換手', fmt: (metrics) => num(metrics.turnover) },

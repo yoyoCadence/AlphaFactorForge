@@ -8,6 +8,8 @@ import type { ClosedTrade, Metrics } from '../core/metrics';
 import type { Candle } from '../core/backtest';
 import type { OverlayToggles } from '../charts/CandleChart';
 import type { ParamsStrategy } from '../services/strategy';
+import { encodeMetrics, type EncodedMetrics } from '../services/metricsCodec';
+import type { NonFiniteStatus } from '../services/nonFinite';
 
 export const MAIN_WINDOW_LABEL = 'main';
 export const CHART_WINDOW_LABEL = 'chart-popout-window';
@@ -40,6 +42,58 @@ export interface MetricsWindowSnapshot {
 }
 
 export type MetricsWindowUpdate = MetricsWindowSnapshot | null;
+
+/** The metrics snapshot as it crosses the window boundary. The event payload is
+ *  JSON, which turns an infinite Sortino / Calmar / profit factor into null, so
+ *  the pop-out would show a dash where the main window shows the value
+ *  (METRIC-DISPLAY-001). Each column travels through the shared metrics codec
+ *  and is restored on arrival. */
+export interface MetricsWindowWire {
+  title: string;
+  full: EncodedMetrics;
+  inSample?: EncodedMetrics;
+  outSample?: EncodedMetrics;
+}
+
+const NON_FINITE_VALUE: Record<NonFiniteStatus, number> = {
+  positive_infinity: Number.POSITIVE_INFINITY,
+  negative_infinity: Number.NEGATIVE_INFINITY,
+  nan: Number.NaN,
+};
+
+/** The inverse of the shared `encodeMetrics`: every field with a status gets
+ *  its non-finite number back; a null without a status stays null. It lives
+ *  here, not in `metricsCodec.ts`, because that file is a pinned reference
+ *  source of the Gate/Score parity fixture and this is a display concern. */
+function decodeMetrics(encoded: EncodedMetrics): Metrics {
+  const values: Record<string, unknown> = {
+    ...encoded.values,
+    monthlyReturns: { ...encoded.values.monthlyReturns },
+  };
+  for (const key of Object.keys(encoded.nonFinite) as (keyof Metrics)[]) {
+    const status = encoded.nonFinite[key];
+    if (status) values[key] = NON_FINITE_VALUE[status];
+  }
+  return values as unknown as Metrics;
+}
+
+export function encodeMetricsSnapshot(snapshot: MetricsWindowSnapshot): MetricsWindowWire {
+  return {
+    title: snapshot.title,
+    full: encodeMetrics(snapshot.full),
+    ...(snapshot.inSample ? { inSample: encodeMetrics(snapshot.inSample) } : {}),
+    ...(snapshot.outSample ? { outSample: encodeMetrics(snapshot.outSample) } : {}),
+  };
+}
+
+export function decodeMetricsSnapshot(wire: MetricsWindowWire): MetricsWindowSnapshot {
+  return {
+    title: wire.title,
+    full: decodeMetrics(wire.full),
+    ...(wire.inSample ? { inSample: decodeMetrics(wire.inSample) } : {}),
+    ...(wire.outSample ? { outSample: decodeMetrics(wire.outSample) } : {}),
+  };
+}
 
 /** Preserve the large candle array when only strategy/overlay/replay state was
  *  re-emitted for the same dataset. This also prevents CandleChart from treating
@@ -90,7 +144,7 @@ export const popoutWindows = {
   },
   publishMetrics: async (snapshot: MetricsWindowUpdate): Promise<void> => {
     if (!isTauri()) return;
-    await emitTo(METRICS_WINDOW_LABEL, METRICS_SNAPSHOT_EVENT, snapshot);
+    await emitTo(METRICS_WINDOW_LABEL, METRICS_SNAPSHOT_EVENT, snapshot == null ? null : encodeMetricsSnapshot(snapshot));
   },
   onMetricsReady: async (handler: () => void): Promise<UnlistenFn> => {
     if (!isTauri()) return noopUnlisten();
@@ -98,7 +152,8 @@ export const popoutWindows = {
   },
   onMetricsSnapshot: async (handler: (snapshot: MetricsWindowUpdate) => void): Promise<UnlistenFn> => {
     if (!isTauri()) return noopUnlisten();
-    return listen<MetricsWindowUpdate>(METRICS_SNAPSHOT_EVENT, (event) => handler(event.payload));
+    return listen<MetricsWindowWire | null>(METRICS_SNAPSHOT_EVENT, (event) =>
+      handler(event.payload == null ? null : decodeMetricsSnapshot(event.payload)));
   },
   signalMetricsReady: async (): Promise<void> => {
     if (!isTauri()) return;

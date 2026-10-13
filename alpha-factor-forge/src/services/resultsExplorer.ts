@@ -158,9 +158,52 @@ export function fmtInt(x: number | null | undefined): string {
   return typeof x === 'number' && Number.isFinite(x) ? String(x) : DASH;
 }
 
+/** Epoch ms as `YYYY-MM-DD HH:MM`, in UTC. Callers label the column or the
+ *  value as UTC (METRIC-DISPLAY-001): the reader's clock is usually not. */
 export function fmtTime(ms: number | null | undefined): string {
   if (typeof ms !== 'number' || !Number.isFinite(ms)) return DASH;
   return new Date(ms).toISOString().replace('T', ' ').slice(0, 16);
+}
+
+/** A stored timestamp text (`created_at`, `submittedAt`) as `YYYY-MM-DD HH:MM`.
+ *  SQLite writes `YYYY-MM-DD HH:MM:SS` in UTC and other writers ISO 8601 with a
+ *  `T`; both read the same once the separator is normalized. The text is not
+ *  re-parsed: anything in another shape is shown as stored, not guessed at. */
+export function fmtStamp(text: string | null | undefined): string {
+  if (typeof text !== 'string' || text === '') return DASH;
+  return /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/.test(text) ? text.replace('T', ' ').slice(0, 16) : text;
+}
+
+/** The unit of each `gate-v1` criterion's observed value and threshold. */
+const GATE_V1_VALUE_KIND: Record<string, 'count' | 'fraction' | 'percentile'> = {
+  minTrades: 'count',
+  benchmarkWins: 'count',
+  avgTradeReturn: 'fraction',
+  rollingConsistency: 'fraction',
+  maxDrawdown: 'fraction',
+  monthlyConcentration: 'fraction',
+  tradeConcentration: 'fraction',
+  randomEntryPercentile: 'percentile',
+};
+
+/** A Gate criterion's observed value or threshold in its own unit: a count as
+ *  an integer, a fraction as a percentage, the Random Entry percentile (already
+ *  0..100) with one decimal. Only `gate-v1` is typed. Another contract, or a
+ *  criterion this build does not know, keeps the raw four-decimal reading
+ *  rather than a guessed unit. */
+export function fmtGateValue(
+  criterionId: string,
+  x: number | null | undefined,
+  gateContract: string | null | undefined,
+): string {
+  if (typeof x !== 'number' || !Number.isFinite(x)) return DASH;
+  const kind = gateContract === 'gate-v1' && Object.prototype.hasOwnProperty.call(GATE_V1_VALUE_KIND, criterionId)
+    ? GATE_V1_VALUE_KIND[criterionId]
+    : null;
+  if (kind === 'count') return Number.isInteger(x) ? String(x) : x.toFixed(2);
+  if (kind === 'fraction') return `${(x * 100).toFixed(2)}%`;
+  if (kind === 'percentile') return x.toFixed(1);
+  return x.toFixed(4);
 }
 
 /** `strategy-v2:abcd…` → `abcd…ef01` (prefix dropped, 12 hex chars). */
