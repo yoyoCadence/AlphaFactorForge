@@ -6,6 +6,8 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Current Snapshot
 
+- **Project review completed (2026-10-13)** at merged main `77c1bda`, on `docs/project-review-2026-10-13`; documentation only. On main: **1131 Vitest / 600 Rust (170 + 428 + 2, 1 ignored)** and typecheck pass; the 85-test Playwright suite was not rerun. Fourteen findings (six P2, eight P3), each with source evidence or a mock-UI reproduction. Six quick fixes are in Next, the rest in Backlog, and eight items wait for a maintainer decision. Eight follow-ups of the 2026-08-07 review that never reached this file are now listed. Full `npm audit` reports one high advisory in a development dependency (`source-map-js`); the production audit stays 0. [Handoff](handoffs/2026-10-13-project-review-v1.md).
+
 - **PR #126–#145 acceptance review completed (2026-10-07)** after repair PR #166 merged, baseline `0dafef5`, on `review/pr126-145-acceptance`. All 20 final heads have six successful CI checks (120/120), merge trees match 20/20 and inline review comment queries return 0. Nineteen slices accepted; one new **P2 CAMPAIGN-LISTING-001** blocks #131's real crypto authoring flow: formal BTC fetch creates 744-bar snapshot but pinned instrument has no listing date and no public metadata registration entry exists. Real native Add refusal/empty draft confirmed; owned processes/temp paths cleaned. Full preview/freeze/start/history/reopen remains unexecuted; O3/P12 stays open. [Report](handoffs/2026-10-07-pr126-145-acceptance-review-v1.md).
 
 - **NUMERIC-JSON-002a merged as [PR #166](https://github.com/yoyoCadence/AlphaFactorForge/pull/166)** (2026-10-07 20:56 Asia/Taipei, merge `0dafef5`, final head `a7f0783`, six green CI checks). New manual params/blocks/code definitions carry hash-covered numeric policy markers and use isolated correctly rounded parsing; unmarked legacy definitions keep their original interpretation/text/hash. Async verified preparation, captured source provenance and visible additive **另存新版本** preserve old rows and immutable lineage. **1131 Vitest / 600 Rust (1 ignored) / 85 E2E**, typecheck, frontend/native build, all-target check and real Tauri numeric smoke (18 marked cases + legacy/copy/rejection checks) pass. Parent NUMERIC-JSON-002 remains open for research/runtime/dataset/artifact rollout. PR146-165-DOC-R1 is closed. [Contract](docs/manual-strategy-numeric-policy-v1.md), [handoff](handoffs/2026-10-07-manual-strategy-numeric-policy-v1.md).
@@ -179,6 +181,14 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
   7. [x] **FU-6** (PR #150) and **FU-7** (2026-10-04 on `test/indicator-fixture-edges`: four authored edge cases, Rust test runs every case) — see Done.
   8. [x] **FU-9** — done 2026-10-04, [PR #152](https://github.com/yoyoCadence/AlphaFactorForge/pull/152); per-row validation, raw declarations, preserved history and refused invalid starts; see Done.
 
+- **Project review quick fixes (decided 2026-10-13)** — evidence and reproduction steps in the [review handoff](handoffs/2026-10-13-project-review-v1.md); one PR each, the next opened after the previous merges.
+  1. [ ] **BUG-SWEEP-BLUR-001 (P2)** — a number field that loses focus with an unchanged value must not call `onChange`; today that clears a finished sweep and the applied-parameter marker.
+  2. [ ] **REACT-STYLE-WARN-001 + HELPTIP-SHADOW-001 (P3)** — stop mixing the `border` shorthand with `borderColor`; no button shadow on the help marker or the floating panel's close button.
+  3. [ ] **CHART-PRECISION-001 (P3)** — price axis, last-price tag and bar readout choose their decimals from the price range instead of a fixed two.
+  4. [ ] **METRIC-DISPLAY-001 (P3)** — display only: no `NaN%`, one rendering for infinite ratios (also across the pop-out bridge), a short-sample note beside annualized figures, UTC labelling, typed Gate values.
+  5. [ ] **UX-FEEDBACK-001 (P2)** — keep the status/error message visible wherever the page is scrolled, dismissible, with a `role`; message texts stay unchanged because E2E locks them.
+  6. [ ] **APP-STARTUP-ERROR-001 (P2)** — a failed workspace open shows a native message with the reason instead of a silent panic in the release build.
+
 ## In Progress
 
 - **P12 — Research feasibility & trial ledger** (started 2026-09-23; plan phase row below is the status owner). Split into one-session sub-items (AGENTS.md §9); the phase is Done only when the plan acceptance holds: insufficient samples and the AlphaBTC precision counterexample are blocked, and trial counts cannot be reset.
@@ -239,6 +249,46 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 - [x] **PR135-R2 (P2) — Keep failed host startup under cleanup control after deadline plus grace** — done 2026-10-02 on the PR branch (see Done). Original entry: A delayed real service must not survive an already-failed startup wait and acquire the workspace; retain controlled cleanup or isolate the test service in a terminable process. Verify no endpoint/service/lease remains, preserve production timeouts, and keep the original timeout diagnostic. See [acceptance handoff R2](handoffs/2026-10-02-pr135-noise-simulation-acceptance-review-v1.md#r2--p2-等待與寬限都逾時後服務仍被留在背景).
 
 - [x] **CI-HOST-STARTUP-001 — Diagnose and stabilize the host-test service startup wait** — done 2026-10-02 on `feat/p12e3-noise-simulation` (the maintainer asked for it to ship in the P12e-3 PR rather than a separate one); see Done. Original entry: (2026-10-02, separate follow-up proposed by PR #134 re-review). Scope: the shared `wait_for_published` test helper and its service-thread harness; expose early service errors and startup-stage timings, retain a finite configurable test-only wait, and clean up failed startups. Use the evidence to select the deadline or test concurrency; preserve production timeouts and do not hide failures with retries. Acceptance: failures report the startup cause, and the three reproduced timeout tests pass with the full backend suite. Evidence: [re-review Resolution](handoffs/2026-10-01-pr134-alpha-allocation-acceptance-review-v1.md#separate-ci-follow-up--does-not-block-pr-134). Not started; existing product task order is unchanged.
+
+### Project review follow-ups (2026-10-13)
+
+Evidence, reproduction steps and options: [review handoff](handoffs/2026-10-13-project-review-v1.md). Separate tasks; the existing product task order is unchanged. *decision* marks an item that needs a maintainer decision before any code. The `FEAT-*` entries are bounded themes, not one-session tasks: split each into one-session sub-items before it moves to Next (AGENTS.md §9).
+
+Correctness and contracts:
+
+- [ ] **DSL-WARMUP-NOT-001 (P2, decision)** — `NOT` / `!` turns a warm-up comparison (false because an operand is NaN) into true, so a signal fires before its indicator exists. Code mode and `strategy-dsl-v1`, TypeScript and Rust alike. Needs a versioned evaluation rule before P15.
+- [ ] **TRADE-REASON-001 (P3, decision)** — the engine computes the exit reason and drops it; `trades.reason` and the explorer's column stay empty. Adding it changes the trade shape and the parity fixtures.
+- [ ] **DSL-NAME-FALSEPOS-001 (P3, decision)** — the suspicious-token scan covers the DSL `name`, so a name containing `window`, `process`, `import` or `document` is rejected.
+- [ ] **EXECUTION-TIMING-DECISION-001 (decision)** — the default fill is the signal bar's own close; decide and version the default (2026-08-07 review).
+- [ ] **METRIC-ANNUALIZATION-001** — annualization uses bar count and interval, not elapsed time; settle a missing-candle policy together with INTERVAL-CONTRACT-001 (2026-08-07 review).
+- [ ] **BENCH-RANDOM-CONTRACT-001**, **PERSIST-RESULT-HISTORY-001**, **RUNNER-FAILSAFE-001** — 2026-08-07 review items that never reached this file and were not re-verified on 2026-10-13; check the current state before scheduling.
+- [ ] **TEST-HIDDEN-TEST-001 (low)** — the Rust runner already stops at the Validation end; align the TypeScript reference `validationRun.ts`, which still builds signals over the full array.
+
+Desktop and UI:
+
+- [ ] **FONT-OFFLINE-001 (P2, decision)** — the packaged app's CSP blocks the Google Fonts stylesheet, so every skin falls back to system fonts; bundle a reviewed local subset without widening the CSP (2026-08-07 review).
+- [ ] **UX-LAYOUT-001 (P2)** — Run sits about 1,550 px down a 900 px window and the chart consumes wheel scrolling; restructure the workspace (tabs, pinned action bar). The wheel behaviour is a *decision*: `zoom.spec.ts` and `pan.spec.ts` lock it.
+- [ ] **UX-002 (promote)** — no top-level error boundary exists, so one render exception blanks the window; the spec is already in `docs/improvement-backlog.md`.
+- [ ] **A11Y-SEMANTICS-001** — clickable table rows and heatmap cells are not keyboard-operable, there are no alert roles, and icon-only buttons rely on `title` (2026-08-07 review).
+- [ ] **IMPORT-UX-001 (P3)** — import accepts only pasted object-array JSON; untrimmed symbols and second-resolution timestamps surface raw internal errors.
+- [ ] **FAVICON-001 (low)** — browser mode requests a missing `/favicon.ico` (2026-08-07 review).
+
+Features, in the order the maintainer chose on 2026-10-13 (result visualization first):
+
+- [ ] **FEAT-RESULT-VIZ-001** — equity curve with underwater drawdown (Holdout boundary, buy-and-hold overlay), KPI tiles instead of the long table, a trade table inside the run result, a monthly-return heatmap. `result.equity`, `result.trades` and `metrics.monthlyReturns` are already computed.
+- [ ] **FEAT-CHART-AXES-001** — time axis, crosshair value labels, a diverging heatmap scale for signed metrics, Holdout boundary and position shading on the chart.
+- [ ] **FEAT-DATA-ENTRY-001** — file/CSV import with column mapping, dataset details with a gap/interval health badge and delete. UI download through the existing Binance adapter stays PARITY-002.
+- [ ] **FEAT-ROBUSTNESS-001** — overfit risk flags, sweep neighbourhood stability with a minimum-trade threshold, session run log, A/B compare, trade-order Monte Carlo (roadmap F2 / F5 / F3 / F7 / F6).
+- [ ] **FEAT-UI-STATE-001** — persist non-sensitive workspace state through a typed `app_settings` wrapper.
+- [ ] **FEAT-DISCOVERY-UI-001** — more than one axis in the panel (the config already takes an array), a progress bar, result rows that open the matching record.
+
+Engineering:
+
+- [ ] **TEST-E2E-TYPECHECK-001** — `tsconfig.json` includes only `src`; `e2e/` and `scripts/` are never type-checked in CI.
+- [ ] **TEST-NO-LOOKAHEAD-001** — property test: signals computed from the first k bars equal the first k signals computed from all bars.
+- [ ] **DB-CANDLE-INDEX-001 (low)** — `candles` has both `UNIQUE(dataset_id, timestamp)` and an index on the same columns; drop the duplicate in a new migration.
+- [ ] **SEC-NPM-DEV-001** — full `npm audit` reports one high advisory (`source-map-js` 1.2.1 through `vite → postcss`, GHSA-68fv-2mgg-jv7q); the production audit is 0. Triage by hand per `docs/security-audit-npm.md`; this is the case SEC-NPM-AUDIT-SCHEDULE-001 describes.
+- [ ] **DOC-TASKS-ARCHIVE-001 (decision)** — this file is about 367 KB with 88 snapshot bullets; move Done and historical snapshot entries to `docs/history/` and require review follow-ups to enter Backlog in the same PR.
 
 ### PR #1–#130 backward acceptance follow-ups (2026-10-04)
 
@@ -449,6 +499,8 @@ These were named inside the UI port entry and must not be buried by closing it. 
 - [ ] Full closed-loop AI automation. (Specification: ABC-14.)
 
 ## Done
+
+- [x] **PROJECT-REVIEW-2026-10-13 — Whole-project review: architecture, tests, UI and feature suggestions** (2026-10-13; direct maintainer request, branch `docs/project-review-2026-10-13`, baseline `77c1bda`). Read the frontend in full and the Rust entry points, commands, schema, DSL, runner execution, control API and fetch layer; trial ledger, market ingest and campaign admission were not re-reviewed line by line. Interaction findings were reproduced against the mock UI. Fourteen findings recorded; six quick fixes promoted to Next and the rest to Backlog. No product, test, dependency, CI or schema change. [Handoff](handoffs/2026-10-13-project-review-v1.md).
 
 - [x] **PR126-145-REVIEW — Previous 20 PR acceptance review** (2026-10-07; direct request, review completed after PR #166 merge at `0dafef5`). Per-PR diffs/contracts/prior Resolutions/current integrated code and exact-head GitHub checks reviewed. 120/120 CI checks and 20/20 tree matches; known #128/#143/#144/#145/#152 repairs retain their acceptance. New CAMPAIGN-LISTING-001 P2 is separately open; official isolated service fetch and real native Add refusal reproduced, processes/temp directories cleaned. Full O3 flow/calibration release simulation not claimed. Report and task/merge closure documents only; no further product modification. [Handoff](handoffs/2026-10-07-pr126-145-acceptance-review-v1.md).
 
