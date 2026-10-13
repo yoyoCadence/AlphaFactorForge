@@ -18,6 +18,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use tauri::Manager;
 
+use desktop::startup_error;
 use runtime::connect::ServiceProxy;
 use runtime::host::{Admission, HostMode, ServiceLauncher};
 use runtime::SharedDb;
@@ -91,7 +92,7 @@ impl AppState {
 }
 
 fn main() {
-    tauri::Builder::default()
+    let outcome = tauri::Builder::default()
         // Must be the first plugin and must run before setup: a secondary
         // process must exit before startup recovery can touch the live
         // primary process's discovery run.
@@ -104,10 +105,19 @@ fn main() {
             // `AFF_DATA_DIR` (P04b) points both binaries at an isolated workspace
             // for native smokes; otherwise this is tauri's app data directory,
             // which the service resolves identically (`service::default_data_dir`).
-            let data_dir = std::env::var_os(runtime::service::DATA_DIR_ENV)
-                .filter(|dir| !dir.is_empty())
-                .map(PathBuf::from)
-                .unwrap_or_else(|| app.path().app_data_dir().expect("no app data dir"));
+            // APP-STARTUP-ERROR-001: a failure from here to the workspace
+            // being open ends the process with a message the user can see
+            // (`desktop::startup_error`), not a panic the release build hides.
+            let data_dir = match std::env::var_os(runtime::service::DATA_DIR_ENV).filter(|dir| !dir.is_empty()) {
+                Some(dir) => PathBuf::from(dir),
+                None => match app.path().app_data_dir() {
+                    Ok(dir) => dir,
+                    Err(error) => startup_error::fail(&startup_error::runtime_failure_message(
+                        "找不到這位使用者的應用程式資料資料夾，無法建立工作區。",
+                        &error.to_string(),
+                    )),
+                },
+            };
             // P03a/P04b: the desktop OWNS the workspace when nobody does (OS
             // lock -> open -> migrate -> epoch -> recovery -> heartbeat), and
             // CONNECTS when a background service owns it and answers on its
@@ -118,7 +128,7 @@ fn main() {
             // command.
             let mode = match runtime::host::open_or_connect(&data_dir) {
                 Ok(mode) => mode,
-                Err(error) => panic!("cannot use the workspace at {}: {error}", data_dir.display()),
+                Err(error) => startup_error::fail(&startup_error::workspace_failure_message(&data_dir, &error)),
             };
             match &mode {
                 HostMode::Embedded(workspace) => {
@@ -213,6 +223,13 @@ fn main() {
             commands::runtime_commands::enter_background_mode,
             commands::runtime_commands::exit_background_mode,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running AlphaFactorForge");
+        .run(tauri::generate_context!());
+    // The window runtime itself could not start (for example, no WebView
+    // runtime on this machine): the same visible report as above.
+    if let Err(error) = outcome {
+        startup_error::fail(&startup_error::runtime_failure_message(
+            "視窗元件無法啟動。若這台電腦尚未安裝 Microsoft Edge WebView2 Runtime，請先安裝後再開啟。",
+            &error.to_string(),
+        ));
+    }
 }

@@ -6,3 +6,4 @@
 //! stays where the PR #103 smoke lane knows it.
 
 pub mod discovery_events;
+pub mod startup_error;
