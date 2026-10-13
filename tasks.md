@@ -6,6 +6,8 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Current Snapshot
 
+- **BUG-SWEEP-BLUR-001 completed locally (2026-10-14)** on `fix/number-input-blur-commit`, from merged PR #168 (`0741726`, the project review record, six green CI jobs). `NumberInput` reports on blur only when the clamped value differs from the current one, so focusing and leaving a field no longer clears a finished sweep or the applied-parameter marker. Two new Playwright regressions fail on the previous component and pass with the fix. **1139 Vitest / 87 Playwright**, typecheck and build pass; Rust untouched. [Handoff](handoffs/2026-10-13-project-review-v1.md#resolution).
+
 - **Project review completed (2026-10-13)** at merged main `77c1bda`, on `docs/project-review-2026-10-13`; documentation only. On main: **1131 Vitest / 600 Rust (170 + 428 + 2, 1 ignored)** and typecheck pass; the 85-test Playwright suite was not rerun. Fourteen findings (six P2, eight P3), each with source evidence or a mock-UI reproduction. Six quick fixes are in Next, the rest in Backlog, and eight items wait for a maintainer decision. Eight follow-ups of the 2026-08-07 review that never reached this file are now listed. Full `npm audit` reports one high advisory in a development dependency (`source-map-js`); the production audit stays 0. [Handoff](handoffs/2026-10-13-project-review-v1.md).
 
 - **PR #126–#145 acceptance review completed (2026-10-07)** after repair PR #166 merged, baseline `0dafef5`, on `review/pr126-145-acceptance`. All 20 final heads have six successful CI checks (120/120), merge trees match 20/20 and inline review comment queries return 0. Nineteen slices accepted; one new **P2 CAMPAIGN-LISTING-001** blocks #131's real crypto authoring flow: formal BTC fetch creates 744-bar snapshot but pinned instrument has no listing date and no public metadata registration entry exists. Real native Add refusal/empty draft confirmed; owned processes/temp paths cleaned. Full preview/freeze/start/history/reopen remains unexecuted; O3/P12 stays open. [Report](handoffs/2026-10-07-pr126-145-acceptance-review-v1.md).
@@ -182,7 +184,7 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
   8. [x] **FU-9** — done 2026-10-04, [PR #152](https://github.com/yoyoCadence/AlphaFactorForge/pull/152); per-row validation, raw declarations, preserved history and refused invalid starts; see Done.
 
 - **Project review quick fixes (decided 2026-10-13)** — evidence and reproduction steps in the [review handoff](handoffs/2026-10-13-project-review-v1.md); one PR each, the next opened after the previous merges.
-  1. [ ] **BUG-SWEEP-BLUR-001 (P2)** — a number field that loses focus with an unchanged value must not call `onChange`; today that clears a finished sweep and the applied-parameter marker.
+  1. [x] **BUG-SWEEP-BLUR-001 (P2)** — done 2026-10-14 on `fix/number-input-blur-commit` (a blur reports only a changed value; see Done).
   2. [ ] **REACT-STYLE-WARN-001 + HELPTIP-SHADOW-001 (P3)** — stop mixing the `border` shorthand with `borderColor`; no button shadow on the help marker or the floating panel's close button.
   3. [ ] **CHART-PRECISION-001 (P3)** — price axis, last-price tag and bar readout choose their decimals from the price range instead of a fixed two.
   4. [ ] **METRIC-DISPLAY-001 (P3)** — display only: no `NaN%`, one rendering for infinite ratios (also across the pop-out bridge), a short-sample note beside annualized figures, UTC labelling, typed Gate values.
@@ -499,6 +501,8 @@ These were named inside the UI port entry and must not be buried by closing it. 
 - [ ] Full closed-loop AI automation. (Specification: ABC-14.)
 
 ## Done
+
+- [x] **BUG-SWEEP-BLUR-001 — A blur that changes nothing is not an edit** (2026-10-14; Next → In Progress → Done under the approved review plan, branch `fix/number-input-blur-commit` from merged PR #168 `0741726`). `NumberInput` called `onChange` on every blur, and each consumer treats a report as an edit: leaving a sweep axis field cleared a finished heatmap and cancelled a running sweep, a click on a heatmap cell made from inside the field never landed, and a strategy field lost its applied-from-sweep marker. A blur now reports only when the clamped value differs from the current one; live typing and the clamp of an out-of-range value are unchanged. The committed value is a pure function with eight unit cases including MIN/MAX ± 1. Two Playwright regressions fail on the previous component (16 → 0 cells; marker gone) and pass with the fix. Validation: 1139 Vitest, 87/87 Playwright, typecheck, build. [Handoff](handoffs/2026-10-13-project-review-v1.md#resolution).
 
 - [x] **PROJECT-REVIEW-2026-10-13 — Whole-project review: architecture, tests, UI and feature suggestions** (2026-10-13; direct maintainer request, branch `docs/project-review-2026-10-13`, baseline `77c1bda`). Read the frontend in full and the Rust entry points, commands, schema, DSL, runner execution, control API and fetch layer; trial ledger, market ingest and campaign admission were not re-reviewed line by line. Interaction findings were reproduced against the mock UI. Fourteen findings recorded; six quick fixes promoted to Next and the rest to Backlog. No product, test, dependency, CI or schema change. [Handoff](handoffs/2026-10-13-project-review-v1.md).
 
