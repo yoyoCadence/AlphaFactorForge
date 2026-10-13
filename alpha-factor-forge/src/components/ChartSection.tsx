@@ -199,7 +199,8 @@ export function ChartSection({
   // Highlight styling for a param that the last sweep-apply set (accent).
   const isAppliedKey = (key: NumKey) => appliedKeys.includes(key);
   const appliedInputStyle = (key: NumKey, base: React.CSSProperties): React.CSSProperties =>
-    isAppliedKey(key) ? { ...base, borderColor: t.color.accent, background: t.color.accentWash } : base;
+    // The whole shorthand, never borderColor: the base sets border (REACT-STYLE-WARN-001).
+    isAppliedKey(key) ? { ...base, border: `${t.shape.borderWidth}px solid ${t.color.accent}`, background: t.color.accentWash } : base;
   const appliedLabelStyle = (key: NumKey): React.CSSProperties =>
     isAppliedKey(key) ? { ...S.label, color: t.color.accent, fontWeight: 700 } : S.label;
 

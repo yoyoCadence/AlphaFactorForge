@@ -249,7 +249,7 @@ export function CandleChart({ candles, strat, show, trades, upto, onHoverBar, he
           title="重置為自動適配"
           disabled={viewWindow == null}
           onClick={() => { setViewWindow(null); setFollowReplay(true); }}
-          style={{ padding: '1px 5px', border: `1px solid ${C.axis}`, background: C.surface2, color: C.label, font: 'inherit', cursor: viewWindow == null ? 'default' : 'pointer' }}
+          style={{ padding: '1px 5px', border: `1px solid ${C.axis}`, background: C.surface2, boxShadow: 'none', color: C.label, font: 'inherit', cursor: viewWindow == null ? 'default' : 'pointer' }}
         >
           重置
         </button>
