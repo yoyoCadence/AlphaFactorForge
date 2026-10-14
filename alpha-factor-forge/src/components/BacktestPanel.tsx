@@ -129,14 +129,20 @@ export function BacktestPanel(): React.ReactElement {
   const [busyData, setBusyData] = useState(false);
   const [importText, setImportText] = useState('');
   const [err, setErr] = useState<string | null>(null);
-  const [msg, setMsg] = useState<string | null>(null);
-  // UX-FEEDBACK-001: a status message is a notice, not a state — it clears
-  // itself. The functional update leaves a newer message alone.
+  const [notice, setNotice] = useState<{ text: string } | null>(null);
+  // Every emission has its own identity, including repeated identical text.
+  // Keep the callback stable for children and preserve their string/null API.
+  const setMsg = useCallback((text: string | null) => {
+    setNotice(text == null ? null : { text });
+  }, []);
+  const msg = notice?.text ?? null;
+  // UX-FEEDBACK-001 / PR #173 R3: dismissing, replacing or re-emitting
+  // cleans up the prior timer. A queued expiry only clears its own emission.
   useEffect(() => {
-    if (msg == null) return;
-    const timer = setTimeout(() => setMsg((current) => (current === msg ? null : current)), STATUS_MESSAGE_MS);
+    if (notice == null) return;
+    const timer = setTimeout(() => setNotice((current) => (current === notice ? null : current)), STATUS_MESSAGE_MS);
     return () => clearTimeout(timer);
-  }, [msg]);
+  }, [notice]);
   // Candle readiness is stored WITH the dataset identity it was loaded for, so
   // another dataset can never adopt a leftover array (repro B in the audit).
   const [loadedCandles, setLoadedCandles] = useState<{ key: string; rows: CoreCandle[] } | null>(null);

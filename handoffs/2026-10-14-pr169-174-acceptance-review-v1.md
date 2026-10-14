@@ -160,3 +160,12 @@ The documentation PR is [#175](https://github.com/yoyoCadence/AlphaFactorForge/p
 head `f1eaa39`, merged as `63bc2df` after all six CI jobs succeeded.
 R1/R2 are now In Progress on `fix/metrics-annualization-notes`; R3 follows in its
 own PR after that merges. Original review evidence and native limits remain.
+
+### R1/R2 repair merged (2026-10-14)
+
+[PR #176](https://github.com/yoyoCadence/AlphaFactorForge/pull/176), head
+`e9d498c`, merged as `a8e73de` after six green CI jobs (run `38571582140`).
+The completed bar count and engine basis now drive every column's note and
+travel with native snapshots. Exact-year boundaries, short Holdout, expanded
+views and saved full-year summaries pass: 1,183 Vitest / 97 E2E, typecheck/build.
+R3 is implemented separately and rebased onto this merge for verification.

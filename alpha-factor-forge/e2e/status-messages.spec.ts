@@ -59,3 +59,24 @@ test('a status message clears itself; an error stays until dismissed', async ({ 
   await page.getByTestId('status-error-close').click();
   await expect(error).toHaveCount(0);
 });
+
+// PR #173 acceptance R3: the same action is a new notice even if its text matches.
+test('repeating an identical notice restarts its full eight-second lifetime', async ({ page }) => {
+  await page.clock.install();
+  await page.goto('/?mock=1', { waitUntil: 'domcontentloaded' });
+  await page.getByTestId('load-sample').click();
+  await page.getByTestId('sweep-toggle').click();
+  await page.getByTestId('run-sweep').click();
+  await expect(page.getByTestId('sweep-cell-7')).toBeVisible();
+  await page.getByTestId('sweep-cell-7').click();
+  const applied = page.getByText('已套用：快線MA=7');
+  await expect(applied).toBeVisible();
+  await page.clock.fastForward(7000);
+  await page.getByTestId('sweep-cell-7').click();
+  await page.clock.fastForward(2000);
+  await expect(applied).toBeVisible();
+  await page.clock.fastForward(5000);
+  await expect(applied).toBeVisible();
+  await page.clock.fastForward(1100);
+  await expect(applied).toHaveCount(0);
+});
