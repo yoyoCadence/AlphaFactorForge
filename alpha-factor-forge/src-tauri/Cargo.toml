@@ -62,8 +62,10 @@ custom-protocol = ["tauri/custom-protocol"]
 
 # P09: read the operator's Tiingo generic credential from Windows Credential
 # Manager. Already locked transitively; no plaintext credential file or DB.
+# APP-STARTUP-ERROR-001 adds one feature of the same crate, for the message box
+# a release build shows when the workspace cannot be opened.
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "=0.61.2", features = ["Win32_Security_Credentials", "Win32_Foundation", "Win32_Storage_FileSystem"] }
+windows-sys = { version = "=0.61.2", features = ["Win32_Security_Credentials", "Win32_Foundation", "Win32_Storage_FileSystem", "Win32_UI_WindowsAndMessaging"] }
 
 [target.'cfg(any(target_os = "macos", windows, target_os = "linux"))'.dependencies]
 tauri-plugin-single-instance = "2.4.3"
