@@ -44,9 +44,11 @@ import {
   describeStrategy,
   filterRecords,
   filterSummaries,
+  fmtGateValue,
   fmtInt,
   fmtNum,
   fmtPct,
+  fmtStamp,
   fmtTime,
   hideTestSegments,
   latestSummariesFor,
@@ -57,6 +59,8 @@ import {
   type ExplorerFilters,
   type ParsedRecord,
 } from '../services/resultsExplorer';
+import { displayDays, shortSampleDays } from '../services/sampleSpan';
+import { priceDecimals } from '../charts/scale';
 import { HelpTip } from './HelpTip';
 import { makeStyles } from './panelStyles';
 import { useTheme } from '../theme/ThemeProvider';
@@ -229,7 +233,7 @@ export function ResultsExplorer(): React.ReactElement {
         </button>
         {data != null && (
           <span data-testid="results-explorer-loaded-at" data-loaded-at={data.loadedAt} style={{ fontSize: 11, color: t.color.muted }}>
-            載入於 {fmtTime(data.loadedAt)} · 紀錄 {data.records.length} · 摘要 {data.summaries.length}
+            載入於 {fmtTime(data.loadedAt)} UTC · 紀錄 {data.records.length} · 摘要 {data.summaries.length}
           </span>
         )}
       </div>
@@ -367,7 +371,7 @@ function RecordsView(props: ListProps<ValidationRecordRow>): React.ReactElement 
         <table data-testid="results-explorer-records" style={{ marginTop: 10, borderCollapse: 'collapse', fontSize: 11, fontFamily: t.font.mono }}>
           <thead>
             <tr>
-              {['#', '紀錄', '策略', '資料集', 'Gate', 'Score', '工作', '建立時間', '版本'].map((head) => (
+              {['#', '紀錄', '策略', '資料集', 'Gate', 'Score', '工作', '建立時間（UTC）', '版本'].map((head) => (
                 <th key={head} style={{ ...S.tableHead, padding: '3px 8px', textAlign: 'left' }}>{head}</th>
               ))}
             </tr>
@@ -389,7 +393,7 @@ function RecordsView(props: ListProps<ValidationRecordRow>): React.ReactElement 
                 {/* Gate-failed rows have no score by contract, not a zero. */}
                 <td style={cell}>{row.gate_passed ? fmtNum(row.score, 4) : DASH}</td>
                 <td style={cell}>{row.discovery_run_id != null ? `探索 #${row.discovery_run_id}` : '手動'}</td>
-                <td style={cell}>{row.created_at ?? DASH}</td>
+                <td style={cell}>{fmtStamp(row.created_at)}</td>
                 <td style={cell}>{row.record_version}</td>
               </tr>
             ))}
@@ -422,7 +426,7 @@ function RecordDetail(props: ListProps<ValidationRecordRow> & { record: Validati
       <div style={mono}>
         <b>驗證紀錄 #{record.id}</b> · {describeStrategy(data.strategies, record.strategy_id)} · {describeDataset(data.datasets, record.dataset_id)}
         <br />
-        工作 {record.discovery_run_id != null ? `探索 #${record.discovery_run_id}` : '手動保存'} · 建立 {record.created_at ?? DASH} · {record.record_version}
+        工作 {record.discovery_run_id != null ? `探索 #${record.discovery_run_id}` : '手動保存'} · 建立 {fmtStamp(record.created_at)} UTC · {record.record_version}
         {parsed.kind === 'v2' && (
           <>
             <br />
@@ -489,8 +493,9 @@ function SnapshotView({ parsed, cell }: { parsed: Extract<ParsedRecord, { kind: 
               <tr key={criterion.id} data-testid={`results-explorer-gate-${criterion.id}`} data-pass={criterion.pass ? 'true' : 'false'} style={S.tableRow}>
                 <td style={cell}>{GATE_LABEL[criterion.id] ?? criterion.id}</td>
                 <td style={{ ...cell, color: criterion.pass ? t.color.accent : t.color.danger }}>{criterion.pass ? '通過' : '未通過'}</td>
-                <td style={cell}>{criterion.value != null ? fmtNum(criterion.value, 4) : (criterion.valueStatus ?? DASH)}</td>
-                <td style={cell}>{fmtNum(criterion.threshold, 4)}</td>
+                {/* METRIC-DISPLAY-001: each criterion in its own unit, not a blanket four decimals. */}
+                <td style={cell}>{criterion.value != null ? fmtGateValue(criterion.id, criterion.value, parsed.contracts.gate) : (criterion.valueStatus ?? DASH)}</td>
+                <td style={cell}>{fmtGateValue(criterion.id, criterion.threshold, parsed.contracts.gate)}</td>
               </tr>
             ))}
           </tbody>
@@ -549,6 +554,11 @@ function SegmentSummaries(
     return <div data-testid="results-explorer-no-summary" style={{ color: t.color.warn, fontSize: 12 }}>{note}</div>;
   }
   const cellsBySegment = segments.map((segment) => summaryCells(latest[segment]!));
+  // METRIC-DISPLAY-001: the shortest shown segment decides the note.
+  const shortSpans = segments
+    .map((segment) => shortSampleDays(latest[segment]!.start_time, latest[segment]!.end_time))
+    .filter((days): days is number => days != null);
+  const shortestDays = shortSpans.length > 0 ? Math.min(...shortSpans) : null;
   return (
     <>
       <table data-testid="results-explorer-segment-summaries" style={{ borderCollapse: 'collapse', fontSize: 11, fontFamily: t.font.mono }}>
@@ -572,6 +582,11 @@ function SegmentSummaries(
         </tbody>
       </table>
       {segments.length < 2 && <div style={{ color: t.color.warn, fontSize: 12, marginTop: 4 }}>{note}</div>}
+      {shortestDays != null && (
+        <div data-testid="results-explorer-annualization-note" style={{ color: t.color.warn, fontSize: 11, marginTop: 4 }}>
+          樣本約 {displayDays(shortestDays)} 天，不足一年：CAGR、Sharpe、Sortino、Calmar 是年化後的數字，短樣本會被放大，僅供參考。
+        </div>
+      )}
       <div style={{ display: 'flex', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
         {segments.map((segment) => (
           <TradesBlock key={segment} summary={latest[segment]!} label={SEGMENT_LABEL[segment]} {...props} />
@@ -587,6 +602,8 @@ function SummariesView(props: ListProps<BacktestSummary>): React.ReactElement {
   const t = useTheme();
   const S = makeStyles(t);
   const { data, rows, selected, selectedListed, onSelect, cell, rowStyle } = props;
+  // METRIC-DISPLAY-001: set when the selected summary covers less than a year.
+  const selectedShortDays = selected ? shortSampleDays(selected.start_time, selected.end_time) : null;
 
   return (
     <>
@@ -598,7 +615,7 @@ function SummariesView(props: ListProps<BacktestSummary>): React.ReactElement {
         <table data-testid="results-explorer-summaries" style={{ marginTop: 10, borderCollapse: 'collapse', fontSize: 11, fontFamily: t.font.mono }}>
           <thead>
             <tr>
-              {['摘要', '策略', '資料集', '區段', '區間', '淨報酬', 'CAGR', '最大回撤', '交易數', 'Gate', '建立時間'].map((head) => (
+              {['摘要', '策略', '資料集', '區段', '區間（UTC）', '淨報酬', 'CAGR', '最大回撤', '交易數', 'Gate', '建立時間（UTC）'].map((head) => (
                 <th key={head} style={{ ...S.tableHead, padding: '3px 8px', textAlign: 'left' }}>{head}</th>
               ))}
             </tr>
@@ -622,7 +639,7 @@ function SummariesView(props: ListProps<BacktestSummary>): React.ReactElement {
                 <td style={cell}>{fmtPct(row.max_drawdown)}</td>
                 <td style={cell}>{fmtInt(row.trade_count)}</td>
                 <td style={cell}>{row.gate_passed == null ? DASH : row.gate_passed ? '通過' : '未通過'}</td>
-                <td style={cell}>{row.created_at ?? DASH}</td>
+                <td style={cell}>{fmtStamp(row.created_at)}</td>
               </tr>
             ))}
           </tbody>
@@ -640,7 +657,7 @@ function SummariesView(props: ListProps<BacktestSummary>): React.ReactElement {
           <div style={{ fontFamily: t.font.mono, fontSize: 11 }}>
             <b>摘要 #{selected.id}</b> · {SEGMENT_LABEL[selected.segment]} · {describeStrategy(data.strategies, selected.strategy_id)} · {describeDataset(data.datasets, selected.dataset_id)}
             <br />
-            {fmtTime(selected.start_time)} → {fmtTime(selected.end_time)} · 建立 {selected.created_at ?? DASH}
+            {fmtTime(selected.start_time)} → {fmtTime(selected.end_time)} UTC · 建立 {fmtStamp(selected.created_at)} UTC
             {selected.gate_passed != null && ` · Gate ${selected.gate_passed ? '通過' : '未通過'}`}
             {selected.gate_passed && ` · Score ${fmtNum(selected.score, 4)}`}
           </div>
@@ -654,6 +671,11 @@ function SummariesView(props: ListProps<BacktestSummary>): React.ReactElement {
               ))}
             </tbody>
           </table>
+          {selectedShortDays != null && (
+            <div data-testid="results-explorer-annualization-note" style={{ color: t.color.warn, fontSize: 11, marginTop: 4 }}>
+              樣本約 {displayDays(selectedShortDays)} 天，不足一年：CAGR、Sharpe、Sortino、Calmar 是年化後的數字，短樣本會被放大，僅供參考。
+            </div>
+          )}
           <div style={{ marginTop: 6 }}>
             <TradesBlock summary={selected} label={SEGMENT_LABEL[selected.segment]} {...props} />
           </div>
@@ -664,6 +686,13 @@ function SummariesView(props: ListProps<BacktestSummary>): React.ReactElement {
 }
 
 // ---------- trades ----------
+
+/** Decimals for one trade's prices: the explorer's usual four, and more for a
+ *  sub-cent instrument, which four decimals would print as 0.0000. */
+function tradePriceDigits(trade: TradeRow): number {
+  const prices = [trade.entry_price, trade.exit_price].filter((price) => typeof price === 'number' && Number.isFinite(price));
+  return prices.length === 0 ? 4 : Math.max(4, priceDecimals(Math.min(...prices), Math.max(...prices)));
+}
 
 function TradesBlock<Row>(props: ListProps<Row> & { summary: BacktestSummary; label: string }): React.ReactElement {
   const t = useTheme();
@@ -706,7 +735,7 @@ function TradesBlock<Row>(props: ListProps<Row> & { summary: BacktestSummary; la
         <table data-testid={`results-explorer-trade-rows-${id}`} style={{ borderCollapse: 'collapse', fontSize: 11, fontFamily: t.font.mono }}>
           <thead>
             <tr>
-              {['#', '方向', '進場', '出場', '進場價', '出場價', '損益', '損益%', '原因'].map((head) => (
+              {['#', '方向', '進場（UTC）', '出場（UTC）', '進場價', '出場價', '損益', '損益%', '原因'].map((head) => (
                 <th key={head} style={{ ...S.tableHead, padding: '3px 8px', textAlign: 'left' }}>{head}</th>
               ))}
             </tr>
@@ -718,8 +747,8 @@ function TradesBlock<Row>(props: ListProps<Row> & { summary: BacktestSummary; la
                 <td style={cell}>{trade.side}</td>
                 <td style={cell}>{fmtTime(trade.entry_time)}</td>
                 <td style={cell}>{fmtTime(trade.exit_time)}</td>
-                <td style={cell}>{fmtNum(trade.entry_price, 4)}</td>
-                <td style={cell}>{fmtNum(trade.exit_price, 4)}</td>
+                <td style={cell}>{fmtNum(trade.entry_price, tradePriceDigits(trade))}</td>
+                <td style={cell}>{fmtNum(trade.exit_price, tradePriceDigits(trade))}</td>
                 <td style={cell}>{fmtNum(trade.pnl, 4)}</td>
                 <td style={cell}>{fmtPct(trade.pnl_pct)}</td>
                 <td style={cell}>{trade.reason ?? DASH}</td>

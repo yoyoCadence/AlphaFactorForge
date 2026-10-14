@@ -15,6 +15,7 @@ import { files } from '../tauri-client/dataClient';
 import { popoutWindows, type MetricsWindowSnapshot } from '../tauri-client/windowBridge';
 import { reportToJson, suggestedFilename, tradesToCsv } from '../services/reportExport';
 import type { CompletedRun } from '../services/runArtifact';
+import { displayDays, shortSampleDays } from '../services/sampleSpan';
 import { HelpTip } from './HelpTip';
 import { FloatingPanel } from './FloatingPanel';
 import { MetricsTable } from './MetricsTable';
@@ -71,6 +72,11 @@ export function ResultsSection({
           ? { inSample: artifact.holdoutResult.inSample.metrics, outSample: artifact.holdoutResult.outSample.metrics }
           : {}),
       }
+    : null;
+  // METRIC-DISPLAY-001: set when the run covers less than a year, so the
+  // annualized rows are read as an extrapolation.
+  const shortDays = artifact
+    ? shortSampleDays(artifact.context.dataset.startTime, artifact.context.dataset.endTime)
     : null;
   const metricsWindowSnapshotRef = useRef(metricsWindowSnapshot);
   metricsWindowSnapshotRef.current = metricsWindowSnapshot;
@@ -177,6 +183,11 @@ export function ResultsSection({
         {artifact && (
           <>
             {poppedMetrics ? <PoppedOutNote label="回測績效" onClose={() => setPoppedMetrics(false)} /> : metricsWindowSnapshot && <MetricsTable data={metricsWindowSnapshot} fontSize={12} />}
+            {shortDays != null && (
+              <p data-testid="annualization-note" style={{ color: t.color.warn, fontSize: 11, margin: '8px 0 0' }}>
+                樣本約 {displayDays(shortDays)} 天，不足一年：CAGR、Sharpe、Sortino、Calmar 是年化後的數字，短樣本會被放大，僅供參考。
+              </p>
+            )}
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 12, flexWrap: 'wrap' }}>
               <button data-testid="export-json" style={S.btnGhost} onClick={() => exportResult('json')} disabled={exporting != null} aria-busy={exporting === 'json'}>
