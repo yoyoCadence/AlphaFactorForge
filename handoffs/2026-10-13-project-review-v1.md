@@ -239,3 +239,11 @@ Pending。六項快修各自完成時，在此追加 PR、最終 head 與驗證�
 - 測試：一年邊界的樣本期間、績效列格式、時間戳與 Gate 格式、橋接經 JSON 往返的單元測試；新增 `e2e/metric-display.spec.ts`。
 - 驗證：Vitest 1170／1170、Playwright 91／91、`npm run typecheck`、`npm run build`。
 - 未做：原生 pop-out 視窗沒有實際開啟檢查，僅有橋接編解碼的單元測試。
+
+### 2026-10-14 — UX-FEEDBACK-001（A4）
+
+- 上一項的 PR 是 [#172](https://github.com/yoyoCadence/AlphaFactorForge/pull/172)，CI 六項通過後依授權合併為 `a3554f8`。
+- 分支 `fix/status-message-visibility`，由 `a3554f8` 建立；PR 由該分支開啟。
+- 修改：`BacktestPanel.tsx` 的兩則訊息改為固定在捲動工作區頂端（`position: sticky`，底下墊不透明色帶，避免半透明皮膚透字），各加關閉鈕與 `role`（錯誤為 `alert`、一般訊息為 `status`）。一般訊息 8 秒後自動消失，錯誤保留到被關閉或取代。訊息文字一字未改。
+- 測試：新增 `e2e/status-messages.spec.ts`——在頁面下方啟動探索後訊息仍在視窗內並可關閉；一般訊息會自動消失而同時存在的錯誤保留。把固定定位拿掉時，視窗內斷言失敗（viewport ratio 0）。
+- 驗證：Vitest 1170／1170、Playwright 93／93、`npm run typecheck`、`npm run build`。
