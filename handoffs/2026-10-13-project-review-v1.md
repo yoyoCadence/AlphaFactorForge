@@ -247,3 +247,16 @@ Pending。六項快修各自完成時，在此追加 PR、最終 head 與驗證�
 - 修改：`BacktestPanel.tsx` 的兩則訊息改為固定在捲動工作區頂端（`position: sticky`，底下墊不透明色帶，避免半透明皮膚透字），各加關閉鈕與 `role`（錯誤為 `alert`、一般訊息為 `status`）。一般訊息 8 秒後自動消失，錯誤保留到被關閉或取代。訊息文字一字未改。
 - 測試：新增 `e2e/status-messages.spec.ts`——在頁面下方啟動探索後訊息仍在視窗內並可關閉；一般訊息會自動消失而同時存在的錯誤保留。把固定定位拿掉時，視窗內斷言失敗（viewport ratio 0）。
 - 驗證：Vitest 1170／1170、Playwright 93／93、`npm run typecheck`、`npm run build`。
+
+### 2026-10-14 — APP-STARTUP-ERROR-001（A7）
+
+- 上一項的 PR 是 [#173](https://github.com/yoyoCadence/AlphaFactorForge/pull/173)，CI 六項通過後依授權合併為 `816bf94`。
+- 分支 `fix/startup-error-dialog`，由 `816bf94` 建立；PR 由該分支開啟。六項快修中的最後一項。
+- 修改：新增 `src-tauri/src/desktop/startup_error.rs`。`main.rs` 中工作區開啟失敗的 `panic!`、取得資料資料夾的 `expect`、`Builder::run` 的 `expect` 改為呼叫 `fail`：先寫到 stderr；release 版在 Windows 以 `MessageBoxW` 顯示依原因分類的建議、技術原因與工作區路徑；行程以代碼 1 結束。debug 版（native smoke 使用）保有主控台並立即結束，自動化流程不會被對話框卡住。`Cargo.toml` 只為已鎖定的 `windows-sys` 多加一個 feature，`Cargo.lock` 不變。
+- 測試：6 個單元測試涵蓋各種失敗原因的訊息。
+- 驗證：`cargo test --locked` 606 通過、1 ignored；`cargo check --locked --all-targets`；`cargo check --locked --release`。
+- 未做：對話框只在 release 建置出現，尚未實際開啟確認。
+
+### 快修完成狀態（2026-10-14）
+
+Wave 1 的六項快修全部完成，依序為 #169、#170、#171、#172、#173 與本項。其餘項目仍在 `tasks.md` 的「Project review follow-ups (2026-10-13)」，其中標記 *decision* 的需維護者先決定。
