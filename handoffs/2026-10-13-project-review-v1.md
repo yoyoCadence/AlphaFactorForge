@@ -208,3 +208,12 @@ Pending。六項快修各自完成時，在此追加 PR、最終 head 與驗證�
 - 測試：`NumberInput.test.ts` 8 個案例（含 MIN／MAX ± 1、清空、無法解析的草稿）；`e2e/sweep.spec.ts` 新增兩個迴歸——未改值失焦後熱力圖與 ✓ 標記保留、焦點在欄位內時點格子仍會套用、真的改值仍會清空。
 - 反向驗證：把元件還原成修改前的版本，兩個新 E2E 都失敗（格數 16 → 0；✓ 標記消失）；套回修正後通過。
 - 驗證：Vitest 1139／1139、Playwright 87／87、`npm run typecheck`、`npm run build`。未動 Rust。
+
+### 2026-10-14 — REACT-STYLE-WARN-001 ＋ HELPTIP-SHADOW-001（A10、A11）
+
+- 上一項 BUG-SWEEP-BLUR-001 的 PR 是 [#169](https://github.com/yoyoCadence/AlphaFactorForge/pull/169)，2026-10-14 合併為 `43eea86`，CI 六項通過。
+- 維護者 2026-10-14 授權：本審查的快修 PR 在 CI 全數通過後可由 agent 自行合併。
+- 分支 `fix/style-shorthand-and-icon-shadow`，由 `43eea86` 建立；PR 由該分支開啟。
+- 修改：套用標記、無效參數、策略模式按鈕、程式碼編輯器錯誤狀態改寫完整的 `border` 簡寫，不再只覆寫 `borderColor`；Results Explorer 分頁改用四個方向的 longhand。「?」說明鈕、浮動面板關閉鈕、圖表「重置」鈕明確設為無陰影。畫面外觀不變。
+- 測試：新增 `e2e/style-warnings.spec.ts`。一個走過上述每個狀態切換並斷言 console 沒有樣式衝突警告；另一個在粗野派皮膚檢查三個小按鈕的 computed `box-shadow`。兩個測試在修改前的程式上都會失敗。
+- 驗證：Vitest 1139／1139、Playwright 89／89、`npm run typecheck`、`npm run build`。未動 Rust。

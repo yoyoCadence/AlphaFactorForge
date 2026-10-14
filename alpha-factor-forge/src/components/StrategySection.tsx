@@ -143,7 +143,9 @@ function CodeField({ id, label, value, error, onChange }: { id: string; label: s
         spellCheck={false}
         aria-invalid={error != null}
         aria-describedby={error ? errorId : undefined}
-        style={{ ...S.input, fontFamily: t.font.mono, fontSize: 12, resize: 'vertical', borderColor: error ? t.color.danger : t.color.line }}
+        // The whole shorthand, never borderColor: S.input sets border, and React
+        // cannot safely update a longhand under a shorthand (REACT-STYLE-WARN-001).
+        style={{ ...S.input, fontFamily: t.font.mono, fontSize: 12, resize: 'vertical', border: `${t.shape.borderWidth}px solid ${error ? t.color.danger : t.color.line}` }}
       />
       {error && <span id={errorId} style={{ fontSize: 10, color: t.color.danger }}>{error}</span>}
     </label>
@@ -199,8 +201,11 @@ export function StrategySection({
   const S = makeStyles(t);
   // Highlight styling for a param that the last sweep-apply set (accent).
   const isAppliedKey = (key: NumKey) => appliedKeys.includes(key);
+  // State borders replace the whole shorthand S.input / S.btnGhost set, never
+  // only its colour (REACT-STYLE-WARN-001).
+  const fieldBorder = (color: string): string => `${t.shape.borderWidth}px solid ${color}`;
   const appliedInputStyle = (key: NumKey, base: React.CSSProperties): React.CSSProperties =>
-    isAppliedKey(key) ? { ...base, borderColor: t.color.accent, background: t.color.accentWash } : base;
+    isAppliedKey(key) ? { ...base, border: fieldBorder(t.color.accent), background: t.color.accentWash } : base;
   const appliedLabelStyle = (key: NumKey): React.CSSProperties =>
     isAppliedKey(key) ? { ...S.label, color: t.color.accent, fontWeight: 700 } : S.label;
   const codeValidation = validateCodeExpressions(strat.entryCode, strat.exitCode);
@@ -230,7 +235,7 @@ export function StrategySection({
                 padding: '3px 10px',
                 background: strat.mode === mode ? t.button.primaryBg : t.button.ghostBg,
                 color: strat.mode === mode ? t.button.primaryInk : t.button.ghostInk,
-                borderColor: strat.mode === mode ? t.button.primaryBg : t.button.ghostLine,
+                border: fieldBorder(strat.mode === mode ? t.button.primaryBg : t.button.ghostLine),
               }}
             >
               {MODE_LABEL[mode]}
@@ -337,7 +342,7 @@ export function StrategySection({
               max={f.max}
               step={f.step}
               style={issueKeys.has(f.key)
-                ? { ...appliedInputStyle(f.key, S.input), borderColor: t.color.danger }
+                ? { ...appliedInputStyle(f.key, S.input), border: fieldBorder(t.color.danger) }
                 : appliedInputStyle(f.key, S.input)}
             />
           </label>

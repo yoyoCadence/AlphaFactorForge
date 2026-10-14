@@ -134,7 +134,7 @@ export function FloatingPanel({
           aria-label="關閉放大"
           onClick={onClose}
           onMouseDown={(e) => e.stopPropagation()}
-          style={{ border: 'none', background: 'transparent', color: t.button.primaryInk, cursor: 'pointer', fontSize: 14, lineHeight: 1, padding: 2 }}
+          style={{ border: 'none', background: 'transparent', boxShadow: 'none', color: t.button.primaryInk, cursor: 'pointer', fontSize: 14, lineHeight: 1, padding: 2 }}
         >
           ✕
         </button>

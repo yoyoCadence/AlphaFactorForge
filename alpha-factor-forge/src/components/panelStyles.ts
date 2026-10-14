@@ -129,7 +129,12 @@ export function makeStyles(t: Theme): PanelStyles {
         textTransform: f.labelTransform,
         background: st.bg,
         color: st.fg,
-        border: st.bd,
+        // Four longhands rather than border + borderBottom: the on/off swap
+        // changes both, and React cannot safely update a longhand under a
+        // shorthand (REACT-STYLE-WARN-001).
+        borderTop: st.bd,
+        borderRight: st.bd,
+        borderLeft: st.bd,
         borderBottom: st.ub ?? st.bd,
         borderRadius: s.tabRadius,
         cursor: 'pointer',

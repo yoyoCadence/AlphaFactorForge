@@ -78,6 +78,9 @@ export function HelpTip({
           textAlign: 'center',
           padding: 0,
           cursor: 'pointer',
+          // The global button rule adds the skin's shadow; on a 15px marker a
+          // hard-offset shadow reads as a blob (HELPTIP-SHADOW-001).
+          boxShadow: 'none',
         }}
       >
         ?
