@@ -211,6 +211,7 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 ## In Progress
 
 - **PR173-NOTICE-LIFETIME-001 — Restart expiry for every notice emission** (2026-10-14; direct authorization; Backlog → Next → In Progress). Give repeated identical text a fresh emission identity and timer; preserve message text, dismissal and persistent errors. Separate branch `fix/notice-emission-lifetime`; rebase onto merged #176 before publication.
+- **PR172-NATIVE-METRICS-001 — Real metrics-window event acceptance** (2026-10-14; direct authorization; split from PR172-174-NATIVE-ACCEPTANCE, Backlog → Next → In Progress). Extend the existing isolated native smoke with actual non-finite full/in/out results, note equality, clear/update, exact year, listener reload and existing-window reuse. Local native assertions pass; OS close/reopen remains separate. [Work note](handoffs/2026-10-14-native-metrics-acceptance-v1.md).
 
 - **P12 — Research feasibility & trial ledger** (started 2026-09-23; plan phase row below is the status owner). Split into one-session sub-items (AGENTS.md §9); the phase is Done only when the plan acceptance holds: insufficient samples and the AlphaBTC precision counterexample are blocked, and trial counts cannot be reset.
   - [x] **P12a** — `research-precision-v1` precision precheck (pure Rust + authored fixture); AlphaBTC `146/1001` case is `NOT_ELIGIBLE`. See Done.

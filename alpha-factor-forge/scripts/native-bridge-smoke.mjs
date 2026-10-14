@@ -6,6 +6,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { chromium } from '@playwright/test';
 import { verifyManualStrategyNumbers } from './native-manual-strategy-smoke.mjs';
+import { verifyMetricsWindows } from './native-metrics-smoke.mjs';
 
 const [endpoint, artifactDirectory] = process.argv.slice(2);
 assert(endpoint && artifactDirectory, 'usage: node native-bridge-smoke.mjs <CDP endpoint> <artifacts>');
@@ -61,6 +62,7 @@ try {
   assert.match(commands.rejectedArguments, /datasetId/, 'Rust must reject the wrong invoke argument key');
 
   const manualStrategyNumbers = await verifyManualStrategyNumbers(page);
+  const metricsWindows = await verifyMetricsWindows(page, context, artifactDirectory, errors);
 
   const nonce = randomUUID();
   const event = await page.evaluate(async ({ nonce }) => {
@@ -103,9 +105,9 @@ try {
 
   await page.screenshot({ path: path.join(artifactDirectory, 'native-success.png') });
   await writeFile(path.join(artifactDirectory, 'native-result.json'), JSON.stringify({
-    status: 'passed', url: page.url(), commands, event, manualStrategyNumbers, errors,
+    status: 'passed', url: page.url(), commands, event, manualStrategyNumbers, metricsWindows, errors,
   }, null, 2) + '\n');
-  console.log('Native smoke passed: rendered app, SQLite invokes and Rust event-plugin round trip.');
+  console.log('Native smoke passed: rendered app, SQLite invokes, metrics windows and Rust event-plugin round trip.');
 } catch (error) {
   if (page) await page.screenshot({ path: path.join(artifactDirectory, 'native-failure.png') }).catch(() => {});
   await writeFile(path.join(artifactDirectory, 'native-failure.json'), JSON.stringify({
