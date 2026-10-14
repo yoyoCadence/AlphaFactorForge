@@ -24,3 +24,11 @@ Rebase and integrated checks with #176 follow before publication.
 ## Resolution
 
 Pending verification, rebase onto merged #176 and publication.
+
+### Integrated verification (2026-10-14)
+
+Rebased onto merged #176 (`a8e73de`); preserved both task records while
+resolving the task-board conflict, then moved the delivered #172 fix to Done.
+Integrated **1,183 Vitest / 98 E2E**, typecheck and production build pass.
+Only the panel notice identity and one clock regression change product/test
+behavior. Publication and exact-head CI pending.

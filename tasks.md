@@ -6,6 +6,8 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Current Snapshot
 
+- **PR173-NOTICE-LIFETIME-001 implemented locally (2026-10-14)** after rebasing onto merged PR #176 (`a8e73de`). Every notice emission, including identical text, gets a new eight-second timer; stale expiries cannot clear a newer notice. **1183 Vitest / 98 E2E**, typecheck/build pass. The added clock regression fails on the original code and passes with the repair; publication and exact-head CI follow. [Work note](handoffs/2026-10-14-notice-lifetime-repair-v1.md).
+
 - **PR172-ANNUALIZATION-DISPLAY-001 implemented locally (2026-10-14)** from merged acceptance PR #175 (`63bc2df`). Every displayed metrics column uses its actual tested bars and the engine's existing annualization basis; an exact year is not short, and missing saved evidence is reported explicitly. Shared notes and sample metadata cover main, expanded and native-window views. **1183 Vitest / 97 E2E**, typecheck/build and connected Chrome pass; exact-head CI/merge and real native synchronization follow. [Work note](handoffs/2026-10-14-metrics-annualization-repair-v1.md).
 
 - **PR #169–#174 acceptance review completed (2026-10-14)** at merged main `b08aa38`, in an isolated archive checkout. **36/36 final-head CI jobs / 6/6 matching merge trees**, local **1170 Vitest / 93 E2E / 434 release desktop Rust**, typecheck/build pass. Three unresolved GitHub comments are reproduced by three failing acceptance cases: short Holdout warning omitted, exact-year warning disagrees with the engine, identical notices keep an old expiry. #172/#173 need follow-up; #174's real release error dialog is visible and correct, but OK→exit-code and #172's real native non-finite synchronization remain unverified. [Review and answers](handoffs/2026-10-14-pr169-174-acceptance-review-v1.md).
@@ -208,7 +210,6 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## In Progress
 
-- **PR172-ANNUALIZATION-DISPLAY-001 — Per-column annualization notes** (2026-10-14; maintainer authorized publication, merge and development after acceptance PR #175; Backlog → Next → In Progress). Use completed full/in/out result bar counts and the existing engine basis; carry display metadata through metrics windows, and report missing saved sample evidence explicitly. No metric/persistence/contract change. Base `63bc2df`; [work note](handoffs/2026-10-14-metrics-annualization-repair-v1.md).
 - **PR173-NOTICE-LIFETIME-001 — Restart expiry for every notice emission** (2026-10-14; direct authorization; Backlog → Next → In Progress). Give repeated identical text a fresh emission identity and timer; preserve message text, dismissal and persistent errors. Separate branch `fix/notice-emission-lifetime`; rebase onto merged #176 before publication.
 
 - **P12 — Research feasibility & trial ledger** (started 2026-09-23; plan phase row below is the status owner). Split into one-session sub-items (AGENTS.md §9); the phase is Done only when the plan acceptance holds: insufficient samples and the AlphaBTC precision counterexample are blocked, and trial counts cannot be reset.
@@ -521,6 +522,8 @@ These were named inside the UI port entry and must not be buried by closing it. 
 - [ ] Full closed-loop AI automation. (Specification: ABC-14.)
 
 ## Done
+
+- [x] **PR172-ANNUALIZATION-DISPLAY-001 — Per-column annualization notes** — merged as [PR #176](https://github.com/yoyoCadence/AlphaFactorForge/pull/176) on 2026-10-14 (`a8e73de`, head `e9d498c`), six green CI jobs, run `38571582140`. Short Holdout columns warn even on a long full run; exact-year samples agree with the engine. **1183 Vitest / 97 E2E**, typecheck/build and connected Chrome pass. Real native acceptance remains separate. [Work note](handoffs/2026-10-14-metrics-annualization-repair-v1.md).
 
 - [x] **PR169-174-REVIEW — Six merged quick-fix acceptance and review-comment answers** (2026-10-14; direct maintainer request). Exact PR heads, CI, trees, diffs and integrated main reviewed; 1170 Vitest / 93 E2E / 434 release desktop Rust, typecheck/build pass. Confirmed three outstanding behaviors with failing regressions and captured #174's real release dialog. Review is complete; #172/#173 repairs and remaining native checks stay in Backlog. [Handoff](handoffs/2026-10-14-pr169-174-acceptance-review-v1.md).
 - [x] **PR169-REVIEW — NumberInput blur acceptance** (2026-10-14; direct maintainer request). Reviewed exact head `d39e5c0` independently of the dirty crypto-listing workspace; local 1139 Vitest / 87 E2E, typecheck/build, old-component negative control and extra Chrome interactions pass. All six final-head CI jobs succeed. Accepted with no new blocking finding; no GitHub review/comment or merge performed. [Handoff](handoffs/2026-10-14-pr169-number-input-acceptance-v1.md).

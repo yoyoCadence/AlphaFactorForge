@@ -4,7 +4,7 @@ Date: 2026-10-14（Asia/Taipei）
 Repo: yoyoCadence/AlphaFactorForge
 Branch: `fix/metrics-annualization-notes`
 Base: `63bc2df`（PR #175，six green CI jobs）
-Status: In Progress; maintainer authorized development, publication and merge.
+Status: Merged as PR #176; native acceptance remains separate.
 
 ## Scope
 
@@ -35,3 +35,10 @@ task; Windows automation currently reports its native pipe unavailable.
 ## Resolution
 
 Implementation complete locally; publication and exact-head CI pending.
+
+### Delivery resolution (2026-10-14)
+
+Published and merged as [PR #176](https://github.com/yoyoCadence/AlphaFactorForge/pull/176).
+Final head `e9d498ccf0aa677c70d8cf9866d6ef4666f78f85`; all six jobs of CI
+run `38571582140` succeeded. Merge `a8e73de70278b92d6ae87e725877ef73978b2bbe`.
+The original acceptance patch is retained; this resolves R1/R2.
