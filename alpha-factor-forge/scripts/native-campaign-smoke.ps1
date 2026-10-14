@@ -74,6 +74,9 @@ function Invoke-OwnedCli([string]$Name, [string[]]$Arguments) {
     $stderr = Join-Path $artifacts "$Name-stderr.log"
     $argsQuoted = @($Arguments | ForEach-Object { Quote-NativeArgument $_ })
     $script:campaignCli = Start-Process -FilePath $serviceExe.FullName -ArgumentList $argsQuoted -WindowStyle Hidden -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+    # Retain a query handle before waiting: Windows PowerShell 5 can otherwise
+    # report a null ExitCode after a Start-Process -PassThru child has exited.
+    $null = $script:campaignCli.Handle
     $script:campaignCliIdentity = Get-CimInstance Win32_Process -Filter "ProcessId=$($script:campaignCli.Id)"
     $deadline = [DateTime]::UtcNow.AddSeconds(90)
     while (-not $script:campaignCli.WaitForExit(200)) {
@@ -89,6 +92,7 @@ function Invoke-OwnedCli([string]$Name, [string[]]$Arguments) {
     $script:campaignCli.WaitForExit()
     $exitCode = $script:campaignCli.ExitCode
     $script:campaignCli = $null
+    if ($null -eq $exitCode) { throw "$Name exited without a readable process exit code." }
     if ($exitCode -ne 0) { throw "$Name failed with exit $exitCode; see its captured stderr." }
     Get-Content -LiteralPath $stdout -Raw -Encoding UTF8 | ConvertFrom-Json
 }

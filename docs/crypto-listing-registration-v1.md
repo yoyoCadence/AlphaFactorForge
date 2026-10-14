@@ -1,7 +1,7 @@
 # Crypto listing registration v1
 
 Date: 2026-10-07
-Status: Approved repair scope; implementation in progress.
+Status: Implemented; controlled live/native acceptance verified 2026-10-15.
 Task: CAMPAIGN-LISTING-001, authorized by the maintainer's request to correct the acceptance finding.
 
 ## Problem and bounded interface
