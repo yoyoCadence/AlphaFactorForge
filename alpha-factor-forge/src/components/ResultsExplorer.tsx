@@ -56,10 +56,11 @@ import {
   rankValidationRecords,
   shortHash,
   summaryCells,
+  summaryAnnualizationSample,
   type ExplorerFilters,
   type ParsedRecord,
 } from '../services/resultsExplorer';
-import { displayDays, shortSampleDays } from '../services/sampleSpan';
+import { AnnualizationNote } from './AnnualizationNote';
 import { priceDecimals } from '../charts/scale';
 import { HelpTip } from './HelpTip';
 import { makeStyles } from './panelStyles';
@@ -554,11 +555,10 @@ function SegmentSummaries(
     return <div data-testid="results-explorer-no-summary" style={{ color: t.color.warn, fontSize: 12 }}>{note}</div>;
   }
   const cellsBySegment = segments.map((segment) => summaryCells(latest[segment]!));
-  // METRIC-DISPLAY-001: the shortest shown segment decides the note.
-  const shortSpans = segments
-    .map((segment) => shortSampleDays(latest[segment]!.start_time, latest[segment]!.end_time))
-    .filter((days): days is number => days != null);
-  const shortestDays = shortSpans.length > 0 ? Math.min(...shortSpans) : null;
+  const sampleColumns = segments.map((segment) => {
+    const summary = latest[segment]!;
+    return { label: SEGMENT_LABEL[segment], sample: summaryAnnualizationSample(summary, props.data.datasets.find((d) => d.id === summary.dataset_id)) };
+  });
   return (
     <>
       <table data-testid="results-explorer-segment-summaries" style={{ borderCollapse: 'collapse', fontSize: 11, fontFamily: t.font.mono }}>
@@ -582,11 +582,7 @@ function SegmentSummaries(
         </tbody>
       </table>
       {segments.length < 2 && <div style={{ color: t.color.warn, fontSize: 12, marginTop: 4 }}>{note}</div>}
-      {shortestDays != null && (
-        <div data-testid="results-explorer-annualization-note" style={{ color: t.color.warn, fontSize: 11, marginTop: 4 }}>
-          樣本約 {displayDays(shortestDays)} 天，不足一年：CAGR、Sharpe、Sortino、Calmar 是年化後的數字，短樣本會被放大，僅供參考。
-        </div>
-      )}
+      <AnnualizationNote columns={sampleColumns} testId="results-explorer-annualization-note" />
       <div style={{ display: 'flex', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
         {segments.map((segment) => (
           <TradesBlock key={segment} summary={latest[segment]!} label={SEGMENT_LABEL[segment]} {...props} />
@@ -602,8 +598,6 @@ function SummariesView(props: ListProps<BacktestSummary>): React.ReactElement {
   const t = useTheme();
   const S = makeStyles(t);
   const { data, rows, selected, selectedListed, onSelect, cell, rowStyle } = props;
-  // METRIC-DISPLAY-001: set when the selected summary covers less than a year.
-  const selectedShortDays = selected ? shortSampleDays(selected.start_time, selected.end_time) : null;
 
   return (
     <>
@@ -671,11 +665,7 @@ function SummariesView(props: ListProps<BacktestSummary>): React.ReactElement {
               ))}
             </tbody>
           </table>
-          {selectedShortDays != null && (
-            <div data-testid="results-explorer-annualization-note" style={{ color: t.color.warn, fontSize: 11, marginTop: 4 }}>
-              樣本約 {displayDays(selectedShortDays)} 天，不足一年：CAGR、Sharpe、Sortino、Calmar 是年化後的數字，短樣本會被放大，僅供參考。
-            </div>
-          )}
+          <AnnualizationNote columns={[{ label: SEGMENT_LABEL[selected.segment], sample: summaryAnnualizationSample(selected, data.datasets.find((d) => d.id === selected.dataset_id)) }]} testId="results-explorer-annualization-note" />
           <div style={{ marginTop: 6 }}>
             <TradesBlock summary={selected} label={SEGMENT_LABEL[selected.segment]} {...props} />
           </div>

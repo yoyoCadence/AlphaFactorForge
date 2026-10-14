@@ -1,8 +1,41 @@
 import { describe, expect, it } from 'vitest';
-import { SHORT_SAMPLE_DAYS, displayDays, shortSampleDays, spanDays } from './sampleSpan';
+import { SHORT_SAMPLE_DAYS, annualizationYears, displayDays, metricsSampleColumns, shortAnnualizationDays, shortSampleDays, spanDays } from './sampleSpan';
+import { computeMetrics } from '../core/metrics';
 
 const DAY = 86_400_000;
 const START = Date.UTC(2024, 0, 1);
+
+describe('engine annualization samples', () => {
+  it.each([[364, 365], [365, 365], [366, 365], [8759, 8760], [8760, 8760], [8761, 8760]])(
+    '%i bars against %i bars/year agrees with the metric engine boundary', (totalBars, barsPerYear) => {
+      const sample = { totalBars, barsPerYear };
+      const result = computeMetrics({ trades: [], equity: [{ time: START, equity: 1 }, { time: START + DAY, equity: 2 }], startEquity: 1, totalBars, barsPerYear });
+      if (totalBars < barsPerYear) {
+        expect(result.cagr).toBeGreaterThan(result.netReturn);
+        expect(shortAnnualizationDays(sample)).not.toBeNull();
+      } else {
+        expect(result.cagr).toBeLessThanOrEqual(result.netReturn);
+        expect(shortAnnualizationDays(sample)).toBeNull();
+      }
+    },
+  );
+
+  it('checks the short out-of-sample column of a long full run', () => {
+    const samples = { full: { totalBars: 600, barsPerYear: 365 }, inSample: { totalBars: 420, barsPerYear: 365 }, outSample: { totalBars: 180, barsPerYear: 365 } };
+    const columns = metricsSampleColumns(samples, true);
+    expect(columns.filter((c) => shortAnnualizationDays(c.sample) != null).map((c) => c.label)).toEqual(['樣本外']);
+    expect(shortAnnualizationDays(samples.outSample)).toBe(180);
+    expect(metricsSampleColumns(samples, false).map((c) => c.label)).toEqual(['全期']);
+  });
+
+  it('keeps invalid or absent evidence unknown', () => {
+    for (const sample of [undefined, null, { totalBars: 0, barsPerYear: 365 }, { totalBars: 1.5, barsPerYear: 365 }, { totalBars: 10, barsPerYear: 0 }, { totalBars: 10, barsPerYear: Infinity }, { totalBars: 10, barsPerYear: Number.MIN_VALUE }]) {
+      expect(annualizationYears(sample)).toBeNull();
+      expect(shortAnnualizationDays(sample)).toBeNull();
+    }
+    expect(metricsSampleColumns(undefined, true).every((c) => c.sample == null)).toBe(true);
+  });
+});
 
 describe('spanDays', () => {
   it('measures the days between two epoch-ms bounds', () => {

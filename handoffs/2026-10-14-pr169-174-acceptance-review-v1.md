@@ -152,3 +152,11 @@ patch 只新增三個測試，不含修正；套用前仍應檢查當前 baselin
 隔離 source／Cargo target 目錄已刪除，保留上述本機畫面證據與 tracked handoff／反例 patch。
 
 Resolution: Pending R1–R3 repairs and the remaining native interaction checks.
+
+### Publication and development authorization（2026-10-14）
+
+Maintainer authorized publishing/merging this review and continuing development.
+The documentation PR is [#175](https://github.com/yoyoCadence/AlphaFactorForge/pull/175),
+head `f1eaa39`, merged as `63bc2df` after all six CI jobs succeeded.
+R1/R2 are now In Progress on `fix/metrics-annualization-notes`; R3 follows in its
+own PR after that merges. Original review evidence and native limits remain.

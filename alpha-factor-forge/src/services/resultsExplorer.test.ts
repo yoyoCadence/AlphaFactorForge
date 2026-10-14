@@ -6,7 +6,7 @@
 // fails here first.
 
 import { describe, expect, it } from 'vitest';
-import type { BacktestSummary, ValidationRecordRow } from '../tauri-client/commands';
+import type { BacktestSummary, Dataset, ValidationRecordRow } from '../tauri-client/commands';
 import { makeMockClient } from '../tauri-client/mockClient';
 import { seedHistory, SEED_LENIENT_GATE, SEED_STRATEGIES } from '../tauri-client/mockHistorySeed';
 import { GATE_CONTRACT_VERSION, DEFAULT_GATE_CONFIG } from './gate';
@@ -26,6 +26,7 @@ import {
   sameSummaryRow,
   shortHash,
   summaryCells,
+  summaryAnnualizationSample,
   SUMMARY_COLUMNS,
 } from './resultsExplorer';
 
@@ -39,6 +40,33 @@ const row = (over: Partial<ValidationRecordRow>): ValidationRecordRow => ({
   record_json: '{}',
   created_at: '2026-01-01T00:00:00Z',
   ...over,
+});
+
+describe('saved summary annualization evidence', () => {
+  const dataset: Dataset = { id: 7, exchange: 'test', symbol: 'TEST', interval: '1d', start_time: 0, end_time: 728 * 86_400_000, candle_count: 365, source: 'test', dataset_hash: 'test' };
+  const full: BacktestSummary = { strategy_id: 1, dataset_id: 7, segment: 'full', start_time: dataset.start_time, end_time: dataset.end_time };
+
+  it('uses the complete bound dataset count even when its timestamps have gaps', () => {
+    expect(summaryAnnualizationSample(full, dataset)).toEqual({ totalBars: 365, barsPerYear: 365 });
+  });
+
+  it('refuses to infer a count for an unbound or partial full summary', () => {
+    expect(summaryAnnualizationSample(full, undefined)).toBeNull();
+    expect(summaryAnnualizationSample(full, { ...dataset, id: 8 })).toBeNull();
+    expect(summaryAnnualizationSample({ ...full, start_time: 1 }, dataset)).toBeNull();
+  });
+
+  it('uses only the validation summary own persisted benchmark range', () => {
+    const benchmark_result_json = JSON.stringify({ version: 'bench-record-v1', interval: '1h', validationRange: { from: 420, to: 599 } });
+    expect(summaryAnnualizationSample({ ...full, segment: 'validation', benchmark_result_json }, dataset)).toEqual({ totalBars: 180, barsPerYear: 8760 });
+    expect(summaryAnnualizationSample({ ...full, segment: 'train' }, dataset)).toBeNull();
+  });
+
+  it('does not invent evidence for unreadable, legacy or invalid ranges', () => {
+    for (const benchmark_result_json of ['not-json', '{}', JSON.stringify({ version: 'future', interval: '1h', validationRange: { from: 0, to: 10 } }), JSON.stringify({ version: 'bench-record-v1', interval: '1h', validationRange: { from: 2, to: 1 } }), JSON.stringify({ version: 'bench-record-v1', interval: '1h', validationRange: { from: 0.5, to: 10 } })]) {
+      expect(summaryAnnualizationSample({ ...full, segment: 'validation', benchmark_result_json }, dataset)).toBeNull();
+    }
+  });
 });
 
 describe('rankValidationRecords', () => {

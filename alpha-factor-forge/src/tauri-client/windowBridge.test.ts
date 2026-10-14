@@ -71,6 +71,21 @@ function metrics(over: Partial<Metrics> = {}): Metrics {
 }
 
 describe('metrics window updates', () => {
+  it('transports the completed samples without aliasing the sender or wire', () => {
+    const sent: MetricsWindowSnapshot = {
+      title: 'long full / short holdout', full: metrics(), inSample: metrics(), outSample: metrics(),
+      samples: { full: { totalBars: 600, barsPerYear: 365 }, inSample: { totalBars: 420, barsPerYear: 365 }, outSample: { totalBars: 180, barsPerYear: 365 } },
+    };
+    const wire = encodeMetricsSnapshot(sent);
+    expect(wire.samples).toEqual(sent.samples);
+    const arrived = decodeMetricsSnapshot(JSON.parse(JSON.stringify(wire)));
+    expect(arrived).toEqual(sent);
+    wire.samples!.full.totalBars = 1;
+    expect(sent.samples!.full.totalBars).toBe(600);
+    arrived.samples!.outSample!.totalBars = 1;
+    expect(wire.samples!.outSample!.totalBars).toBe(180);
+  });
+
   it('transports both a clear update and the latest snapshot', async () => {
     let eventHandler: ((event: { payload: MetricsWindowWire | null }) => void) | undefined;
     tauriMocks.listen.mockImplementation(async (_event, handler) => {

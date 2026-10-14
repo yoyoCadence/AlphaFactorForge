@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { popoutWindows, type MetricsWindowSnapshot } from '../tauri-client/windowBridge';
 import { MetricsTable } from './MetricsTable';
+import { AnnualizationNote } from './AnnualizationNote';
+import { metricsSampleColumns } from '../services/sampleSpan';
 import { useTheme } from '../theme/ThemeProvider';
 
 export function MetricsPopoutWindow(): React.ReactElement {
@@ -42,6 +44,7 @@ export function MetricsPopoutWindow(): React.ReactElement {
         {!error && snapshot && (
           <section style={{ padding: 16, background: t.color.cardBg, border: `${t.shape.borderWidth}px ${t.shape.borderStyle} ${t.color.line}`, borderRadius: t.shape.radius }}>
             <MetricsTable data={snapshot} fontSize={15} />
+            <AnnualizationNote columns={metricsSampleColumns(snapshot.samples, !!snapshot.inSample && !!snapshot.outSample)} />
           </section>
         )}
       </main>
