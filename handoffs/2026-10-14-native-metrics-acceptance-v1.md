@@ -3,7 +3,7 @@
 Date: 2026-10-14
 Repo: yoyoCadence/AlphaFactorForge
 Branch: `test/native-metrics-window-sync`
-Base: merged PR #176 (`a8e73de`); rebase after #177 before publication.
+Base: merged PR #177 (`1cdf2b8`).
 Status: Implemented and verified locally; exact-head CI pending.
 
 ## Scope
@@ -54,3 +54,13 @@ close/reopen. The captured real release dialog remains valid earlier evidence.
 The previously untested #172 non-finite transport, per-column note, clear,
 update and listener recovery now have a real native regression test. Publication
 and six exact-head CI checks follow; the two OS interactions stay open.
+
+### Integrated verification after rebase (2026-10-14)
+
+Rebased onto merged #177, rebuilt the integrated desktop and reran the full
+native harness successfully. It confirmed the real three-column ∞ values,
+Holdout note, clear/update, exact year and listener recovery; owned processes
+and temporary data were cleaned. Final local evidence is retained under the
+OS temp directory `aff-pr172-173-followup-evidence-20261014/`.
+The two remaining OS interactions were not executed; a fresh computer-use
+connection attempt still reports native pipe unavailable.

@@ -3,7 +3,7 @@
 Date: 2026-10-14
 Repo: yoyoCadence/AlphaFactorForge
 Branch: `fix/notice-emission-lifetime`
-Status: In Progress; development, publication and merge authorized.
+Status: Merged as PR #177.
 
 ## Scope
 
@@ -32,3 +32,12 @@ resolving the task-board conflict, then moved the delivered #172 fix to Done.
 Integrated **1,183 Vitest / 98 E2E**, typecheck and production build pass.
 Only the panel notice identity and one clock regression change product/test
 behavior. Publication and exact-head CI pending.
+
+### Delivery resolution (2026-10-14)
+
+Merged [PR #177](https://github.com/yoyoCadence/AlphaFactorForge/pull/177)
+after all six jobs in CI run `38573541175` succeeded. Final head
+`c2824af9b23473fdefa9d360f677b5eaa69c4a6a`; merge
+`1cdf2b843ea19a117f122f7bdd0539b76dbe8c99`. Replied to the original #173
+comment with the old/fixed clock evidence and resolved thread
+`PRRT_kwDOTG6fW86sS2Zw`. R3 is closed.
