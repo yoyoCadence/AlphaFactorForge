@@ -23,8 +23,49 @@ export function extentOf(values: number[]): Extent {
     }
   }
   if (!Number.isFinite(min) || !Number.isFinite(max)) return { min: 0, max: 1 };
-  if (min === max) return { min: min - 1, max: max + 1 };
+  if (min === max) {
+    // Widen relative to the value: a fixed +/-1 swamps a sub-cent price (the
+    // axis would run from about -1 to 1) and is invisible on a 60,000 one.
+    const pad = min !== 0 ? Math.abs(min) * 0.01 : 1;
+    return { min: min - pad, max: max + pad };
+  }
   return { min, max };
+}
+
+export const PRICE_MIN_DECIMALS = 2;
+export const PRICE_MAX_DECIMALS = 8;
+
+/**
+ * Decimal places for prices that are read together: the price axis, or one
+ * bar's open/high/low/close (CHART-PRECISION-001). A fixed two reads `0.00`
+ * for every price below a cent.
+ *
+ * The count is the larger of what the values' size needs (four significant
+ * digits of the largest one) and what their spread needs (one digit finer than
+ * a quarter of the range, which is the spacing of the axis gridlines), kept
+ * within [PRICE_MIN_DECIMALS, PRICE_MAX_DECIMALS]. Prices from 10 upward keep
+ * two decimals unless the range is narrow enough to need more.
+ */
+export function priceDecimals(min: number, max: number): number {
+  const largest = Math.max(Math.abs(min), Math.abs(max));
+  if (!Number.isFinite(largest) || largest === 0) return PRICE_MIN_DECIMALS;
+  const fromSize = 3 - Math.floor(Math.log10(largest));
+  const spread = Math.abs(max - min);
+  const fromSpread = spread > 0 ? Math.ceil(-Math.log10(spread / 4)) + 1 : PRICE_MIN_DECIMALS;
+  return Math.max(PRICE_MIN_DECIMALS, Math.min(PRICE_MAX_DECIMALS, Math.max(fromSize, fromSpread)));
+}
+
+/** Narrowest right-hand price gutter; fits labels of up to eight characters. */
+export const PRICE_GUTTER_MIN_WIDTH = 54;
+
+/**
+ * Width in CSS pixels of the chart's right-hand price gutter for axis labels
+ * of `labelLength` characters: about 5.4px per character of the 9px axis face,
+ * plus the gap before the label and a margin. Derived from the character count
+ * rather than measured, so the layout does not depend on which font loaded.
+ */
+export function priceGutterWidth(labelLength: number): number {
+  return Math.max(PRICE_GUTTER_MIN_WIDTH, Math.ceil(labelLength * 5.4 + 10));
 }
 
 /** Expand an extent by `frac` on each side (e.g. 0.05 = 5% headroom). */

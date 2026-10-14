@@ -15,7 +15,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { CandleChart, type OverlayToggles } from '../charts/CandleChart';
-import { replayTick, positionAtTime } from '../charts/scale';
+import { replayTick, positionAtTime, priceDecimals } from '../charts/scale';
 import { buildSignals } from '../services/strategySignals';
 import { popoutWindows, type ChartWindowSnapshot } from '../tauri-client/windowBridge';
 import type { ParamsStrategy } from '../services/strategy';
@@ -215,6 +215,9 @@ export function ChartSection({
         ? Math.min(replayCursor, candles.length - 1)
         : null;
   const activeCandle = activeBar != null ? candles[activeBar] : null;
+  // CHART-PRECISION-001: the bar's own range decides its decimals, so a
+  // sub-cent bar is not shown as four identical 0.00 figures.
+  const activeDigits = activeCandle ? priceDecimals(activeCandle.l, activeCandle.h) : 2;
   const liveEntry = activeBar != null && signalSeries ? !!signalSeries.entry[activeBar] : false;
   const liveExit = activeBar != null && signalSeries ? !!signalSeries.exit[activeBar] : false;
   const livePosition = activeBar != null && result ? positionAtTime(result.trades, candles[activeBar].t) : null;
@@ -305,7 +308,7 @@ export function ChartSection({
               <span style={{ color: t.color.muted }}>第 {activeBar + 1} 根{hoverBar != null ? '（游標）' : ''}</span>
               {/* The OHLC figures are the data this row exists for, so they take
                   `ink` while the labels around them stay muted. */}
-              <span style={{ color: t.color.ink }}>開 {activeCandle.o.toFixed(2)} 高 {activeCandle.h.toFixed(2)} 低 {activeCandle.l.toFixed(2)} 收 {activeCandle.c.toFixed(2)} · 量 {activeCandle.v.toFixed(0)}</span>
+              <span style={{ color: t.color.ink }}>開 {activeCandle.o.toFixed(activeDigits)} 高 {activeCandle.h.toFixed(activeDigits)} 低 {activeCandle.l.toFixed(activeDigits)} 收 {activeCandle.c.toFixed(activeDigits)} · 量 {activeCandle.v.toFixed(0)}</span>
               <span style={{ color: liveEntry ? t.color.ok : t.color.faint, fontWeight: liveEntry ? 700 : 400 }}>進場 {liveEntry ? '✓ 成立' : '✗'}</span>
               <span style={{ color: liveExit ? t.color.danger : t.color.faint, fontWeight: liveExit ? 700 : 400 }}>出場 {liveExit ? '✓ 成立' : '✗'}</span>
               <span style={{ color: t.color.muted }}>持倉 <b data-testid="bar-position" style={{ color: posColor }}>{posText}</b></span>

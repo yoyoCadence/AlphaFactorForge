@@ -19,7 +19,7 @@ import type { Series } from '../core/indicators';
 import type { Candle as CoreCandle } from '../core/backtest';
 import type { ClosedTrade } from '../core/metrics';
 import type { ParamsStrategy } from '../services/strategy';
-import { extentOf, padExtent, valueToY, replayWindow, barAtX, reconcileBarWindow, zoomBarWindow, panBarWindow, type BarWindow, type TradeLeg } from './scale';
+import { extentOf, padExtent, priceDecimals, priceGutterWidth, valueToY, replayWindow, barAtX, reconcileBarWindow, zoomBarWindow, panBarWindow, type BarWindow, type TradeLeg } from './scale';
 import { paintGrid, paintBars, paintSeries, paintLine, type Bar, type Geom } from './chartPaint';
 import { computeChartSeries, tradeMarkers, type ChartSeries } from './chartSeries';
 import { animationFrames, createFrameThrottle } from './frameThrottle';
@@ -320,11 +320,9 @@ function draw(
   ctx.fillRect(0, 0, w, h);
 
   const padL = 6;
-  const padR = 54;
   const padTop = 6;
   const padBottom = 6;
   const gap = 6;
-  const plotW = w - padL - padR;
 
   const volH = show.vol ? 46 : 0;
   const rsiH = show.rsi ? 64 : 0;
@@ -337,8 +335,6 @@ function draw(
   // inclusive; the memoized indicators cover the full series.
   const { start, end } = visibleWindow;
   const n = end - start + 1;
-  const bw = plotW / n;
-  const xc = (i: number) => padL + (i - start + 0.5) * bw;
 
   const { maFast, maSlow, ema: emaArr, bb, rsi: rsiArr } = series;
 
@@ -353,6 +349,17 @@ function draw(
   const ext = padExtent(extentOf(vals), 0.05);
   const py = (p: number) => valueToY(p, ext, priceTop, priceH);
 
+  // CHART-PRECISION-001: the decimals follow the visible price range, and the
+  // right gutter follows the label length, so a sub-cent instrument reads as
+  // its own prices instead of a column of 0.00. The horizontal layout is
+  // therefore derived after the extent.
+  const priceDigits = priceDecimals(ext.min, ext.max);
+  const priceLabel = (value: number): string => value.toFixed(priceDigits);
+  const padR = priceGutterWidth(Math.max(priceLabel(ext.max).length, priceLabel(ext.min).length));
+  const plotW = w - padL - padR;
+  const bw = plotW / n;
+  const xc = (i: number) => padL + (i - start + 0.5) * bw;
+
   // Bar geometry in the local (visible-window) index space the paint helpers use.
   const bodyW = Math.max(1, bw * 0.7);
   const geom: Geom = { x: (i) => xc(start + i), y: py, barWidth: bodyW };
@@ -362,10 +369,10 @@ function draw(
   const slice = (s: Series | null | undefined): (number | null)[] | null =>
     s ? Array.from({ length: n }, (_, i) => (Number.isFinite(s[start + i]) ? s[start + i] : null)) : null;
 
-  // price grid + right-axis labels. Two decimals, not paintGrid's default whole
-  // numbers: every gridline would read the same for a sub-$10 instrument.
+  // price grid + right-axis labels, in the range's own decimals rather than
+  // paintGrid's default whole numbers.
   ctx.textBaseline = 'middle';
-  paintGrid(ctx, C, { left: padL, right: padL + plotW, top: priceTop, bottom: priceTop + priceH }, ext.max, ext.min, 4, (v) => v.toFixed(2));
+  paintGrid(ctx, C, { left: padL, right: padL + plotW, top: priceTop, bottom: priceTop + priceH }, ext.max, ext.min, 4, priceLabel);
   // paintGrid sets this same face inside a save/restore; repeat it so the
   // VOL / RSI / 30 / 70 labels below stay in one type with the price axis.
   ctx.font = AXIS_FONT;
@@ -470,8 +477,8 @@ function draw(
     ctx.fillStyle = C.accentInk;
     ctx.font = AXIS_FONT;
     ctx.textAlign = 'center';
-    // Same two decimals as the axis labels it sits among.
-    ctx.fillText(lastClose.toFixed(2), tagX + tagW / 2, ly);
+    // Same decimals as the axis labels it sits among.
+    ctx.fillText(priceLabel(lastClose), tagX + tagW / 2, ly);
     ctx.textAlign = 'left';
   }
 

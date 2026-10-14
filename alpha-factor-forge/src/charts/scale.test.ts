@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { extentOf, padExtent, valueToY, tradeLegs, replayWindow, replayTick, positionAtTime, barAtX, reconcileBarWindow, zoomBarWindow, panBarWindow } from './scale';
+import { extentOf, padExtent, priceDecimals, priceGutterWidth, PRICE_GUTTER_MIN_WIDTH, PRICE_MAX_DECIMALS, PRICE_MIN_DECIMALS, valueToY, tradeLegs, replayWindow, replayTick, positionAtTime, barAtX, reconcileBarWindow, zoomBarWindow, panBarWindow } from './scale';
 
 describe('extentOf', () => {
   it('ignores NaN/Infinity and returns min/max', () => {
@@ -10,8 +10,92 @@ describe('extentOf', () => {
     expect(extentOf([NaN, Infinity])).toEqual({ min: 0, max: 1 });
   });
 
-  it('widens a degenerate (single-value) extent', () => {
-    expect(extentOf([5, 5, 5])).toEqual({ min: 4, max: 6 });
+  it('widens a degenerate (single-value) extent by one percent of the value', () => {
+    const five = extentOf([5, 5, 5]);
+    expect(five.min).toBeCloseTo(4.95, 12);
+    expect(five.max).toBeCloseTo(5.05, 12);
+    expect(extentOf([100, 100])).toEqual({ min: 99, max: 101 });
+  });
+
+  it('keeps a flat sub-cent series inside its own magnitude', () => {
+    // CHART-PRECISION-001: a fixed +/-1 made the axis run from about -1 to 1.
+    const tiny = extentOf([0.00001234, 0.00001234]);
+    expect(tiny.min).toBeGreaterThan(0.0000122);
+    expect(tiny.max).toBeLessThan(0.0000125);
+    expect(tiny.max - tiny.min).toBeGreaterThan(0);
+  });
+
+  it('still gives a flat zero series a non-zero span', () => {
+    expect(extentOf([0, 0])).toEqual({ min: -1, max: 1 });
+  });
+});
+
+// CHART-PRECISION-001 — every expectation below was produced by running the
+// function on the listed input and then checked against the rule in its doc
+// comment (four significant digits, or one digit finer than a quarter of the
+// range, whichever is larger; within [2, 8]).
+describe('priceDecimals', () => {
+  it('keeps two decimals for prices from 10 upward on an ordinary range', () => {
+    expect(priceDecimals(96.04, 126.47)).toBe(2); // the seeded sample's padded range
+    expect(priceDecimals(58000, 64000)).toBe(2);
+    expect(priceDecimals(61200, 61260)).toBe(2);
+    expect(priceDecimals(10, 10)).toBe(2);
+    expect(priceDecimals(99.99, 99.99)).toBe(2);
+    expect(priceDecimals(100, 100)).toBe(2);
+  });
+
+  it('adds decimals as the price drops through each power of ten', () => {
+    expect(priceDecimals(9.99, 9.99)).toBe(3);
+    expect(priceDecimals(1, 1)).toBe(3);
+    expect(priceDecimals(0.9999, 0.9999)).toBe(4);
+    expect(priceDecimals(0.1, 0.1)).toBe(4);
+    expect(priceDecimals(0.0999, 0.0999)).toBe(5);
+    expect(priceDecimals(0.01, 0.01)).toBe(5);
+    expect(priceDecimals(0.00999, 0.00999)).toBe(6);
+  });
+
+  it('resolves sub-cent instruments instead of printing 0.00', () => {
+    expect(priceDecimals(0.5, 0.56)).toBe(4);
+    expect(priceDecimals(0.121, 0.127)).toBe(4);
+    expect(priceDecimals(0.000012, 0.000013)).toBe(8);
+    expect(priceDecimals(0.0000123, 0.00001236)).toBe(8);
+    expect((0.00001234).toFixed(priceDecimals(0.000012, 0.000013))).toBe('0.00001234');
+  });
+
+  it('adds decimals when a narrow range needs them to tell gridlines apart', () => {
+    expect(priceDecimals(1.049, 1.051)).toBe(5);
+    expect(priceDecimals(100, 100.04)).toBe(3);
+  });
+
+  it('stays within its bounds', () => {
+    expect(PRICE_MIN_DECIMALS).toBe(2);
+    expect(PRICE_MAX_DECIMALS).toBe(8);
+    expect(priceDecimals(1e-9, 2e-9)).toBe(PRICE_MAX_DECIMALS);
+    expect(priceDecimals(1e12, 2e12)).toBe(PRICE_MIN_DECIMALS);
+  });
+
+  it('falls back to the minimum when there is nothing to resolve', () => {
+    expect(priceDecimals(0, 0)).toBe(2);
+    expect(priceDecimals(Number.NaN, 1)).toBe(2);
+    expect(priceDecimals(0, Number.POSITIVE_INFINITY)).toBe(2);
+  });
+
+  it('ignores the order and the sign of its bounds', () => {
+    expect(priceDecimals(0.56, 0.5)).toBe(priceDecimals(0.5, 0.56));
+    expect(priceDecimals(-5, -4)).toBe(priceDecimals(4, 5));
+  });
+});
+
+describe('priceGutterWidth', () => {
+  it('keeps the original gutter for labels of up to eight characters', () => {
+    for (const length of [0, 1, 6, 7, 8]) expect(priceGutterWidth(length)).toBe(PRICE_GUTTER_MIN_WIDTH);
+    expect(PRICE_GUTTER_MIN_WIDTH).toBe(54);
+  });
+
+  it('widens for longer labels', () => {
+    expect(priceGutterWidth(9)).toBe(59); // first length past the minimum
+    expect(priceGutterWidth(10)).toBe(64); // '0.00001234'
+    expect(priceGutterWidth(11)).toBe(70);
   });
 });
 

@@ -217,3 +217,12 @@ Pending。六項快修各自完成時，在此追加 PR、最終 head 與驗證�
 - 修改：套用標記、無效參數、策略模式按鈕、程式碼編輯器錯誤狀態改寫完整的 `border` 簡寫，不再只覆寫 `borderColor`；Results Explorer 分頁改用四個方向的 longhand。「?」說明鈕、浮動面板關閉鈕、圖表「重置」鈕明確設為無陰影。畫面外觀不變。
 - 測試：新增 `e2e/style-warnings.spec.ts`。一個走過上述每個狀態切換並斷言 console 沒有樣式衝突警告；另一個在粗野派皮膚檢查三個小按鈕的 computed `box-shadow`。兩個測試在修改前的程式上都會失敗。
 - 驗證：Vitest 1139／1139、Playwright 89／89、`npm run typecheck`、`npm run build`。未動 Rust。
+
+### 2026-10-14 — CHART-PRECISION-001（A8）
+
+- 上一項的 PR 是 [#170](https://github.com/yoyoCadence/AlphaFactorForge/pull/170)，CI 六項通過後依授權合併為 `db2cecc`。
+- 分支 `fix/chart-price-precision`，由 `db2cecc` 建立；PR 由該分支開啟。
+- 修改：`charts/scale.ts` 新增 `priceDecimals`（取「最大值的四位有效數字」與「比四分之一區間再細一位」兩者較大者，限制在 2–8 位）與 `priceGutterWidth`（八個字元以內維持原本 54px）。價格軸、最新價標籤與「此根資訊」共用。平盤區間改以數值的 1% 擴展，不再固定 ±1。
+- 測試：`scale.test.ts` 新增 11 個案例，含 10、1、0.1、0.01 等十的次方邊界；期望值是實際執行函式後，再對照規則逐一核對。既有的平盤擴展測試隨行為更新。
+- 實測：在 mock UI 匯入約 0.0000123 的資料集，價格軸與「此根資訊」顯示 8 位小數（例：`0.00001264`），標籤完整落在加寬的刻度欄內；原本全部是 `0.00`。
+- 驗證：Vitest 1150／1150、Playwright 89／89、`npm run typecheck`、`npm run build`。未動 Rust。
