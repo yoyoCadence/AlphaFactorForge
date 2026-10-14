@@ -226,3 +226,16 @@ Pending。六項快修各自完成時，在此追加 PR、最終 head 與驗證�
 - 測試：`scale.test.ts` 新增 11 個案例，含 10、1、0.1、0.01 等十的次方邊界；期望值是實際執行函式後，再對照規則逐一核對。既有的平盤擴展測試隨行為更新。
 - 實測：在 mock UI 匯入約 0.0000123 的資料集，價格軸與「此根資訊」顯示 8 位小數（例：`0.00001264`），標籤完整落在加寬的刻度欄內；原本全部是 `0.00`。
 - 驗證：Vitest 1150／1150、Playwright 89／89、`npm run typecheck`、`npm run build`。未動 Rust。
+
+### 2026-10-14 — METRIC-DISPLAY-001（A13）
+
+- 上一項的 PR 是 [#171](https://github.com/yoyoCadence/AlphaFactorForge/pull/171)，CI 六項通過後依授權合併為 `384ba8d`。
+- 分支 `fix/metric-display`，由 `384ba8d` 建立；PR 由該分支開啟。只改顯示層，沒有改任何指標、紀錄、契約或 fixture。
+- 修改：
+  - 績效表：無限大的比率在每一列都顯示「∞」，任何列都不會出現 `NaN%`。
+  - 原生績效 pop-out：每一欄先經共用的 `encodeMetrics` 編碼、到達後還原，無限大不再在 JSON 中變成 null。解碼放在 `tauri-client/windowBridge.ts`，因為 `metricsCodec.ts` 是 Gate／Score parity fixture 以雜湊釘住的參考原始碼。
+  - 結果涵蓋不到一年時，績效表下方加註年化數字是由短樣本外推（`services/sampleSpan.ts`）。
+  - Results Explorer 與 Research History：時間標示 UTC；`created_at` 等時間戳統一格式；`gate-v1` 的 Gate 值依單位顯示（次數、百分比、百分位），其他版本維持四位小數；低價幣的交易價格給足小數位。
+- 測試：一年邊界的樣本期間、績效列格式、時間戳與 Gate 格式、橋接經 JSON 往返的單元測試；新增 `e2e/metric-display.spec.ts`。
+- 驗證：Vitest 1170／1170、Playwright 91／91、`npm run typecheck`、`npm run build`。
+- 未做：原生 pop-out 視窗沒有實際開啟檢查，僅有橋接編解碼的單元測試。
