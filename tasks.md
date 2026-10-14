@@ -6,6 +6,8 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Current Snapshot
 
+- **PR #169–#174 follow-up repairs delivered (2026-10-14)**: review [#175](https://github.com/yoyoCadence/AlphaFactorForge/pull/175), annualization R1/R2 [#176](https://github.com/yoyoCadence/AlphaFactorForge/pull/176) (`a8e73de`) and repeated-notice R3 [#177](https://github.com/yoyoCadence/AlphaFactorForge/pull/177) (`1cdf2b8`), each merged after six green CI jobs. All three GitHub threads answered/resolved. Integrated **1183 Vitest / 98 E2E**, typecheck/build pass; real native metrics-window ∞/notes/clear/update/reload/reuse pass and now have a CI regression. OS close/reopen and #174 OK → exit 1 remain unexecuted because computer-use cannot connect. [Repair review](handoffs/2026-10-14-pr169-174-acceptance-review-v1.md), [native evidence](handoffs/2026-10-14-native-metrics-acceptance-v1.md).
+
 - **PR173-NOTICE-LIFETIME-001 implemented locally (2026-10-14)** after rebasing onto merged PR #176 (`a8e73de`). Every notice emission, including identical text, gets a new eight-second timer; stale expiries cannot clear a newer notice. **1183 Vitest / 98 E2E**, typecheck/build pass. The added clock regression fails on the original code and passes with the repair; publication and exact-head CI follow. [Work note](handoffs/2026-10-14-notice-lifetime-repair-v1.md).
 
 - **PR172-ANNUALIZATION-DISPLAY-001 implemented locally (2026-10-14)** from merged acceptance PR #175 (`63bc2df`). Every displayed metrics column uses its actual tested bars and the engine's existing annualization basis; an exact year is not short, and missing saved evidence is reported explicitly. Shared notes and sample metadata cover main, expanded and native-window views. **1183 Vitest / 97 E2E**, typecheck/build and connected Chrome pass; exact-head CI/merge and real native synchronization follow. [Work note](handoffs/2026-10-14-metrics-annualization-repair-v1.md).
@@ -210,7 +212,6 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## In Progress
 
-- **PR173-NOTICE-LIFETIME-001 — Restart expiry for every notice emission** (2026-10-14; direct authorization; Backlog → Next → In Progress). Give repeated identical text a fresh emission identity and timer; preserve message text, dismissal and persistent errors. Separate branch `fix/notice-emission-lifetime`; rebase onto merged #176 before publication.
 
 - **P12 — Research feasibility & trial ledger** (started 2026-09-23; plan phase row below is the status owner). Split into one-session sub-items (AGENTS.md §9); the phase is Done only when the plan acceptance holds: insufficient samples and the AlphaBTC precision counterexample are blocked, and trial counts cannot be reset.
   - [x] **P12a** — `research-precision-v1` precision precheck (pure Rust + authored fixture); AlphaBTC `146/1001` case is `NOT_ELIGIBLE`. See Done.
@@ -254,7 +255,7 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Backlog
 
-- [ ] **PR172-174-NATIVE-ACCEPTANCE — Finish native interaction checks** (2026-10-14). After the display repair, open real metrics windows with non-finite full/in/out columns and test update/clear/reopen plus sample notes. #174's release dialog has been captured, but dismissing with OK and confirming exit 1 remains unexecuted because the Windows automation connection is unavailable. [Evidence and checklist](handoffs/2026-10-14-pr169-174-acceptance-review-v1.md).
+- [ ] **PR172-174-NATIVE-ACCEPTANCE — Remaining OS interaction checks** (2026-10-14). Actual metrics-window OS close/reopen and #174 release-dialog OK → exit 1 remain unexecuted because the Windows automation native pipe is unavailable. Real ∞/sample-note/clear/update/listener-reload/window-reuse checks now pass under PR172-NATIVE-METRICS-001; listener reload is not OS close/reopen. [Evidence and checklist](handoffs/2026-10-14-pr169-174-acceptance-review-v1.md).
 
 - [ ] **CAMPAIGN-LISTING-001 (P2) — Expose evidence-backed crypto listing metadata registration** (2026-10-07, new #126–#145 review finding). A clean official Binance BTC fetch succeeds (744/744 bars, historical snapshot status ok), but its pinned instrument revision has `listed_from=null`; native UI refuses Add and backend also refuses unknown listing periods. There is no public CLI/Tauri/service registration entry. Add a bounded operator entry that validates source evidence and creates append-only instrument revisions, then fetch a new pinned snapshot; preserve old revisions/snapshots and the fail-closed rule. Accept with formal fetch → native add/preview/freeze/start/history/reopen plus missing/invalid-evidence/old-revision refusals. Do not infer listing from the first candle or inject DB metadata. Implementation not started; O3/P12 remains open. [Evidence](handoffs/2026-10-07-pr126-145-acceptance-review-v1.md#r1--p2campaign-listing-001正式-btc-fetch-產生的-snapshot-無法加入-campaign).
 
@@ -522,6 +523,9 @@ These were named inside the UI port entry and must not be buried by closing it. 
 - [ ] Full closed-loop AI automation. (Specification: ABC-14.)
 
 ## Done
+
+- [x] **PR173-NOTICE-LIFETIME-001 — Restart expiry for every notice emission** — merged [PR #177](https://github.com/yoyoCadence/AlphaFactorForge/pull/177), head `c2824af`, merge `1cdf2b8`; six green CI jobs, run `38573541175`. Backlog → Next → In Progress → Done under direct authorization. Clock regression fails on old code and passes through seven seconds after repeat, then expires after eight; messages/dismissal/errors preserved. **1183 Vitest / 98 E2E**, typecheck/build pass. Original R3 answered/resolved. [Work note](handoffs/2026-10-14-notice-lifetime-repair-v1.md).
+- [x] **PR172-NATIVE-METRICS-001 — Real metrics-window event acceptance** — implemented and verified locally after rebasing onto merged #177 (2026-10-14; direct authorization; split from PR172-174-NATIVE-ACCEPTANCE, Backlog → Next → In Progress → Done). Existing isolated native smoke now tests actual non-finite full/in/out results, notes, clear/update, exact year, listener reload and window reuse. Integrated native build/harness pass; exact-head CI required before merge. OS close/reopen stays separate. [Work note](handoffs/2026-10-14-native-metrics-acceptance-v1.md).
 
 - [x] **PR172-ANNUALIZATION-DISPLAY-001 — Per-column annualization notes** — merged as [PR #176](https://github.com/yoyoCadence/AlphaFactorForge/pull/176) on 2026-10-14 (`a8e73de`, head `e9d498c`), six green CI jobs, run `38571582140`. Short Holdout columns warn even on a long full run; exact-year samples agree with the engine. **1183 Vitest / 97 E2E**, typecheck/build and connected Chrome pass. Real native acceptance remains separate. [Work note](handoffs/2026-10-14-metrics-annualization-repair-v1.md).
 

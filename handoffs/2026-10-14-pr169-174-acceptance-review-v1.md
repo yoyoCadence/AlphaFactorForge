@@ -169,3 +169,22 @@ The completed bar count and engine basis now drive every column's note and
 travel with native snapshots. Exact-year boundaries, short Holdout, expanded
 views and saved full-year summaries pass: 1,183 Vitest / 97 E2E, typecheck/build.
 R3 is implemented separately and rebased onto this merge for verification.
+
+### R1–R3 resolved and native transport tested (2026-10-14)
+
+R3 merged through [PR #177](https://github.com/yoyoCadence/AlphaFactorForge/pull/177),
+head `c2824af`, merge `1cdf2b8`; all six jobs of run `38573541175` succeed.
+Integrated verification: 1,183 Vitest / 98 E2E and typecheck/build pass.
+All three original comments were answered on GitHub and their threads resolved.
+
+The real Tauri metrics-window harness also passes on the integrated desktop:
+all main/child rows match, ∞ is retained across full/in/out columns, the
+180-bar Holdout note matches, invalidation clears, later results replace it,
+365 bars do not warn, and reload/focus recover the existing child listener.
+The test retains the known blocked font/IPC-fetch observations and verifies
+that Tauri's postMessage fallback delivers the actual events. See the
+[native work note](2026-10-14-native-metrics-acceptance-v1.md).
+
+Remaining acceptance limits: actual OS close/reopen and the captured #174
+release dialog's OK → exit 1. Computer-use still cannot connect to its native
+pipe, so neither action is claimed. Runtime repair R1–R3 is complete.
