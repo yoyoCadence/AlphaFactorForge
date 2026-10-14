@@ -82,8 +82,30 @@ function normalizeCandle(x: unknown): Candle {
   };
 }
 
+/** UX-FEEDBACK-001 — a status message clears itself after this long. An error
+ *  never does: it stays until it is dismissed or replaced. */
+const STATUS_MESSAGE_MS = 8000;
+
+// Layout of one pinned message: the text takes the row, the close control sits
+// at its end. The close control opts out of the skin's button shadow and takes
+// the banner's own colour.
+const MESSAGE_ROW: React.CSSProperties = { display: 'flex', alignItems: 'flex-start', gap: 8 };
+const MESSAGE_TEXT: React.CSSProperties = { flex: 1, minWidth: 0, overflowWrap: 'anywhere' };
+const MESSAGE_CLOSE: React.CSSProperties = {
+  flex: '0 0 auto',
+  border: 'none',
+  background: 'transparent',
+  boxShadow: 'none',
+  color: 'inherit',
+  cursor: 'pointer',
+  font: 'inherit',
+  lineHeight: 1,
+  padding: '0 2px',
+};
+
 export function BacktestPanel(): React.ReactElement {
-  const S = makeStyles(useTheme());
+  const theme = useTheme();
+  const S = makeStyles(theme);
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [selId, setSelId] = useState<number | null>(null);
   const [strat, setStrat] = useState<ParamsStrategy>(defaultStrategy);
@@ -108,6 +130,13 @@ export function BacktestPanel(): React.ReactElement {
   const [importText, setImportText] = useState('');
   const [err, setErr] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
+  // UX-FEEDBACK-001: a status message is a notice, not a state — it clears
+  // itself. The functional update leaves a newer message alone.
+  useEffect(() => {
+    if (msg == null) return;
+    const timer = setTimeout(() => setMsg((current) => (current === msg ? null : current)), STATUS_MESSAGE_MS);
+    return () => clearTimeout(timer);
+  }, [msg]);
   // Candle readiness is stored WITH the dataset identity it was loaded for, so
   // another dataset can never adopt a leftover array (repro B in the audit).
   const [loadedCandles, setLoadedCandles] = useState<{ key: string; rows: CoreCandle[] } | null>(null);
@@ -460,8 +489,27 @@ export function BacktestPanel(): React.ReactElement {
 
   return (
     <div>
-      {err && <div style={S.banner('error')}>{err}</div>}
-      {msg && <div style={S.banner('ok')}>{msg}</div>}
+      {/* UX-FEEDBACK-001: the page is several screens tall and every section
+          below reports through these two messages, so they stay pinned to the
+          top of the scrolling workspace instead of scrolling away with it. The
+          wrapper is opaque so text scrolling underneath cannot show through on
+          the translucent skins. */}
+      {(err || msg) && (
+        <div data-testid="status-messages" style={{ position: 'sticky', top: 0, zIndex: 30, background: theme.color.bg }}>
+          {err && (
+            <div role="alert" data-testid="status-error" style={{ ...S.banner('error'), ...MESSAGE_ROW }}>
+              <span style={MESSAGE_TEXT}>{err}</span>
+              <button type="button" data-testid="status-error-close" aria-label="關閉錯誤訊息" title="關閉" style={MESSAGE_CLOSE} onClick={() => setErr(null)}>✕</button>
+            </div>
+          )}
+          {msg && (
+            <div role="status" data-testid="status-message" style={{ ...S.banner('ok'), ...MESSAGE_ROW }}>
+              <span style={MESSAGE_TEXT}>{msg}</span>
+              <button type="button" data-testid="status-message-close" aria-label="關閉訊息" title="關閉" style={MESSAGE_CLOSE} onClick={() => setMsg(null)}>✕</button>
+            </div>
+          )}
+        </div>
+      )}
 
       <ChartSection
         candles={candles}
