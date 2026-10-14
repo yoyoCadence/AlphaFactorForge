@@ -10,6 +10,7 @@ import type { OverlayToggles } from '../charts/CandleChart';
 import type { ParamsStrategy } from '../services/strategy';
 import { encodeMetrics, type EncodedMetrics } from '../services/metricsCodec';
 import type { NonFiniteStatus } from '../services/nonFinite';
+import type { MetricsSamples } from '../services/sampleSpan';
 
 export const MAIN_WINDOW_LABEL = 'main';
 export const CHART_WINDOW_LABEL = 'chart-popout-window';
@@ -39,6 +40,8 @@ export interface MetricsWindowSnapshot {
   full: Metrics;
   inSample?: Metrics;
   outSample?: Metrics;
+  /** Optional for older callers; absence is displayed as unknown. */
+  samples?: MetricsSamples;
 }
 
 export type MetricsWindowUpdate = MetricsWindowSnapshot | null;
@@ -53,7 +56,14 @@ export interface MetricsWindowWire {
   full: EncodedMetrics;
   inSample?: EncodedMetrics;
   outSample?: EncodedMetrics;
+  samples?: MetricsSamples;
 }
+
+const cloneSamples = (samples: MetricsSamples): MetricsSamples => ({
+  full: { ...samples.full },
+  ...(samples.inSample ? { inSample: { ...samples.inSample } } : {}),
+  ...(samples.outSample ? { outSample: { ...samples.outSample } } : {}),
+});
 
 const NON_FINITE_VALUE: Record<NonFiniteStatus, number> = {
   positive_infinity: Number.POSITIVE_INFINITY,
@@ -81,6 +91,7 @@ export function encodeMetricsSnapshot(snapshot: MetricsWindowSnapshot): MetricsW
   return {
     title: snapshot.title,
     full: encodeMetrics(snapshot.full),
+    ...(snapshot.samples ? { samples: cloneSamples(snapshot.samples) } : {}),
     ...(snapshot.inSample ? { inSample: encodeMetrics(snapshot.inSample) } : {}),
     ...(snapshot.outSample ? { outSample: encodeMetrics(snapshot.outSample) } : {}),
   };
@@ -90,6 +101,7 @@ export function decodeMetricsSnapshot(wire: MetricsWindowWire): MetricsWindowSna
   return {
     title: wire.title,
     full: decodeMetrics(wire.full),
+    ...(wire.samples ? { samples: cloneSamples(wire.samples) } : {}),
     ...(wire.inSample ? { inSample: decodeMetrics(wire.inSample) } : {}),
     ...(wire.outSample ? { outSample: decodeMetrics(wire.outSample) } : {}),
   };

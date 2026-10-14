@@ -21,7 +21,9 @@ import type {
   StrategyDef,
   ValidationRecordRow,
 } from '../tauri-client/commands';
-import { VALIDATION_RECORD_VERSION } from './validationRecord';
+import { BENCHMARK_RECORD_VERSION, VALIDATION_RECORD_VERSION } from './validationRecord';
+import { barsPerYear } from './backtestRunner';
+import { annualizationYears, type AnnualizationSample } from './sampleSpan';
 
 // ---------- visibility ----------
 
@@ -163,6 +165,32 @@ export function fmtInt(x: number | null | undefined): string {
 export function fmtTime(ms: number | null | undefined): string {
   if (typeof ms !== 'number' || !Number.isFinite(ms)) return DASH;
   return new Date(ms).toISOString().replace('T', ' ').slice(0, 16);
+}
+
+/** Only the summary's own evidence may identify its tested bar count. Full
+ *  results can use an exact complete-dataset binding; validation summaries
+ *  carry their own benchmark range. Train/legacy partial rows did not save
+ *  the count, so their annualization basis remains unknown. In particular an
+ *  older immutable record's split must not describe an overwritten summary. */
+export function summaryAnnualizationSample(summary: BacktestSummary, dataset: Dataset | undefined): AnnualizationSample | null {
+  let sample: AnnualizationSample | null = null;
+  if (summary.segment === 'full' && dataset?.id === summary.dataset_id
+    && summary.start_time === dataset.start_time && summary.end_time === dataset.end_time) {
+    sample = { totalBars: dataset.candle_count, barsPerYear: barsPerYear(dataset.interval) };
+  } else if (summary.segment === 'validation' && summary.benchmark_result_json) {
+    try {
+      const benchmark: unknown = JSON.parse(summary.benchmark_result_json);
+      if (isObject(benchmark) && benchmark.version === BENCHMARK_RECORD_VERSION
+        && typeof benchmark.interval === 'string' && isObject(benchmark.validationRange)) {
+        const { from, to } = benchmark.validationRange;
+        if (typeof from === 'number' && typeof to === 'number'
+          && Number.isSafeInteger(from) && Number.isSafeInteger(to) && from >= 0 && to >= from) {
+          sample = { totalBars: to - from + 1, barsPerYear: barsPerYear(benchmark.interval) };
+        }
+      }
+    } catch { /* Missing or unreadable evidence is not a calendar-derived count. */ }
+  }
+  return annualizationYears(sample) == null ? null : sample;
 }
 
 /** A stored timestamp text (`created_at`, `submittedAt`) as `YYYY-MM-DD HH:MM`.

@@ -7,6 +7,50 @@
 
 const MS_PER_DAY = 86_400_000;
 
+/** Display metadata only: the same tested-bar count and annualization basis
+ *  the completed result used. Calendar timestamp gaps cannot establish it. */
+export interface AnnualizationSample {
+  totalBars: number;
+  barsPerYear: number;
+}
+
+export interface AnnualizationColumn {
+  label: string;
+  sample: AnnualizationSample | null;
+}
+
+export interface MetricsSamples {
+  full: AnnualizationSample;
+  inSample?: AnnualizationSample;
+  outSample?: AnnualizationSample;
+}
+
+/** Shares computeMetrics' years = totalBars / barsPerYear definition. Invalid
+ *  or absent evidence stays unknown; an exact year never gets the warning. */
+export function annualizationYears(sample: AnnualizationSample | null | undefined): number | null {
+  if (!sample || !Number.isSafeInteger(sample.totalBars) || sample.totalBars < 1
+    || !Number.isFinite(sample.barsPerYear) || sample.barsPerYear <= 0) return null;
+  const years = sample.totalBars / sample.barsPerYear;
+  return Number.isFinite(years) && years > 0 ? years : null;
+}
+
+/** Whole-calendar-day equivalent of the engine's annualization basis. This is
+ *  not the first-to-last timestamp span (which excludes the final bar). */
+export function shortAnnualizationDays(sample: AnnualizationSample | null | undefined): number | null {
+  const years = annualizationYears(sample);
+  return years != null && years < 1 ? years * SHORT_SAMPLE_DAYS : null;
+}
+
+export function metricsSampleColumns(samples: MetricsSamples | undefined, holdout: boolean): AnnualizationColumn[] {
+  return [
+    { label: '全期', sample: samples?.full ?? null },
+    ...(holdout ? [
+      { label: '樣本內', sample: samples?.inSample ?? null },
+      { label: '樣本外', sample: samples?.outSample ?? null },
+    ] : []),
+  ];
+}
+
 /** Below this many days, annualized figures get the short-sample note. */
 export const SHORT_SAMPLE_DAYS = 365;
 
