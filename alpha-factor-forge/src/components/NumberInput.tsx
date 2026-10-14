@@ -7,6 +7,16 @@
 // AxisEditor can share it (move-only; no behaviour change).
 import React, { useEffect, useState } from 'react';
 
+/** The value a blur commits: the draft when it parses to a finite number,
+ *  otherwise the current value, clamped to [min, max]. Pure. */
+export function blurCommitValue(draft: string, value: number, min?: number, max?: number): number {
+  const parsed = parseFloat(draft);
+  let committed = Number.isFinite(parsed) ? parsed : value;
+  if (min != null) committed = Math.max(min, committed);
+  if (max != null) committed = Math.min(max, committed);
+  return committed;
+}
+
 export function NumberInput({
   value,
   onChange,
@@ -33,13 +43,6 @@ export function NumberInput({
     if (parseFloat(draft) !== value) setDraft(String(value));
   }, [value]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const clamp = (n: number) => {
-    let v = n;
-    if (min != null) v = Math.max(min, v);
-    if (max != null) v = Math.min(max, v);
-    return v;
-  };
-
   return (
     <input
       type="number"
@@ -54,9 +57,14 @@ export function NumberInput({
         if (raw !== '' && Number.isFinite(n)) onChange(n); // live, unclamped; empty/partial stays in the field
       }}
       onBlur={() => {
-        const n = parseFloat(draft);
-        const v = clamp(Number.isFinite(n) ? n : value);
-        onChange(v);
+        const v = blurCommitValue(draft, value, min, max);
+        // BUG-SWEEP-BLUR-001: leaving the field is an edit only when it changes
+        // the value — in practice a clamp, since the live path has already sent
+        // every parseable draft. Reporting an unchanged value made every
+        // consumer treat focus-then-blur as an edit: the sweep cleared its
+        // finished heatmap and the strategy form dropped its applied-from-sweep
+        // marker.
+        if (!Object.is(v, value)) onChange(v);
         setDraft(String(v));
       }}
       style={style}

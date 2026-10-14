@@ -106,3 +106,65 @@ test('sweep optimises in-sample only when holdout is on', async ({ page }) => {
   await page.getByTestId('holdout-toggle').uncheck();
   await expect(page.getByTestId('sweep-scope')).toHaveCount(0);
 });
+
+// BUG-SWEEP-BLUR-001 (2026-10-13 project review): leaving a number field without
+// changing it is not an edit. NumberInput used to report its unchanged value on
+// every blur, and the sweep treats any axis report as a config change — so
+// clicking into an axis field and away again wiped a finished heatmap, and a
+// click on a cell made from inside the field never landed (the blur unmounted
+// the cell first). A real edit must still clear the result.
+test('leaving a sweep axis field unchanged keeps the result; an edit still clears it', async ({ page }) => {
+  await page.goto('/?mock=1');
+  await page.getByTestId('load-sample').click();
+  await page.getByTestId('sweep-toggle').click();
+  await page.getByTestId('run-sweep').click();
+  await expect(page.getByTestId('apply-best')).toBeVisible();
+
+  const cells = page.locator('[data-testid^="sweep-cell-"]');
+  await expect(cells).toHaveCount(16);
+
+  // The X axis "from" field: the first number input of the sweep section.
+  const sweepSection = page.locator('section').filter({ has: page.getByTestId('sweep-toggle') });
+  const axisFrom = sweepSection.getByRole('spinbutton').first();
+  await expect(axisFrom).toHaveValue('5');
+
+  // focus, then leave by keyboard: nothing changed, so nothing is cleared
+  await axisFrom.focus();
+  await page.keyboard.press('Tab');
+  await expect(axisFrom).toHaveValue('5');
+  await expect(cells).toHaveCount(16);
+  await expect(page.getByTestId('apply-best')).toBeVisible();
+
+  // a click made while the field still has focus lands on the cell it aimed at
+  await axisFrom.focus();
+  await page.getByTestId('sweep-cell-7').click();
+  await expect(page.getByText('已套用：快線MA=7')).toBeVisible();
+  await expect(cells).toHaveCount(16);
+
+  // a real edit is still an edit
+  await axisFrom.fill('6');
+  await expect(cells).toHaveCount(0);
+  await expect(page.getByTestId('apply-best')).toHaveCount(0);
+});
+
+// Same root cause, strategy form side: a field the sweep applied keeps its mark
+// until it is actually hand-edited, not merely focused.
+test('leaving a sweep-applied strategy field unchanged keeps its applied mark', async ({ page }) => {
+  await page.goto('/?mock=1');
+  await page.getByTestId('load-sample').click();
+  await page.getByTestId('sweep-toggle').click();
+  await page.getByTestId('run-sweep').click();
+  await expect(page.getByTestId('sweep-best-marker')).toBeVisible();
+  await page.getByTestId('sweep-cell-7').click();
+
+  const applied = page.getByTestId('applied-fastMA');
+  await expect(applied).toBeVisible();
+  await applied.getByRole('spinbutton').focus();
+  await page.keyboard.press('Tab');
+  await expect(applied).toBeVisible();
+  await expect(applied.getByRole('spinbutton')).toHaveValue('7');
+
+  // a hand edit drops the mark, as before
+  await applied.getByRole('spinbutton').fill('8');
+  await expect(page.getByTestId('applied-fastMA')).toHaveCount(0);
+});

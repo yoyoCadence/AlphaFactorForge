@@ -198,3 +198,13 @@ A13 的細項：
 ## Resolution
 
 Pending。六項快修各自完成時，在此追加 PR、最終 head 與驗證結果；原始內容保留。
+
+本紀錄的 PR 是 [#168](https://github.com/yoyoCadence/AlphaFactorForge/pull/168)，2026-10-13 合併為 `0741726`，CI 六項通過。
+
+### 2026-10-14 — BUG-SWEEP-BLUR-001（A1、A2）
+
+- 分支 `fix/number-input-blur-commit`，由合併後的 main（`0741726`）建立；PR 由該分支開啟。
+- 修改：[NumberInput.tsx](../alpha-factor-forge/src/components/NumberInput.tsx) 失焦時先算出夾限後的值（抽成純函式 `blurCommitValue`），只有與目前 `value` 不同才呼叫 `onChange`。輸入中的即時回報與越界值的夾限都不變；8 個使用處沒有修改。
+- 測試：`NumberInput.test.ts` 8 個案例（含 MIN／MAX ± 1、清空、無法解析的草稿）；`e2e/sweep.spec.ts` 新增兩個迴歸——未改值失焦後熱力圖與 ✓ 標記保留、焦點在欄位內時點格子仍會套用、真的改值仍會清空。
+- 反向驗證：把元件還原成修改前的版本，兩個新 E2E 都失敗（格數 16 → 0；✓ 標記消失）；套回修正後通過。
+- 驗證：Vitest 1139／1139、Playwright 87／87、`npm run typecheck`、`npm run build`。未動 Rust。
