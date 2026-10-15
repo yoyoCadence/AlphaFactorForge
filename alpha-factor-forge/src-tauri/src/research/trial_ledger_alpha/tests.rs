@@ -1,3 +1,4 @@
+use super::super::{BindingCheck, LedgerBinding};
 use super::*;
 use crate::research::trial_ledger::{
     family_id_for, TrialBatchInput, TrialEventInput, TrialKind, TrialOrigin,
@@ -415,4 +416,250 @@ fn legacy_transfer_is_unchanged_without_alpha_and_refused_once_budget_is_pinned(
         .unwrap_err()
         .to_string()
         .contains("alpha-aware export"));
+}
+
+fn observed(ledger: &TrialLedger, saved: Option<&LedgerBinding>) -> LedgerBinding {
+    match ledger.check_binding(saved).unwrap() {
+        BindingCheck::Current(binding) => binding,
+        other => panic!("unexpected binding refusal: {other:?}"),
+    }
+}
+
+#[test]
+fn binding_records_checked_identity_growth_and_reopens_conflicted_families() {
+    let (dirs, ledger, family) = setup();
+    let before = observed(&ledger, None);
+    let first = reserve(&ledger, &family, 'a', 'c').reservation.unwrap();
+    let after = observed(&ledger, Some(&before));
+    assert_eq!(before.seq, after.seq, "alpha is outside the trial chain");
+    assert_eq!(after.alpha.as_ref().unwrap().budgets.len(), 1);
+    assert_eq!(
+        after.alpha.as_ref().unwrap().reservations,
+        BTreeSet::from([first.reservation_id().to_string()])
+    );
+    assert_eq!(
+        reserve(&ledger, &family, 'a', 'd').status,
+        AlphaStorageStatus::Blocked
+    );
+    let conflicted = observed(&ledger, Some(&after));
+    assert_eq!(conflicted.alpha.as_ref().unwrap().conflicts.len(), 1);
+    assert_eq!(conflicted.alpha.as_ref().unwrap().reservations.len(), 2);
+    // Valid alpha conflicts stop confirmation, never ordinary exploration or
+    // registry adoption. Reopening keeps the complete conflict observation.
+    register(
+        &ledger,
+        "crypto:binance:BTCUSDT",
+        "explore-after-alpha-conflict",
+    );
+    drop(ledger);
+    let reopened = dirs.open();
+    let current = observed(&reopened, Some(&conflicted));
+    assert_eq!(current.alpha, conflicted.alpha);
+    assert!(
+        reopened
+            .read_alpha_family(&family)
+            .unwrap()
+            .unwrap()
+            .blocked
+    );
+}
+
+#[test]
+fn binding_rejects_equal_count_budget_substitution_including_another_family() {
+    for mode in ["budget", "family", "missing"] {
+        let (_dirs, ledger, family) = setup();
+        let other_family = register(&ledger, "crypto:binance:ETHUSDT", "eth");
+        let saved = observed(&ledger, None);
+        let conn = ledger.lock().unwrap();
+        conn.execute_batch("DROP TRIGGER alpha_family_budgets_no_update")
+            .unwrap();
+        if mode == "missing" {
+            conn.execute_batch(
+                "DROP TRIGGER alpha_family_budgets_no_delete; DELETE FROM alpha_family_budgets",
+            )
+            .unwrap();
+        } else if mode == "family" {
+            // Identical allocation ID and row count, different family binding.
+            conn.execute(
+                "UPDATE alpha_family_budgets SET family_id = ?1",
+                [&other_family],
+            )
+            .unwrap();
+        } else {
+            let (id, raw) = budget_document(&AlphaAllocationDeclaration {
+                total_alpha_ppm: 40_000,
+                schedule: vec![20_000, 20_000],
+            })
+            .unwrap();
+            conn.execute("UPDATE alpha_family_budgets SET allocation_id = ?1, document_json = ?2 WHERE family_id = ?3",
+                params![id, raw, family]).unwrap();
+        }
+        drop(conn);
+        assert_eq!(
+            ledger.check_binding(Some(&saved)).unwrap(),
+            BindingCheck::RegistryEvidenceRolledBack
+        );
+    }
+}
+
+#[test]
+fn binding_rejects_same_count_reservation_substitution_with_a_valid_new_hash() {
+    let (_dirs, ledger, family) = setup();
+    let first = reserve(&ledger, &family, 'a', 'c').reservation.unwrap();
+    let saved = observed(&ledger, None);
+    let mut changed_body = first.document()["body"].clone();
+    changed_body["confirmationBatchId"] = json!("d".repeat(64));
+    let changed = freeze_alpha_reservation(&changed_body.to_string()).unwrap();
+    let conn = ledger.lock().unwrap();
+    conn.execute_batch("DROP TRIGGER alpha_reservations_no_update")
+        .unwrap();
+    conn.execute(
+        "UPDATE alpha_reservations SET reservation_id = ?1, record_json = ?2",
+        params![
+            changed.reservation_id(),
+            canonical_text(&changed.document()).unwrap()
+        ],
+    )
+    .unwrap();
+    drop(conn);
+    assert_eq!(
+        ledger.check_binding(Some(&saved)).unwrap(),
+        BindingCheck::RegistryEvidenceRolledBack
+    );
+}
+
+#[test]
+fn binding_rejects_conflict_loss_or_valid_substitution_with_records_intact() {
+    for substitute in [false, true] {
+        let (_dirs, ledger, family) = setup();
+        reserve(&ledger, &family, 'a', 'c');
+        reserve(&ledger, &family, 'a', 'd');
+        let saved = observed(&ledger, None);
+        let mut conn = ledger.lock().unwrap();
+        conn.execute_batch("DROP TRIGGER alpha_conflicts_no_delete; DELETE FROM alpha_conflicts")
+            .unwrap();
+        if substitute {
+            let tx = conn.transaction().unwrap();
+            store_conflict(
+                &tx,
+                "budget",
+                vec![
+                    budget_evidence(&family, &budget()).unwrap(),
+                    budget_evidence(
+                        &family,
+                        &AlphaAllocationDeclaration {
+                            total_alpha_ppm: 40_000,
+                            schedule: vec![20_000, 20_000],
+                        },
+                    )
+                    .unwrap(),
+                ],
+            )
+            .unwrap();
+            tx.commit().unwrap();
+        }
+        drop(conn);
+        assert_eq!(
+            ledger.check_binding(Some(&saved)).unwrap(),
+            BindingCheck::RegistryEvidenceRolledBack
+        );
+    }
+}
+
+#[test]
+fn binding_validates_content_before_trusting_unchanged_saved_ids() {
+    let (_dirs, ledger, family) = setup();
+    let first = reserve(&ledger, &family, 'a', 'c').reservation.unwrap();
+    let saved = observed(&ledger, None);
+    let mut changed = first.document();
+    changed["body"]["confirmationBatchId"] = json!("d".repeat(64));
+    let conn = ledger.lock().unwrap();
+    conn.execute_batch("DROP TRIGGER alpha_reservations_no_update")
+        .unwrap();
+    conn.execute(
+        "UPDATE alpha_reservations SET record_json = ?1",
+        [canonical_text(&changed).unwrap()],
+    )
+    .unwrap();
+    drop(conn);
+    assert_eq!(
+        ledger.check_binding(Some(&saved)).unwrap_err().code(),
+        "registry_state_invalid"
+    );
+    assert!(
+        ledger.check_binding(None).is_err(),
+        "first adoption must validate content too"
+    );
+}
+
+#[test]
+fn binding_requires_every_affected_family_copy_of_a_conflict() {
+    let (_dirs, ledger, family) = setup();
+    let other = register(&ledger, "crypto:binance:ETHUSDT", "eth");
+    ledger.declare_alpha_budget(&other, &budget()).unwrap();
+    reserve(&ledger, &family, 'a', 'c');
+    reserve(&ledger, &other, 'a', 'd');
+    let saved = observed(&ledger, None);
+    let conn = ledger.lock().unwrap();
+    conn.execute_batch("DROP TRIGGER alpha_conflicts_no_delete")
+        .unwrap();
+    conn.execute("DELETE FROM alpha_conflicts WHERE family_id = ?1", [&other])
+        .unwrap();
+    drop(conn);
+    assert!(ledger
+        .check_binding(Some(&saved))
+        .unwrap_err()
+        .to_string()
+        .contains("missing an affected family"));
+}
+
+#[test]
+fn trial_only_replacement_with_a_proven_prefix_cannot_erase_saved_alpha() {
+    let dirs = Dirs::new();
+    let ledger = dirs.open();
+    let family = register(&ledger, "crypto:binance:BTCUSDT", "before-alpha");
+    let old_trial_export = ledger.export_json_lines().unwrap();
+    ledger.declare_alpha_budget(&family, &budget()).unwrap();
+    reserve(&ledger, &family, 'a', 'c');
+    let saved = observed(&ledger, None);
+    let target_dirs = Dirs::new();
+    let target = target_dirs.open();
+    target.import_json_lines(&old_trial_export).unwrap();
+    assert_eq!(
+        target.check_binding(Some(&saved)).unwrap(),
+        BindingCheck::RegistryEvidenceRolledBack
+    );
+}
+
+#[test]
+fn binding_retains_alternative_budget_identities_inside_permanent_conflicts() {
+    let (_dirs, ledger, family) = setup();
+    let before = observed(&ledger, None);
+    let alternative = AlphaAllocationDeclaration {
+        total_alpha_ppm: 40_000,
+        schedule: vec![20_000, 20_000],
+    };
+    ledger.declare_alpha_budget(&family, &alternative).unwrap();
+    let after = observed(&ledger, Some(&before));
+    let alpha = after.alpha.as_ref().unwrap();
+    assert_eq!(alpha.budgets.len(), 2);
+    assert!(alpha.budgets.contains(&super::super::AlphaBudgetIdentity {
+        family_id: family.clone(),
+        allocation_id: alpha_allocation_id(&alternative).unwrap(),
+    }));
+    assert_eq!(alpha.conflicts.len(), 1);
+    let workspace = Connection::open_in_memory().unwrap();
+    workspace.execute_batch("CREATE TABLE app_settings (key TEXT PRIMARY KEY, value_json TEXT NOT NULL, updated_at TEXT)").unwrap();
+    super::super::write_workspace_binding(&workspace, &after).unwrap();
+    assert_eq!(
+        super::super::read_workspace_binding(&workspace).unwrap(),
+        Some(after.clone())
+    );
+    assert!(ledger.read_alpha_family(&family).unwrap().unwrap().blocked);
+    register(
+        &ledger,
+        "crypto:binance:BTCUSDT",
+        "explore-with-budget-conflict",
+    );
+    assert_eq!(observed(&ledger, Some(&after)).alpha, after.alpha);
 }

@@ -973,4 +973,126 @@ mod tests {
         drop(adopt(&mut conn, &scratch.root, &id, None).unwrap());
         assert_eq!(read_workspace_binding(&conn).unwrap().unwrap(), saved);
     }
+
+    #[test]
+    fn alpha_rollback_on_reopen_preserves_the_last_good_binding_bytes() {
+        use alpha_factor_forge::discovery_core::alpha_allocation::AlphaAllocationDeclaration;
+        let scratch = Scratch::new();
+        let path = scratch.root.join(crate::db::DB_FILE_NAME);
+        let mut conn = crate::db::open_at(&path).unwrap();
+        let id = crate::db::runtime_ledger::workspace_id(&conn).unwrap();
+        let bound = adopt(&mut conn, &scratch.root, &id, None).unwrap();
+        bound.ledger.register_batch(&family_batch(2)).unwrap();
+        let family = super::super::trial_ledger::family_id_for("crypto:binance:BTCUSDT").unwrap();
+        bound
+            .ledger
+            .declare_alpha_budget(
+                &family,
+                &AlphaAllocationDeclaration {
+                    total_alpha_ppm: 50_000,
+                    schedule: vec![25_000, 25_000],
+                },
+            )
+            .unwrap();
+        drop(bound);
+        drop(adopt(&mut conn, &scratch.root, &id, None).unwrap());
+        let before = read_workspace_binding(&conn).unwrap().unwrap();
+        let backup = scratch.root.join("registry-before-reservation.sqlite3");
+        std::fs::copy(scratch.registry_file(), &backup).unwrap();
+        let bound = adopt(&mut conn, &scratch.root, &id, None).unwrap();
+        bound
+            .ledger
+            .reserve_alpha_evidence(&family, &"a".repeat(32), &"b".repeat(64))
+            .unwrap();
+        drop(bound);
+        drop(adopt(&mut conn, &scratch.root, &id, None).unwrap());
+        let saved = read_workspace_binding(&conn).unwrap().unwrap();
+        assert_eq!(
+            (before.seq, &before.chain_head),
+            (saved.seq, &saved.chain_head)
+        );
+        let raw: String = conn
+            .query_row(
+                "SELECT value_json FROM app_settings WHERE key = 'trial_ledger_binding'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        drop(conn);
+        restore(&scratch, &backup);
+        // Real workspace DB reopen and registry re-adoption, not a synthesized
+        // binding comparison. Refusal leaves its persisted JSON byte-for-byte.
+        let mut reopened = crate::db::open_at(&path).unwrap();
+        let error = adopt(&mut reopened, &scratch.root, &id, None)
+            .err()
+            .unwrap();
+        assert!(
+            error.to_string().contains("registry_evidence_rolled_back"),
+            "{error}"
+        );
+        let after: String = reopened
+            .query_row(
+                "SELECT value_json FROM app_settings WHERE key = 'trial_ledger_binding'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(after, raw);
+        assert_eq!(read_workspace_binding(&reopened).unwrap(), Some(saved));
+    }
+
+    #[test]
+    fn v2_adoption_observes_existing_alpha_instead_of_an_empty_default() {
+        use alpha_factor_forge::discovery_core::alpha_allocation::AlphaAllocationDeclaration;
+        let scratch = Scratch::new();
+        let mut conn = crate::db::open_at(&scratch.root.join(crate::db::DB_FILE_NAME)).unwrap();
+        let id = crate::db::runtime_ledger::workspace_id(&conn).unwrap();
+        let bound = adopt(&mut conn, &scratch.root, &id, None).unwrap();
+        bound.ledger.register_batch(&family_batch(2)).unwrap();
+        drop(bound);
+        drop(adopt(&mut conn, &scratch.root, &id, None).unwrap());
+        let raw: String = conn
+            .query_row(
+                "SELECT value_json FROM app_settings WHERE key = 'trial_ledger_binding'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        let mut legacy: Value = serde_json::from_str(&raw).unwrap();
+        legacy["version"] = serde_json::json!("trial-ledger-binding-v2");
+        legacy.as_object_mut().unwrap().remove("alpha");
+        conn.execute(
+            "UPDATE app_settings SET value_json = ?1 WHERE key = 'trial_ledger_binding'",
+            [legacy.to_string()],
+        )
+        .unwrap();
+        let ledger = TrialLedger::open_existing(&scratch.registry, &scratch.root).unwrap();
+        let family = super::super::trial_ledger::family_id_for("crypto:binance:BTCUSDT").unwrap();
+        ledger
+            .declare_alpha_budget(
+                &family,
+                &AlphaAllocationDeclaration {
+                    total_alpha_ppm: 50_000,
+                    schedule: vec![50_000],
+                },
+            )
+            .unwrap();
+        ledger
+            .reserve_alpha_evidence(&family, &"a".repeat(32), &"b".repeat(64))
+            .unwrap();
+        drop(ledger);
+        assert!(read_workspace_binding(&conn)
+            .unwrap()
+            .unwrap()
+            .alpha
+            .is_none());
+        drop(adopt(&mut conn, &scratch.root, &id, None).unwrap());
+        let alpha = read_workspace_binding(&conn)
+            .unwrap()
+            .unwrap()
+            .alpha
+            .unwrap();
+        assert_eq!(alpha.budgets.len(), 1);
+        assert_eq!(alpha.reservations.len(), 1);
+    }
 }

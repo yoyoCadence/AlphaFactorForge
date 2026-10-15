@@ -74,3 +74,13 @@ implementation. P13c must integrate a synchronized final count/precision/
 reservation transaction, frozen batch/selection, exposure overlap and recovery
 before any production confirmation. Statistical policy and calibrated set
 remain unchanged; no final-seed run or qualification PASS is produced here.
+
+## Resolution (2026-10-15 — merged storage delivery)
+
+PR [#183](https://github.com/yoyoCadence/AlphaFactorForge/pull/183) merged as
+`9ab7fd8577b4968117eb6d92a493f3566846e972` after all six CI jobs passed on
+final head `2c3ccbfc2b9f7c2f20e9e8772880eb34e6e3f834`, run `38742136503`:
+635 Rust (1 ignored), 1184 Vitest and 98 E2E. The final-head
+[delivery receipt](https://github.com/yoyoCadence/AlphaFactorForge/pull/183#issuecomment-6193281497)
+records checks and remaining limits. P13b-2a implements the next binding slice;
+complete transfer and production confirmation remain separate work.

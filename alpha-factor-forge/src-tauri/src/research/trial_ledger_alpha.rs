@@ -1,5 +1,6 @@
-//! P13b-1 external registry storage. No runtime caller or admission permit.
-//! Binding/complete transfer are P13b-2; integrated final-fence reservation
+//! P13b-1 external storage writes have no production caller/admission permit.
+//! Checked binding observation is P13b-2a; complete transfer is P13b-2b.
+//! Integrated final-fence reservation
 //! and exposure are P13c. Alpha stops never quarantine ordinary trial work.
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -25,7 +26,7 @@ const CONFLICT_VERSION: &str = "alpha-registry-conflict-v1";
 const MAX_BUDGET_BYTES: usize = 262_144;
 const MAX_RECORD_BYTES: usize = 4_096;
 const MAX_CONFLICT_BYTES: usize = 1_048_576;
-const MAX_ALPHA_ROWS: i64 = 10_000;
+pub(super) const MAX_ALPHA_ROWS: i64 = 10_000;
 const MAX_ALPHA_BYTES: i64 = 16 * 1024 * 1024;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -70,6 +71,7 @@ struct Evidence {
     budget_ids: BTreeMap<String, String>,
     records: Vec<AlphaReservation>,
     conflicts: BTreeMap<String, Vec<Value>>,
+    conflict_ids: BTreeSet<String>,
 }
 
 fn invalid(message: impl std::fmt::Display) -> LedgerError {
@@ -271,10 +273,11 @@ fn load(conn: &Connection) -> Result<Evidence, LedgerError> {
         }
         group.2.insert(family);
     }
-    for (_, (body, expected, actual)) in groups {
+    for (id, (body, expected, actual)) in groups {
         if expected != actual {
             return Err(invalid("conflict missing an affected family"));
         }
+        evidence.conflict_ids.insert(id);
         for family in actual {
             evidence
                 .conflicts
@@ -284,6 +287,56 @@ fn load(conn: &Connection) -> Result<Evidence, LedgerError> {
         }
     }
     Ok(evidence)
+}
+
+/// Read inside the binding caller's registry transaction. Raw SQL IDs alone
+/// cannot prove coverage: load validates hashes, canonical content, family/
+/// declaration/share bindings and all affected-family conflict copies first.
+pub(super) fn observed_identities(
+    conn: &Connection,
+) -> Result<super::binding::AlphaEvidence, LedgerError> {
+    let evidence = load(conn)?;
+    let mut budgets: BTreeSet<_> = evidence
+        .budget_ids
+        .into_iter()
+        .map(
+            |(family_id, allocation_id)| super::binding::AlphaBudgetIdentity {
+                family_id,
+                allocation_id,
+            },
+        )
+        .collect();
+    // Conflicts permanently retain the alternative declarations too. Their
+    // identities must remain observable for future union/rebinding; the
+    // immutable primary row must never erase a second valid claim.
+    for conflict in evidence.conflicts.values().flatten() {
+        if conflict["kind"] == "budget" {
+            for document in conflict["documents"]
+                .as_array()
+                .ok_or_else(|| invalid("conflict documents missing"))?
+            {
+                budgets.insert(super::binding::AlphaBudgetIdentity {
+                    family_id: document["familyId"]
+                        .as_str()
+                        .ok_or_else(|| invalid("conflict family missing"))?
+                        .to_string(),
+                    allocation_id: document["allocationId"]
+                        .as_str()
+                        .ok_or_else(|| invalid("conflict allocation missing"))?
+                        .to_string(),
+                });
+            }
+        }
+    }
+    Ok(super::binding::AlphaEvidence {
+        budgets,
+        reservations: evidence
+            .records
+            .iter()
+            .map(|record| record.reservation_id().to_string())
+            .collect(),
+        conflicts: evidence.conflict_ids,
+    })
 }
 
 fn family_state(
