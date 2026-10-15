@@ -4,7 +4,8 @@ Date: 2026-10-15
 Repo: yoyoCadence/AlphaFactorForge
 Branch: feat/p13b1-alpha-registry-storage
 Baseline: `816d7dc1dff2723030de5eb73152ff26fb200145` (merged PR #182)
-Status: Local verification complete; publication and final-head CI pending
+PR: [#183](https://github.com/yoyoCadence/AlphaFactorForge/pull/183)
+Status: Implementation verified; authoritative final-head CI and merge receipt are recorded on PR #183
 
 ## Scope and implementation
 
