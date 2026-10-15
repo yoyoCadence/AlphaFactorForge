@@ -16,7 +16,7 @@ use serde_json::{json, Value};
 use super::{
     batch_id_for, benchmark_params_hash, canonical_text, event_id_for, family_parts, genesis, head,
     next_chain, prepare_batch, protocol_json, sha256_hex, verify_chain, LedgerError, LedgerIntegrity,
-    TrialBatchInput, TrialEventInput, TrialKind, TrialLedger, TrialOrigin, REGISTRY_MIGRATIONS,
+    TrialBatchInput, TrialEventInput, TrialKind, TrialLedger, TrialOrigin,
     REPRODUCTION_IDENTITY, TRIAL_FAMILY_VERSION,
 };
 
@@ -24,6 +24,10 @@ use super::{
 /// files cannot carry a raised protocol (§22), so importing either could
 /// release a quarantine or shrink a family's test count; both are refused.
 pub const TRIAL_LEDGER_EXPORT_VERSION: &str = "trial-ledger-export-v3";
+// v3 is the unchanged trial-only projection. A physical schema-4 registry
+// may use it only while all alpha tables are empty; otherwise refuse until
+// the complete alpha-aware transfer lands in P13b-2.
+const TRIAL_ONLY_SCHEMA_VERSION: &str = "0003_family_protocol_upgrades";
 
 /// Detail recorded when an import sees an origin checkpoint contradict one
 /// already held (or this registry's own chain).
@@ -208,6 +212,11 @@ impl TrialLedger {
     pub fn export_json_lines(&self) -> Result<Vec<u8>, LedgerError> {
         let mut conn = self.lock()?;
         let tx = conn.transaction()?;
+        if super::alpha::has_evidence(&tx)? {
+            return Err(LedgerError::StateInvalid(
+                "alpha evidence requires complete alpha-aware export; trial-only v3 is refused".into(),
+            ));
+        }
         if !matches!(
             verify_chain(&tx, &self.registry_id)?,
             LedgerIntegrity::Intact { .. }
@@ -400,7 +409,7 @@ impl TrialLedger {
         let header = ExportHeader {
             version: TRIAL_LEDGER_EXPORT_VERSION.into(),
             registry_id: self.registry_id.clone(),
-            schema_version: REGISTRY_MIGRATIONS.last().expect("schema exists").0.into(),
+            schema_version: TRIAL_ONLY_SCHEMA_VERSION.into(),
             exported_at: chrono::Utc::now().to_rfc3339(),
             family_count,
             batch_count,
@@ -445,7 +454,7 @@ impl ValidatedExport {
             return Err(integrity("header is not canonical JSON"));
         }
         if header.version != TRIAL_LEDGER_EXPORT_VERSION
-            || header.schema_version != REGISTRY_MIGRATIONS.last().expect("schema exists").0
+            || header.schema_version != TRIAL_ONLY_SCHEMA_VERSION
             || !valid_registry_id(&header.registry_id)
         {
             return Err(integrity("unsupported export header"));

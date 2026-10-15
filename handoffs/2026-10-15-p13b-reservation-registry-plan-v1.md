@@ -4,7 +4,7 @@ Date: 2026-10-15
 Repo: yoyoCadence/AlphaFactorForge
 Branch: docs/p13b-reservation-registry-plan
 Baseline: `5aef090ac181af8478661576973443ddae7ac5e5` (merged PR #181)
-Status: Design complete; publication and final-head CI pending
+Status: Merged as PR #182 after six green final-head CI jobs (see Resolution)
 
 ## Scope
 
@@ -56,3 +56,15 @@ Unsupported-configuration policy, real-market confirmation, exposure overlap,
 legacy manual exposure and prompt filtering remain explicit P13c decisions.
 P13 remains In Progress. After this PR merges, start P13b-1 as an isolated
 implementation PR; do not bundle binding/export or runtime reveal into it.
+
+## Resolution — 2026-10-15, CI and merge
+
+[PR #182](https://github.com/yoyoCadence/AlphaFactorForge/pull/182) final head
+`7dd7d19c67ef135e6bdddb7106e2720129bbc766` passed all six jobs in
+[run 38736847443](https://github.com/yoyoCadence/AlphaFactorForge/actions/runs/38736847443).
+No review threads were open. Merge
+`816d7dc1dff2723030de5eb73152ff26fb200145` has an identical tree; local main
+fast-forwarded cleanly. The [delivery receipt](https://github.com/yoyoCadence/AlphaFactorForge/pull/182#issuecomment-6192685465)
+records the checked scope. P13b-1 starts from this baseline. Its first-storage
+PR also guards legacy export against omitting newly persisted alpha evidence;
+that guard implements plan §5 without claiming the full P13b-2 transfer.

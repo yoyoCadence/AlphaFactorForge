@@ -6,7 +6,9 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Current Snapshot
 
-- **P13b persistence design completed locally (2026-10-15)** from merged #181 (`5aef090`). The plan separates append-only storage, identity-set rollback/complete transfer, and final-fence reservation/exposure integration. Crash recovery keeps registry spend even if workspace enqueue fails; alpha conflicts stop confirmation without blocking exploration. Documentation only; P13b-1 storage is Next after this design PR merges. [Plan](docs/plans/research-reservation-registry-plan-v1.md), [handoff](handoffs/2026-10-15-p13b-reservation-registry-plan-v1.md).
+- **P13b-1 storage implemented and verified (2026-10-15)** from merged design #182 (`816d7dc`). Immutable known-family budgets, checked reservations/permanent alpha conflicts, exact retry and serialized writes now live in the external registry; ordinary exploration remains available. **635 Rust (1 ignored) / 1184 Vitest**, typecheck/build/check/Clippy pass. Real old service refuses schema 4 with exit 1, new service stops cleanly, isolated paths/processes removed. Full alpha binding/transfer and confirmation/reveal remain unimplemented; P13b-2a is Next. Authoritative final-head CI/merge receipt: [PR #183](https://github.com/yoyoCadence/AlphaFactorForge/pull/183). [Handoff](handoffs/2026-10-15-p13b1-alpha-registry-storage-v1.md).
+
+- **P13b persistence design merged as PR #182 (2026-10-15)** from merged #181 (`5aef090`). The plan separates append-only storage, identity-set rollback/complete transfer, and final-fence reservation/exposure integration. Crash recovery keeps registry spend even if workspace enqueue fails; alpha conflicts stop confirmation without blocking exploration. Documentation only; six exact-head CI jobs passed, merge `816d7dc`. P13b-1 storage follows separately. [Plan](docs/plans/research-reservation-registry-plan-v1.md), [handoff](handoffs/2026-10-15-p13b-reservation-registry-plan-v1.md).
 
 - **P13a merged as PR #181 (2026-10-15)** from merged P12-closure #180 (`4c04b5a`). Checked reservation records and complete-observed-history review enforce family/declaration/number/share bindings, exact replay deduplication and conflicting-number/operation refusal before amount allocation. **624 Rust (1 ignored) / 1184 Vitest**, typecheck/build/all-target check pass; three executable mutants caught and source restored. No runtime reservation/reveal or calibration extension. Six exact-head CI jobs passed (624 Rust / 1184 Vitest / 98 E2E); merge `5aef090`. P13b persistence design is complete locally; P13b-1 follows after its PR merges. [Handoff](handoffs/2026-10-15-p13a-alpha-reservation-history-v1.md).
 
@@ -198,7 +200,9 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Next
 
-- **P13b-1 — Append-only alpha registry storage**: implement the persistence plan section 2 and its first acceptance row: known-family immutable budget, checked reservation/conflict evidence, exact-retry handling and serialized local writes; alpha conflicts stop confirmation only. No binding/export, runtime caller or reveal in this slice. [Plan](docs/plans/research-reservation-registry-plan-v1.md).
+- **P13b-2a — Alpha-aware workspace binding**: extend binding version/evidence with observed budget/reservation/conflict identities; reject equal-count/different-ID rollback and missing evidence, preserve last good binding, and never treat legacy unknown alpha evidence as empty. No complete export/import or runtime reveal; P13b-2b complete transfer follows. [Plan](docs/plans/research-reservation-registry-plan-v1.md), [storage limits](docs/research-alpha-registry-storage-v1.md).
+
+
 
 
 
@@ -223,6 +227,8 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
   6. [x] **APP-STARTUP-ERROR-001 (P2)** — done 2026-10-14 on `fix/startup-error-dialog` (visible startup failure report; see Done). All six quick fixes are complete.
 
 ## In Progress
+
+
 
 
 
@@ -368,7 +374,7 @@ The maintainer-approved implementation plan sequences the ABC specifications (pl
 | P10 | TW ETF adapter (FinMind + TWSE) | P08 | new | **Done** (2026-09-21; five-symbol public-source smoke, see Done) |
 | P11 | Executable DSL (TS + Rust evaluators, whitelist intersection) | P05 | Phase C "DSL validator" | **Done** (2026-09-22; see Done section) |
 | P12 | Research feasibility & trial ledger | P05, P06, P11 | ABC-06 | **Done** (2026-10-15; closure audit linked in Done) — P12a precision precheck merged PR #115; P12b spec PR #116; P12b-1 registry and transfer merged PRs #117–118; P12b-2 merged PR #120; P12c-1 merged PR #121; P12c-2a merged PR #122; P12c-2b merged PR #123; P12d-1 merged PR #124; P12d-2a completed locally (2026-09-29); P12e pure statistics/calibration complete for the declared tested set (2026-10-04); O3 BTC native campaign acceptance verified 2026-10-15; P12 parent criteria verified (see Done and closure audit) |
-| P13 | One-time Validation/Test reveal registry — also owns (2026-09-23 decision) confirmation-batch freezing, atomic alpha reservation/consumption, and crash/retry recovery using the P12e contracts. Maintainer decisions 2026-10-01 ([`research-alpha-allocation-v1`](docs/research-alpha-allocation-v1.md) §9.1): confirm with the allocated alpha share and re-run P12a before reveal; deduplicate replayed reservations but stop a family on conflicting reservations of one confirmation number, keeping the evidence; per-family budgets with no overall guarantee | P12 | ABC-07 | **In Progress** — P13a merged #181; P13b persistence design complete locally, P13b-1 storage is Next; remaining slices stay Backlog pending their contracts |
+| P13 | One-time Validation/Test reveal registry — also owns (2026-09-23 decision) confirmation-batch freezing, atomic alpha reservation/consumption, and crash/retry recovery using the P12e contracts. Maintainer decisions 2026-10-01 ([`research-alpha-allocation-v1`](docs/research-alpha-allocation-v1.md) §9.1): confirm with the allocated alpha share and re-run P12a before reveal; deduplicate replayed reservations but stop a family on conflicting reservations of one confirmation number, keeping the evidence; per-family budgets with no overall guarantee | P12 | ABC-07 | **In Progress** — P13a merged #181; P13b design merged #182; P13b-1 storage complete locally, P13b-2a alpha binding is Next; remaining slices stay Backlog pending their contracts |
 | P14 | Engine archive & workspace backup/restore | P03, P05, P13 | ABC-09, ABC-11 | Backlog |
 | P15 | Codex subscription adapter — **AI unattended mode blocked until isolation is proven** (registry §2) | P00, P11, P12 | ABC-14, Phase C | Backlog |
 | P16 | VS Code MCP adapter | P04, P05, P12 | new | Backlog |
@@ -501,6 +507,8 @@ These were named inside the UI port entry and must not be buried by closing it. 
 - [ ] Full closed-loop AI automation. (Specification: ABC-14.)
 
 ## Done
+
+- [x] **P13b-1 — Append-only alpha registry storage** (2026-10-15, baseline merged #182 `816d7dc`). External migration 0004 pins known-family budgets and preserves checked reservation/conflict evidence; IMMEDIATE local writes, exact retry/reopen, permanent alpha-only stops and whole-operation rollback. Empty-alpha v3 trial projection preserved; nonempty-alpha legacy export refused to prevent omission. **635 Rust (1 ignored) / 1184 Vitest**, typecheck/build/all-target check/Clippy (5 existing warnings), real new/old service schema-refusal smoke pass; [PR #183](https://github.com/yoyoCadence/AlphaFactorForge/pull/183) records final-head CI and merge. No production caller, binding/complete transfer or reveal. [Contract](docs/research-alpha-registry-storage-v1.md), [handoff](handoffs/2026-10-15-p13b1-alpha-registry-storage-v1.md).
 
 - [x] **P13b design — Reservation registry persistence plan** (2026-10-15, baseline merged #181 `5aef090`). Separate append-only storage, binding/transfer and integrated reservation/exposure slices; identity-set rollback checks, complete alpha-aware import union, cross-process IMMEDIATE final-fence/reservation boundary, and registry-first crash recovery. Documentation only; statistical/runtime policies remain open. [Plan](docs/plans/research-reservation-registry-plan-v1.md), [handoff](handoffs/2026-10-15-p13b-reservation-registry-plan-v1.md).
 
@@ -1018,6 +1026,8 @@ These were named inside the UI port entry and must not be buried by closing it. 
   - Fairness conventions recorded in `docs/benchmark-suite-contract.md`: benchmarks inherit the candidate's fee/slippage but always run long-only, 100% sizing, close fill, no SL/TP; segment restriction uses the engine's inclusive `from`/`to`; an empty series fails closed.
   - Random Entry Monte Carlo is deferred to BENCH-002 (needs matched holding-period distribution, run count, seed, and percentile conventions); Gate comparison rules are a later slice — this slice only produces per-benchmark metrics.
   - 8 focused tests: doc-definition lock, hand-calculated Buy & Hold (full range, sub-segment, cost effect), fixed suite order, pipeline parity for the signal benchmarks, determinism, and empty-input failure. Also restored the `## In Progress
+
+
 
 
 

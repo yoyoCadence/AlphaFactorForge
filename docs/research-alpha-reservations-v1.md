@@ -88,6 +88,10 @@ error is never permission to discard or clear a stored reservation.
 
 ## 4. Remaining P13 work
 
+P13b-1 adds [unwired registry storage](research-alpha-registry-storage-v1.md),
+including permanent conflicts and serialized local writes. Identity-set
+binding/complete transfer and final-fence/runtime admission are still pending.
+
 The external append-only registry must persist one immutable budget per
 family; reserve atomically; stop the family permanently on conflicts; carry
 all reservation/conflict evidence through export/import; and extend workspace

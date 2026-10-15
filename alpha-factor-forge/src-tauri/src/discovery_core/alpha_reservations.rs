@@ -54,6 +54,28 @@ struct StoredReservation {
 }
 
 impl AlphaReservation {
+    pub fn family_id(&self) -> &str {
+        &self.body.family_id
+    }
+    pub fn allocation_id(&self) -> &str {
+        &self.body.allocation_id
+    }
+    pub fn origin_registry_id(&self) -> &str {
+        &self.body.origin_registry_id
+    }
+    pub fn reservation_key(&self) -> &str {
+        &self.body.reservation_key
+    }
+    pub fn confirmation_batch_id(&self) -> &str {
+        &self.body.confirmation_batch_id
+    }
+    pub fn confirmation_number(&self) -> u64 {
+        self.body.confirmation_number
+    }
+    pub fn alpha_ppm(&self) -> u64 {
+        self.body.alpha_ppm
+    }
+
     pub fn reservation_id(&self) -> &str {
         &self.reservation_id
     }
