@@ -4,8 +4,8 @@ Date: 2026-10-07 (Asia/Taipei)
 Repo: yoyoCadence/AlphaFactorForge
 Branch: `fix/crypto-listing-registration`
 Baseline: `77c1bda6ffb57365b2b9003dd89f3a155123a93e`
-PR: Delivery tracked on branch `fix/crypto-listing-registration`.
-Status: Implementation and controlled native acceptance complete; final-head CI/merge pending.
+PR: [#179](https://github.com/yoyoCadence/AlphaFactorForge/pull/179)
+Status: Merged after six green final-head CI jobs; controlled native acceptance complete (see Resolution).
 
 ## Summary
 
@@ -84,3 +84,15 @@ exact-head full CI remains required before merge.
 All-target cargo check and Clippy also pass, with only the five existing
 warnings in unchanged modules. O3's controlled BTC flow is verified; P12
 parent acceptance review, O1/O2/O4 and later P13 execution remain separate.
+
+## Resolution — 2026-10-15, publication and phase acceptance
+
+[PR #179](https://github.com/yoyoCadence/AlphaFactorForge/pull/179) merged as
+`3c9af5cbcab7ac9b32aeded7aa3fbb14fb7bfba6`, with a tree identical to final
+head `f17d6c0dd3c72587542ed68c70fef5b9283f8524`. All six jobs in
+[run 38657049462](https://github.com/yoyoCadence/AlphaFactorForge/actions/runs/38657049462)
+passed, including 98 E2E tests at their normal timeout and the native smoke.
+The [delivery receipt](https://github.com/yoyoCadence/AlphaFactorForge/pull/179#issuecomment-6181241175)
+records the verified head, tests and merge. The separate
+[P12 closure audit](2026-10-15-p12-closure-v1.md) now evaluates phase
+acceptance; it does not turn this BTC smoke into a confirmation PASS.
