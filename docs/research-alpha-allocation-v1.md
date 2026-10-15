@@ -256,6 +256,12 @@ acceptance. P13's runtime obligations in §9 remain; its first bounded slice
 validates reservation identity/numbering before amount projection. This
 does not reserve alpha or extend statistical calibration.
 
+The P13a pure record/history boundary is specified in
+[`research-alpha-reservations-v1`](research-alpha-reservations-v1.md).
+It deduplicates exact replay and blocks conflicting confirmation numbers
+before calling this allocator; completeness, persistence and atomicity
+remain registry responsibilities.
+
 P12e-3 (seeded noise-data false-positive simulation of the declared
 protocol) is done as [`research-noise-simulation-v1`](research-noise-simulation-v1.md)
 (2026-10-02). It simulates a family's whole schedule with this allocator and
