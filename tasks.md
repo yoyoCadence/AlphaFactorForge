@@ -6,6 +6,8 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Current Snapshot
 
+- **P13b-2a alpha-aware binding implemented and verified (2026-10-15)** from merged #183 (`9ab7fd8`). Binding v3 stores checked budget/family, reservation and permanent-conflict identities in one registry observation; missing or equally sized substituted evidence is refused without rewriting the last good workspace binding. Legacy alpha stays unknown until verified adoption; valid alpha conflicts still allow exploration. **648 Rust (1 ignored) / 1184 Vitest**, typecheck/build/check/Clippy pass; 96 focused ledger cases and actual new/old service binding-refusal smoke pass. Delivery, final-head CI and merge status: [PR #184](https://github.com/yoyoCadence/AlphaFactorForge/pull/184). P13b-2b complete transfer is Next; no runtime confirmation/reveal. [Contract](docs/research-alpha-workspace-binding-v1.md), [handoff](handoffs/2026-10-15-p13b2a-alpha-workspace-binding-v1.md).
+
 - **P13b-1 storage implemented and verified (2026-10-15)** from merged design #182 (`816d7dc`). Immutable known-family budgets, checked reservations/permanent alpha conflicts, exact retry and serialized writes now live in the external registry; ordinary exploration remains available. **635 Rust (1 ignored) / 1184 Vitest**, typecheck/build/check/Clippy pass. Real old service refuses schema 4 with exit 1, new service stops cleanly, isolated paths/processes removed. Full alpha binding/transfer and confirmation/reveal remain unimplemented; P13b-2a is Next. Authoritative final-head CI/merge receipt: [PR #183](https://github.com/yoyoCadence/AlphaFactorForge/pull/183). [Handoff](handoffs/2026-10-15-p13b1-alpha-registry-storage-v1.md).
 
 - **P13b persistence design merged as PR #182 (2026-10-15)** from merged #181 (`5aef090`). The plan separates append-only storage, identity-set rollback/complete transfer, and final-fence reservation/exposure integration. Crash recovery keeps registry spend even if workspace enqueue fails; alpha conflicts stop confirmation without blocking exploration. Documentation only; six exact-head CI jobs passed, merge `816d7dc`. P13b-1 storage follows separately. [Plan](docs/plans/research-reservation-registry-plan-v1.md), [handoff](handoffs/2026-10-15-p13b-reservation-registry-plan-v1.md).
@@ -200,7 +202,8 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Next
 
-- **P13b-2a — Alpha-aware workspace binding**: extend binding version/evidence with observed budget/reservation/conflict identities; reject equal-count/different-ID rollback and missing evidence, preserve last good binding, and never treat legacy unknown alpha evidence as empty. No complete export/import or runtime reveal; P13b-2b complete transfer follows. [Plan](docs/plans/research-reservation-registry-plan-v1.md), [storage limits](docs/research-alpha-registry-storage-v1.md).
+- **P13b-2b — Complete alpha-aware transfer**: extend complete export/import with all budget declarations, reservation bodies/IDs and permanent conflicts; validate before writes, union by identity without renumbering, retain conflicting claims, and verify duplicate/two-hop transfer plus atomic failure. Refuse alpha-unknown legacy exports for P13 qualification while preserving explicitly trial-only compatibility. No runtime reveal. [Plan](docs/plans/research-reservation-registry-plan-v1.md), [binding contract](docs/research-alpha-workspace-binding-v1.md).
+
 
 
 
@@ -227,6 +230,7 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
   6. [x] **APP-STARTUP-ERROR-001 (P2)** — done 2026-10-14 on `fix/startup-error-dialog` (visible startup failure report; see Done). All six quick fixes are complete.
 
 ## In Progress
+
 
 
 
@@ -374,7 +378,7 @@ The maintainer-approved implementation plan sequences the ABC specifications (pl
 | P10 | TW ETF adapter (FinMind + TWSE) | P08 | new | **Done** (2026-09-21; five-symbol public-source smoke, see Done) |
 | P11 | Executable DSL (TS + Rust evaluators, whitelist intersection) | P05 | Phase C "DSL validator" | **Done** (2026-09-22; see Done section) |
 | P12 | Research feasibility & trial ledger | P05, P06, P11 | ABC-06 | **Done** (2026-10-15; closure audit linked in Done) — P12a precision precheck merged PR #115; P12b spec PR #116; P12b-1 registry and transfer merged PRs #117–118; P12b-2 merged PR #120; P12c-1 merged PR #121; P12c-2a merged PR #122; P12c-2b merged PR #123; P12d-1 merged PR #124; P12d-2a completed locally (2026-09-29); P12e pure statistics/calibration complete for the declared tested set (2026-10-04); O3 BTC native campaign acceptance verified 2026-10-15; P12 parent criteria verified (see Done and closure audit) |
-| P13 | One-time Validation/Test reveal registry — also owns (2026-09-23 decision) confirmation-batch freezing, atomic alpha reservation/consumption, and crash/retry recovery using the P12e contracts. Maintainer decisions 2026-10-01 ([`research-alpha-allocation-v1`](docs/research-alpha-allocation-v1.md) §9.1): confirm with the allocated alpha share and re-run P12a before reveal; deduplicate replayed reservations but stop a family on conflicting reservations of one confirmation number, keeping the evidence; per-family budgets with no overall guarantee | P12 | ABC-07 | **In Progress** — P13a merged #181; P13b design merged #182; P13b-1 storage complete locally, P13b-2a alpha binding is Next; remaining slices stay Backlog pending their contracts |
+| P13 | One-time Validation/Test reveal registry — also owns (2026-09-23 decision) confirmation-batch freezing, atomic alpha reservation/consumption, and crash/retry recovery using the P12e contracts. Maintainer decisions 2026-10-01 ([`research-alpha-allocation-v1`](docs/research-alpha-allocation-v1.md) §9.1): confirm with the allocated alpha share and re-run P12a before reveal; deduplicate replayed reservations but stop a family on conflicting reservations of one confirmation number, keeping the evidence; per-family budgets with no overall guarantee | P12 | ABC-07 | **In Progress** — P13a merged #181; P13b design merged #182; P13b-1 merged #183; P13b-2a binding verified locally; P13b-2b complete transfer is Next; remaining slices stay Backlog pending their contracts |
 | P14 | Engine archive & workspace backup/restore | P03, P05, P13 | ABC-09, ABC-11 | Backlog |
 | P15 | Codex subscription adapter — **AI unattended mode blocked until isolation is proven** (registry §2) | P00, P11, P12 | ABC-14, Phase C | Backlog |
 | P16 | VS Code MCP adapter | P04, P05, P12 | new | Backlog |
@@ -507,6 +511,8 @@ These were named inside the UI port entry and must not be buried by closing it. 
 - [ ] Full closed-loop AI automation. (Specification: ABC-14.)
 
 ## Done
+
+- [x] **P13b-2a — Alpha-aware workspace binding** (2026-10-15, baseline merged #183 `9ab7fd8`). v3 checked identity-set coverage including alternative budgets in permanent conflicts, strict bounded parsing, verified legacy adoption, preserved workspace watermark and ordinary exploration after valid alpha stops. **648 Rust (1 ignored) / 1184 Vitest**, typecheck/build/all-target check/Clippy (five existing warnings), 96 focused ledger cases and real service upgrade/downgrade smoke pass. See [PR #184](https://github.com/yoyoCadence/AlphaFactorForge/pull/184) for delivery, final-head CI and merge status. Complete transfer and runtime confirmation remain separate. [Contract](docs/research-alpha-workspace-binding-v1.md), [handoff](handoffs/2026-10-15-p13b2a-alpha-workspace-binding-v1.md).
 
 - [x] **P13b-1 — Append-only alpha registry storage** (2026-10-15, baseline merged #182 `816d7dc`). External migration 0004 pins known-family budgets and preserves checked reservation/conflict evidence; IMMEDIATE local writes, exact retry/reopen, permanent alpha-only stops and whole-operation rollback. Empty-alpha v3 trial projection preserved; nonempty-alpha legacy export refused to prevent omission. **635 Rust (1 ignored) / 1184 Vitest**, typecheck/build/all-target check/Clippy (5 existing warnings), real new/old service schema-refusal smoke pass; [PR #183](https://github.com/yoyoCadence/AlphaFactorForge/pull/183) records final-head CI and merge. No production caller, binding/complete transfer or reveal. [Contract](docs/research-alpha-registry-storage-v1.md), [handoff](handoffs/2026-10-15-p13b1-alpha-registry-storage-v1.md).
 

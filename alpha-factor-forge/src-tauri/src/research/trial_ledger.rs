@@ -36,7 +36,8 @@ mod transfer;
 #[allow(unused_imports)]
 pub use binding::{
     read_workspace_binding, write_workspace_binding, AdmissionFence, AdmissionSnapshot,
-    BindingCheck, FenceBlocked, LedgerBinding, LedgerEvidence, LEDGER_BINDING_VERSION,
+    AlphaBudgetIdentity, AlphaEvidence, BindingCheck, FenceBlocked, LedgerBinding, LedgerEvidence,
+    LEDGER_BINDING_VERSION,
 };
 // Public for the P12b-2 command surface; no runtime caller exists yet.
 #[allow(unused_imports)]

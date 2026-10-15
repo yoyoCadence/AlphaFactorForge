@@ -335,7 +335,7 @@ chain_seq = sha256(chain_{seq-1} || eventId_seq)          # seq = 本 registry �
 
 ### 7.2 工作區綁定
 
-工作區在 `app_settings` 保存 `trial_ledger_binding = {registryId, seq, chainHead}`（自 §23 起為 `trial-ledger-binding-v2`，另帶證據快照），並在寫入 attempts 的
+工作區在 `app_settings` 保存 `trial_ledger_binding = {registryId, seq, chainHead}`（自 §23 起為 `trial-ledger-binding-v2`，另帶證據快照；P13b-2a 升為 [v3](research-alpha-workspace-binding-v1.md)，加入經內容驗證的 alpha 身分集合），並在寫入 attempts 的
 同一筆工作區交易（§6.2 步驟 3）中更新為 `register_batch` 回傳之 `admissionCount` 的 `(seq, chainHead)`
 （與計數同一筆 registry 交易讀出，§6.4）。這個鏈頭涵蓋本工作區當時看得到的所有事件，包括其他工作區的事件。
 

@@ -7,6 +7,8 @@
 //! test-count high-water mark. That evidence lives outside the event chain, so
 //! the chain alone cannot see it disappear when an older registry copy comes
 //! back. The admission fence keeps using the event prefix only.
+//! P13b-2a: v3 also retains content-checked alpha identities. A legacy alpha
+//! observation is unknown until adoption; no binding authorizes a reveal.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -19,8 +21,13 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 const BINDING_KEY: &str = "trial_ledger_binding";
-/// The stored binding format since §23. The pre-§23 format has no `version`.
-pub const LEDGER_BINDING_VERSION: &str = "trial-ledger-binding-v2";
+/// P13b-2a adds checked alpha identities; older formats have unknown alpha.
+pub const LEDGER_BINDING_VERSION: &str = "trial-ledger-binding-v3";
+const LEGACY_EVIDENCE_VERSION: &str = "trial-ledger-binding-v2";
+const MAX_BINDING_BYTES: usize = 4 * 1024 * 1024;
+// A conflict may retain two budget declarations in addition to its own ID.
+// Storage's row bound therefore permits up to three identities per row.
+const MAX_ALPHA_IDENTITIES: usize = 3 * super::alpha::MAX_ALPHA_ROWS as usize;
 
 fn valid_registry_id(id: &str) -> bool {
     id.len() == 32
@@ -120,6 +127,49 @@ impl LedgerEvidence {
     }
 }
 
+/// A declaration ID alone is insufficient: two families may use the same
+/// declaration. The pair binds the observed budget to its actual family.
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct AlphaBudgetIdentity {
+    pub family_id: String,
+    pub allocation_id: String,
+}
+
+/// Complete checked identities, not counts or a confirmation permit. Conflict
+/// IDs bind their affected families; observation also validates every copy.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct AlphaEvidence {
+    pub budgets: BTreeSet<AlphaBudgetIdentity>,
+    pub reservations: BTreeSet<String>,
+    pub conflicts: BTreeSet<String>,
+}
+
+impl AlphaEvidence {
+    fn validate(&self) -> Result<(), LedgerError> {
+        if self.budgets.len() + self.reservations.len() + self.conflicts.len()
+            > MAX_ALPHA_IDENTITIES
+            || !self.budgets.iter().all(|budget| {
+                valid_family_id(&budget.family_id) && valid_lower_hex(&budget.allocation_id, 64)
+            })
+            || !self
+                .reservations
+                .iter()
+                .chain(&self.conflicts)
+                .all(|id| valid_lower_hex(id, 64))
+        {
+            return Err(invalid_binding("bad or oversized alpha evidence"));
+        }
+        Ok(())
+    }
+
+    fn covers(&self, saved: &Self) -> bool {
+        saved.budgets.is_subset(&self.budgets)
+            && saved.reservations.is_subset(&self.reservations)
+            && saved.conflicts.is_subset(&self.conflicts)
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct LedgerBinding {
     pub registry_id: String,
@@ -129,6 +179,9 @@ pub struct LedgerBinding {
     /// binding read back from a workspace: it still proves the event prefix,
     /// is replaced by the next adoption, and cannot be written.
     pub evidence: Option<LedgerEvidence>,
+    /// `None` for v1/v2: unknown, never a known-empty history or permit.
+    /// Only verified adoption may replace it with a complete observation.
+    pub alpha: Option<Box<AlphaEvidence>>,
 }
 
 impl LedgerBinding {
@@ -144,6 +197,9 @@ impl LedgerBinding {
         self.prefix().validate()?;
         if let Some(evidence) = &self.evidence {
             evidence.validate()?;
+        }
+        if let Some(alpha) = &self.alpha {
+            alpha.validate()?;
         }
         Ok(())
     }
@@ -177,22 +233,71 @@ struct StoredBindingV2 {
     evidence: StoredEvidence,
 }
 
-fn strictly_ascending(values: &[String]) -> bool {
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct StoredAlphaEvidence {
+    budgets: Vec<AlphaBudgetIdentity>,
+    reservations: Vec<String>,
+    conflicts: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct StoredBindingV3 {
+    version: String,
+    registry_id: String,
+    seq: u64,
+    chain_head: String,
+    evidence: StoredEvidence,
+    alpha: StoredAlphaEvidence,
+}
+
+fn strictly_ascending<T: Ord>(values: &[T]) -> bool {
     values.windows(2).all(|pair| pair[0] < pair[1])
 }
 
 fn parse_binding(text: &str) -> Result<LedgerBinding, LedgerError> {
+    if text.len() > MAX_BINDING_BYTES {
+        return Err(invalid_binding("binding exceeds 4 MiB; never truncated"));
+    }
     let value: Value =
         serde_json::from_str(text).map_err(|error| invalid_binding(&error.to_string()))?;
     let binding = if value.get("version").is_some() {
-        let stored: StoredBindingV2 =
-            serde_json::from_value(value).map_err(|error| invalid_binding(&error.to_string()))?;
-        if stored.version != LEDGER_BINDING_VERSION {
-            return Err(invalid_binding(&format!(
-                "unsupported version {}",
-                stored.version
-            )));
-        }
+        let (stored, alpha) = match value["version"].as_str() {
+            Some(LEDGER_BINDING_VERSION) => {
+                // Decode the original text: parsing through Value would hide
+                // duplicate fields before deny_unknown_fields can reject them.
+                let stored: StoredBindingV3 = serde_json::from_str(text)
+                    .map_err(|error| invalid_binding(&error.to_string()))?;
+                if !strictly_ascending(&stored.alpha.budgets)
+                    || !strictly_ascending(&stored.alpha.reservations)
+                    || !strictly_ascending(&stored.alpha.conflicts)
+                {
+                    return Err(invalid_binding("alpha sets must be sorted and unique"));
+                }
+                let alpha = AlphaEvidence {
+                    budgets: stored.alpha.budgets.into_iter().collect(),
+                    reservations: stored.alpha.reservations.into_iter().collect(),
+                    conflicts: stored.alpha.conflicts.into_iter().collect(),
+                };
+                (
+                    StoredBindingV2 {
+                        version: stored.version,
+                        registry_id: stored.registry_id,
+                        seq: stored.seq,
+                        chain_head: stored.chain_head,
+                        evidence: stored.evidence,
+                    },
+                    Some(Box::new(alpha)),
+                )
+            }
+            Some(LEGACY_EVIDENCE_VERSION) => (
+                serde_json::from_str::<StoredBindingV2>(text)
+                    .map_err(|error| invalid_binding(&error.to_string()))?,
+                None,
+            ),
+            _ => return Err(invalid_binding("unsupported binding version")),
+        };
         let evidence = stored.evidence;
         if !strictly_ascending(&evidence.quarantined_families)
             || !strictly_ascending(&evidence.conflicted_origins)
@@ -208,15 +313,17 @@ fn parse_binding(text: &str) -> Result<LedgerBinding, LedgerError> {
                 conflicted_origins: evidence.conflicted_origins.into_iter().collect(),
                 family_tests: evidence.family_tests,
             }),
+            alpha,
         }
     } else {
         let stored: StoredBindingV1 =
-            serde_json::from_value(value).map_err(|error| invalid_binding(&error.to_string()))?;
+            serde_json::from_str(text).map_err(|error| invalid_binding(&error.to_string()))?;
         LedgerBinding {
             registry_id: stored.registry_id,
             seq: stored.seq,
             chain_head: stored.chain_head,
             evidence: None,
+            alpha: None,
         }
     };
     binding.validate()?;
@@ -235,7 +342,7 @@ pub enum BindingCheck {
     RegistryChainBroken,
     /// The event prefix is still proven, but quarantine or conflict evidence
     /// the workspace saw is gone, or a family's test count fell below its
-    /// saved high-water mark (§23).
+    /// saved high-water mark (§23), or checked alpha identities disappeared.
     RegistryEvidenceRolledBack,
 }
 
@@ -255,7 +362,8 @@ impl BindingCheck {
 /// Read but never default a malformed binding. Existing `app_settings` has no
 /// new schema requirement; the first verified binding is inserted later. A
 /// pre-§23 binding (no `version`) reads with `evidence: None`; an unknown
-/// version or a malformed v2 binding is an error, never an empty snapshot.
+/// version or a malformed binding is an error, never an empty snapshot.
+/// v1/v2 alpha evidence stays unknown until a verified adoption.
 pub fn read_workspace_binding(conn: &Connection) -> Result<Option<LedgerBinding>, LedgerError> {
     let raw: Option<String> = conn
         .query_row(
@@ -269,7 +377,8 @@ pub fn read_workspace_binding(conn: &Connection) -> Result<Option<LedgerBinding>
 
 /// Use inside the same owner-checked workspace transaction that freezes new
 /// attempts. It intentionally does not begin or commit a transaction itself.
-/// Only a binding with evidence (one `check_binding` returned) can be written.
+/// Only a binding with trial and alpha evidence (`check_binding` returned)
+/// can be written. Unknown legacy evidence cannot be silently defaulted.
 pub fn write_workspace_binding(
     conn: &Connection,
     binding: &LedgerBinding,
@@ -280,7 +389,11 @@ pub fn write_workspace_binding(
             "a trial_ledger_binding without evidence cannot be written (§23)".into(),
         ));
     };
-    let value = serde_json::to_string(&StoredBindingV2 {
+    let alpha = binding
+        .alpha
+        .as_ref()
+        .ok_or_else(|| invalid_binding("unknown alpha evidence cannot be written"))?;
+    let value = serde_json::to_string(&StoredBindingV3 {
         version: LEDGER_BINDING_VERSION.into(),
         registry_id: binding.registry_id.clone(),
         seq: binding.seq,
@@ -290,7 +403,15 @@ pub fn write_workspace_binding(
             conflicted_origins: evidence.conflicted_origins.iter().cloned().collect(),
             family_tests: evidence.family_tests.clone(),
         },
+        alpha: StoredAlphaEvidence {
+            budgets: alpha.budgets.iter().cloned().collect(),
+            reservations: alpha.reservations.iter().cloned().collect(),
+            conflicts: alpha.conflicts.iter().cloned().collect(),
+        },
     })?;
+    if value.len() > MAX_BINDING_BYTES {
+        return Err(invalid_binding("binding exceeds 4 MiB; never truncated"));
+    }
     conn.execute(
         "INSERT INTO app_settings (key, value_json) VALUES (?1, ?2)
          ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json,
@@ -372,9 +493,13 @@ impl TrialLedger {
             PrefixOutcome::Blocked(check) => check,
             PrefixOutcome::Proven { seq, chain_head } => {
                 let evidence = observed_evidence(&tx)?;
+                let alpha = super::alpha::observed_identities(&tx)?;
                 let lost = saved
                     .and_then(|saved| saved.evidence.as_ref())
-                    .is_some_and(|saved| !evidence.covers(saved));
+                    .is_some_and(|saved| !evidence.covers(saved))
+                    || saved
+                        .and_then(|saved| saved.alpha.as_ref())
+                        .is_some_and(|saved| !alpha.covers(saved));
                 if lost {
                     BindingCheck::RegistryEvidenceRolledBack
                 } else {
@@ -383,6 +508,7 @@ impl TrialLedger {
                         seq,
                         chain_head,
                         evidence: Some(evidence),
+                        alpha: Some(Box::new(alpha)),
                     })
                 }
             }
@@ -863,6 +989,7 @@ mod tests {
         store_raw(&conn, &legacy.to_string());
         let read = read_workspace_binding(&conn).unwrap().unwrap();
         assert_eq!(read.evidence, None);
+        assert_eq!(read.alpha, None);
         assert!(matches!(
             ledger.check_binding(Some(&read)).unwrap(),
             BindingCheck::Current(_)
@@ -878,7 +1005,7 @@ mod tests {
         for (label, change) in [
             (
                 "unknown version",
-                serde_json::json!({"version": "trial-ledger-binding-v3"}),
+                serde_json::json!({"version": "trial-ledger-binding-v4"}),
             ),
             ("missing evidence", serde_json::json!({"evidence": null})),
             (
@@ -916,5 +1043,102 @@ mod tests {
                 "{label}"
             );
         }
+    }
+
+    #[test]
+    fn v3_strict_alpha_shape_never_defaults_or_silently_deduplicates() {
+        let conn = settings();
+        let dirs = Dirs::new();
+        let saved = current(&dirs.open(), None);
+        write_workspace_binding(&conn, &saved).unwrap();
+        let raw: String = conn
+            .query_row("SELECT value_json FROM app_settings", [], |row| row.get(0))
+            .unwrap();
+        let stored: Value = serde_json::from_str(&raw).unwrap();
+        assert_eq!(
+            stored["alpha"],
+            serde_json::json!({"budgets": [], "reservations": [], "conflicts": []})
+        );
+        let budget = serde_json::json!({"familyId": format!("trial-family-v1:{}", "a".repeat(64)), "allocationId": "b".repeat(64)});
+        for change in [
+            serde_json::json!(null),
+            serde_json::json!({}),
+            serde_json::json!({"budgets": [], "reservations": [], "conflicts": null}),
+            serde_json::json!({"budgets": [], "reservations": [], "conflicts": [], "unknown": true}),
+            serde_json::json!({"budgets": [], "reservations": ["b".repeat(64), "a".repeat(64)], "conflicts": []}),
+            serde_json::json!({"budgets": [], "reservations": [], "conflicts": ["a".repeat(64), "a".repeat(64)]}),
+            serde_json::json!({"budgets": [budget.clone(), budget.clone()], "reservations": [], "conflicts": []}),
+            serde_json::json!({"budgets": [], "reservations": ["A".repeat(64)], "conflicts": []}),
+            serde_json::json!({"budgets": [{"familyId": "bad", "allocationId": "b".repeat(64)}], "reservations": [], "conflicts": []}),
+        ] {
+            let mut bad = stored.clone();
+            bad["alpha"] = change;
+            assert!(parse_binding(&bad.to_string()).is_err(), "{bad}");
+        }
+        let mut missing = stored.clone();
+        missing.as_object_mut().unwrap().remove("alpha");
+        assert!(parse_binding(&missing.to_string()).is_err());
+        for duplicate in [
+            raw.replacen("\"alpha\":", "\"alpha\":{},\"alpha\":", 1),
+            raw.replacen("\"budgets\":", "\"budgets\":[],\"budgets\":", 1),
+        ] {
+            assert!(parse_binding(&duplicate).is_err());
+        }
+        // A v2 parser rejects v3, even if an older build is used with schema 4.
+        assert!(serde_json::from_str::<StoredBindingV2>(&raw).is_err());
+    }
+
+    #[test]
+    fn v2_alpha_is_unknown_until_checked_adoption_and_cannot_be_written() {
+        let conn = settings();
+        let dirs = Dirs::new();
+        let ledger = dirs.open();
+        let current = current(&ledger, None);
+        write_workspace_binding(&conn, &current).unwrap();
+        let raw: String = conn
+            .query_row("SELECT value_json FROM app_settings", [], |row| row.get(0))
+            .unwrap();
+        let mut v2: Value = serde_json::from_str(&raw).unwrap();
+        v2["version"] = serde_json::json!(LEGACY_EVIDENCE_VERSION);
+        v2.as_object_mut().unwrap().remove("alpha");
+        store_raw(&conn, &v2.to_string());
+        let legacy = read_workspace_binding(&conn).unwrap().unwrap();
+        assert!(legacy.evidence.is_some());
+        assert!(legacy.alpha.is_none());
+        assert!(write_workspace_binding(&conn, &legacy).is_err());
+        let BindingCheck::Current(verified) = ledger.check_binding(Some(&legacy)).unwrap() else {
+            panic!("verified adoption")
+        };
+        assert_eq!(verified.alpha, Some(Box::default()));
+        write_workspace_binding(&conn, &verified).unwrap();
+        assert_eq!(read_workspace_binding(&conn).unwrap(), Some(verified));
+    }
+
+    #[test]
+    fn binding_bounds_refuse_instead_of_truncating_evidence() {
+        let dirs = Dirs::new();
+        let mut saved = current(&dirs.open(), None);
+        let conn = settings();
+        write_workspace_binding(&conn, &saved).unwrap();
+        let original = read_workspace_binding(&conn).unwrap();
+        saved.alpha.as_mut().unwrap().reservations = (0..=MAX_ALPHA_IDENTITIES)
+            .map(|n| format!("{n:064x}"))
+            .collect();
+        assert!(write_workspace_binding(&conn, &saved).is_err());
+        assert_eq!(read_workspace_binding(&conn).unwrap(), original);
+        saved.alpha = Some(Box::default());
+        saved.evidence.as_mut().unwrap().family_tests = (0..50_000)
+            .map(|n| (format!("trial-family-v1:{n:064x}"), 1))
+            .collect();
+        assert!(write_workspace_binding(&conn, &saved)
+            .unwrap_err()
+            .to_string()
+            .contains("4 MiB"));
+        assert_eq!(read_workspace_binding(&conn).unwrap(), original);
+        let raw = format!("{}{{}}", " ".repeat(MAX_BINDING_BYTES));
+        assert!(parse_binding(&raw)
+            .unwrap_err()
+            .to_string()
+            .contains("4 MiB"));
     }
 }

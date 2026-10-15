@@ -107,3 +107,8 @@ P13b-2 still owns binding identity sets and complete transfer union. P13c owns
 frozen batch/selection, final trial/precision checks atomically with reservation,
 exposure identity/overlap, crash/execution recovery, prompt boundaries and
 runtime/native acceptance. Storage data never substitutes for those proofs.
+
+P13b-2a follow-up: [alpha-aware workspace binding](research-alpha-workspace-binding-v1.md)
+now observes checked budget/reservation/conflict identities in the same registry
+read transaction and refuses loss while preserving the last good workspace
+watermark. Complete alpha-aware transfer remains P13b-2b.
