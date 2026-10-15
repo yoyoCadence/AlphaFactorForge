@@ -28,6 +28,8 @@
 
 #[path = "trial_ledger_binding.rs"]
 mod binding;
+#[path = "trial_ledger_alpha.rs"]
+mod alpha;
 #[path = "trial_ledger_transfer.rs"]
 mod transfer;
 // Public for the P12b-2 runner/workspace transaction; no runtime caller yet.
@@ -39,6 +41,8 @@ pub use binding::{
 // Public for the P12b-2 command surface; no runtime caller exists yet.
 #[allow(unused_imports)]
 pub use transfer::ImportSummary;
+#[allow(unused_imports)]
+pub use alpha::{AlphaFamilyState, AlphaStorageOutcome, AlphaStorageStatus};
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
@@ -95,6 +99,10 @@ const REGISTRY_MIGRATIONS: &[(&str, &str)] = &[
     (
         "0003_family_protocol_upgrades",
         include_str!("../../registry_migrations/0003_family_protocol_upgrades.sql"),
+    ),
+    (
+        "0004_alpha_reservations",
+        include_str!("../../registry_migrations/0004_alpha_reservations.sql"),
     ),
 ];
 
@@ -2381,7 +2389,7 @@ mod tests {
         };
         assert_eq!(
             applied,
-            vec!["0001_trial_ledger", "0002_origin_genesis", "0003_family_protocol_upgrades"]
+            vec!["0001_trial_ledger", "0002_origin_genesis", "0003_family_protocol_upgrades", "0004_alpha_reservations"]
         );
     }
 
