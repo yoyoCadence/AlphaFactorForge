@@ -1,0 +1,12 @@
+{
+  "version": "crypto-listing-registration-v1",
+  "instrumentId": "crypto:binance:BTCUSDT",
+  "listedFrom": "2017-08-17T04:00:00Z",
+  "sourceUrl": "https://www.binance.com/ru/support/announcement/detail/115001094331",
+  "retrievedAt": "2026-10-07T13:43:00Z",
+  "rawFile": "listing-usdt-announcement-excerpt.txt",
+  "rawSha256": "63b9c9ff539b5c51b540f02d77c21bf226d53e98af9d354857dbc053e3a6ab80",
+  "mediaType": "text/plain",
+  "operatorConfirmed": true,
+  "evidenceExcerpt": "We will start BTC/USDT、ETH/USDT trading on Binance exchange at 12pm. Aug 17, 2017 (Thursday) Beijing Time."
+}

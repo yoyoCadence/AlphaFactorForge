@@ -27,6 +27,7 @@
 #![allow(dead_code)]
 
 pub mod http;
+pub mod crypto_listing;
 pub mod fetch;
 pub mod ingest;
 pub mod provenance;

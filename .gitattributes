@@ -1,0 +1,2 @@
+# Preserve the exact source bytes whose SHA-256 is declared by the settings fixture.
+/alpha-factor-forge/fixtures/binance/listing-usdt-announcement-excerpt.txt -text

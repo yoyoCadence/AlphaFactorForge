@@ -77,6 +77,8 @@ USAGE:
   alpha-factor-forge-service stop     [--data-dir <dir>]
   alpha-factor-forge-service status   [--data-dir <dir>]
   alpha-factor-forge-service tiingo-status
+  alpha-factor-forge-service register-crypto-listing --settings <json-file>
+                                      [--data-dir <dir>]
   alpha-factor-forge-service fetch-tiingo --settings <json-file>
                                       --from <YYYY-MM-DD> --to <YYYY-MM-DD>
                                       [--data-dir <dir>]
@@ -110,6 +112,10 @@ USAGE:
                   reconciled against TWSE monthly quotes and never cross-filled.
                   See docs/market-source-tw-etf-v1.md for source settings.
   tiingo-status   Report credential availability only (never its value).
+  register-crypto-listing
+                  Register reviewed BTCUSDT/ETHUSDT listing evidence as a new
+                  immutable instrument revision; prints a JSON receipt.
+                  See docs/crypto-listing-registration-v1.md.
   --data-dir      The workspace directory (database, lock, endpoint files).
                   Default: the desktop's app data directory.
 
@@ -121,6 +127,7 @@ EXIT CODES:
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Cli {
     TiingoStatus,
+    RegisterCryptoListing(crate::market::crypto_listing::Options),
     FetchTiingo(crate::market::tiingo_ingest::Options),
     FetchTwEtf(crate::market::tw_etf_ingest::Options),
     Run { data_dir: Option<PathBuf> },
@@ -136,6 +143,9 @@ pub enum Cli {
 /// `--flag=value`, and an option that belongs to another subcommand is an
 /// error rather than something silently ignored.
 pub fn parse_args<S: AsRef<str>>(args: &[S]) -> Result<Cli, String> {
+    if args.first().is_some_and(|a| a.as_ref() == "register-crypto-listing") {
+        return crate::market::crypto_listing::parse_args(&args[1..]).map(Cli::RegisterCryptoListing);
+    }
     if args.first().is_some_and(|a| a.as_ref() == "fetch-tiingo") {
         return crate::market::tiingo_ingest::parse_args(&args[1..]).map(Cli::FetchTiingo);
     }
@@ -537,6 +547,12 @@ pub fn main(args: Vec<String>) -> i32 {
         }
     };
     let outcome: Result<i32, ServiceError> = match cli {
+        Cli::RegisterCryptoListing(options) => resolve_data_dir(options.data_dir.clone()).and_then(|dir| {
+            let receipt = crate::market::crypto_listing::run(&dir, &options).map_err(ServiceError::from)?;
+            println!("{}", serde_json::to_string_pretty(&receipt)
+                .map_err(|_| ServiceError::Other("registration receipt encoding failed".into()))?);
+            Ok(EXIT_OK)
+        }),
         Cli::TiingoStatus => {
             match crate::market::tiingo_credentials::read() {
                 Ok(_) => { println!("{{\"configured\":true}}"); Ok(EXIT_OK) },
@@ -633,6 +649,27 @@ mod tests {
         assert!(parse(&["--data-dir"]).unwrap_err().contains("needs a directory"));
         assert!(parse(&["serve"]).unwrap_err().contains("unexpected"));
         assert!(parse(&["run", "stop"]).unwrap_err().contains("unexpected"), "one subcommand");
+    }
+
+    #[test]
+    fn crypto_listing_registration_has_a_strict_public_cli() {
+        assert_eq!(parse(&["register-crypto-listing", "--settings=capture.json", "--data-dir", "w"]).unwrap(),
+            Cli::RegisterCryptoListing(crate::market::crypto_listing::Options {
+                settings: "capture.json".into(), data_dir: Some("w".into()),
+            }));
+        for args in [
+            vec!["register-crypto-listing"],
+            vec!["register-crypto-listing", "--settings"],
+            vec!["register-crypto-listing", "--settings", "--data-dir=w"],
+            vec!["register-crypto-listing", "--settings="],
+            vec!["register-crypto-listing", "--settings=x", "--settings=y"],
+            vec!["register-crypto-listing", "--settings=x", "--data-dir=w", "--data-dir=z"],
+            vec!["register-crypto-listing", "--settings=x", "--from=2025-01-01"],
+            vec!["register-crypto-listing", "--settings=x", "--json"],
+            vec!["run", "--settings=x"],
+        ] {
+            assert!(parse(&args).is_err(), "{args:?}");
+        }
     }
 
     #[test]
