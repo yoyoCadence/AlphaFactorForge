@@ -4,7 +4,7 @@ Date: 2026-10-15
 Repo: yoyoCadence/AlphaFactorForge
 Branch: feat/p13a-alpha-reservation-history
 Baseline: `4c04b5a0e169b85785779a610d330532cbfb7ad6` (merged PR #180)
-Status: Local verification complete; publication and final-head CI pending
+Status: Merged as PR #181 after six green final-head CI jobs (see Resolution)
 
 ## Scope and authority
 
@@ -74,3 +74,16 @@ frozen batch contents, reserve alpha or keep conflicts permanent across a
 caller that deletes records. Those are explicit future registry obligations.
 The calibration plan's unsupported-configuration questions stay open. No
 statistic, acceptance seed, sample count, threshold or historical result changed.
+
+## Resolution — 2026-10-15, CI and merge
+
+[PR #181](https://github.com/yoyoCadence/AlphaFactorForge/pull/181) final head
+`86ddf606599c6c1e3ea3b2272bccbd519085ddb6` passed all six jobs in
+[CI run 38735635919](https://github.com/yoyoCadence/AlphaFactorForge/actions/runs/38735635919):
+624 Rust (180 + 442 + 2, 1 ignored), 1184 Vitest and 98 E2E, plus native
+smoke. No review threads were open. Merge
+`5aef090ac181af8478661576973443ddae7ac5e5` has an identical tree; local main
+fast-forwarded cleanly. The [delivery receipt](https://github.com/yoyoCadence/AlphaFactorForge/pull/181#issuecomment-6192284099)
+retains the checked scope and limitations. P13b's
+[persistence plan](../docs/plans/research-reservation-registry-plan-v1.md)
+is the next bounded task.
