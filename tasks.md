@@ -6,7 +6,9 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Current Snapshot
 
-- **P12 acceptance closed (2026-10-15)** after the phase evidence audit at merged #179 (`3c9af5c`). Precision/insufficient-history refusal, persistent trial authority, rollback protection, campaign admission and controlled native BTC preview/freeze/start/history/process reopen satisfy the P12 phase criteria. #179 final head `f17d6c0` has six green CI jobs, **614 Rust (1 ignored) / 1183 Vitest / 98 E2E** with normal limits. P12e calibration stays limited to its recorded tested set; no research PASS follows from the 744-bar smoke. O1/O2/O4 and remaining OS interaction checks stay open. P13a reservation-history validation is next; actual reveal/atomic reservation/recovery remain unimplemented. [Closure audit](handoffs/2026-10-15-p12-closure-v1.md).
+- **P13a implemented locally (2026-10-15)** from merged P12-closure #180 (`4c04b5a`). Checked reservation records and complete-observed-history review enforce family/declaration/number/share bindings, exact replay deduplication and conflicting-number/operation refusal before amount allocation. **624 Rust (1 ignored) / 1184 Vitest**, typecheck/build/all-target check pass; three executable mutants caught and source restored. No runtime reservation/reveal or calibration extension. Final-head CI/merge required; P13b persistence design is Next. [Handoff](handoffs/2026-10-15-p13a-alpha-reservation-history-v1.md).
+
+- **P12 acceptance closed (2026-10-15)** after the phase evidence audit at merged #179 (`3c9af5c`). Precision/insufficient-history refusal, persistent trial authority, rollback protection, campaign admission and controlled native BTC preview/freeze/start/history/process reopen satisfy the P12 phase criteria. #179 final head `f17d6c0` has six green CI jobs, **614 Rust (1 ignored) / 1183 Vitest / 98 E2E** with normal limits. P12e calibration stays limited to its recorded tested set; no research PASS follows from the 744-bar smoke. O1/O2/O4 and remaining OS interaction checks stay open. P13a reservation-history validation is implemented as a separate pure slice; actual reveal/atomic reservation/recovery remain unimplemented. [Closure audit](handoffs/2026-10-15-p12-closure-v1.md).
 
 - **PR #169–#174 follow-up repairs delivered (2026-10-14)**: review [#175](https://github.com/yoyoCadence/AlphaFactorForge/pull/175), annualization R1/R2 [#176](https://github.com/yoyoCadence/AlphaFactorForge/pull/176) (`a8e73de`) and repeated-notice R3 [#177](https://github.com/yoyoCadence/AlphaFactorForge/pull/177) (`1cdf2b8`), each merged after six green CI jobs. All three GitHub threads answered/resolved. Integrated **1183 Vitest / 98 E2E**, typecheck/build pass; real native metrics-window ∞/notes/clear/update/reload/reuse pass and now have a CI regression. OS close/reopen and #174 OK → exit 1 remain unexecuted because computer-use cannot connect. [Repair review](handoffs/2026-10-14-pr169-174-acceptance-review-v1.md), [native evidence](handoffs/2026-10-14-native-metrics-acceptance-v1.md).
 
@@ -194,7 +196,9 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Next
 
-- **P13a — Alpha reservation-history validation**: implement the already adopted family/declaration identity, exact replay deduplication and conflicting-confirmation-number refusal before projecting amounts into P12e-2. Pure computation only; no reservation, schema, data exposure or confirmation PASS. See [P12 closure / P13 order](handoffs/2026-10-15-p12-closure-v1.md).
+- **P13b — Reservation registry persistence design**: specify external append-only family budgets, reservation/conflict records, binding rollback protection, transfer union and crash/atomicity acceptance. Contract and implementation slices first; no schema/runtime edits in this design task. [P13a remaining work](handoffs/2026-10-15-p13a-alpha-reservation-history-v1.md).
+
+
 
 - **Acceptance follow-ups (decided 2026-10-04)** — order from [work order v2](handoffs/2026-10-04-acceptance-followups-work-order-v2.md) §3; one PR each, the next opened after the previous merges. They do not reorder the P12 items under In Progress; FU-1 does not block P12e-7b but must land before P13 and before any ledger import/export command.
   1. [x] **FU-1-design** — approved 2026-10-04 (new status code `registry_evidence_rolled_back`; the fence uses the shared event prefix, no empty evidence).
@@ -215,6 +219,8 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
   6. [x] **APP-STARTUP-ERROR-001 (P2)** — done 2026-10-14 on `fix/startup-error-dialog` (visible startup failure report; see Done). All six quick fixes are complete.
 
 ## In Progress
+
+
 
 
 
@@ -356,7 +362,7 @@ The maintainer-approved implementation plan sequences the ABC specifications (pl
 | P10 | TW ETF adapter (FinMind + TWSE) | P08 | new | **Done** (2026-09-21; five-symbol public-source smoke, see Done) |
 | P11 | Executable DSL (TS + Rust evaluators, whitelist intersection) | P05 | Phase C "DSL validator" | **Done** (2026-09-22; see Done section) |
 | P12 | Research feasibility & trial ledger | P05, P06, P11 | ABC-06 | **Done** (2026-10-15; closure audit linked in Done) — P12a precision precheck merged PR #115; P12b spec PR #116; P12b-1 registry and transfer merged PRs #117–118; P12b-2 merged PR #120; P12c-1 merged PR #121; P12c-2a merged PR #122; P12c-2b merged PR #123; P12d-1 merged PR #124; P12d-2a completed locally (2026-09-29); P12e pure statistics/calibration complete for the declared tested set (2026-10-04); O3 BTC native campaign acceptance verified 2026-10-15; P12 parent criteria verified (see Done and closure audit) |
-| P13 | One-time Validation/Test reveal registry — also owns (2026-09-23 decision) confirmation-batch freezing, atomic alpha reservation/consumption, and crash/retry recovery using the P12e contracts. Maintainer decisions 2026-10-01 ([`research-alpha-allocation-v1`](docs/research-alpha-allocation-v1.md) §9.1): confirm with the allocated alpha share and re-run P12a before reveal; deduplicate replayed reservations but stop a family on conflicting reservations of one confirmation number, keeping the evidence; per-family budgets with no overall guarantee | P12 | ABC-07 | **Next** — P13a pure reservation identity/history validation; remaining slices stay Backlog pending their contracts |
+| P13 | One-time Validation/Test reveal registry — also owns (2026-09-23 decision) confirmation-batch freezing, atomic alpha reservation/consumption, and crash/retry recovery using the P12e contracts. Maintainer decisions 2026-10-01 ([`research-alpha-allocation-v1`](docs/research-alpha-allocation-v1.md) §9.1): confirm with the allocated alpha share and re-run P12a before reveal; deduplicate replayed reservations but stop a family on conflicting reservations of one confirmation number, keeping the evidence; per-family budgets with no overall guarantee | P12 | ABC-07 | **In Progress** — P13a pure reservation identity/history validation complete locally; P13b persistence design is Next; remaining slices stay Backlog pending their contracts |
 | P14 | Engine archive & workspace backup/restore | P03, P05, P13 | ABC-09, ABC-11 | Backlog |
 | P15 | Codex subscription adapter — **AI unattended mode blocked until isolation is proven** (registry §2) | P00, P11, P12 | ABC-14, Phase C | Backlog |
 | P16 | VS Code MCP adapter | P04, P05, P12 | new | Backlog |
@@ -489,6 +495,8 @@ These were named inside the UI port entry and must not be buried by closing it. 
 - [ ] Full closed-loop AI automation. (Specification: ABC-14.)
 
 ## Done
+
+- [x] **P13a — Alpha reservation evidence/history** (2026-10-15, branch `feat/p13a-alpha-reservation-history`, baseline merged #180 `4c04b5a`). Pure strict record identity and family/declaration/number/share review; exact replay deduplication, same-number or reused-operation conflict retention/refusal, contiguous-prefix projection to the existing allocator. No registry writes, runtime reservation, data reveal or PASS. **624 Rust (1 ignored) / 1184 Vitest**, typecheck/build/all-target check and three executable mutants pass; final-head CI follows. [Contract](docs/research-alpha-reservations-v1.md), [handoff](handoffs/2026-10-15-p13a-alpha-reservation-history-v1.md).
 
 - [x] **P12 — Research feasibility & trial ledger** (Done 2026-10-15; started 2026-09-23; plan phase row below is the status owner). Acceptance verified in [the closure audit](handoffs/2026-10-15-p12-closure-v1.md); original implementation notes below are historical. Phase criteria: insufficient samples and the AlphaBTC precision counterexample are blocked, and trial counts cannot be reset.
   - [x] **P12a** — `research-precision-v1` precision precheck (pure Rust + authored fixture); AlphaBTC `146/1001` case is `NOT_ELIGIBLE`. See Done.
@@ -1001,7 +1009,9 @@ These were named inside the UI port entry and must not be buried by closing it. 
   - Added `alpha-factor-forge/src/services/benchmarks.ts`: `runDeterministicBenchmarks` runs the four `STRATEGY_DISCOVERY.md` §6 deterministic baselines — Buy & Hold (hand-built signals: enter first tested close, hold to the engine's EOD settlement), SMA 50/200 cross, RSI 14 30/70 reversion, Bollinger 20/2 mean reversion — over one candles × segment in a fixed order through the existing pipeline.
   - Fairness conventions recorded in `docs/benchmark-suite-contract.md`: benchmarks inherit the candidate's fee/slippage but always run long-only, 100% sizing, close fill, no SL/TP; segment restriction uses the engine's inclusive `from`/`to`; an empty series fails closed.
   - Random Entry Monte Carlo is deferred to BENCH-002 (needs matched holding-period distribution, run count, seed, and percentile conventions); Gate comparison rules are a later slice — this slice only produces per-benchmark metrics.
-  - 8 focused tests: doc-definition lock, hand-calculated Buy & Hold (full range, sub-segment, cost effect), fixed suite order, pipeline parity for the signal benchmarks, determinism, and empty-input failure. Also restored the `## In Progress` board header dropped by the VAL-003 PR.
+  - 8 focused tests: doc-definition lock, hand-calculated Buy & Hold (full range, sub-segment, cost effect), fixed suite order, pipeline parity for the signal benchmarks, determinism, and empty-input failure. Also restored the `## In Progress
+
+` board header dropped by the VAL-003 PR.
   - Validation: `npm run typecheck`; `npm test` (248); `npm run build`.
 
 - [x] VAL-003 — usage-aware embargo derivation for the validation split.

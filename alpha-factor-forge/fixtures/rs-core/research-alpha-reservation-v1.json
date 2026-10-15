@@ -1,0 +1,14 @@
+{
+  "description": "P13a hand-authored record; reservationId derived by the existing independent TypeScript canonical encoder/SHA-256, never the new Rust reservation module. Identifiers are synthetic integrity fixtures, not registry or batch authority.",
+  "reservationId": "3d49ae12d1965c2dfc10364c94bf2018326e162569ceea473c098508654ff0af",
+  "body": {
+    "contractVersion": "research-alpha-reservation-v1",
+    "familyId": "trial-family-v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "allocationId": "104705944f7da4b3bceb04e805f4fefa35db1930c332d820ec58fad94d1b8e3a",
+    "originRegistryId": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "reservationKey": "dddddddddddddddddddddddddddddddd",
+    "confirmationBatchId": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "confirmationNumber": 1,
+    "alphaPpm": 20000
+  }
+}
