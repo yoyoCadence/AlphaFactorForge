@@ -3,7 +3,8 @@
 Date: 2026-10-15
 Repo: yoyoCadence/AlphaFactorForge
 Branch: feat/p13b2a-alpha-workspace-binding
-Status: Implementation verified locally; final-head CI and merge receipt follow on the PR.
+PR: [#184](https://github.com/yoyoCadence/AlphaFactorForge/pull/184)
+Status: Implementation verified; delivery, final-head CI and merge status are maintained on PR #184.
 
 ## Summary
 
