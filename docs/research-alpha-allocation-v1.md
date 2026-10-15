@@ -249,6 +249,13 @@ contract, where it must be stated and tested.
 
 ## 11. Remaining P12/P13 work
 
+**Status update (2026-10-15):** the original v1 failure below is retained.
+P12e-7b accepted frozen v2 only for its explicitly declared tested set, and
+the [P12 closure audit](../handoffs/2026-10-15-p12-closure-v1.md) records phase
+acceptance. P13's runtime obligations in §9 remain; its first bounded slice
+validates reservation identity/numbering before amount projection. This
+does not reserve alpha or extend statistical calibration.
+
 P12e-3 (seeded noise-data false-positive simulation of the declared
 protocol) is done as [`research-noise-simulation-v1`](research-noise-simulation-v1.md)
 (2026-10-02). It simulates a family's whole schedule with this allocator and

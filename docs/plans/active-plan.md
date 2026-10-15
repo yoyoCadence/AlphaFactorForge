@@ -6,7 +6,7 @@
 > [`../../handoffs/2026-09-21-p09-tiingo-v1.md`](../../handoffs/2026-09-21-p09-tiingo-v1.md)。
 > 純計算契約與限制見 [`../etf-semantics-v1.md`](../etf-semantics-v1.md)，驗證／交接見
 > [`../../handoffs/2026-09-20-p08-etf-semantics-v1.md`](../../handoffs/2026-09-20-p08-etf-semantics-v1.md)。
-> 下文保留原始規劃基準；P11 已於 2026-09-22 完成。P12 於 2026-09-23 啟動並拆成子項：P12a 統計精度預檢契約（[`../research-precision-v1.md`](../research-precision-v1.md)）已完成但尚未接入 runtime；試驗帳本、樣本長度／內層 walk-forward 與 campaign 仍未完成。P13 及後續功能未啟動，整體最終 Acceptance Criteria 尚未全部完成。
+> 目前狀態（2026-10-15）：P11 已完成；P12 的精度預檢、外部試驗帳本、Train-only walk-forward、campaign admission／持久化與受控 BTC 原生流程均已驗證，依本計畫 P12 驗收條件結案，詳見 [`../../handoffs/2026-10-15-p12-closure-v1.md`](../../handoffs/2026-10-15-p12-closure-v1.md)。P12e 校準僅限已記錄的測試配置；744-bar BTC smoke 不構成統計確認 PASS。P13 從預約身分／序號驗證的小切片開始，實際揭露、alpha 原子預約與恢復仍待實作；P09 認證來源驗收與 O1／O2／O4 保留。下文原始規劃與整體最終 Acceptance Criteria 不因此視為全部完成；任務狀態以根目錄 tasks.md 為準。
 
 ## 1. 目標、基準與交付限制
 
