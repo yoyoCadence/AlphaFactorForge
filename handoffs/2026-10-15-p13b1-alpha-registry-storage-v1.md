@@ -45,6 +45,12 @@ the independent same-number union and legacy transfer regressions pass.
 Targeted rustfmt, artifact links and diff checks pass. No frontend behavior
 changed; the PR's full E2E/native smoke remains required.
 
+Final self-review also caches each validated budget ID once per family while
+loading evidence. Reservation binding checks reuse that checked ID rather
+than re-hashing a potentially long schedule for every record. Contract,
+identity and admission behavior stay unchanged; the final code is reverified
+and gets a fresh exact-head CI run before merge.
+
 Coverage includes concurrent connections, replay/reopen/exhaustion,
 same/cross-family conflicts, changed budget, continued ordinary exploration,
 append-only triggers, corrupted evidence, input and aggregate resource bounds,

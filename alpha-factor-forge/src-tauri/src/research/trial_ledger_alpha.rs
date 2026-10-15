@@ -65,6 +65,9 @@ struct ConflictBody {
 #[derive(Default)]
 struct Evidence {
     budgets: BTreeMap<String, AlphaAllocationDeclaration>,
+    // Validated once per family while reading its canonical declaration;
+    // never re-hash a potentially long schedule for every reservation.
+    budget_ids: BTreeMap<String, String>,
     records: Vec<AlphaReservation>,
     conflicts: BTreeMap<String, Vec<Value>>,
 }
@@ -206,9 +209,10 @@ fn load(conn: &Connection) -> Result<Evidence, LedgerError> {
         known_family(conn, &family)?;
         let declaration =
             parse_alpha_allocation(&serde_json::from_str::<Value>(&raw)?).map_err(invalid)?;
-        if budget_document(&declaration)? != (id, raw) {
+        if budget_document(&declaration)? != (id.clone(), raw) {
             return Err(invalid("stored budget identity/content mismatch"));
         }
+        evidence.budget_ids.insert(family.clone(), id);
         evidence.budgets.insert(family, declaration);
     }
     let mut stmt = conn.prepare("SELECT reservation_id, family_id, record_json FROM alpha_reservations ORDER BY reservation_id")?;
@@ -229,7 +233,7 @@ fn load(conn: &Connection) -> Result<Evidence, LedgerError> {
         if record.reservation_id() != id
             || record.family_id() != family
             || canonical_text(&record.document())? != raw
-            || record.allocation_id() != alpha_allocation_id(budget).map_err(invalid)?
+            || evidence.budget_ids.get(&family).map(String::as_str) != Some(record.allocation_id())
             || budget
                 .schedule
                 .get(record.confirmation_number() as usize - 1)
