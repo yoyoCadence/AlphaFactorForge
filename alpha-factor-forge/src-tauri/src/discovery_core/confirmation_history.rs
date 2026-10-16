@@ -20,6 +20,17 @@ pub const EVENT_VERSION: &str = "research-confirmation-event-v1";
 pub const CONFLICT_VERSION: &str = "research-confirmation-conflict-v1";
 pub const MAX_DOCUMENT_BYTES: usize = 4 * 1024 * 1024;
 
+mod admission;
+mod graph;
+pub use admission::{
+    freeze_admission, parse_admission, AdmissionInputs, AdmissionRecord, BlobKind,
+    HistoricalTrialObservation, HistoryBlob,
+};
+pub use graph::{
+    complete_confirmation_graph, validate_confirmation_graph, ConfirmationInventory, GraphContext,
+    HistoricalPrefix, HostAllocation, HostConflict, ValidatedGraph,
+};
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq, thiserror::Error)]
 pub enum HistoryRecordError {
     #[error("confirmation_history.document_too_large")]
@@ -42,6 +53,18 @@ pub enum HistoryRecordError {
     Targets,
     #[error("confirmation_history.identity_mismatch")]
     Identity,
+    #[error("confirmation_history.invalid_blob")]
+    Blob,
+    #[error("confirmation_history.invalid_precision_proof")]
+    Proof,
+    #[error("confirmation_history.missing_or_invalid_dependency")]
+    Dependency,
+    #[error("confirmation_history.cyclic_dependencies")]
+    Cycle,
+    #[error("confirmation_history.capacity_exceeded")]
+    Capacity,
+    #[error("confirmation_history.invalid_conflict")]
+    Conflict,
 }
 
 fn require(ok: bool, error: HistoryRecordError) -> Result<(), HistoryRecordError> {

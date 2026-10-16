@@ -4,7 +4,7 @@ Date: 2026-10-16
 Repo: yoyoCadence/AlphaFactorForge
 Branch: feat/p13c3a1a-confirmation-records
 Base: merged design #190 (`f1e0e63602e0694c6ef4203bc4056dbd06deb2bc`)
-Status: Implemented and verified locally; delivery PR records final-head CI and merge status.
+Status: Merged as PR #191; full graph validation proceeds separately.
 
 ## Summary
 
@@ -59,3 +59,17 @@ P13c-3a-1b is next after this slice merges: admission/P12a integer proof,
 original statistics/binding blobs, full acyclic dependency checks and actual
 conflict derivation. P13c-3a-2 storage follows only after both pure slices.
 Production remains behind the existing policy/manual-mediation gates.
+
+## Resolution (2026-10-16)
+
+[PR #191](https://github.com/yoyoCadence/AlphaFactorForge/pull/191) merged as
+`343298101723af5267a4dc4043bdeb8d24513ade` after six successful jobs on
+final head `1787531251b94000fb38770f00e07693d7161d80` in
+[CI run 38925249196](https://github.com/yoyoCadence/AlphaFactorForge/actions/runs/38925249196).
+CI confirmed 723 Rust tests (one ignored), 1215 Vitest and real native smoke
+with cleanup. E2E ran 98 cases: 97 first-pass, one pan font-readiness timeout
+then success on the configured retry. No timeout/retry setting changed;
+TEST-E2E-FONT-SETTLE-002 is a separate Backlog observation. The merged tree
+matches the verified head. The authorized loop proceeds with
+[P13c-3a-1b complete graph validation](../docs/research-confirmation-graph-v1.md)
+from this merged baseline, retaining the single-record authority boundary.

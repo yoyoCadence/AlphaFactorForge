@@ -1,0 +1,552 @@
+{
+  "description": "Independent full archival Validation/selection/Test chain. Synthetic m=8 structural evidence only; no calibration, authentic host snapshot or execution rights.",
+  "registeredSource": {
+    "source": {
+      "campaignId": "3dc260b2472062d9c57bd930b02f23831d917b8f3e3234b6d63964a53c31d3aa",
+      "campaignDocumentHash": "6113cb0c508e07e3b0818e80d67e627939c4bf1e98e580f58d815e840a01952a",
+      "workspaceId": "11111111111111111111111111111111",
+      "runId": 42,
+      "trialBatchId": "248f0bfbc2b18126562f7f14d6e19fcea5c9a4e8e96feb244128e9c071a5a67e",
+      "instrumentId": "crypto:binance:BTCUSDT",
+      "familyId": "trial-family-v1:077ec84bbee01072d66e9f358f8262f7cc6cd2b70b7ed82461e3904179bd4cc0",
+      "engineManifestHash": "75b57e34fd4f82ecba4dff75f68bcb19eb04b8b61674afb49d9646b6b84abe9b"
+    },
+    "candidates": [
+      {
+        "candidateIndex": 0,
+        "strategyHash": "strategy-v2:0d7b565369e6b2d2e12d500e81a28dc68103ea81a03819590ebe66058d21c2a4",
+        "definitionHash": "9ff850f9d16cd603d399f68b6d720c8c20c124085bda29ecd63e6697be228253",
+        "executionHash": "d72e49c24e2aaab6402ec475860b65032b4d4dd2d4094be7fab557a477db4b05",
+        "resultArtifactHash": "8a65b8fcda16178b8bde4d307a6566f65222bfe1e843b0e4118349b6a390b539",
+        "lineageHash": "5f8782772a47f82883de310f2b88a5a90bc98b6804d6d5b24df1cbdbd17ad285",
+        "minimumWarmupBars": 5,
+        "minimumEmbargoBars": 8
+      },
+      {
+        "candidateIndex": 2,
+        "strategyHash": "strategy-v2:02f6a8fb00080daf04a31cfbc4f2b0c304212445029f6a3c142ee5f4e2baab0b",
+        "definitionHash": "e38d99b0c314f2552a4e1bdc2adcd20411da97ca9bdf89cb5baffeeac96bbe86",
+        "executionHash": "9fb5118c29b9c261929b3194e679e70893b3945aa3b8b093b182326fb859ef4c",
+        "resultArtifactHash": "e090669e7857e88b90d86d9e92f446c8842cf232273333b1bd5959bca663705b",
+        "lineageHash": "25c13bccec0a556342c2d2fdaed7f88dcda73744f565ff31d6bdc190a5adc1c5",
+        "minimumWarmupBars": 5,
+        "minimumEmbargoBars": 8
+      }
+    ]
+  },
+  "allocationDeclaration": {
+    "contractVersion": "research-alpha-allocation-v1",
+    "rule": "declared-schedule",
+    "scope": "trial-family",
+    "totalAlphaPpm": 50000,
+    "schedule": [
+      25000,
+      25000
+    ]
+  },
+  "trial": {
+    "registryId": "22222222222222222222222222222222",
+    "seq": 0,
+    "chainHead": "d65f89724d19aa5dda0d18cf03a0b1440de6eb7fc103cad4ba882413eaeda2ff",
+    "trialBatchId": "trial-batch-v1:248f0bfbc2b18126562f7f14d6e19fcea5c9a4e8e96feb244128e9c071a5a67e",
+    "familyId": "trial-family-v1:077ec84bbee01072d66e9f358f8262f7cc6cd2b70b7ed82461e3904179bd4cc0",
+    "familyEffectiveTrials": 4,
+    "registeredBatchEffectiveTrials": 2,
+    "testsPerTrial": 2,
+    "completeCandidates": 2
+  },
+  "reservations": {
+    "validation": {
+      "reservationId": "b0be230d1ce9d74d5d73009de8c1cb77204f088fe4eab55966330a9041a943bd",
+      "body": {
+        "contractVersion": "research-alpha-reservation-v1",
+        "familyId": "trial-family-v1:077ec84bbee01072d66e9f358f8262f7cc6cd2b70b7ed82461e3904179bd4cc0",
+        "allocationId": "0889c33c045696ebb8a77825120389f761229560b4b48ca80cac43754f78673e",
+        "originRegistryId": "22222222222222222222222222222222",
+        "reservationKey": "44444444444444444444444444444444",
+        "confirmationBatchId": "35e9b58c33d81d29e53db88505e7a383a110d6c92a72390a7c682e7866f50759",
+        "confirmationNumber": 1,
+        "alphaPpm": 25000
+      }
+    },
+    "test": {
+      "reservationId": "7b11596d0f4fa3bcaa6b75ff0d35348581c4209c2fc9d4c8f7df5ea80eb7ff35",
+      "body": {
+        "contractVersion": "research-alpha-reservation-v1",
+        "familyId": "trial-family-v1:077ec84bbee01072d66e9f358f8262f7cc6cd2b70b7ed82461e3904179bd4cc0",
+        "allocationId": "0889c33c045696ebb8a77825120389f761229560b4b48ca80cac43754f78673e",
+        "originRegistryId": "22222222222222222222222222222222",
+        "reservationKey": "55555555555555555555555555555555",
+        "confirmationBatchId": "162eb7fc0baf8bd382bae0c07179cff369cd26d3f45c0bece4641e8e54b5df86",
+        "confirmationNumber": 2,
+        "alphaPpm": 25000
+      }
+    }
+  },
+  "records": {
+    "validation": {
+      "id": "35e9b58c33d81d29e53db88505e7a383a110d6c92a72390a7c682e7866f50759",
+      "body": {
+        "contractVersion": "research-confirmation-batch-v1",
+        "stage": {
+          "kind": "validation"
+        },
+        "source": {
+          "campaignId": "3dc260b2472062d9c57bd930b02f23831d917b8f3e3234b6d63964a53c31d3aa",
+          "campaignDocumentHash": "6113cb0c508e07e3b0818e80d67e627939c4bf1e98e580f58d815e840a01952a",
+          "workspaceId": "11111111111111111111111111111111",
+          "runId": 42,
+          "trialBatchId": "248f0bfbc2b18126562f7f14d6e19fcea5c9a4e8e96feb244128e9c071a5a67e",
+          "instrumentId": "crypto:binance:BTCUSDT",
+          "familyId": "trial-family-v1:077ec84bbee01072d66e9f358f8262f7cc6cd2b70b7ed82461e3904179bd4cc0",
+          "engineManifestHash": "75b57e34fd4f82ecba4dff75f68bcb19eb04b8b61674afb49d9646b6b84abe9b"
+        },
+        "data": {
+          "snapshotId": "16a0eeb0791b6c92451fd284dd9f599e0a7dbe7f6ebea6e2d2d06c7f74aec112",
+          "instrumentRevisionHash": "a6e31d8d5b429e4377c046f21ad68c5704a77b5d5df33f5320de4c10227009aa",
+          "datasetHash": "dataset-content-v2:b277fd623676a525c29b9eb155afc8c9010681814ceafb2d7627f47b9a232576",
+          "interval": "1h",
+          "calendarId": "crypto-24x7-v1",
+          "calendarHash": "5152790e278eb89039f8bfaa354b944ec1b44c5d3fc144edc5720c3edc045c73",
+          "corporateActionsHash": null,
+          "costProfileId": "crypto-zero-cost-v1",
+          "costProfileHash": "57f60b9ecf036573d5b3dcee3d1e5716f8dca6fb9571e1c0a8bbbdd2888e6d5a",
+          "numericCostsHash": "402f0d4a60ccf964dab946cf9499b870f07ae7eaadb83f139a3dcf33a48109af",
+          "sourceEvidenceHash": "08a9436e866d1760d8d5bc62132ff0d47615af50dd203392f45d65cff3eecb10"
+        },
+        "split": {
+          "contractVersion": "validation-split-v1",
+          "totalBars": 1300,
+          "embargoBars": 10,
+          "trainWindow": {
+            "fromMs": 946684800000,
+            "toExclusiveMs": 949449600000
+          },
+          "validationWindow": {
+            "fromMs": 949485600000,
+            "toExclusiveMs": 950407200000
+          },
+          "testWindow": {
+            "fromMs": 950443200000,
+            "toExclusiveMs": 951364800000
+          },
+          "validationSupport": [
+            {
+              "fromMs": 949467600000,
+              "toExclusiveMs": 950407200000
+            }
+          ],
+          "testSupport": [
+            {
+              "fromMs": 950425200000,
+              "toExclusiveMs": 951364800000
+            }
+          ]
+        },
+        "statistics": {
+          "contractVersion": "research-confirmation-statistics-v2",
+          "allocationId": "0889c33c045696ebb8a77825120389f761229560b4b48ca80cac43754f78673e",
+          "bootstrapSamples": 799,
+          "maxBootstrapSamples": 799,
+          "maxRelativeStandardErrorPpm": 999999,
+          "blockLengthRationale": "Frozen R3; structural fixture only.",
+          "validation": {
+            "blockLength": 6,
+            "seed": 7
+          },
+          "test": {
+            "blockLength": 6,
+            "seed": 8
+          }
+        },
+        "selectionRule": {
+          "version": "both-holm-reject-index-v1",
+          "maxCandidates": 1
+        },
+        "candidates": [
+          {
+            "candidateIndex": 0,
+            "strategyHash": "strategy-v2:0d7b565369e6b2d2e12d500e81a28dc68103ea81a03819590ebe66058d21c2a4",
+            "definitionHash": "9ff850f9d16cd603d399f68b6d720c8c20c124085bda29ecd63e6697be228253",
+            "executionHash": "d72e49c24e2aaab6402ec475860b65032b4d4dd2d4094be7fab557a477db4b05",
+            "resultArtifactHash": "8a65b8fcda16178b8bde4d307a6566f65222bfe1e843b0e4118349b6a390b539",
+            "lineageHash": "5f8782772a47f82883de310f2b88a5a90bc98b6804d6d5b24df1cbdbd17ad285",
+            "minimumWarmupBars": 5,
+            "minimumEmbargoBars": 8
+          },
+          {
+            "candidateIndex": 2,
+            "strategyHash": "strategy-v2:02f6a8fb00080daf04a31cfbc4f2b0c304212445029f6a3c142ee5f4e2baab0b",
+            "definitionHash": "e38d99b0c314f2552a4e1bdc2adcd20411da97ca9bdf89cb5baffeeac96bbe86",
+            "executionHash": "9fb5118c29b9c261929b3194e679e70893b3945aa3b8b093b182326fb859ef4c",
+            "resultArtifactHash": "e090669e7857e88b90d86d9e92f446c8842cf232273333b1bd5959bca663705b",
+            "lineageHash": "25c13bccec0a556342c2d2fdaed7f88dcda73744f565ff31d6bdc190a5adc1c5",
+            "minimumWarmupBars": 5,
+            "minimumEmbargoBars": 8
+          }
+        ]
+      }
+    },
+    "validationOperation": {
+      "id": "8d3e4f7050ffdb4487f02b7d3a6029cd04c09b68e8d21462ddc329e44cdd00dc",
+      "body": {
+        "contractVersion": "research-confirmation-operation-v1",
+        "originRegistryId": "22222222222222222222222222222222",
+        "reservationKey": "44444444444444444444444444444444",
+        "requestId": "66666666666666666666666666666666",
+        "workspaceId": "11111111111111111111111111111111",
+        "confirmationBatchId": "35e9b58c33d81d29e53db88505e7a383a110d6c92a72390a7c682e7866f50759",
+        "familyId": "trial-family-v1:077ec84bbee01072d66e9f358f8262f7cc6cd2b70b7ed82461e3904179bd4cc0",
+        "allocationId": "0889c33c045696ebb8a77825120389f761229560b4b48ca80cac43754f78673e",
+        "stage": "validation",
+        "selectionId": null
+      }
+    },
+    "validationExposure": {
+      "id": "9af57e5e10f9e02472eb3896522464001eea029f8df273794eca3acf2f2d371c",
+      "body": {
+        "contractVersion": "research-confirmation-exposure-v1",
+        "originRegistryId": "22222222222222222222222222222222",
+        "reservationKey": "44444444444444444444444444444444",
+        "instrumentId": "crypto:binance:BTCUSDT",
+        "intervals": [
+          {
+            "fromMs": 949467600000,
+            "toExclusiveMs": 950407200000
+          }
+        ],
+        "claim": {
+          "kind": "confirmation",
+          "operationId": "8d3e4f7050ffdb4487f02b7d3a6029cd04c09b68e8d21462ddc329e44cdd00dc",
+          "alphaReservationId": "b0be230d1ce9d74d5d73009de8c1cb77204f088fe4eab55966330a9041a943bd"
+        }
+      }
+    },
+    "validationAdmission": {
+      "id": "8883f1df7e9835ab1fc8a74e9ec9734450e22f219e69d4a5a2e4e413c8fe22e5",
+      "body": {
+        "contractVersion": "research-confirmation-admission-v1",
+        "operationId": "8d3e4f7050ffdb4487f02b7d3a6029cd04c09b68e8d21462ddc329e44cdd00dc",
+        "alphaReservationId": "b0be230d1ce9d74d5d73009de8c1cb77204f088fe4eab55966330a9041a943bd",
+        "exposureId": "9af57e5e10f9e02472eb3896522464001eea029f8df273794eca3acf2f2d371c",
+        "workspaceObservation": {
+          "workspaceId": "11111111111111111111111111111111",
+          "ownershipEpoch": 7,
+          "mutationSeq": 12,
+          "referencesSha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        },
+        "registryObservation": {
+          "registryId": "22222222222222222222222222222222",
+          "seq": 0,
+          "chainHead": "d65f89724d19aa5dda0d18cf03a0b1440de6eb7fc103cad4ba882413eaeda2ff",
+          "bindingSha256": "15ca0e92f0116669d6d9a27d99b686a97457d8067700e0efec73e209ecfdf989",
+          "familyEffectiveTrials": 4,
+          "registeredBatchEffectiveTrials": 2,
+          "testsPerTrial": 2,
+          "protocolSha256": "6c47ecbda2c59c07ab1703a355e7698b7875652e385bca55b22cc042634c83e5"
+        },
+        "precisionPlan": {
+          "contractVersion": "research-precision-v1",
+          "correction": "holm",
+          "alphaPpm": 25000,
+          "maxRelativeStandardErrorPpm": 999999,
+          "priorTrials": 2,
+          "plannedTrials": 2,
+          "testsPerTrial": 2,
+          "bootstrapSamples": 799,
+          "maxBootstrapSamples": 799
+        },
+        "precisionProof": {
+          "contractVersion": "research-precision-v1",
+          "status": "ELIGIBLE",
+          "reasons": [],
+          "familyTrials": 4,
+          "familyTests": 8,
+          "minAttainableRawP": {
+            "numerator": 1,
+            "denominator": 800
+          },
+          "bestAdjustedP": {
+            "numerator": 8,
+            "denominator": 800
+          },
+          "requiredSamplesForResolution": 319,
+          "requiredSamplesForPrecision": 320
+        }
+      }
+    },
+    "validationStart": {
+      "id": "b2e9b5f9dd088a88410640fde98e3531bd73936371eb89d63a44832a52a5c02d",
+      "body": {
+        "contractVersion": "research-confirmation-event-v1",
+        "operationId": "8d3e4f7050ffdb4487f02b7d3a6029cd04c09b68e8d21462ddc329e44cdd00dc",
+        "admissionId": "8883f1df7e9835ab1fc8a74e9ec9734450e22f219e69d4a5a2e4e413c8fe22e5",
+        "event": {
+          "kind": "execution_started",
+          "workspaceId": "11111111111111111111111111111111",
+          "ownershipEpoch": 7,
+          "executionKey": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      }
+    },
+    "validationSeal": {
+      "id": "eed5e4ff06b83a2a600d2ccaa7cb628bc23fd497b15bad29a371a82b34df6e8c",
+      "body": {
+        "contractVersion": "research-confirmation-event-v1",
+        "operationId": "8d3e4f7050ffdb4487f02b7d3a6029cd04c09b68e8d21462ddc329e44cdd00dc",
+        "admissionId": "8883f1df7e9835ab1fc8a74e9ec9734450e22f219e69d4a5a2e4e413c8fe22e5",
+        "event": {
+          "kind": "sealed",
+          "executionStartedId": "b2e9b5f9dd088a88410640fde98e3531bd73936371eb89d63a44832a52a5c02d",
+          "reportSha256": "d404ed4aa9ecc20ea89a239d2803845671142c1d58fdf1090c5f3cd998a337ca",
+          "resultArtifactSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "resultArtifactBytes": 12345,
+          "engineManifestHash": "75b57e34fd4f82ecba4dff75f68bcb19eb04b8b61674afb49d9646b6b84abe9b"
+        }
+      }
+    },
+    "selection": {
+      "id": "26ac487fb3e58b58533559c1d47699303818846988d7cb62c3b99fff5bcdea56",
+      "body": {
+        "contractVersion": "research-confirmation-selection-v1",
+        "validationBatchId": "35e9b58c33d81d29e53db88505e7a383a110d6c92a72390a7c682e7866f50759",
+        "alphaReservationId": "b0be230d1ce9d74d5d73009de8c1cb77204f088fe4eab55966330a9041a943bd",
+        "sealedReceiptId": "eed5e4ff06b83a2a600d2ccaa7cb628bc23fd497b15bad29a371a82b34df6e8c",
+        "reportSha256": "d404ed4aa9ecc20ea89a239d2803845671142c1d58fdf1090c5f3cd998a337ca",
+        "selectedCandidates": [
+          0
+        ]
+      }
+    },
+    "test": {
+      "id": "162eb7fc0baf8bd382bae0c07179cff369cd26d3f45c0bece4641e8e54b5df86",
+      "body": {
+        "contractVersion": "research-confirmation-batch-v1",
+        "stage": {
+          "kind": "test",
+          "validationBatchId": "35e9b58c33d81d29e53db88505e7a383a110d6c92a72390a7c682e7866f50759",
+          "selectionId": "26ac487fb3e58b58533559c1d47699303818846988d7cb62c3b99fff5bcdea56"
+        },
+        "source": {
+          "campaignId": "3dc260b2472062d9c57bd930b02f23831d917b8f3e3234b6d63964a53c31d3aa",
+          "campaignDocumentHash": "6113cb0c508e07e3b0818e80d67e627939c4bf1e98e580f58d815e840a01952a",
+          "workspaceId": "11111111111111111111111111111111",
+          "runId": 42,
+          "trialBatchId": "248f0bfbc2b18126562f7f14d6e19fcea5c9a4e8e96feb244128e9c071a5a67e",
+          "instrumentId": "crypto:binance:BTCUSDT",
+          "familyId": "trial-family-v1:077ec84bbee01072d66e9f358f8262f7cc6cd2b70b7ed82461e3904179bd4cc0",
+          "engineManifestHash": "75b57e34fd4f82ecba4dff75f68bcb19eb04b8b61674afb49d9646b6b84abe9b"
+        },
+        "data": {
+          "snapshotId": "16a0eeb0791b6c92451fd284dd9f599e0a7dbe7f6ebea6e2d2d06c7f74aec112",
+          "instrumentRevisionHash": "a6e31d8d5b429e4377c046f21ad68c5704a77b5d5df33f5320de4c10227009aa",
+          "datasetHash": "dataset-content-v2:b277fd623676a525c29b9eb155afc8c9010681814ceafb2d7627f47b9a232576",
+          "interval": "1h",
+          "calendarId": "crypto-24x7-v1",
+          "calendarHash": "5152790e278eb89039f8bfaa354b944ec1b44c5d3fc144edc5720c3edc045c73",
+          "corporateActionsHash": null,
+          "costProfileId": "crypto-zero-cost-v1",
+          "costProfileHash": "57f60b9ecf036573d5b3dcee3d1e5716f8dca6fb9571e1c0a8bbbdd2888e6d5a",
+          "numericCostsHash": "402f0d4a60ccf964dab946cf9499b870f07ae7eaadb83f139a3dcf33a48109af",
+          "sourceEvidenceHash": "08a9436e866d1760d8d5bc62132ff0d47615af50dd203392f45d65cff3eecb10"
+        },
+        "split": {
+          "contractVersion": "validation-split-v1",
+          "totalBars": 1300,
+          "embargoBars": 10,
+          "trainWindow": {
+            "fromMs": 946684800000,
+            "toExclusiveMs": 949449600000
+          },
+          "validationWindow": {
+            "fromMs": 949485600000,
+            "toExclusiveMs": 950407200000
+          },
+          "testWindow": {
+            "fromMs": 950443200000,
+            "toExclusiveMs": 951364800000
+          },
+          "validationSupport": [
+            {
+              "fromMs": 949467600000,
+              "toExclusiveMs": 950407200000
+            }
+          ],
+          "testSupport": [
+            {
+              "fromMs": 950425200000,
+              "toExclusiveMs": 951364800000
+            }
+          ]
+        },
+        "statistics": {
+          "contractVersion": "research-confirmation-statistics-v2",
+          "allocationId": "0889c33c045696ebb8a77825120389f761229560b4b48ca80cac43754f78673e",
+          "bootstrapSamples": 799,
+          "maxBootstrapSamples": 799,
+          "maxRelativeStandardErrorPpm": 999999,
+          "blockLengthRationale": "Frozen R3; structural fixture only.",
+          "validation": {
+            "blockLength": 6,
+            "seed": 7
+          },
+          "test": {
+            "blockLength": 6,
+            "seed": 8
+          }
+        },
+        "selectionRule": {
+          "version": "both-holm-reject-index-v1",
+          "maxCandidates": 1
+        },
+        "candidates": [
+          {
+            "candidateIndex": 0,
+            "strategyHash": "strategy-v2:0d7b565369e6b2d2e12d500e81a28dc68103ea81a03819590ebe66058d21c2a4",
+            "definitionHash": "9ff850f9d16cd603d399f68b6d720c8c20c124085bda29ecd63e6697be228253",
+            "executionHash": "d72e49c24e2aaab6402ec475860b65032b4d4dd2d4094be7fab557a477db4b05",
+            "resultArtifactHash": "8a65b8fcda16178b8bde4d307a6566f65222bfe1e843b0e4118349b6a390b539",
+            "lineageHash": "5f8782772a47f82883de310f2b88a5a90bc98b6804d6d5b24df1cbdbd17ad285",
+            "minimumWarmupBars": 5,
+            "minimumEmbargoBars": 8
+          }
+        ]
+      }
+    },
+    "testOperation": {
+      "id": "7a1862676bd662ea198abbb598565df4a0604f2a5f2571e5995586470736ea73",
+      "body": {
+        "contractVersion": "research-confirmation-operation-v1",
+        "originRegistryId": "22222222222222222222222222222222",
+        "reservationKey": "55555555555555555555555555555555",
+        "requestId": "66666666666666666666666666666666",
+        "workspaceId": "11111111111111111111111111111111",
+        "confirmationBatchId": "162eb7fc0baf8bd382bae0c07179cff369cd26d3f45c0bece4641e8e54b5df86",
+        "familyId": "trial-family-v1:077ec84bbee01072d66e9f358f8262f7cc6cd2b70b7ed82461e3904179bd4cc0",
+        "allocationId": "0889c33c045696ebb8a77825120389f761229560b4b48ca80cac43754f78673e",
+        "stage": "test",
+        "selectionId": "26ac487fb3e58b58533559c1d47699303818846988d7cb62c3b99fff5bcdea56"
+      }
+    },
+    "testExposure": {
+      "id": "3c0aa77450843bb18b98d4e2ba783758277a0063d823c2f41cea7fb896569359",
+      "body": {
+        "contractVersion": "research-confirmation-exposure-v1",
+        "originRegistryId": "22222222222222222222222222222222",
+        "reservationKey": "55555555555555555555555555555555",
+        "instrumentId": "crypto:binance:BTCUSDT",
+        "intervals": [
+          {
+            "fromMs": 950425200000,
+            "toExclusiveMs": 951364800000
+          }
+        ],
+        "claim": {
+          "kind": "confirmation",
+          "operationId": "7a1862676bd662ea198abbb598565df4a0604f2a5f2571e5995586470736ea73",
+          "alphaReservationId": "7b11596d0f4fa3bcaa6b75ff0d35348581c4209c2fc9d4c8f7df5ea80eb7ff35"
+        }
+      }
+    },
+    "testAdmission": {
+      "id": "85f612c0bbb2f7a06919a55f18704f7548bf0a24e6376c35a0da76da0ec0bb68",
+      "body": {
+        "contractVersion": "research-confirmation-admission-v1",
+        "operationId": "7a1862676bd662ea198abbb598565df4a0604f2a5f2571e5995586470736ea73",
+        "alphaReservationId": "7b11596d0f4fa3bcaa6b75ff0d35348581c4209c2fc9d4c8f7df5ea80eb7ff35",
+        "exposureId": "3c0aa77450843bb18b98d4e2ba783758277a0063d823c2f41cea7fb896569359",
+        "workspaceObservation": {
+          "workspaceId": "11111111111111111111111111111111",
+          "ownershipEpoch": 7,
+          "mutationSeq": 12,
+          "referencesSha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        },
+        "registryObservation": {
+          "registryId": "22222222222222222222222222222222",
+          "seq": 0,
+          "chainHead": "d65f89724d19aa5dda0d18cf03a0b1440de6eb7fc103cad4ba882413eaeda2ff",
+          "bindingSha256": "15ca0e92f0116669d6d9a27d99b686a97457d8067700e0efec73e209ecfdf989",
+          "familyEffectiveTrials": 4,
+          "registeredBatchEffectiveTrials": 2,
+          "testsPerTrial": 2,
+          "protocolSha256": "6c47ecbda2c59c07ab1703a355e7698b7875652e385bca55b22cc042634c83e5"
+        },
+        "precisionPlan": {
+          "contractVersion": "research-precision-v1",
+          "correction": "holm",
+          "alphaPpm": 25000,
+          "maxRelativeStandardErrorPpm": 999999,
+          "priorTrials": 2,
+          "plannedTrials": 2,
+          "testsPerTrial": 2,
+          "bootstrapSamples": 799,
+          "maxBootstrapSamples": 799
+        },
+        "precisionProof": {
+          "contractVersion": "research-precision-v1",
+          "status": "ELIGIBLE",
+          "reasons": [],
+          "familyTrials": 4,
+          "familyTests": 8,
+          "minAttainableRawP": {
+            "numerator": 1,
+            "denominator": 800
+          },
+          "bestAdjustedP": {
+            "numerator": 8,
+            "denominator": 800
+          },
+          "requiredSamplesForResolution": 319,
+          "requiredSamplesForPrecision": 320
+        }
+      }
+    },
+    "testStart": {
+      "id": "554cf5b222f3d746bd21883be4051742309d1964a70fb7a2de55f53a394539ae",
+      "body": {
+        "contractVersion": "research-confirmation-event-v1",
+        "operationId": "7a1862676bd662ea198abbb598565df4a0604f2a5f2571e5995586470736ea73",
+        "admissionId": "85f612c0bbb2f7a06919a55f18704f7548bf0a24e6376c35a0da76da0ec0bb68",
+        "event": {
+          "kind": "execution_started",
+          "workspaceId": "11111111111111111111111111111111",
+          "ownershipEpoch": 7,
+          "executionKey": "cccccccccccccccccccccccccccccccc"
+        }
+      }
+    },
+    "testSeal": {
+      "id": "f823edd14322974ec897cc7a4bce2743333adae7ab069c0eff8decec265acc5e",
+      "body": {
+        "contractVersion": "research-confirmation-event-v1",
+        "operationId": "7a1862676bd662ea198abbb598565df4a0604f2a5f2571e5995586470736ea73",
+        "admissionId": "85f612c0bbb2f7a06919a55f18704f7548bf0a24e6376c35a0da76da0ec0bb68",
+        "event": {
+          "kind": "sealed",
+          "executionStartedId": "554cf5b222f3d746bd21883be4051742309d1964a70fb7a2de55f53a394539ae",
+          "reportSha256": "28a7e4f3efc840073d584ab25cdc82cdb349c53bb6af71bd1e7c81781e9035c6",
+          "resultArtifactSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "resultArtifactBytes": 12345,
+          "engineManifestHash": "75b57e34fd4f82ecba4dff75f68bcb19eb04b8b61674afb49d9646b6b84abe9b"
+        }
+      }
+    }
+  },
+  "blobs": [
+    {
+      "kind": "binding",
+      "sha256": "15ca0e92f0116669d6d9a27d99b686a97457d8067700e0efec73e209ecfdf989",
+      "text": "{\n \"version\": \"trial-ledger-binding-v5\",\n \"registryId\": \"22222222222222222222222222222222\",\n \"seq\": 0,\n \"chainHead\": \"d65f89724d19aa5dda0d18cf03a0b1440de6eb7fc103cad4ba882413eaeda2ff\",\n \"evidence\": {\n  \"quarantinedFamilies\": [],\n  \"conflictedOrigins\": [],\n  \"familyTests\": {\n   \"trial-family-v1:077ec84bbee01072d66e9f358f8262f7cc6cd2b70b7ed82461e3904179bd4cc0\": 2\n  }\n },\n \"alpha\": {\n  \"budgets\": [\n   {\n    \"familyId\": \"trial-family-v1:077ec84bbee01072d66e9f358f8262f7cc6cd2b70b7ed82461e3904179bd4cc0\",\n    \"allocationId\": \"0889c33c045696ebb8a77825120389f761229560b4b48ca80cac43754f78673e\"\n   }\n  ],\n  \"reservations\": [],\n  \"conflicts\": []\n },\n \"alphaUnknownOrigins\": [],\n \"confirmation\": {\n  \"batches\": [],\n  \"selections\": [],\n  \"operations\": [],\n  \"exposures\": [],\n  \"admissions\": [],\n  \"events\": [],\n  \"blobs\": [],\n  \"conflicts\": [],\n  \"unknownOrigins\": []\n }\n}\n"
+    },
+    {
+      "kind": "statistics",
+      "sha256": "d404ed4aa9ecc20ea89a239d2803845671142c1d58fdf1090c5f3cd998a337ca",
+      "text": "{\n \"contractVersion\": \"research-confirmation-statistics-v2\",\n \"correction\": \"holm\",\n \"scheme\": \"circular-block\",\n \"prng\": \"splitmix64\",\n \"alphaPpm\": 25000,\n \"blockLength\": 6,\n \"bootstrapSamples\": 799,\n \"seed\": 7,\n \"familyTests\": 8,\n \"tests\": [\n  {\n   \"candidateIndex\": 0,\n   \"test\": \"net_return\",\n   \"observations\": 256,\n   \"observedMean\": 1e-1,\n   \"extremeCount\": 0,\n   \"rawP\": {\n    \"numerator\": 1,\n    \"denominator\": 800\n   },\n   \"rawPValue\": 0.00125,\n   \"holmRank\": 1,\n   \"adjustedP\": {\n    \"numerator\": 8,\n    \"denominator\": 800\n   },\n   \"adjustedPValue\": 0.01,\n   \"rejectsNull\": true\n  },\n  {\n   \"candidateIndex\": 0,\n   \"test\": \"benchmark_excess\",\n   \"observations\": 256,\n   \"observedMean\": 1e-1,\n   \"extremeCount\": 1,\n   \"rawP\": {\n    \"numerator\": 2,\n    \"denominator\": 800\n   },\n   \"rawPValue\": 0.0025,\n   \"holmRank\": 2,\n   \"adjustedP\": {\n    \"numerator\": 14,\n    \"denominator\": 800\n   },\n   \"adjustedPValue\": 0.0175,\n   \"rejectsNull\": true\n  },\n  {\n   \"candidateIndex\": 2,\n   \"test\": \"net_return\",\n   \"observations\": 256,\n   \"observedMean\": 1e-1,\n   \"extremeCount\": 9,\n   \"rawP\": {\n    \"numerator\": 10,\n    \"denominator\": 800\n   },\n   \"rawPValue\": 0.0125,\n   \"holmRank\": 3,\n   \"adjustedP\": {\n    \"numerator\": 60,\n    \"denominator\": 800\n   },\n   \"adjustedPValue\": 0.075,\n   \"rejectsNull\": false\n  },\n  {\n   \"candidateIndex\": 2,\n   \"test\": \"benchmark_excess\",\n   \"observations\": 256,\n   \"observedMean\": 1e-1,\n   \"extremeCount\": 29,\n   \"rawP\": {\n    \"numerator\": 30,\n    \"denominator\": 800\n   },\n   \"rawPValue\": 0.0375,\n   \"holmRank\": 4,\n   \"adjustedP\": {\n    \"numerator\": 150,\n    \"denominator\": 800\n   },\n   \"adjustedPValue\": 0.1875,\n   \"rejectsNull\": false\n  }\n ]\n}\n"
+    },
+    {
+      "kind": "statistics",
+      "sha256": "28a7e4f3efc840073d584ab25cdc82cdb349c53bb6af71bd1e7c81781e9035c6",
+      "text": "{\n \"contractVersion\": \"research-confirmation-statistics-v2\",\n \"correction\": \"holm\",\n \"scheme\": \"circular-block\",\n \"prng\": \"splitmix64\",\n \"alphaPpm\": 25000,\n \"blockLength\": 6,\n \"bootstrapSamples\": 799,\n \"seed\": 8,\n \"familyTests\": 8,\n \"tests\": [\n  {\n   \"candidateIndex\": 0,\n   \"test\": \"net_return\",\n   \"observations\": 256,\n   \"observedMean\": 1e-1,\n   \"extremeCount\": 0,\n   \"rawP\": {\n    \"numerator\": 1,\n    \"denominator\": 800\n   },\n   \"rawPValue\": 0.00125,\n   \"holmRank\": 1,\n   \"adjustedP\": {\n    \"numerator\": 8,\n    \"denominator\": 800\n   },\n   \"adjustedPValue\": 0.01,\n   \"rejectsNull\": true\n  },\n  {\n   \"candidateIndex\": 0,\n   \"test\": \"benchmark_excess\",\n   \"observations\": 256,\n   \"observedMean\": 1e-1,\n   \"extremeCount\": 1,\n   \"rawP\": {\n    \"numerator\": 2,\n    \"denominator\": 800\n   },\n   \"rawPValue\": 0.0025,\n   \"holmRank\": 2,\n   \"adjustedP\": {\n    \"numerator\": 14,\n    \"denominator\": 800\n   },\n   \"adjustedPValue\": 0.0175,\n   \"rejectsNull\": true\n  }\n ]\n}\n"
+    }
+  ]
+}
