@@ -43,7 +43,7 @@ pub use binding::{
 #[allow(unused_imports)]
 pub use transfer::ImportSummary;
 #[allow(unused_imports)]
-pub use alpha::{AlphaFamilyState, AlphaStorageOutcome, AlphaStorageStatus};
+pub use alpha::{AlphaFamilyState, AlphaStorageOutcome, AlphaStorageStatus, AlphaTransferSummary};
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
@@ -105,6 +105,10 @@ const REGISTRY_MIGRATIONS: &[(&str, &str)] = &[
         "0004_alpha_reservations",
         include_str!("../../registry_migrations/0004_alpha_reservations.sql"),
     ),
+    (
+        "0005_alpha_history_provenance",
+        include_str!("../../registry_migrations/0005_alpha_history_provenance.sql"),
+    ),
 ];
 
 // ------------------------------------------------------------------ errors
@@ -149,6 +153,8 @@ pub enum LedgerError {
     StateInvalid(String),
     #[error("import_integrity_failed: {0}")]
     ImportIntegrityFailed(String),
+    #[error("alpha_history_unknown: legacy trial-only provenance cannot authorize confirmation")]
+    AlphaHistoryUnknown,
 }
 
 impl LedgerError {
@@ -174,6 +180,7 @@ impl LedgerError {
             Self::BatchNotFound(_) => "batch_not_found",
             Self::StateInvalid(_) => "registry_state_invalid",
             Self::ImportIntegrityFailed(_) => "import_integrity_failed",
+            Self::AlphaHistoryUnknown => "alpha_history_unknown",
         }
     }
 }
@@ -2390,7 +2397,7 @@ mod tests {
         };
         assert_eq!(
             applied,
-            vec!["0001_trial_ledger", "0002_origin_genesis", "0003_family_protocol_upgrades", "0004_alpha_reservations"]
+            vec!["0001_trial_ledger", "0002_origin_genesis", "0003_family_protocol_upgrades", "0004_alpha_reservations", "0005_alpha_history_provenance"]
         );
     }
 

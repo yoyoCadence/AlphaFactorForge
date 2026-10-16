@@ -6,6 +6,9 @@
 //! quarantines, registry-origin conflicts, and verified origin genesis. A
 //! transfer can therefore neither release a quarantine nor launder a known
 //! divergent origin, and an empty source can still be restored.
+//! P13b-2b retains these trial-only APIs as compatibility paths. Their imports
+//! record unknown alpha provenance; complete v4 transfer uses the shared
+//! transaction helpers without promoting a v3 projection to alpha authority.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -206,8 +209,22 @@ fn record_line(record: &ExportRecord) -> Result<String, LedgerError> {
     canonical_text(&serde_json::to_value(record)?)
 }
 
+fn append_record(
+    body: &mut String,
+    record: &ExportRecord,
+    limit: Option<usize>,
+) -> Result<(), LedgerError> {
+    let line = record_line(record)?;
+    if limit.is_some_and(|limit| body.len() + line.len() + 1 > limit) {
+        return Err(integrity("trial projection limit exceeded; never truncated"));
+    }
+    body.push_str(&line);
+    body.push('\n');
+    Ok(())
+}
+
 impl TrialLedger {
-    /// A complete JSON Lines snapshot in FK order. The body hash covers the
+    /// A trial-only v3 JSON Lines snapshot in FK order. The body hash covers the
     /// exact bytes after the header, including each terminating newline.
     pub fn export_json_lines(&self) -> Result<Vec<u8>, LedgerError> {
         let mut conn = self.lock()?;
@@ -217,8 +234,20 @@ impl TrialLedger {
                 "alpha evidence requires complete alpha-aware export; trial-only v3 is refused".into(),
             ));
         }
+        let output = self.export_trial_in(&tx, None)?;
+        tx.commit()?;
+        Ok(output)
+    }
+
+    /// Internal projection for a complete v4 archive, in its caller's snapshot.
+    /// The public trial-only exporter retains its nonempty-alpha guard.
+    pub(super) fn export_trial_in(
+        &self,
+        tx: &rusqlite::Transaction<'_>,
+        limit: Option<usize>,
+    ) -> Result<Vec<u8>, LedgerError> {
         if !matches!(
-            verify_chain(&tx, &self.registry_id)?,
+            verify_chain(tx, &self.registry_id)?,
             LedgerIntegrity::Intact { .. }
         ) {
             return Err(LedgerError::StateInvalid(
@@ -242,8 +271,7 @@ impl TrialLedger {
                 })
             })?;
             for row in rows {
-                body.push_str(&record_line(&row?)?);
-                body.push('\n');
+                append_record(&mut body, &row?, limit)?;
                 family_count += 1;
             }
         }
@@ -259,8 +287,7 @@ impl TrialLedger {
                 })
             })?;
             for row in rows {
-                body.push_str(&record_line(&row?)?);
-                body.push('\n');
+                append_record(&mut body, &row?, limit)?;
             }
         }
         {
@@ -284,8 +311,7 @@ impl TrialLedger {
                     origin_registry_id,
                     members: serde_json::from_str(&members)?,
                 };
-                body.push_str(&record_line(&record)?);
-                body.push('\n');
+                append_record(&mut body, &record, limit)?;
                 batch_count += 1;
             }
         }
@@ -314,8 +340,7 @@ impl TrialLedger {
                     seq: seq as u64,
                     chain,
                 };
-                body.push_str(&record_line(&record)?);
-                body.push('\n');
+                append_record(&mut body, &record, limit)?;
                 event_count += 1;
             }
         }
@@ -334,8 +359,7 @@ impl TrialLedger {
                 })
             })?;
             for row in rows {
-                body.push_str(&record_line(&row?)?);
-                body.push('\n');
+                append_record(&mut body, &row?, limit)?;
             }
         }
         {
@@ -352,8 +376,7 @@ impl TrialLedger {
                 })
             })?;
             for row in rows {
-                body.push_str(&record_line(&row?)?);
-                body.push('\n');
+                append_record(&mut body, &row?, limit)?;
             }
         }
         // Permanent evidence (§20). Conflicts are exported once per distinct
@@ -368,8 +391,7 @@ impl TrialLedger {
                 })
             })?;
             for row in rows {
-                body.push_str(&record_line(&row?)?);
-                body.push('\n');
+                append_record(&mut body, &row?, limit)?;
             }
         }
         {
@@ -385,8 +407,7 @@ impl TrialLedger {
                 })
             })?;
             for row in rows {
-                body.push_str(&record_line(&row?)?);
-                body.push('\n');
+                append_record(&mut body, &row?, limit)?;
             }
         }
         {
@@ -401,11 +422,10 @@ impl TrialLedger {
                 })
             })?;
             for row in rows {
-                body.push_str(&record_line(&row?)?);
-                body.push('\n');
+                append_record(&mut body, &row?, limit)?;
             }
         }
-        let (head_seq, head_chain) = head(&tx, &self.registry_id)?;
+        let (head_seq, head_chain) = head(tx, &self.registry_id)?;
         let header = ExportHeader {
             version: TRIAL_LEDGER_EXPORT_VERSION.into(),
             registry_id: self.registry_id.clone(),
@@ -419,16 +439,18 @@ impl TrialLedger {
             body_sha256: sha256_hex(body.as_bytes()),
         };
         let mut output = canonical_text(&serde_json::to_value(header)?)?.into_bytes();
+        if limit.is_some_and(|limit| output.len() + 1 + body.len() > limit) {
+            return Err(integrity("trial projection limit exceeded; never truncated"));
+        }
         output.push(b'\n');
         output.extend_from_slice(body.as_bytes());
-        tx.commit()?;
         Ok(output)
     }
 }
 
 type BatchRecord = (Option<String>, String, Vec<(String, String)>);
 
-struct ValidatedExport {
+pub(super) struct ValidatedExport {
     header: ExportHeader,
     file_sha256: String,
     families: BTreeMap<String, (String, Option<String>)>,
@@ -443,7 +465,30 @@ struct ValidatedExport {
 }
 
 impl ValidatedExport {
-    fn parse(bytes: &[u8]) -> Result<Self, LedgerError> {
+    pub(super) fn registry_id(&self) -> &str {
+        &self.header.registry_id
+    }
+
+    pub(super) fn set_file_sha256(&mut self, hash: String) {
+        self.file_sha256 = hash;
+    }
+
+    pub(super) fn family_keys(&self) -> impl Iterator<Item = (&String, &String)> {
+        self.families.iter().map(|(id, (key, _))| (id, key))
+    }
+
+    fn legacy_origins(&self) -> BTreeSet<String> {
+        let mut origins = self.genesis.clone();
+        origins.insert(self.header.registry_id.clone());
+        origins.extend(self.checkpoints.keys().map(|(origin, _)| origin.clone()));
+        origins.extend(self.events.iter().map(|(_, _, origin, _, _, _)| origin.clone()));
+        origins.extend(self.batches.values().map(|(_, origin, _)| origin.clone()));
+        origins.extend(self.receipts.keys().map(|(_, origin)| origin.clone()));
+        origins.extend(self.registry_conflicts.iter().map(|(origin, _)| origin.clone()));
+        origins
+    }
+
+    pub(super) fn parse(bytes: &[u8]) -> Result<Self, LedgerError> {
         let text = std::str::from_utf8(bytes).map_err(|_| integrity("not UTF-8"))?;
         let (header_line, body) = text
             .split_once('\n')
@@ -1015,15 +1060,25 @@ impl TrialLedger {
         let source = ValidatedExport::parse(bytes)?;
         let mut conn = self.lock()?;
         let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
-        if !matches!(
-            verify_chain(&tx, &self.registry_id)?,
-            LedgerIntegrity::Intact { .. }
-        ) {
+        let origins = source.legacy_origins();
+        let summary = self.import_trial_in(&tx, source)?;
+        super::alpha::record_unknown_origins(&tx, &origins)?;
+        tx.commit()?;
+        Ok(summary)
+    }
+
+    /// Caller owns the IMMEDIATE transaction and performs its final commit.
+    pub(super) fn import_trial_in(
+        &self,
+        tx: &rusqlite::Transaction<'_>,
+        source: ValidatedExport,
+    ) -> Result<ImportSummary, LedgerError> {
+        if !matches!(verify_chain(tx, &self.registry_id)?, LedgerIntegrity::Intact { .. }) {
             return Err(LedgerError::StateInvalid(
                 "cannot import into a registry with a broken event chain".into(),
             ));
         }
-        source.validate_kinds(&tx)?;
+        source.validate_kinds(tx)?;
 
         let mut quarantined = BTreeSet::new();
         {
@@ -1141,7 +1196,7 @@ impl TrialLedger {
         let now = chrono::Utc::now().to_rfc3339();
         for (family_id, details) in &family_conflicts {
             record_family_conflict(
-                &tx,
+                tx,
                 family_id,
                 "import_conflict",
                 &canonical_text(&json!(details))?,
@@ -1153,7 +1208,7 @@ impl TrialLedger {
         // unioned: the trials stay counted and the batch stays addressable,
         // and admission reports the quarantine instead of a count.
         for (family_id, kind, detail_json) in &source.family_conflicts {
-            record_family_conflict(&tx, family_id, kind, detail_json, &now)?;
+            record_family_conflict(tx, family_id, kind, detail_json, &now)?;
         }
         for (family_id, (key, protocol)) in &source.families {
             if quarantined.contains(family_id) {
@@ -1224,7 +1279,7 @@ impl TrialLedger {
                 ],
             )?;
         }
-        let (mut seq, mut chain) = head(&tx, &self.registry_id)?;
+        let (mut seq, mut chain) = head(tx, &self.registry_id)?;
         let mut added = 0;
         let mut skipped = 0;
         // A skipped event that is absent here leaves a gap in the source
@@ -1353,10 +1408,10 @@ impl TrialLedger {
         }
         let diverged_detail = canonical_text(&json!({"reason": ORIGIN_DIVERGED_DETAIL}))?;
         for origin in &blocked_origins {
-            record_registry_conflict(&tx, origin, &diverged_detail, &now)?;
+            record_registry_conflict(tx, origin, &diverged_detail, &now)?;
         }
         for (origin, detail_json) in &source.registry_conflicts {
-            record_registry_conflict(&tx, origin, detail_json, &now)?;
+            record_registry_conflict(tx, origin, detail_json, &now)?;
         }
         for ((origin, origin_seq), (event_id, origin_chain)) in &checkpoints {
             if conflicted_origins.contains(origin)
@@ -1406,14 +1461,13 @@ impl TrialLedger {
             ],
         )?;
         if !matches!(
-            verify_chain(&tx, &self.registry_id)?,
+            verify_chain(tx, &self.registry_id)?,
             LedgerIntegrity::Intact { .. }
         ) {
             return Err(integrity(
                 "union would break local event or batch identities",
             ));
         }
-        tx.commit()?;
         Ok(ImportSummary {
             source_registry_id: source.header.registry_id,
             added_events: added,

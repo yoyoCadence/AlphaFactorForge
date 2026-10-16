@@ -112,3 +112,11 @@ P13b-2a follow-up: [alpha-aware workspace binding](research-alpha-workspace-bind
 now observes checked budget/reservation/conflict identities in the same registry
 read transaction and refuses loss while preserving the last good workspace
 watermark. Complete alpha-aware transfer remains P13b-2b.
+
+P13b-2b follow-up: [complete transfer](research-alpha-transfer-v1.md) adds
+schema-5 legacy provenance, identity union and binding v4. Alternative budget
+declarations retained in conflicts now validate their own reservations on
+read; the original primary row is unchanged and a budget conflict has no
+allocation. Unknown legacy provenance also blocks alpha allocation, while
+ordinary trial exploration remains available. This supersedes the transfer
+boundary above; storage writes still grant no production reveal permission.

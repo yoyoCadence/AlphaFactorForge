@@ -1061,6 +1061,7 @@ mod tests {
         let mut legacy: Value = serde_json::from_str(&raw).unwrap();
         legacy["version"] = serde_json::json!("trial-ledger-binding-v2");
         legacy.as_object_mut().unwrap().remove("alpha");
+        legacy.as_object_mut().unwrap().remove("alphaUnknownOrigins");
         conn.execute(
             "UPDATE app_settings SET value_json = ?1 WHERE key = 'trial_ledger_binding'",
             [legacy.to_string()],
@@ -1094,5 +1095,39 @@ mod tests {
             .unwrap();
         assert_eq!(alpha.budgets.len(), 1);
         assert_eq!(alpha.reservations.len(), 1);
+    }
+
+    #[test]
+    fn unknown_origin_rollback_on_reopen_keeps_last_good_binding_bytes() {
+        let scratch = Scratch::new();
+        let path = scratch.root.join(crate::db::DB_FILE_NAME);
+        let mut conn = crate::db::open_at(&path).unwrap();
+        let id = crate::db::runtime_ledger::workspace_id(&conn).unwrap();
+        drop(adopt(&mut conn, &scratch.root, &id, None).unwrap());
+        let backup = scratch.root.join("registry-before-unknown-origin.sqlite3");
+        std::fs::copy(scratch.registry_file(), &backup).unwrap();
+        let source = Scratch::new();
+        let ledger = TrialLedger::open(&source.registry, &source.root).unwrap();
+        let archive = ledger.export_json_lines().unwrap();
+        let bound = adopt(&mut conn, &scratch.root, &id, None).unwrap();
+        bound.ledger.import_json_lines(&archive).unwrap();
+        drop(bound);
+        drop(adopt(&mut conn, &scratch.root, &id, None).unwrap());
+        let saved: String = conn.query_row(
+            "SELECT value_json FROM app_settings WHERE key = 'trial_ledger_binding'",
+            [], |row| row.get(0),
+        ).unwrap();
+        assert_eq!(read_workspace_binding(&conn).unwrap().unwrap()
+            .alpha_unknown_origins.unwrap().len(), 1);
+        drop(conn);
+        restore(&scratch, &backup);
+        let mut reopened = crate::db::open_at(&path).unwrap();
+        let error = adopt(&mut reopened, &scratch.root, &id, None).err().unwrap();
+        assert!(error.to_string().contains("registry_evidence_rolled_back"), "{error}");
+        let after: String = reopened.query_row(
+            "SELECT value_json FROM app_settings WHERE key = 'trial_ledger_binding'",
+            [], |row| row.get(0),
+        ).unwrap();
+        assert_eq!(after, saved);
     }
 }
