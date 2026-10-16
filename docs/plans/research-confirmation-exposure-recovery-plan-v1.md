@@ -334,9 +334,14 @@ with their consumed/unknown status; it never becomes a proposal context.
 Frozen v2's acceptance is exactly the tested set in
 [confirmation statistics v2 §6](../research-confirmation-statistics-v2.md#6-status-and-limits):
 {256,512,1024} bars, generator `ar1-uniform-sum`, coefficients {0,0.3},
-two single-candidate confirmations, no prior trials and B=799, with the
-recorded limits. These are simulated configurations, not an empirical-return
-classifier. A real series of 512 bars is not made supported by its length.
+two single-candidate confirmations, no prior trials, B=799, the schedule
+`[25000,25000]` ppm from a 50000 ppm total and two tests per trial (Holm m=2,
+then m=4). S2 uses R3 block lengths 6/8/10 for those three tested lengths.
+The accepted limits are 30000 ppm per confirmation and 60000 ppm per family,
+not proof of exact nominal-alpha control. See the
+[predeclared configuration](confirmation-recalibration-plan-v1.md#3-simulated-configurations).
+These are simulated configurations, not an empirical-return classifier.
+A real series of 512 bars is not made supported by its length.
 
 Storage/pure-contract implementation can proceed without this policy decision.
 Production statistical confirmation on real-market returns, other family
