@@ -4,7 +4,7 @@ Date: 2026-10-16
 Repo: yoyoCadence/AlphaFactorForge
 Branch: feat/p13c1-confirmation-contracts
 Base: merged design #187 (`da259f09572d5f4c54e83c4ebfbedd1de26b216c`)
-Status: Implemented and verified locally; the delivery PR records final-head CI and merge status.
+Status: Merged as PR #188; P13c-2 continues the ordered pure-contract work.
 
 ## Summary
 
@@ -75,3 +75,15 @@ selection/hash and mixed/stale provenance refusal, and exposure-time checks.
 P13c-3 schema/transfer/binding design remains separate. No production caller
 or real-market statistical confirmation before the design's policy and
 manual-mediation gates. P12e's exact synthetic tested set remains unchanged.
+
+## Resolution (2026-10-16)
+
+[PR #188](https://github.com/yoyoCadence/AlphaFactorForge/pull/188) merged as
+`70dcc424985d5cb42e40d8dbdc57b4cfbdcaf805`, after all six jobs succeeded on
+final head `1c244dbdba784a2d07cbf337230609e8ae884d9e` in
+[CI run 38913482233](https://github.com/yoyoCadence/AlphaFactorForge/actions/runs/38913482233).
+CI verified 692 Rust tests (one ignored), 1191 Vitest, 98 E2E and real native
+SQLite/invoke/event/metrics smoke with cleanup. Main's merge tree matches the
+verified head. P13c-2 proceeds separately from this baseline; the
+[Train-only context contract](../docs/research-train-context-v1.md) preserves
+the distinction between pure consistency and host authentication/authority.

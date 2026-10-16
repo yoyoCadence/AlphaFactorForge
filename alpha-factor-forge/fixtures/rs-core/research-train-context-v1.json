@@ -1,0 +1,154 @@
+{
+  "description": "Synthetic Train-only allowlist and independent canonical identities; no provider or calibration claim.",
+  "scope": {
+    "id": "e85d31c67f5413ee95a300d9aea57d4e07dd92cccbd50a550a2963ed3f85acb1",
+    "body": {
+      "contractVersion": "research-train-scope-v1",
+      "workspaceId": "11111111111111111111111111111111",
+      "runId": 42,
+      "campaignId": "3333333333333333333333333333333333333333333333333333333333333333",
+      "instrumentId": "crypto:binance:BTCUSDT",
+      "trainDataHash": "dataset-content-v2:2222222222222222222222222222222222222222222222222222222222222222",
+      "trainWindow": {
+        "fromMs": 946684800000,
+        "toExclusiveMs": 946684810000
+      },
+      "engineManifestHash": "4444444444444444444444444444444444444444444444444444444444444444"
+    }
+  },
+  "origins": [
+    {
+      "id": "250cd5d13648984b736fd2ebde21e561c22d2d4bda488dbe6347d8c41e59a66b",
+      "body": {
+        "contractVersion": "research-train-origin-v1",
+        "scopeId": "e85d31c67f5413ee95a300d9aea57d4e07dd92cccbd50a550a2963ed3f85acb1",
+        "provenance": "train_only",
+        "inputs": [
+          {
+            "provenance": "train_only",
+            "instrumentId": "crypto:binance:BTCUSDT",
+            "trainDataHash": "dataset-content-v2:2222222222222222222222222222222222222222222222222222222222222222",
+            "support": [
+              {
+                "fromMs": 946684800100,
+                "toExclusiveMs": 946684809000
+              }
+            ]
+          }
+        ],
+        "fact": {
+          "kind": "failure",
+          "class": "no_trades"
+        }
+      }
+    },
+    {
+      "id": "839f7d002830e3531ec35d7c66e07ba487a5e6d126adc42a024cd74603ae68f0",
+      "body": {
+        "contractVersion": "research-train-origin-v1",
+        "scopeId": "e85d31c67f5413ee95a300d9aea57d4e07dd92cccbd50a550a2963ed3f85acb1",
+        "provenance": "train_only",
+        "inputs": [
+          {
+            "provenance": "train_only",
+            "instrumentId": "crypto:binance:BTCUSDT",
+            "trainDataHash": "dataset-content-v2:2222222222222222222222222222222222222222222222222222222222222222",
+            "support": [
+              {
+                "fromMs": 946684800100,
+                "toExclusiveMs": 946684809000
+              }
+            ]
+          }
+        ],
+        "fact": {
+          "kind": "hypothesis",
+          "mechanism": "mean_reversion",
+          "invalidation": "costs_dominate"
+        }
+      }
+    },
+    {
+      "id": "dc3fea99f12d59de5fae7ff8d5457322d29041d497fc6f2db33bad7f83603a9a",
+      "body": {
+        "contractVersion": "research-train-origin-v1",
+        "scopeId": "e85d31c67f5413ee95a300d9aea57d4e07dd92cccbd50a550a2963ed3f85acb1",
+        "provenance": "train_only",
+        "inputs": [
+          {
+            "provenance": "train_only",
+            "instrumentId": "crypto:binance:BTCUSDT",
+            "trainDataHash": "dataset-content-v2:2222222222222222222222222222222222222222222222222222222222222222",
+            "support": [
+              {
+                "fromMs": 946684800100,
+                "toExclusiveMs": 946684809000
+              }
+            ]
+          }
+        ],
+        "fact": {
+          "kind": "summary",
+          "observations": 256,
+          "closedTrades": 12,
+          "netReturnPpm": -12500
+        }
+      }
+    }
+  ],
+  "request": {
+    "contractVersion": "research-train-context-request-v1",
+    "scopeId": "e85d31c67f5413ee95a300d9aea57d4e07dd92cccbd50a550a2963ed3f85acb1",
+    "originIds": [
+      "250cd5d13648984b736fd2ebde21e561c22d2d4bda488dbe6347d8c41e59a66b",
+      "839f7d002830e3531ec35d7c66e07ba487a5e6d126adc42a024cd74603ae68f0",
+      "dc3fea99f12d59de5fae7ff8d5457322d29041d497fc6f2db33bad7f83603a9a"
+    ]
+  },
+  "context": {
+    "id": "af4e8200328e9b593c384faa47fcfdb1ffb1c0c669f449055f35cabf6570f30d",
+    "body": {
+      "contractVersion": "research-train-context-v1",
+      "scopeId": "e85d31c67f5413ee95a300d9aea57d4e07dd92cccbd50a550a2963ed3f85acb1",
+      "scope": {
+        "contractVersion": "research-train-scope-v1",
+        "workspaceId": "11111111111111111111111111111111",
+        "runId": 42,
+        "campaignId": "3333333333333333333333333333333333333333333333333333333333333333",
+        "instrumentId": "crypto:binance:BTCUSDT",
+        "trainDataHash": "dataset-content-v2:2222222222222222222222222222222222222222222222222222222222222222",
+        "trainWindow": {
+          "fromMs": 946684800000,
+          "toExclusiveMs": 946684810000
+        },
+        "engineManifestHash": "4444444444444444444444444444444444444444444444444444444444444444"
+      },
+      "facts": [
+        {
+          "originId": "250cd5d13648984b736fd2ebde21e561c22d2d4bda488dbe6347d8c41e59a66b",
+          "fact": {
+            "kind": "failure",
+            "class": "no_trades"
+          }
+        },
+        {
+          "originId": "839f7d002830e3531ec35d7c66e07ba487a5e6d126adc42a024cd74603ae68f0",
+          "fact": {
+            "kind": "hypothesis",
+            "mechanism": "mean_reversion",
+            "invalidation": "costs_dominate"
+          }
+        },
+        {
+          "originId": "dc3fea99f12d59de5fae7ff8d5457322d29041d497fc6f2db33bad7f83603a9a",
+          "fact": {
+            "kind": "summary",
+            "observations": 256,
+            "closedTrades": 12,
+            "netReturnPpm": -12500
+          }
+        }
+      ]
+    }
+  }
+}
