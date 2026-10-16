@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import { expect } from '@playwright/test';
+import { nativeConsoleObserver } from './native-console-observations.mjs';
 
 async function importDailyBars(page, length) {
   const candles = Array.from({ length }, (_, i) => {
@@ -50,21 +51,7 @@ export async function verifyMetricsWindows(page, context, artifactDirectory, err
   const child = await childPromise;
   const consoleObservations = [];
   child.on('pageerror', error => errors.push('metrics: ' + error.message));
-  child.on('console', message => {
-    const text = message.text();
-    // Keep these pre-existing startup observations in the evidence. The locked
-    // Tauri 2.11.3 ipc-protocol.js explicitly falls back to postMessage on CSP
-    // rejection; the UI/event assertions below must still pass. Remote fonts
-    // are the already-tracked FONT-OFFLINE-001, not a reason to widen CSP here.
-    const blockedIpc = text.includes("http://ipc.localhost/plugin%3Aevent%7Clisten")
-      && text.includes('Content Security Policy');
-    const blockedFont = text.startsWith("Loading the stylesheet 'https://fonts.googleapis.com/css2?")
-      && text.includes('Content Security Policy') && text.includes('style-src');
-    const ipcFallback = text.startsWith('IPC custom protocol failed, Tauri will now use the postMessage interface instead');
-    if (blockedIpc || blockedFont || ipcFallback) {
-      consoleObservations.push({ type: message.type(), text, reason: blockedFont ? 'FONT-OFFLINE-001' : 'locked Tauri IPC fallback' });
-    } else if (message.type() === 'error') errors.push('metrics: ' + text);
-  });
+  child.on('console', nativeConsoleObserver(errors, consoleObservations, 'metrics'));
   await child.waitForURL(/window=metrics/, { timeout: 20_000 });
   assert.equal(new URL(child.url()).searchParams.has('mock'), false);
   await expect(child.getByTestId('col-樣本外')).toBeVisible();

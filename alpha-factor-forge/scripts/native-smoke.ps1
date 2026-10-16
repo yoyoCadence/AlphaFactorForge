@@ -5,6 +5,8 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+& node --test (Join-Path $PSScriptRoot 'native-console-observations.test.mjs')
+if ($LASTEXITCODE -ne 0) { throw 'Native console observation regression tests failed.' }
 $exe = Get-Item -LiteralPath $Executable
 if ($exe.Name -ne 'alpha-factor-forge.exe' -or $exe.Directory.Name -ne 'debug') {
     throw 'The smoke requires the expected debug binary; release ignores the isolated registry seam.'

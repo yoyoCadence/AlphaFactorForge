@@ -240,6 +240,7 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 
 
+
 - **P09 authenticated external acceptance** (2026-09-21): implementation/local verification Done (below), but live Tiingo download, free entitlement and payment coverage still require the operator's token in Windows Credential Manager. User intends to register; native status currently `credential_missing`. Re-run the documented bounded range after setup and append evidence to the P09 handoff.
 
 ## Backlog
@@ -511,6 +512,8 @@ These were named inside the UI port entry and must not be buried by closing it. 
 - [ ] Full closed-loop AI automation. (Specification: ABC-14.)
 
 ## Done
+
+- [x] **CI-NATIVE-CONSOLE-001 — Deterministic startup console observations** (2026-10-16): prerequisite repair for PR #185. Main and metrics windows share narrow known-source classification and retain every classified observation. Four Node regressions verify early/late attachment and unexpected-error refusal; real isolated native SQLite/event/manual-strategy/metrics smoke and cleanup pass. No product/CSP/font-policy change. [Evidence](handoffs/2026-10-16-native-console-observations-v1.md).
 
 - [x] **P13b-2a — Alpha-aware workspace binding** (2026-10-15, baseline merged #183 `9ab7fd8`). v3 checked identity-set coverage including alternative budgets in permanent conflicts, strict bounded parsing, verified legacy adoption, preserved workspace watermark and ordinary exploration after valid alpha stops. **648 Rust (1 ignored) / 1184 Vitest**, typecheck/build/all-target check/Clippy (five existing warnings), 96 focused ledger cases and real service upgrade/downgrade smoke pass. See [PR #184](https://github.com/yoyoCadence/AlphaFactorForge/pull/184) for delivery, final-head CI and merge status. Complete transfer and runtime confirmation remain separate. [Contract](docs/research-alpha-workspace-binding-v1.md), [handoff](handoffs/2026-10-15-p13b2a-alpha-workspace-binding-v1.md).
 

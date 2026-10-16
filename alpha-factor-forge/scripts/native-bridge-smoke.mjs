@@ -7,6 +7,7 @@ import path from 'node:path';
 import { chromium } from '@playwright/test';
 import { verifyManualStrategyNumbers } from './native-manual-strategy-smoke.mjs';
 import { verifyMetricsWindows } from './native-metrics-smoke.mjs';
+import { nativeConsoleObserver } from './native-console-observations.mjs';
 
 const [endpoint, artifactDirectory] = process.argv.slice(2);
 assert(endpoint && artifactDirectory, 'usage: node native-bridge-smoke.mjs <CDP endpoint> <artifacts>');
@@ -18,14 +19,13 @@ await mkdir(artifactDirectory, { recursive: true });
 const browser = await chromium.connectOverCDP(endpoint, { timeout: 20_000 });
 let page;
 const errors = [];
+const consoleObservations = [];
 try {
   const context = browser.contexts()[0];
   assert(context, 'WebView2 must expose its existing context');
   page = context.pages()[0] ?? await context.waitForEvent('page', { timeout: 20_000 });
   page.on('pageerror', error => errors.push(error.message));
-  page.on('console', message => {
-    if (message.type() === 'error') errors.push(message.text());
-  });
+  page.on('console', nativeConsoleObserver(errors, consoleObservations));
   await page.waitForURL(/^(https?:\/\/tauri\.localhost|tauri:\/\/localhost)(?:[/?#]|$)/,
     { timeout: 20_000 });
   assert.equal(new URL(page.url()).searchParams.has('mock'), false, 'native smoke must not use ?mock');
@@ -101,17 +101,17 @@ try {
   assert.equal(event.event, `aff:native-smoke-${nonce}`);
   assert.deepEqual(event.payload, { version: 'native-bridge-smoke-v1', nonce, nested: { value: 42 } });
   assert.equal(Number.isSafeInteger(event.id), true);
-  assert.deepEqual(errors, [], 'native page must have no runtime/console errors during the smoke');
+  assert.deepEqual(errors, [], 'native page must have no page errors or unexpected console errors during the smoke');
 
   await page.screenshot({ path: path.join(artifactDirectory, 'native-success.png') });
   await writeFile(path.join(artifactDirectory, 'native-result.json'), JSON.stringify({
-    status: 'passed', url: page.url(), commands, event, manualStrategyNumbers, metricsWindows, errors,
+    status: 'passed', url: page.url(), commands, event, manualStrategyNumbers, metricsWindows, errors, consoleObservations,
   }, null, 2) + '\n');
   console.log('Native smoke passed: rendered app, SQLite invokes, metrics windows and Rust event-plugin round trip.');
 } catch (error) {
   if (page) await page.screenshot({ path: path.join(artifactDirectory, 'native-failure.png') }).catch(() => {});
   await writeFile(path.join(artifactDirectory, 'native-failure.json'), JSON.stringify({
-    error: String(error), url: page?.url(), errors,
+    error: String(error), url: page?.url(), errors, consoleObservations,
   }, null, 2) + '\n');
   throw error;
 } finally {
