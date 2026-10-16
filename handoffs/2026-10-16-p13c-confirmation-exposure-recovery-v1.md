@@ -63,3 +63,15 @@ No product source, migration, dependency, fixture or test setting changes.
 Baseline #185 has six green CI jobs, 668 Rust (1 ignored), 1184 Vitest and
 real native SQLite/event/metrics acceptance. The design PR must also complete
 the unchanged six-job CI before its expected-head guarded merge.
+
+## Resolution (2026-10-16)
+
+Design PR #187 merged as `da259f09572d5f4c54e83c4ebfbedd1de26b216c`.
+All six jobs passed on final head `01f2b89ba363b9cc2e52b01bbb8bca8844b75140`
+in [CI run 38907505102](https://github.com/yoyoCadence/AlphaFactorForge/actions/runs/38907505102).
+P13c-1 then proceeded from that merged baseline in its own branch, following
+the design's order. The exact fields/bounds and pure implementation are
+recorded in the [wire contract](../docs/research-confirmation-contracts-v1.md)
+and [implementation handoff](2026-10-16-p13c1-confirmation-contracts-v1.md).
+The latter records verification and remaining host authority; policy,
+storage, providers and production activation are not part of this slice.
