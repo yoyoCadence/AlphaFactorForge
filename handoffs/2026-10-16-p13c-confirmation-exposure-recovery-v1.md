@@ -3,7 +3,8 @@
 Date: 2026-10-16
 Branch: docs/p13c-confirmation-exposure-recovery
 Base: merged #185 (`6a95837f4cebc12e881ad536d4c66ba2cc696279`)
-Status: Design complete locally; documentation-only PR and exact-head CI follow.
+PR: [#187](https://github.com/yoyoCadence/AlphaFactorForge/pull/187)
+Status: Design delivered; the PR records final-head CI and merge status.
 
 ## Scope and decisions
 
