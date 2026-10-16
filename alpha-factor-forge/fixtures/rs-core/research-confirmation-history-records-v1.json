@@ -1,0 +1,301 @@
+{
+  "description": "Synthetic single-record identities and supplied bindings only. Admission/conflict/seal references deliberately do not prove a complete graph, authenticity or execution authority.",
+  "reservations": {
+    "validation": {
+      "reservationId": "b0be230d1ce9d74d5d73009de8c1cb77204f088fe4eab55966330a9041a943bd",
+      "body": {
+        "contractVersion": "research-alpha-reservation-v1",
+        "familyId": "trial-family-v1:077ec84bbee01072d66e9f358f8262f7cc6cd2b70b7ed82461e3904179bd4cc0",
+        "allocationId": "0889c33c045696ebb8a77825120389f761229560b4b48ca80cac43754f78673e",
+        "originRegistryId": "22222222222222222222222222222222",
+        "reservationKey": "44444444444444444444444444444444",
+        "confirmationBatchId": "35e9b58c33d81d29e53db88505e7a383a110d6c92a72390a7c682e7866f50759",
+        "confirmationNumber": 1,
+        "alphaPpm": 25000
+      }
+    },
+    "test": {
+      "reservationId": "ebe0d82c617dafd9894204a58b7720452c702688b0bab0b9bcf1b948beaaf500",
+      "body": {
+        "contractVersion": "research-alpha-reservation-v1",
+        "familyId": "trial-family-v1:077ec84bbee01072d66e9f358f8262f7cc6cd2b70b7ed82461e3904179bd4cc0",
+        "allocationId": "0889c33c045696ebb8a77825120389f761229560b4b48ca80cac43754f78673e",
+        "originRegistryId": "22222222222222222222222222222222",
+        "reservationKey": "55555555555555555555555555555555",
+        "confirmationBatchId": "071734b88732676a50addda296f1acc79603d995c545857cf8296ea7e78a881c",
+        "confirmationNumber": 2,
+        "alphaPpm": 25000
+      }
+    }
+  },
+  "records": {
+    "validationExposure": {
+      "id": "9af57e5e10f9e02472eb3896522464001eea029f8df273794eca3acf2f2d371c",
+      "body": {
+        "contractVersion": "research-confirmation-exposure-v1",
+        "originRegistryId": "22222222222222222222222222222222",
+        "reservationKey": "44444444444444444444444444444444",
+        "instrumentId": "crypto:binance:BTCUSDT",
+        "intervals": [
+          {
+            "fromMs": 949467600000,
+            "toExclusiveMs": 950407200000
+          }
+        ],
+        "claim": {
+          "kind": "confirmation",
+          "operationId": "8d3e4f7050ffdb4487f02b7d3a6029cd04c09b68e8d21462ddc329e44cdd00dc",
+          "alphaReservationId": "b0be230d1ce9d74d5d73009de8c1cb77204f088fe4eab55966330a9041a943bd"
+        }
+      }
+    },
+    "testExposure": {
+      "id": "02388dd86d42009d3a6e4a18a291faf9760a9c3a6f5c08d3f661e143e4cc0a12",
+      "body": {
+        "contractVersion": "research-confirmation-exposure-v1",
+        "originRegistryId": "22222222222222222222222222222222",
+        "reservationKey": "55555555555555555555555555555555",
+        "instrumentId": "crypto:binance:BTCUSDT",
+        "intervals": [
+          {
+            "fromMs": 950425200000,
+            "toExclusiveMs": 951364800000
+          }
+        ],
+        "claim": {
+          "kind": "confirmation",
+          "operationId": "26553e323ed6b20277b2d0015e53d679b970294ffb45d711d1836460a0ee5943",
+          "alphaReservationId": "ebe0d82c617dafd9894204a58b7720452c702688b0bab0b9bcf1b948beaaf500"
+        }
+      }
+    },
+    "manual": {
+      "id": "7f4af4a3e1992a2c1be4213a7b12d2427f7b4c9b11c0eec46bc0c2f00228a93f",
+      "body": {
+        "contractVersion": "research-confirmation-exposure-v1",
+        "originRegistryId": "22222222222222222222222222222222",
+        "reservationKey": "77777777777777777777777777777777",
+        "instrumentId": "crypto:binance:BTCUSDT",
+        "intervals": [
+          {
+            "fromMs": 949467600000,
+            "toExclusiveMs": 950407200000
+          }
+        ],
+        "claim": {
+          "kind": "manual",
+          "accessKind": "raw",
+          "afterSealId": null
+        }
+      }
+    },
+    "legacy": {
+      "id": "41ec9e5c1ffb182c83e4805834cb46769d66313103b3ef9f9de196b0ffd33629",
+      "body": {
+        "contractVersion": "research-confirmation-exposure-v1",
+        "originRegistryId": "22222222222222222222222222222222",
+        "reservationKey": "88888888888888888888888888888888",
+        "instrumentId": "crypto:binance:BTCUSDT",
+        "intervals": [
+          {
+            "fromMs": 949467600000,
+            "toExclusiveMs": 950407200000
+          }
+        ],
+        "claim": {
+          "kind": "legacy_unknown",
+          "reason": "migrated_workspace",
+          "sourceEvidenceSha256": null
+        }
+      }
+    },
+    "started": {
+      "id": "2fe7e4fd454ba77e3808395c27574debef95998a75ed3b4197bb2db603093b7c",
+      "body": {
+        "contractVersion": "research-confirmation-event-v1",
+        "operationId": "8d3e4f7050ffdb4487f02b7d3a6029cd04c09b68e8d21462ddc329e44cdd00dc",
+        "admissionId": "9999999999999999999999999999999999999999999999999999999999999999",
+        "event": {
+          "kind": "execution_started",
+          "workspaceId": "11111111111111111111111111111111",
+          "ownershipEpoch": 7,
+          "executionKey": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      }
+    },
+    "sealed": {
+      "id": "8b89bab0b9a48e3395ddc8c57f1cfcd4fd0c4b10b7da10f97309096ed96ec206",
+      "body": {
+        "contractVersion": "research-confirmation-event-v1",
+        "operationId": "8d3e4f7050ffdb4487f02b7d3a6029cd04c09b68e8d21462ddc329e44cdd00dc",
+        "admissionId": "9999999999999999999999999999999999999999999999999999999999999999",
+        "event": {
+          "kind": "sealed",
+          "executionStartedId": "2fe7e4fd454ba77e3808395c27574debef95998a75ed3b4197bb2db603093b7c",
+          "reportSha256": "f178c8f3ba0b0a8dbf04a805e018cd454181af67839cd58a2d2b6f0a25630b02",
+          "resultArtifactSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "resultArtifactBytes": 12345,
+          "engineManifestHash": "75b57e34fd4f82ecba4dff75f68bcb19eb04b8b61674afb49d9646b6b84abe9b"
+        }
+      }
+    },
+    "interrupted": {
+      "id": "587a6377366b4ff7fd31d183e3536e7743c4af3944a31a48fac652fc4f055550",
+      "body": {
+        "contractVersion": "research-confirmation-event-v1",
+        "operationId": "8d3e4f7050ffdb4487f02b7d3a6029cd04c09b68e8d21462ddc329e44cdd00dc",
+        "admissionId": "9999999999999999999999999999999999999999999999999999999999999999",
+        "event": {
+          "kind": "interrupted_spent",
+          "executionStartedId": "2fe7e4fd454ba77e3808395c27574debef95998a75ed3b4197bb2db603093b7c",
+          "reason": "owner_lost"
+        }
+      }
+    },
+    "failed": {
+      "id": "9a1c6fb4637ee76114cef7defc7b352b36c11b7718ea62365c33fc4e83a4c3ee",
+      "body": {
+        "contractVersion": "research-confirmation-event-v1",
+        "operationId": "8d3e4f7050ffdb4487f02b7d3a6029cd04c09b68e8d21462ddc329e44cdd00dc",
+        "admissionId": "9999999999999999999999999999999999999999999999999999999999999999",
+        "event": {
+          "kind": "failed_spent",
+          "executionStartedId": null,
+          "reason": "input_missing"
+        }
+      }
+    },
+    "cancelled": {
+      "id": "da4526f2f5fac36b499bdb4a6bc9b04d9581a8bfefa54e7dce2a7eb642ab8780",
+      "body": {
+        "contractVersion": "research-confirmation-event-v1",
+        "operationId": "8d3e4f7050ffdb4487f02b7d3a6029cd04c09b68e8d21462ddc329e44cdd00dc",
+        "admissionId": "9999999999999999999999999999999999999999999999999999999999999999",
+        "event": {
+          "kind": "cancelled_spent",
+          "executionStartedId": null,
+          "reason": "cancelled"
+        }
+      }
+    },
+    "conflict_origin_key": {
+      "id": "23571c30f836397a641ee8454adef315060e0f42ff8cd98978dd479bcf70b3b2",
+      "body": {
+        "contractVersion": "research-confirmation-conflict-v1",
+        "kind": "origin_key",
+        "claimIds": [
+          "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        ],
+        "affectedFamilyIds": [
+          "trial-family-v1:077ec84bbee01072d66e9f358f8262f7cc6cd2b70b7ed82461e3904179bd4cc0"
+        ],
+        "affectedInstrumentIds": [
+          "crypto:binance:BTCUSDT"
+        ]
+      }
+    },
+    "conflict_admission": {
+      "id": "69c2f82b4b755a0755f4be0d8606d058b0e672553321919f1e4cdf2c4f0c03a6",
+      "body": {
+        "contractVersion": "research-confirmation-conflict-v1",
+        "kind": "admission",
+        "claimIds": [
+          "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        ],
+        "affectedFamilyIds": [
+          "trial-family-v1:077ec84bbee01072d66e9f358f8262f7cc6cd2b70b7ed82461e3904179bd4cc0"
+        ],
+        "affectedInstrumentIds": [
+          "crypto:binance:BTCUSDT"
+        ]
+      }
+    },
+    "conflict_exposure_overlap": {
+      "id": "5f0e88df234e6140df568b00268789afe3656e02b6ad07f6fad59d18efba1fe1",
+      "body": {
+        "contractVersion": "research-confirmation-conflict-v1",
+        "kind": "exposure_overlap",
+        "claimIds": [
+          "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        ],
+        "affectedFamilyIds": [
+          "trial-family-v1:077ec84bbee01072d66e9f358f8262f7cc6cd2b70b7ed82461e3904179bd4cc0"
+        ],
+        "affectedInstrumentIds": [
+          "crypto:binance:BTCUSDT"
+        ]
+      }
+    },
+    "conflict_manual_overlap": {
+      "id": "7012936480966dba131ca3b4f4435c963a3b8019e77c36bade8f9912afada623",
+      "body": {
+        "contractVersion": "research-confirmation-conflict-v1",
+        "kind": "manual_overlap",
+        "claimIds": [
+          "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        ],
+        "affectedFamilyIds": [
+          "trial-family-v1:077ec84bbee01072d66e9f358f8262f7cc6cd2b70b7ed82461e3904179bd4cc0"
+        ],
+        "affectedInstrumentIds": [
+          "crypto:binance:BTCUSDT"
+        ]
+      }
+    },
+    "conflict_execution_started": {
+      "id": "0955d445e3ae84f0a569bb561e3f5f3cccc3440721342db35b7be72ba2307986",
+      "body": {
+        "contractVersion": "research-confirmation-conflict-v1",
+        "kind": "execution_started",
+        "claimIds": [
+          "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        ],
+        "affectedFamilyIds": [
+          "trial-family-v1:077ec84bbee01072d66e9f358f8262f7cc6cd2b70b7ed82461e3904179bd4cc0"
+        ],
+        "affectedInstrumentIds": [
+          "crypto:binance:BTCUSDT"
+        ]
+      }
+    },
+    "conflict_seal": {
+      "id": "e89a60f7c9a7ecb59ceb32b12f289d020362d20d646123e92331bf4c80716403",
+      "body": {
+        "contractVersion": "research-confirmation-conflict-v1",
+        "kind": "seal",
+        "claimIds": [
+          "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        ],
+        "affectedFamilyIds": [
+          "trial-family-v1:077ec84bbee01072d66e9f358f8262f7cc6cd2b70b7ed82461e3904179bd4cc0"
+        ],
+        "affectedInstrumentIds": [
+          "crypto:binance:BTCUSDT"
+        ]
+      }
+    },
+    "conflict_terminal": {
+      "id": "252f87b77c660c45a8a5392696f62eca4b69db870b899c005d6267885227a487",
+      "body": {
+        "contractVersion": "research-confirmation-conflict-v1",
+        "kind": "terminal",
+        "claimIds": [
+          "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        ],
+        "affectedFamilyIds": [
+          "trial-family-v1:077ec84bbee01072d66e9f358f8262f7cc6cd2b70b7ed82461e3904179bd4cc0"
+        ],
+        "affectedInstrumentIds": [
+          "crypto:binance:BTCUSDT"
+        ]
+      }
+    }
+  }
+}

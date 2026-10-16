@@ -4,7 +4,7 @@ Date: 2026-10-16
 Repo: yoyoCadence/AlphaFactorForge
 Branch: docs/p13c3-exposure-storage-contract
 Base: merged #189 (`331a8807a3c2ef2c23a167d8dc143ad2320de604`)
-Status: Design verified locally; delivery PR records final-head CI and merge status.
+Status: Merged as PR #190; P13c-3a-1a implements the first pure record slice.
 
 ## Summary
 
@@ -61,3 +61,16 @@ passed: ten relative links, ten table definitions, capacity ordering and a
 16-node dependency example plus a deliberately circular variant. Baseline #189 already has six green jobs and
 708 Rust / 1197 Vitest / 98 E2E plus real native smoke; this design PR also
 waits for its own unchanged six-job CI.
+
+## Resolution (2026-10-16)
+
+[PR #190](https://github.com/yoyoCadence/AlphaFactorForge/pull/190) merged as
+`f1e0e63602e0694c6ef4203bc4056dbd06deb2bc` after six successful jobs on
+final head `2c51cddce9d328145ef9032e94d3117e3920ea00` in
+[CI run 38922137615](https://github.com/yoyoCadence/AlphaFactorForge/actions/runs/38922137615).
+CI: 708 Rust tests (one ignored), 1197 Vitest, 98 E2E and real native smoke
+with process/temp cleanup. The merged tree matches the checked head.
+The authorized continuous loop proceeds from this merged baseline with
+[P13c-3a-1a single-record codecs](../docs/research-confirmation-records-v1.md).
+The next pure graph slice, then storage/binding/transport, retain their order;
+single parsed records and conflict declarations grant no runtime authority.
