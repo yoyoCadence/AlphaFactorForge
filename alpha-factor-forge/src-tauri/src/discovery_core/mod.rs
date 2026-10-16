@@ -8,6 +8,7 @@ pub mod campaign;
 pub mod config;
 pub mod confirmation;
 pub mod confirmation_contracts;
+pub mod confirmation_history;
 pub mod confirmation_candidates;
 pub mod confirmation_v2;
 pub mod dsl;

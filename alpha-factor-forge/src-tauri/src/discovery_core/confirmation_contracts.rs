@@ -549,6 +549,9 @@ impl FrozenBatch {
     pub fn candidates(&self) -> &[CandidateBinding] {
         &self.body.candidates
     }
+    pub fn allocation_id(&self) -> &str {
+        &self.body.statistics.allocation_id
+    }
     pub fn is_validation(&self) -> bool {
         self.body.stage == Stage::Validation {}
     }
@@ -737,6 +740,12 @@ impl FrozenOperation {
     }
     pub fn reservation_key(&self) -> &str {
         &self.body.reservation_key
+    }
+    pub fn confirmation_batch_id(&self) -> &str {
+        &self.body.confirmation_batch_id
+    }
+    pub fn workspace_id(&self) -> &str {
+        &self.body.workspace_id
     }
     pub fn document(&self) -> Value {
         serde_json::to_value(self).expect("checked integer/string operation")
