@@ -179,3 +179,13 @@ schedule, extra bootstrap samples or relaxed threshold is authorized here.
 Validation/Test exposure identity, standardized-instrument period overlap,
 legacy manual exposure and prompt filtering also need their P13c contract.
 They cannot be inferred from reservation IDs or dataset hashes alone.
+
+## P13c follow-up (2026-10-16)
+
+After complete alpha transfer merged as PR #185, the
+[confirmation/exposure/recovery contract](research-confirmation-exposure-recovery-plan-v1.md)
+defines those remaining authorities and separates the pure-document, Train-only
+context, exposure storage/transfer, final admission and dormant execution/UI
+slices. Registry spend still commits before workspace enqueue. Production
+activation additionally requires complete manual-exposure mediation and an
+explicit statistical-policy decision; P13b evidence alone grants neither.
