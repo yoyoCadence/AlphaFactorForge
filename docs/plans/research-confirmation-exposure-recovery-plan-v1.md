@@ -368,4 +368,3 @@ Other slices remain Backlog in this order. P13c-1 owns the exact wire fields
 and testable input limits in its own small contract addition; it must not add
 storage or quietly decide statistical policy. Existing full verification,
 six exact-head CI jobs and normal time limits remain required for code slices.
-
