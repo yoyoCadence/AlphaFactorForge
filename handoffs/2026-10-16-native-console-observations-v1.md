@@ -3,7 +3,8 @@
 Date: 2026-10-16
 Branch: test/native-startup-console-observations
 Base: merged #184 (`13649f4`)
-Status: Verified locally; separate prerequisite PR for #185.
+PR: [#186](https://github.com/yoyoCadence/AlphaFactorForge/pull/186)
+Status: Merged; final-head CI and local native verification pass.
 
 ## Failure and scope
 
@@ -45,3 +46,15 @@ Evidence: OS temp `aff-native-console-20261016/`, including screenshots and
 exact-head CI checks remain required before merging the repair. Rebase #185
 onto the merged repair and recheck its final head before merging it. Then
 continue P13c design from the merged baseline.
+
+## Resolution (2026-10-16)
+
+User authorized continued PR publication and merging. All six checks passed
+on final head `5355c2f8369c4b1ffd1cbb890dc0ea6221159a96`,
+[run 38903861908](https://github.com/yoyoCadence/AlphaFactorForge/actions/runs/38903861908).
+No review threads or change requests remained. PR #186 merged as
+`28d10d795d9522524491f320eaae07970e8a52ce` using an expected-head SHA guard.
+PR #185 was rebased onto that merge, with both task records retained.
+Its 668 Rust tests, four Node regressions and real isolated native smoke
+passed again; six new exact-head checks passed before #185 merged.
+No CSP/font-policy change, timeout increase or blind retry was used.

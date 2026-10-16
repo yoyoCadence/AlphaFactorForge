@@ -4,7 +4,7 @@ Date: 2026-10-16 (started 2026-10-15)
 Repo: yoyoCadence/AlphaFactorForge
 Branch: feat/p13b2b-alpha-complete-transfer
 PR: [#185](https://github.com/yoyoCadence/AlphaFactorForge/pull/185)
-Status: Published as a draft; local verification passes; final-head CI follows on the PR.
+Status: Merged; final-head CI, full local suite and integrated native smoke pass.
 
 ## Summary
 
@@ -121,3 +121,25 @@ fallback succeeded. The PR's head is the authority for subsequent documentation
 delivery and final-head CI. P13c design starts after its merge.
 No merge, production confirmation/reveal or new calibration run is performed
 by this continuation.
+
+## Resolution (2026-10-16 — merge and next task)
+
+The user subsequently authorized continued PR publication and merging.
+Initial head `ec966db` passed five checks; its native check captured existing
+main-window CSP startup observations before the final console assertion.
+Separate [PR #186](https://github.com/yoyoCadence/AlphaFactorForge/pull/186)
+fixed that harness timing defect and merged as `28d10d7` after six green checks.
+Product/CSP/font policy was unchanged.
+
+Rebased #185 onto that merge. Only task-board insertions conflicted; both
+completion records were preserved. Rebased final head
+`7e6a3d3a4d073ee5896bebdb1594b43871261d56` passed 668 Rust (1 ignored),
+four Node observer regressions, a fresh debug desktop build and the complete
+isolated native bridge/metrics smoke with cleanup. Evidence: OS temp
+`aff-p13b2b-integrated-20261016/`. All six exact-head checks passed in
+[run 38905322861](https://github.com/yoyoCadence/AlphaFactorForge/actions/runs/38905322861).
+No review threads or change requests remained. Expected-head guarded merge:
+`6a95837f4cebc12e881ad536d4c66ba2cc696279`.
+
+P13c design proceeds from that merged baseline; production confirmation,
+exposure mediation and statistical-policy gates remain unimplemented.
