@@ -22,12 +22,17 @@ use serde_json::{json, Value};
 
 use super::{canonical_text, sha256_hex, LedgerError, TrialLedger};
 
+#[path = "trial_ledger_alpha/transfer.rs"]
+mod transfer;
+pub use transfer::AlphaTransferSummary;
+
 const CONFLICT_VERSION: &str = "alpha-registry-conflict-v1";
 const MAX_BUDGET_BYTES: usize = 262_144;
 const MAX_RECORD_BYTES: usize = 4_096;
 const MAX_CONFLICT_BYTES: usize = 1_048_576;
 pub(super) const MAX_ALPHA_ROWS: i64 = 10_000;
 const MAX_ALPHA_BYTES: i64 = 16 * 1024 * 1024;
+pub(super) const MAX_UNKNOWN_ORIGINS: usize = 10_000;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum AlphaStorageStatus {
@@ -50,6 +55,7 @@ pub struct AlphaFamilyState {
     pub persistent_conflicts: Vec<Value>,
     pub derived_conflicts: Vec<AlphaReservationConflict>,
     pub blocked: bool,
+    pub history_unknown: bool,
     /// None on any permanent/derived conflict. This is amount allocation
     /// only, never a production confirmation admission permit.
     pub allocation: Option<AlphaAllocationReport>,
@@ -72,6 +78,56 @@ struct Evidence {
     records: Vec<AlphaReservation>,
     conflicts: BTreeMap<String, Vec<Value>>,
     conflict_ids: BTreeSet<String>,
+    declarations: BTreeMap<(String, String), AlphaAllocationDeclaration>,
+    history_unknown: bool,
+}
+
+pub(super) fn unknown_origins(conn: &Connection) -> Result<BTreeSet<String>, LedgerError> {
+    let count: i64 = conn.query_row("SELECT COUNT(*) FROM alpha_unknown_origins", [], |row| {
+        row.get(0)
+    })?;
+    if count > MAX_UNKNOWN_ORIGINS as i64 {
+        return Err(invalid("unknown-origin limit exceeded"));
+    }
+    let mut stmt = conn.prepare(
+        "SELECT origin_registry_id FROM alpha_unknown_origins ORDER BY origin_registry_id",
+    )?;
+    let values: BTreeSet<String> = stmt
+        .query_map([], |row| row.get(0))?
+        .collect::<Result<_, _>>()?;
+    if values.iter().any(|value| {
+        value.len() != 32
+            || !value
+                .bytes()
+                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    }) {
+        return Err(invalid("invalid unknown-origin identity"));
+    }
+    Ok(values)
+}
+
+pub(super) fn record_unknown_origins(
+    conn: &Connection,
+    origins: &BTreeSet<String>,
+) -> Result<(), LedgerError> {
+    let existing = unknown_origins(conn)?;
+    if existing.union(origins).count() > MAX_UNKNOWN_ORIGINS
+        || origins.iter().any(|value| {
+            value.len() != 32
+                || !value
+                    .bytes()
+                    .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+        })
+    {
+        return Err(invalid("invalid or oversized unknown-origin history"));
+    }
+    for origin in origins.difference(&existing) {
+        conn.execute(
+            "INSERT INTO alpha_unknown_origins (origin_registry_id, recorded_at) VALUES (?1, ?2)",
+            params![origin, chrono::Utc::now().to_rfc3339()],
+        )?;
+    }
+    Ok(())
 }
 
 fn invalid(message: impl std::fmt::Display) -> LedgerError {
@@ -197,7 +253,10 @@ fn conflict_families(body: &ConflictBody) -> Result<BTreeSet<String>, LedgerErro
 
 fn load(conn: &Connection) -> Result<Evidence, LedgerError> {
     capacity(conn, 0, 0)?;
-    let mut evidence = Evidence::default();
+    let mut evidence = Evidence {
+        history_unknown: !unknown_origins(conn)?.is_empty(),
+        ..Evidence::default()
+    };
     let mut stmt = conn.prepare("SELECT family_id, allocation_id, document_json FROM alpha_family_budgets ORDER BY family_id")?;
     for row in stmt.query_map([], |row| {
         Ok((
@@ -214,36 +273,11 @@ fn load(conn: &Connection) -> Result<Evidence, LedgerError> {
         if budget_document(&declaration)? != (id.clone(), raw) {
             return Err(invalid("stored budget identity/content mismatch"));
         }
+        evidence
+            .declarations
+            .insert((family.clone(), id.clone()), declaration.clone());
         evidence.budget_ids.insert(family.clone(), id);
         evidence.budgets.insert(family, declaration);
-    }
-    let mut stmt = conn.prepare("SELECT reservation_id, family_id, record_json FROM alpha_reservations ORDER BY reservation_id")?;
-    for row in stmt.query_map([], |row| {
-        Ok((
-            row.get::<_, String>(0)?,
-            row.get::<_, String>(1)?,
-            row.get::<_, String>(2)?,
-        ))
-    })? {
-        let (id, family, raw) = row?;
-        bounded(&raw, MAX_RECORD_BYTES)?;
-        let record = parse_alpha_reservation(&raw).map_err(invalid)?;
-        let budget = evidence
-            .budgets
-            .get(&family)
-            .ok_or_else(|| invalid("reservation has no budget"))?;
-        if record.reservation_id() != id
-            || record.family_id() != family
-            || canonical_text(&record.document())? != raw
-            || evidence.budget_ids.get(&family).map(String::as_str) != Some(record.allocation_id())
-            || budget
-                .schedule
-                .get(record.confirmation_number() as usize - 1)
-                != Some(&record.alpha_ppm())
-        {
-            return Err(invalid("stored reservation binding/share mismatch"));
-        }
-        evidence.records.push(record);
     }
     let mut groups: BTreeMap<String, (Value, BTreeSet<String>, BTreeSet<String>)> = BTreeMap::new();
     let mut stmt = conn.prepare("SELECT conflict_id, family_id, detail_json FROM alpha_conflicts ORDER BY conflict_id, family_id")?;
@@ -277,6 +311,23 @@ fn load(conn: &Connection) -> Result<Evidence, LedgerError> {
         if expected != actual {
             return Err(invalid("conflict missing an affected family"));
         }
+        if body["kind"] == "budget" {
+            for document in body["documents"]
+                .as_array()
+                .ok_or_else(|| invalid("conflict documents missing"))?
+            {
+                let family = document["familyId"]
+                    .as_str()
+                    .ok_or_else(|| invalid("conflict family missing"))?;
+                let allocation = document["allocationId"]
+                    .as_str()
+                    .ok_or_else(|| invalid("conflict allocation missing"))?;
+                evidence.declarations.insert(
+                    (family.to_string(), allocation.to_string()),
+                    parse_alpha_allocation(&document["declaration"]).map_err(invalid)?,
+                );
+            }
+        }
         evidence.conflict_ids.insert(id);
         for family in actual {
             evidence
@@ -285,6 +336,33 @@ fn load(conn: &Connection) -> Result<Evidence, LedgerError> {
                 .or_default()
                 .push(body.clone());
         }
+    }
+    let mut stmt = conn.prepare("SELECT reservation_id, family_id, record_json FROM alpha_reservations ORDER BY reservation_id")?;
+    for row in stmt.query_map([], |row| {
+        Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, String>(1)?,
+            row.get::<_, String>(2)?,
+        ))
+    })? {
+        let (id, family, raw) = row?;
+        bounded(&raw, MAX_RECORD_BYTES)?;
+        let record = parse_alpha_reservation(&raw).map_err(invalid)?;
+        let budget = evidence
+            .declarations
+            .get(&(family.clone(), record.allocation_id().to_string()))
+            .ok_or_else(|| invalid("reservation has no matching budget declaration"))?;
+        if record.reservation_id() != id
+            || record.family_id() != family
+            || canonical_text(&record.document())? != raw
+            || budget
+                .schedule
+                .get(record.confirmation_number() as usize - 1)
+                != Some(&record.alpha_ppm())
+        {
+            return Err(invalid("stored reservation binding/share mismatch"));
+        }
+        evidence.records.push(record);
     }
     Ok(evidence)
 }
@@ -352,6 +430,28 @@ fn family_state(
         .filter(|r| r.family_id() == family)
         .cloned()
         .collect();
+    let budget_conflicted = evidence
+        .declarations
+        .keys()
+        .filter(|(id, _)| id == family)
+        .count()
+        > 1;
+    if budget_conflicted {
+        let mut reservations = records;
+        reservations.sort_by(|a, b| {
+            (a.confirmation_number(), a.reservation_id())
+                .cmp(&(b.confirmation_number(), b.reservation_id()))
+        });
+        return Ok(Some(AlphaFamilyState {
+            declaration: declaration.clone(),
+            reservations,
+            persistent_conflicts: evidence.conflicts.get(family).cloned().unwrap_or_default(),
+            derived_conflicts: Vec::new(),
+            blocked: true,
+            history_unknown: evidence.history_unknown,
+            allocation: None,
+        }));
+    }
     let history = review_alpha_reservations(family, declaration, &records).map_err(invalid)?;
     let persistent_conflicts = evidence.conflicts.get(family).cloned().unwrap_or_default();
     // A source operation cannot be reassigned to a different family either.
@@ -364,7 +464,8 @@ fn family_state(
     let cross_family_collision = records
         .iter()
         .any(|record| operations[&(record.origin_registry_id(), record.reservation_key())] > 1);
-    let blocked = !persistent_conflicts.is_empty()
+    let blocked = evidence.history_unknown
+        || !persistent_conflicts.is_empty()
         || history.status == AlphaReservationHistoryStatus::Blocked
         || cross_family_collision;
     Ok(Some(AlphaFamilyState {
@@ -373,6 +474,7 @@ fn family_state(
         persistent_conflicts,
         derived_conflicts: history.conflicts,
         blocked,
+        history_unknown: evidence.history_unknown,
         allocation: if blocked { None } else { history.allocation },
     }))
 }
@@ -399,9 +501,26 @@ fn store_conflict(
     let body = json!({"contractVersion": CONFLICT_VERSION,"kind":kind,"documents":sorted.into_iter().map(|(_,d)| d).collect::<Vec<_>>()});
     let families = conflict_families(&serde_json::from_value(body.clone())?)?;
     let (id, raw) = conflict_identity(&body)?;
-    capacity(tx, families.len(), raw.len() * families.len())?;
+    let mut missing = Vec::new();
     for family in families {
-        tx.execute("INSERT OR IGNORE INTO alpha_conflicts (conflict_id,family_id,detail_json,recorded_at) VALUES (?1,?2,?3,?4)", params![id,family,raw,chrono::Utc::now().to_rfc3339()])?;
+        let existing: Option<String> = tx
+            .query_row(
+                "SELECT detail_json FROM alpha_conflicts WHERE conflict_id = ?1 AND family_id = ?2",
+                params![id, family],
+                |row| row.get(0),
+            )
+            .optional()?;
+        match existing {
+            Some(existing) if existing != raw => {
+                return Err(invalid("conflict ID has different content"))
+            }
+            None => missing.push(family),
+            _ => (),
+        }
+    }
+    capacity(tx, missing.len(), raw.len() * missing.len())?;
+    for family in missing {
+        tx.execute("INSERT INTO alpha_conflicts (conflict_id,family_id,detail_json,recorded_at) VALUES (?1,?2,?3,?4)", params![id,family,raw,chrono::Utc::now().to_rfc3339()])?;
     }
     Ok(())
 }
@@ -456,6 +575,16 @@ impl TrialLedger {
         tx.execute("INSERT INTO alpha_family_budgets (family_id,allocation_id,document_json,recorded_at) VALUES (?1,?2,?3,?4)",params![family,id,raw,chrono::Utc::now().to_rfc3339()])?;
         tx.commit()?;
         Ok(AlphaStorageStatus::Stored)
+    }
+
+    /// Transport-history guard only. Still not a precision/exposure/reveal permit.
+    pub fn require_known_alpha_history(&self) -> Result<(), LedgerError> {
+        let conn = self.lock()?;
+        if unknown_origins(&conn)?.is_empty() {
+            Ok(())
+        } else {
+            Err(LedgerError::AlphaHistoryUnknown)
+        }
     }
 
     /// Complete current alpha evidence, not a freshness/rollback proof.

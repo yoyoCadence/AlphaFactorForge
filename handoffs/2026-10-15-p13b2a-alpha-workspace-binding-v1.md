@@ -78,3 +78,13 @@ test duplicate/two-hop transfer plus atomic failure. Then P13c must establish
 the frozen batch/exposure/atomic final-fence/precision/reservation/recovery
 contract before any production confirmation. No statistical policy extension,
 data reveal or qualification PASS is provided by this slice.
+
+## Resolution (2026-10-16 — merged binding delivery)
+
+PR [#184](https://github.com/yoyoCadence/AlphaFactorForge/pull/184) merged as
+`13649f4b68beacb55dc99afb97482ac710ee1370` after all six checks passed on
+`be259d1af555645480dae45589704ace01cacf57`, run `38760421014`:
+648 Rust (1 ignored), 1184 Vitest and 98 E2E. The authoritative
+[delivery receipt](https://github.com/yoyoCadence/AlphaFactorForge/pull/184#issuecomment-6195986765)
+records the final-head evidence. P13b-2b follows with complete transfer and
+rollback-aware legacy-alpha provenance; runtime confirmation remains P13c.

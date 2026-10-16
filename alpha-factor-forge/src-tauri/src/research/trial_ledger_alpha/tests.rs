@@ -9,13 +9,13 @@ use std::sync::{
     Arc, Barrier,
 };
 
-struct Dirs {
-    root: PathBuf,
-    registry: PathBuf,
-    workspace: PathBuf,
+pub(super) struct Dirs {
+    pub(super) root: PathBuf,
+    pub(super) registry: PathBuf,
+    pub(super) workspace: PathBuf,
 }
 impl Dirs {
-    fn new() -> Self {
+    pub(super) fn new() -> Self {
         static NEXT: AtomicU64 = AtomicU64::new(0);
         let root = std::env::temp_dir().join(format!(
             "aff-alpha-storage-{}-{}",
@@ -31,7 +31,7 @@ impl Dirs {
             workspace,
         }
     }
-    fn open(&self) -> TrialLedger {
+    pub(super) fn open(&self) -> TrialLedger {
         TrialLedger::open_with_sync_roots(&self.registry, &self.workspace, &[]).unwrap()
     }
 }
@@ -41,13 +41,13 @@ impl Drop for Dirs {
     }
 }
 
-fn budget() -> AlphaAllocationDeclaration {
+pub(super) fn budget() -> AlphaAllocationDeclaration {
     AlphaAllocationDeclaration {
         total_alpha_ppm: 50_000,
         schedule: vec![25_000, 25_000],
     }
 }
-fn register(ledger: &TrialLedger, instrument: &str, request: &str) -> String {
+pub(super) fn register(ledger: &TrialLedger, instrument: &str, request: &str) -> String {
     ledger
         .register_batch(&TrialBatchInput {
             workspace_id: "alpha-test".into(),
@@ -75,7 +75,7 @@ fn register(ledger: &TrialLedger, instrument: &str, request: &str) -> String {
         .unwrap();
     family_id_for(instrument).unwrap()
 }
-fn setup() -> (Dirs, TrialLedger, String) {
+pub(super) fn setup() -> (Dirs, TrialLedger, String) {
     let dirs = Dirs::new();
     let ledger = dirs.open();
     let family = register(&ledger, "crypto:binance:BTCUSDT", "first");
@@ -85,7 +85,12 @@ fn setup() -> (Dirs, TrialLedger, String) {
     );
     (dirs, ledger, family)
 }
-fn reserve(ledger: &TrialLedger, family: &str, key: char, batch: char) -> AlphaStorageOutcome {
+pub(super) fn reserve(
+    ledger: &TrialLedger,
+    family: &str,
+    key: char,
+    batch: char,
+) -> AlphaStorageOutcome {
     ledger
         .reserve_alpha_evidence(
             family,
@@ -418,7 +423,7 @@ fn legacy_transfer_is_unchanged_without_alpha_and_refused_once_budget_is_pinned(
         .contains("alpha-aware export"));
 }
 
-fn observed(ledger: &TrialLedger, saved: Option<&LedgerBinding>) -> LedgerBinding {
+pub(super) fn observed(ledger: &TrialLedger, saved: Option<&LedgerBinding>) -> LedgerBinding {
     match ledger.check_binding(saved).unwrap() {
         BindingCheck::Current(binding) => binding,
         other => panic!("unexpected binding refusal: {other:?}"),

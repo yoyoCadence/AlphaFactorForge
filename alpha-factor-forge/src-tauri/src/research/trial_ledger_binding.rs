@@ -22,7 +22,8 @@ use serde_json::Value;
 
 const BINDING_KEY: &str = "trial_ledger_binding";
 /// P13b-2a adds checked alpha identities; older formats have unknown alpha.
-pub const LEDGER_BINDING_VERSION: &str = "trial-ledger-binding-v3";
+pub const LEDGER_BINDING_VERSION: &str = "trial-ledger-binding-v4";
+const LEGACY_ALPHA_VERSION: &str = "trial-ledger-binding-v3";
 const LEGACY_EVIDENCE_VERSION: &str = "trial-ledger-binding-v2";
 const MAX_BINDING_BYTES: usize = 4 * 1024 * 1024;
 // A conflict may retain two budget declarations in addition to its own ID.
@@ -182,6 +183,8 @@ pub struct LedgerBinding {
     /// `None` for v1/v2: unknown, never a known-empty history or permit.
     /// Only verified adoption may replace it with a complete observation.
     pub alpha: Option<Box<AlphaEvidence>>,
+    /// None for v1-v3: provenance has not been observed by that format.
+    pub alpha_unknown_origins: Option<BTreeSet<String>>,
 }
 
 impl LedgerBinding {
@@ -195,6 +198,13 @@ impl LedgerBinding {
 
     fn validate(&self) -> Result<(), LedgerError> {
         self.prefix().validate()?;
+        if let Some(origins) = &self.alpha_unknown_origins {
+            if origins.len() > super::alpha::MAX_UNKNOWN_ORIGINS
+                || !origins.iter().all(|id| valid_registry_id(id))
+            {
+                return Err(invalid_binding("bad or oversized alpha provenance"));
+            }
+        }
         if let Some(evidence) = &self.evidence {
             evidence.validate()?;
         }
@@ -252,6 +262,18 @@ struct StoredBindingV3 {
     alpha: StoredAlphaEvidence,
 }
 
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct StoredBindingV4 {
+    version: String,
+    registry_id: String,
+    seq: u64,
+    chain_head: String,
+    evidence: StoredEvidence,
+    alpha: StoredAlphaEvidence,
+    alpha_unknown_origins: Vec<String>,
+}
+
 fn strictly_ascending<T: Ord>(values: &[T]) -> bool {
     values.windows(2).all(|pair| pair[0] < pair[1])
 }
@@ -263,12 +285,37 @@ fn parse_binding(text: &str) -> Result<LedgerBinding, LedgerError> {
     let value: Value =
         serde_json::from_str(text).map_err(|error| invalid_binding(&error.to_string()))?;
     let binding = if value.get("version").is_some() {
-        let (stored, alpha) = match value["version"].as_str() {
-            Some(LEDGER_BINDING_VERSION) => {
+        let (stored, alpha, alpha_unknown_origins) = match value["version"].as_str() {
+            Some(LEDGER_BINDING_VERSION) | Some(LEGACY_ALPHA_VERSION) => {
                 // Decode the original text: parsing through Value would hide
                 // duplicate fields before deny_unknown_fields can reject them.
-                let stored: StoredBindingV3 = serde_json::from_str(text)
-                    .map_err(|error| invalid_binding(&error.to_string()))?;
+                let (stored, unknown) = if value["version"] == LEDGER_BINDING_VERSION {
+                    let stored: StoredBindingV4 = serde_json::from_str(text)
+                        .map_err(|error| invalid_binding(&error.to_string()))?;
+                    if !strictly_ascending(&stored.alpha_unknown_origins) {
+                        return Err(invalid_binding(
+                            "alpha provenance must be sorted and unique",
+                        ));
+                    }
+                    let unknown = Some(stored.alpha_unknown_origins.into_iter().collect());
+                    (
+                        StoredBindingV3 {
+                            version: stored.version,
+                            registry_id: stored.registry_id,
+                            seq: stored.seq,
+                            chain_head: stored.chain_head,
+                            evidence: stored.evidence,
+                            alpha: stored.alpha,
+                        },
+                        unknown,
+                    )
+                } else {
+                    (
+                        serde_json::from_str::<StoredBindingV3>(text)
+                            .map_err(|error| invalid_binding(&error.to_string()))?,
+                        None,
+                    )
+                };
                 if !strictly_ascending(&stored.alpha.budgets)
                     || !strictly_ascending(&stored.alpha.reservations)
                     || !strictly_ascending(&stored.alpha.conflicts)
@@ -289,11 +336,13 @@ fn parse_binding(text: &str) -> Result<LedgerBinding, LedgerError> {
                         evidence: stored.evidence,
                     },
                     Some(Box::new(alpha)),
+                    unknown,
                 )
             }
             Some(LEGACY_EVIDENCE_VERSION) => (
                 serde_json::from_str::<StoredBindingV2>(text)
                     .map_err(|error| invalid_binding(&error.to_string()))?,
+                None,
                 None,
             ),
             _ => return Err(invalid_binding("unsupported binding version")),
@@ -314,6 +363,7 @@ fn parse_binding(text: &str) -> Result<LedgerBinding, LedgerError> {
                 family_tests: evidence.family_tests,
             }),
             alpha,
+            alpha_unknown_origins,
         }
     } else {
         let stored: StoredBindingV1 =
@@ -324,6 +374,7 @@ fn parse_binding(text: &str) -> Result<LedgerBinding, LedgerError> {
             chain_head: stored.chain_head,
             evidence: None,
             alpha: None,
+            alpha_unknown_origins: None,
         }
     };
     binding.validate()?;
@@ -393,7 +444,11 @@ pub fn write_workspace_binding(
         .alpha
         .as_ref()
         .ok_or_else(|| invalid_binding("unknown alpha evidence cannot be written"))?;
-    let value = serde_json::to_string(&StoredBindingV3 {
+    let unknown = binding
+        .alpha_unknown_origins
+        .as_ref()
+        .ok_or_else(|| invalid_binding("unknown alpha provenance cannot be written"))?;
+    let value = serde_json::to_string(&StoredBindingV4 {
         version: LEDGER_BINDING_VERSION.into(),
         registry_id: binding.registry_id.clone(),
         seq: binding.seq,
@@ -403,6 +458,7 @@ pub fn write_workspace_binding(
             conflicted_origins: evidence.conflicted_origins.iter().cloned().collect(),
             family_tests: evidence.family_tests.clone(),
         },
+        alpha_unknown_origins: unknown.iter().cloned().collect(),
         alpha: StoredAlphaEvidence {
             budgets: alpha.budgets.iter().cloned().collect(),
             reservations: alpha.reservations.iter().cloned().collect(),
@@ -494,12 +550,16 @@ impl TrialLedger {
             PrefixOutcome::Proven { seq, chain_head } => {
                 let evidence = observed_evidence(&tx)?;
                 let alpha = super::alpha::observed_identities(&tx)?;
+                let unknown = super::alpha::unknown_origins(&tx)?;
                 let lost = saved
                     .and_then(|saved| saved.evidence.as_ref())
                     .is_some_and(|saved| !evidence.covers(saved))
                     || saved
                         .and_then(|saved| saved.alpha.as_ref())
-                        .is_some_and(|saved| !alpha.covers(saved));
+                        .is_some_and(|saved| !alpha.covers(saved))
+                    || saved
+                        .and_then(|saved| saved.alpha_unknown_origins.as_ref())
+                        .is_some_and(|saved| !saved.is_subset(&unknown));
                 if lost {
                     BindingCheck::RegistryEvidenceRolledBack
                 } else {
@@ -509,6 +569,7 @@ impl TrialLedger {
                         chain_head,
                         evidence: Some(evidence),
                         alpha: Some(Box::new(alpha)),
+                        alpha_unknown_origins: Some(unknown),
                     })
                 }
             }
@@ -1005,7 +1066,7 @@ mod tests {
         for (label, change) in [
             (
                 "unknown version",
-                serde_json::json!({"version": "trial-ledger-binding-v4"}),
+                serde_json::json!({"version": "trial-ledger-binding-v5"}),
             ),
             ("missing evidence", serde_json::json!({"evidence": null})),
             (
@@ -1101,6 +1162,7 @@ mod tests {
         let mut v2: Value = serde_json::from_str(&raw).unwrap();
         v2["version"] = serde_json::json!(LEGACY_EVIDENCE_VERSION);
         v2.as_object_mut().unwrap().remove("alpha");
+        v2.as_object_mut().unwrap().remove("alphaUnknownOrigins");
         store_raw(&conn, &v2.to_string());
         let legacy = read_workspace_binding(&conn).unwrap().unwrap();
         assert!(legacy.evidence.is_some());
@@ -1140,5 +1202,74 @@ mod tests {
             .unwrap_err()
             .to_string()
             .contains("4 MiB"));
+    }
+
+    #[test]
+    fn v3_provenance_stays_unknown_until_verified_v4_adoption() {
+        let dirs = Dirs::new();
+        let ledger = dirs.open();
+        ledger
+            .import_json_lines(&ledger.export_json_lines().unwrap())
+            .unwrap();
+        let saved = current(&ledger, None);
+        let conn = settings();
+        write_workspace_binding(&conn, &saved).unwrap();
+        let raw: String = conn
+            .query_row("SELECT value_json FROM app_settings", [], |row| row.get(0))
+            .unwrap();
+        let mut legacy: Value = serde_json::from_str(&raw).unwrap();
+        legacy["version"] = serde_json::json!(LEGACY_ALPHA_VERSION);
+        legacy
+            .as_object_mut()
+            .unwrap()
+            .remove("alphaUnknownOrigins");
+        store_raw(&conn, &legacy.to_string());
+        let legacy = read_workspace_binding(&conn).unwrap().unwrap();
+        assert!(legacy.alpha.is_some());
+        assert!(legacy.alpha_unknown_origins.is_none());
+        assert!(write_workspace_binding(&conn, &legacy).is_err());
+        let verified = current(&ledger, Some(&legacy));
+        assert_eq!(
+            verified.alpha_unknown_origins,
+            Some(BTreeSet::from([ledger.registry_id().to_string()]))
+        );
+        write_workspace_binding(&conn, &verified).unwrap();
+        assert_eq!(read_workspace_binding(&conn).unwrap(), Some(verified));
+        assert!(serde_json::from_str::<StoredBindingV3>(&raw).is_err());
+    }
+
+    #[test]
+    fn v4_provenance_is_mandatory_sorted_unique_and_bounded() {
+        let dirs = Dirs::new();
+        let saved = current(&dirs.open(), None);
+        let conn = settings();
+        write_workspace_binding(&conn, &saved).unwrap();
+        let raw: String = conn
+            .query_row("SELECT value_json FROM app_settings", [], |row| row.get(0))
+            .unwrap();
+        let stored: Value = serde_json::from_str(&raw).unwrap();
+        for origins in [
+            serde_json::json!(null),
+            serde_json::json!({}),
+            serde_json::json!(["a".repeat(32), "a".repeat(32)]),
+            serde_json::json!(["b".repeat(32), "a".repeat(32)]),
+            serde_json::json!(["A".repeat(32)]),
+            serde_json::json!(["bad"]),
+        ] {
+            let mut value = stored.clone();
+            value["alphaUnknownOrigins"] = origins;
+            assert!(parse_binding(&value.to_string()).is_err());
+        }
+        let mut value = stored.clone();
+        value.as_object_mut().unwrap().remove("alphaUnknownOrigins");
+        assert!(parse_binding(&value.to_string()).is_err());
+        let mut oversized = saved.clone();
+        oversized.alpha_unknown_origins = Some(
+            (0..=super::super::alpha::MAX_UNKNOWN_ORIGINS)
+                .map(|n| format!("{n:032x}"))
+                .collect(),
+        );
+        assert!(write_workspace_binding(&conn, &oversized).is_err());
+        assert_eq!(read_workspace_binding(&conn).unwrap(), Some(saved));
     }
 }

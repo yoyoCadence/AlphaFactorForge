@@ -91,3 +91,13 @@ P13 qualification history even when this watermark was empty: complete
 alpha-aware transfer and qualification refusal of older transfer versions
 remain P13b-2b. No binding settles `legacy_exposure_unknown`, validates an
 unsupported statistical configuration or authorizes any data reveal.
+
+## P13b-2b follow-up
+
+[Complete transfer](research-alpha-transfer-v1.md) now extends this format to
+binding v4, retaining every v3 field plus the mandatory sorted unique
+`alphaUnknownOrigins` set. v3's alpha identities remain readable, but its
+provenance is unknown until verified adoption; only v4 can be written. Missing
+saved origin markers is evidence rollback. Schema 5 backfills prior trial-only
+imports as unknown and carries them through complete transfers. The existing
+4 MiB binding and identity bounds remain in force; no reveal permit is added.
