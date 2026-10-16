@@ -31,6 +31,7 @@ pub mod seed;
 pub mod signals;
 pub mod split;
 pub mod types;
+pub mod train_context;
 pub mod walk_forward;
 
 #[cfg(test)]
