@@ -54,18 +54,35 @@ struct TestRow {
     rejects_null: bool,
 }
 
-fn reproduce_selection(
+pub(crate) fn verify_report_shape(raw: &str) -> Result<(), ContractError> {
+    let report: Report = read(raw)?;
+    require(
+        report.contract_version == CONFIRMATION_STATISTICS_V2_VERSION
+            && report.correction == "holm"
+            && report.scheme == "circular-block"
+            && report.prng == "splitmix64",
+        "unsupported report blob",
+    )
+}
+
+fn checked_report(
     parent: &FrozenBatch,
-    input: &SealedValidationInput<'_>,
-) -> Result<Vec<u64>, ContractError> {
-    let report: Report = read(input.report_json)?;
+    reservation: &AlphaReservation,
+    report_json: &str,
+    expected_family_tests: Option<u64>,
+) -> Result<Report, ContractError> {
+    let report: Report = read(report_json)?;
     let s = &parent.body.statistics;
-    let reservation = input.reservation;
+    let settings = if parent.is_validation() {
+        &s.validation
+    } else {
+        &s.test
+    };
     require(
         reservation.family_id() == parent.body.source.family_id
             && reservation.allocation_id() == s.allocation_id
             && reservation.confirmation_batch_id() == parent.id,
-        "Validation reservation binding differs",
+        "confirmation reservation binding differs",
     )?;
     require(
         report.contract_version == CONFIRMATION_STATISTICS_V2_VERSION
@@ -76,9 +93,9 @@ fn reproduce_selection(
     )?;
     require(
         report.alpha_ppm == reservation.alpha_ppm()
-            && report.block_length == s.validation.block_length
+            && report.block_length == settings.block_length
             && report.bootstrap_samples == s.bootstrap_samples
-            && report.seed == s.validation.seed,
+            && report.seed == settings.seed,
         "sealed report settings differ from frozen batch/reservation",
     )?;
     count(
@@ -90,11 +107,22 @@ fn reproduce_selection(
         report.family_tests.is_multiple_of(2),
         "familyTests must be even",
     )?;
+    if let Some(expected) = expected_family_tests {
+        require(
+            report.family_tests == expected,
+            "report differs from admission whole-family m",
+        )?;
+    }
     require(
         report.tests.len() == parent.body.candidates.len() * 2,
         "sealed report does not contain every candidate/test",
     )?;
-    let (bars, _) = stage_bars(&parent.body)?;
+    let (validation_bars, test_bars) = stage_bars(&parent.body)?;
+    let bars = if parent.is_validation() {
+        validation_bars
+    } else {
+        test_bars
+    };
     let denominator = s.bootstrap_samples + 1;
     for (i, row) in report.tests.iter().enumerate() {
         let expected = &parent.body.candidates[i / 2];
@@ -147,6 +175,26 @@ fn reproduce_selection(
             "sealed report Holm decision does not reproduce",
         )?;
     }
+    Ok(report)
+}
+
+/// Check original v2 report decisions for either frozen stage, without running
+/// a bootstrap or granting execution/release rights. The admission supplies m.
+pub fn verify_confirmation_report(
+    report_json: &str,
+    batch: &FrozenBatch,
+    reservation: &AlphaReservation,
+    family_tests: u64,
+) -> Result<(), ContractError> {
+    checked_report(batch, reservation, report_json, Some(family_tests))?;
+    Ok(())
+}
+
+fn reproduce_selection(
+    parent: &FrozenBatch,
+    input: &SealedValidationInput<'_>,
+) -> Result<Vec<u64>, ContractError> {
+    let report = checked_report(parent, input.reservation, input.report_json, None)?;
     Ok(report
         .tests
         .chunks_exact(2)

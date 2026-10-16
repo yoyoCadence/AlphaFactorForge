@@ -16,7 +16,10 @@ use super::{
 };
 
 mod selection;
-pub use selection::{freeze_selection, parse_selection, SealedValidationInput};
+pub(crate) use selection::verify_report_shape;
+pub use selection::{
+    freeze_selection, parse_selection, verify_confirmation_report, SealedValidationInput,
+};
 
 pub const BATCH_VERSION: &str = "research-confirmation-batch-v1";
 pub const SELECTION_VERSION: &str = "research-confirmation-selection-v1";
@@ -172,6 +175,11 @@ pub struct CandidateBinding {
 pub struct RegisteredSource {
     pub source: SourceBinding,
     pub candidates: Vec<CandidateBinding>,
+}
+
+pub(crate) fn validate_registered_source(source: &RegisteredSource) -> Result<(), ContractError> {
+    validate_source(&source.source)?;
+    validate_candidates(&source.candidates)
 }
 
 fn validate_source(source: &SourceBinding) -> Result<(), ContractError> {
@@ -551,6 +559,14 @@ impl FrozenBatch {
     }
     pub fn allocation_id(&self) -> &str {
         &self.body.statistics.allocation_id
+    }
+    pub(crate) fn precision_settings(&self) -> (u64, u64, u64) {
+        let s = &self.body.statistics;
+        (
+            s.bootstrap_samples,
+            s.max_bootstrap_samples,
+            s.max_relative_standard_error_ppm,
+        )
     }
     pub fn is_validation(&self) -> bool {
         self.body.stage == Stage::Validation {}
