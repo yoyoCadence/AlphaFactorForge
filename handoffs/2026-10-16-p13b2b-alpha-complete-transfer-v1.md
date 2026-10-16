@@ -3,7 +3,8 @@
 Date: 2026-10-16 (started 2026-10-15)
 Repo: yoyoCadence/AlphaFactorForge
 Branch: feat/p13b2b-alpha-complete-transfer
-Status: Implementation verified locally; final-head CI and merge evidence follow on the PR.
+PR: [#185](https://github.com/yoyoCadence/AlphaFactorForge/pull/185)
+Status: Published as a draft; local verification passes; final-head CI follows on the PR.
 
 ## Summary
 
@@ -112,6 +113,11 @@ timeouts or test settings. Logs: OS temp `aff-p13b2b-closeout-20261016/`.
 The prior isolated service downgrade receipt was inspected and still records
 new exit 0, separate old binding/schema refusals with exit 1 and cleanup.
 
-Delivery remains a draft PR for review; P13c design starts after its merge.
+Published as draft [PR #185](https://github.com/yoyoCadence/AlphaFactorForge/pull/185),
+base `main`, head `feat/p13b2b-alpha-complete-transfer`; implementation commit
+`7cfb98f0d57b54e2a72d81a82c35b06a30cdcaaf`. The connector refused creation
+with `422 must be a collaborator`; the repository-prescribed GitHub CLI
+fallback succeeded. The PR's head is the authority for subsequent documentation
+delivery and final-head CI. P13c design starts after its merge.
 No merge, production confirmation/reveal or new calibration run is performed
 by this continuation.
