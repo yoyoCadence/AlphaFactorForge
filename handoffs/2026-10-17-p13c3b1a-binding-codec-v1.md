@@ -3,7 +3,7 @@
 Date: 2026-10-17
 Repo: yoyoCadence/AlphaFactorForge
 Branch: feat/p13c3b1a-binding-codec
-Status: Locally verified; delivery CI/merge pending
+Status: Merged as PR #195; historical observation follow-up in progress
 
 ## Summary
 
@@ -70,3 +70,20 @@ Logs are local TEMP `aff-binding-mutant-*.log`, `aff-p13c3b1a-{rust,check,clippy
 
 Final head must pass all six CI jobs and merge before continuing 3b-1b.
 No bootstrap, calibration, final reserved seed or protected execution was performed.
+
+## Resolution (2026-10-17 — merged codec delivery)
+
+PR [#195](https://github.com/yoyoCadence/AlphaFactorForge/pull/195) verified head
+`d863d383e81445718de9efdf3ff9ed6f4dba51e3` and merged as
+`9d05e9bc50e46bbee4d88c5deb9b76b34211b350`. Run `39032601889` passed all six
+jobs: 794 Rust (one ignored), 1236 Vitest and 98 first-pass E2E. Native rendering,
+SQLite invokes, metrics windows and event round trip passed, then exact browser
+policy restoration and owned-process/temp cleanup passed. No review submissions
+or unresolved threads remained. Local main was fast-forwarded and its tree
+matched the verified head; the PR body records the same receipt.
+
+3b-1b is split further: first independently reconstruct original observations
+from a bounded complete trial snapshot, then freeze durable context storage,
+then implement whole-registry observation/adoption. This addresses the actual
+missing dependency before any runtime writer switch, without changing policy
+or treating receipt counts as independent proof.
