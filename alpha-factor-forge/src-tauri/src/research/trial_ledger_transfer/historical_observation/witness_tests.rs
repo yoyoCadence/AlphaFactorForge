@@ -1,6 +1,6 @@
 use super::*;
 use alpha_factor_forge::discovery_core::confirmation_history::{
-    freeze_source_witness, parse_source_witness,
+    freeze_source_witness, parse_source_witness, SourceWitnessObservation,
 };
 
 #[test]
@@ -12,6 +12,14 @@ fn independent_node_source_witnesses_reconstruct_complete_original_facts() {
     for case in fixture["cases"].as_array().unwrap() {
         let witness = parse_source_witness(case["witnessText"].as_str().unwrap()).unwrap();
         let observation = reconstruct_source_witness(&witness).unwrap();
+        let checked = SourceWitnessObservation::from_host_facts(
+            witness.clone(),
+            observation.anchor().clone(),
+            observation.trial().clone(),
+        )
+        .unwrap();
+        assert_eq!(checked.witness().sha256(), witness.sha256());
+        assert_eq!(checked.trial(), observation.trial());
         let binding = parse_binding_snapshot(case["bindingJson"].as_str().unwrap()).unwrap();
         let anchored = reconstruct_historical_source(
             witness.trial_export_text().as_bytes(),

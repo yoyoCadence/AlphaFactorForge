@@ -55,3 +55,7 @@ two batches, a same-head protocol upgrade and an audit-only byte change. Rust
 checks strict format/bounds and actual reconstruction; TypeScript independently
 checks canonical bytes, hashes, genesis, events, batches and full chain.
 Verification/remaining limits: [handoff](../handoffs/2026-10-17-p13c3b1b2a1-source-witness-codec-v1.md).
+
+Follow-up 2a-2 adds [strict witnessed graph entry points](research-witnessed-confirmation-graph-v1.md)
+and explicit whole-source current accounting. The foundation boundaries above
+describe 2a-1; schema-7 storage/runtime integration remains a later slice.

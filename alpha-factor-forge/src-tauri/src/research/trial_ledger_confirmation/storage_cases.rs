@@ -3,6 +3,36 @@ use alpha_factor_forge::discovery_core::{
     confirmation_contracts::parse_validation_batch,
     confirmation_history::{freeze_conflict_declaration, freeze_manual_exposure},
 };
+
+#[test]
+fn schema_six_never_persists_a_source_witness_into_the_old_blob_table() {
+    let (_dirs, ledger, input, ctx) = fixture();
+    ledger.append_confirmation_history(&input, &ctx).unwrap();
+    let before = snapshot(&ledger);
+    let old = ledger
+        .read_confirmation_history(&ctx)
+        .unwrap()
+        .inventory()
+        .clone();
+    let f: Value = serde_json::from_str(include_str!(
+        "../../../../fixtures/rs-core/research-source-witness-v1.json"
+    ))
+    .unwrap();
+    let proposed = ConfirmationInventory {
+        blobs: vec![HistoryBlob::new(
+            BlobKind::SourceWitness,
+            f["cases"][0]["witnessText"].as_str().unwrap(),
+        )
+        .unwrap()],
+        ..ConfirmationInventory::default()
+    };
+    assert!(ledger.append_confirmation_history(&proposed, &ctx).is_err());
+    assert_eq!(snapshot(&ledger), before);
+    assert_eq!(
+        ledger.read_confirmation_history(&ctx).unwrap().inventory(),
+        &old
+    );
+}
 pub(super) fn raw_connection(dirs: &Dirs) -> Connection {
     Connection::open(dirs.registry.join(REGISTRY_FILE_NAME)).unwrap()
 }

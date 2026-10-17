@@ -12,6 +12,9 @@ use crate::discovery_core::{
 };
 use std::collections::{BTreeMap, VecDeque};
 
+mod witnesses;
+use witnesses::WitnessHost;
+
 pub const MAX_HISTORY_ROWS: usize = 10000;
 pub const MAX_HISTORY_BYTES: usize = 64 * 1024 * 1024;
 pub const MAX_HISTORY_INTERVALS: usize = 128000;
@@ -77,9 +80,17 @@ pub struct HistoricalPrefix {
     pub seq: u64,
     pub chain_head: String,
 }
+/// Current accounting of the COMPLETE original snapshot, tied to exact witness
+/// bytes. An equal local prefix alone cannot account for foreign-origin rows.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct HostWitnessCoverage {
+    pub witness_sha256: String,
+    pub unincorporated_origins: Vec<String>,
+}
 /// Complete independent observations from the future transactional host.
 #[derive(Clone, Debug, Default)]
 pub struct GraphContext {
+    pub witness_coverage: Vec<HostWitnessCoverage>,
     pub registered_sources: Vec<RegisteredSource>,
     pub allocations: Vec<HostAllocation>,
     pub reservations: Vec<AlphaReservation>,
@@ -179,9 +190,13 @@ struct Host<'a> {
     allocations: BTreeMap<BudgetIdentity, &'a AlphaAllocationDeclaration>,
     reservations: BTreeMap<String, &'a AlphaReservation>,
     conflicts: BTreeMap<String, &'a HostConflict>,
+    witnesses: Option<WitnessHost<'a>>,
 }
 impl<'a> Host<'a> {
-    fn new(c: &'a GraphContext) -> Result<Self, HistoryRecordError> {
+    fn new(
+        c: &'a GraphContext,
+        witnesses: Option<WitnessHost<'a>>,
+    ) -> Result<Self, HistoryRecordError> {
         require(
             c.allocations.len() + c.reservations.len() + c.alpha_conflicts.len() <= 30000
                 && c.registered_sources.len() <= 10000
@@ -314,6 +329,7 @@ impl<'a> Host<'a> {
             allocations,
             reservations,
             conflicts,
+            witnesses,
         })
     }
     fn binding(&self, b: &BindingObservation) -> Result<(), HistoryRecordError> {
@@ -332,10 +348,10 @@ impl<'a> Host<'a> {
                     .conflicted_origins
                     .iter()
                     .all(|v| c.conflicted_origins.binary_search(v).is_ok())
-                && b.evidence
-                    .family_tests
-                    .iter()
-                    .all(|(k, v)| c.family_tests.get(k).is_some_and(|n| n >= v))
+                && b.evidence.family_tests.iter().all(|(k, v)| {
+                    c.family_tests.get(k).is_some_and(|n| n >= v)
+                        || c.quarantined_families.binary_search(k).is_ok()
+                })
                 && b.alpha
                     .budgets
                     .iter()
@@ -391,10 +407,14 @@ impl Checked {
                 let stage = v.get("stage").ok_or(HistoryRecordError::Dependency)?;
                 let b = if field(stage, "kind")? == "validation" {
                     let source = v.get("source").ok_or(HistoryRecordError::Dependency)?;
-                    let source = h
-                        .sources
-                        .get(&source.to_string())
-                        .ok_or(HistoryRecordError::Dependency)?;
+                    let source = if let Some(w) = &h.witnesses {
+                        w.source(source)?
+                    } else {
+                        h.sources
+                            .get(&source.to_string())
+                            .copied()
+                            .ok_or(HistoryRecordError::Dependency)?
+                    };
                     parse_validation_batch(&n.raw, source)
                 } else {
                     parse_test_batch(
@@ -466,21 +486,36 @@ impl Checked {
                     seq: binding.seq,
                     chain_head: binding.chain_head.clone(),
                 };
-                let trial = h
-                    .trials
-                    .get(&(
-                        prefix,
-                        format!("trial-batch-v1:{}", b.source().trial_batch_id),
-                        b.source().family_id.clone(),
-                    ))
-                    .ok_or(HistoryRecordError::Dependency)?;
+                let trial_key = (
+                    prefix,
+                    format!("trial-batch-v1:{}", b.source().trial_batch_id),
+                    b.source().family_id.clone(),
+                );
+                let trial = if let Some(w) = &h.witnesses {
+                    let trial = w.trial(binding, b.source())?;
+                    if let Some(saved) = h.trials.get(&trial_key) {
+                        require(*saved == trial, HistoryRecordError::Binding)?;
+                    }
+                    trial
+                } else {
+                    *h.trials
+                        .get(&trial_key)
+                        .ok_or(HistoryRecordError::Dependency)?
+                };
                 let source_key = serde_json::to_value(b.source())
                     .map_err(|_| HistoryRecordError::Binding)?
                     .to_string();
-                let source = h
-                    .sources
-                    .get(&source_key)
-                    .ok_or(HistoryRecordError::Dependency)?;
+                let source = if let Some(w) = &h.witnesses {
+                    w.source(
+                        &serde_json::to_value(b.source())
+                            .map_err(|_| HistoryRecordError::Binding)?,
+                    )?
+                } else {
+                    h.sources
+                        .get(&source_key)
+                        .copied()
+                        .ok_or(HistoryRecordError::Dependency)?
+                };
                 require(
                     source.candidates.len() as u64 == trial.complete_candidates,
                     HistoryRecordError::Binding,
@@ -611,7 +646,10 @@ impl Checked {
     }
 }
 
-fn nodes(i: &ConfirmationInventory) -> Result<BTreeMap<Key, Node>, HistoryRecordError> {
+fn nodes(
+    i: &ConfirmationInventory,
+    witnesses: Option<&WitnessHost<'_>>,
+) -> Result<BTreeMap<Key, Node>, HistoryRecordError> {
     let mut nodes = BTreeMap::new();
     for (kind, section) in [
         Kind::Batch,
@@ -660,6 +698,25 @@ fn nodes(i: &ConfirmationInventory) -> Result<BTreeMap<Key, Node>, HistoryRecord
     }
     let claims: BTreeSet<Key> = nodes.keys().cloned().collect();
     let blobs: BTreeMap<_, _> = i.blobs.iter().map(|b| (b.sha256(), b)).collect();
+    let mut admission_sources = BTreeMap::new();
+    if witnesses.is_some() {
+        for (k, n) in nodes.iter().filter(|(k, _)| k.0 == Kind::Admission) {
+            let op = nodes
+                .get(&key(Kind::Operation, field(&n.body, "operationId")?))
+                .ok_or(HistoryRecordError::Dependency)?;
+            let batch = nodes
+                .get(&key(Kind::Batch, field(&op.body, "confirmationBatchId")?))
+                .ok_or(HistoryRecordError::Dependency)?;
+            admission_sources.insert(
+                k.1.clone(),
+                batch
+                    .body
+                    .get("source")
+                    .ok_or(HistoryRecordError::Dependency)?
+                    .clone(),
+            );
+        }
+    }
     for (k, n) in &mut nodes {
         let v = &n.body;
         let d = &mut n.deps;
@@ -669,6 +726,12 @@ fn nodes(i: &ConfirmationInventory) -> Result<BTreeMap<Key, Node>, HistoryRecord
                 if field(stage, "kind")? == "test" {
                     dep(d, Kind::Batch, stage, "validationBatchId")?;
                     dep(d, Kind::Selection, stage, "selectionId")?;
+                } else if let Some(w) = witnesses {
+                    w.source_dependencies(
+                        d,
+                        v.get("source").ok_or(HistoryRecordError::Dependency)?,
+                        None,
+                    )?;
                 }
             }
             Kind::Operation => dep(d, Kind::Batch, v, "confirmationBatchId")?,
@@ -690,6 +753,21 @@ fn nodes(i: &ConfirmationInventory) -> Result<BTreeMap<Key, Node>, HistoryRecord
                         .ok_or(HistoryRecordError::Dependency)?,
                     "bindingSha256",
                 )?;
+                if let Some(w) = witnesses {
+                    let source = admission_sources
+                        .get(&k.1)
+                        .ok_or(HistoryRecordError::Dependency)?;
+                    let binding_id = field(
+                        v.get("registryObservation")
+                            .ok_or(HistoryRecordError::Dependency)?,
+                        "bindingSha256",
+                    )?;
+                    let binding = blobs
+                        .get(binding_id)
+                        .and_then(|b| b.binding.as_ref())
+                        .ok_or(HistoryRecordError::Blob)?;
+                    w.source_dependencies(d, source, Some(binding))?;
+                }
             }
             Kind::Event => {
                 dep(d, Kind::Operation, v, "operationId")?;
@@ -763,10 +841,20 @@ fn run(
     i: &ConfirmationInventory,
     c: &GraphContext,
     materialized: bool,
+    witnesses: Option<&[SourceWitnessObservation]>,
 ) -> Result<ValidatedGraph, HistoryRecordError> {
     i.capacity()?;
-    let h = Host::new(c)?;
-    let nodes = nodes(i)?;
+    let witness_host = if let Some(observations) = witnesses {
+        Some(WitnessHost::new(i, c, observations)?)
+    } else {
+        require(
+            !i.blobs.iter().any(|b| b.kind() == BlobKind::SourceWitness),
+            HistoryRecordError::Blob,
+        )?;
+        None
+    };
+    let h = Host::new(c, witness_host)?;
+    let nodes = nodes(i, h.witnesses.as_ref())?;
     let order = topological(&nodes)?;
     let mut checked = Checked::default();
     for blob in &i.blobs {
@@ -806,7 +894,13 @@ fn run(
         .filter(|k| k.0 == Kind::Blob)
         .map(|k| k.1.clone())
         .collect();
-    require(used.len() == i.blobs.len(), HistoryRecordError::Dependency)?;
+    require(
+        i.blobs
+            .iter()
+            .filter(|b| b.kind() != BlobKind::SourceWitness)
+            .all(|b| used.contains(b.sha256())),
+        HistoryRecordError::Dependency,
+    )?;
     let required = checked.required_conflicts()?;
     let mut inventory = i.clone();
     for conflict in required.into_values() {
@@ -850,13 +944,30 @@ pub fn complete_confirmation_graph(
     i: &ConfirmationInventory,
     c: &GraphContext,
 ) -> Result<ValidatedGraph, HistoryRecordError> {
-    run(i, c, false)
+    run(i, c, false, None)
 }
 pub fn validate_confirmation_graph(
     i: &ConfirmationInventory,
     c: &GraphContext,
 ) -> Result<ValidatedGraph, HistoryRecordError> {
-    run(i, c, true)
+    run(i, c, true, None)
+}
+
+/// Strict source-proof graph entry for schema-7 integration. Host observations
+/// require complete original-source reconstruction; this grants no live permit.
+pub fn complete_witnessed_confirmation_graph(
+    i: &ConfirmationInventory,
+    c: &GraphContext,
+    witnesses: &[SourceWitnessObservation],
+) -> Result<ValidatedGraph, HistoryRecordError> {
+    run(i, c, false, Some(witnesses))
+}
+pub fn validate_witnessed_confirmation_graph(
+    i: &ConfirmationInventory,
+    c: &GraphContext,
+    witnesses: &[SourceWitnessObservation],
+) -> Result<ValidatedGraph, HistoryRecordError> {
+    run(i, c, true, Some(witnesses))
 }
 
 impl Checked {

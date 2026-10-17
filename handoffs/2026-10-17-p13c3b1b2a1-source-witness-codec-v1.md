@@ -3,7 +3,7 @@
 Date: 2026-10-17
 Repo: yoyoCadence/AlphaFactorForge
 Branch: feat/p13c3b1b2a1-source-witness-codec
-Status: Implemented and locally verified; final-head CI/merge pending.
+Status: Merged and verified; graph integration follows separately.
 
 ## Summary
 
@@ -60,3 +60,15 @@ backend context/restoration and binding/transport activation remain later PRs.
 
 [Contract](../docs/research-source-witness-v1.md),
 [plan](../docs/plans/research-source-witness-storage-plan-v1.md).
+
+## Resolution (2026-10-17 — merged codec/anchor foundation)
+
+PR [#198](https://github.com/yoyoCadence/AlphaFactorForge/pull/198) verified head
+`1a77be36c6086fd471abedbb52bf03d7ee8684bc` and merged as
+`f15853df06f3c2c3cb7c1f4bb927fd60531ab416`. CI run `39039139282` passed all six
+jobs: 818 Rust (one ignored), 1239 Vitest / 79 files and 98 first-pass E2E.
+Native rendering, SQLite invokes, metrics windows and Rust event round trip
+passed; exact hosted-browser-policy restoration and owned process/temp cleanup
+passed. No review submissions or review threads remained. Clean local main
+was fast-forwarded and its tree equaled the verified head; the PR body matched
+the final receipt. 2a-2 may now start, keeping schema/runtime integration later.

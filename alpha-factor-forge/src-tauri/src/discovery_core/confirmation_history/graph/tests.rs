@@ -3,6 +3,7 @@ use crate::discovery_core::alpha_reservations::parse_alpha_reservation;
 use serde_json::json;
 mod capacity;
 mod overlap;
+mod source_proofs;
 
 fn fixture() -> Value {
     serde_json::from_str(include_str!(

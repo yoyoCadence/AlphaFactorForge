@@ -19,6 +19,7 @@ pub const MAX_BINDING_BYTES: usize = 8 * 1024 * 1024;
 pub enum BlobKind {
     Statistics,
     Binding,
+    SourceWitness,
 }
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct HistoryBlob {
@@ -29,7 +30,7 @@ pub struct HistoryBlob {
 }
 impl HistoryBlob {
     pub fn new(kind: BlobKind, text: &str) -> Result<Self, HistoryRecordError> {
-        let cap = if kind == BlobKind::Binding {
+        let cap = if matches!(kind, BlobKind::Binding | BlobKind::SourceWitness) {
             MAX_BINDING_BYTES
         } else {
             MAX_DOCUMENT_BYTES
@@ -37,6 +38,9 @@ impl HistoryBlob {
         require(text.len() <= cap, HistoryRecordError::TooLarge)?;
         let binding = if kind == BlobKind::Binding {
             Some(parse_binding(text)?)
+        } else if kind == BlobKind::SourceWitness {
+            parse_source_witness(text)?;
+            None
         } else {
             verify_report_shape(text).map_err(|_| HistoryRecordError::Blob)?;
             None
