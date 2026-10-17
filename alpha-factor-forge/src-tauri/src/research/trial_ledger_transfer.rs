@@ -20,7 +20,8 @@ use serde_json::{json, Value};
 mod historical_observation;
 #[allow(unused_imports)]
 pub(super) use historical_observation::{
-    reconstruct_historical_source, HistoricalSourceObservation, MAX_HISTORICAL_ARCHIVE_BYTES,
+    reconstruct_historical_source, reconstruct_original_source, reconstruct_source_witness,
+    HistoricalSourceObservation, MAX_HISTORICAL_ARCHIVE_BYTES,
 };
 
 use super::{
