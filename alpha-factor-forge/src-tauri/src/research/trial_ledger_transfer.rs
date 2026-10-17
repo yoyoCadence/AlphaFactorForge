@@ -234,6 +234,18 @@ impl TrialLedger {
                 "alpha evidence requires complete alpha-aware export; trial-only v3 is refused".into(),
             ));
         }
+        super::confirmation::require_legacy_exportable(&tx)?;
+        let output = self.export_trial_in(&tx, None)?;
+        tx.commit()?;
+        Ok(output)
+    }
+
+    #[cfg(test)]
+    pub(in crate::research::trial_ledger) fn export_trial_projection_for_test(
+        &self,
+    ) -> Result<Vec<u8>, LedgerError> {
+        let mut conn = self.lock()?;
+        let tx = conn.transaction()?;
         let output = self.export_trial_in(&tx, None)?;
         tx.commit()?;
         Ok(output)
@@ -477,7 +489,7 @@ impl ValidatedExport {
         self.families.iter().map(|(id, (key, _))| (id, key))
     }
 
-    fn legacy_origins(&self) -> BTreeSet<String> {
+    pub(super) fn legacy_origins(&self) -> BTreeSet<String> {
         let mut origins = self.genesis.clone();
         origins.insert(self.header.registry_id.clone());
         origins.extend(self.checkpoints.keys().map(|(origin, _)| origin.clone()));
@@ -1061,8 +1073,10 @@ impl TrialLedger {
         let mut conn = self.lock()?;
         let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
         let origins = source.legacy_origins();
+        super::confirmation::preflight_unknown_origins(&tx, &origins)?;
         let summary = self.import_trial_in(&tx, source)?;
         super::alpha::record_unknown_origins(&tx, &origins)?;
+        super::confirmation::record_unknown_origins(&tx, &origins)?;
         tx.commit()?;
         Ok(summary)
     }
@@ -1477,6 +1491,8 @@ impl TrialLedger {
     }
 }
 
+// Internal v3 mechanics use a test-only projection; public omission guards
+// are separately asserted by the schema-6 provenance tests.
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;
@@ -1641,7 +1657,7 @@ mod tests {
         let source = a.open();
         let target = b.open();
         let original = source.register_batch(&batch("r1")).unwrap();
-        let bytes = source.export_json_lines().unwrap();
+        let bytes = source.export_trial_projection_for_test().unwrap();
         let imported = target.import_json_lines(&bytes).unwrap();
         assert_eq!(imported.added_events, 1);
         assert_eq!(imported.conflicts, 0);
@@ -1671,7 +1687,7 @@ mod tests {
         assert_eq!(event_rows(&target), 1);
         assert!(
             target
-                .export_json_lines()
+                .export_trial_projection_for_test()
                 .unwrap()
                 .split(|b| *b == b'\n')
                 .count()
@@ -1687,8 +1703,8 @@ mod tests {
         let right = b.open();
         left.register_batch(&batch("left")).unwrap();
         right.register_batch(&batch("right")).unwrap();
-        let left_file = left.export_json_lines().unwrap();
-        let right_file = right.export_json_lines().unwrap();
+        let left_file = left.export_trial_projection_for_test().unwrap();
+        let right_file = right.export_trial_projection_for_test().unwrap();
         assert_eq!(left.import_json_lines(&right_file).unwrap().added_events, 1);
         assert_eq!(right.import_json_lines(&left_file).unwrap().added_events, 1);
         assert_eq!(event_rows(&left), 2);
@@ -1715,7 +1731,7 @@ mod tests {
         let source = a.open();
         let target = b.open();
         source.register_batch(&batch("r1")).unwrap();
-        let mut bytes = source.export_json_lines().unwrap();
+        let mut bytes = source.export_trial_projection_for_test().unwrap();
         let last = bytes.len() - 2;
         bytes[last] ^= 1;
         assert_eq!(
@@ -1737,7 +1753,7 @@ mod tests {
         copy.events[0].strategy_hash = Some("strategy-original".into());
         copy.events[0].reproduction_of = Some(first.event_ids[0].clone());
         source.register_batch(&copy).unwrap();
-        let bytes = rewrite_export(&source.export_json_lines().unwrap(), |payload| {
+        let bytes = rewrite_export(&source.export_trial_projection_for_test().unwrap(), |payload| {
             if payload["kind"] == "reproduction" {
                 payload["seedsHash"] = json!("different-seed");
             }
@@ -1764,7 +1780,7 @@ mod tests {
         assert_eq!(original_receipt.batch_effective_trials, 0);
         assert_eq!(
             target
-                .import_json_lines(&source.export_json_lines().unwrap())
+                .import_json_lines(&source.export_trial_projection_for_test().unwrap())
                 .unwrap()
                 .added_events,
             2
@@ -1790,7 +1806,7 @@ mod tests {
         claim.events[0].benchmark_id = Some("smaCross".into());
         claim.events[0].benchmark_params_hash = benchmark_params_hash("smaCross");
         source.register_batch(&claim).unwrap(); // unverified, so effective
-        let bytes = rewrite_export(&source.export_json_lines().unwrap(), |payload| {
+        let bytes = rewrite_export(&source.export_trial_projection_for_test().unwrap(), |payload| {
             payload["benchmarkId"] = json!("momentum");
         });
         assert_eq!(
@@ -1807,7 +1823,7 @@ mod tests {
         let source = a.open();
         let target = b.open();
         source.register_batch(&batch("r1")).unwrap();
-        let bytes = rewrite_export(&source.export_json_lines().unwrap(), |payload| {
+        let bytes = rewrite_export(&source.export_trial_projection_for_test().unwrap(), |payload| {
             payload["seedsHash"] = Value::Null;
         });
         assert_eq!(
@@ -1831,7 +1847,7 @@ mod tests {
         changed.events[0].strategy_hash = Some("different".into());
         let registered = target.register_batch(&changed).unwrap();
         let result = target
-            .import_json_lines(&source.export_json_lines().unwrap())
+            .import_json_lines(&source.export_trial_projection_for_test().unwrap())
             .unwrap();
         assert_eq!(result.added_events, 1, "unrelated family still imports");
         assert!(result.conflicts >= 1);
@@ -1842,7 +1858,7 @@ mod tests {
         );
         source.register_batch(&batch("later")).unwrap();
         let later = target
-            .import_json_lines(&source.export_json_lines().unwrap())
+            .import_json_lines(&source.export_trial_projection_for_test().unwrap())
             .unwrap();
         assert_eq!(later.added_events, 0, "quarantine is permanent in v1");
         assert_eq!(event_rows(&target), 2);
@@ -1860,10 +1876,10 @@ mod tests {
         let mut changed = batch("same");
         changed.events[0].strategy_hash = Some("different-strategy".into());
         conflicting.register_batch(&changed).unwrap();
-        source.import_json_lines(&conflicting.export_json_lines().unwrap()).unwrap();
+        source.import_json_lines(&conflicting.export_trial_projection_for_test().unwrap()).unwrap();
         assert_eq!(source.read_admission_count(&registered.batch_id).unwrap(),
             Admission::Blocked(AdmissionBlocked::FamilyQuarantined));
-        replacement.import_json_lines(&source.export_json_lines().unwrap()).unwrap();
+        replacement.import_json_lines(&source.export_trial_projection_for_test().unwrap()).unwrap();
         assert_eq!(replacement.read_admission_count(&registered.batch_id).unwrap(),
             Admission::Blocked(AdmissionBlocked::FamilyQuarantined),
             "a supported export/import must not release permanent quarantine");
@@ -1879,7 +1895,7 @@ mod tests {
         let two = right.register_batch(&batch("same")).unwrap();
         assert_eq!(one.event_ids, two.event_ids);
         assert_eq!(
-            left.import_json_lines(&right.export_json_lines().unwrap())
+            left.import_json_lines(&right.export_trial_projection_for_test().unwrap())
                 .unwrap()
                 .added_events,
             0
@@ -1903,7 +1919,7 @@ mod tests {
         let source = c.open();
         let target = d.open();
         source.register_batch(&batch("r1")).unwrap();
-        let original = source.export_json_lines().unwrap();
+        let original = source.export_trial_projection_for_test().unwrap();
         target.import_json_lines(&original).unwrap();
         let forged = rewrite_records(&original, |row| {
             if row["type"] == "receipt" {
@@ -1934,10 +1950,10 @@ mod tests {
         let other = c.open();
         first.register_batch(&batch("first")).unwrap();
         target
-            .import_json_lines(&first.export_json_lines().unwrap())
+            .import_json_lines(&first.export_trial_projection_for_test().unwrap())
             .unwrap();
         other.register_batch(&batch("other")).unwrap();
-        let original: Vec<Value> = std::str::from_utf8(&other.export_json_lines().unwrap())
+        let original: Vec<Value> = std::str::from_utf8(&other.export_trial_projection_for_test().unwrap())
             .unwrap()
             .lines()
             .map(|line| serde_json::from_str(line).unwrap())
@@ -1984,10 +2000,10 @@ mod tests {
             BindingCheck::Current(saved) => saved,
             other => panic!("{other:?}"),
         };
-        target.import_json_lines(&first.export_json_lines().unwrap()).unwrap();
+        target.import_json_lines(&first.export_trial_projection_for_test().unwrap()).unwrap();
         other.register_batch(&batch("other")).unwrap();
         // Model a valid fork of the same registry, as in the existing A30 fixture.
-        let rows: Vec<Value> = std::str::from_utf8(&other.export_json_lines().unwrap())
+        let rows: Vec<Value> = std::str::from_utf8(&other.export_trial_projection_for_test().unwrap())
             .unwrap().lines().map(|line| serde_json::from_str(line).unwrap()).collect();
         let mut header = rows[0].clone();
         header["registryId"] = json!(first.registry_id());
@@ -2022,7 +2038,7 @@ mod tests {
             other => panic!("{other:?}"),
         };
         assert_eq!(saved.seq, 0);
-        replacement.import_json_lines(&source.export_json_lines().unwrap()).unwrap();
+        replacement.import_json_lines(&source.export_trial_projection_for_test().unwrap()).unwrap();
         assert!(matches!(replacement.check_binding(Some(&saved)).unwrap(), BindingCheck::Current(_)),
             "a validated complete empty export proves the source genesis prefix");
     }
@@ -2077,7 +2093,7 @@ mod tests {
         source.register_batch(&input).unwrap();
         assert_eq!(
             target
-                .import_json_lines(&source.export_json_lines().unwrap())
+                .import_json_lines(&source.export_trial_projection_for_test().unwrap())
                 .err()
                 .unwrap()
                 .code(),
@@ -2174,14 +2190,14 @@ mod tests {
         changed.events[0].strategy_hash = Some("different-strategy".into());
         conflicting.register_batch(&changed).unwrap();
         source
-            .import_json_lines(&conflicting.export_json_lines().unwrap())
+            .import_json_lines(&conflicting.export_trial_projection_for_test().unwrap())
             .unwrap();
 
-        let export = source.export_json_lines().unwrap();
+        let export = source.export_trial_projection_for_test().unwrap();
         first_hop.import_json_lines(&export).unwrap();
         let again = first_hop.import_json_lines(&export).unwrap();
         assert_eq!((again.added_events, again.conflicts), (0, 0), "a repeat is a no-op");
-        let hop = first_hop.export_json_lines().unwrap();
+        let hop = first_hop.export_trial_projection_for_test().unwrap();
         second_hop.import_json_lines(&hop).unwrap();
         second_hop.import_json_lines(&hop).unwrap();
         for ledger in [&source, &first_hop, &second_hop] {
@@ -2211,9 +2227,9 @@ mod tests {
                 .map(str::to_string)
                 .collect()
         };
-        let original = evidence(source.export_json_lines().unwrap());
+        let original = evidence(source.export_trial_projection_for_test().unwrap());
         assert_eq!(original.len(), 1);
-        assert_eq!(evidence(second_hop.export_json_lines().unwrap()), original);
+        assert_eq!(evidence(second_hop.export_trial_projection_for_test().unwrap()), original);
 
         // An already-present event of the quarantined family is not a gap: a
         // newer export still extends the source's replacement checkpoints.
@@ -2221,7 +2237,7 @@ mod tests {
         let saved = current(&source);
         assert_eq!(saved.seq, 3);
         first_hop
-            .import_json_lines(&source.export_json_lines().unwrap())
+            .import_json_lines(&source.export_trial_projection_for_test().unwrap())
             .unwrap();
         assert!(accepts(&first_hop, &saved));
     }
@@ -2232,7 +2248,7 @@ mod tests {
         let source = a.open();
         let target = b.open();
         let registered = source.register_batch(&batch("r1")).unwrap();
-        let export = source.export_json_lines().unwrap();
+        let export = source.export_trial_projection_for_test().unwrap();
         let text = std::str::from_utf8(&export).unwrap();
         let (header, body) = text.split_once('\n').unwrap();
         let mut header: Value = serde_json::from_str(header).unwrap();
@@ -2290,13 +2306,13 @@ mod tests {
         let other = c.open();
         first.register_batch(&batch("first")).unwrap();
         let saved = current(&first);
-        let normal = first.export_json_lines().unwrap();
+        let normal = first.export_trial_projection_for_test().unwrap();
         let target = b.open();
         target.import_json_lines(&normal).unwrap();
         assert!(accepts(&target, &saved), "accepted before the divergence");
 
         other.register_batch(&batch("other")).unwrap();
-        let fork = fork_as(first.registry_id(), &other.export_json_lines().unwrap());
+        let fork = fork_as(first.registry_id(), &other.export_trial_projection_for_test().unwrap());
         assert!(target.import_json_lines(&fork).unwrap().conflicts > 0);
         assert!(!accepts(&target, &saved));
         target.import_json_lines(&normal).unwrap();
@@ -2309,7 +2325,7 @@ mod tests {
         first.register_batch(&batch("second")).unwrap();
         let later = current(&first);
         target
-            .import_json_lines(&first.export_json_lines().unwrap())
+            .import_json_lines(&first.export_trial_projection_for_test().unwrap())
             .unwrap();
         assert!(!accepts(&target, &later));
         let newest: i64 = target
@@ -2326,7 +2342,7 @@ mod tests {
 
         // A complete transfer carries the conflict to the next registry.
         let next = d.open();
-        next.import_json_lines(&target.export_json_lines().unwrap())
+        next.import_json_lines(&target.export_trial_projection_for_test().unwrap())
             .unwrap();
         assert!(!accepts(&next, &saved));
         assert!(!accepts(&next, &later));
@@ -2353,13 +2369,13 @@ mod tests {
         let first_hop = b.open();
         let second_hop = c.open();
         first_hop
-            .import_json_lines(&empty.export_json_lines().unwrap())
+            .import_json_lines(&empty.export_trial_projection_for_test().unwrap())
             .unwrap();
         second_hop
-            .import_json_lines(&first_hop.export_json_lines().unwrap())
+            .import_json_lines(&first_hop.export_trial_projection_for_test().unwrap())
             .unwrap();
         second_hop
-            .import_json_lines(&first_hop.export_json_lines().unwrap())
+            .import_json_lines(&first_hop.export_trial_projection_for_test().unwrap())
             .unwrap();
         for ledger in [&first_hop, &second_hop] {
             assert!(accepts(ledger, &saved));
@@ -2401,7 +2417,7 @@ mod tests {
         copy.events[0].reproduction_of = Some(first.event_ids[0].clone());
         source.register_batch(&copy).unwrap();
         // Both events rewritten to one pre-§20 value: still equal, still not proof.
-        let bytes = rewrite_export(&source.export_json_lines().unwrap(), |payload| {
+        let bytes = rewrite_export(&source.export_trial_projection_for_test().unwrap(), |payload| {
             payload["splitHash"] = json!("0".repeat(64));
         });
         assert_eq!(
@@ -2419,12 +2435,12 @@ mod tests {
         origin.register_batch(&batch("first")).unwrap();
         let target = b.open();
         target
-            .import_json_lines(&origin.export_json_lines().unwrap())
+            .import_json_lines(&origin.export_trial_projection_for_test().unwrap())
             .unwrap();
         assert!(accepts(&target, &empty));
         let other = c.open();
         other.register_batch(&batch("other")).unwrap();
-        let fork = fork_as(origin.registry_id(), &other.export_json_lines().unwrap());
+        let fork = fork_as(origin.registry_id(), &other.export_trial_projection_for_test().unwrap());
         assert!(target.import_json_lines(&fork).unwrap().conflicts > 0);
         assert!(!accepts(&target, &empty));
     }
@@ -2571,14 +2587,14 @@ mod tests {
         assert_eq!(tests_of(&target, &local.batch_id), 2);
 
         let result = target
-            .import_json_lines(&source.export_json_lines().unwrap())
+            .import_json_lines(&source.export_trial_projection_for_test().unwrap())
             .unwrap();
         assert_eq!((result.added_events, result.conflicts), (1, 0), "no quarantine");
         assert_eq!(event_rows(&target), 2);
         assert_eq!(tests_of(&target, &local.batch_id), 3, "the union keeps the larger count");
 
         // The raised count travels as evidence to the next registry...
-        let export = target.export_json_lines().unwrap();
+        let export = target.export_trial_projection_for_test().unwrap();
         assert!(String::from_utf8(export.clone())
             .unwrap()
             .contains("\"type\":\"protocolUpgrade\""));
@@ -2588,7 +2604,7 @@ mod tests {
         let mut one = batch("low");
         one.tests_per_trial = 1;
         low.register_batch(&one).unwrap();
-        next.import_json_lines(&low.export_json_lines().unwrap())
+        next.import_json_lines(&low.export_trial_projection_for_test().unwrap())
             .unwrap();
         assert_eq!(tests_of(&next, &local.batch_id), 3);
         assert_eq!(rows(&next, "family_protocol_upgrades"), 1);
@@ -2605,7 +2621,7 @@ mod tests {
         let mut raised = batch("raise");
         raised.tests_per_trial = 3;
         source.register_batch(&raised).unwrap();
-        let export = source.export_json_lines().unwrap();
+        let export = source.export_trial_projection_for_test().unwrap();
 
         let text = std::str::from_utf8(&export).unwrap();
         let (header, body) = text.split_once('\n').unwrap();
@@ -2690,7 +2706,7 @@ mod tests {
         let restored = b.open();
         let unrelated = c.open();
         restored
-            .import_json_lines(&origin.export_json_lines().unwrap())
+            .import_json_lines(&origin.export_trial_projection_for_test().unwrap())
             .unwrap();
         assert!(matches!(
             restored.fence_admission(&decided.batch_id, &earlier).unwrap(),
@@ -2708,7 +2724,7 @@ mod tests {
         changed.events[0].strategy_hash = Some("different".into());
         conflicting.register_batch(&changed).unwrap();
         origin
-            .import_json_lines(&conflicting.export_json_lines().unwrap())
+            .import_json_lines(&conflicting.export_trial_projection_for_test().unwrap())
             .unwrap();
         assert_eq!(
             origin.fence_admission(&decided.batch_id, &earlier).unwrap(),
@@ -2744,7 +2760,7 @@ mod tests {
         conflicting.register_batch(&changed).unwrap();
         let source = a.open();
         let summary = source
-            .import_json_lines(&conflicting.export_json_lines().unwrap())
+            .import_json_lines(&conflicting.export_trial_projection_for_test().unwrap())
             .unwrap();
         assert_eq!(summary.added_events, 0, "the conflicting event is withheld");
         assert_eq!(
@@ -2932,12 +2948,12 @@ mod tests {
             Admission::Count(count) => count.family_id().to_string(),
             other => panic!("expected a count, got {other:?}"),
         };
-        let before_quarantine = source.export_json_lines().unwrap();
+        let before_quarantine = source.export_trial_projection_for_test().unwrap();
         let mut changed = batch("same");
         changed.events[0].strategy_hash = Some("different-strategy".into());
         conflicting.register_batch(&changed).unwrap();
         source
-            .import_json_lines(&conflicting.export_json_lines().unwrap())
+            .import_json_lines(&conflicting.export_trial_projection_for_test().unwrap())
             .unwrap();
         let saved = checked(&source, None);
         assert!(evidence_of(&saved).quarantined_families.contains(&family));
@@ -2945,7 +2961,7 @@ mod tests {
         // A complete transfer carries the quarantine: accepted, over two hops.
         let first_hop = c.open();
         first_hop
-            .import_json_lines(&source.export_json_lines().unwrap())
+            .import_json_lines(&source.export_trial_projection_for_test().unwrap())
             .unwrap();
         let accepted = checked(&first_hop, Some(&saved));
         assert!(evidence_of(&accepted)
@@ -2953,7 +2969,7 @@ mod tests {
             .contains(&family));
         let second_hop = d.open();
         second_hop
-            .import_json_lines(&first_hop.export_json_lines().unwrap())
+            .import_json_lines(&first_hop.export_trial_projection_for_test().unwrap())
             .unwrap();
         assert!(matches!(
             second_hop.check_binding(Some(&accepted)).unwrap(),

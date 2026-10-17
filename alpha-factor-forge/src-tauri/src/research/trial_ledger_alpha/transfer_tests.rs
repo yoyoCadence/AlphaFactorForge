@@ -1,3 +1,5 @@
+// Old v4 archive mechanics use the explicit test-only projection; public
+// omission refusal and legacy qualification are covered by schema-6 tests.
 use super::super::tests::{budget, observed, register, reserve, setup, Dirs};
 use super::*;
 use crate::research::trial_ledger::BindingCheck;
@@ -18,6 +20,7 @@ fn state(ledger: &TrialLedger) -> (Inventory, BTreeMap<String, i64>, (u64, Strin
         "registry_conflicts",
         "family_protocol_upgrades",
         "registry_imports",
+        "confirmation_unknown_origins",
     ] {
         counts.insert(
             table.into(),
@@ -64,14 +67,21 @@ fn complete_roundtrip_replay_two_hops_and_reopen_keep_spend_and_binding() {
     reserve(&source, &family, 'a', 'c');
     reserve(&source, &family, 'b', 'd');
     let saved = observed(&source, None);
-    let archive = source.export_complete_json_lines().unwrap();
+    let archive = source.export_alpha_projection_for_test().unwrap();
     let header: Value =
         serde_json::from_slice(archive.split(|b| *b == b'\n').next().unwrap()).unwrap();
     assert_eq!(header["version"], VERSION);
     assert_eq!(header["reservationCount"], 2);
     let target_dirs = Dirs::new();
     let target = target_dirs.open();
-    let first = target.import_qualification_json_lines(&archive).unwrap();
+    assert_eq!(
+        target
+            .import_qualification_json_lines(&archive)
+            .unwrap_err()
+            .code(),
+        "confirmation_history_unknown"
+    );
+    let first = target.import_complete_json_lines(&archive).unwrap();
     let imported_hash: String = target
         .lock()
         .unwrap()
@@ -107,7 +117,7 @@ fn complete_roundtrip_replay_two_hops_and_reopen_keep_spend_and_binding() {
     );
     let last_dirs = Dirs::new();
     let last = last_dirs.open();
-    last.import_qualification_json_lines(&target.export_complete_json_lines().unwrap())
+    last.import_complete_json_lines(&target.export_alpha_projection_for_test().unwrap())
         .unwrap();
     assert_eq!(last.read_alpha_family(&family).unwrap(), original);
     observed(&last, Some(&saved));
@@ -129,14 +139,14 @@ fn complete_roundtrip_replay_two_hops_and_reopen_keep_spend_and_binding() {
 }
 
 #[test]
-fn empty_complete_archive_preserves_verified_genesis_without_unknown_provenance() {
+fn empty_legacy_alpha_archive_preserves_verified_genesis_and_alpha_provenance() {
     let source_dirs = Dirs::new();
     let source = source_dirs.open();
     let saved = observed(&source, None);
     let target_dirs = Dirs::new();
     let target = target_dirs.open();
     target
-        .import_qualification_json_lines(&source.export_complete_json_lines().unwrap())
+        .import_complete_json_lines(&source.export_alpha_projection_for_test().unwrap())
         .unwrap();
     observed(&target, Some(&saved));
     assert!(target.require_known_alpha_history().is_ok());
@@ -161,7 +171,7 @@ fn independent_numbers_and_different_budgets_preserve_both_claims_through_two_ho
         other.declare_alpha_budget(&family, &declaration).unwrap();
         let b = reserve(&other, &family, 'a', 'd').reservation.unwrap();
         let saved_other = observed(&other, None);
-        let archive = other.export_complete_json_lines().unwrap();
+        let archive = other.export_alpha_projection_for_test().unwrap();
         first.import_complete_json_lines(&archive).unwrap();
         let merged = first.read_alpha_family(&family).unwrap().unwrap();
         assert!(merged.blocked);
@@ -184,7 +194,7 @@ fn independent_numbers_and_different_budgets_preserve_both_claims_through_two_ho
         assert_eq!(state(&first).0, before);
         let last_dirs = Dirs::new();
         let last = last_dirs.open();
-        last.import_complete_json_lines(&first.export_complete_json_lines().unwrap())
+        last.import_complete_json_lines(&first.export_alpha_projection_for_test().unwrap())
             .unwrap();
         assert_eq!(last.read_alpha_family(&family).unwrap().unwrap(), merged);
         assert_eq!(observed(&last, None).alpha.unwrap(), identities);
@@ -211,14 +221,14 @@ fn cross_family_operation_union_stops_both_and_requires_both_conflict_copies() {
         tx.commit().unwrap();
     }
     first
-        .import_complete_json_lines(&other.export_complete_json_lines().unwrap())
+        .import_complete_json_lines(&other.export_alpha_projection_for_test().unwrap())
         .unwrap();
     for family in [&family, &eth] {
         let value = first.read_alpha_family(family).unwrap().unwrap();
         assert!(value.blocked);
         assert!(value.allocation.is_none());
     }
-    let archive = first.export_complete_json_lines().unwrap();
+    let archive = first.export_alpha_projection_for_test().unwrap();
     let target_dirs = Dirs::new();
     let target = target_dirs.open();
     let before = state(&target);
@@ -257,7 +267,7 @@ fn legacy_import_cannot_be_laundered_by_complete_export_or_old_reservation_api()
     );
     assert_eq!(source.read_alpha_family(&family).unwrap().unwrap(), saved);
     register(&source, "crypto:binance:BTCUSDT", "explore-unknown");
-    let complete = source.export_complete_json_lines().unwrap();
+    let complete = source.export_alpha_projection_for_test().unwrap();
     let target_dirs = Dirs::new();
     let target = target_dirs.open();
     let before = state(&target);
@@ -289,7 +299,7 @@ fn legacy_import_cannot_be_laundered_by_complete_export_or_old_reservation_api()
     );
     assert_eq!(state(&target), before);
     target.import_complete_json_lines(&complete).unwrap();
-    let hop = target.export_complete_json_lines().unwrap();
+    let hop = target.export_alpha_projection_for_test().unwrap();
     let last_dirs = Dirs::new();
     let last = last_dirs.open();
     last.import_complete_json_lines(&hop).unwrap();
@@ -305,7 +315,7 @@ fn legacy_import_cannot_be_laundered_by_complete_export_or_old_reservation_api()
     let clean = clean_dirs.open();
     let before = state(&last);
     assert_eq!(
-        last.import_qualification_json_lines(&clean.export_complete_json_lines().unwrap())
+        last.import_qualification_json_lines(&clean.export_alpha_projection_for_test().unwrap())
             .unwrap_err()
             .code(),
         "alpha_history_unknown"
@@ -317,7 +327,7 @@ fn legacy_import_cannot_be_laundered_by_complete_export_or_old_reservation_api()
 fn malformed_rehashed_inputs_are_refused_without_any_destination_writes() {
     let (_dirs, source, family) = setup();
     reserve(&source, &family, 'a', 'c');
-    let archive = source.export_complete_json_lines().unwrap();
+    let archive = source.export_alpha_projection_for_test().unwrap();
     let target_dirs = Dirs::new();
     let target = target_dirs.open();
     let before = state(&target);
@@ -404,7 +414,7 @@ fn malformed_rehashed_inputs_are_refused_without_any_destination_writes() {
 fn failed_alpha_write_rolls_back_trial_events_checkpoints_receipts_and_all_alpha() {
     let (_dirs, source, family) = setup();
     reserve(&source, &family, 'a', 'c');
-    let archive = source.export_complete_json_lines().unwrap();
+    let archive = source.export_alpha_projection_for_test().unwrap();
     let target_dirs = Dirs::new();
     let target = target_dirs.open();
     let before = state(&target);
@@ -433,7 +443,7 @@ fn failed_alpha_write_rolls_back_trial_events_checkpoints_receipts_and_all_alpha
 fn independent_connections_serialize_duplicate_complete_imports() {
     let (_dirs, source, family) = setup();
     reserve(&source, &family, 'a', 'c');
-    let archive = source.export_complete_json_lines().unwrap();
+    let archive = source.export_alpha_projection_for_test().unwrap();
     let dirs = Dirs::new();
     let first = dirs.open();
     let other = dirs.open();
@@ -507,7 +517,7 @@ fn provenance_migration_backfills_and_is_append_only_with_a_hard_capacity() {
 fn complete_limits_reject_oversize_before_writing_and_replay_at_capacity() {
     let dirs = Dirs::new();
     let source = dirs.open();
-    let empty = source.export_complete_json_lines().unwrap();
+    let empty = source.export_alpha_projection_for_test().unwrap();
     let target_dirs = Dirs::new();
     let target = target_dirs.open();
     let before = state(&target);
@@ -553,12 +563,20 @@ fn complete_limits_reject_oversize_before_writing_and_replay_at_capacity() {
         .to_string()
         .contains("record limit"));
     assert_eq!(state(&target), before);
-    let full =
-        rewrite(&empty, |_, rows| {
-            rows.extend((0..MAX_UNKNOWN_ORIGINS).map(
-                |n| json!({"type":"alphaUnknownOrigin","originRegistryId":format!("{n:032x}")}),
-            ))
-        });
+    let full = rewrite(&empty, |_, rows| {
+        let mut origins: Vec<_> = (0..MAX_UNKNOWN_ORIGINS)
+            .map(|n| format!("{n:032x}"))
+            .filter(|v| v != source.registry_id())
+            .take(MAX_UNKNOWN_ORIGINS - 1)
+            .collect();
+        origins.push(source.registry_id().to_string());
+        origins.sort();
+        rows.extend(
+            origins
+                .into_iter()
+                .map(|origin| json!({"type":"alphaUnknownOrigin","originRegistryId":origin})),
+        )
+    });
     target.import_complete_json_lines(&full).unwrap();
     assert_eq!(
         target
@@ -606,7 +624,7 @@ fn a_new_collision_representative_preserves_older_conflict_ids() {
         let record = reserve(&ledger, &family, key, batch).reservation.unwrap();
         archives.push((
             record.reservation_id().to_string(),
-            ledger.export_complete_json_lines().unwrap(),
+            ledger.export_alpha_projection_for_test().unwrap(),
         ));
         owners.push((dirs, ledger));
     }
@@ -623,7 +641,7 @@ fn a_new_collision_representative_preserves_older_conflict_ids() {
     assert_eq!(grown.alpha.as_ref().unwrap().conflicts.len(), 3);
     let last_dirs = Dirs::new();
     let last = last_dirs.open();
-    last.import_complete_json_lines(&target.export_complete_json_lines().unwrap())
+    last.import_complete_json_lines(&target.export_alpha_projection_for_test().unwrap())
         .unwrap();
     assert_eq!(observed(&last, None).alpha, grown.alpha);
 }
@@ -637,7 +655,7 @@ fn late_provenance_failure_rolls_back_already_staged_trial_and_alpha_rows() {
     source
         .import_json_lines(&legacy.export_json_lines().unwrap())
         .unwrap();
-    let archive = source.export_complete_json_lines().unwrap();
+    let archive = source.export_alpha_projection_for_test().unwrap();
     let target_dirs = Dirs::new();
     let target = target_dirs.open();
     let before = state(&target);
@@ -664,7 +682,7 @@ fn a_valid_hash_gap_is_not_a_complete_source_and_corrupt_sources_cannot_export()
     let (_dirs, source, family) = setup();
     let first = reserve(&source, &family, 'a', 'c').reservation.unwrap();
     reserve(&source, &family, 'b', 'd');
-    let archive = source.export_complete_json_lines().unwrap();
+    let archive = source.export_alpha_projection_for_test().unwrap();
     let missing = rewrite(&archive, |_, rows| {
         rows.retain(|row| {
             row["type"] != "alphaReservation"
@@ -686,7 +704,7 @@ fn a_valid_hash_gap_is_not_a_complete_source_and_corrupt_sources_cannot_export()
         )
         .unwrap();
     }
-    assert!(source.export_complete_json_lines().is_err());
+    assert!(source.export_alpha_projection_for_test().is_err());
 }
 
 #[test]
@@ -698,7 +716,7 @@ fn a_quarantined_family_without_local_rows_still_retains_imported_alpha() {
     let target = target_dirs.open();
     target.lock().unwrap().execute("INSERT INTO family_conflicts (family_id,kind,detail_json,recorded_at) VALUES (?1,'test','{}','now')",[&family]).unwrap();
     let result = target
-        .import_complete_json_lines(&source.export_complete_json_lines().unwrap())
+        .import_complete_json_lines(&source.export_alpha_projection_for_test().unwrap())
         .unwrap();
     assert_eq!(result.trial.added_events, 0);
     assert_eq!(
@@ -722,7 +740,7 @@ fn conflict_documents_cannot_substitute_for_missing_reservation_rows() {
     let (_dirs, source, family) = setup();
     let first = reserve(&source, &family, 'a', 'c').reservation.unwrap();
     reserve(&source, &family, 'a', 'd');
-    let archive = source.export_complete_json_lines().unwrap();
+    let archive = source.export_alpha_projection_for_test().unwrap();
     let missing = rewrite(&archive, |_, rows| {
         rows.retain(|row| {
             row["type"] != "alphaReservation"
@@ -744,7 +762,7 @@ fn conflict_documents_cannot_substitute_for_missing_reservation_rows() {
 fn oversized_alpha_and_conflict_expansion_are_rejected_before_trial_writes() {
     let (_dirs, source, family) = setup();
     let original = reserve(&source, &family, 'a', 'c').reservation.unwrap();
-    let archive = source.export_complete_json_lines().unwrap();
+    let archive = source.export_alpha_projection_for_test().unwrap();
     let target_dirs = Dirs::new();
     let target = target_dirs.open();
     let before = state(&target);

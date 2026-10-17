@@ -3,7 +3,7 @@
 Date: 2026-10-17
 Repo: yoyoCadence/AlphaFactorForge
 Branch: feat/p13c3a1b-confirmation-graph
-Status: Implementation complete; delivery CI/merge pending
+Status: Merged as PR #192; storage is next
 
 ## Summary
 
@@ -75,3 +75,19 @@ In Progress: append-only schema 0006, bounded graph loads/index projections,
 original-operation lookup, birth/legacy evidence and real transaction rollback.
 Binding v5, transport v5 and live admission remain their ordered later slices.
 Production activation still requires statistical policy and manual mediation.
+
+## Resolution (2026-10-17)
+
+[PR #192](https://github.com/yoyoCadence/AlphaFactorForge/pull/192) merged as
+`d873917c66f54fd547e733bd3a56e8d15c1108d4` using final head
+`5e1d59fca7b1f72bc7152119dcb0ad40d69faf18` after all six jobs succeeded in
+[CI run 38983005925](https://github.com/yoyoCadence/AlphaFactorForge/actions/runs/38983005925).
+CI confirmed 747 Rust (one ignored), 1234 Vitest, 98 first-pass E2E and real
+native render/SQLite/metrics/events with owned-process/temp cleanup and exact
+browser-policy restoration. Fresh review/thread checks had no blockers.
+Local main was fast-forwarded and its tree matches the verified head.
+
+The authorized loop continues with P13c-3a-2a, then 3a-2b: split the already
+specified storage contract into schema/provenance guards and checked graph
+read/write/lookup PRs to retain session-sized review scope. Fields, capacities,
+versions, production policy and task ordering remain the merged design.
