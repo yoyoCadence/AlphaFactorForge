@@ -6,6 +6,9 @@ use std::{
     sync::atomic::{AtomicU64, Ordering},
 };
 
+#[path = "witness_tests.rs"]
+mod witness_tests;
+
 struct Dirs {
     root: PathBuf,
     registry: PathBuf,

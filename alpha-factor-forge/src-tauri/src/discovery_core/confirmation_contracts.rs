@@ -171,7 +171,8 @@ pub struct CandidateBinding {
 
 /// Typed pure context; the future host must prove it is the entire actual
 /// registered source. Its domains are checked again, not trusted by type alone.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct RegisteredSource {
     pub source: SourceBinding,
     pub candidates: Vec<CandidateBinding>,

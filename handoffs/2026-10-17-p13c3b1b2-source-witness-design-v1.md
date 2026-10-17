@@ -3,7 +3,7 @@
 Date: 2026-10-17
 Repo: yoyoCadence/AlphaFactorForge
 Branch: docs/p13c3b1b2-source-witness-design
-Status: Design locally verified; delivery CI/merge pending
+Status: Merged as PR #197; codec/anchor implementation in progress
 
 ## Summary
 
@@ -61,3 +61,17 @@ proof data. Metadata absent from trial rows remains source claims. No IO/runtime
 observer, publisher/file authentication, current count/owner/share authority or
 execution/recovery permission is added. Witness data never enters AI context,
 generation/tuning/ranking. No bootstrap/calibration/reserved seed was run.
+
+## Resolution (2026-10-17 — merged source-witness design)
+
+PR [#197](https://github.com/yoyoCadence/AlphaFactorForge/pull/197) verified head
+`4bbf3f54799726eca07d2423e8411e0fa5ed8f27` and merged as
+`767b00cc498eae618fa11ba3d9779be2c5bf203a`. Run `39036607114` passed all six
+jobs: 805 Rust (one ignored), 1236 Vitest and 98 first-pass E2E. Native rendering,
+SQLite invokes, metrics windows and event round trip passed; exact browser policy
+restoration and owned-process/temp cleanup passed. No review submissions or
+unresolved threads remained. Local main was fast-forwarded and its tree matched
+the verified head; the PR body matched the same receipt.
+
+2a-1 starts the frozen codec/anchor foundation without accepting source witnesses
+into stored graph blobs yet. Graph integration and schema remain later PRs.

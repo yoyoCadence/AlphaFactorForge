@@ -23,6 +23,7 @@ pub const MAX_DOCUMENT_BYTES: usize = 4 * 1024 * 1024;
 mod admission;
 mod binding_snapshot;
 mod graph;
+mod source_witness;
 pub use admission::{
     freeze_admission, parse_admission, AdmissionInputs, AdmissionRecord, BlobKind,
     HistoricalTrialObservation, HistoryBlob, MAX_BINDING_BYTES,
@@ -34,6 +35,10 @@ pub use graph::{
     complete_confirmation_graph, validate_confirmation_graph, ConfirmationInventory, GraphContext,
     HistoricalPrefix, HostAllocation, HostConflict, ValidatedGraph, MAX_HISTORY_BYTES,
     MAX_HISTORY_INTERVALS, MAX_HISTORY_ROWS,
+};
+pub use source_witness::{
+    freeze_source_witness, parse_source_witness, SourceTrialAnchor, SourceWitnessSnapshot,
+    MAX_SOURCE_WITNESS_BYTES, SOURCE_WITNESS_VERSION,
 };
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, thiserror::Error)]
