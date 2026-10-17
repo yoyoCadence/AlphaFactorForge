@@ -30,6 +30,8 @@
 mod binding;
 #[path = "trial_ledger_alpha.rs"]
 mod alpha;
+#[path = "trial_ledger_confirmation.rs"]
+mod confirmation;
 #[path = "trial_ledger_transfer.rs"]
 mod transfer;
 // Public for the P12b-2 runner/workspace transaction; no runtime caller yet.
@@ -109,6 +111,10 @@ const REGISTRY_MIGRATIONS: &[(&str, &str)] = &[
         "0005_alpha_history_provenance",
         include_str!("../../registry_migrations/0005_alpha_history_provenance.sql"),
     ),
+    (
+        "0006_confirmation_history",
+        include_str!("../../registry_migrations/0006_confirmation_history.sql"),
+    ),
 ];
 
 // ------------------------------------------------------------------ errors
@@ -155,6 +161,8 @@ pub enum LedgerError {
     ImportIntegrityFailed(String),
     #[error("alpha_history_unknown: legacy trial-only provenance cannot authorize confirmation")]
     AlphaHistoryUnknown,
+    #[error("confirmation_history_unknown: legacy transport cannot establish confirmation provenance")]
+    ConfirmationHistoryUnknown,
 }
 
 impl LedgerError {
@@ -181,6 +189,7 @@ impl LedgerError {
             Self::StateInvalid(_) => "registry_state_invalid",
             Self::ImportIntegrityFailed(_) => "import_integrity_failed",
             Self::AlphaHistoryUnknown => "alpha_history_unknown",
+            Self::ConfirmationHistoryUnknown => "confirmation_history_unknown",
         }
     }
 }
@@ -1042,6 +1051,10 @@ fn migrate(conn: &mut Connection) -> Result<(), LedgerError> {
                 tx.execute(
                     "INSERT INTO registry_meta (key, value) VALUES ('registry_id', ?1)",
                     [new_registry_id()?],
+                )?;
+                tx.execute(
+                    "INSERT INTO registry_meta (key, value) VALUES ('confirmation_history_birth', '0006_confirmation_history')",
+                    [],
                 )?;
             }
             tx.execute(
@@ -2397,7 +2410,7 @@ mod tests {
         };
         assert_eq!(
             applied,
-            vec!["0001_trial_ledger", "0002_origin_genesis", "0003_family_protocol_upgrades", "0004_alpha_reservations", "0005_alpha_history_provenance"]
+            vec!["0001_trial_ledger", "0002_origin_genesis", "0003_family_protocol_upgrades", "0004_alpha_reservations", "0005_alpha_history_provenance", "0006_confirmation_history"]
         );
     }
 

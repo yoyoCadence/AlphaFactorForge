@@ -521,8 +521,19 @@ impl TrialLedger {
     pub fn export_complete_json_lines(&self) -> Result<Vec<u8>, LedgerError> {
         let mut conn = self.lock()?;
         let tx = conn.transaction()?;
-        let inventory = Inventory::read(&tx)?;
-        let trial = self.export_trial_in(&tx, Some(MAX_TRIAL_BYTES))?;
+        super::super::confirmation::require_legacy_exportable(&tx)?;
+        let output = self.export_alpha_in(&tx)?;
+        tx.commit()?;
+        Ok(output)
+    }
+
+    /// Internal v4 projection in the complete writer's caller-owned snapshot.
+    pub(in crate::research::trial_ledger) fn export_alpha_in(
+        &self,
+        tx: &rusqlite::Transaction<'_>,
+    ) -> Result<Vec<u8>, LedgerError> {
+        let inventory = Inventory::read(tx)?;
+        let trial = self.export_trial_in(tx, Some(MAX_TRIAL_BYTES))?;
         if trial.len() > MAX_TRIAL_BYTES {
             return Err(integrity("trial projection limit exceeded"));
         }
@@ -555,6 +566,14 @@ impl TrialLedger {
         if header.len() > MAX_HEADER_BYTES || output.len() > MAX_FILE_BYTES {
             return Err(integrity("complete transfer file/header limit exceeded"));
         }
+        Ok(output)
+    }
+
+    #[cfg(test)]
+    fn export_alpha_projection_for_test(&self) -> Result<Vec<u8>, LedgerError> {
+        let mut conn = self.lock()?;
+        let tx = conn.transaction()?;
+        let output = self.export_alpha_in(&tx)?;
         tx.commit()?;
         Ok(output)
     }
@@ -592,6 +611,20 @@ impl TrialLedger {
         if qualification && !old.unknown.is_empty() {
             return Err(LedgerError::AlphaHistoryUnknown);
         }
+        if qualification {
+            return Err(LedgerError::ConfirmationHistoryUnknown);
+        }
+        let mut confirmation_origins = source.trial.legacy_origins();
+        confirmation_origins.extend(source.inventory.unknown.iter().cloned());
+        for row in source.inventory.reservations.values() {
+            if let Record::AlphaReservation { record } = row {
+                let origin = record["body"]["originRegistryId"]
+                    .as_str()
+                    .ok_or_else(|| integrity("reservation origin missing"))?;
+                confirmation_origins.insert(origin.into());
+            }
+        }
+        super::super::confirmation::preflight_unknown_origins(&tx, &confirmation_origins)?;
         let mut families: BTreeMap<String, String> = {
             let mut stmt = tx.prepare("SELECT family_id,family_key FROM trial_families")?;
             let values = stmt
@@ -618,6 +651,7 @@ impl TrialLedger {
         if Inventory::read(&tx)? != union {
             return Err(integrity("written union differs from preflight"));
         }
+        super::super::confirmation::record_unknown_origins(&tx, &confirmation_origins)?;
         let result = AlphaTransferSummary {
             trial,
             added_budget_rows: union.budgets.len() - old.budgets.len(),
