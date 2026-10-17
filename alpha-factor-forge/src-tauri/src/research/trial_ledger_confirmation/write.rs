@@ -168,6 +168,7 @@ pub(in crate::research::trial_ledger) fn append_in(
         let kind = match blob.kind() {
             BlobKind::Statistics => "statistics",
             BlobKind::Binding => "binding",
+            BlobKind::SourceWitness => return Err(bad("source witnesses require schema 7")),
         };
         tx.execute("INSERT INTO confirmation_blobs (blob_sha256,kind,byte_length,content_bytes,recorded_at) VALUES (?1,?2,?3,?4,?5)",params![blob.sha256(),kind,blob.text().len() as i64,blob.text().as_bytes(),stamp])?;
         summary.added_blobs += 1;

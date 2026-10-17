@@ -32,13 +32,14 @@ pub use binding_snapshot::{
     parse_binding_snapshot, BindingSnapshot, ConfirmationBindingSet, CONFIRMATION_BINDING_VERSION,
 };
 pub use graph::{
-    complete_confirmation_graph, validate_confirmation_graph, ConfirmationInventory, GraphContext,
-    HistoricalPrefix, HostAllocation, HostConflict, ValidatedGraph, MAX_HISTORY_BYTES,
-    MAX_HISTORY_INTERVALS, MAX_HISTORY_ROWS,
+    complete_confirmation_graph, complete_witnessed_confirmation_graph,
+    validate_confirmation_graph, validate_witnessed_confirmation_graph, ConfirmationInventory,
+    GraphContext, HistoricalPrefix, HostAllocation, HostConflict, HostWitnessCoverage,
+    ValidatedGraph, MAX_HISTORY_BYTES, MAX_HISTORY_INTERVALS, MAX_HISTORY_ROWS,
 };
 pub use source_witness::{
-    freeze_source_witness, parse_source_witness, SourceTrialAnchor, SourceWitnessSnapshot,
-    MAX_SOURCE_WITNESS_BYTES, SOURCE_WITNESS_VERSION,
+    freeze_source_witness, parse_source_witness, SourceTrialAnchor, SourceWitnessObservation,
+    SourceWitnessSnapshot, MAX_SOURCE_WITNESS_BYTES, SOURCE_WITNESS_VERSION,
 };
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, thiserror::Error)]

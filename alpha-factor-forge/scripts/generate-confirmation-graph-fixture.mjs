@@ -16,16 +16,27 @@ function canonical(v) {
 const hash=x=>createHash('sha256').update(x).digest('hex');
 const record=body=>({id:hash(Buffer.concat([Buffer.from(body.contractVersion+'\0'),canonical(body)])),body});
 const base=JSON.parse(readFileSync(new URL('../fixtures/rs-core/research-confirmation-contracts-v1.json',import.meta.url),'utf8'));
+const witnessed=process.argv.includes('--source-witness');
+const sourceFixture=witnessed?JSON.parse(readFileSync(new URL('../fixtures/rs-core/research-source-witness-v1.json',import.meta.url),'utf8')):null;
+if(witnessed){
+  base.registeredSource=sourceFixture.registeredSource;
+  base.validation=record({...base.validation.body,source:base.registeredSource.source});
+  base.validationOperation=record({...base.validationOperation.body,confirmationBatchId:base.validation.id});
+  base.selection.body.validationBatchId=base.validation.id;
+  base.test.body.source=base.registeredSource.source;
+}
 const records={validation:base.validation,validationOperation:base.validationOperation};
 const reservations={},blobs=[];
 const origin=base.validationOperation.body.originRegistryId,family=base.registeredSource.source.familyId;
-const chainHead=hash('trial-ledger-v1:genesis:'+origin);
-const binding={version:'trial-ledger-binding-v5',registryId:origin,seq:0,chainHead,
+const chainHead=witnessed?sourceFixture.cases[0].anchor.chainHead:hash('trial-ledger-v1:genesis:'+origin);
+const seq=witnessed?sourceFixture.cases[0].anchor.seq:0;
+const binding={version:'trial-ledger-binding-v5',registryId:origin,seq,chainHead,
   evidence:{quarantinedFamilies:[],conflictedOrigins:[],familyTests:{[family]:2}},
   alpha:{budgets:[{familyId:family,allocationId:base.validation.body.statistics.allocationId}],reservations:[],conflicts:[]},
   alphaUnknownOrigins:[],confirmation:{batches:[],selections:[],operations:[],exposures:[],admissions:[],events:[],blobs:[],conflicts:[],unknownOrigins:[]}};
 const bindingText=JSON.stringify(binding,null,1)+'\n';const bindingSha=hash(bindingText);
 blobs.push({kind:'binding',sha256:bindingSha,text:bindingText});
+if(witnessed)blobs.push({kind:'source_witness',sha256:sourceFixture.cases[0].witnessSha256,text:sourceFixture.cases[0].witnessText});
 const ceil=(a,b)=>(a+b-1n)/b;
 const m=8n,a=25000n,r=999999n;
 const proof={contractVersion:'research-precision-v1',status:'ELIGIBLE',reasons:[],familyTrials:4,familyTests:8,
@@ -34,7 +45,7 @@ const proof={contractVersion:'research-precision-v1',status:'ELIGIBLE',reasons:[
   requiredSamplesForPrecision:Number(ceil((1000000n*m-a)*1000000000000n,a*r*r))};
 const plan={contractVersion:'research-precision-v1',correction:'holm',alphaPpm:25000,maxRelativeStandardErrorPpm:999999,
   priorTrials:2,plannedTrials:2,testsPerTrial:2,bootstrapSamples:799,maxBootstrapSamples:799};
-const trial={registryId:origin,seq:0,chainHead,trialBatchId:'trial-batch-v1:'+base.registeredSource.source.trialBatchId,
+const trial={registryId:origin,seq,chainHead,trialBatchId:'trial-batch-v1:'+base.registeredSource.source.trialBatchId,
   familyId:family,familyEffectiveTrials:4,registeredBatchEffectiveTrials:2,testsPerTrial:2,completeCandidates:2};
 for(const stage of ['validation','test']){
   if(stage==='test'){
@@ -50,7 +61,7 @@ for(const stage of ['validation','test']){
   records[stage+'Exposure']=exposure;
   const admission=record({contractVersion:'research-confirmation-admission-v1',operationId:op.id,alphaReservationId:alpha.id,exposureId:exposure.id,
     workspaceObservation:{workspaceId:op.body.workspaceId,ownershipEpoch:7,mutationSeq:12,referencesSha256:'e'.repeat(64)},
-    registryObservation:{registryId:origin,seq:0,chainHead,bindingSha256:bindingSha,familyEffectiveTrials:4,registeredBatchEffectiveTrials:2,testsPerTrial:2,
+    registryObservation:{registryId:origin,seq,chainHead,bindingSha256:bindingSha,familyEffectiveTrials:4,registeredBatchEffectiveTrials:2,testsPerTrial:2,
       protocolSha256:hash(JSON.stringify({correction:'holm',testsPerTrial:2}))},precisionPlan:plan,precisionProof:proof});
   records[stage+'Admission']=admission;
   const event=event=>record({contractVersion:'research-confirmation-event-v1',operationId:op.id,admissionId:admission.id,event});
@@ -64,5 +75,7 @@ for(const stage of ['validation','test']){
 }
 const fixture={description:'Independent full archival Validation/selection/Test chain. Synthetic m=8 structural evidence only; no calibration, authentic host snapshot or execution rights.',
   registeredSource:base.registeredSource,allocationDeclaration:base.allocationDeclaration,trial,reservations,records,blobs};
-writeFileSync(new URL('../fixtures/rs-core/research-confirmation-graph-v1.json',import.meta.url),JSON.stringify(fixture,null,2)+'\n');
+if(witnessed)fixture.description='Independent strict source-witness Validation/selection/Test graph with an actual four-event source chain. Synthetic m=8 structure only; no statistical support or execution authority.';
+const filename=witnessed?'research-confirmation-witness-graph-v1.json':'research-confirmation-graph-v1.json';
+writeFileSync(new URL('../fixtures/rs-core/'+filename,import.meta.url),JSON.stringify(fixture,null,2)+'\n');
 console.log(JSON.stringify({records:Object.keys(records).length,blobs:blobs.length,admission:records.validationAdmission.id}));

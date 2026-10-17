@@ -112,12 +112,12 @@ fn sweep_proves_real_edges_for_nontransitive_chains_and_touching_endpoints() {
     );
     let a = doc(&i.exposures[0])["id"].as_str().unwrap().to_string();
     let z = doc(&i.exposures[2])["id"].as_str().unwrap().to_string();
-    let checked_nodes = nodes(&i).unwrap();
+    let checked_nodes = nodes(&i, None).unwrap();
     let mut checked = Checked::default();
     for b in &i.blobs {
         checked.blobs.insert(b.sha256().into(), b.clone());
     }
-    let host = Host::new(&c).unwrap();
+    let host = Host::new(&c, None).unwrap();
     for k in topological(&checked_nodes).unwrap() {
         checked.check(&k, &checked_nodes[&k], &host).unwrap();
     }

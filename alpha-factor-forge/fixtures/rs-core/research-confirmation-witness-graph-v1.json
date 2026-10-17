@@ -1,0 +1,557 @@
+{
+  "description": "Independent strict source-witness Validation/selection/Test graph with an actual four-event source chain. Synthetic m=8 structure only; no statistical support or execution authority.",
+  "registeredSource": {
+    "source": {
+      "campaignId": "3dc260b2472062d9c57bd930b02f23831d917b8f3e3234b6d63964a53c31d3aa",
+      "campaignDocumentHash": "6113cb0c508e07e3b0818e80d67e627939c4bf1e98e580f58d815e840a01952a",
+      "workspaceId": "11111111111111111111111111111111",
+      "runId": 42,
+      "trialBatchId": "447c8ada05972b673750a92063712c74d0542a24c9d9bc434fb2b7f862af0b99",
+      "instrumentId": "crypto:binance:BTCUSDT",
+      "familyId": "trial-family-v1:077ec84bbee01072d66e9f358f8262f7cc6cd2b70b7ed82461e3904179bd4cc0",
+      "engineManifestHash": "75b57e34fd4f82ecba4dff75f68bcb19eb04b8b61674afb49d9646b6b84abe9b"
+    },
+    "candidates": [
+      {
+        "candidateIndex": 0,
+        "strategyHash": "strategy-v2:0d7b565369e6b2d2e12d500e81a28dc68103ea81a03819590ebe66058d21c2a4",
+        "definitionHash": "9ff850f9d16cd603d399f68b6d720c8c20c124085bda29ecd63e6697be228253",
+        "executionHash": "d72e49c24e2aaab6402ec475860b65032b4d4dd2d4094be7fab557a477db4b05",
+        "resultArtifactHash": "8a65b8fcda16178b8bde4d307a6566f65222bfe1e843b0e4118349b6a390b539",
+        "lineageHash": "5f8782772a47f82883de310f2b88a5a90bc98b6804d6d5b24df1cbdbd17ad285",
+        "minimumWarmupBars": 5,
+        "minimumEmbargoBars": 8
+      },
+      {
+        "candidateIndex": 2,
+        "strategyHash": "strategy-v2:02f6a8fb00080daf04a31cfbc4f2b0c304212445029f6a3c142ee5f4e2baab0b",
+        "definitionHash": "e38d99b0c314f2552a4e1bdc2adcd20411da97ca9bdf89cb5baffeeac96bbe86",
+        "executionHash": "9fb5118c29b9c261929b3194e679e70893b3945aa3b8b093b182326fb859ef4c",
+        "resultArtifactHash": "e090669e7857e88b90d86d9e92f446c8842cf232273333b1bd5959bca663705b",
+        "lineageHash": "25c13bccec0a556342c2d2fdaed7f88dcda73744f565ff31d6bdc190a5adc1c5",
+        "minimumWarmupBars": 5,
+        "minimumEmbargoBars": 8
+      }
+    ]
+  },
+  "allocationDeclaration": {
+    "contractVersion": "research-alpha-allocation-v1",
+    "rule": "declared-schedule",
+    "scope": "trial-family",
+    "totalAlphaPpm": 50000,
+    "schedule": [
+      25000,
+      25000
+    ]
+  },
+  "trial": {
+    "registryId": "22222222222222222222222222222222",
+    "seq": 4,
+    "chainHead": "4af41fe30856b9de21ac05814a6d533b997f07f748eb7c37c0fab09690b3f9d9",
+    "trialBatchId": "trial-batch-v1:447c8ada05972b673750a92063712c74d0542a24c9d9bc434fb2b7f862af0b99",
+    "familyId": "trial-family-v1:077ec84bbee01072d66e9f358f8262f7cc6cd2b70b7ed82461e3904179bd4cc0",
+    "familyEffectiveTrials": 4,
+    "registeredBatchEffectiveTrials": 2,
+    "testsPerTrial": 2,
+    "completeCandidates": 2
+  },
+  "reservations": {
+    "validation": {
+      "reservationId": "6f303a2a3eda17d0a35c18823f97a0b7199ddca57db041dd95d9c0e040f8b6c5",
+      "body": {
+        "contractVersion": "research-alpha-reservation-v1",
+        "familyId": "trial-family-v1:077ec84bbee01072d66e9f358f8262f7cc6cd2b70b7ed82461e3904179bd4cc0",
+        "allocationId": "0889c33c045696ebb8a77825120389f761229560b4b48ca80cac43754f78673e",
+        "originRegistryId": "22222222222222222222222222222222",
+        "reservationKey": "44444444444444444444444444444444",
+        "confirmationBatchId": "23b841416579bbd1aa483a104473e1f33e1e619787668ebf1b94c0a2482e59d9",
+        "confirmationNumber": 1,
+        "alphaPpm": 25000
+      }
+    },
+    "test": {
+      "reservationId": "8495cc7eed1dd9d5175a3e60fa76e671abf3dc6d636ab2759c9ac9cd9c7c18ea",
+      "body": {
+        "contractVersion": "research-alpha-reservation-v1",
+        "familyId": "trial-family-v1:077ec84bbee01072d66e9f358f8262f7cc6cd2b70b7ed82461e3904179bd4cc0",
+        "allocationId": "0889c33c045696ebb8a77825120389f761229560b4b48ca80cac43754f78673e",
+        "originRegistryId": "22222222222222222222222222222222",
+        "reservationKey": "55555555555555555555555555555555",
+        "confirmationBatchId": "09d40b428d86b3f188c0ebefaa70a43b0e2921209ad5c8064b36f7ab7bdaceb4",
+        "confirmationNumber": 2,
+        "alphaPpm": 25000
+      }
+    }
+  },
+  "records": {
+    "validation": {
+      "id": "23b841416579bbd1aa483a104473e1f33e1e619787668ebf1b94c0a2482e59d9",
+      "body": {
+        "contractVersion": "research-confirmation-batch-v1",
+        "stage": {
+          "kind": "validation"
+        },
+        "source": {
+          "campaignId": "3dc260b2472062d9c57bd930b02f23831d917b8f3e3234b6d63964a53c31d3aa",
+          "campaignDocumentHash": "6113cb0c508e07e3b0818e80d67e627939c4bf1e98e580f58d815e840a01952a",
+          "workspaceId": "11111111111111111111111111111111",
+          "runId": 42,
+          "trialBatchId": "447c8ada05972b673750a92063712c74d0542a24c9d9bc434fb2b7f862af0b99",
+          "instrumentId": "crypto:binance:BTCUSDT",
+          "familyId": "trial-family-v1:077ec84bbee01072d66e9f358f8262f7cc6cd2b70b7ed82461e3904179bd4cc0",
+          "engineManifestHash": "75b57e34fd4f82ecba4dff75f68bcb19eb04b8b61674afb49d9646b6b84abe9b"
+        },
+        "data": {
+          "snapshotId": "16a0eeb0791b6c92451fd284dd9f599e0a7dbe7f6ebea6e2d2d06c7f74aec112",
+          "instrumentRevisionHash": "a6e31d8d5b429e4377c046f21ad68c5704a77b5d5df33f5320de4c10227009aa",
+          "datasetHash": "dataset-content-v2:b277fd623676a525c29b9eb155afc8c9010681814ceafb2d7627f47b9a232576",
+          "interval": "1h",
+          "calendarId": "crypto-24x7-v1",
+          "calendarHash": "5152790e278eb89039f8bfaa354b944ec1b44c5d3fc144edc5720c3edc045c73",
+          "corporateActionsHash": null,
+          "costProfileId": "crypto-zero-cost-v1",
+          "costProfileHash": "57f60b9ecf036573d5b3dcee3d1e5716f8dca6fb9571e1c0a8bbbdd2888e6d5a",
+          "numericCostsHash": "402f0d4a60ccf964dab946cf9499b870f07ae7eaadb83f139a3dcf33a48109af",
+          "sourceEvidenceHash": "08a9436e866d1760d8d5bc62132ff0d47615af50dd203392f45d65cff3eecb10"
+        },
+        "split": {
+          "contractVersion": "validation-split-v1",
+          "totalBars": 1300,
+          "embargoBars": 10,
+          "trainWindow": {
+            "fromMs": 946684800000,
+            "toExclusiveMs": 949449600000
+          },
+          "validationWindow": {
+            "fromMs": 949485600000,
+            "toExclusiveMs": 950407200000
+          },
+          "testWindow": {
+            "fromMs": 950443200000,
+            "toExclusiveMs": 951364800000
+          },
+          "validationSupport": [
+            {
+              "fromMs": 949467600000,
+              "toExclusiveMs": 950407200000
+            }
+          ],
+          "testSupport": [
+            {
+              "fromMs": 950425200000,
+              "toExclusiveMs": 951364800000
+            }
+          ]
+        },
+        "statistics": {
+          "contractVersion": "research-confirmation-statistics-v2",
+          "allocationId": "0889c33c045696ebb8a77825120389f761229560b4b48ca80cac43754f78673e",
+          "bootstrapSamples": 799,
+          "maxBootstrapSamples": 799,
+          "maxRelativeStandardErrorPpm": 999999,
+          "blockLengthRationale": "Frozen R3; structural fixture only.",
+          "validation": {
+            "blockLength": 6,
+            "seed": 7
+          },
+          "test": {
+            "blockLength": 6,
+            "seed": 8
+          }
+        },
+        "selectionRule": {
+          "version": "both-holm-reject-index-v1",
+          "maxCandidates": 1
+        },
+        "candidates": [
+          {
+            "candidateIndex": 0,
+            "strategyHash": "strategy-v2:0d7b565369e6b2d2e12d500e81a28dc68103ea81a03819590ebe66058d21c2a4",
+            "definitionHash": "9ff850f9d16cd603d399f68b6d720c8c20c124085bda29ecd63e6697be228253",
+            "executionHash": "d72e49c24e2aaab6402ec475860b65032b4d4dd2d4094be7fab557a477db4b05",
+            "resultArtifactHash": "8a65b8fcda16178b8bde4d307a6566f65222bfe1e843b0e4118349b6a390b539",
+            "lineageHash": "5f8782772a47f82883de310f2b88a5a90bc98b6804d6d5b24df1cbdbd17ad285",
+            "minimumWarmupBars": 5,
+            "minimumEmbargoBars": 8
+          },
+          {
+            "candidateIndex": 2,
+            "strategyHash": "strategy-v2:02f6a8fb00080daf04a31cfbc4f2b0c304212445029f6a3c142ee5f4e2baab0b",
+            "definitionHash": "e38d99b0c314f2552a4e1bdc2adcd20411da97ca9bdf89cb5baffeeac96bbe86",
+            "executionHash": "9fb5118c29b9c261929b3194e679e70893b3945aa3b8b093b182326fb859ef4c",
+            "resultArtifactHash": "e090669e7857e88b90d86d9e92f446c8842cf232273333b1bd5959bca663705b",
+            "lineageHash": "25c13bccec0a556342c2d2fdaed7f88dcda73744f565ff31d6bdc190a5adc1c5",
+            "minimumWarmupBars": 5,
+            "minimumEmbargoBars": 8
+          }
+        ]
+      }
+    },
+    "validationOperation": {
+      "id": "c68efcdb8632b57aec062f2fd58d194c56a14c442c937c92feefa38b26dead36",
+      "body": {
+        "contractVersion": "research-confirmation-operation-v1",
+        "originRegistryId": "22222222222222222222222222222222",
+        "reservationKey": "44444444444444444444444444444444",
+        "requestId": "66666666666666666666666666666666",
+        "workspaceId": "11111111111111111111111111111111",
+        "confirmationBatchId": "23b841416579bbd1aa483a104473e1f33e1e619787668ebf1b94c0a2482e59d9",
+        "familyId": "trial-family-v1:077ec84bbee01072d66e9f358f8262f7cc6cd2b70b7ed82461e3904179bd4cc0",
+        "allocationId": "0889c33c045696ebb8a77825120389f761229560b4b48ca80cac43754f78673e",
+        "stage": "validation",
+        "selectionId": null
+      }
+    },
+    "validationExposure": {
+      "id": "6105e7f55f66d9dc5be6c0814bdc32d911d85fdc4d376b43acdf1d425d028349",
+      "body": {
+        "contractVersion": "research-confirmation-exposure-v1",
+        "originRegistryId": "22222222222222222222222222222222",
+        "reservationKey": "44444444444444444444444444444444",
+        "instrumentId": "crypto:binance:BTCUSDT",
+        "intervals": [
+          {
+            "fromMs": 949467600000,
+            "toExclusiveMs": 950407200000
+          }
+        ],
+        "claim": {
+          "kind": "confirmation",
+          "operationId": "c68efcdb8632b57aec062f2fd58d194c56a14c442c937c92feefa38b26dead36",
+          "alphaReservationId": "6f303a2a3eda17d0a35c18823f97a0b7199ddca57db041dd95d9c0e040f8b6c5"
+        }
+      }
+    },
+    "validationAdmission": {
+      "id": "9ceef8691cd7850b768098d74c5bc3fe1da811887cff807981d8b21aa46a56e5",
+      "body": {
+        "contractVersion": "research-confirmation-admission-v1",
+        "operationId": "c68efcdb8632b57aec062f2fd58d194c56a14c442c937c92feefa38b26dead36",
+        "alphaReservationId": "6f303a2a3eda17d0a35c18823f97a0b7199ddca57db041dd95d9c0e040f8b6c5",
+        "exposureId": "6105e7f55f66d9dc5be6c0814bdc32d911d85fdc4d376b43acdf1d425d028349",
+        "workspaceObservation": {
+          "workspaceId": "11111111111111111111111111111111",
+          "ownershipEpoch": 7,
+          "mutationSeq": 12,
+          "referencesSha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        },
+        "registryObservation": {
+          "registryId": "22222222222222222222222222222222",
+          "seq": 4,
+          "chainHead": "4af41fe30856b9de21ac05814a6d533b997f07f748eb7c37c0fab09690b3f9d9",
+          "bindingSha256": "d837340ec2136453e336d021067e6844cf7f806f2869c5d409d72f647336f372",
+          "familyEffectiveTrials": 4,
+          "registeredBatchEffectiveTrials": 2,
+          "testsPerTrial": 2,
+          "protocolSha256": "6c47ecbda2c59c07ab1703a355e7698b7875652e385bca55b22cc042634c83e5"
+        },
+        "precisionPlan": {
+          "contractVersion": "research-precision-v1",
+          "correction": "holm",
+          "alphaPpm": 25000,
+          "maxRelativeStandardErrorPpm": 999999,
+          "priorTrials": 2,
+          "plannedTrials": 2,
+          "testsPerTrial": 2,
+          "bootstrapSamples": 799,
+          "maxBootstrapSamples": 799
+        },
+        "precisionProof": {
+          "contractVersion": "research-precision-v1",
+          "status": "ELIGIBLE",
+          "reasons": [],
+          "familyTrials": 4,
+          "familyTests": 8,
+          "minAttainableRawP": {
+            "numerator": 1,
+            "denominator": 800
+          },
+          "bestAdjustedP": {
+            "numerator": 8,
+            "denominator": 800
+          },
+          "requiredSamplesForResolution": 319,
+          "requiredSamplesForPrecision": 320
+        }
+      }
+    },
+    "validationStart": {
+      "id": "4cce23d00dd47285e09948c5b08b5c85e0dd6065c9fa2322851aa393fad8aba7",
+      "body": {
+        "contractVersion": "research-confirmation-event-v1",
+        "operationId": "c68efcdb8632b57aec062f2fd58d194c56a14c442c937c92feefa38b26dead36",
+        "admissionId": "9ceef8691cd7850b768098d74c5bc3fe1da811887cff807981d8b21aa46a56e5",
+        "event": {
+          "kind": "execution_started",
+          "workspaceId": "11111111111111111111111111111111",
+          "ownershipEpoch": 7,
+          "executionKey": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      }
+    },
+    "validationSeal": {
+      "id": "f85b8b95505e6d393e14f1f096634cff78edf7867f67f06063f9ea7afa3e4138",
+      "body": {
+        "contractVersion": "research-confirmation-event-v1",
+        "operationId": "c68efcdb8632b57aec062f2fd58d194c56a14c442c937c92feefa38b26dead36",
+        "admissionId": "9ceef8691cd7850b768098d74c5bc3fe1da811887cff807981d8b21aa46a56e5",
+        "event": {
+          "kind": "sealed",
+          "executionStartedId": "4cce23d00dd47285e09948c5b08b5c85e0dd6065c9fa2322851aa393fad8aba7",
+          "reportSha256": "d404ed4aa9ecc20ea89a239d2803845671142c1d58fdf1090c5f3cd998a337ca",
+          "resultArtifactSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "resultArtifactBytes": 12345,
+          "engineManifestHash": "75b57e34fd4f82ecba4dff75f68bcb19eb04b8b61674afb49d9646b6b84abe9b"
+        }
+      }
+    },
+    "selection": {
+      "id": "6924c2246f5fed7156f9b6771e3b4ca561cfca7d4331c89ee1c52d6b6908884e",
+      "body": {
+        "contractVersion": "research-confirmation-selection-v1",
+        "validationBatchId": "23b841416579bbd1aa483a104473e1f33e1e619787668ebf1b94c0a2482e59d9",
+        "alphaReservationId": "6f303a2a3eda17d0a35c18823f97a0b7199ddca57db041dd95d9c0e040f8b6c5",
+        "sealedReceiptId": "f85b8b95505e6d393e14f1f096634cff78edf7867f67f06063f9ea7afa3e4138",
+        "reportSha256": "d404ed4aa9ecc20ea89a239d2803845671142c1d58fdf1090c5f3cd998a337ca",
+        "selectedCandidates": [
+          0
+        ]
+      }
+    },
+    "test": {
+      "id": "09d40b428d86b3f188c0ebefaa70a43b0e2921209ad5c8064b36f7ab7bdaceb4",
+      "body": {
+        "contractVersion": "research-confirmation-batch-v1",
+        "stage": {
+          "kind": "test",
+          "validationBatchId": "23b841416579bbd1aa483a104473e1f33e1e619787668ebf1b94c0a2482e59d9",
+          "selectionId": "6924c2246f5fed7156f9b6771e3b4ca561cfca7d4331c89ee1c52d6b6908884e"
+        },
+        "source": {
+          "campaignId": "3dc260b2472062d9c57bd930b02f23831d917b8f3e3234b6d63964a53c31d3aa",
+          "campaignDocumentHash": "6113cb0c508e07e3b0818e80d67e627939c4bf1e98e580f58d815e840a01952a",
+          "workspaceId": "11111111111111111111111111111111",
+          "runId": 42,
+          "trialBatchId": "447c8ada05972b673750a92063712c74d0542a24c9d9bc434fb2b7f862af0b99",
+          "instrumentId": "crypto:binance:BTCUSDT",
+          "familyId": "trial-family-v1:077ec84bbee01072d66e9f358f8262f7cc6cd2b70b7ed82461e3904179bd4cc0",
+          "engineManifestHash": "75b57e34fd4f82ecba4dff75f68bcb19eb04b8b61674afb49d9646b6b84abe9b"
+        },
+        "data": {
+          "snapshotId": "16a0eeb0791b6c92451fd284dd9f599e0a7dbe7f6ebea6e2d2d06c7f74aec112",
+          "instrumentRevisionHash": "a6e31d8d5b429e4377c046f21ad68c5704a77b5d5df33f5320de4c10227009aa",
+          "datasetHash": "dataset-content-v2:b277fd623676a525c29b9eb155afc8c9010681814ceafb2d7627f47b9a232576",
+          "interval": "1h",
+          "calendarId": "crypto-24x7-v1",
+          "calendarHash": "5152790e278eb89039f8bfaa354b944ec1b44c5d3fc144edc5720c3edc045c73",
+          "corporateActionsHash": null,
+          "costProfileId": "crypto-zero-cost-v1",
+          "costProfileHash": "57f60b9ecf036573d5b3dcee3d1e5716f8dca6fb9571e1c0a8bbbdd2888e6d5a",
+          "numericCostsHash": "402f0d4a60ccf964dab946cf9499b870f07ae7eaadb83f139a3dcf33a48109af",
+          "sourceEvidenceHash": "08a9436e866d1760d8d5bc62132ff0d47615af50dd203392f45d65cff3eecb10"
+        },
+        "split": {
+          "contractVersion": "validation-split-v1",
+          "totalBars": 1300,
+          "embargoBars": 10,
+          "trainWindow": {
+            "fromMs": 946684800000,
+            "toExclusiveMs": 949449600000
+          },
+          "validationWindow": {
+            "fromMs": 949485600000,
+            "toExclusiveMs": 950407200000
+          },
+          "testWindow": {
+            "fromMs": 950443200000,
+            "toExclusiveMs": 951364800000
+          },
+          "validationSupport": [
+            {
+              "fromMs": 949467600000,
+              "toExclusiveMs": 950407200000
+            }
+          ],
+          "testSupport": [
+            {
+              "fromMs": 950425200000,
+              "toExclusiveMs": 951364800000
+            }
+          ]
+        },
+        "statistics": {
+          "contractVersion": "research-confirmation-statistics-v2",
+          "allocationId": "0889c33c045696ebb8a77825120389f761229560b4b48ca80cac43754f78673e",
+          "bootstrapSamples": 799,
+          "maxBootstrapSamples": 799,
+          "maxRelativeStandardErrorPpm": 999999,
+          "blockLengthRationale": "Frozen R3; structural fixture only.",
+          "validation": {
+            "blockLength": 6,
+            "seed": 7
+          },
+          "test": {
+            "blockLength": 6,
+            "seed": 8
+          }
+        },
+        "selectionRule": {
+          "version": "both-holm-reject-index-v1",
+          "maxCandidates": 1
+        },
+        "candidates": [
+          {
+            "candidateIndex": 0,
+            "strategyHash": "strategy-v2:0d7b565369e6b2d2e12d500e81a28dc68103ea81a03819590ebe66058d21c2a4",
+            "definitionHash": "9ff850f9d16cd603d399f68b6d720c8c20c124085bda29ecd63e6697be228253",
+            "executionHash": "d72e49c24e2aaab6402ec475860b65032b4d4dd2d4094be7fab557a477db4b05",
+            "resultArtifactHash": "8a65b8fcda16178b8bde4d307a6566f65222bfe1e843b0e4118349b6a390b539",
+            "lineageHash": "5f8782772a47f82883de310f2b88a5a90bc98b6804d6d5b24df1cbdbd17ad285",
+            "minimumWarmupBars": 5,
+            "minimumEmbargoBars": 8
+          }
+        ]
+      }
+    },
+    "testOperation": {
+      "id": "15536eb6e0c952326506699bd7e7d3a0b20ca2a0ea1f896f1a433c469b9daa99",
+      "body": {
+        "contractVersion": "research-confirmation-operation-v1",
+        "originRegistryId": "22222222222222222222222222222222",
+        "reservationKey": "55555555555555555555555555555555",
+        "requestId": "66666666666666666666666666666666",
+        "workspaceId": "11111111111111111111111111111111",
+        "confirmationBatchId": "09d40b428d86b3f188c0ebefaa70a43b0e2921209ad5c8064b36f7ab7bdaceb4",
+        "familyId": "trial-family-v1:077ec84bbee01072d66e9f358f8262f7cc6cd2b70b7ed82461e3904179bd4cc0",
+        "allocationId": "0889c33c045696ebb8a77825120389f761229560b4b48ca80cac43754f78673e",
+        "stage": "test",
+        "selectionId": "6924c2246f5fed7156f9b6771e3b4ca561cfca7d4331c89ee1c52d6b6908884e"
+      }
+    },
+    "testExposure": {
+      "id": "471758eaa6009075f4a0d659fbb5ba163cd4f53bb45c760ba751976f4ed8c638",
+      "body": {
+        "contractVersion": "research-confirmation-exposure-v1",
+        "originRegistryId": "22222222222222222222222222222222",
+        "reservationKey": "55555555555555555555555555555555",
+        "instrumentId": "crypto:binance:BTCUSDT",
+        "intervals": [
+          {
+            "fromMs": 950425200000,
+            "toExclusiveMs": 951364800000
+          }
+        ],
+        "claim": {
+          "kind": "confirmation",
+          "operationId": "15536eb6e0c952326506699bd7e7d3a0b20ca2a0ea1f896f1a433c469b9daa99",
+          "alphaReservationId": "8495cc7eed1dd9d5175a3e60fa76e671abf3dc6d636ab2759c9ac9cd9c7c18ea"
+        }
+      }
+    },
+    "testAdmission": {
+      "id": "f45be44f6a60a0175130ec2c90981dcf5d1006f34ce61c90dedfa8fe9d04b313",
+      "body": {
+        "contractVersion": "research-confirmation-admission-v1",
+        "operationId": "15536eb6e0c952326506699bd7e7d3a0b20ca2a0ea1f896f1a433c469b9daa99",
+        "alphaReservationId": "8495cc7eed1dd9d5175a3e60fa76e671abf3dc6d636ab2759c9ac9cd9c7c18ea",
+        "exposureId": "471758eaa6009075f4a0d659fbb5ba163cd4f53bb45c760ba751976f4ed8c638",
+        "workspaceObservation": {
+          "workspaceId": "11111111111111111111111111111111",
+          "ownershipEpoch": 7,
+          "mutationSeq": 12,
+          "referencesSha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        },
+        "registryObservation": {
+          "registryId": "22222222222222222222222222222222",
+          "seq": 4,
+          "chainHead": "4af41fe30856b9de21ac05814a6d533b997f07f748eb7c37c0fab09690b3f9d9",
+          "bindingSha256": "d837340ec2136453e336d021067e6844cf7f806f2869c5d409d72f647336f372",
+          "familyEffectiveTrials": 4,
+          "registeredBatchEffectiveTrials": 2,
+          "testsPerTrial": 2,
+          "protocolSha256": "6c47ecbda2c59c07ab1703a355e7698b7875652e385bca55b22cc042634c83e5"
+        },
+        "precisionPlan": {
+          "contractVersion": "research-precision-v1",
+          "correction": "holm",
+          "alphaPpm": 25000,
+          "maxRelativeStandardErrorPpm": 999999,
+          "priorTrials": 2,
+          "plannedTrials": 2,
+          "testsPerTrial": 2,
+          "bootstrapSamples": 799,
+          "maxBootstrapSamples": 799
+        },
+        "precisionProof": {
+          "contractVersion": "research-precision-v1",
+          "status": "ELIGIBLE",
+          "reasons": [],
+          "familyTrials": 4,
+          "familyTests": 8,
+          "minAttainableRawP": {
+            "numerator": 1,
+            "denominator": 800
+          },
+          "bestAdjustedP": {
+            "numerator": 8,
+            "denominator": 800
+          },
+          "requiredSamplesForResolution": 319,
+          "requiredSamplesForPrecision": 320
+        }
+      }
+    },
+    "testStart": {
+      "id": "ec0d72883c0eb238e52da18f041f35070a645676e28696e30371226e11829d58",
+      "body": {
+        "contractVersion": "research-confirmation-event-v1",
+        "operationId": "15536eb6e0c952326506699bd7e7d3a0b20ca2a0ea1f896f1a433c469b9daa99",
+        "admissionId": "f45be44f6a60a0175130ec2c90981dcf5d1006f34ce61c90dedfa8fe9d04b313",
+        "event": {
+          "kind": "execution_started",
+          "workspaceId": "11111111111111111111111111111111",
+          "ownershipEpoch": 7,
+          "executionKey": "cccccccccccccccccccccccccccccccc"
+        }
+      }
+    },
+    "testSeal": {
+      "id": "45eefeb62a71bbc623e33541f39e107d0b0069236ff95ba5d358394bd786f5b5",
+      "body": {
+        "contractVersion": "research-confirmation-event-v1",
+        "operationId": "15536eb6e0c952326506699bd7e7d3a0b20ca2a0ea1f896f1a433c469b9daa99",
+        "admissionId": "f45be44f6a60a0175130ec2c90981dcf5d1006f34ce61c90dedfa8fe9d04b313",
+        "event": {
+          "kind": "sealed",
+          "executionStartedId": "ec0d72883c0eb238e52da18f041f35070a645676e28696e30371226e11829d58",
+          "reportSha256": "28a7e4f3efc840073d584ab25cdc82cdb349c53bb6af71bd1e7c81781e9035c6",
+          "resultArtifactSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "resultArtifactBytes": 12345,
+          "engineManifestHash": "75b57e34fd4f82ecba4dff75f68bcb19eb04b8b61674afb49d9646b6b84abe9b"
+        }
+      }
+    }
+  },
+  "blobs": [
+    {
+      "kind": "binding",
+      "sha256": "d837340ec2136453e336d021067e6844cf7f806f2869c5d409d72f647336f372",
+      "text": "{\n \"version\": \"trial-ledger-binding-v5\",\n \"registryId\": \"22222222222222222222222222222222\",\n \"seq\": 4,\n \"chainHead\": \"4af41fe30856b9de21ac05814a6d533b997f07f748eb7c37c0fab09690b3f9d9\",\n \"evidence\": {\n  \"quarantinedFamilies\": [],\n  \"conflictedOrigins\": [],\n  \"familyTests\": {\n   \"trial-family-v1:077ec84bbee01072d66e9f358f8262f7cc6cd2b70b7ed82461e3904179bd4cc0\": 2\n  }\n },\n \"alpha\": {\n  \"budgets\": [\n   {\n    \"familyId\": \"trial-family-v1:077ec84bbee01072d66e9f358f8262f7cc6cd2b70b7ed82461e3904179bd4cc0\",\n    \"allocationId\": \"0889c33c045696ebb8a77825120389f761229560b4b48ca80cac43754f78673e\"\n   }\n  ],\n  \"reservations\": [],\n  \"conflicts\": []\n },\n \"alphaUnknownOrigins\": [],\n \"confirmation\": {\n  \"batches\": [],\n  \"selections\": [],\n  \"operations\": [],\n  \"exposures\": [],\n  \"admissions\": [],\n  \"events\": [],\n  \"blobs\": [],\n  \"conflicts\": [],\n  \"unknownOrigins\": []\n }\n}\n"
+    },
+    {
+      "kind": "source_witness",
+      "sha256": "39825570d766419cf7ba7496e939eb5890b5194dfec626109627996e1584968a",
+      "text": "{\"contractVersion\":\"research-confirmation-source-witness-v1\",\"registeredSource\":{\"candidates\":[{\"candidateIndex\":0,\"definitionHash\":\"9ff850f9d16cd603d399f68b6d720c8c20c124085bda29ecd63e6697be228253\",\"executionHash\":\"d72e49c24e2aaab6402ec475860b65032b4d4dd2d4094be7fab557a477db4b05\",\"lineageHash\":\"5f8782772a47f82883de310f2b88a5a90bc98b6804d6d5b24df1cbdbd17ad285\",\"minimumEmbargoBars\":8,\"minimumWarmupBars\":5,\"resultArtifactHash\":\"8a65b8fcda16178b8bde4d307a6566f65222bfe1e843b0e4118349b6a390b539\",\"strategyHash\":\"strategy-v2:0d7b565369e6b2d2e12d500e81a28dc68103ea81a03819590ebe66058d21c2a4\"},{\"candidateIndex\":2,\"definitionHash\":\"e38d99b0c314f2552a4e1bdc2adcd20411da97ca9bdf89cb5baffeeac96bbe86\",\"executionHash\":\"9fb5118c29b9c261929b3194e679e70893b3945aa3b8b093b182326fb859ef4c\",\"lineageHash\":\"25c13bccec0a556342c2d2fdaed7f88dcda73744f565ff31d6bdc190a5adc1c5\",\"minimumEmbargoBars\":8,\"minimumWarmupBars\":5,\"resultArtifactHash\":\"e090669e7857e88b90d86d9e92f446c8842cf232273333b1bd5959bca663705b\",\"strategyHash\":\"strategy-v2:02f6a8fb00080daf04a31cfbc4f2b0c304212445029f6a3c142ee5f4e2baab0b\"}],\"source\":{\"campaignDocumentHash\":\"6113cb0c508e07e3b0818e80d67e627939c4bf1e98e580f58d815e840a01952a\",\"campaignId\":\"3dc260b2472062d9c57bd930b02f23831d917b8f3e3234b6d63964a53c31d3aa\",\"engineManifestHash\":\"75b57e34fd4f82ecba4dff75f68bcb19eb04b8b61674afb49d9646b6b84abe9b\",\"familyId\":\"trial-family-v1:077ec84bbee01072d66e9f358f8262f7cc6cd2b70b7ed82461e3904179bd4cc0\",\"instrumentId\":\"crypto:binance:BTCUSDT\",\"runId\":42,\"trialBatchId\":\"447c8ada05972b673750a92063712c74d0542a24c9d9bc434fb2b7f862af0b99\",\"workspaceId\":\"11111111111111111111111111111111\"}},\"trialExportText\":\"{\\\"batchCount\\\":2,\\\"bodySha256\\\":\\\"e51271e844a49f3476ac0ff0cb63ac7048abed2f62abbfc45043c1984c8d5073\\\",\\\"eventCount\\\":4,\\\"exportedAt\\\":\\\"2026-10-17T00:00:00Z\\\",\\\"familyCount\\\":1,\\\"headChain\\\":\\\"4af41fe30856b9de21ac05814a6d533b997f07f748eb7c37c0fab09690b3f9d9\\\",\\\"headSeq\\\":4,\\\"registryId\\\":\\\"22222222222222222222222222222222\\\",\\\"schemaVersion\\\":\\\"0003_family_protocol_upgrades\\\",\\\"version\\\":\\\"trial-ledger-export-v3\\\"}\\n{\\\"familyId\\\":\\\"trial-family-v1:077ec84bbee01072d66e9f358f8262f7cc6cd2b70b7ed82461e3904179bd4cc0\\\",\\\"familyKey\\\":\\\"{\\\\\\\"instrumentId\\\\\\\":\\\\\\\"crypto:binance:BTCUSDT\\\\\\\",\\\\\\\"version\\\\\\\":\\\\\\\"trial-family-v1\\\\\\\"}\\\",\\\"protocolJson\\\":\\\"{\\\\\\\"correction\\\\\\\":\\\\\\\"holm\\\\\\\",\\\\\\\"testsPerTrial\\\\\\\":2}\\\",\\\"type\\\":\\\"family\\\"}\\n{\\\"batchId\\\":\\\"trial-batch-v1:447c8ada05972b673750a92063712c74d0542a24c9d9bc434fb2b7f862af0b99\\\",\\\"familyId\\\":\\\"trial-family-v1:077ec84bbee01072d66e9f358f8262f7cc6cd2b70b7ed82461e3904179bd4cc0\\\",\\\"members\\\":[[\\\"11111111111111111111111111111111:request:original:candidate:0\\\",\\\"trial-event-v1:9c1b933fe4288b30047ae5eb1f39d15e3e92fa1cc9d84b516b61eedbda989125\\\"],[\\\"11111111111111111111111111111111:request:original:candidate:2\\\",\\\"trial-event-v1:31735e6f94c3ac2f190e9bf0dd610645caa5befe8b3d5c096dea9c33c4de3175\\\"]],\\\"originRegistryId\\\":\\\"22222222222222222222222222222222\\\",\\\"type\\\":\\\"batch\\\"}\\n{\\\"batchId\\\":\\\"trial-batch-v1:e374de7a9a749b00288f8c01a6832492bfa81f595814e2b86c0171f59c532b11\\\",\\\"familyId\\\":\\\"trial-family-v1:077ec84bbee01072d66e9f358f8262f7cc6cd2b70b7ed82461e3904179bd4cc0\\\",\\\"members\\\":[[\\\"11111111111111111111111111111111:request:prior:candidate:0\\\",\\\"trial-event-v1:0b3b0e68687173b8f7d952ef13128752ad36a017d761e23fa0734fcc8dc3b2d5\\\"],[\\\"11111111111111111111111111111111:request:prior:candidate:1\\\",\\\"trial-event-v1:58d9cb88b2fc91debf06fe3d5dd64c10585f6aa4d0f510858c70fd7c7cbea251\\\"]],\\\"originRegistryId\\\":\\\"22222222222222222222222222222222\\\",\\\"type\\\":\\\"batch\\\"}\\n{\\\"batchId\\\":\\\"trial-batch-v1:e374de7a9a749b00288f8c01a6832492bfa81f595814e2b86c0171f59c532b11\\\",\\\"chain\\\":\\\"19d5dc2923981aae0f595ac7a82d1b0ba7808cdc14db91e8e103c6a23265387d\\\",\\\"eventId\\\":\\\"trial-event-v1:0b3b0e68687173b8f7d952ef13128752ad36a017d761e23fa0734fcc8dc3b2d5\\\",\\\"originRegistryId\\\":\\\"22222222222222222222222222222222\\\",\\\"payload\\\":{\\\"benchmarkId\\\":null,\\\"benchmarkParamsHash\\\":null,\\\"candidateIndex\\\":0,\\\"datasetHash\\\":\\\"dataset\\\",\\\"effective\\\":true,\\\"engineFingerprintHash\\\":\\\"engine\\\",\\\"familyId\\\":\\\"trial-family-v1:077ec84bbee01072d66e9f358f8262f7cc6cd2b70b7ed82461e3904179bd4cc0\\\",\\\"hypothesisHash\\\":\\\"hypothesis-prior-0\\\",\\\"idempotencyKey\\\":\\\"11111111111111111111111111111111:request:prior:candidate:0\\\",\\\"kind\\\":\\\"variant\\\",\\\"legacyAttemptKey\\\":null,\\\"reproductionOf\\\":null,\\\"requestId\\\":\\\"prior\\\",\\\"seedsHash\\\":\\\"seeds\\\",\\\"snapshotId\\\":\\\"snapshot\\\",\\\"splitHash\\\":\\\"trial-split-v1:4444444444444444444444444444444444444444444444444444444444444444\\\",\\\"strategyHash\\\":\\\"strategy-v2:ee63eead7b87538b53753b88d52c8f20cc21afeb8dfe1d00fc0e61fb6b9a6812\\\",\\\"version\\\":\\\"trial-event-v1\\\",\\\"workspaceId\\\":\\\"11111111111111111111111111111111\\\"},\\\"seq\\\":1,\\\"type\\\":\\\"event\\\"}\\n{\\\"batchId\\\":\\\"trial-batch-v1:e374de7a9a749b00288f8c01a6832492bfa81f595814e2b86c0171f59c532b11\\\",\\\"chain\\\":\\\"f9537fbc329a196b4831269a15164d4b5d45c4b2c397de343e8e7c1697863f0c\\\",\\\"eventId\\\":\\\"trial-event-v1:58d9cb88b2fc91debf06fe3d5dd64c10585f6aa4d0f510858c70fd7c7cbea251\\\",\\\"originRegistryId\\\":\\\"22222222222222222222222222222222\\\",\\\"payload\\\":{\\\"benchmarkId\\\":null,\\\"benchmarkParamsHash\\\":null,\\\"candidateIndex\\\":1,\\\"datasetHash\\\":\\\"dataset\\\",\\\"effective\\\":true,\\\"engineFingerprintHash\\\":\\\"engine\\\",\\\"familyId\\\":\\\"trial-family-v1:077ec84bbee01072d66e9f358f8262f7cc6cd2b70b7ed82461e3904179bd4cc0\\\",\\\"hypothesisHash\\\":\\\"hypothesis-prior-1\\\",\\\"idempotencyKey\\\":\\\"11111111111111111111111111111111:request:prior:candidate:1\\\",\\\"kind\\\":\\\"variant\\\",\\\"legacyAttemptKey\\\":null,\\\"reproductionOf\\\":null,\\\"requestId\\\":\\\"prior\\\",\\\"seedsHash\\\":\\\"seeds\\\",\\\"snapshotId\\\":\\\"snapshot\\\",\\\"splitHash\\\":\\\"trial-split-v1:4444444444444444444444444444444444444444444444444444444444444444\\\",\\\"strategyHash\\\":\\\"strategy-v2:214f4f9dff92fbbb77dce6502ef5b034c3d4ae5ad43712af81d6adeeb5346f9b\\\",\\\"version\\\":\\\"trial-event-v1\\\",\\\"workspaceId\\\":\\\"11111111111111111111111111111111\\\"},\\\"seq\\\":2,\\\"type\\\":\\\"event\\\"}\\n{\\\"batchId\\\":\\\"trial-batch-v1:447c8ada05972b673750a92063712c74d0542a24c9d9bc434fb2b7f862af0b99\\\",\\\"chain\\\":\\\"84f9cf22a18f0fb1833478d9bdd55bf62ac2651f1a55cedacf43da0ec0bf532e\\\",\\\"eventId\\\":\\\"trial-event-v1:9c1b933fe4288b30047ae5eb1f39d15e3e92fa1cc9d84b516b61eedbda989125\\\",\\\"originRegistryId\\\":\\\"22222222222222222222222222222222\\\",\\\"payload\\\":{\\\"benchmarkId\\\":null,\\\"benchmarkParamsHash\\\":null,\\\"candidateIndex\\\":0,\\\"datasetHash\\\":\\\"dataset\\\",\\\"effective\\\":true,\\\"engineFingerprintHash\\\":\\\"engine\\\",\\\"familyId\\\":\\\"trial-family-v1:077ec84bbee01072d66e9f358f8262f7cc6cd2b70b7ed82461e3904179bd4cc0\\\",\\\"hypothesisHash\\\":\\\"hypothesis-original-0\\\",\\\"idempotencyKey\\\":\\\"11111111111111111111111111111111:request:original:candidate:0\\\",\\\"kind\\\":\\\"variant\\\",\\\"legacyAttemptKey\\\":null,\\\"reproductionOf\\\":null,\\\"requestId\\\":\\\"original\\\",\\\"seedsHash\\\":\\\"seeds\\\",\\\"snapshotId\\\":\\\"snapshot\\\",\\\"splitHash\\\":\\\"trial-split-v1:4444444444444444444444444444444444444444444444444444444444444444\\\",\\\"strategyHash\\\":\\\"strategy-v2:0d7b565369e6b2d2e12d500e81a28dc68103ea81a03819590ebe66058d21c2a4\\\",\\\"version\\\":\\\"trial-event-v1\\\",\\\"workspaceId\\\":\\\"11111111111111111111111111111111\\\"},\\\"seq\\\":3,\\\"type\\\":\\\"event\\\"}\\n{\\\"batchId\\\":\\\"trial-batch-v1:447c8ada05972b673750a92063712c74d0542a24c9d9bc434fb2b7f862af0b99\\\",\\\"chain\\\":\\\"4af41fe30856b9de21ac05814a6d533b997f07f748eb7c37c0fab09690b3f9d9\\\",\\\"eventId\\\":\\\"trial-event-v1:31735e6f94c3ac2f190e9bf0dd610645caa5befe8b3d5c096dea9c33c4de3175\\\",\\\"originRegistryId\\\":\\\"22222222222222222222222222222222\\\",\\\"payload\\\":{\\\"benchmarkId\\\":null,\\\"benchmarkParamsHash\\\":null,\\\"candidateIndex\\\":2,\\\"datasetHash\\\":\\\"dataset\\\",\\\"effective\\\":true,\\\"engineFingerprintHash\\\":\\\"engine\\\",\\\"familyId\\\":\\\"trial-family-v1:077ec84bbee01072d66e9f358f8262f7cc6cd2b70b7ed82461e3904179bd4cc0\\\",\\\"hypothesisHash\\\":\\\"hypothesis-original-1\\\",\\\"idempotencyKey\\\":\\\"11111111111111111111111111111111:request:original:candidate:2\\\",\\\"kind\\\":\\\"variant\\\",\\\"legacyAttemptKey\\\":null,\\\"reproductionOf\\\":null,\\\"requestId\\\":\\\"original\\\",\\\"seedsHash\\\":\\\"seeds\\\",\\\"snapshotId\\\":\\\"snapshot\\\",\\\"splitHash\\\":\\\"trial-split-v1:4444444444444444444444444444444444444444444444444444444444444444\\\",\\\"strategyHash\\\":\\\"strategy-v2:02f6a8fb00080daf04a31cfbc4f2b0c304212445029f6a3c142ee5f4e2baab0b\\\",\\\"version\\\":\\\"trial-event-v1\\\",\\\"workspaceId\\\":\\\"11111111111111111111111111111111\\\"},\\\"seq\\\":4,\\\"type\\\":\\\"event\\\"}\\n{\\\"batchEffectiveTrials\\\":2,\\\"batchId\\\":\\\"trial-batch-v1:447c8ada05972b673750a92063712c74d0542a24c9d9bc434fb2b7f862af0b99\\\",\\\"familyEffectiveBefore\\\":2,\\\"receiptRegistryId\\\":\\\"22222222222222222222222222222222\\\",\\\"type\\\":\\\"receipt\\\"}\\n{\\\"batchEffectiveTrials\\\":2,\\\"batchId\\\":\\\"trial-batch-v1:e374de7a9a749b00288f8c01a6832492bfa81f595814e2b86c0171f59c532b11\\\",\\\"familyEffectiveBefore\\\":0,\\\"receiptRegistryId\\\":\\\"22222222222222222222222222222222\\\",\\\"type\\\":\\\"receipt\\\"}\\n\"}"
+    },
+    {
+      "kind": "statistics",
+      "sha256": "d404ed4aa9ecc20ea89a239d2803845671142c1d58fdf1090c5f3cd998a337ca",
+      "text": "{\n \"contractVersion\": \"research-confirmation-statistics-v2\",\n \"correction\": \"holm\",\n \"scheme\": \"circular-block\",\n \"prng\": \"splitmix64\",\n \"alphaPpm\": 25000,\n \"blockLength\": 6,\n \"bootstrapSamples\": 799,\n \"seed\": 7,\n \"familyTests\": 8,\n \"tests\": [\n  {\n   \"candidateIndex\": 0,\n   \"test\": \"net_return\",\n   \"observations\": 256,\n   \"observedMean\": 1e-1,\n   \"extremeCount\": 0,\n   \"rawP\": {\n    \"numerator\": 1,\n    \"denominator\": 800\n   },\n   \"rawPValue\": 0.00125,\n   \"holmRank\": 1,\n   \"adjustedP\": {\n    \"numerator\": 8,\n    \"denominator\": 800\n   },\n   \"adjustedPValue\": 0.01,\n   \"rejectsNull\": true\n  },\n  {\n   \"candidateIndex\": 0,\n   \"test\": \"benchmark_excess\",\n   \"observations\": 256,\n   \"observedMean\": 1e-1,\n   \"extremeCount\": 1,\n   \"rawP\": {\n    \"numerator\": 2,\n    \"denominator\": 800\n   },\n   \"rawPValue\": 0.0025,\n   \"holmRank\": 2,\n   \"adjustedP\": {\n    \"numerator\": 14,\n    \"denominator\": 800\n   },\n   \"adjustedPValue\": 0.0175,\n   \"rejectsNull\": true\n  },\n  {\n   \"candidateIndex\": 2,\n   \"test\": \"net_return\",\n   \"observations\": 256,\n   \"observedMean\": 1e-1,\n   \"extremeCount\": 9,\n   \"rawP\": {\n    \"numerator\": 10,\n    \"denominator\": 800\n   },\n   \"rawPValue\": 0.0125,\n   \"holmRank\": 3,\n   \"adjustedP\": {\n    \"numerator\": 60,\n    \"denominator\": 800\n   },\n   \"adjustedPValue\": 0.075,\n   \"rejectsNull\": false\n  },\n  {\n   \"candidateIndex\": 2,\n   \"test\": \"benchmark_excess\",\n   \"observations\": 256,\n   \"observedMean\": 1e-1,\n   \"extremeCount\": 29,\n   \"rawP\": {\n    \"numerator\": 30,\n    \"denominator\": 800\n   },\n   \"rawPValue\": 0.0375,\n   \"holmRank\": 4,\n   \"adjustedP\": {\n    \"numerator\": 150,\n    \"denominator\": 800\n   },\n   \"adjustedPValue\": 0.1875,\n   \"rejectsNull\": false\n  }\n ]\n}\n"
+    },
+    {
+      "kind": "statistics",
+      "sha256": "28a7e4f3efc840073d584ab25cdc82cdb349c53bb6af71bd1e7c81781e9035c6",
+      "text": "{\n \"contractVersion\": \"research-confirmation-statistics-v2\",\n \"correction\": \"holm\",\n \"scheme\": \"circular-block\",\n \"prng\": \"splitmix64\",\n \"alphaPpm\": 25000,\n \"blockLength\": 6,\n \"bootstrapSamples\": 799,\n \"seed\": 8,\n \"familyTests\": 8,\n \"tests\": [\n  {\n   \"candidateIndex\": 0,\n   \"test\": \"net_return\",\n   \"observations\": 256,\n   \"observedMean\": 1e-1,\n   \"extremeCount\": 0,\n   \"rawP\": {\n    \"numerator\": 1,\n    \"denominator\": 800\n   },\n   \"rawPValue\": 0.00125,\n   \"holmRank\": 1,\n   \"adjustedP\": {\n    \"numerator\": 8,\n    \"denominator\": 800\n   },\n   \"adjustedPValue\": 0.01,\n   \"rejectsNull\": true\n  },\n  {\n   \"candidateIndex\": 0,\n   \"test\": \"benchmark_excess\",\n   \"observations\": 256,\n   \"observedMean\": 1e-1,\n   \"extremeCount\": 1,\n   \"rawP\": {\n    \"numerator\": 2,\n    \"denominator\": 800\n   },\n   \"rawPValue\": 0.0025,\n   \"holmRank\": 2,\n   \"adjustedP\": {\n    \"numerator\": 14,\n    \"denominator\": 800\n   },\n   \"adjustedPValue\": 0.0175,\n   \"rejectsNull\": true\n  }\n ]\n}\n"
+    }
+  ]
+}

@@ -9,6 +9,9 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 
+mod observation;
+pub use observation::SourceWitnessObservation;
+
 pub const SOURCE_WITNESS_VERSION: &str = "research-confirmation-source-witness-v1";
 pub const MAX_SOURCE_WITNESS_BYTES: usize = 8 * 1024 * 1024;
 
@@ -103,7 +106,7 @@ pub fn freeze_source_witness(
 /// Domain-checked host metadata, not source authentication or a current permit.
 /// Alpha/confirmation state is outside a trial anchor. Original comparison is
 /// exact even when a newer current registry could cover a smaller old HWM.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub struct SourceTrialAnchor {
     prefix: HistoricalPrefix,
     quarantined_families: Vec<String>,
@@ -111,6 +114,19 @@ pub struct SourceTrialAnchor {
     family_tests: BTreeMap<String, u64>,
 }
 impl SourceTrialAnchor {
+    /// Internal comparison key from an already strictly decoded binding.
+    pub(super) fn from_binding_observation(b: &admission::BindingObservation) -> Self {
+        Self {
+            prefix: HistoricalPrefix {
+                registry_id: b.registry_id.clone(),
+                seq: b.seq,
+                chain_head: b.chain_head.clone(),
+            },
+            quarantined_families: b.evidence.quarantined_families.clone(),
+            conflicted_origins: b.evidence.conflicted_origins.clone(),
+            family_tests: b.evidence.family_tests.clone(),
+        }
+    }
     pub fn from_host_facts(
         prefix: HistoricalPrefix,
         quarantined_families: Vec<String>,
