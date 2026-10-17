@@ -59,7 +59,7 @@ impl HistoryBlob {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(super) struct BindingObservation {
     pub version: String,
@@ -71,7 +71,7 @@ pub(super) struct BindingObservation {
     pub alpha_unknown_origins: Vec<String>,
     pub confirmation: ConfirmationEvidence,
 }
-#[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(super) struct TrialEvidence {
     pub quarantined_families: Vec<String>,
@@ -79,20 +79,20 @@ pub(super) struct TrialEvidence {
     #[serde(deserialize_with = "unique_family_counts")]
     pub family_tests: BTreeMap<String, u64>,
 }
-#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(super) struct BudgetIdentity {
     pub family_id: String,
     pub allocation_id: String,
 }
-#[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(super) struct AlphaEvidence {
     pub budgets: Vec<BudgetIdentity>,
     pub reservations: Vec<String>,
     pub conflicts: Vec<String>,
 }
-#[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(super) struct ConfirmationEvidence {
     pub batches: Vec<String>,
@@ -162,7 +162,8 @@ pub(super) fn genesis(registry: &str) -> String {
         format!("trial-ledger-v1:genesis:{registry}").as_bytes(),
     ))
 }
-fn parse_binding(raw: &str) -> Result<BindingObservation, HistoryRecordError> {
+pub(super) fn parse_binding(raw: &str) -> Result<BindingObservation, HistoryRecordError> {
+    require(raw.len() <= MAX_BINDING_BYTES, HistoryRecordError::TooLarge)?;
     let b: BindingObservation = serde_json::from_str(raw).map_err(|_| HistoryRecordError::Blob)?;
     require(
         b.version == BINDING_VERSION

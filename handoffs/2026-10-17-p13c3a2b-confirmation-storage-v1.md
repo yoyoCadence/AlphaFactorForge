@@ -3,7 +3,7 @@
 Date: 2026-10-17
 Repo: yoyoCadence/AlphaFactorForge
 Branch: feat/p13c3a2b-confirmation-storage
-Status: Locally verified; delivery CI/merge pending
+Status: Merged as PR #194; binding codec follow-up in progress
 
 ## Summary
 
@@ -88,3 +88,21 @@ checked graph observation, exact identity coverage/equal-count substitution,
 last-good binding preservation, legacy adoption and real downgrade refusal.
 Then 3b-2 completes v5 archive transport before any live admission work.
 Production qualification remains behind statistical policy/manual mediation.
+
+## Resolution (2026-10-17 — merged storage delivery)
+
+PR [#194](https://github.com/yoyoCadence/AlphaFactorForge/pull/194) verified head
+`8520ecc29da3d57fd299ec9aadb226e5f05a49f2` and merged as
+`bb16fcf41e8446da35155226319fe2a37a6c345f`. Run `38990251837` passed all six
+jobs: 782 Rust (one ignored), 1234 Vitest and 98 first-pass E2E. Native rendering,
+SQLite invokes, metrics windows and event round trip passed; exact runner
+browser policy was restored and owned processes/temp directories removed.
+No review submissions or unresolved threads remained. Local main was fast-forwarded
+and its tree matched the verified head.
+
+The next binding task is split into a pure codec/coverage foundation (3b-1a)
+and transactional observation/adoption (3b-1b). The latter must address durable
+historical context: a workspace reopening has no caller-supplied GraphContext,
+and trial import can retain conflicting claims without their primary source
+rows. Copying admission counts into a context is not independent verification.
+No runtime v5 writer is activated by the foundation.

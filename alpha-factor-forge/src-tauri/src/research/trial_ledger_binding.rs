@@ -1008,6 +1008,44 @@ mod tests {
         conn
     }
 
+    #[test]
+    fn dormant_v5_codec_does_not_activate_the_runtime_binding_reader_or_writer() {
+        use alpha_factor_forge::discovery_core::confirmation_history::parse_binding_snapshot;
+        let fixture: Value = serde_json::from_str(include_str!(
+            "../../../fixtures/rs-core/research-binding-snapshot-v5.json"
+        ))
+        .unwrap();
+        let raw = fixture["raw"].as_str().unwrap();
+        assert!(parse_binding_snapshot(raw).is_ok());
+        let conn = settings();
+        store_raw(&conn, raw);
+        assert!(read_workspace_binding(&conn).is_err());
+        let retained: String = conn
+            .query_row(
+                "SELECT value_json FROM app_settings WHERE key=?1",
+                [BINDING_KEY],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(retained, raw);
+        let dirs = Dirs::new();
+        let current = current(&dirs.open(), None);
+        write_workspace_binding(&conn, &current).unwrap();
+        let written: String = conn
+            .query_row(
+                "SELECT value_json FROM app_settings WHERE key=?1",
+                [BINDING_KEY],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(
+            serde_json::from_str::<Value>(&written).unwrap()["version"],
+            "trial-ledger-binding-v4"
+        );
+        let oversized_legacy = format!("{written}{}", " ".repeat(MAX_BINDING_BYTES));
+        assert!(parse_binding(&oversized_legacy).is_err());
+    }
+
     fn store_raw(conn: &Connection, value: &str) {
         conn.execute(
             "INSERT INTO app_settings (key, value_json) VALUES (?1, ?2)
