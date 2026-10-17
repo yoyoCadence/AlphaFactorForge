@@ -16,6 +16,13 @@ use rusqlite::{params, OptionalExtension, TransactionBehavior};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
+#[path = "trial_ledger_transfer/historical_observation.rs"]
+mod historical_observation;
+#[allow(unused_imports)]
+pub(super) use historical_observation::{
+    reconstruct_historical_source, HistoricalSourceObservation, MAX_HISTORICAL_ARCHIVE_BYTES,
+};
+
 use super::{
     batch_id_for, benchmark_params_hash, canonical_text, event_id_for, family_parts, genesis, head,
     next_chain, prepare_batch, protocol_json, sha256_hex, verify_chain, LedgerError, LedgerIntegrity,
@@ -812,6 +819,21 @@ impl ValidatedExport {
     }
 
     fn validate_kinds(&self, tx: &rusqlite::Transaction<'_>) -> Result<(), LedgerError> {
+        self.validate_kinds_resolving(|reference| {
+            tx.query_row(
+                "SELECT payload_json FROM trial_events WHERE event_id = ?1",
+                [reference],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(LedgerError::from)
+        })
+    }
+
+    fn validate_kinds_resolving(
+        &self,
+        mut external_reference: impl FnMut(&str) -> Result<Option<String>, LedgerError>,
+    ) -> Result<(), LedgerError> {
         self.validate_batch_payloads()?;
         let by_id: BTreeMap<&str, &Value> = self
             .events
@@ -870,17 +892,11 @@ impl ValidatedExport {
                     let reference = payload["reproductionOf"]
                         .as_str()
                         .ok_or_else(|| integrity("reproductionOf missing"))?;
-                    let local: Option<String> = tx
-                        .query_row(
-                            "SELECT payload_json FROM trial_events WHERE event_id = ?1",
-                            [reference],
-                            |row| row.get(0),
-                        )
-                        .optional()?;
                     let original = match by_id.get(reference) {
                         Some(value) => (*value).clone(),
                         None => serde_json::from_str(
-                            &local.ok_or_else(|| integrity("reproduction reference missing"))?,
+                            &external_reference(reference)?
+                                .ok_or_else(|| integrity("reproduction reference missing"))?,
                         )?,
                     };
                     if original["familyId"] != payload["familyId"]

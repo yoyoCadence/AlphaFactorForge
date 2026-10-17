@@ -177,7 +177,9 @@ pub struct RegisteredSource {
     pub candidates: Vec<CandidateBinding>,
 }
 
-pub(crate) fn validate_registered_source(source: &RegisteredSource) -> Result<(), ContractError> {
+/// Domain/order checks only. The caller must independently establish complete
+/// membership and authentic artifact/source metadata; this grants no authority.
+pub fn validate_registered_source(source: &RegisteredSource) -> Result<(), ContractError> {
     validate_source(&source.source)?;
     validate_candidates(&source.candidates)
 }
