@@ -1,0 +1,70 @@
+{
+  "description": "Format/confirmation-ID coverage only; synthetic IDs do not prove record existence, source authenticity, freshness or execution rights.",
+  "binding": {
+    "version": "trial-ledger-binding-v5",
+    "registryId": "11111111111111111111111111111111",
+    "seq": 0,
+    "chainHead": "16877f3e695707ff7dd21c5fa4f44ecd4d6695dfbf6eca035d7040422d1e6fd6",
+    "evidence": {
+      "quarantinedFamilies": [
+        "trial-family-v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ],
+      "conflictedOrigins": [
+        "22222222222222222222222222222222"
+      ],
+      "familyTests": {
+        "trial-family-v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": 2
+      }
+    },
+    "alpha": {
+      "budgets": [
+        {
+          "familyId": "trial-family-v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "allocationId": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+      ],
+      "reservations": [
+        "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      ],
+      "conflicts": [
+        "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      ]
+    },
+    "alphaUnknownOrigins": [
+      "33333333333333333333333333333333"
+    ],
+    "confirmation": {
+      "batches": [
+        "4444444444444444444444444444444444444444444444444444444444444444"
+      ],
+      "selections": [
+        "5555555555555555555555555555555555555555555555555555555555555555"
+      ],
+      "operations": [
+        "6666666666666666666666666666666666666666666666666666666666666666"
+      ],
+      "exposures": [
+        "7777777777777777777777777777777777777777777777777777777777777777"
+      ],
+      "admissions": [
+        "8888888888888888888888888888888888888888888888888888888888888888"
+      ],
+      "events": [
+        "9999999999999999999999999999999999999999999999999999999999999999"
+      ],
+      "blobs": [
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ],
+      "conflicts": [
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      ],
+      "unknownOrigins": [
+        "cccccccccccccccccccccccccccccccc"
+      ]
+    }
+  },
+  "raw": "{\n  \"version\": \"trial-ledger-binding-v5\",\n  \"registryId\": \"11111111111111111111111111111111\",\n  \"seq\": 0,\n  \"chainHead\": \"16877f3e695707ff7dd21c5fa4f44ecd4d6695dfbf6eca035d7040422d1e6fd6\",\n  \"evidence\": {\n    \"quarantinedFamilies\": [\n      \"trial-family-v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"\n    ],\n    \"conflictedOrigins\": [\n      \"22222222222222222222222222222222\"\n    ],\n    \"familyTests\": {\n      \"trial-family-v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\": 2\n    }\n  },\n  \"alpha\": {\n    \"budgets\": [\n      {\n        \"familyId\": \"trial-family-v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\n        \"allocationId\": \"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"\n      }\n    ],\n    \"reservations\": [\n      \"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\"\n    ],\n    \"conflicts\": [\n      \"dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\"\n    ]\n  },\n  \"alphaUnknownOrigins\": [\n    \"33333333333333333333333333333333\"\n  ],\n  \"confirmation\": {\n    \"batches\": [\n      \"4444444444444444444444444444444444444444444444444444444444444444\"\n    ],\n    \"selections\": [\n      \"5555555555555555555555555555555555555555555555555555555555555555\"\n    ],\n    \"operations\": [\n      \"6666666666666666666666666666666666666666666666666666666666666666\"\n    ],\n    \"exposures\": [\n      \"7777777777777777777777777777777777777777777777777777777777777777\"\n    ],\n    \"admissions\": [\n      \"8888888888888888888888888888888888888888888888888888888888888888\"\n    ],\n    \"events\": [\n      \"9999999999999999999999999999999999999999999999999999999999999999\"\n    ],\n    \"blobs\": [\n      \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"\n    ],\n    \"conflicts\": [\n      \"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"\n    ],\n    \"unknownOrigins\": [\n      \"cccccccccccccccccccccccccccccccc\"\n    ]\n  }\n}\n",
+  "rawSha256": "bbcbfa649f9e20e055e2754249ae6f82c0a60b295099b279573e9b55855f7283",
+  "canonicalJson": "{\"alpha\":{\"budgets\":[{\"allocationId\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"familyId\":\"trial-family-v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}],\"conflicts\":[\"dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\"],\"reservations\":[\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\"]},\"alphaUnknownOrigins\":[\"33333333333333333333333333333333\"],\"chainHead\":\"16877f3e695707ff7dd21c5fa4f44ecd4d6695dfbf6eca035d7040422d1e6fd6\",\"confirmation\":{\"admissions\":[\"8888888888888888888888888888888888888888888888888888888888888888\"],\"batches\":[\"4444444444444444444444444444444444444444444444444444444444444444\"],\"blobs\":[\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"],\"conflicts\":[\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"],\"events\":[\"9999999999999999999999999999999999999999999999999999999999999999\"],\"exposures\":[\"7777777777777777777777777777777777777777777777777777777777777777\"],\"operations\":[\"6666666666666666666666666666666666666666666666666666666666666666\"],\"selections\":[\"5555555555555555555555555555555555555555555555555555555555555555\"],\"unknownOrigins\":[\"cccccccccccccccccccccccccccccccc\"]},\"evidence\":{\"conflictedOrigins\":[\"22222222222222222222222222222222\"],\"familyTests\":{\"trial-family-v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\":2},\"quarantinedFamilies\":[\"trial-family-v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"]},\"registryId\":\"11111111111111111111111111111111\",\"seq\":0,\"version\":\"trial-ledger-binding-v5\"}",
+  "canonicalSha256": "cf50094aff041d83086ddd49eeb5222b5df7faf775e986adb983d6e32a356c71"
+}

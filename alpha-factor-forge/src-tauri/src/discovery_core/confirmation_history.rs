@@ -21,10 +21,14 @@ pub const CONFLICT_VERSION: &str = "research-confirmation-conflict-v1";
 pub const MAX_DOCUMENT_BYTES: usize = 4 * 1024 * 1024;
 
 mod admission;
+mod binding_snapshot;
 mod graph;
 pub use admission::{
     freeze_admission, parse_admission, AdmissionInputs, AdmissionRecord, BlobKind,
     HistoricalTrialObservation, HistoryBlob, MAX_BINDING_BYTES,
+};
+pub use binding_snapshot::{
+    parse_binding_snapshot, BindingSnapshot, ConfirmationBindingSet, CONFIRMATION_BINDING_VERSION,
 };
 pub use graph::{
     complete_confirmation_graph, validate_confirmation_graph, ConfirmationInventory, GraphContext,

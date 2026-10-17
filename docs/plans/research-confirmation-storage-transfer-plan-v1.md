@@ -337,6 +337,8 @@ predecessor's six exact-head CI jobs and merge. No production activation.
 | P13c-3a-2a | First bounded storage PR: unchanged schema 0006 and SQL constraints/capacities, fresh-only birth marker, permanent legacy backfill/import markers and old-format omission guards, with real migration/independent-connection/rollback tests. No graph writer/reader yet. |
 | P13c-3a-2b | Second storage PR after 3a-2a merges: bounded checked graph loads, exact column/interval projections, original-origin lookup and transaction-scoped append/union helpers; real connection/reopen/corruption/late-failure rollback. Completes 3a-2 before 3b-1. |
 | P13c-3b-1 | Binding v5 and whole-graph observation; exact/equal-count substitution, corrupted byte/column/index/reference, legacy unknown adoption, failed binding preservation, real old-build schema/binding refusal. |
+| P13c-3b-1a | First bounded binding PR: reuse the existing original-text v5 codec as an immutable pure snapshot with canonical bounded serialization and exact confirmation identity-set coverage. No runtime reader/writer switch or registry observation; the snapshot proves format only. |
+| P13c-3b-1b | Complete 3b-1 after 3b-1a: whole-registry checked observation/adoption and downgrade acceptance. Before activation, specify durable independent historical context for reopen and conflicting imported branches; admission receipts must not become their own independent count witnesses. |
 | P13c-3b-2 | Complete v5 export/union and legacy import/export guards; atomic trial/alpha/confirmation rollback, independent overlaps/starts/seals/stops, two-hop/replacement/duplicate import, exact bounds and lost marker/dependency refusal. |
 
 P13c-4 then integrates current-family/actual-share P12a, authenticated inputs,
