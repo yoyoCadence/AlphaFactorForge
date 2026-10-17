@@ -6,6 +6,8 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Current Snapshot
 
+- **P13c-3b-1b-2 durable witness design verified (2026-10-17)** from merged #196 (`ea8387a`). Freeze canonical self-contained original source witnesses/anchors, exact admission source matching, unchanged two-test eligibility, additive eleventh registry table/schema 7, existing joint quotas, unincorporated-history stops and explicit proof-only legacy restoration. Planned unreleased archive v5 adds the third logical blob kind; existing binding v5 shape stays fixed. Documentation only, 15 local links/scope/diff checks pass; runtime remains the verified #196 tree (**805 Rust / 1236 Vitest / 98 E2E**). Codec/anchors are Next after delivery CI/merge. [Plan](docs/plans/research-source-witness-storage-plan-v1.md), [handoff](handoffs/2026-10-17-p13c3b1b2-source-witness-design-v1.md).
+
 - **P13c-3b-1b-1 original historical observations implemented and verified (2026-10-17)** from merged #195 (`9d05e9b`). A bounded read-only backend primitive verifies complete original trial snapshots, exact v5 prefix/restrictive trial evidence and full index/hash/workspace/family membership, then recomputes historical counts/protocol without receipt totals or receiver rows. **805 Rust (1 ignored) / 1236 Vitest / 78 files**, typecheck/build/check/Clippy pass (five existing warnings); eleven new registry regressions and four executable mutants pass. Source artifact/campaign/run/engine metadata remain supplied claims; no IO/persistence/schema/wire/runtime permit change. Durable context storage design is Next after merge; full binding remains incomplete. [Contract](docs/research-historical-source-observations-v1.md), [handoff](handoffs/2026-10-17-p13c3b1b1-historical-observations-v1.md).
 
 - **P13c-3b-1a pure binding v5 foundation implemented and verified (2026-10-17)** from merged #194 (`bb16fcf`). Immutable snapshots reuse the strict original-text graph-blob decoder, expose read-only evidence, serialize canonical bounded JSON and check all nine confirmation-ID sets by subset. **794 Rust (1 ignored) / 1236 Vitest / 78 files**, typecheck/build/all-target check/Clippy pass with only five existing warnings; four executable mutants caught and restored. No runtime reader/writer switch or schema/policy change. 3b-1b must resolve durable independent historical context before whole-registry observation/adoption; full binding remains incomplete. Delivery PR records final-head CI/merge. [Contract](docs/research-binding-snapshot-v5.md), [handoff](handoffs/2026-10-17-p13c3b1a-binding-codec-v1.md).
@@ -224,7 +226,7 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Next
 
-- **P13c-3b-1b-2 — Durable historical-context storage design**: after 3b-1b-1; freeze how original prefix/source observations survive reopen and conflicting imports, including strict capacity/dependency/downgrade behavior, before new SQL/blob/wire changes. Never derive an independent count from its admission receipt. Then complete whole-graph observation/adoption as 3b-1b-3. [Contract §6/8](docs/plans/research-confirmation-storage-transfer-plan-v1.md).
+- **P13c-3b-1b-2a-1 — Source-witness codec and source anchors**: after 3b-1b-2 design merges; strict canonical immutable source-witness format and self-contained original trial anchors, with anchored compatibility wrapper and independent fixtures. No graph/SQL/runtime switch. [Plan](docs/plans/research-source-witness-storage-plan-v1.md).
 
 
 
@@ -258,6 +260,7 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
   6. [x] **APP-STARTUP-ERROR-001 (P2)** — done 2026-10-14 on `fix/startup-error-dialog` (visible startup failure report; see Done). All six quick fixes are complete.
 
 ## In Progress
+
 
 
 
@@ -419,7 +422,7 @@ The maintainer-approved implementation plan sequences the ABC specifications (pl
 | P10 | TW ETF adapter (FinMind + TWSE) | P08 | new | **Done** (2026-09-21; five-symbol public-source smoke, see Done) |
 | P11 | Executable DSL (TS + Rust evaluators, whitelist intersection) | P05 | Phase C "DSL validator" | **Done** (2026-09-22; see Done section) |
 | P12 | Research feasibility & trial ledger | P05, P06, P11 | ABC-06 | **Done** (2026-10-15; closure audit linked in Done) — P12a precision precheck merged PR #115; P12b spec PR #116; P12b-1 registry and transfer merged PRs #117–118; P12b-2 merged PR #120; P12c-1 merged PR #121; P12c-2a merged PR #122; P12c-2b merged PR #123; P12d-1 merged PR #124; P12d-2a completed locally (2026-09-29); P12e pure statistics/calibration complete for the declared tested set (2026-10-04); O3 BTC native campaign acceptance verified 2026-10-15; P12 parent criteria verified (see Done and closure audit) |
-| P13 | One-time Validation/Test reveal registry — also owns (2026-09-23 decision) confirmation-batch freezing, atomic alpha reservation/consumption, and crash/retry recovery using the P12e contracts. Maintainer decisions 2026-10-01 ([`research-alpha-allocation-v1`](docs/research-alpha-allocation-v1.md) §9.1): confirm with the allocated alpha share and re-run P12a before reveal; deduplicate replayed reservations but stop a family on conflicting reservations of one confirmation number, keeping the evidence; per-family budgets with no overall guarantee | P12 | ABC-07 | **In Progress** — P13a merged #181; P13b design merged #182; P13b-1 merged #183; P13b-2a merged #184; P13b-2b merged #185; P13c design merged #187; P13c-1 merged #188; P13c-2 merged #189; P13c-3 design merged #190; P13c-3a-1a merged #191; P13c-3a-1b merged #192; P13c-3a-2a merged #193; P13c-3a-2b merged #194; P13c-3b-1a merged #195; P13c-3b-1b-1 verified locally; P13c-3b-1b-2 design is Next after its merge, later slices Backlog; production activation awaits policy and mediation acceptance |
+| P13 | One-time Validation/Test reveal registry — also owns (2026-09-23 decision) confirmation-batch freezing, atomic alpha reservation/consumption, and crash/retry recovery using the P12e contracts. Maintainer decisions 2026-10-01 ([`research-alpha-allocation-v1`](docs/research-alpha-allocation-v1.md) §9.1): confirm with the allocated alpha share and re-run P12a before reveal; deduplicate replayed reservations but stop a family on conflicting reservations of one confirmation number, keeping the evidence; per-family budgets with no overall guarantee | P12 | ABC-07 | **In Progress** — P13a merged #181; P13b design merged #182; P13b-1 merged #183; P13b-2a merged #184; P13b-2b merged #185; P13c design merged #187; P13c-1 merged #188; P13c-2 merged #189; P13c-3 design merged #190; P13c-3a-1a merged #191; P13c-3a-1b merged #192; P13c-3a-2a merged #193; P13c-3a-2b merged #194; P13c-3b-1a merged #195; P13c-3b-1b-1 merged #196; P13c-3b-1b-2 design verified locally; P13c-3b-1b-2a-1 is Next after its merge, later slices Backlog; production activation awaits policy and mediation acceptance |
 | P14 | Engine archive & workspace backup/restore | P03, P05, P13 | ABC-09, ABC-11 | Backlog |
 | P15 | Codex subscription adapter — **AI unattended mode blocked until isolation is proven** (registry §2) | P00, P11, P12 | ABC-14, Phase C | Backlog |
 | P16 | VS Code MCP adapter | P04, P05, P12 | new | Backlog |
@@ -552,6 +555,8 @@ These were named inside the UI port entry and must not be buried by closing it. 
 - [ ] Full closed-loop AI automation. (Specification: ABC-14.)
 
 ## Done
+
+- [x] **P13c-3b-1b-2 — Durable historical-context storage design** (2026-10-17): exact source-witness/anchor format and bounds, original graph/P12 boundaries, additive schema 7/eleventh table, same joint quotas, unincorporated-history stops, explicit witness/provenance-only restoration, planned archive v5 and ordered code slices. Documentation-only local links/scope/diff checks pass; final-head CI/merge precedes codec implementation. No runtime/schema/policy activation. [Handoff](handoffs/2026-10-17-p13c3b1b2-source-witness-design-v1.md).
 
 - [x] **P13c-3b-1b-1 — Reconstruct original historical observations** (2026-10-17): bounded complete trial snapshots supply original prefix/protocol/counts and exact full candidate membership; closed reproduction reuses validation while preserving existing import SQL fallback. Receiver growth/reopen/removal, actual origin forks, same-head upgrades, audit independence, nonportable provenance, equal-count membership substitution and exact 8 MiB boundaries pass. 805 Rust / 1236 Vitest / 78 files, typecheck/build/check/Clippy pass (five existing warnings); four assertion-caught mutations restored, owned test-temp cleanup verified. No persisted witness/schema/wire/runtime switch. [Handoff](handoffs/2026-10-17-p13c3b1b1-historical-observations-v1.md).
 

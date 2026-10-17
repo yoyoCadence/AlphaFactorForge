@@ -3,7 +3,7 @@
 Date: 2026-10-17
 Repo: yoyoCadence/AlphaFactorForge
 Branch: feat/p13c3b1b1-historical-observations
-Status: Locally verified; delivery CI/merge pending
+Status: Merged as PR #196; durable source-witness design in progress
 
 ## Summary
 
@@ -65,3 +65,19 @@ Do not synthesize independent facts from receipts or receiver-primary rows.
 Whole-registry observation/adoption and real old-build refusal remain 3b-1b-3.
 Production qualification still requires later policy/mediation/final-fence gates.
 No bootstrap, calibration/final seed or protected execution was performed.
+
+## Resolution (2026-10-17 — merged reconstruction delivery)
+
+PR [#196](https://github.com/yoyoCadence/AlphaFactorForge/pull/196) verified head
+`c7448ac7a5d8f9b132e958db636a9199f6d74e12` and merged as
+`ea8387a6d8de71eddd9c0331cc651df9213f30aa`. Run `39034499177` passed all six
+jobs: 805 Rust (one ignored), 1236 Vitest and 98 first-pass E2E. Native rendering,
+SQLite invokes, metrics windows and event round trip passed; exact browser policy
+was restored and owned processes/temp directories cleaned. No review submissions
+or unresolved threads remained. Local main was fast-forwarded and its tree
+matched the verified head; PR body verification matched the recorded receipt.
+
+The next design preserves self-contained original trial/source witnesses rather
+than reconstructing old facts from receipts or receiver-primary rows. It also
+keeps existing confirmation tests-per-trial support at two and distinguishes
+generic archival protocol facts from eligible admission context.

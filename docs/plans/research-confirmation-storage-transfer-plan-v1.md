@@ -5,6 +5,15 @@ admission permit, execution or statistical-policy decision is added here.
 Task status belongs to [tasks.md](../../tasks.md). This freezes implementation
 details required by [P13c §7/10](research-confirmation-exposure-recovery-plan-v1.md).
 
+2026-10-17 integration refinement after merged #196: the
+[source-witness plan](research-source-witness-storage-plan-v1.md) supplies durable
+original context before binding observation activates. For that upcoming work
+it supersedes this document's ten-table/two-blob/schema-6 assumptions with one
+additive witness table, a third logical blob kind and schema 7. Existing schema-6
+implementation and all statistical/authority constraints remain unchanged.
+The unimplemented complete archive v5 is revised explicitly before any writer
+ships; binding v5 retains exactly its existing fields and nine confirmation sets.
+
 ## 1. Existing identities and authority
 
 Keep [P13c-1 documents](../research-confirmation-contracts-v1.md),
@@ -341,6 +350,9 @@ predecessor's six exact-head CI jobs and merge. No production activation.
 | P13c-3b-1b | Complete 3b-1 after 3b-1a: whole-registry checked observation/adoption and downgrade acceptance. Before activation, specify durable independent historical context for reopen and conflicting imported branches; admission receipts must not become their own independent count witnesses. |
 | P13c-3b-1b-1 | First context primitive: bounded complete original trial snapshot validation, exact v5 prefix/restrictive-trial evidence and registered candidate membership, independently recomputed historical counts/protocol. No current-count or receipt-total substitution, IO, persistence or runtime activation. [Detailed plan](research-historical-observation-plan-v1.md). |
 | P13c-3b-1b-2 | Freeze durable historical-context storage/dependency/downgrade design after the reconstruction primitive is verified; separate implementation slices before the observer. No implicit blob/schema/wire extension. |
+| P13c-3b-1b-2a-1 | Strict source-witness codec and self-contained original trial anchors; independent original/canonical bytes, bounds and metadata/fact distinction. Preserve anchored reconstruction behavior. No graph/SQL/runtime activation. |
+| P13c-3b-1b-2a-2 | Pure checked-witness host facts and graph dependencies; admission uses exact original anchor/source, existing two-test policy and blob liveness remain strict, existing quarantine/HWM coverage semantics align. No IO/schema. |
+| P13c-3b-1b-2b | Additive migration 0007, bounded witness snapshots/context, explicit W-only legacy restoration and all atomic/capacity/provenance regressions; no binding writer switch. |
 | P13c-3b-1b-3 | Complete the original whole-registry observation/adoption task after durable context exists; exact ID coverage, failed binding preservation, legacy adoption and actual old-build schema/binding refusal. |
 | P13c-3b-2 | Complete v5 export/union and legacy import/export guards; atomic trial/alpha/confirmation rollback, independent overlaps/starts/seals/stops, two-hop/replacement/duplicate import, exact bounds and lost marker/dependency refusal. |
 
