@@ -24,11 +24,12 @@ mod admission;
 mod graph;
 pub use admission::{
     freeze_admission, parse_admission, AdmissionInputs, AdmissionRecord, BlobKind,
-    HistoricalTrialObservation, HistoryBlob,
+    HistoricalTrialObservation, HistoryBlob, MAX_BINDING_BYTES,
 };
 pub use graph::{
     complete_confirmation_graph, validate_confirmation_graph, ConfirmationInventory, GraphContext,
-    HistoricalPrefix, HostAllocation, HostConflict, ValidatedGraph,
+    HistoricalPrefix, HostAllocation, HostConflict, ValidatedGraph, MAX_HISTORY_BYTES,
+    MAX_HISTORY_INTERVALS, MAX_HISTORY_ROWS,
 };
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, thiserror::Error)]

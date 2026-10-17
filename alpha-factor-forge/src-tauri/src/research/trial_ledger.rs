@@ -46,6 +46,8 @@ pub use binding::{
 pub use transfer::ImportSummary;
 #[allow(unused_imports)]
 pub use alpha::{AlphaFamilyState, AlphaStorageOutcome, AlphaStorageStatus, AlphaTransferSummary};
+#[allow(unused_imports)]
+pub use confirmation::{ConfirmationLookup,ConfirmationWriteSummary};
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};

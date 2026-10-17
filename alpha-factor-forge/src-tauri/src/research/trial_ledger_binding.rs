@@ -478,7 +478,7 @@ pub fn write_workspace_binding(
 }
 
 /// The registry's restrictive evidence, read inside the caller's transaction.
-fn observed_evidence(tx: &Transaction<'_>) -> Result<LedgerEvidence, LedgerError> {
+pub(super) fn observed_evidence(tx: &Transaction<'_>) -> Result<LedgerEvidence, LedgerError> {
     let mut evidence = LedgerEvidence::default();
     {
         let mut stmt = tx.prepare("SELECT DISTINCT family_id FROM family_conflicts")?;

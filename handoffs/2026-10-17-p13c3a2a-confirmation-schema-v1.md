@@ -3,7 +3,7 @@
 Date: 2026-10-17
 Repo: yoyoCadence/AlphaFactorForge
 Branch: feat/p13c3a2a-confirmation-schema
-Status: Locally verified; delivery CI/merge pending
+Status: Merged as PR #193; checked graph storage is next
 
 ## Summary
 
@@ -69,3 +69,17 @@ Exercise maximum-sized valid union throughput with the aggregate SQL capacity
 backstops as part of that writer's tests. Complete v5 transport remains 3b-2;
 public old-format export is deliberately unavailable once new history/unknown
 markers would be omitted. Keep production policy/manual mediation gates.
+
+## Resolution (2026-10-17)
+
+[PR #193](https://github.com/yoyoCadence/AlphaFactorForge/pull/193) merged as
+`44870effa7290202a1d878dd4e47a794fa861415` using final head
+`e13237f43de060a34c7355321aac94fbde0b00a8` after all six jobs succeeded in
+[CI run 38985924072](https://github.com/yoyoCadence/AlphaFactorForge/actions/runs/38985924072).
+CI confirmed 762 Rust (one ignored), 1234 Vitest, 98 first-pass E2E and real
+native render/SQLite/metrics/events with exact browser-policy restoration and
+owned-process/temp cleanup. No review/thread blockers at the final check.
+Main was fast-forwarded and its tree matches the CI-verified head.
+
+The continuous authorized loop proceeds with P13c-3a-2b from this baseline.
+SQL shapes/provenance alone grant neither a checked graph nor live rights.
