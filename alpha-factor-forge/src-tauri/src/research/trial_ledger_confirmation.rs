@@ -1,8 +1,14 @@
-//! Schema-6 provenance/omission guards only. Checked graph IO is P13c-3a-2b;
-//! neither these rows nor a successful legacy import grant admission rights.
+//! Schema-6 provenance, checked archival graph IO and original-origin lookup.
+//! Original-source observations remain a host boundary, not admission rights.
 use super::LedgerError;
+#[path = "trial_ledger_confirmation/storage.rs"]
+mod storage;
 use rusqlite::{params, Connection};
 use std::collections::BTreeSet;
+// Transaction-scoped extension points for the later final fence/v5 importer.
+#[allow(unused_imports)]
+pub(super) use storage::{append_in, load_in};
+pub use storage::{ConfirmationLookup, ConfirmationWriteSummary};
 
 pub(super) const TABLES: [&str; 10] = [
     "confirmation_batches",
@@ -33,6 +39,10 @@ pub(super) fn unknown_origins(conn: &Connection) -> Result<BTreeSet<String>, Led
         |r| r.get(0),
     )?;
     if !(0..=MAX_UNKNOWN_ORIGINS as i64).contains(&count) {
+        return Err(invalid());
+    }
+    let malformed:bool=conn.query_row("SELECT EXISTS(SELECT 1 FROM confirmation_unknown_origins WHERE typeof(origin_registry_id)<>'text' OR length(CAST(origin_registry_id AS BLOB))<>32 OR typeof(recorded_at)<>'text')",[],|r|r.get(0))?;
+    if malformed {
         return Err(invalid());
     }
     let mut statement = conn.prepare(
