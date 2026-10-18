@@ -817,6 +817,42 @@ pub fn parse_operation(raw: &str, batch: &FrozenBatch) -> Result<FrozenOperation
     Ok(result)
 }
 
+/// Closed original shape/identity for legacy provenance enumeration only.
+/// Full batch/reference validation still requires parse_operation/the graph.
+pub fn read_operation_provenance(raw: &str) -> Result<(String, String), ContractError> {
+    let stored: Stored<OperationBody> =
+        read(raw).map_err(|_| ContractError("invalid original operation provenance".into()))?;
+    let body = stored.body;
+    require(
+        body.contract_version == OPERATION_VERSION,
+        "unsupported operation version",
+    )?;
+    for (name, value) in [
+        ("originRegistryId", &body.origin_registry_id),
+        ("reservationKey", &body.reservation_key),
+        ("requestId", &body.request_id),
+        ("workspaceId", &body.workspace_id),
+    ] {
+        short_id(value, name)?;
+    }
+    hash_field(&body.confirmation_batch_id, "confirmationBatchId")?;
+    hash_field(&body.allocation_id, "allocationId")?;
+    prefixed_hash(&body.family_id, "trial-family-v1:", "familyId")?;
+    if let Some(id) = &body.selection_id {
+        hash_field(id, "selectionId")?;
+    }
+    require(
+        matches!(
+            (&body.stage, &body.selection_id),
+            (OperationStage::Validation, None) | (OperationStage::Test, Some(_))
+        ),
+        "operation stage/selection mismatch",
+    )?;
+    let id = identity(OPERATION_VERSION, &body)?;
+    require(stored.id == id, "operation ID does not reproduce")?;
+    Ok((id, body.origin_registry_id))
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum OperationRelation {
     ExactReplay,

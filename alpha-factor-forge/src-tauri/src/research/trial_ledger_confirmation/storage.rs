@@ -86,6 +86,16 @@ fn origin(value: &str) -> bool {
 
 /// Aggregates and metadata caps run before allocating any document/blob row.
 fn preflight(conn: &Connection) -> Result<(), LedgerError> {
+    // Staged foundation: the old two-kind reader must never omit witness rows.
+    // Strict combined hydration/current context/restoration arrives in 2b-2.
+    let witnesses: bool = conn.query_row(
+        "SELECT EXISTS(SELECT 1 FROM confirmation_source_witnesses LIMIT 1)",
+        [],
+        |r| r.get(0),
+    )?;
+    if witnesses {
+        return Err(bad("source witnesses require checked schema-7 context"));
+    }
     let mut rows = 0i64;
     let mut bytes = 0i64;
     for spec in DOCS {
@@ -185,6 +195,56 @@ fn read_inventory(conn: &Connection) -> Result<ConfirmationInventory, LedgerErro
     }
     inventory.unknown_origins = unknown_origins(conn)?.into_iter().collect();
     Ok(inventory)
+}
+
+/// Bounded migration enumeration, not graph adoption or source reconstruction.
+/// Original typed provenance and binding codecs precede any origin extraction.
+pub(super) fn legacy_managed_origins(conn: &Connection) -> Result<BTreeSet<String>, LedgerError> {
+    use alpha_factor_forge::discovery_core::{
+        confirmation_contracts::read_operation_provenance,
+        confirmation_history::{parse_binding_snapshot, read_exposure_provenance},
+    };
+    let inventory = read_inventory(conn)?;
+    projection::verify(conn, &inventory)?;
+    let mut origins = BTreeSet::new();
+    let mut managed = !inventory.batches.is_empty()
+        || !inventory.selections.is_empty()
+        || !inventory.operations.is_empty()
+        || !inventory.admissions.is_empty()
+        || !inventory.events.is_empty()
+        || !inventory.blobs.is_empty();
+    for raw in &inventory.operations {
+        let (_, origin) = read_operation_provenance(raw)
+            .map_err(|_| bad("invalid original operation provenance"))?;
+        origins.insert(origin);
+    }
+    for raw in &inventory.exposures {
+        let (_, origin) = read_exposure_provenance(raw)
+            .map_err(|_| bad("invalid original exposure provenance"))?;
+        managed |= json(raw)?["body"]["claim"]["kind"] == "confirmation";
+        origins.insert(origin);
+    }
+    for blob in &inventory.blobs {
+        if blob.kind() == BlobKind::Binding {
+            let binding = parse_binding_snapshot(blob.text())
+                .map_err(|_| bad("invalid original binding provenance"))?;
+            origins.insert(binding.registry_id().into());
+        }
+    }
+    if managed {
+        let local: String = conn.query_row(
+            "SELECT value FROM registry_meta WHERE key='registry_id'",
+            [],
+            |r| r.get(0),
+        )?;
+        if !origin(&local) {
+            return Err(bad("invalid local registry origin"));
+        }
+        origins.insert(local);
+        Ok(origins)
+    } else {
+        Ok(BTreeSet::new())
+    }
 }
 fn check_context(
     tx: &Transaction<'_>,

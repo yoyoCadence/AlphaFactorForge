@@ -24,6 +24,8 @@ mod capacity;
 mod cases;
 #[path = "storage_corruption.rs"]
 mod corruption;
+#[path = "witness_migration_tests.rs"]
+mod witness_migrations;
 
 struct Dirs {
     root: PathBuf,
