@@ -2,7 +2,7 @@
 //! duplicate replay can retain an earlier byte/audit representation.
 use super::*;
 
-fn capacity(i: &ConfirmationInventory) -> Result<(), LedgerError> {
+pub(super) fn capacity(i: &ConfirmationInventory) -> Result<(), LedgerError> {
     let mut count = i.blobs.len();
     let mut bytes = 0usize;
     for spec in DOCS {
@@ -36,7 +36,7 @@ fn capacity(i: &ConfirmationInventory) -> Result<(), LedgerError> {
 }
 /// Overlay includes incoming duplicate texts so strict codecs see their exact
 /// original JSON. Retained union keeps first-observed text for semantic replay.
-fn union(
+pub(super) fn union(
     old: &ConfirmationInventory,
     input: &ConfirmationInventory,
 ) -> Result<(ConfirmationInventory, ConfirmationInventory), LedgerError> {
@@ -123,6 +123,21 @@ pub(in crate::research::trial_ledger) fn append_in(
     let proposed =
         complete_confirmation_graph(&retained, ctx).map_err(|_| bad("invalid proposed graph"))?;
     let proposed = proposed.inventory();
+    let summary = persist_in(tx, old.inventory(), proposed)?;
+    let written = load_in(tx, registry, ctx)?;
+    if written.inventory() != proposed {
+        return Err(bad("written graph differs from preflight"));
+    }
+    Ok(summary)
+}
+
+/// Insert only the difference of a fully checked proposed inventory. Both
+/// callers validate/finally reload in the same transaction; no commit here.
+pub(super) fn persist_in(
+    tx: &Transaction<'_>,
+    old: &ConfirmationInventory,
+    proposed: &ConfirmationInventory,
+) -> Result<ConfirmationWriteSummary, LedgerError> {
     let stamp = chrono::Utc::now().to_rfc3339();
     let mut summary = ConfirmationWriteSummary {
         added_records: 0,
@@ -132,7 +147,7 @@ pub(in crate::research::trial_ledger) fn append_in(
     };
     let mut new_exposures = ConfirmationInventory::default();
     for spec in DOCS {
-        let ids = record_ids(old.inventory(), &spec)?;
+        let ids = record_ids(old, &spec)?;
         for raw in section(proposed, &spec) {
             let value = json(raw)?;
             let id = document_id(&value)?;
@@ -160,7 +175,7 @@ pub(in crate::research::trial_ledger) fn append_in(
             }
         }
     }
-    let old_blobs: BTreeSet<_> = old.inventory().blobs.iter().map(|b| b.sha256()).collect();
+    let old_blobs: BTreeSet<_> = old.blobs.iter().map(|b| b.sha256()).collect();
     for blob in &proposed.blobs {
         if old_blobs.contains(blob.sha256()) {
             continue;
@@ -168,7 +183,11 @@ pub(in crate::research::trial_ledger) fn append_in(
         let kind = match blob.kind() {
             BlobKind::Statistics => "statistics",
             BlobKind::Binding => "binding",
-            BlobKind::SourceWitness => return Err(bad("source witnesses require schema 7")),
+            BlobKind::SourceWitness => {
+                tx.execute("INSERT INTO confirmation_source_witnesses (witness_sha256,byte_length,content_bytes,recorded_at) VALUES (?1,?2,?3,?4)",params![blob.sha256(),blob.text().len() as i64,blob.text().as_bytes(),stamp])?;
+                summary.added_blobs += 1;
+                continue;
+            }
         };
         tx.execute("INSERT INTO confirmation_blobs (blob_sha256,kind,byte_length,content_bytes,recorded_at) VALUES (?1,?2,?3,?4,?5)",params![blob.sha256(),kind,blob.text().len() as i64,blob.text().as_bytes(),stamp])?;
         summary.added_blobs += 1;
@@ -179,17 +198,13 @@ pub(in crate::research::trial_ledger) fn append_in(
         tx.execute("INSERT INTO confirmation_intervals (exposure_id,interval_index,instrument_id,from_ms,to_exclusive_ms) VALUES (?1,?2,?3,?4,?5)",rusqlite::params_from_iter(row.iter()))?;
         summary.added_intervals += 1;
     }
-    let old_unknown: BTreeSet<_> = old.inventory().unknown_origins.iter().collect();
+    let old_unknown: BTreeSet<_> = old.unknown_origins.iter().collect();
     summary.added_unknown_origins = proposed
         .unknown_origins
         .iter()
         .filter(|v| !old_unknown.contains(v))
         .count();
     record_unknown_origins(tx, &proposed.unknown_origins.iter().cloned().collect())?;
-    let written = load_in(tx, registry, ctx)?;
-    if written.inventory() != proposed {
-        return Err(bad("written graph differs from preflight"));
-    }
     Ok(summary)
 }
 impl TrialLedger {

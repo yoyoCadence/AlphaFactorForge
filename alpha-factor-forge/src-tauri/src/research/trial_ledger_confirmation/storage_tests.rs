@@ -26,6 +26,8 @@ mod cases;
 mod corruption;
 #[path = "witness_migration_tests.rs"]
 mod witness_migrations;
+#[path = "witnessed_tests.rs"]
+mod witnessed;
 
 struct Dirs {
     root: PathBuf,

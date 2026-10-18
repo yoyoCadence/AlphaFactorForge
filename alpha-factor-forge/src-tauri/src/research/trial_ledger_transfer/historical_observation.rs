@@ -9,6 +9,10 @@ use alpha_factor_forge::discovery_core::{
     },
 };
 
+#[path = "historical_observation/current.rs"]
+mod current;
+pub(in crate::research::trial_ledger) use current::WitnessCurrentContext;
+
 pub(in crate::research::trial_ledger) const MAX_HISTORICAL_ARCHIVE_BYTES: usize = 8 * 1024 * 1024;
 
 #[derive(Clone, Debug)]
