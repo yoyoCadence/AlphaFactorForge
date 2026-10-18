@@ -16,9 +16,13 @@ use std::collections::BTreeMap;
 
 #[path = "projection.rs"]
 mod projection;
+#[path = "witnessed.rs"]
+mod witnessed;
 #[path = "write.rs"]
 mod write;
 use projection::{DocSpec, DOCS};
+#[allow(unused_imports)]
+pub(in crate::research::trial_ledger) use witnessed::{append_witnessed_in, load_witnessed_in};
 pub(in crate::research::trial_ledger) use write::append_in;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -85,7 +89,7 @@ fn origin(value: &str) -> bool {
 }
 
 /// Aggregates and metadata caps run before allocating any document/blob row.
-fn preflight(conn: &Connection) -> Result<(), LedgerError> {
+fn preflight(conn: &Connection, witnessed: bool) -> Result<(), LedgerError> {
     // Staged foundation: the old two-kind reader must never omit witness rows.
     // Strict combined hydration/current context/restoration arrives in 2b-2.
     let witnesses: bool = conn.query_row(
@@ -93,7 +97,7 @@ fn preflight(conn: &Connection) -> Result<(), LedgerError> {
         [],
         |r| r.get(0),
     )?;
-    if witnesses {
+    if witnesses && !witnessed {
         return Err(bad("source witnesses require checked schema-7 context"));
     }
     let mut rows = 0i64;
@@ -141,6 +145,19 @@ fn preflight(conn: &Connection) -> Result<(), LedgerError> {
     bytes = bytes
         .checked_add(b)
         .ok_or_else(|| bad("capacity exceeded"))?;
+    if witnessed {
+        let (n,b):(i64,i64)=conn.query_row("SELECT COUNT(*),COALESCE(SUM(length(content_bytes)),0) FROM confirmation_source_witnesses",[],|r|Ok((r.get(0)?,r.get(1)?)))?;
+        rows = rows
+            .checked_add(n)
+            .ok_or_else(|| bad("capacity exceeded"))?;
+        bytes = bytes
+            .checked_add(b)
+            .ok_or_else(|| bad("capacity exceeded"))?;
+        let invalid:bool=conn.query_row("SELECT EXISTS(SELECT 1 FROM confirmation_source_witnesses WHERE typeof(witness_sha256)<>'text' OR length(CAST(witness_sha256 AS BLOB))<>64 OR witness_sha256 GLOB '*[^0-9a-f]*' OR typeof(byte_length)<>'integer' OR byte_length NOT BETWEEN 1 AND 8388608 OR typeof(content_bytes)<>'blob' OR length(content_bytes)<>byte_length OR typeof(recorded_at)<>'text') OR EXISTS(SELECT 1 FROM confirmation_source_witnesses w JOIN confirmation_blobs b ON b.blob_sha256=w.witness_sha256)",[],|r|r.get(0))?;
+        if invalid {
+            return Err(bad("invalid stored witness or namespace"));
+        }
+    }
     if rows > MAX_HISTORY_ROWS as i64 || bytes > MAX_HISTORY_BYTES as i64 {
         return Err(bad("capacity exceeded"));
     }
@@ -162,7 +179,16 @@ fn preflight(conn: &Connection) -> Result<(), LedgerError> {
     Ok(())
 }
 fn read_inventory(conn: &Connection) -> Result<ConfirmationInventory, LedgerError> {
-    preflight(conn)?;
+    read_inventory_mode(conn, false)
+}
+fn read_witnessed_inventory(conn: &Connection) -> Result<ConfirmationInventory, LedgerError> {
+    read_inventory_mode(conn, true)
+}
+fn read_inventory_mode(
+    conn: &Connection,
+    witnessed: bool,
+) -> Result<ConfirmationInventory, LedgerError> {
+    preflight(conn, witnessed)?;
     let mut inventory = ConfirmationInventory::default();
     for spec in DOCS {
         let mut stmt = conn.prepare(&format!(
@@ -192,6 +218,23 @@ fn read_inventory(conn: &Connection) -> Result<ConfirmationInventory, LedgerErro
             return Err(bad("blob identity or length differs"));
         }
         inventory.blobs.push(blob);
+    }
+    if witnessed {
+        let mut stmt=conn.prepare("SELECT witness_sha256,byte_length,content_bytes FROM confirmation_source_witnesses ORDER BY witness_sha256")?;
+        let mut rows = stmt.query([])?;
+        while let Some(row) = rows.next()? {
+            let sha: String = row.get(0).map_err(|_| bad("invalid witness row"))?;
+            let length: i64 = row.get(1).map_err(|_| bad("invalid witness row"))?;
+            let bytes: Vec<u8> = row.get(2).map_err(|_| bad("invalid witness row"))?;
+            let text = std::str::from_utf8(&bytes).map_err(|_| bad("invalid witness UTF-8"))?;
+            let blob = HistoryBlob::new(BlobKind::SourceWitness, text)
+                .map_err(|_| bad("invalid original witness"))?;
+            if blob.sha256() != sha || length as usize != bytes.len() {
+                return Err(bad("witness identity or length differs"));
+            }
+            inventory.blobs.push(blob);
+        }
+        inventory.blobs.sort_by(|a, b| a.sha256().cmp(b.sha256()));
     }
     inventory.unknown_origins = unknown_origins(conn)?.into_iter().collect();
     Ok(inventory)

@@ -3,7 +3,7 @@
 Date: 2026-10-18
 Repo: yoyoCadence/AlphaFactorForge
 Branch: feat/p13c3b1b2b1-source-witness-schema
-Status: locally verified; final-head CI/review/merge delivery pending
+Status: merged; actual context/strict IO/restoration follows
 
 ## Summary
 
@@ -72,3 +72,16 @@ No statistical calibration, reserved seed or AI-context policy was changed.
 [Contract](../docs/research-source-witness-schema-v7.md),
 [implementation order](../docs/plans/research-source-witness-schema-plan-v1.md),
 [parent plan](../docs/plans/research-source-witness-storage-plan-v1.md).
+
+## Resolution (2026-10-18 — merged schema/provenance foundation)
+
+PR [#200](https://github.com/yoyoCadence/AlphaFactorForge/pull/200) verified head
+`2287fdfffb4bac7e4041c4294ba6f6c0c2a2b77f`, then merged with the expected-head
+guard as `3d83d57003d02abf8eb0a2592b2b95716e2cfa3a`. Run `39088608426`
+passed all six jobs: 847 Rust (one ignored), 1242 Vitest / 80 files and 98
+first-pass E2E. Native rendering, SQLite invokes, metrics windows and Rust
+event round trip passed; exact hosted-browser-policy restoration and owned
+process/temp cleanup were confirmed. No reviews/threads remained; fetched main
+had not moved. Fast-forwarded clean main equaled the verified head's tree,
+and the PR body was verified against this receipt. Next is 2b-2 under the
+unchanged durable witness plan.

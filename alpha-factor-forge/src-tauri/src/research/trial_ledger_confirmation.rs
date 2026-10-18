@@ -8,6 +8,8 @@ use std::collections::BTreeSet;
 // Transaction-scoped extension points for the later final fence/v5 importer.
 #[allow(unused_imports)]
 pub(super) use storage::{append_in, load_in};
+#[allow(unused_imports)]
+pub(super) use storage::{append_witnessed_in, load_witnessed_in};
 pub use storage::{ConfirmationLookup, ConfirmationWriteSummary};
 
 pub(super) const TABLES: [&str; 11] = [

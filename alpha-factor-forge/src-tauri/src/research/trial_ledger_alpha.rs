@@ -417,6 +417,49 @@ pub(super) fn observed_identities(
     })
 }
 
+/// Full checked alpha facts for the strict archival graph, in its caller's
+/// transaction. Alternative budget declarations remain present in conflicts.
+pub(super) fn observed_confirmation_context(
+    conn: &Connection,
+) -> Result<alpha_factor_forge::discovery_core::confirmation_history::GraphContext, LedgerError> {
+    use alpha_factor_forge::discovery_core::confirmation_history::{
+        GraphContext, HostAllocation, HostConflict,
+    };
+    let evidence = load(conn)?;
+    for family in evidence.budgets.keys() {
+        family_state(&evidence, family)?;
+    }
+    let mut conflicts: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+    for (family, bodies) in &evidence.conflicts {
+        for body in bodies {
+            conflicts
+                .entry(conflict_identity(body)?.0)
+                .or_default()
+                .insert(family.clone());
+        }
+    }
+    Ok(GraphContext {
+        allocations: evidence
+            .declarations
+            .into_iter()
+            .map(|((family_id, _), declaration)| HostAllocation {
+                family_id,
+                declaration,
+            })
+            .collect(),
+        reservations: evidence.records,
+        alpha_conflicts: conflicts
+            .into_iter()
+            .map(|(id, families)| HostConflict {
+                id,
+                family_ids: families.into_iter().collect(),
+            })
+            .collect(),
+        alpha_unknown_origins: unknown_origins(conn)?.into_iter().collect(),
+        ..GraphContext::default()
+    })
+}
+
 fn family_state(
     evidence: &Evidence,
     family: &str,
