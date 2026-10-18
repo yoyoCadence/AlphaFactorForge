@@ -3,7 +3,7 @@
 Date: 2026-10-17
 Repo: yoyoCadence/AlphaFactorForge
 Branch: feat/p13c3b1b2a2-witness-graph
-Status: Implemented and locally verified; final-head CI/merge pending.
+Status: Merged and verified; additive storage follows separately.
 
 ## Summary
 
@@ -78,3 +78,18 @@ data enters AI context, generation, tuning or ranking.
 [Implementation plan](../docs/plans/research-witness-graph-integration-plan-v1.md),
 [contract](../docs/research-witnessed-confirmation-graph-v1.md),
 [parent design](../docs/plans/research-source-witness-storage-plan-v1.md).
+
+## Resolution (2026-10-17 — merged strict witness graph)
+
+PR [#199](https://github.com/yoyoCadence/AlphaFactorForge/pull/199) verified head
+`dfff0ca9a0d9fd0c5d064c54d414b323366b3f18` and merged as
+`7dde2ef51d0af6cf2683340fc84976756688fde5`. Run `39041428367` passed all six
+jobs: 833 Rust (one ignored), 1242 Vitest / 80 files and 98 first-pass E2E.
+Native rendering, SQLite invokes, metrics windows and Rust event round trip,
+exact hosted-browser-policy restoration and owned process/temp cleanup passed.
+No reviews or review threads remained. Clean fast-forwarded main equaled the
+verified head; the PR body matched the same final receipt.
+
+The next storage phase is bounded into 2b-1 additive schema/provenance/legacy
+guards, then 2b-2 actual context/strict IO and explicit witness-only restoration.
+The strict runtime/binding/transport observer remains dormant through both.

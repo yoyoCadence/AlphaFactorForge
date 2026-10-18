@@ -13,6 +13,9 @@ use std::{
     path::PathBuf,
     sync::atomic::{AtomicU64, Ordering},
 };
+
+#[path = "witness_schema_tests.rs"]
+mod witnesses;
 struct Dirs {
     root: PathBuf,
     registry: PathBuf,

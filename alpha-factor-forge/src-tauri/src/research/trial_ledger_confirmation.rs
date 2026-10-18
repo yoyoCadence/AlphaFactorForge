@@ -10,7 +10,7 @@ use std::collections::BTreeSet;
 pub(super) use storage::{append_in, load_in};
 pub use storage::{ConfirmationLookup, ConfirmationWriteSummary};
 
-pub(super) const TABLES: [&str; 10] = [
+pub(super) const TABLES: [&str; 11] = [
     "confirmation_batches",
     "confirmation_selections",
     "confirmation_operations",
@@ -21,6 +21,7 @@ pub(super) const TABLES: [&str; 10] = [
     "confirmation_blobs",
     "confirmation_conflicts",
     "confirmation_unknown_origins",
+    "confirmation_source_witnesses",
 ];
 pub(super) const MAX_UNKNOWN_ORIGINS: usize = 10000;
 fn valid_origin(value: &str) -> bool {
@@ -31,6 +32,12 @@ fn valid_origin(value: &str) -> bool {
 }
 fn invalid() -> LedgerError {
     LedgerError::StateInvalid("invalid or oversized confirmation provenance".into())
+}
+/// Called only after schema-7 DDL, before its receipt in the same transaction.
+/// Missing source proofs remain incomplete history; uncertainty is permanent.
+pub(super) fn backfill_source_witness_provenance(conn: &Connection) -> Result<(), LedgerError> {
+    let origins = storage::legacy_managed_origins(conn)?;
+    record_unknown_origins(conn, &origins)
 }
 pub(super) fn unknown_origins(conn: &Connection) -> Result<BTreeSet<String>, LedgerError> {
     let count: i64 = conn.query_row(

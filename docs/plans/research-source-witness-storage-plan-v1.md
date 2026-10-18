@@ -233,6 +233,13 @@ hashes never enter AI Train context, prompts, generation, tuning or ranking.
 
 ## 8. Ordered PRs and required evidence
 
+Implementation refinement after merged graph #199: split 2b into 2b-1 additive
+schema/provenance/old-entry guards, then 2b-2 actual source/current-coverage
+context, strict combined IO and explicit restoration. Before 2b-2 activates
+strict reads, old experimental readers/writers must refuse any witness rows
+instead of ignoring the new physical table. Both remain before binding observer
+activation. [Schema implementation plan](research-source-witness-schema-plan-v1.md).
+
 | Slice | Scope and verification |
 | --- | --- |
 | 3b-1b-2a-1 | Pure canonical witness codec and self-contained source anchors, retaining the anchored wrapper. Independent Node/Rust byte/hash fixtures, closed fields, exact bounds, metadata-claim separation and protocol/head changes. No graph/SQL switch. |

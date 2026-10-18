@@ -325,6 +325,15 @@ pub fn parse_manual_exposure(raw: &str) -> Result<ExposureRecord, HistoryRecordE
     Ok(result)
 }
 
+/// Closed original shape/identity for migration provenance only. This does not
+/// validate managed references or return a checked execution/admission record.
+pub fn read_exposure_provenance(raw: &str) -> Result<(String, String), HistoryRecordError> {
+    let stored: Stored<ExposureBody> = read(raw)?;
+    let record = checked_exposure(stored.body)?;
+    require(stored.id == record.id, HistoryRecordError::Identity)?;
+    Ok((record.id, record.body.origin_registry_id))
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
 enum TerminalReason {

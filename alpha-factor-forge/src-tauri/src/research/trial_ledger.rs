@@ -117,6 +117,10 @@ const REGISTRY_MIGRATIONS: &[(&str, &str)] = &[
         "0006_confirmation_history",
         include_str!("../../registry_migrations/0006_confirmation_history.sql"),
     ),
+    (
+        "0007_confirmation_source_witness",
+        include_str!("../../registry_migrations/0007_confirmation_source_witness.sql"),
+    ),
 ];
 
 // ------------------------------------------------------------------ errors
@@ -1049,6 +1053,9 @@ fn migrate(conn: &mut Connection) -> Result<(), LedgerError> {
             .is_some();
         if !done {
             tx.execute_batch(sql)?;
+            if *version == "0007_confirmation_source_witness" {
+                confirmation::backfill_source_witness_provenance(&tx)?;
+            }
             if *version == "0001_trial_ledger" {
                 tx.execute(
                     "INSERT INTO registry_meta (key, value) VALUES ('registry_id', ?1)",
@@ -2412,7 +2419,7 @@ mod tests {
         };
         assert_eq!(
             applied,
-            vec!["0001_trial_ledger", "0002_origin_genesis", "0003_family_protocol_upgrades", "0004_alpha_reservations", "0005_alpha_history_provenance", "0006_confirmation_history"]
+            vec!["0001_trial_ledger", "0002_origin_genesis", "0003_family_protocol_upgrades", "0004_alpha_reservations", "0005_alpha_history_provenance", "0006_confirmation_history", "0007_confirmation_source_witness"]
         );
     }
 

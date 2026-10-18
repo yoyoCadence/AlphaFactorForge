@@ -1,4 +1,7 @@
 use super::*;
+
+#[path = "provenance_tests.rs"]
+mod provenance;
 use crate::discovery_core::{
     alpha_reservations::{freeze_alpha_reservation, parse_alpha_reservation},
     confirmation_contracts::{
