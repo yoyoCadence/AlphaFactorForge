@@ -6,6 +6,8 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Current Snapshot
 
+- **P13c-3b-2b-2a disposable destination preflight snapshot implemented and verified (2026-10-21)** from merged #204 (`7058106`). An internal borrowed-transaction snapshot streams exact registry rows/blobs/audits/row IDs/sequence/schema to a private owned disk database; copied triggers and source/proposed FK checks fence trial proposals. Rollback/close/canonical owned cleanup precede returning results; the caller's transaction remains unchanged and locked. Twelve new regressions/four assertion-caught mutants pass; **917 Rust (one ignored) / 1242 Vitest / 80 files**, typecheck/build/check/scoped format/Clippy pass (five existing warnings). Delivery PR records final-head CI/merge. Actual one-commit v5 union (2b-2b) is Next after delivery; no live import/admission/command caller. [Contract](docs/research-ledger-disposable-preflight-v1.md), [handoff](handoffs/2026-10-21-p13c3b2b2a-disposable-preflight-v1.md).
+
 - **P13c-3b-2b-1 strict complete witnessed source validation implemented and verified (2026-10-21)** from merged #203 (`1958e3d`). Backend-only original-byte v5 validation enforces closed canonical framing, exact counts/IDs/order/hash/bounds and full nested v4. Exact disposable SQLite reconstruction preserves original trial/alpha/foreign/restrictive evidence; independent complete witness/graph/projection/FK validation neither repairs source history nor opens a receiver. Sixteen new regressions/four caught mutants pass; **905 Rust (one ignored) / 1242 Vitest / 80 files**, typecheck/build/check/scoped format/Clippy pass (five existing warnings). Delivery PR records final-head CI/merge. Atomic destination union (2b-2) is Next after delivery; no importer/command/execution activation. [Contract](docs/research-confirmation-source-validation-v5.md), [handoff](handoffs/2026-10-21-p13c3b2b1-strict-source-validation-v1.md).
 
 - **P13c-3b-2a complete canonical witnessed export implemented and verified (2026-10-21)** from merged #202 (`f4b0cd7`). Backend-only v5 export reads actual v4 projection and the complete strict witnessed graph in one deferred snapshot; canonical schema-7 framing carries all nine identity counts and three exact original blob kinds. Bounded serialization counts actual escaping/nesting and retains all legacy omission guards. Nine new regressions/four assertion-caught mutants pass; **889 Rust (one ignored) / 1242 Vitest / 80 files**, typecheck/build/check/scoped format/Clippy pass (five existing warnings). Node byte/hash oracle reproduces, seven new links/diff checks pass. Delivery PR records final-head CI/merge. Strict input/source validation and atomic union (2b) is Next; no importer/command/execution activation. [Contract](docs/research-confirmation-export-v5.md), [handoff](handoffs/2026-10-21-p13c3b2a-witnessed-export-v1.md).
@@ -240,7 +242,7 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Next
 
-- **P13c-3b-2b-2 - Atomic witnessed v5 destination union**: after 2b-1 delivery; preflight complete proposed state before the first destination write, one-commit trial/alpha/confirmation union, permanent contradictory claims/stops, two-hop/replacement/replay, qualification provenance, exact limits and late rollback. [Plan](docs/plans/research-confirmation-transport-implementation-v1.md).
+- **P13c-3b-2b-2b - Atomic witnessed v5 destination union**: after 2b-2a delivery; use the disposable preflight substrate for complete proposed state before the first destination write, one-commit trial/alpha/confirmation union, permanent contradictory claims/stops, two-hop/replacement/replay, qualification provenance, exact limits and late rollback. [Plan](docs/plans/research-confirmation-transport-implementation-v1.md).
 
 
 
@@ -277,6 +279,7 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
   6. [x] **APP-STARTUP-ERROR-001 (P2)** — done 2026-10-14 on `fix/startup-error-dialog` (visible startup failure report; see Done). All six quick fixes are complete.
 
 ## In Progress
+
 
 
 
@@ -580,6 +583,7 @@ These were named inside the UI port entry and must not be buried by closing it. 
 
 - [x] **P13c-3b-2a - Complete canonical witnessed export v5** (2026-10-21): consistent complete graph/v4 projection, prescribed schema-7 frame/nine counts/three original blob kinds, bounded encoded output and old omission guards; nine new regressions/four caught mutants, 889 Rust / 1242 Vitest and checks verified. Delivery PR records final-head CI/merge. [Handoff](handoffs/2026-10-21-p13c3b2a-witnessed-export-v1.md).
 - [x] **P13c-3b-2b-1 - Strict complete witnessed v5 source validation** (2026-10-21): exact original frame/nested source and disposable original chain/alpha/complete witness graph verification, no receiver writes or rights; sixteen new regressions/four caught mutants, 905 Rust / 1242 Vitest and checks verified. Delivery PR records final-head CI/merge. [Handoff](handoffs/2026-10-21-p13c3b2b1-strict-source-validation-v1.md).
+- [x] **P13c-3b-2b-2a - Disposable destination preflight snapshot** (2026-10-21): exact borrowed-transaction disk clone, source/proposed FK and copied SQL guards, private rollback/close/owned cleanup before return; twelve new regressions/four caught mutants, 917 Rust / 1242 Vitest and checks verified. Delivery PR records final-head CI/merge. [Handoff](handoffs/2026-10-21-p13c3b2b2a-disposable-preflight-v1.md).
 
 - [x] **P13c-3b-1b-3 - Whole-graph binding v5 observation/adoption** (2026-10-21): complete actual transactional evidence, exact identity coverage, strict original v5/canonical writing, legacy unknown adoption and last-good preservation; 13 regressions/four caught mutants, 880 Rust / 1242 Vitest, real old-reader refusal/new reopen and cleanup verified. See [handoff](handoffs/2026-10-21-p13c3b1b3-binding-observation-v1.md); the delivery PR contains final-head CI/merge receipt.
 

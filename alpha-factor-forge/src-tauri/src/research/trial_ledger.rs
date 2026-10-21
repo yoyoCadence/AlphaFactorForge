@@ -34,6 +34,8 @@ mod alpha;
 mod confirmation;
 #[path = "trial_ledger_transfer.rs"]
 mod transfer;
+#[path = "trial_ledger_preflight.rs"]
+mod preflight;
 // Public for the P12b-2 runner/workspace transaction; no runtime caller yet.
 #[allow(unused_imports)]
 pub use binding::{
