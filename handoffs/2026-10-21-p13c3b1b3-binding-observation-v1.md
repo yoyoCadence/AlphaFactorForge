@@ -91,3 +91,15 @@ receipt. Complete archive v5 transport is Next after that delivery; production
 execution/final admission and all policy/AI boundaries remain unchanged. No new
 calibration/reserved-seed experiment was run; committed-report reproduction
 remains in the normal suite.
+
+## Resolution (2026-10-21 - merged delivery)
+
+Delivered in [PR #202](https://github.com/yoyoCadence/AlphaFactorForge/pull/202)
+at head `34f86b303657313593994bd8d3d18ac53a2fec36`; all six exact-head jobs
+passed in run `39526308118`: 880 Rust (one ignored), 1242 Vitest / 80 files
+and 98 first-attempt E2E. Native rendering/SQLite/metrics/event round trip,
+exact browser-policy restoration and owned process/temp cleanup passed. Fresh
+main remained `28e4218`, reviews/threads were empty, and expected-head guarded
+merge produced `f4b0cd78c12eeb54cc18fbccf16d875ab7e68106`. Local main
+fast-forwarded, clean and tree-identical to the tested head. Complete transport
+is split into export then strict input/atomic union under the linked Next plan.

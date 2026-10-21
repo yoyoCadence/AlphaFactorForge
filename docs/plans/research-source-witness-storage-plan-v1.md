@@ -258,3 +258,13 @@ New proof fixtures must contain actual complete source events and their derived
 prefix/membership. Older pure graph fixtures used supplied synthetic observations,
 including nonempty counts at a genesis prefix; those are not durable source
 proofs and must not be made valid by relaxing archive/anchor checks.
+
+## Implementation refinement (2026-10-21)
+
+Whole-graph binding observation/adoption is delivered in #202. Split the
+remaining P13c-3b-2 into complete backend export (2a), then strict original
+input/source validation and atomic union (2b), each merged after its six
+exact-head CI jobs before the next begins. The schema-7 v5 shape, three blob
+kinds, original proof/stop semantics and all bounds above stay fixed. Export
+alone is not a released end-user transfer workflow or import/admission permit.
+[Detailed bounded order](research-confirmation-transport-implementation-v1.md).

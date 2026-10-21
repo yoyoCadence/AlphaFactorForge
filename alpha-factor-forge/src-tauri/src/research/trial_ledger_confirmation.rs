@@ -3,6 +3,8 @@
 use super::LedgerError;
 #[path = "trial_ledger_confirmation/storage.rs"]
 mod storage;
+#[path = "trial_ledger_confirmation/archive.rs"]
+mod archive;
 use rusqlite::{params, Connection};
 use std::collections::BTreeSet;
 // Transaction-scoped extension points for the later final fence/v5 importer.
