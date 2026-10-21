@@ -62,3 +62,15 @@ at compiler progress output; its finally block restored exact bytes in both runs
 The containing PR records fresh-main rebase/rechecks, six exact-head CI jobs,
 fresh base/reviews, expected-head guarded merge and clean-main delivery. Continue
 2b-2 immediately afterward; complete v5 destination import is still unimplemented.
+
+## Resolution (2026-10-21 - merged delivery)
+
+[PR #204](https://github.com/yoyoCadence/AlphaFactorForge/pull/204) merged at
+expected head `cda4dc9b5fe576ba690da6d3cf4b7da925fb7773` as
+`7058106c0215c303d46311da6069f7e3a2f48385`. All six checks passed in
+[run 39574842738](https://github.com/yoyoCadence/AlphaFactorForge/actions/runs/39574842738):
+905 Rust (one ignored), 1242 Vitest / 80 files and 98 first-attempt E2E. Native
+SQLite/metrics/event/rendering checks and exact policy/owned cleanup passed.
+Fresh main/reviews/threads were checked; local main is clean and tree-identical
+to the verified head. Continue 2b-2a disposable preflight then 2b-2b atomic union
+under the recorded mechanism; no new statistical experiment or rights granted.

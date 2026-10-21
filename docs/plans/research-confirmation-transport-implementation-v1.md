@@ -53,6 +53,39 @@ After merged #203 (`1958e3d`), deliver 2b in two bounded sections:
 Each section gets its own verification, draft PR, six exact-head CI checks and
 guarded merge before proceeding. This refines granularity, not wire/policy.
 
+## Destination preflight mechanism (2026-10-21, after #204)
+
+Deliver **2b-2a disposable destination snapshot** before **2b-2b atomic union**.
+2b-2a adds only an internal transaction-scoped substrate; no import API or live
+caller. 2b-2b will use it to run the same complete trial/alpha/confirmation apply
+and strict final checks privately before the first real destination write, then
+apply and commit once under the original immediate transaction.
+
+Clone directly from the caller's borrowed, fixed SQLite transaction into an
+owned private temporary disk database. Stream typed cells row by row; preserve
+schema, all registry tables, explicit row IDs, original audits/import receipts,
+checkpoints/stops and SQLite's autoincrement sequence. Recreate indexes/views/
+triggers after data copy; check foreign keys before invoking the private proposal
+closure. SQLite optimizer statistics are local non-evidence and need not travel.
+The original transaction stays open and untouched. A temporary copy avoids adding
+v3/v4 export limits to already larger primary destination history and avoids
+allocating a copy of the entire database in memory. Only actual local schema SQL,
+never archive-supplied SQL, is executed in the private database.
+
+Use a random atomically created owned temp directory (0700 on Unix, inherited
+user temp ACL on Windows) and private file (0600 on Unix). Explicitly roll back
+the disposable proposal, close the connection and remove the owned directory
+before returning a value. Failure/panic must also drop owned resources; cleanup
+failure returns an error before any real write. Do not use destination savepoints
+as preflight. No dependency/schema version change is needed. All source/union
+capacity checks and final strict graph reloads remain the caller's responsibility.
+
+Tests must prove complete original row/blob/audit/sequence/schema preservation,
+real strict graph loading, independent writer serialization and WAL snapshots,
+private trigger enforcement, callback/FK/clone failures, panic/normal cleanup and
+unchanged source transaction/changes. Deliberate mutants and full checks precede
+the usual exact-head PR/CI/merge, then continue 2b-2b immediately.
+
 Final admission/actual owner-count-share/file authentication remains P13c-4.
 Do not change statistical policy, run new calibration/reserved-seed experiments
 or expose witnesses to AI context. Existing committed-report reproductions stay.

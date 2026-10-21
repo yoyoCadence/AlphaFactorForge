@@ -34,6 +34,8 @@ mod binding_observation;
 mod archive;
 #[path = "archive_source_cases.rs"]
 mod archive_source;
+#[path = "preflight_cases.rs"]
+mod preflight;
 
 struct Dirs {
     root: PathBuf,
