@@ -86,3 +86,12 @@ independent bit-subset oracle (9,216 comparisons), plus cross-section and
 replacement-boundary cases. A real workspace-SQL test verifies that the dormant
 codec does not enable v5 in the runtime reader/writer or enlarge legacy bounds.
 No calibration, bootstrap or protected execution is involved.
+
+## Runtime integration (2026-10-21)
+
+P13c-3b-1b-3 activates the workspace v5 reader/writer and complete transactional
+observer after durable independent historical context was delivered in #201.
+The format-only boundaries above remain; see the
+[actual observation/adoption contract](research-binding-observation-v5.md) for
+strict graph/context checks, legacy unknown handling and last-good preservation.
+Complete archive v5 transfer and final admission capture remain later work.

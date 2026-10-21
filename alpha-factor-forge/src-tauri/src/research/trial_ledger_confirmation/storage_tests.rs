@@ -28,6 +28,8 @@ mod corruption;
 mod witness_migrations;
 #[path = "witnessed_tests.rs"]
 mod witnessed;
+#[path = "binding_observation_tests.rs"]
+mod binding_observation;
 
 struct Dirs {
     root: PathBuf,

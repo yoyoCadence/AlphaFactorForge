@@ -2940,6 +2940,7 @@ mod tests {
         // A binding without evidence (pre-§23) proves only its event prefix.
         let legacy = LedgerBinding {
             evidence: None,
+            confirmation: None,
             ..current
         };
         assert!(matches!(

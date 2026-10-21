@@ -85,3 +85,15 @@ were restored. The delivery PR containing this note records the verified final
 head, all six CI jobs, fresh base/review checks, exact merge SHA and clean main
 tree receipt; it is the authoritative delivery status after local verification.
 Binding observation/adoption remains the next separate task.
+
+## Resolution (2026-10-21 - merged delivery receipt)
+
+Delivered in [PR #201](https://github.com/yoyoCadence/AlphaFactorForge/pull/201)
+at tested head `befaa9dfada136f47d812353f860d263668099e2`; all six exact-head
+CI jobs passed in run `39097692973` (867 Rust, one ignored; 1242 Vitest /
+80 files; 98 first-attempt E2E cases). Native smoke passed with browser policy
+restored and owned temporary processes/files removed. Fresh base/review/thread
+checks preceded expected-head guarded merge `28e421805d2993f18bdb97ae074fffcb6a78feb1`.
+Local main fast-forwarded to that merge, clean and tree-identical to the tested
+head. The delivery PR contains the verified final receipt. Binding v5 observation
+is the next scoped task.
