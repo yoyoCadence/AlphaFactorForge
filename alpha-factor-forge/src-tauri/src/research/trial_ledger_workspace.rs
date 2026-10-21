@@ -494,6 +494,8 @@ mod tests {
     use super::*;
     use std::sync::atomic::{AtomicU64, Ordering};
 
+    mod binding_v5;
+
     static NEXT: AtomicU64 = AtomicU64::new(0);
 
     #[test]
@@ -1062,6 +1064,7 @@ mod tests {
         legacy["version"] = serde_json::json!("trial-ledger-binding-v2");
         legacy.as_object_mut().unwrap().remove("alpha");
         legacy.as_object_mut().unwrap().remove("alphaUnknownOrigins");
+        legacy.as_object_mut().unwrap().remove("confirmation");
         conn.execute(
             "UPDATE app_settings SET value_json = ?1 WHERE key = 'trial_ledger_binding'",
             [legacy.to_string()],

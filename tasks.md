@@ -1,10 +1,12 @@
-# AlphaFactorForge Tasks
+﻿# AlphaFactorForge Tasks
 
 This is the single active task board for the workspace. The former `task.md` legacy feature map has been merged into this file and should not be recreated as a second task board.
 
 Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Current Snapshot
+
+- **P13c-3b-1b-3 whole-graph binding v5 implemented and verified (2026-10-21)** from merged #201 (`28e4218`). One deferred transaction observes actual trial/alpha/provenance and the complete strict witnessed graph, covering all nine exact confirmation identity sets (including witness SHAs). Canonical v5 writing/strict original reading retain legacy unknowns/4 MiB and new 8 MiB bounds; failed graph/coverage/owner/workspace writes preserve last-good bindings. Thirteen new regressions and four assertion-caught mutants pass. **880 Rust (one ignored) / 1242 Vitest / 80 files**, typecheck/build/check/scoped format/Clippy pass (five existing warnings). Actual old #201 service refuses v5 with no endpoint or binding/audit change; new create/reopen/stop and owned process/temp cleanup pass. Delivery PR records final-head CI/merge. Complete witness-aware archive v5 transport is Next; execution/final admission remain later. [Contract](docs/research-binding-observation-v5.md), [handoff](handoffs/2026-10-21-p13c3b1b3-binding-observation-v1.md).
 
 - **P13c-3b-1b-2b-2 actual witness context/strict IO/restoration implemented and verified (2026-10-18)** from merged #200 (`3d83d57`). Complete original source reconstruction and actual current event/protocol/alpha context feed strict combined reads/lookup and monotonic archival union. Explicit witness-only restoration preserves original rows/audits/stops, refuses missing old materialized evidence, and strictly reloads before one commit. Twenty real-SQLite regressions and four assertion-caught mutants cover foreign-origin gaps, same-head upgrades, exact capacities, corruption, concurrency/reopen and late rollback. **867 Rust (one ignored) / 1242 Vitest / 80 files**, typecheck/build/check/scoped format/Clippy pass (five existing warnings). Delivery PR records final-head CI/merge. Whole-graph binding v5 observation/adoption is Next; runtime observer/transport/execution remain dormant. [Contract](docs/research-witnessed-confirmation-storage-v1.md), [handoff](handoffs/2026-10-18-p13c3b1b2b2-witness-context-restoration-v1.md).
 
@@ -234,7 +236,8 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Next
 
-- **P13c-3b-1b-3 — Whole-graph binding v5 observation/adoption**: after 2b-2 delivery; observe complete actual trial/alpha/confirmation/witness history in one transaction, require exact identity coverage and retain last-good workspace bindings. Preserve valid unknown/conflicted exploration, refuse incomplete legacy proof/adoption, and verify actual old-build schema/binding refusal. No execution or complete transport activation. [Plan](docs/plans/research-source-witness-storage-plan-v1.md).
+- **P13c-3b-2 - Complete confirmation transport v5**: after 3b-1b-3 delivery; complete original trial/alpha/confirmation/witness snapshot and atomic bounded union, contradictory claims/permanent stops, original-origin two-hop/replacement/replay, all file/resource limits, legacy omission guards and late rollback. [Witness-aware plan](docs/plans/research-source-witness-storage-plan-v1.md).
+
 
 
 
@@ -287,13 +290,13 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 
 
+
 - **P09 authenticated external acceptance** (2026-09-21): implementation/local verification Done (below), but live Tiingo download, free entitlement and payment coverage still require the operator's token in Windows Credential Manager. User intends to register; native status currently `credential_missing`. Re-run the documented bounded range after setup and append evidence to the P09 handoff.
 
 ## Backlog
 
 - [ ] **TEST-E2E-FONT-SETTLE-002 — Deterministic font readiness in chart tests (P3)** (observed 2026-10-16): PR #191 final-head CI run `38925249196`, E2E job `117055010997`: pan.spec.ts:21 first attempt hit the existing 30 s wait for `link#afs-fonts[data-e2e-fonts="settled"]` in chartLayout.ts:24; configured retry passed (97 first-pass + 1 flaky, overall job success). Investigate controlled font-request success/error/hang readiness without raising timeout/retry settings or changing chart assertions. Separate test-only slice; preserve current research task order. [PR evidence](https://github.com/yoyoCadence/AlphaFactorForge/pull/191).
 
-- [ ] **P13c-3b-2 — Complete confirmation transport v5**: after binding; full trial/alpha/confirmation snapshot and atomic preflighted union, all independent contradictory claims/stops, original-origin two-hop/replacement/replay, legacy omission guards and late rollback. [Contract §7/8](docs/plans/research-confirmation-storage-transfer-plan-v1.md).
 
 - [ ] **P13c-4 — Integrated final admission and registry-first enqueue**: after P13c-3 storage/transfer; cross-process registration/import/manual-overlap contention, workspace observation/epoch guard, actual-share P12a and all commit-boundary crashes. No protected execution. [Design §5/10](docs/plans/research-confirmation-exposure-recovery-plan-v1.md).
 - [ ] **P13c-5 — Dormant execution/sealing/recovery and typed interfaces**: after P13c-4; started/sealed evidence, original-origin recovery, no interrupted re-execution, exact artifact replay, service/Tauri authority. Activation waits for statistical policy and P13c-6 mediation acceptance. [Design §6/9/10](docs/plans/research-confirmation-exposure-recovery-plan-v1.md).
@@ -566,6 +569,8 @@ These were named inside the UI port entry and must not be buried by closing it. 
 - [ ] Full closed-loop AI automation. (Specification: ABC-14.)
 
 ## Done
+
+- [x] **P13c-3b-1b-3 - Whole-graph binding v5 observation/adoption** (2026-10-21): complete actual transactional evidence, exact identity coverage, strict original v5/canonical writing, legacy unknown adoption and last-good preservation; 13 regressions/four caught mutants, 880 Rust / 1242 Vitest, real old-reader refusal/new reopen and cleanup verified. See [handoff](handoffs/2026-10-21-p13c3b1b3-binding-observation-v1.md); the delivery PR contains final-head CI/merge receipt.
 
 - [x] **P13c-3b-1b-2b-2 — Actual witness context/strict IO/restoration** (2026-10-18): original source facts and full current event/protocol/alpha accounting, combined strict read/lookup, monotonic union and explicit materialized witness-only restoration. Twenty real-SQLite regressions, exact quotas/bytes/audits, foreign-origin gaps, same-head upgrades, independent connections/replay, corruption and late final-reload rollback; four assertion-caught mutants. 867 Rust / 1242 Vitest / 80 files, typecheck/build/check/format/Clippy pass (five existing warnings). Delivery PR records final-head CI/merge before Next binding v5 observation/adoption. [Handoff](handoffs/2026-10-18-p13c3b1b2b2-witness-context-restoration-v1.md).
 
