@@ -407,13 +407,13 @@ impl Inventory {
     }
 }
 
-struct ValidatedComplete {
+pub(in crate::research::trial_ledger) struct ValidatedComplete {
     trial: ValidatedExport,
     inventory: Inventory,
 }
 
 impl ValidatedComplete {
-    fn parse(bytes: &[u8]) -> Result<Self, LedgerError> {
+    pub(in crate::research::trial_ledger) fn parse(bytes: &[u8]) -> Result<Self, LedgerError> {
         if bytes.len() > MAX_FILE_BYTES {
             return Err(integrity("complete transfer file limit exceeded"));
         }
@@ -505,6 +505,24 @@ impl ValidatedComplete {
         inventory.validate(&families)?;
         trial.set_file_sha256(sha256_hex(bytes));
         Ok(Self { trial, inventory })
+    }
+
+    pub(in crate::research::trial_ledger) fn registry_id(&self) -> &str {
+        self.trial.registry_id()
+    }
+
+    /// Exact reconstruction, only in the complete v5 decoder's fresh private
+    /// schema. Ordinary v4 import semantics/unknown markers stay unchanged.
+    pub(in crate::research::trial_ledger) fn stage_source_in(
+        &self,
+        tx: &Transaction<'_>,
+    ) -> Result<(), LedgerError> {
+        self.trial.stage_source_in(tx)?;
+        self.inventory.write_difference(tx, &Inventory::default())?;
+        if Inventory::read(tx)? != self.inventory {
+            return Err(integrity("staged source alpha differs"));
+        }
+        Ok(())
     }
 }
 

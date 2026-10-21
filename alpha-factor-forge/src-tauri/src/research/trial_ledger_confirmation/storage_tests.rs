@@ -32,6 +32,8 @@ mod witnessed;
 mod binding_observation;
 #[path = "archive_cases.rs"]
 mod archive;
+#[path = "archive_source_cases.rs"]
+mod archive_source;
 
 struct Dirs {
     root: PathBuf,

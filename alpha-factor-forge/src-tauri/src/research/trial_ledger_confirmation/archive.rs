@@ -6,6 +6,9 @@ use rusqlite::{Transaction, TransactionBehavior};
 use serde_json::{json, Value};
 use std::io::{self, Write};
 
+#[path = "archive_decode.rs"]
+mod decode;
+
 const VERSION: &str = "trial-ledger-export-v5";
 const SCHEMA: &str = "0007_confirmation_source_witness";
 const LIMITS: Limits = Limits {

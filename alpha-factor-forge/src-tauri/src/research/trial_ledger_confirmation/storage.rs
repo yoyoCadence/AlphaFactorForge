@@ -25,6 +25,27 @@ use projection::{DocSpec, DOCS};
 pub(in crate::research::trial_ledger) use witnessed::{append_witnessed_in, load_witnessed_in};
 pub(in crate::research::trial_ledger) use write::append_in;
 
+/// Only for the v5 decoder's disposable source database. Stage exact supplied
+/// rows then strictly validate; never synthesize missing conflicts/provenance.
+pub(super) fn stage_source_in(
+    tx: &Transaction<'_>,
+    registry: &str,
+    inventory: &ConfirmationInventory,
+) -> Result<ValidatedGraph, LedgerError> {
+    if read_witnessed_inventory(tx)? != ConfirmationInventory::default() {
+        return Err(bad("source confirmation staging requires empty history"));
+    }
+    write::capacity(inventory)?;
+    // Validate the materialized source BEFORE inserts, without completing it.
+    witnessed::validate_source_in(tx, registry, inventory)?;
+    write::persist_in(tx, &ConfirmationInventory::default(), inventory)?;
+    let checked = load_witnessed_in(tx, registry)?;
+    if checked.inventory() != inventory {
+        return Err(bad("staged source confirmation differs"));
+    }
+    Ok(checked)
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ConfirmationWriteSummary {
     pub added_records: usize,

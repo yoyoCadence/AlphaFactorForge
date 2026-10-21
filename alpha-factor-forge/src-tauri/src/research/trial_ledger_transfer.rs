@@ -18,6 +18,8 @@ use serde_json::{json, Value};
 
 #[path = "trial_ledger_transfer/historical_observation.rs"]
 mod historical_observation;
+#[path = "trial_ledger_transfer/source_stage.rs"]
+mod source_stage;
 #[allow(unused_imports)]
 pub(super) use historical_observation::{
     reconstruct_historical_source, reconstruct_original_source, reconstruct_source_witness,

@@ -25,6 +25,7 @@ use super::{canonical_text, sha256_hex, LedgerError, TrialLedger};
 #[path = "trial_ledger_alpha/transfer.rs"]
 mod transfer;
 pub use transfer::AlphaTransferSummary;
+pub(super) use transfer::ValidatedComplete;
 
 const CONFLICT_VERSION: &str = "alpha-registry-conflict-v1";
 const MAX_BUDGET_BYTES: usize = 262_144;

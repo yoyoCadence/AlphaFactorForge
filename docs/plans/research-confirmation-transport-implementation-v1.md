@@ -5,7 +5,7 @@ Baseline: merged #202 (`f4b0cd7`).
 Authority: [storage/transport §4/7](research-confirmation-storage-transfer-plan-v1.md)
 and [witness amendment §7/8](research-source-witness-storage-plan-v1.md).
 
-Keep P13c-3b-2 in two bounded PRs, each delivered before the next begins:
+Keep P13c-3b-2 in two ordered stages, delivered in bounded PRs before the next begins:
 
 1. **3b-2a: complete canonical export.** Add a backend-only v5 exporter with
    one deferred snapshot for actual v4 trial/alpha projection and the complete
@@ -28,6 +28,31 @@ Keep P13c-3b-2 in two bounded PRs, each delivered before the next begins:
    guard and late all-table/receipt rollback. No execution/admission capability.
 
 The first export API does not imply a released end-user import/export workflow.
+
+## 2b implementation refinement (2026-10-21)
+
+After merged #203 (`1958e3d`), deliver 2b in two bounded sections:
+
+- **2b-1 strict source validation:** closed canonical original v5 decoding,
+  inclusive encoded/decoded limits, exact source/count/hash/order checks, and
+  full nested v4 trial/alpha validation. Materialize the exact parsed source
+  chain, protocols, receipts, restrictive evidence and alpha rows in a private
+  disposable in-memory SQLite database with the existing seven migrations.
+  Stage the supplied confirmation inventory without completing conflicts or
+  inventing unknown markers; independently reconstruct witnesses and strictly
+  reload the complete graph/projections there. No destination is opened or
+  locked. A backend-only validation API grants no import/execution rights.
+- **2b-2 atomic destination union:** consume the independently validated source,
+  preflight actual and complete proposed union before the first destination
+  write, then one immediate transaction for trial/alpha/confirmation and final
+  strict reload. Preserve the frozen two-hop/replacement/replay, provenance,
+  capacity and late rollback requirements above. Record the precise disposable
+  proposed-state staging mechanism before implementing it; no destination
+  savepoint writes may stand in for preflight.
+
+Each section gets its own verification, draft PR, six exact-head CI checks and
+guarded merge before proceeding. This refines granularity, not wire/policy.
+
 Final admission/actual owner-count-share/file authentication remains P13c-4.
 Do not change statistical policy, run new calibration/reserved-seed experiments
 or expose witnesses to AI context. Existing committed-report reproductions stay.

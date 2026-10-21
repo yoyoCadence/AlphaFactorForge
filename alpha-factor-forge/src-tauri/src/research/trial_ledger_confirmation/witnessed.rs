@@ -80,6 +80,17 @@ fn add_required_unknowns(i: &mut ConfirmationInventory, c: &Context) -> Result<(
     write::capacity(i)
 }
 
+/// Validate the supplied complete source exactly, without marker/conflict
+/// completion. The caller supplies only a disposable reconstructed source TX.
+pub(super) fn validate_source_in(
+    tx: &Transaction<'_>,
+    registry: &str,
+    input: &ConfirmationInventory,
+) -> Result<(), LedgerError> {
+    Context::read(tx, registry, input)?.validate(input, false)?;
+    Ok(())
+}
+
 pub(in crate::research::trial_ledger) fn load_witnessed_in(
     tx: &Transaction<'_>,
     registry: &str,
