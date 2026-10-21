@@ -91,7 +91,7 @@ pub(super) fn fork(
         ..ConfirmationInventory::default()
     }
 }
-fn manual(origin: &str, key: char, kind: &str, seal: Option<&str>, from: u64, to: u64) -> String {
+pub(super) fn manual(origin: &str, key: char, kind: &str, seal: Option<&str>, from: u64, to: u64) -> String {
     freeze_manual_exposure(&json!({"contractVersion":"research-confirmation-exposure-v1","originRegistryId":origin,"reservationKey":key.to_string().repeat(32),"instrumentId":"crypto:binance:BTCUSDT","intervals":[{"fromMs":from,"toExclusiveMs":to}],"claim":{"kind":"manual","accessKind":kind,"afterSealId":seal}}).to_string()).unwrap().document().to_string()
 }
 

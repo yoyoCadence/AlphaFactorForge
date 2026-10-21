@@ -8,7 +8,7 @@ mod current;
 #[path = "witness_storage_tests.rs"]
 mod storage;
 
-fn original(ledger: &TrialLedger, ctx: &GraphContext) -> SourceWitnessSnapshot {
+pub(super) fn original(ledger: &TrialLedger, ctx: &GraphContext) -> SourceWitnessSnapshot {
     let mut conn = ledger.lock().unwrap();
     let tx = conn.transaction().unwrap();
     let bytes = ledger.export_trial_in(&tx, Some(8 * 1024 * 1024)).unwrap();

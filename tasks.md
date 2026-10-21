@@ -6,6 +6,8 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Current Snapshot
 
+- **P13c-3b-2a complete canonical witnessed export implemented and verified (2026-10-21)** from merged #202 (`f4b0cd7`). Backend-only v5 export reads actual v4 projection and the complete strict witnessed graph in one deferred snapshot; canonical schema-7 framing carries all nine identity counts and three exact original blob kinds. Bounded serialization counts actual escaping/nesting and retains all legacy omission guards. Nine new regressions/four assertion-caught mutants pass; **889 Rust (one ignored) / 1242 Vitest / 80 files**, typecheck/build/check/scoped format/Clippy pass (five existing warnings). Node byte/hash oracle reproduces, seven new links/diff checks pass. Delivery PR records final-head CI/merge. Strict input/source validation and atomic union (2b) is Next; no importer/command/execution activation. [Contract](docs/research-confirmation-export-v5.md), [handoff](handoffs/2026-10-21-p13c3b2a-witnessed-export-v1.md).
+
 - **P13c-3b-1b-3 whole-graph binding v5 implemented and verified (2026-10-21)** from merged #201 (`28e4218`). One deferred transaction observes actual trial/alpha/provenance and the complete strict witnessed graph, covering all nine exact confirmation identity sets (including witness SHAs). Canonical v5 writing/strict original reading retain legacy unknowns/4 MiB and new 8 MiB bounds; failed graph/coverage/owner/workspace writes preserve last-good bindings. Thirteen new regressions and four assertion-caught mutants pass. **880 Rust (one ignored) / 1242 Vitest / 80 files**, typecheck/build/check/scoped format/Clippy pass (five existing warnings). Actual old #201 service refuses v5 with no endpoint or binding/audit change; new create/reopen/stop and owned process/temp cleanup pass. Delivery PR records final-head CI/merge. Complete witness-aware archive v5 transport is Next; execution/final admission remain later. [Contract](docs/research-binding-observation-v5.md), [handoff](handoffs/2026-10-21-p13c3b1b3-binding-observation-v1.md).
 
 - **P13c-3b-1b-2b-2 actual witness context/strict IO/restoration implemented and verified (2026-10-18)** from merged #200 (`3d83d57`). Complete original source reconstruction and actual current event/protocol/alpha context feed strict combined reads/lookup and monotonic archival union. Explicit witness-only restoration preserves original rows/audits/stops, refuses missing old materialized evidence, and strictly reloads before one commit. Twenty real-SQLite regressions and four assertion-caught mutants cover foreign-origin gaps, same-head upgrades, exact capacities, corruption, concurrency/reopen and late rollback. **867 Rust (one ignored) / 1242 Vitest / 80 files**, typecheck/build/check/scoped format/Clippy pass (five existing warnings). Delivery PR records final-head CI/merge. Whole-graph binding v5 observation/adoption is Next; runtime observer/transport/execution remain dormant. [Contract](docs/research-witnessed-confirmation-storage-v1.md), [handoff](handoffs/2026-10-18-p13c3b1b2b2-witness-context-restoration-v1.md).
@@ -236,7 +238,8 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Next
 
-- **P13c-3b-2 - Complete confirmation transport v5**: after 3b-1b-3 delivery; complete original trial/alpha/confirmation/witness snapshot and atomic bounded union, contradictory claims/permanent stops, original-origin two-hop/replacement/replay, all file/resource limits, legacy omission guards and late rollback. [Witness-aware plan](docs/plans/research-source-witness-storage-plan-v1.md).
+- **P13c-3b-2b - Strict witnessed v5 import and atomic union**: after 2a delivery; complete input/source validation, one-commit trial/alpha/confirmation union, permanent contradictory claims/stops, two-hop/replacement/replay, exact limits and late rollback. [Plan](docs/plans/research-confirmation-transport-implementation-v1.md).
+
 
 
 
@@ -291,9 +294,11 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 
 
+
 - **P09 authenticated external acceptance** (2026-09-21): implementation/local verification Done (below), but live Tiingo download, free entitlement and payment coverage still require the operator's token in Windows Credential Manager. User intends to register; native status currently `credential_missing`. Re-run the documented bounded range after setup and append evidence to the P09 handoff.
 
 ## Backlog
+
 
 - [ ] **TEST-E2E-FONT-SETTLE-002 — Deterministic font readiness in chart tests (P3)** (observed 2026-10-16): PR #191 final-head CI run `38925249196`, E2E job `117055010997`: pan.spec.ts:21 first attempt hit the existing 30 s wait for `link#afs-fonts[data-e2e-fonts="settled"]` in chartLayout.ts:24; configured retry passed (97 first-pass + 1 flaky, overall job success). Investigate controlled font-request success/error/hang readiness without raising timeout/retry settings or changing chart assertions. Separate test-only slice; preserve current research task order. [PR evidence](https://github.com/yoyoCadence/AlphaFactorForge/pull/191).
 
@@ -569,6 +574,8 @@ These were named inside the UI port entry and must not be buried by closing it. 
 - [ ] Full closed-loop AI automation. (Specification: ABC-14.)
 
 ## Done
+
+- [x] **P13c-3b-2a - Complete canonical witnessed export v5** (2026-10-21): consistent complete graph/v4 projection, prescribed schema-7 frame/nine counts/three original blob kinds, bounded encoded output and old omission guards; nine new regressions/four caught mutants, 889 Rust / 1242 Vitest and checks verified. Delivery PR records final-head CI/merge. [Handoff](handoffs/2026-10-21-p13c3b2a-witnessed-export-v1.md).
 
 - [x] **P13c-3b-1b-3 - Whole-graph binding v5 observation/adoption** (2026-10-21): complete actual transactional evidence, exact identity coverage, strict original v5/canonical writing, legacy unknown adoption and last-good preservation; 13 regressions/four caught mutants, 880 Rust / 1242 Vitest, real old-reader refusal/new reopen and cleanup verified. See [handoff](handoffs/2026-10-21-p13c3b1b3-binding-observation-v1.md); the delivery PR contains final-head CI/merge receipt.
 

@@ -30,6 +30,8 @@ mod witness_migrations;
 mod witnessed;
 #[path = "binding_observation_tests.rs"]
 mod binding_observation;
+#[path = "archive_cases.rs"]
+mod archive;
 
 struct Dirs {
     root: PathBuf,
