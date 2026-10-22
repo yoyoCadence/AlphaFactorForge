@@ -4,7 +4,7 @@ Date: 2026-10-22
 Repo: yoyoCadence/AlphaFactorForge
 Branch: feat/p13c3b2b2b-atomic-witnessed-import
 Baseline: merged #205 (`1e6e4e7`).
-Status: implementation/local verification complete; exact-head PR/CI delivery follows.
+Status: delivered as merged #206; P13c-4 design refinement follows.
 
 ## Summary
 
@@ -95,3 +95,21 @@ addition both preserve every original table/audit/checkpoint/binding on refusal.
 
 Continue the Next P13c-4 design refinement immediately after six exact-head CI
 jobs, fresh reviews/base, expected-head merge and clean-main verification.
+
+## Resolution (merged delivery)
+
+[PR #206](https://github.com/yoyoCadence/AlphaFactorForge/pull/206) merged at
+expected head `9c57309bef4925665a42341e55501e9011c5d5b0` as
+`9f36cbb6a3e8e6c3e1168501476507df2aa11522`. All six first-attempt jobs in
+[run 39772406890](https://github.com/yoyoCadence/AlphaFactorForge/actions/runs/39772406890)
+passed: 936 Rust (one ignored; 31.99 / 272.42 / 5.86 s), 1242 Vitest / 80 files,
+98 first-attempt E2E (1.8 min), typecheck/production audit (0), build and native
+rendering/SQLite/metrics/event checks. Native policy and owned resources were
+restored/cleaned. Initial E2E environment installation was slow; tests passed
+without retry, assertion/timeout changes or a rerun.
+
+Owned local verification logs/scripts were removed after exact canonical target/
+parent/reparse/content checks. Fresh main/base/reviews/threads were checked;
+expected-head merge and clean fast-forwarded local main were read-verified.
+The merged tree exactly matches the tested head. The final PR delivery body was
+updated and read back. P13c-4 design refinement started from that fresh main.
