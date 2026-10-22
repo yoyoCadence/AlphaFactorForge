@@ -40,6 +40,13 @@ including pre-mutex saved-binding/prefix validation, check order, return/error
 codes and existing finish/early-refusal behavior. Helpers validate their supplied
 evidence too. Do not globally reformat the legacy binding module.
 
+4a organization: public wrappers and borrowed entry points share private SQL
+observation bodies. The new active/metadata guards belong only to the borrowed
+entry points, preserving old public error precedence in damaged combinations.
+An unproven public count-fence prefix still returns through transaction drop;
+other successful public observations commit their own deferred read. See the
+[4a implementation receipt](../../handoffs/2026-10-22-p13c4a-transaction-observations-v1.md).
+
 Binding observation retains the actual chain, complete restrictive identities,
 alpha/provenance and strict whole witnessed v5 graph/coverage checks. The count
 fence retains its narrower prefix/family/batch/count semantics; it does not

@@ -6,6 +6,8 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Current Snapshot
 
+- **P13c-4a transaction-owned observations implemented and locally verified (2026-10-22)** from merged #207 (`49bbcc0`). Internal active/matching-registry readers preserve public validation/check/finish semantics through common read bodies. Thirteen real-SQLite cases prove parity, pending-import visibility/full rollback, held mutex/writer reservation, inactive/foreign refusal, SQL errors and deferred snapshots; four assertion-caught mutants were restored byte-for-byte. **949 Rust (one ignored) / 1242 Vitest / 80 files**, typecheck/build/all-targets check/scoped format/Clippy pass (five existing warnings). No runtime caller/spend/migration/authority change. Delivery PR records exact-head CI/merge; 4b contract refinement is Next after delivery. [Contract](docs/plans/research-final-admission-implementation-v1.md#2-first-code-slice-p13c-4a-transaction-owned-observations), [handoff](handoffs/2026-10-22-p13c4a-transaction-observations-v1.md).
+
 - **P13c-4 final-admission order refined (2026-10-22)** from merged #206 (`9f36cbb`). The documentation-only plan grounds current transaction/owner/source/alpha boundaries and orders 4a transaction-owned read/fence helpers, 4b authenticated input observation, 4c actual-share preparation, 4d atomic registry admission and 4e registry-first workspace projection. The first code slice has explicit no-nested-lock/no-commit/parity/snapshot/refusal tests; later APIs/schema must be frozen before code. Policy/mediation authorization remains unavailable. Twelve new-document relative links and source/scope/task checks pass; source/schema/workflow unchanged from the **936 Rust (one ignored) / 1242 Vitest / 98 E2E** baseline. Delivery PR records six-job exact-head CI/merge. [Plan](docs/plans/research-final-admission-implementation-v1.md), [handoff](handoffs/2026-10-22-p13c4-admission-order-v1.md).
 
 - **P13c-3b-2b-2b atomic witnessed v5 import implemented and verified (2026-10-22)** from merged #205 (`1e6e4e7`). Original source validation precedes the receiver mutex; disposable full-union preflight/cleanup precedes any receiver DML, then identical trial/alpha/confirmation apply, strict final identity comparison and one commit. Original proofs/claims/first audits/stops survive replay, two hops and replacement. Source/current/proposed provenance gates grant no admission or execution. Nineteen new real-SQLite regressions/four assertion-caught mutants pass; **936 Rust (one ignored) / 1242 Vitest / 80 files**, typecheck/build/all-target check/scoped format/Clippy pass (five existing warnings). Delivery PR records exact-head CI/merge. P13c-4 design refinement is Next after delivery. [Contract](docs/research-confirmation-import-v5.md), [handoff](handoffs/2026-10-22-p13c3b2b2b-atomic-witnessed-import-v1.md).
@@ -246,7 +248,8 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Next
 
-- **P13c-4a - Transaction-owned binding and count-fence observations**: after 4-design delivery, extract internal active borrowed-transaction `check_binding_in` / `fence_admission_in`, retain public pre-mutex validation and all check/finish semantics, prove snapshot/rollback/lock/parity and unchanged caller state. No alpha spend, workspace migration, runtime caller or admission capability. [Exact contract and tests](docs/plans/research-final-admission-implementation-v1.md#2-first-code-slice-p13c-4a-transaction-owned-observations).
+- **P13c-4b-design - Freeze backend workspace/input observation contract**: after 4a delivery, ground actual workspace ownership/mutation, immutable source/candidate/artifact references and bounded backend input materialization; freeze private types/constructors, integrity-versus-unseen authority, final recheck/lock boundaries and mutation/refusal tests before implementation. Split further if needed; no schema/spend/runtime activation. [Ordered scope](docs/plans/research-final-admission-implementation-v1.md#3-remaining-bounded-slices).
+
 
 
 
@@ -283,6 +286,7 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
   6. [x] **APP-STARTUP-ERROR-001 (P2)** — done 2026-10-14 on `fix/startup-error-dialog` (visible startup failure report; see Done). All six quick fixes are complete.
 
 ## In Progress
+
 
 
 
@@ -585,6 +589,8 @@ These were named inside the UI port entry and must not be buried by closing it. 
 - [ ] Full closed-loop AI automation. (Specification: ABC-14.)
 
 ## Done
+
+- [x] **P13c-4a - Transaction-owned binding and count-fence observations** (2026-10-22; baseline #207 `49bbcc0`): internal read-only borrowed-transaction helpers, preserved public error/finish behavior, 13 real-SQLite cases and four restored assertion-caught mutants. 949 Rust (one ignored), 1242 Vitest / 80 files, typecheck/build/all-targets check/scoped format/Clippy pass (five existing warnings). No spend, schema, runtime caller or admission capability; parent 4 stays incomplete. [Handoff](handoffs/2026-10-22-p13c4a-transaction-observations-v1.md).
 
 - [x] **P13c-4-design - Authenticated final-admission implementation order** (2026-10-22, baseline #206 `9f36cbb`): grounded current boundary gaps and five ordered bounded slices; froze only the first transaction-owned reader/fence API and real-SQLite acceptance. Parent lock/crash/witness/policy/mediation requirements remain; no source/schema/workflow/statistical change. Twelve new-document relative links, source-grounding/scope/task/diff checks pass. Delivery PR records exact-head CI/guarded merge; 4a is Next afterward. [Plan](docs/plans/research-final-admission-implementation-v1.md), [handoff](handoffs/2026-10-22-p13c4-admission-order-v1.md).
 

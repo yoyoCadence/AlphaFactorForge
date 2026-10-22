@@ -4,7 +4,7 @@ Date: 2026-10-22
 Repo: yoyoCadence/AlphaFactorForge
 Branch: docs/p13c4-admission-implementation-order
 Baseline: merged #206 (`9f36cbb`).
-Status: design/local verification complete; documentation-only PR/CI delivery follows.
+Status: delivered in PR #207; P13c-4a started from the verified merge.
 
 ## Summary
 
@@ -64,3 +64,17 @@ P13c-4-design is Done locally; only 4a becomes Next after delivery. The parent
 P13c-4 stays Backlog/incomplete until its integration/crash/contention criteria
 are actually fulfilled. Final PR records fresh-main rebase, exact-head CI,
 reviews/threads, expected-head merge and clean-main receipt, then 4a begins.
+
+## Resolution (PR #207 delivery)
+
+[PR #207](https://github.com/yoyoCadence/AlphaFactorForge/pull/207) merged as
+`49bbcc0c8cbae7dd47258de42d4841e8813d380c` with expected head
+`7f8c0827ea06fa1f39cfaa763cc7654db8a76d75`, base `9f36cbb`.
+All six first-attempt jobs in [run 39775331043](https://github.com/yoyoCadence/AlphaFactorForge/actions/runs/39775331043)
+passed: 936 Rust (one ignored), 1242 Vitest / 80 files, 98 E2E (1.8 minutes),
+typecheck/production audit (0), build and native rendering/SQLite/metrics/event
+round trip. Native policy and owned resources were restored/cleaned.
+Fresh reviews/threads were empty; ready and exact-head merge were verified.
+Local main fast-forwarded to the merge, matched the tested head tree exactly and
+was clean. Remote merged state, SHA and final delivery body were read back.
+Only [4a](2026-10-22-p13c4a-transaction-observations-v1.md) is now In Progress.
