@@ -545,13 +545,56 @@ impl TrialLedger {
         }
         let mut conn = self.lock()?;
         let tx = conn.transaction_with_behavior(TransactionBehavior::Deferred)?;
-        let check = match self.event_prefix(&tx, saved.map(LedgerBinding::prefix))? {
+        let check = self.observe_binding_in(&tx, saved)?;
+        tx.commit()?;
+        Ok(check)
+    }
+
+    /// Read within the caller's snapshot without locking or ending its transaction.
+    /// Matching metadata is consistency only, not physical ownership or admission.
+    pub(in crate::research::trial_ledger) fn check_binding_in(
+        &self,
+        tx: &Transaction<'_>,
+        saved: Option<&LedgerBinding>,
+    ) -> Result<BindingCheck, LedgerError> {
+        self.check_observation_transaction(tx)?;
+        if let Some(saved) = saved {
+            saved.validate()?;
+        }
+        self.observe_binding_in(tx, saved)
+    }
+
+    fn check_observation_transaction(&self, tx: &Transaction<'_>) -> Result<(), LedgerError> {
+        if tx.is_autocommit() {
+            return Err(invalid_binding("observation requires an active transaction"));
+        }
+        let registry_id: Option<String> = tx
+            .query_row(
+                "SELECT value FROM registry_meta WHERE key = 'registry_id'",
+                [],
+                |row| row.get(0),
+            )
+            .optional()?;
+        if registry_id.as_deref() != Some(self.registry_id.as_str()) {
+            return Err(invalid_binding("observation registry identity mismatch"));
+        }
+        Ok(())
+    }
+
+    // Public wrappers retain their historical validation/error ordering; the
+    // borrowed entry points add transaction preconditions before this common read.
+    fn observe_binding_in(
+        &self,
+        tx: &Transaction<'_>,
+        saved: Option<&LedgerBinding>,
+    ) -> Result<BindingCheck, LedgerError> {
+        Ok(match self.event_prefix(tx, saved.map(LedgerBinding::prefix))? {
             PrefixOutcome::Blocked(check) => check,
             PrefixOutcome::Proven { seq, chain_head } => {
-                let evidence = observed_evidence(&tx)?;
-                let alpha = super::alpha::observed_identities(&tx)?;
-                let unknown = super::alpha::unknown_origins(&tx)?;
-                let confirmation = v5::observe(&tx, &self.registry_id)?;
+                let evidence = observed_evidence(tx)?;
+                let alpha = super::alpha::observed_identities(tx)?;
+                let unknown = super::alpha::unknown_origins(tx)?;
+                let confirmation = v5::observe(tx, &self.registry_id)?;
                 let lost = saved
                     .and_then(|saved| saved.evidence.as_ref())
                     .is_some_and(|saved| !evidence.covers(saved))
@@ -582,9 +625,7 @@ impl TrialLedger {
                     BindingCheck::Current(current)
                 }
             }
-        };
-        tx.commit()?;
-        Ok(check)
+        })
     }
 
     /// The §7 event-prefix decision inside the caller's read transaction,
@@ -695,7 +736,40 @@ impl TrialLedger {
         prefix.validate()?;
         let mut conn = self.lock()?;
         let tx = conn.transaction_with_behavior(TransactionBehavior::Deferred)?;
-        if let PrefixOutcome::Blocked(unproven) = self.event_prefix(&tx, Some(prefix))? {
+        let fence = self.observe_fence_in(&tx, batch_id, earlier, prefix)?;
+        // Historically an unproven prefix returns through transaction drop.
+        if !matches!(&fence, AdmissionFence::Blocked(FenceBlocked::Prefix(_))) {
+            tx.commit()?;
+        }
+        Ok(fence)
+    }
+
+    /// Comparison-only observation in the caller's transaction. Even `Unchanged`
+    /// is not a permit after that snapshot ends. This does not spend or write.
+    pub(in crate::research::trial_ledger) fn fence_admission_in(
+        &self,
+        tx: &Transaction<'_>,
+        batch_id: &str,
+        earlier: &AdmissionSnapshot,
+    ) -> Result<AdmissionFence, LedgerError> {
+        self.check_observation_transaction(tx)?;
+        let prefix = EventPrefix {
+            registry_id: &earlier.registry_id,
+            seq: earlier.seq,
+            chain_head: &earlier.chain_head,
+        };
+        prefix.validate()?;
+        self.observe_fence_in(tx, batch_id, earlier, prefix)
+    }
+
+    fn observe_fence_in(
+        &self,
+        tx: &Transaction<'_>,
+        batch_id: &str,
+        earlier: &AdmissionSnapshot,
+        prefix: EventPrefix<'_>,
+    ) -> Result<AdmissionFence, LedgerError> {
+        if let PrefixOutcome::Blocked(unproven) = self.event_prefix(tx, Some(prefix))? {
             return Ok(AdmissionFence::Blocked(FenceBlocked::Prefix(unproven)));
         }
         let family: Option<Option<String>> = tx
@@ -709,13 +783,12 @@ impl TrialLedger {
             return Err(LedgerError::BatchNotFound(batch_id.to_string()));
         };
         let admission = admission_in(
-            &tx,
+            tx,
             batch_id,
             family.as_deref(),
             &self.registry_id,
             &self.integrity,
         )?;
-        tx.commit()?;
         Ok(match admission {
             Admission::Blocked(reason) => AdmissionFence::Blocked(FenceBlocked::Admission(reason)),
             Admission::Count(count) => {
@@ -822,6 +895,10 @@ mod tests {
 
     mod activation {
         include!("trial_ledger_binding/tests/activation.rs");
+    }
+
+    mod caller_transaction {
+        include!("trial_ledger_binding/tests/caller_transaction.rs");
     }
 
     struct Dirs {
