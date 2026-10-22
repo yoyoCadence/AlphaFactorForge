@@ -46,7 +46,7 @@ const TRIAL_ONLY_SCHEMA_VERSION: &str = "0003_family_protocol_upgrades";
 /// already held (or this registry's own chain).
 const ORIGIN_DIVERGED_DETAIL: &str = "checkpoint_diverged_or_incomplete";
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct ExportHeader {
     version: String,
@@ -472,6 +472,7 @@ impl TrialLedger {
 
 type BatchRecord = (Option<String>, String, Vec<(String, String)>);
 
+#[derive(Clone)]
 pub(super) struct ValidatedExport {
     header: ExportHeader,
     file_sha256: String,

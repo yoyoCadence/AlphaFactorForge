@@ -6,6 +6,8 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Current Snapshot
 
+- **P13c-3b-2b-2b atomic witnessed v5 import implemented and verified (2026-10-22)** from merged #205 (`1e6e4e7`). Original source validation precedes the receiver mutex; disposable full-union preflight/cleanup precedes any receiver DML, then identical trial/alpha/confirmation apply, strict final identity comparison and one commit. Original proofs/claims/first audits/stops survive replay, two hops and replacement. Source/current/proposed provenance gates grant no admission or execution. Nineteen new real-SQLite regressions/four assertion-caught mutants pass; **936 Rust (one ignored) / 1242 Vitest / 80 files**, typecheck/build/all-target check/scoped format/Clippy pass (five existing warnings). Delivery PR records exact-head CI/merge. P13c-4 design refinement is Next after delivery. [Contract](docs/research-confirmation-import-v5.md), [handoff](handoffs/2026-10-22-p13c3b2b2b-atomic-witnessed-import-v1.md).
+
 - **P13c-3b-2b-2a disposable destination preflight snapshot implemented and verified (2026-10-21)** from merged #204 (`7058106`). An internal borrowed-transaction snapshot streams exact registry rows/blobs/audits/row IDs/sequence/schema to a private owned disk database; copied triggers and source/proposed FK checks fence trial proposals. Rollback/close/canonical owned cleanup precede returning results; the caller's transaction remains unchanged and locked. Twelve new regressions/four assertion-caught mutants pass; **917 Rust (one ignored) / 1242 Vitest / 80 files**, typecheck/build/check/scoped format/Clippy pass (five existing warnings). Delivery PR records final-head CI/merge. Actual one-commit v5 union (2b-2b) is Next after delivery; no live import/admission/command caller. [Contract](docs/research-ledger-disposable-preflight-v1.md), [handoff](handoffs/2026-10-21-p13c3b2b2a-disposable-preflight-v1.md).
 
 - **P13c-3b-2b-1 strict complete witnessed source validation implemented and verified (2026-10-21)** from merged #203 (`1958e3d`). Backend-only original-byte v5 validation enforces closed canonical framing, exact counts/IDs/order/hash/bounds and full nested v4. Exact disposable SQLite reconstruction preserves original trial/alpha/foreign/restrictive evidence; independent complete witness/graph/projection/FK validation neither repairs source history nor opens a receiver. Sixteen new regressions/four caught mutants pass; **905 Rust (one ignored) / 1242 Vitest / 80 files**, typecheck/build/check/scoped format/Clippy pass (five existing warnings). Delivery PR records final-head CI/merge. Atomic destination union (2b-2) is Next after delivery; no importer/command/execution activation. [Contract](docs/research-confirmation-source-validation-v5.md), [handoff](handoffs/2026-10-21-p13c3b2b1-strict-source-validation-v1.md).
@@ -242,7 +244,7 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Next
 
-- **P13c-3b-2b-2b - Atomic witnessed v5 destination union**: after 2b-2a delivery; use the disposable preflight substrate for complete proposed state before the first destination write, one-commit trial/alpha/confirmation union, permanent contradictory claims/stops, two-hop/replacement/replay, qualification provenance, exact limits and late rollback. [Plan](docs/plans/research-confirmation-transport-implementation-v1.md).
+- **P13c-4-design - Authenticated final-admission implementation order**: after atomic v5 delivery, refine the accepted P13c-4 contract into bounded workspace/source/file observation, actual-count/share P12a, owner/epoch guard and registry-first enqueue/crash slices. Keep statistical-policy and manual-mediation gates explicit; no protected execution. [Parent design](docs/plans/research-confirmation-exposure-recovery-plan-v1.md#5-final-admission-ordering-and-linearization).
 
 
 
@@ -279,6 +281,7 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
   6. [x] **APP-STARTUP-ERROR-001 (P2)** — done 2026-10-14 on `fix/startup-error-dialog` (visible startup failure report; see Done). All six quick fixes are complete.
 
 ## In Progress
+
 
 
 
@@ -580,6 +583,8 @@ These were named inside the UI port entry and must not be buried by closing it. 
 - [ ] Full closed-loop AI automation. (Specification: ABC-14.)
 
 ## Done
+
+- [x] **P13c-3b-2b-2b - Atomic witnessed v5 destination union** (2026-10-22, baseline #205 `1e6e4e7`): complete source-before-lock verification, private full-union preflight/cleanup, identical caller-owned trial/alpha/confirmation merge with outer-file audit SHA, strict final comparison and one real commit. Coverage-only source/current/proposed qualification gates preserve archival unknowns and fully accounted restrictive conflicts. Nineteen regressions/four caught mutants; **936 Rust (one ignored) / 1242 Vitest**, typecheck/build/check/format/Clippy pass. Delivery PR records exact-head CI/guarded merge; final admission remains P13c-4. [Contract](docs/research-confirmation-import-v5.md), [handoff](handoffs/2026-10-22-p13c3b2b2b-atomic-witnessed-import-v1.md).
 
 - [x] **P13c-3b-2a - Complete canonical witnessed export v5** (2026-10-21): consistent complete graph/v4 projection, prescribed schema-7 frame/nine counts/three original blob kinds, bounded encoded output and old omission guards; nine new regressions/four caught mutants, 889 Rust / 1242 Vitest and checks verified. Delivery PR records final-head CI/merge. [Handoff](handoffs/2026-10-21-p13c3b2a-witnessed-export-v1.md).
 - [x] **P13c-3b-2b-1 - Strict complete witnessed v5 source validation** (2026-10-21): exact original frame/nested source and disposable original chain/alpha/complete witness graph verification, no receiver writes or rights; sixteen new regressions/four caught mutants, 905 Rust / 1242 Vitest and checks verified. Delivery PR records final-head CI/merge. [Handoff](handoffs/2026-10-21-p13c3b2b1-strict-source-validation-v1.md).

@@ -91,6 +91,24 @@ pub(super) fn validate_source_in(
     Ok(())
 }
 
+/// Coverage gate, distinct from restrictive-but-known conflicts. Check raw
+/// incorporation gaps even when a permanent conflict already blocks them.
+pub(super) fn trial_history_known_in(
+    tx: &Transaction<'_>,
+    registry: &str,
+    inventory: &ConfirmationInventory,
+) -> Result<bool, LedgerError> {
+    let unknown: bool = tx.query_row(
+        "SELECT EXISTS(SELECT 1 FROM trial_batches WHERE family_id IS NULL) OR EXISTS(SELECT 1 FROM trial_events WHERE family_id IS NULL)",
+        [], |r| r.get(0),
+    )?;
+    if unknown {
+        return Ok(false);
+    }
+    Ok(Context::read(tx, registry, inventory)?.graph.witness_coverage
+        .iter().all(|v| v.unincorporated_origins.is_empty()))
+}
+
 pub(in crate::research::trial_ledger) fn load_witnessed_in(
     tx: &Transaction<'_>,
     registry: &str,

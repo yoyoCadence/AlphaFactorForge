@@ -122,15 +122,27 @@ impl Record {
     }
 }
 
-/// Opaque validated source retained for the subsequent atomic-union slice.
+/// Opaque validated source. Only independent source reconstruction constructs it.
 /// Its construction always includes independent source reconstruction.
-#[allow(dead_code)]
 pub(in crate::research::trial_ledger) struct ValidatedWitnessed {
     alpha: ValidatedComplete,
     graph: ValidatedGraph,
     file_sha256: String,
+    trial_known: bool,
 }
 impl ValidatedWitnessed {
+    pub(super) fn alpha(&self) -> &ValidatedComplete {
+        &self.alpha
+    }
+    pub(super) fn graph(&self) -> &ValidatedGraph {
+        &self.graph
+    }
+    pub(super) fn file_sha256(&self) -> &str {
+        &self.file_sha256
+    }
+    pub(super) fn trial_known(&self) -> bool {
+        self.trial_known
+    }
     pub(in crate::research::trial_ledger) fn parse(bytes: &[u8]) -> Result<Self, LedgerError> {
         Self::parse_with_limits(bytes, LIMITS)
     }
@@ -253,19 +265,20 @@ impl ValidatedWitnessed {
         if header.counts != Counts::from(&inventory) {
             return Err(integrity("nine counts differ"));
         }
-        let graph = validate_source(&alpha, &inventory)
+        let (graph, trial_known) = validate_source(&alpha, &inventory)
             .map_err(|_| integrity("invalid or incomplete reconstructed source"))?;
         Ok(Self {
             alpha,
             graph,
             file_sha256: sha256_hex(bytes),
+            trial_known,
         })
     }
 }
 fn validate_source(
     alpha: &ValidatedComplete,
     inventory: &ConfirmationInventory,
-) -> Result<ValidatedGraph, LedgerError> {
+) -> Result<(ValidatedGraph, bool), LedgerError> {
     let mut conn = Connection::open_in_memory()?;
     conn.execute_batch("PRAGMA foreign_keys=ON; CREATE TABLE registry_migrations (version TEXT PRIMARY KEY, applied_at TEXT NOT NULL)")?;
     for (_, migration) in REGISTRY_MIGRATIONS {
@@ -274,11 +287,13 @@ fn validate_source(
     let tx = conn.transaction()?;
     alpha.stage_source_in(&tx)?;
     let graph = super::super::storage::stage_source_in(&tx, alpha.registry_id(), inventory)?;
+    let trial_known =
+        super::super::storage::trial_history_known_in(&tx, alpha.registry_id(), graph.inventory())?;
     if tx.prepare("PRAGMA foreign_key_check")?.exists([])? {
         return Err(integrity("source foreign-key dependency missing"));
     }
     // Disposable transaction is rolled back/dropped. Never a target receipt.
-    Ok(graph)
+    Ok((graph, trial_known))
 }
 impl TrialLedger {
     /// Validate a complete original source without opening/locking a receiver.

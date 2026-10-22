@@ -49,7 +49,7 @@ pub use transfer::ImportSummary;
 #[allow(unused_imports)]
 pub use alpha::{AlphaFamilyState, AlphaStorageOutcome, AlphaStorageStatus, AlphaTransferSummary};
 #[allow(unused_imports)]
-pub use confirmation::{ConfirmationLookup,ConfirmationWriteSummary};
+pub use confirmation::{ConfirmationLookup,ConfirmationWriteSummary,WitnessedTransferSummary};
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
@@ -167,6 +167,8 @@ pub enum LedgerError {
     StateInvalid(String),
     #[error("import_integrity_failed: {0}")]
     ImportIntegrityFailed(String),
+    #[error("trial_history_unknown: complete accounted trial provenance is required")]
+    TrialHistoryUnknown,
     #[error("alpha_history_unknown: legacy trial-only provenance cannot authorize confirmation")]
     AlphaHistoryUnknown,
     #[error("confirmation_history_unknown: legacy transport cannot establish confirmation provenance")]
@@ -196,6 +198,7 @@ impl LedgerError {
             Self::BatchNotFound(_) => "batch_not_found",
             Self::StateInvalid(_) => "registry_state_invalid",
             Self::ImportIntegrityFailed(_) => "import_integrity_failed",
+            Self::TrialHistoryUnknown => "trial_history_unknown",
             Self::AlphaHistoryUnknown => "alpha_history_unknown",
             Self::ConfirmationHistoryUnknown => "confirmation_history_unknown",
         }
