@@ -80,3 +80,20 @@ The containing PR records owned verification-temp cleanup, document/diff checks,
 fresh-main rebase/rechecks, six exact-head CI jobs, fresh base/reviews, guarded
 merge and clean-main receipt. Continue 2b-2b immediately after delivery; this
 substrate still has no live import/admission caller or source/union authority.
+
+## Resolution (2026-10-22 - merged delivery)
+
+[PR #205](https://github.com/yoyoCadence/AlphaFactorForge/pull/205) merged at
+expected head `778ba281f31ec73e4b20cfa2bc8a02bc7186edb4` as
+`1e6e4e70d40cb41cee4d5bf5b5ef132b9d248814`. All six checks passed in
+[run 39579420869](https://github.com/yoyoCadence/AlphaFactorForge/actions/runs/39579420869):
+917 Rust (one ignored), 1242 Vitest / 80 files, 98 first-attempt E2E, native
+rendering/SQLite/metrics/event checks and exact policy/owned cleanup.
+
+The first cargo attempt hit Windows loopback error 10060 at the unchanged host
+restart test (`host.rs:849`); every new case passed. The unchanged isolated test
+passed locally in 15.69 s with both services/directories cleaned. Only failed
+jobs were re-run; cargo retry `119538196109` passed 297 library + 618 desktop +
+2 service (31.66 / 139.58 / 5.64 s), including that restart case. No source,
+assertion or timeout changed. Fresh main/reviews/threads were checked; local main
+is clean and tree-identical to the tested head. Continue 2b-2b immediately.

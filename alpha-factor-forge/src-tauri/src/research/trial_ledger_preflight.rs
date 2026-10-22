@@ -254,8 +254,8 @@ fn with_owned<T>(
 /// Caller validates source/current evidence and owns the real transaction
 /// (IMMEDIATE for final import). Run the SAME union/final checks privately,
 /// then return owned results only after rollback, close and owned cleanup.
-/// Does not commit, mutate or release the caller's transaction. No live caller
-/// until the next atomic-union section consumes this staging primitive.
+/// Does not commit, mutate or release the caller's transaction. The complete
+/// witnessed importer consumes this primitive without granting execution rights.
 pub(super) fn with_snapshot<T>(
     source: &Transaction<'_>,
     inspect: impl FnOnce(&Transaction<'_>) -> Result<T, LedgerError>,

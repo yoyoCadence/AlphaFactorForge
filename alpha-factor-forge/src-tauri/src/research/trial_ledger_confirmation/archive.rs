@@ -1,4 +1,4 @@
-//! Complete canonical v5 export. A transport snapshot grants no live rights.
+//! Complete canonical v5 transport. A snapshot/union grants no live rights.
 use super::super::{canonical_text, sha256_hex, TrialLedger};
 use super::{load_witnessed_in, LedgerError};
 use alpha_factor_forge::discovery_core::confirmation_history::{BlobKind, ConfirmationInventory};
@@ -8,6 +8,9 @@ use std::io::{self, Write};
 
 #[path = "archive_decode.rs"]
 mod decode;
+#[path = "archive_import.rs"]
+mod import;
+pub use import::WitnessedTransferSummary;
 
 const VERSION: &str = "trial-ledger-export-v5";
 const SCHEMA: &str = "0007_confirmation_source_witness";

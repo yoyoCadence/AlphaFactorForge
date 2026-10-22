@@ -36,6 +36,8 @@ mod archive;
 mod archive_source;
 #[path = "preflight_cases.rs"]
 mod preflight;
+#[path = "archive_import_cases.rs"]
+mod archive_import;
 
 struct Dirs {
     root: PathBuf,

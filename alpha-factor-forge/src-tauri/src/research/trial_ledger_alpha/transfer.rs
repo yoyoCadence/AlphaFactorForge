@@ -511,6 +511,67 @@ impl ValidatedComplete {
         self.trial.registry_id()
     }
 
+    pub(in crate::research::trial_ledger) fn history_known(&self) -> bool {
+        self.inventory.unknown.is_empty()
+    }
+
+    /// Shared caller-owned trial/alpha apply. Complete v5 supplies its outer
+    /// audit digest; no legacy confirmation markers or nested lock/commit.
+    pub(in crate::research::trial_ledger) fn merge_in(
+        &self,
+        ledger: &TrialLedger,
+        tx: &Transaction<'_>,
+        file_sha256: &str,
+    ) -> Result<AlphaTransferSummary, LedgerError> {
+        self.merge_with_old(ledger, tx, Inventory::read(tx)?, Some(file_sha256))
+    }
+
+    fn merge_with_old(
+        &self,
+        ledger: &TrialLedger,
+        tx: &Transaction<'_>,
+        old: Inventory,
+        file_sha256: Option<&str>,
+    ) -> Result<AlphaTransferSummary, LedgerError> {
+        let mut families: BTreeMap<String, String> = {
+            let mut stmt = tx.prepare("SELECT family_id,family_key FROM trial_families")?;
+            let values = stmt
+                .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+                .collect::<Result<_, _>>()?;
+            values
+        };
+        for (id, key) in self.trial.family_keys() {
+            if families.get(id).is_some_and(|old| old != key) {
+                return Err(integrity("alpha union family key differs"));
+            }
+            families.insert(id.clone(), key.clone());
+        }
+        let mut union = old.clone();
+        union.union(self.inventory.clone())?;
+        union.validate(&families)?;
+        let mut source = self.trial.clone();
+        if let Some(hash) = file_sha256 {
+            source.set_file_sha256(hash.into());
+        }
+        let trial = ledger.import_trial_in(tx, source)?;
+        // A quarantined trial family may have no local row. Retain its known
+        // canonical key for alpha evidence without releasing its quarantine.
+        for family in union.budgets.keys() {
+            tx.execute("INSERT INTO trial_families (family_id,family_key,created_at) VALUES (?1,?2,?3) ON CONFLICT(family_id) DO NOTHING",params![family,families[family],chrono::Utc::now().to_rfc3339()])?;
+        }
+        union.write_difference(tx, &old)?;
+        if Inventory::read(tx)? != union {
+            return Err(integrity("written union differs from preflight"));
+        }
+        Ok(AlphaTransferSummary {
+            trial,
+            added_budget_rows: union.budgets.len() - old.budgets.len(),
+            added_reservations: union.reservations.len() - old.reservations.len(),
+            added_conflict_rows: union.conflicts.len() - old.conflicts.len(),
+            unknown_origin_count: union.unknown.len(),
+        })
+    }
+
     /// Exact reconstruction, only in the complete v5 decoder's fresh private
     /// schema. Ordinary v4 import semantics/unknown markers stay unchanged.
     pub(in crate::research::trial_ledger) fn stage_source_in(
@@ -643,40 +704,8 @@ impl TrialLedger {
             }
         }
         super::super::confirmation::preflight_unknown_origins(&tx, &confirmation_origins)?;
-        let mut families: BTreeMap<String, String> = {
-            let mut stmt = tx.prepare("SELECT family_id,family_key FROM trial_families")?;
-            let values = stmt
-                .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
-                .collect::<Result<_, _>>()?;
-            values
-        };
-        for (id, key) in source.trial.family_keys() {
-            if families.get(id).is_some_and(|old| old != key) {
-                return Err(integrity("alpha union family key differs"));
-            }
-            families.insert(id.clone(), key.clone());
-        }
-        let mut union = old.clone();
-        union.union(source.inventory)?;
-        union.validate(&families)?;
-        let trial = self.import_trial_in(&tx, source.trial)?;
-        // A quarantined trial family may have no local row. Retain its known
-        // canonical key for alpha evidence without releasing its quarantine.
-        for family in union.budgets.keys() {
-            tx.execute("INSERT INTO trial_families (family_id,family_key,created_at) VALUES (?1,?2,?3) ON CONFLICT(family_id) DO NOTHING",params![family,families[family],chrono::Utc::now().to_rfc3339()])?;
-        }
-        union.write_difference(&tx, &old)?;
-        if Inventory::read(&tx)? != union {
-            return Err(integrity("written union differs from preflight"));
-        }
+        let result = source.merge_with_old(self, &tx, old, None)?;
         super::super::confirmation::record_unknown_origins(&tx, &confirmation_origins)?;
-        let result = AlphaTransferSummary {
-            trial,
-            added_budget_rows: union.budgets.len() - old.budgets.len(),
-            added_reservations: union.reservations.len() - old.reservations.len(),
-            added_conflict_rows: union.conflicts.len() - old.conflicts.len(),
-            unknown_origin_count: union.unknown.len(),
-        };
         tx.commit()?;
         Ok(result)
     }

@@ -25,6 +25,14 @@ use projection::{DocSpec, DOCS};
 pub(in crate::research::trial_ledger) use witnessed::{append_witnessed_in, load_witnessed_in};
 pub(in crate::research::trial_ledger) use write::append_in;
 
+pub(super) fn trial_history_known_in(
+    tx: &Transaction<'_>,
+    registry: &str,
+    inventory: &ConfirmationInventory,
+) -> Result<bool, LedgerError> {
+    witnessed::trial_history_known_in(tx, registry, inventory)
+}
+
 /// Only for the v5 decoder's disposable source database. Stage exact supplied
 /// rows then strictly validate; never synthesize missing conflicts/provenance.
 pub(super) fn stage_source_in(
