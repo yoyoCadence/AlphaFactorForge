@@ -373,3 +373,14 @@ Other slices remain Backlog in this order. P13c-1 owns the exact wire fields
 and testable input limits in its own small contract addition; it must not add
 storage or quietly decide statistical policy. Existing full verification,
 six exact-head CI jobs and normal time limits remain required for code slices.
+
+## P13c-4 implementation refinement (2026-10-22)
+
+After complete witnessed v5 transport merged as #206 (`9f36cbb`), continue with
+the [bounded final-admission order](research-final-admission-implementation-v1.md).
+First extract caller-owned registry binding/count-fence observations without
+activation, then authenticate workspace/input observations, prepare actual-share
+spend, integrate one registry admission commit and project registry-first
+workspace enqueue. Each later concrete API/schema is frozen before its code.
+The lock/crash, original-source witness, policy/mediation and no-execution
+requirements above remain in force; complete archival coverage is not a permit.
