@@ -137,3 +137,12 @@ No calibration, reserved seed 20261117, threshold/B/alpha change or protected
 witness/selection/report content in Train generation context is authorized.
 
 Delivery evidence: [handoff](../../handoffs/2026-10-22-p13c4-admission-order-v1.md).
+
+## 6. Workspace/input refinement
+
+After 4a's verified #208 delivery, [the 4b contract](research-workspace-input-observation-v1.md)
+grounds current workspace/ownership, snapshot, history/source and artifact
+boundaries. Only 4b-1 transaction-owned workspace consistency observations are
+specified first; complete source/reference derivation and bounded immutable
+materialization require their own concrete contracts before code. This does not
+complete parent 4b, create physical owner/unseen authority or activate execution.

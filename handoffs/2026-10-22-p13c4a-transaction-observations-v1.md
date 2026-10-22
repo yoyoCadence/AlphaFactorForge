@@ -4,7 +4,7 @@ Date: 2026-10-22
 Repo: yoyoCadence/AlphaFactorForge
 Branch: feat/p13c4a-transaction-owned-observations
 Baseline: merged #207 (`49bbcc0`).
-Status: implementation/local checks complete; exact-head CI/PR delivery pending.
+Status: delivered in PR #208; 4b contract refinement started from verified main.
 
 ## Summary
 
@@ -82,3 +82,27 @@ being hidden. The legacy binding module was not globally formatted.
 P13c-4a is Done locally; only 4b-design is Next after delivery. The concrete
 workspace/input API and bounds must be fixed before its code. Exact-head six-job
 CI, fresh base/reviews/threads, expected-head merge and clean-main receipt follow.
+
+## Resolution (PR #208 delivery)
+
+[PR #208](https://github.com/yoyoCadence/AlphaFactorForge/pull/208) merged as
+`6db0674c78e4c967761a5df68cb9b89bd599c49f` with expected head
+`d0f14cca5b3d28cc013334b1732ebd67c8444631`, base `49bbcc0`.
+All six first-attempt jobs in [run 39793294823](https://github.com/yoyoCadence/AlphaFactorForge/actions/runs/39793294823)
+passed: 949 Rust (one ignored; 16.52 / 164.10 / 5.71 seconds), 1242 Vitest /
+80 files, 98 first-attempt E2E (1.4 minutes), typecheck/production audit (0),
+build and native rendering/SQLite/metrics/event round trip. Native policy was
+restored and owned processes/temp cleaned. All six logs checked out exact
+synthetic merge `211bb7d` of the expected head into the unchanged base.
+
+GitHub reported Windows job completion after their successful log/cleanup
+steps; no cancellation/rerun or skipped gate was used. Fresh reviews/threads
+were empty, main unchanged, ready body/refs read back, then expected-head merge.
+Local main fast-forwarded to the merge, matched the tested head tree exactly
+and was clean. Remote merged SHA and final delivery body were read back.
+Only [4b-design](2026-10-22-p13c4b-workspace-input-contract-v1.md) is In Progress.
+The dedicated 15-file local verification root was removed; its exact named path,
+non-reparse contents and restored source hash were checked. The PowerShell
+Split-Path parent form was unsupported; the named TEMP parent was subsequently
+confirmed with Directory.GetParent. Future cleanup should use that supported
+form with terminating error handling. No other path was removed.
