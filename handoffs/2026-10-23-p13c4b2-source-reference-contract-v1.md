@@ -4,7 +4,7 @@ Date: 2026-10-23
 Repo: yoyoCadence/AlphaFactorForge
 Branch: docs/p13c4b2-source-reference-contract
 Baseline: merged #210 (`443940d`).
-Status: design/local verification complete; exact-head PR/CI delivery pending.
+Status: resolved; PR #211 merged and clean main verified on 2026-10-23.
 
 ## Summary
 
@@ -44,3 +44,22 @@ The precise sourceEvidenceHash file framing, supported warmup/embargo adapters
 and original cost/action authentication remain explicitly unavailable. The
 design does not claim complete authenticated source assembly. Only the small
 bounded original JSON implementation enters Next; parent obligations remain.
+
+## Resolution (PR #211 delivery)
+
+[PR #211](https://github.com/yoyoCadence/AlphaFactorForge/pull/211) merged head
+`a7fd8a53187f4456a672ddac745deb5f2b89236a` into unchanged #210 base
+`443940d686633c0e742d29e3bfd0acccb69a8c82`; merge is
+`5d6d366be4bbcb6ac2522c70463c5ed4dd6a79e6`. CI
+[39890322383](https://github.com/yoyoCadence/AlphaFactorForge/actions/runs/39890322383)
+passed six first-attempt jobs with exact head/base checkout logs: 963 Rust
+(297/664/2, one ignored; 31.94 / 267.11 / 5.60 seconds), 1242 Vitest / 80 files,
+98 E2E (1.7 minutes, no retry), typecheck/production audit zero/build. Native
+render/SQLite/invoke/metrics/event passed, exact policy restored and owned
+processes/temp removed. No source/schema/workflow change from #210.
+
+Fresh main/base were unchanged, branch clean and reviews/threads empty. Ready
+body/refs were read back before expected-head merge. Local main fast-forwarded
+to the remote merge; full tree equals the tested head and status is clean.
+Final PR Delivery body and merge SHA were read back and verified. Only 4b-2a
+starts next; parent 4b-2/4b/P13c-4 remain incomplete.

@@ -6,6 +6,8 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Current Snapshot
 
+- **P13c-4b-2a bounded original JSON implemented and locally verified (2026-10-23)** from merged #211 (`5d6d366`). Private owned bytes/node count enforce syntax, decoded-key uniqueness and exact byte/node/depth/key limits without interpreting numbers. Fifteen cases/four restored assertion-caught mutants pass; **978 Rust (one ignored) / 1242 Vitest / 80 files**, all-targets check/Clippy/scoped format/typecheck/build pass (five existing warnings). Initial npm sandbox spawn EPERM was resolved by identical-command escalation. No runtime caller, SQL/IO, source/auth capability, dependency or existing parser change. Delivery PR records six-job CI/merge; 4b-2b SQL/tuple refinement follows after delivery. [Contract](docs/plans/research-source-reference-observation-v1.md#2-first-code-slice-bounded-original-json), [handoff](handoffs/2026-10-23-p13c4b2a-original-json-v1.md).
+
 - **P13c-4b-2 source/reference contract refined (2026-10-23)** from merged #210 (`443940d`). Documentation fixes complete workspace row closure, byte/node/member caps, refusal/recheck boundaries and original-byte host digests without rehashing legacy floats. First code slice is private bounded OriginalJson; complete SQL projection and semantic adapters follow, with missing original cost/action/source evidence explicitly unsupported. Parent 4b-2/4b/P13c-4 remain incomplete. Source/runtime/schema/dependencies/workflows remain #210's verified **963 Rust (one ignored) / 1242 Vitest / 98 first-attempt E2E** baseline. Delivery PR records six-job exact-head CI/merge; only 4b-2a follows after delivery. [Plan](docs/plans/research-source-reference-observation-v1.md), [handoff](handoffs/2026-10-23-p13c4b2-source-reference-contract-v1.md).
 
 - **P13c-4b-1 workspace observations implemented and locally verified (2026-10-23)** from merged #209 (`4e51a8f`). Private typed expectations/actual SQL observations enforce bounded raw metadata, positive owner tuple and exact mutation checks while preserving caller transactions. Fourteen real-SQLite cases cover rollback/reservation/snapshots, all identity/owner/version changes, malformed/type/UTF-8/NULL and 256/257-byte boundaries; four explicit assertion-caught mutants were restored exactly. **963 Rust (one ignored) / 1242 Vitest / 80 files**, all-targets check/Clippy/scoped format/typecheck/build pass (five existing warnings). No runtime caller, write/finish, schema/spend or live capability. Delivery PR records six-job CI/merge; 4b-2 contract refinement is Next after delivery. [Contract](docs/plans/research-workspace-input-observation-v1.md#2-first-code-slice-private-workspace-observations), [handoff](handoffs/2026-10-23-p13c4b1-workspace-observations-v1.md).
@@ -254,7 +256,8 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Next
 
-- **P13c-4b-2a - Bounded original JSON observations**: after 4b-2-design delivery, implement only private OriginalJson parse/original-bytes/node-count API with 4 MiB / 65,536-node / depth-64 / decoded-key-1,024-byte caps, decoded duplicate refusal and opaque numeric tokens. No Value/f64 reconstruction, source schema/authentication, SQL/IO, dependency changes or runtime caller. Verify exact/one-over limits, original long-float bytes, Unicode/duplicates/syntax and assertion-caught mutants before full checks/CI/merge. [Frozen first slice](docs/plans/research-source-reference-observation-v1.md#2-first-code-slice-bounded-original-json).
+- **P13c-4b-2b-design - Freeze concrete bounded source SQL projection**: after 4b-2a delivery, refine the agreed complete row closure into private immutable tuple/API and exact SQL column/validity-marker/order contracts. Freeze pre-copy joint byte/node accounting, complete membership and nullable/type/error/recheck semantics plus real-SQLite rollback/contention/missing/extra-reference tests before code. Keep semantic source assembly and actual file/candle authentication separate; missing evidence remains unsupported. [Fixed closure/bounds](docs/plans/research-source-reference-observation-v1.md#3-complete-workspace-row-closure).
+
 
 
 
@@ -295,6 +298,7 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
   6. [x] **APP-STARTUP-ERROR-001 (P2)** — done 2026-10-14 on `fix/startup-error-dialog` (visible startup failure report; see Done). All six quick fixes are complete.
 
 ## In Progress
+
 
 
 
@@ -601,6 +605,8 @@ These were named inside the UI port entry and must not be buried by closing it. 
 - [ ] Full closed-loop AI automation. (Specification: ABC-14.)
 
 ## Done
+
+- [x] **P13c-4b-2a - Bounded original JSON observations** (2026-10-23; baseline #211 `5d6d366`): private byte-preserving syntax observations, opaque number tokens, strict decoded duplicate/Unicode validation, byte/node/depth/key caps. Fifteen cases/four restored assertion-caught mutants; 978 Rust (one ignored), 1242 Vitest / 80 files, all-targets check/Clippy/scoped format/typecheck/build pass (five existing warnings). No SQL/IO, domain/auth capability, dependency/existing parser/runtime change. Parent 4b-2/4b/P13c-4 incomplete. [Handoff](handoffs/2026-10-23-p13c4b2a-original-json-v1.md).
 
 - [x] **P13c-4b-2-design - Source/reference contract refinement** (2026-10-23; baseline #210 `443940d`): grounded complete row closure, resource/type/refusal/recheck boundaries, original-byte host digest recipes and unsupported missing-evidence gates. First bounded OriginalJson API/tests frozen; concrete SQL tuples and semantic adapter/oracle refinements precede their separate code. Markdown only; parent 4b-2/4b/P13c-4 incomplete. [Handoff](handoffs/2026-10-23-p13c4b2-source-reference-contract-v1.md).
 
