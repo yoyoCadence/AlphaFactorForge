@@ -16,6 +16,7 @@
 pub mod artifacts;
 pub mod campaign_admission;
 pub mod campaign_snapshot;
+mod confirmation_inputs;
 pub mod history;
 pub mod trial_ledger;
 pub mod trial_ledger_workspace;
