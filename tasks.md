@@ -6,6 +6,8 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Current Snapshot
 
+- **P13c-4b-2b-2 graph adapter/fixture contract refined (2026-10-24)** from merged #214 (`07cf11d`). Documentation fixes original campaign/config selection, hardware-independent legacy parsing, checked pre-enumeration scratch sizing, exhaustive 117-column graph types/null markers, whole candidate/reference membership and full-fresh-closure recheck. Independent six-case manifests and original/dataset-a campaign IDs are recorded; stored strategy/dataset prefixes stay intact. Only bounded selection code follows delivery; complete graph/semantic/file/live-owner proof remains incomplete. Runtime/schema/dependencies/workflows stay at #214's six-job-verified **998 Rust (one ignored) / 1242 Vitest / 98 E2E** baseline. [Plan](docs/plans/research-source-graph-adapters-v1.md), [handoff](handoffs/2026-10-24-p13c4b2b2-graph-adapters-v1.md).
+
 - **P13c-4b-2b-1 bounded root observations implemented and locally verified (2026-10-24)** from merged #213 (`9fc320d`). Private guarded campaign/admission/run reads preserve exact types/bytes/REAL bits, singleton/reference order and caller-owned state. One shared byte/node budget checks remaining JSON nodes before ownership. Nineteen root/budget cases plus one bounded-parser case, all prior JSON/workspace tests and four assertion-caught/restored mutants pass; **998 Rust (one ignored) / 1242 Vitest / 80 files**, all-target check/Clippy/scoped format/typecheck/build pass (five existing warnings). Initial frontend sandbox spawn EPERM resolved by identical-command escalation. No runtime caller/schema/spend/IO/activation. Delivery PR records six-job CI/merge; complete graph adapter/fixture refinement follows. [Handoff](handoffs/2026-10-24-p13c4b2b1-root-observations-v1.md).
 
 - **P13c-4b-2b SQL/tuple contract refined (2026-10-23)** from merged #212 (`be699bc`). Documentation fixes 16 root columns plus 117 columns across 11 later graph tables, guarded marker/value order, duplicate singleton refusal and shared pre-copy TEXT/JSON-node accounting. First code is private campaign/admission/run root observation plus clamped remaining-node parsing; roots remain incomplete source evidence. Source/schema/dependencies/workflows stay at **978 Rust (one ignored) / 1242 Vitest** baseline. #212's initial font-settled E2E flake and clean 98-case job repeat remain recorded. Delivery PR records six-job CI/merge; only 4b-2b-1 follows. [Plan](docs/plans/research-source-sql-projection-v1.md), [handoff](handoffs/2026-10-23-p13c4b2b-source-sql-contract-v1.md).
@@ -260,7 +262,8 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Next
 
-- **P13c-4b-2b-2-design - Complete graph adapters and fixture joins**: after root/budget delivery, freeze supported original campaign/config selectors and complete candidate enumeration, private immutable graph tuples/APIs, exact 117-column guarded projection/null domains and reference/member/budget test oracles before remaining graph code. Preserve original numeric policies and fixed row closure/caps; no selected-subset or mutual-jobs/attempts-only completeness proof. Full source semantics/file evidence/live authority remain later. [Remaining graph contract](docs/plans/research-source-sql-projection-v1.md#4-complete-graph-projection-manifest-retained-for-later-code).
+- **P13c-4b-2b-2a - Bounded original root selection**: after graph-adapter design delivery, implement only private immutable selection from captured campaign/config roots, unchanged legacy parsing/re-freeze/enumeration, deterministic concurrency parsing and checked scratch preflight before Cartesian cloning. Preserve exact strategy-v2/dataset-content-v2 strings and independent fixture joins/manifests; prove no selection/partial-family, SQL/IO/runtime/authority bypass. Full locked Rust/frontend/check/Clippy/scoped format and explicit restored mutants precede six-job CI/merge. [Frozen first slice](docs/plans/research-source-graph-adapters-v1.md#2-first-code-slice-bounded-root-selection).
+
 
 
 
@@ -304,6 +307,7 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
   6. [x] **APP-STARTUP-ERROR-001 (P2)** — done 2026-10-14 on `fix/startup-error-dialog` (visible startup failure report; see Done). All six quick fixes are complete.
 
 ## In Progress
+
 
 
 
@@ -614,6 +618,8 @@ These were named inside the UI port entry and must not be buried by closing it. 
 - [ ] Full closed-loop AI automation. (Specification: ABC-14.)
 
 ## Done
+
+- [x] **P13c-4b-2b-2-design - Complete graph adapters and fixture joins** (2026-10-24; baseline #214 `07cf11d`): bounded original selection/scratch preflight, immutable graph APIs, exhaustive 117-column type/null/SQL binding rules, complete candidate/reference checks and fresh-closure recheck/fixture contracts. Schema/nullable grounding, six saved enumeration manifests, independent campaign identity controls, links/scope/task checks pass. Markdown only; first selector code Next after delivery, parents incomplete. [Handoff](handoffs/2026-10-24-p13c4b2b2-graph-adapters-v1.md).
 
 - [x] **P13c-4b-2b-1 - Bounded root row observations and shared resource budget** (2026-10-24; baseline #213 `9fc320d`): private exact root capture/recheck, guarded marker/value SQL, cardinality/reference refusals, shared pre-copy byte/node limits. Nineteen root/budget tests plus one parser test, 49 focused cases and four assertion-caught/restored mutants; 998 Rust (one ignored), 1242 Vitest / 80 files, all-target check/Clippy/scoped format/typecheck/build pass (five existing warnings). Root-only consistency; parent tasks remain incomplete. [Handoff](handoffs/2026-10-24-p13c4b2b1-root-observations-v1.md).
 

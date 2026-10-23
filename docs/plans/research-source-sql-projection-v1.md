@@ -250,3 +250,7 @@ six first-attempt clean jobs. Delivery evidence belongs in the
 [handoff](../../handoffs/2026-10-23-p13c4b2b-source-sql-contract-v1.md).
 
 Root/budget implementation evidence: [4b-2b-1 handoff](../../handoffs/2026-10-24-p13c4b2b1-root-observations-v1.md).
+
+The [remaining graph adapter refinement](research-source-graph-adapters-v1.md)
+fixes supported original selectors, pre-enumeration scratch bounds, record types
+and full fixture joins. It does not complete or activate source authentication.
