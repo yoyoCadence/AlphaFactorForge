@@ -182,6 +182,10 @@ Record concrete contracts and move through Next/In Progress before each code
 slice. No generic artifact-store rewrite or new workspace migration belongs in
 4b-1. Original immutable intent persistence remains 4e's separate contract.
 
+The [4b-2 source/reference refinement](research-source-reference-observation-v1.md)
+orders bounded original JSON first, then complete row projection and supported
+semantic assembly. Pinned input authenticity remains 4b-3.
+
 ## 5. Production authorization remains unavailable
 
 All source integrity and pinning checks remain distinct from managed protected
