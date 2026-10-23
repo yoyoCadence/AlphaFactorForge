@@ -6,6 +6,8 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Current Snapshot
 
+- **P13c-4b-2b SQL/tuple contract refined (2026-10-23)** from merged #212 (`be699bc`). Documentation fixes 16 root columns plus 117 columns across 11 later graph tables, guarded marker/value order, duplicate singleton refusal and shared pre-copy TEXT/JSON-node accounting. First code is private campaign/admission/run root observation plus clamped remaining-node parsing; roots remain incomplete source evidence. Source/schema/dependencies/workflows stay at **978 Rust (one ignored) / 1242 Vitest** baseline. #212's initial font-settled E2E flake and clean 98-case job repeat remain recorded. Delivery PR records six-job CI/merge; only 4b-2b-1 follows. [Plan](docs/plans/research-source-sql-projection-v1.md), [handoff](handoffs/2026-10-23-p13c4b2b-source-sql-contract-v1.md).
+
 - **P13c-4b-2a bounded original JSON implemented and locally verified (2026-10-23)** from merged #211 (`5d6d366`). Private owned bytes/node count enforce syntax, decoded-key uniqueness and exact byte/node/depth/key limits without interpreting numbers. Fifteen cases/four restored assertion-caught mutants pass; **978 Rust (one ignored) / 1242 Vitest / 80 files**, all-targets check/Clippy/scoped format/typecheck/build pass (five existing warnings). Initial npm sandbox spawn EPERM was resolved by identical-command escalation. No runtime caller, SQL/IO, source/auth capability, dependency or existing parser change. Delivery PR records six-job CI/merge; 4b-2b SQL/tuple refinement follows after delivery. [Contract](docs/plans/research-source-reference-observation-v1.md#2-first-code-slice-bounded-original-json), [handoff](handoffs/2026-10-23-p13c4b2a-original-json-v1.md).
 
 - **P13c-4b-2 source/reference contract refined (2026-10-23)** from merged #210 (`443940d`). Documentation fixes complete workspace row closure, byte/node/member caps, refusal/recheck boundaries and original-byte host digests without rehashing legacy floats. First code slice is private bounded OriginalJson; complete SQL projection and semantic adapters follow, with missing original cost/action/source evidence explicitly unsupported. Parent 4b-2/4b/P13c-4 remain incomplete. Source/runtime/schema/dependencies/workflows remain #210's verified **963 Rust (one ignored) / 1242 Vitest / 98 first-attempt E2E** baseline. Delivery PR records six-job exact-head CI/merge; only 4b-2a follows after delivery. [Plan](docs/plans/research-source-reference-observation-v1.md), [handoff](handoffs/2026-10-23-p13c4b2-source-reference-contract-v1.md).
@@ -256,7 +258,8 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Next
 
-- **P13c-4b-2b-design - Freeze concrete bounded source SQL projection**: after 4b-2a delivery, refine the agreed complete row closure into private immutable tuple/API and exact SQL column/validity-marker/order contracts. Freeze pre-copy joint byte/node accounting, complete membership and nullable/type/error/recheck semantics plus real-SQLite rollback/contention/missing/extra-reference tests before code. Keep semantic source assembly and actual file/candle authentication separate; missing evidence remains unsupported. [Fixed closure/bounds](docs/plans/research-source-reference-observation-v1.md#3-complete-workspace-row-closure).
+- **P13c-4b-2b-1 - Bounded root row observations and shared resource budget**: after 4b-2b-design delivery, implement only the frozen private SourceLocator/capture/recheck root APIs, guarded exact campaign/admission/run queries, one shared byte/node budget and clamped pre-copy OriginalJson node limit. Real SQLite corruption/duplicate/cardinality/reference/boundary/rollback/contention/snapshot and explicit mutant evidence before full checks/CI/merge. Root-only consistency remains incomplete; no graph/source assembly, schema/spend/IO/runtime activation. [Frozen slice](docs/plans/research-source-sql-projection-v1.md#1-first-slice-and-private-apis).
+
 
 
 
@@ -326,12 +329,14 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 
 
+
 - **P09 authenticated external acceptance** (2026-09-21): implementation/local verification Done (below), but live Tiingo download, free entitlement and payment coverage still require the operator's token in Windows Credential Manager. User intends to register; native status currently `credential_missing`. Re-run the documented bounded range after setup and append evidence to the P09 handoff.
 
 ## Backlog
 
 
 - [ ] **TEST-E2E-FONT-SETTLE-002 — Deterministic font readiness in chart tests (P3)** (observed 2026-10-16): PR #191 final-head CI run `38925249196`, E2E job `117055010997`: pan.spec.ts:21 first attempt hit the existing 30 s wait for `link#afs-fonts[data-e2e-fonts="settled"]` in chartLayout.ts:24; configured retry passed (97 first-pass + 1 flaky, overall job success). Investigate controlled font-request success/error/hang readiness without raising timeout/retry settings or changing chart assertions. Separate test-only slice; preserve current research task order. [PR evidence](https://github.com/yoyoCadence/AlphaFactorForge/pull/191).
+  - Additional occurrence (2026-10-23): [PR #212](https://github.com/yoyoCadence/AlphaFactorForge/pull/212), run `39893573470`, zoom.spec.ts:27 / chartLayout.ts:24; 97 pass + one internal-retry flake. Same-head E2E-job-only repeat passed 98 (1.3m), no test retry. Source/helper/config/timeouts/assertions unchanged; root cause remains open. [Delivery receipt](handoffs/2026-10-23-p13c4b2a-original-json-v1.md#resolution-pr-212-delivery).
 
 
 - [ ] **P13c-4 — Integrated final admission and registry-first enqueue**: after P13c-3 storage/transfer; cross-process registration/import/manual-overlap contention, workspace observation/epoch guard, actual-share P12a and all commit-boundary crashes. No protected execution. [Design §5/10](docs/plans/research-confirmation-exposure-recovery-plan-v1.md).
@@ -605,6 +610,8 @@ These were named inside the UI port entry and must not be buried by closing it. 
 - [ ] Full closed-loop AI automation. (Specification: ABC-14.)
 
 ## Done
+
+- [x] **P13c-4b-2b-design - Concrete bounded source SQL projection** (2026-10-23; baseline #212 `be699bc`): exact 16-root/117-graph-column manifests, marker/value encoding, singleton/cardinality/reference order, pre-copy joint budget and immutable root API/refusal/recheck tests. First root code slice frozen; full graph/semantic/file/live-owner proof remains incomplete. Markdown only; existing font-settlement Backlog retains #212's repeated occurrence. [Handoff](handoffs/2026-10-23-p13c4b2b-source-sql-contract-v1.md).
 
 - [x] **P13c-4b-2a - Bounded original JSON observations** (2026-10-23; baseline #211 `5d6d366`): private byte-preserving syntax observations, opaque number tokens, strict decoded duplicate/Unicode validation, byte/node/depth/key caps. Fifteen cases/four restored assertion-caught mutants; 978 Rust (one ignored), 1242 Vitest / 80 files, all-targets check/Clippy/scoped format/typecheck/build pass (five existing warnings). No SQL/IO, domain/auth capability, dependency/existing parser/runtime change. Parent 4b-2/4b/P13c-4 incomplete. [Handoff](handoffs/2026-10-23-p13c4b2a-original-json-v1.md).
 
