@@ -4,7 +4,7 @@ Date: 2026-10-23
 Repo: yoyoCadence/AlphaFactorForge
 Branch: feat/p13c4b2a-original-json
 Baseline: merged #211 (`5d6d366`).
-Status: implementation/local verification complete; exact-head PR/CI delivery pending.
+Status: resolved; PR #212 merged and clean main verified on 2026-10-23.
 
 ## Summary
 
@@ -91,3 +91,29 @@ pass; git diff --check is clean. The exact named verification root's 17 expected
 regular files (including the initial npm sandbox log) were removed only after
 canonical root/parent, no-reparse, restored source hash and successful receipt
 checks. No owned fixture/process/verification directory remains.
+
+## Resolution (PR #212 delivery)
+
+[PR #212](https://github.com/yoyoCadence/AlphaFactorForge/pull/212) merged tested
+head `b37c6c44818975aa228617098174f33f6955a708` into unchanged #211 base
+`5d6d366be4bbcb6ac2522c70463c5ed4dd6a79e6`; merge is
+`be699bc26abd9d8b496d1936cc5c4677c296b206`. CI
+[39893573470](https://github.com/yoyoCadence/AlphaFactorForge/actions/runs/39893573470)
+finished with six successful jobs and exact head/base checkout logs. Rust: 978
+(297/679/2, one ignored), suite times 27.64 / 326.67 / 5.80 seconds. Vitest:
+1242 / 80 files; typecheck/production audit zero/build passed. Native verified
+render/SQLite/invoke/metrics/event, exact policy restoration and owned cleanup.
+
+Initial E2E: 97 passed plus one flaky (2.1 minutes). zoom.spec.ts:27 waited
+30 seconds for link#afs-fonts's settled marker at chartLayout.ts:24; its internal
+retry passed. UI/helper/config/assertions/timeouts were unchanged. Only that
+job was repeated on the same head after initial workflow completion: 98 passed
+(1.3 minutes), no test retry/flake. Initial history and repeat remain in the PR.
+This confirmation does not establish the root cause or fix font-settlement
+timing; retain a separate Backlog investigation without reordering P13.
+
+Fresh main/base/branch were unchanged/clean, reviews/threads empty. Ready
+body/refs readback preceded expected-head merge. Local main fast-forwarded to
+remote merge, complete tree equal to tested head and worktree clean. Final
+Delivery body/merge SHA were read back and verified. Only 4b-2b SQL refinement
+follows; parent 4b-2/4b/P13c-4 remain incomplete.

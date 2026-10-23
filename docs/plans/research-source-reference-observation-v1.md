@@ -247,3 +247,7 @@ calibration or reserved seed 20261117. Record delivery in the
 [handoff](../../handoffs/2026-10-23-p13c4b2-source-reference-contract-v1.md).
 
 4b-2a implementation evidence: [bounded original JSON](../../handoffs/2026-10-23-p13c4b2a-original-json-v1.md).
+
+The [concrete SQL/tuple refinement](research-source-sql-projection-v1.md) fixes
+the complete column manifest and shared pre-copy budget; root observations are
+the first bounded code slice and remain incomplete source evidence.
