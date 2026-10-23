@@ -8,15 +8,15 @@ use std::time::Duration;
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
 
-struct Fixture {
-    root: PathBuf,
+pub(super) struct Fixture {
+    pub(super) root: PathBuf,
     conn: Option<Connection>,
     lease: Option<OsLock>,
-    expected: ExpectedWorkspace,
+    pub(super) expected: ExpectedWorkspace,
 }
 
 impl Fixture {
-    fn new() -> Self {
+    pub(super) fn new() -> Self {
         let root = std::env::temp_dir().join(format!(
             "aff-workspace-observation-{}-{}",
             std::process::id(),
@@ -41,11 +41,11 @@ impl Fixture {
         }
     }
 
-    fn connection(&mut self) -> &mut Connection {
+    pub(super) fn connection(&mut self) -> &mut Connection {
         self.conn.as_mut().unwrap()
     }
 
-    fn independent(&self) -> Connection {
+    pub(super) fn independent(&self) -> Connection {
         let conn = Connection::open(self.root.join(db::DB_FILE_NAME)).unwrap();
         conn.busy_timeout(Duration::ZERO).unwrap();
         conn
@@ -103,12 +103,12 @@ fn query_rows(conn: &Connection, sql: &str) -> Rows {
 }
 
 #[derive(Debug, PartialEq)]
-struct Snapshot {
+pub(super) struct Snapshot {
     schema: Rows,
     tables: Vec<(String, Rows)>,
 }
 
-fn snapshot(conn: &Connection) -> Snapshot {
+pub(super) fn snapshot(conn: &Connection) -> Snapshot {
     let names = conn
         .prepare("SELECT name FROM sqlite_schema WHERE type='table' ORDER BY name")
         .unwrap()
@@ -142,7 +142,10 @@ fn changes(conn: &Connection) -> u64 {
         .unwrap()
 }
 
-fn unchanged<T>(tx: &Transaction<'_>, read: impl FnOnce() -> AppResult<T>) -> AppResult<T> {
+pub(super) fn unchanged<T>(
+    tx: &Transaction<'_>,
+    read: impl FnOnce() -> AppResult<T>,
+) -> AppResult<T> {
     let before = snapshot(tx);
     let writes = changes(tx);
     let was_inactive = tx.is_autocommit();
@@ -224,7 +227,7 @@ fn pending_domain_mutation_is_visible_only_inside_and_rollback_restores_every_ro
     assert_eq!(fixture.capture(), saved);
 }
 
-fn writer_busy(conn: &Connection) {
+pub(super) fn writer_busy(conn: &Connection) {
     let error = conn.execute_batch("BEGIN IMMEDIATE").unwrap_err();
     assert_eq!(
         error.sqlite_error_code(),

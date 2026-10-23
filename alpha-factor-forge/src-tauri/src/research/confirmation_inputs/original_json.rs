@@ -14,6 +14,16 @@ const MAX_NODES: usize = 65_536;
 const MAX_DEPTH: usize = 64;
 const MAX_KEY_BYTES: usize = 1024;
 
+#[cfg(test)]
+thread_local! {
+    static OWNED_COPIES: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+#[cfg(test)]
+pub(super) fn owned_copy_count() -> usize {
+    OWNED_COPIES.with(std::cell::Cell::get)
+}
+
 fn invalid() -> AppError {
     AppError::Other("source_json_invalid".into())
 }
@@ -27,14 +37,21 @@ pub(super) struct OriginalJson {
 
 impl OriginalJson {
     pub(super) fn parse(raw: &[u8]) -> AppResult<Self> {
-        if raw.len() > MAX_BYTES {
+        Self::parse_with_node_limit(raw, MAX_NODES)
+    }
+
+    pub(super) fn parse_with_node_limit(raw: &[u8], remaining_nodes: usize) -> AppResult<Self> {
+        let node_limit = remaining_nodes.min(MAX_NODES);
+        if raw.len() > MAX_BYTES || node_limit == 0 {
             return Err(invalid());
         }
         let text = std::str::from_utf8(raw).map_err(|_| invalid())?;
         bound_container_depth(text)?;
         let value: &RawValue = serde_json::from_str(text).map_err(|_| invalid())?;
         let mut nodes = 0;
-        walk(value, 1, &mut nodes)?;
+        walk(value, 1, &mut nodes, node_limit)?;
+        #[cfg(test)]
+        OWNED_COPIES.with(|count| count.set(count.get() + 1));
         Ok(Self {
             bytes: raw.to_vec(),
             nodes,
@@ -82,8 +99,8 @@ fn bound_container_depth(text: &str) -> AppResult<()> {
     Ok(())
 }
 
-fn walk(value: &RawValue, depth: usize, nodes: &mut usize) -> AppResult<()> {
-    if depth > MAX_DEPTH || *nodes >= MAX_NODES {
+fn walk(value: &RawValue, depth: usize, nodes: &mut usize, node_limit: usize) -> AppResult<()> {
+    if depth > MAX_DEPTH || *nodes >= node_limit {
         return Err(invalid());
     }
     // Both increments are bounded by the fixed limits before descending.
@@ -93,14 +110,22 @@ fn walk(value: &RawValue, depth: usize, nodes: &mut usize) -> AppResult<()> {
         Some(b'{') => {
             let mut parser = serde_json::Deserializer::from_str(text);
             parser
-                .deserialize_map(Children { depth, nodes })
+                .deserialize_map(Children {
+                    depth,
+                    nodes,
+                    node_limit,
+                })
                 .map_err(|_| invalid())?;
             parser.end().map_err(|_| invalid())?;
         }
         Some(b'[') => {
             let mut parser = serde_json::Deserializer::from_str(text);
             parser
-                .deserialize_seq(Children { depth, nodes })
+                .deserialize_seq(Children {
+                    depth,
+                    nodes,
+                    node_limit,
+                })
                 .map_err(|_| invalid())?;
             parser.end().map_err(|_| invalid())?;
         }
@@ -118,6 +143,7 @@ fn walk(value: &RawValue, depth: usize, nodes: &mut usize) -> AppResult<()> {
 struct Children<'a> {
     depth: usize,
     nodes: &'a mut usize,
+    node_limit: usize,
 }
 
 impl<'de> Visitor<'de> for Children<'_> {
@@ -134,7 +160,7 @@ impl<'de> Visitor<'de> for Children<'_> {
                 return Err(A::Error::custom("source_json_invalid"));
             }
             let value = map.next_value::<&RawValue>()?;
-            walk(value, self.depth + 1, self.nodes)
+            walk(value, self.depth + 1, self.nodes, self.node_limit)
                 .map_err(|_| A::Error::custom("source_json_invalid"))?;
         }
         Ok(())
@@ -142,7 +168,7 @@ impl<'de> Visitor<'de> for Children<'_> {
 
     fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<(), A::Error> {
         while let Some(value) = seq.next_element::<&RawValue>()? {
-            walk(value, self.depth + 1, self.nodes)
+            walk(value, self.depth + 1, self.nodes, self.node_limit)
                 .map_err(|_| A::Error::custom("source_json_invalid"))?;
         }
         Ok(())

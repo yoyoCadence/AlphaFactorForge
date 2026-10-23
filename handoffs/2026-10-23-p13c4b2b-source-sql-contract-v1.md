@@ -4,7 +4,7 @@ Date: 2026-10-23
 Repo: yoyoCadence/AlphaFactorForge
 Branch: docs/p13c4b2b-source-sql-contract
 Baseline: merged #212 (`be699bc`).
-Status: design/local verification complete; exact-head PR/CI delivery pending.
+Status: resolved; PR #213 merged and clean main verified on 2026-10-24.
 
 ## Summary
 
@@ -47,6 +47,24 @@ semantic authenticity and production gates remain incomplete/unavailable.
 Source/schema/dependencies/workflows equal merged #212; no new local runtime
 test is needed for this documentation-only scope. Six exact-head CI jobs and
 guarded delivery still follow.
+
+## Resolution (PR #213 delivery)
+
+[PR #213](https://github.com/yoyoCadence/AlphaFactorForge/pull/213) merged tested
+head `2f6d1f21f820e093475ee624bf354d0b31b2734e` into unchanged baseline
+`be699bc26abd9d8b496d1936cc5c4677c296b206`; merge is
+`9fc320d85f8942fd045b7d1979f0097d624af7dc`. All six jobs in
+[CI 39895928242](https://github.com/yoyoCadence/AlphaFactorForge/actions/runs/39895928242)
+succeeded: typecheck/audit, test, build, cargo-check, e2e and native-smoke.
+Fresh review submissions/threads were empty and the PR was mergeable.
+
+Connector ready/merge writes returned integration 403. The repository-prescribed
+gh fallback authenticated after clearing command-local proxies; ready transition
+and expected-head guarded merge succeeded. GitHub merged state and merge SHA
+were read back. Local main fast-forwarded to that exact merge, its complete tree
+matched the tested head and the worktree was clean before the next branch.
+The PR delivery body was updated. Only 4b-2b-1 root/budget implementation follows;
+complete graph, semantic/file proof and production gates remain incomplete.
 
 Eleven added relative links/anchors, task lifecycle/order, unique existing font
 Backlog record and exact five-file Markdown-only scope checks pass; git diff

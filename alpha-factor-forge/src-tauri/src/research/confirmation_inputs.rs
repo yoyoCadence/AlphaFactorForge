@@ -11,6 +11,7 @@ use crate::error::{AppError, AppResult};
 const MAX_WORKSPACE_ID_JSON_BYTES: usize = 256;
 
 mod original_json;
+mod source_rows;
 
 fn invalid() -> AppError {
     AppError::Other("workspace_observation_invalid".into())

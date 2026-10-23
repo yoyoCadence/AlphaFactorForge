@@ -6,6 +6,8 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Current Snapshot
 
+- **P13c-4b-2b-1 bounded root observations implemented and locally verified (2026-10-24)** from merged #213 (`9fc320d`). Private guarded campaign/admission/run reads preserve exact types/bytes/REAL bits, singleton/reference order and caller-owned state. One shared byte/node budget checks remaining JSON nodes before ownership. Nineteen root/budget cases plus one bounded-parser case, all prior JSON/workspace tests and four assertion-caught/restored mutants pass; **998 Rust (one ignored) / 1242 Vitest / 80 files**, all-target check/Clippy/scoped format/typecheck/build pass (five existing warnings). Initial frontend sandbox spawn EPERM resolved by identical-command escalation. No runtime caller/schema/spend/IO/activation. Delivery PR records six-job CI/merge; complete graph adapter/fixture refinement follows. [Handoff](handoffs/2026-10-24-p13c4b2b1-root-observations-v1.md).
+
 - **P13c-4b-2b SQL/tuple contract refined (2026-10-23)** from merged #212 (`be699bc`). Documentation fixes 16 root columns plus 117 columns across 11 later graph tables, guarded marker/value order, duplicate singleton refusal and shared pre-copy TEXT/JSON-node accounting. First code is private campaign/admission/run root observation plus clamped remaining-node parsing; roots remain incomplete source evidence. Source/schema/dependencies/workflows stay at **978 Rust (one ignored) / 1242 Vitest** baseline. #212's initial font-settled E2E flake and clean 98-case job repeat remain recorded. Delivery PR records six-job CI/merge; only 4b-2b-1 follows. [Plan](docs/plans/research-source-sql-projection-v1.md), [handoff](handoffs/2026-10-23-p13c4b2b-source-sql-contract-v1.md).
 
 - **P13c-4b-2a bounded original JSON implemented and locally verified (2026-10-23)** from merged #211 (`5d6d366`). Private owned bytes/node count enforce syntax, decoded-key uniqueness and exact byte/node/depth/key limits without interpreting numbers. Fifteen cases/four restored assertion-caught mutants pass; **978 Rust (one ignored) / 1242 Vitest / 80 files**, all-targets check/Clippy/scoped format/typecheck/build pass (five existing warnings). Initial npm sandbox spawn EPERM was resolved by identical-command escalation. No runtime caller, SQL/IO, source/auth capability, dependency or existing parser change. Delivery PR records six-job CI/merge; 4b-2b SQL/tuple refinement follows after delivery. [Contract](docs/plans/research-source-reference-observation-v1.md#2-first-code-slice-bounded-original-json), [handoff](handoffs/2026-10-23-p13c4b2a-original-json-v1.md).
@@ -258,7 +260,8 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Next
 
-- **P13c-4b-2b-1 - Bounded root row observations and shared resource budget**: after 4b-2b-design delivery, implement only the frozen private SourceLocator/capture/recheck root APIs, guarded exact campaign/admission/run queries, one shared byte/node budget and clamped pre-copy OriginalJson node limit. Real SQLite corruption/duplicate/cardinality/reference/boundary/rollback/contention/snapshot and explicit mutant evidence before full checks/CI/merge. Root-only consistency remains incomplete; no graph/source assembly, schema/spend/IO/runtime activation. [Frozen slice](docs/plans/research-source-sql-projection-v1.md#1-first-slice-and-private-apis).
+- **P13c-4b-2b-2-design - Complete graph adapters and fixture joins**: after root/budget delivery, freeze supported original campaign/config selectors and complete candidate enumeration, private immutable graph tuples/APIs, exact 117-column guarded projection/null domains and reference/member/budget test oracles before remaining graph code. Preserve original numeric policies and fixed row closure/caps; no selected-subset or mutual-jobs/attempts-only completeness proof. Full source semantics/file evidence/live authority remain later. [Remaining graph contract](docs/plans/research-source-sql-projection-v1.md#4-complete-graph-projection-manifest-retained-for-later-code).
+
 
 
 
@@ -301,6 +304,7 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
   6. [x] **APP-STARTUP-ERROR-001 (P2)** — done 2026-10-14 on `fix/startup-error-dialog` (visible startup failure report; see Done). All six quick fixes are complete.
 
 ## In Progress
+
 
 
 
@@ -610,6 +614,8 @@ These were named inside the UI port entry and must not be buried by closing it. 
 - [ ] Full closed-loop AI automation. (Specification: ABC-14.)
 
 ## Done
+
+- [x] **P13c-4b-2b-1 - Bounded root row observations and shared resource budget** (2026-10-24; baseline #213 `9fc320d`): private exact root capture/recheck, guarded marker/value SQL, cardinality/reference refusals, shared pre-copy byte/node limits. Nineteen root/budget tests plus one parser test, 49 focused cases and four assertion-caught/restored mutants; 998 Rust (one ignored), 1242 Vitest / 80 files, all-target check/Clippy/scoped format/typecheck/build pass (five existing warnings). Root-only consistency; parent tasks remain incomplete. [Handoff](handoffs/2026-10-24-p13c4b2b1-root-observations-v1.md).
 
 - [x] **P13c-4b-2b-design - Concrete bounded source SQL projection** (2026-10-23; baseline #212 `be699bc`): exact 16-root/117-graph-column manifests, marker/value encoding, singleton/cardinality/reference order, pre-copy joint budget and immutable root API/refusal/recheck tests. First root code slice frozen; full graph/semantic/file/live-owner proof remains incomplete. Markdown only; existing font-settlement Backlog retains #212's repeated occurrence. [Handoff](handoffs/2026-10-23-p13c4b2b-source-sql-contract-v1.md).
 
