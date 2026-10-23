@@ -7,6 +7,22 @@ fn checked(raw: &[u8], expected_nodes: usize) -> OriginalJson {
     value
 }
 
+#[test]
+fn remaining_node_limit_is_exact_zero_refuses_and_large_values_clamp() {
+    assert!(OriginalJson::parse_with_node_limit(b"null", 0).is_err());
+    assert!(OriginalJson::parse_with_node_limit(b"null", 1).is_ok());
+    assert!(OriginalJson::parse_with_node_limit(b"[null]", 1).is_err());
+    let raw = br#"{"a":[1,{"b":null}],"c":true}"#;
+    let exact = OriginalJson::parse_with_node_limit(raw, 6).unwrap();
+    assert_eq!(exact.node_count(), 6);
+    assert_eq!(exact.as_bytes(), raw);
+    assert!(OriginalJson::parse_with_node_limit(raw, 5).is_err());
+    let flat = format!("[{}]", vec!["null"; 65_535].join(","));
+    assert!(OriginalJson::parse_with_node_limit(flat.as_bytes(), usize::MAX).is_ok());
+    let over = format!("[{},null]", &flat[1..flat.len() - 1]);
+    assert!(OriginalJson::parse_with_node_limit(over.as_bytes(), usize::MAX).is_err());
+}
+
 fn refused(raw: &[u8], reason: &str) {
     let result = OriginalJson::parse(raw);
     assert!(result.is_err(), "expected source JSON refusal: {reason}");

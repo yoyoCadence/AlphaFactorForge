@@ -248,3 +248,5 @@ smoke/restoration/cleanup and six successful final CI jobs. Its first E2E had
 E2E-job-only repeat passed 98 with no retries. Do not rewrite that history as
 six first-attempt clean jobs. Delivery evidence belongs in the
 [handoff](../../handoffs/2026-10-23-p13c4b2b-source-sql-contract-v1.md).
+
+Root/budget implementation evidence: [4b-2b-1 handoff](../../handoffs/2026-10-24-p13c4b2b1-root-observations-v1.md).
