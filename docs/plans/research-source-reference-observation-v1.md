@@ -245,3 +245,5 @@ witnesses or test fixtures. No migration, reservation/spend, confirmation job,
 ordinary runner activation, command/provider/UI, B/alpha/threshold/policy change,
 calibration or reserved seed 20261117. Record delivery in the
 [handoff](../../handoffs/2026-10-23-p13c4b2-source-reference-contract-v1.md).
+
+4b-2a implementation evidence: [bounded original JSON](../../handoffs/2026-10-23-p13c4b2a-original-json-v1.md).
