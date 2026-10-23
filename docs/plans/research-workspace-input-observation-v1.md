@@ -196,3 +196,5 @@ activation, command/provider/UI, policy/threshold/B change, calibration or
 reserved seed 20261117. Parent P13c-4 stays incomplete through integrated
 contention/crash/recovery acceptance. Delivery evidence belongs in the
 [handoff](../../handoffs/2026-10-22-p13c4b-workspace-input-contract-v1.md).
+
+4b-1 implementation evidence: [transaction-owned workspace observations](../../handoffs/2026-10-23-p13c4b1-workspace-observations-v1.md).

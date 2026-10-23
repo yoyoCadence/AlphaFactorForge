@@ -4,7 +4,7 @@ Date: 2026-10-22
 Repo: yoyoCadence/AlphaFactorForge
 Branch: docs/p13c4b-workspace-input-contract
 Baseline: merged #208 (`6db0674`).
-Status: design/local verification complete; documentation-only PR/CI pending.
+Status: delivered in PR #209 on 2026-10-23; 4b-1 started from verified main.
 
 ## Summary
 
@@ -76,3 +76,19 @@ All **23 added relative links/anchors** resolve (16 in the two new documents).
 Task lifecycle/order, source grounding and `git diff --check` pass. Exactly five
 Markdown files are in scope; source/schema/dependencies/fixtures/workflows are
 unchanged from merged #208. No redundant local source test run is claimed.
+
+## Resolution (PR #209 delivery, 2026-10-23)
+
+[PR #209](https://github.com/yoyoCadence/AlphaFactorForge/pull/209) merged as
+`4e51a8f5e547693e6344b9bdfd789b1233db5e77` with expected head
+`b678b014a53f6a53776dcf0690acac1c11ca9c35`, base `6db0674`.
+All six first-attempt jobs in [run 39797287541](https://github.com/yoyoCadence/AlphaFactorForge/actions/runs/39797287541)
+passed: 949 Rust (one ignored; 33.81 / 282.36 / 5.68 seconds), 1242 Vitest /
+80 files, 98 first-attempt E2E (1.3 minutes), typecheck/production audit (0),
+build and native rendering/SQLite/metrics/event round trip. Native policy
+restored and owned processes/temp cleaned. Logs match synthetic merge `06d9d19`.
+Fresh main/reviews/threads remained unchanged/empty; ready body/refs read back
+before expected-head merge. No retries or skipped gate. Local main fast-forwarded
+to the merge, matched the tested head tree exactly and was clean. Remote merged
+SHA and final delivery body were read back. Only
+[4b-1](2026-10-23-p13c4b1-workspace-observations-v1.md) is now In Progress.
