@@ -6,6 +6,8 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Current Snapshot
 
+- **P13c-4b workspace/input contract refined (2026-10-22)** from merged #208 (`6db0674`). The documentation-only contract freezes internal transaction-owned workspace identity/positive-owner/mutation observations first, explicit SQL type/text bounds, unchanged caller state, stale-owner/version refusals and real SQLite contention/rollback/snapshot tests. It orders later complete source/reference and bounded immutable input contracts; observations remain consistency-only and policy/mediation authority unavailable. Source/schema/dependencies/workflows unchanged from #208's **949 Rust (one ignored) / 1242 Vitest / 98 first-attempt E2E** CI baseline. Six-job exact-head CI/merge is recorded by the delivery PR; only 4b-1 follows. [Plan](docs/plans/research-workspace-input-observation-v1.md), [handoff](handoffs/2026-10-22-p13c4b-workspace-input-contract-v1.md).
+
 - **P13c-4a transaction-owned observations implemented and locally verified (2026-10-22)** from merged #207 (`49bbcc0`). Internal active/matching-registry readers preserve public validation/check/finish semantics through common read bodies. Thirteen real-SQLite cases prove parity, pending-import visibility/full rollback, held mutex/writer reservation, inactive/foreign refusal, SQL errors and deferred snapshots; four assertion-caught mutants were restored byte-for-byte. **949 Rust (one ignored) / 1242 Vitest / 80 files**, typecheck/build/all-targets check/scoped format/Clippy pass (five existing warnings). No runtime caller/spend/migration/authority change. Delivery PR records exact-head CI/merge; 4b contract refinement is Next after delivery. [Contract](docs/plans/research-final-admission-implementation-v1.md#2-first-code-slice-p13c-4a-transaction-owned-observations), [handoff](handoffs/2026-10-22-p13c4a-transaction-observations-v1.md).
 
 - **P13c-4 final-admission order refined (2026-10-22)** from merged #206 (`9f36cbb`). The documentation-only plan grounds current transaction/owner/source/alpha boundaries and orders 4a transaction-owned read/fence helpers, 4b authenticated input observation, 4c actual-share preparation, 4d atomic registry admission and 4e registry-first workspace projection. The first code slice has explicit no-nested-lock/no-commit/parity/snapshot/refusal tests; later APIs/schema must be frozen before code. Policy/mediation authorization remains unavailable. Twelve new-document relative links and source/scope/task checks pass; source/schema/workflow unchanged from the **936 Rust (one ignored) / 1242 Vitest / 98 E2E** baseline. Delivery PR records six-job exact-head CI/merge. [Plan](docs/plans/research-final-admission-implementation-v1.md), [handoff](handoffs/2026-10-22-p13c4-admission-order-v1.md).
@@ -248,7 +250,8 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Next
 
-- **P13c-4b-design - Freeze backend workspace/input observation contract**: after 4a delivery, ground actual workspace ownership/mutation, immutable source/candidate/artifact references and bounded backend input materialization; freeze private types/constructors, integrity-versus-unseen authority, final recheck/lock boundaries and mutation/refusal tests before implementation. Split further if needed; no schema/spend/runtime activation. [Ordered scope](docs/plans/research-final-admission-implementation-v1.md#3-remaining-bounded-slices).
+- **P13c-4b-1 - Transaction-owned workspace observations**: after 4b-design delivery, implement only the frozen internal ExpectedWorkspace/WorkspaceObservation API, active bounded SQL reads, positive owner tuple and mutation comparison, unchanged caller transaction/state and all specified refusal/rollback/reservation/snapshot tests. No runtime caller, source/artifact loading, schema, registry spend or live capability. [Exact contract](docs/plans/research-workspace-input-observation-v1.md#2-first-code-slice-private-workspace-observations).
+
 
 
 
@@ -286,6 +289,7 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
   6. [x] **APP-STARTUP-ERROR-001 (P2)** — done 2026-10-14 on `fix/startup-error-dialog` (visible startup failure report; see Done). All six quick fixes are complete.
 
 ## In Progress
+
 
 
 
@@ -589,6 +593,8 @@ These were named inside the UI port entry and must not be buried by closing it. 
 - [ ] Full closed-loop AI automation. (Specification: ABC-14.)
 
 ## Done
+
+- [x] **P13c-4b-design - Freeze backend workspace/input observation contract** (2026-10-22; baseline #208 `6db0674`): grounded existing ownership/snapshot/history/source/artifact boundaries; fixed the first metadata-only borrowed reader's private types, active/positive-owner/SQL type/byte domains, refusal order and mutation/rollback/contention tests. Later complete inputs need concrete contracts before code. Documentation-only; 4b-1 is Next after delivery and parent 4b/P13c-4 remain incomplete. [Plan](docs/plans/research-workspace-input-observation-v1.md), [handoff](handoffs/2026-10-22-p13c4b-workspace-input-contract-v1.md).
 
 - [x] **P13c-4a - Transaction-owned binding and count-fence observations** (2026-10-22; baseline #207 `49bbcc0`): internal read-only borrowed-transaction helpers, preserved public error/finish behavior, 13 real-SQLite cases and four restored assertion-caught mutants. 949 Rust (one ignored), 1242 Vitest / 80 files, typecheck/build/all-targets check/scoped format/Clippy pass (five existing warnings). No spend, schema, runtime caller or admission capability; parent 4 stays incomplete. [Handoff](handoffs/2026-10-22-p13c4a-transaction-observations-v1.md).
 
