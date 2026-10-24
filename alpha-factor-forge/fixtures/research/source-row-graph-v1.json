@@ -1,0 +1,570 @@
+{
+  "version": "source-row-graph-fixture-v1",
+  "note": "Independent literal input/ordered-cell oracle. Claims only; no files or execution. Counts include fixed 128 bytes and every retained row once.",
+  "campaignId": "3d64d27d196dcb275b30a1d59a50ea3481199331cab4a04a2dda2b4fb0a47b9e",
+  "tables": [
+    {
+      "table": "research_campaigns",
+      "columns": [
+        "campaign_id",
+        "version",
+        "document_json"
+      ],
+      "rows": [
+        [
+          "3d64d27d196dcb275b30a1d59a50ea3481199331cab4a04a2dda2b4fb0a47b9e",
+          "research-campaign-declaration-v1",
+          "{\"contractVersion\":\"research-campaign-declaration-v1\",\"contracts\":{\"datasetIdentity\":\"dataset-content-v2\",\"marketSnapshot\":\"market-snapshot-v1\",\"execution\":\"backtest-execution-v1\",\"metrics\":\"metrics-v2\",\"split\":\"validation-split-v1\",\"precision\":\"research-precision-v1\",\"trialLedger\":\"trial-ledger-v1\",\"walkForward\":\"research-walk-forward-v1\",\"walkForwardEvidence\":\"walk-forward-evidence-v1\"},\"sampling\":{\"alphaPpm\":50000,\"maxRelativeStandardErrorPpm\":200000,\"bootstrapSamples\":100000,\"maxBootstrapSamples\":200000},\"instruments\":[{\"instrumentId\":\"crypto:binance:BTCUSDT\",\"listedAtMs\":1502928000000,\"delistedAtMs\":null,\"snapshotId\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"datasetHash\":\"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"interval\":\"1h\",\"fromMs\":1735689600000,\"toMs\":1767222000000,\"samplePolicy\":{\"minimumTotalBars\":8760,\"minimumTrainBars\":1000,\"foldValidationBars\":500,\"foldCount\":3,\"rationale\":\"Authored fixture only; one year of hourly observations with three Train-only folds.\"}}]}"
+        ]
+      ]
+    },
+    {
+      "table": "campaign_run_admissions",
+      "columns": [
+        "id",
+        "discovery_run_id",
+        "campaign_id",
+        "instrument_id",
+        "batch_id",
+        "status",
+        "report_version",
+        "report_json",
+        "fee_pct",
+        "slip_pct"
+      ],
+      "rows": [
+        [
+          1,
+          1,
+          "3d64d27d196dcb275b30a1d59a50ea3481199331cab4a04a2dda2b4fb0a47b9e",
+          "crypto:binance:BTCUSDT",
+          "trial-batch-v1:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "NOT_ELIGIBLE",
+          "uninterpreted-report",
+          "null",
+          {
+            "realBits": "3fa999999999999a"
+          },
+          {
+            "realBits": "3f947ae147ae147b"
+          }
+        ]
+      ]
+    },
+    {
+      "table": "discovery_runs",
+      "columns": [
+        "id",
+        "status",
+        "config_json"
+      ],
+      "rows": [
+        [
+          1,
+          "completed",
+          "{\"envelopeVersion\":\"discovery-config-v1\",\"contracts\":{\"strategyHash\":\"strategy-v2\",\"datasetHash\":\"dataset-content-v2\",\"split\":\"validation-split-v1\",\"embargo\":\"embargo-derivation-v1\",\"backtest\":\"backtest-execution-v1\",\"metrics\":\"metrics-v2\",\"benchmarks\":\"benchmark-suite-v1\",\"randomEntry\":\"random-entry-v1\",\"gate\":\"gate-v1\",\"score\":\"score-v1\",\"seed\":\"seed-v1\",\"enumeration\":\"discovery-enumeration-v1\"},\"dataset\":{\"id\":7,\"contentHash\":\"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"},\"bases\":[{\"id\":\"ma-cross\",\"presetVersion\":\"discovery-preset-v1\",\"strategy\":{\"mode\":\"params\",\"fastMA\":9,\"slowMA\":21,\"emaPeriod\":50,\"rsiPeriod\":14,\"rsiBuy\":30,\"rsiSell\":70,\"macdFast\":12,\"macdSlow\":26,\"macdSignal\":9,\"bbPeriod\":20,\"bbMult\":2,\"entrySig\":\"maCrossUp\",\"exitSig\":\"maCrossDown\",\"entryRules\":[{\"l\":\"maFast\",\"op\":\"crossUp\",\"r\":\"maSlow\"}],\"exitRules\":[{\"l\":\"maFast\",\"op\":\"crossDown\",\"r\":\"maSlow\"}],\"entryCode\":\"crossUp(macd, macdSignal)\",\"exitCode\":\"crossDown(macd, macdSignal)\",\"slPct\":0,\"tpPct\":0,\"feePct\":0.05,\"slipPct\":0.02,\"sizePct\":100,\"fillMode\":\"close\",\"direction\":\"long\"},\"axes\":[{\"key\":\"fastMA\",\"min\":5,\"max\":11,\"step\":3}]}],\"embargo\":{\"holdingAllowanceBars\":10},\"execution\":{\"startEquity\":10000},\"benchmarkCosts\":{\"feePct\":0.05,\"slipPct\":0.02},\"randomEntry\":{\"runs\":200},\"gateConfig\":{\"minTrades\":30,\"minAvgTradeReturn\":0,\"rollingWindowBars\":30,\"minRollingPositiveRatio\":0.55,\"maxDrawdown\":0.35,\"maxMonthlyContribution\":0.4,\"maxSingleTradeContribution\":0.25,\"minRandomEntryPercentile\":95},\"scoreConfig\":{\"caps\":{\"cagr\":1,\"sortino\":5,\"calmar\":5,\"profitFactor\":3,\"consistencySigmaScale\":10,\"complexityUnits\":40,\"turnover\":0.1,\"dataMiningLog10\":4},\"weights\":{\"cagr\":1,\"sortino\":1,\"calmar\":1,\"regime\":0,\"profitFactor\":1,\"consistency\":1,\"complexity\":0.5,\"turnover\":0.5,\"dataMining\":1}},\"rootSeed\":20260726,\"caps\":{\"candidates\":256},\"maxConcurrency\":null}"
+        ]
+      ]
+    },
+    {
+      "table": "discovery_jobs",
+      "columns": [
+        "id",
+        "discovery_run_id",
+        "candidate_index",
+        "strategy_id",
+        "dataset_id",
+        "segment",
+        "status",
+        "result_id"
+      ],
+      "rows": [
+        [
+          500,
+          1,
+          0,
+          100,
+          7,
+          "train",
+          "done",
+          null
+        ],
+        [
+          501,
+          1,
+          0,
+          100,
+          7,
+          "validation",
+          "done",
+          null
+        ],
+        [
+          502,
+          1,
+          1,
+          101,
+          7,
+          "train",
+          "done",
+          null
+        ],
+        [
+          503,
+          1,
+          1,
+          101,
+          7,
+          "validation",
+          "done",
+          null
+        ],
+        [
+          504,
+          1,
+          2,
+          102,
+          7,
+          "train",
+          "done",
+          null
+        ],
+        [
+          505,
+          1,
+          2,
+          102,
+          7,
+          "validation",
+          "done",
+          null
+        ]
+      ]
+    },
+    {
+      "table": "research_attempts",
+      "columns": [
+        "id",
+        "attempt_key",
+        "hypothesis_id",
+        "strategy_id",
+        "dataset_id",
+        "discovery_run_id",
+        "candidate_index",
+        "status",
+        "input_fingerprint_json",
+        "engine_fingerprint_json",
+        "outcome_json",
+        "result_artifact_id",
+        "trial_event_id"
+      ],
+      "rows": [
+        [
+          400,
+          "run:1:candidate:0",
+          200,
+          100,
+          7,
+          1,
+          0,
+          "completed",
+          " \n{\"n\":0.0036944444444444438,\"huge\":1e999}\t",
+          "{}",
+          "null",
+          300,
+          "trial-event-v1:0000000000000000000000000000000000000000000000000000000000000001"
+        ],
+        [
+          401,
+          "run:1:candidate:1",
+          201,
+          101,
+          7,
+          1,
+          1,
+          "completed",
+          " \n{\"n\":0.0036944444444444438,\"huge\":1e999}\t",
+          "{}",
+          "null",
+          301,
+          "trial-event-v1:0000000000000000000000000000000000000000000000000000000000000002"
+        ],
+        [
+          402,
+          "run:1:candidate:2",
+          202,
+          102,
+          7,
+          1,
+          2,
+          "completed",
+          " \n{\"n\":0.0036944444444444438,\"huge\":1e999}\t",
+          "{}",
+          "null",
+          302,
+          "trial-event-v1:0000000000000000000000000000000000000000000000000000000000000003"
+        ]
+      ]
+    },
+    {
+      "table": "strategy_def",
+      "columns": [
+        "id",
+        "type",
+        "original_definition_json",
+        "dsl_json",
+        "strategy_hash",
+        "parent_strategy_id"
+      ],
+      "rows": [
+        [
+          100,
+          "params",
+          " \n{\"n\":0.0036944444444444438,\"huge\":1e999}\t",
+          null,
+          "strategy-v2:26b3b04ef9d3c927cbfbda44074ebcc3df6b9e27b254576229faa5757aa49c60",
+          null
+        ],
+        [
+          101,
+          "params",
+          " \n{\"n\":0.0036944444444444438,\"huge\":1e999}\t",
+          null,
+          "strategy-v2:3674c76f1087df677d1c3d7ea58ee2b1b2981557f01ea38edfc830cd3740ae30",
+          null
+        ],
+        [
+          102,
+          "params",
+          " \n{\"n\":0.0036944444444444438,\"huge\":1e999}\t",
+          null,
+          "strategy-v2:eb2a7e1f826ae0317803e46bd291c8829c853bfd05434338df6f849808b224ba",
+          null
+        ]
+      ]
+    },
+    {
+      "table": "hypotheses",
+      "columns": [
+        "id",
+        "hypothesis_hash",
+        "version",
+        "source",
+        "mechanism",
+        "applicability_json",
+        "failure_modes",
+        "strategy_hash",
+        "strategy_id",
+        "parent_strategy_id",
+        "variation_kind",
+        "content_json"
+      ],
+      "rows": [
+        [
+          200,
+          "000000000000000000000000000000000000000000000000000000000000000a",
+          "hypothesis-v1",
+          "discovery",
+          "claimed mechanism",
+          "{}",
+          "claimed failure",
+          "strategy-v2:26b3b04ef9d3c927cbfbda44074ebcc3df6b9e27b254576229faa5757aa49c60",
+          100,
+          null,
+          null,
+          " \n{\"n\":0.0036944444444444438,\"huge\":1e999}\t"
+        ],
+        [
+          201,
+          "000000000000000000000000000000000000000000000000000000000000000b",
+          "hypothesis-v1",
+          "discovery",
+          "claimed mechanism",
+          "{}",
+          "claimed failure",
+          "strategy-v2:3674c76f1087df677d1c3d7ea58ee2b1b2981557f01ea38edfc830cd3740ae30",
+          101,
+          null,
+          null,
+          " \n{\"n\":0.0036944444444444438,\"huge\":1e999}\t"
+        ],
+        [
+          202,
+          "000000000000000000000000000000000000000000000000000000000000000c",
+          "hypothesis-v1",
+          "discovery",
+          "claimed mechanism",
+          "{}",
+          "claimed failure",
+          "strategy-v2:eb2a7e1f826ae0317803e46bd291c8829c853bfd05434338df6f849808b224ba",
+          102,
+          null,
+          null,
+          " \n{\"n\":0.0036944444444444438,\"huge\":1e999}\t"
+        ]
+      ]
+    },
+    {
+      "table": "research_artifacts",
+      "columns": [
+        "id",
+        "sha256",
+        "kind",
+        "byte_len",
+        "relative_path"
+      ],
+      "rows": [
+        [
+          300,
+          "0000000000000000000000000000000000000000000000000000000000000014",
+          "claimed-result",
+          0,
+          "artifacts/claim-0.json"
+        ],
+        [
+          301,
+          "0000000000000000000000000000000000000000000000000000000000000015",
+          "claimed-result",
+          0,
+          "artifacts/claim-1.json"
+        ],
+        [
+          302,
+          "0000000000000000000000000000000000000000000000000000000000000016",
+          "claimed-result",
+          0,
+          "artifacts/claim-2.json"
+        ]
+      ]
+    },
+    {
+      "table": "market_snapshots",
+      "columns": [
+        "id",
+        "snapshot_id",
+        "version",
+        "instrument_row_id",
+        "instrument_id",
+        "interval",
+        "dataset_id",
+        "dataset_hash",
+        "price_basis",
+        "calendar_id",
+        "corporate_action_version",
+        "cost_profile_version",
+        "kind",
+        "status",
+        "as_of",
+        "coverage_json",
+        "content_json"
+      ],
+      "rows": [
+        [
+          13,
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "snapshot-v1",
+          12,
+          "crypto:binance:BTCUSDT",
+          "1h",
+          7,
+          "dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "raw",
+          "crypto-24x7-v1",
+          null,
+          null,
+          "historical",
+          "degraded",
+          -1,
+          "{}",
+          " \n{\"n\":0.0036944444444444438,\"huge\":1e999}\t"
+        ]
+      ]
+    },
+    {
+      "table": "market_instruments",
+      "columns": [
+        "id",
+        "instrument_id",
+        "revision",
+        "content_hash",
+        "version",
+        "market",
+        "venue",
+        "symbol",
+        "base",
+        "quote",
+        "asset_type",
+        "session_calendar_id",
+        "timezone",
+        "lot_size",
+        "price_step",
+        "min_notional",
+        "listed_from",
+        "delisted_at",
+        "suspensions_json",
+        "source_capabilities_json",
+        "content_json"
+      ],
+      "rows": [
+        [
+          12,
+          "crypto:binance:BTCUSDT",
+          1,
+          "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "instrument-v1",
+          "crypto",
+          "binance",
+          "BTCUSDT",
+          "BTC",
+          "USDT",
+          "spot-crypto",
+          "crypto-24x7-v1",
+          "UTC",
+          null,
+          {
+            "realBits": "3f847ae147ae147b"
+          },
+          null,
+          -10,
+          null,
+          "[]",
+          "{}",
+          " \n{\"n\":0.0036944444444444438,\"huge\":1e999}\t"
+        ]
+      ]
+    },
+    {
+      "table": "market_calendars",
+      "columns": [
+        "id",
+        "calendar_id",
+        "version",
+        "kind",
+        "timezone",
+        "content_hash",
+        "definition_json"
+      ],
+      "rows": [
+        [
+          11,
+          "crypto-24x7-v1",
+          "calendar-v1",
+          "continuous",
+          "UTC",
+          "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          " \n{\"n\":0.0036944444444444438,\"huge\":1e999}\t"
+        ]
+      ]
+    },
+    {
+      "table": "datasets",
+      "columns": [
+        "id",
+        "exchange",
+        "symbol",
+        "interval",
+        "start_time",
+        "end_time",
+        "candle_count",
+        "source",
+        "dataset_hash"
+      ],
+      "rows": [
+        [
+          7,
+          "binance",
+          "BTCUSDT",
+          "1h",
+          -20,
+          20,
+          0,
+          "import",
+          "dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        ]
+      ]
+    },
+    {
+      "table": "market_snapshot_sources",
+      "columns": [
+        "snapshot_row_id",
+        "provenance_id"
+      ],
+      "rows": [
+        [
+          13,
+          14
+        ],
+        [
+          13,
+          15
+        ]
+      ]
+    },
+    {
+      "table": "market_provenance",
+      "columns": [
+        "id",
+        "record_hash",
+        "version",
+        "instrument_id",
+        "interval",
+        "source",
+        "role",
+        "request_scope_json",
+        "raw_sha256",
+        "raw_byte_len",
+        "raw_artifact_path",
+        "raw_media_type",
+        "retrieved_at",
+        "available_at",
+        "accepted",
+        "rejection_reason",
+        "revision_of"
+      ],
+      "rows": [
+        [
+          14,
+          "000000000000000000000000000000000000000000000000000000000000001e",
+          "provenance-v1",
+          "crypto:binance:BTCUSDT",
+          "1h",
+          "claimed-provider",
+          "primary",
+          " \n{\"n\":0.0036944444444444438,\"huge\":1e999}\t",
+          "0000000000000000000000000000000000000000000000000000000000000028",
+          0,
+          "raw/claim-0.json",
+          "application/json",
+          "claimed-time",
+          null,
+          1,
+          null,
+          null
+        ],
+        [
+          15,
+          "000000000000000000000000000000000000000000000000000000000000001f",
+          "provenance-v1",
+          "crypto:binance:BTCUSDT",
+          "1h",
+          "claimed-provider",
+          "comparison",
+          " \n{\"n\":0.0036944444444444438,\"huge\":1e999}\t",
+          "0000000000000000000000000000000000000000000000000000000000000029",
+          0,
+          "raw/claim-1.json",
+          "application/json",
+          "claimed-time",
+          null,
+          0,
+          "rejected",
+          null
+        ]
+      ]
+    }
+  ],
+  "expectedUsage": {
+    "textBytes": 6576,
+    "jsonNodes": 192
+  }
+}
