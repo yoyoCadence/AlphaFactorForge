@@ -214,8 +214,10 @@ the three nullable instrument REAL fields. This type map is exhaustive:
 
 String/OriginalJson bounds and original numeric opacity remain unchanged. Hash
 columns sha256/raw_sha256/record_hash/content_hash/hypothesis_hash/snapshot_id
-use their existing 64-lowercase-hex domain; strategy_hash uses exact strategy-v2
-and dataset_hash exact dataset-content-v2 prefixes plus 64 lowercase hex. Keep
+use their existing 64-lowercase-hex domain; strategy_def.strategy_hash uses exact
+strategy-v2, while hypotheses.strategy_hash retains either existing strategy-doc-v1
+or strategy-v2, each plus 64 lowercase hex. Dataset_hash uses exact
+dataset-content-v2 plus 64 lowercase hex. Keep
 the prefixes, never introduce a new digest or suffix-only row identity. Identity/version
 strings must be nonempty; ordinary descriptive text and optional text may be
 empty if the schema permits. Empty is not NULL and supplies no missing evidence.
@@ -266,9 +268,14 @@ After typed row validation, check exact membership:
    nonnull existing `trial-event-v1:<64 lowercase hex>`, unique across this
    candidate set. Completed attempts have
    a nonnull result artifact. All retained artifact/hypothesis/strategy references
-   resolve exactly; their candidate strategy hashes agree with selection.
-3. Hypothesis.strategy_id must match the attempt's strategy for this supported
-   runner graph. For nullable strategy/hypothesis parent IDs, the first adapter
+   resolve exactly; the candidate strategy_def hash agrees with selection.
+3. The actual runner stores one base hypothesis shared across its variations:
+   hypotheses.strategy_hash is strategy-doc-v1, and strategy_id is NULL. Preserve
+   that nullable identity and shared referenced row. If hypothesis.strategy_id is
+   nonnull, require it matches the attempt's strategy; never require a base
+   hypothesis hash to equal an executed candidate hash. Original base/hash/content
+   semantics remain 4b-2c, not a new SQL coercion or identity policy. For nullable
+   strategy/hypothesis parent IDs, the first adapter
    supports only NULL or references already in the direct captured strategy set.
    An external parent refuses as unsupported closure; no recursive history scan,
    unbounded expansion or claim that omitted parent evidence was authenticated.
@@ -311,7 +318,7 @@ Start from section 2's independently expected three-candidate single-axis case.
 Create one real migrated file-backed workspace and isolated actual lease. Insert
 the exact declaration/root config, one dataset, one calendar, one instrument
 revision, one exact snapshot, two source links/provenance rows, three strategies,
-three hypotheses, three artifacts, six jobs and three completed attempts.
+one shared base hypothesis, three artifacts, six jobs and three completed attempts.
 Freeze base fixture IDs as follows (i is the saved expected index 0..2):
 
 | Row | Fixture ID / exact reference |
@@ -320,8 +327,8 @@ Freeze base fixture IDs as follows (i is the saved expected index 0..2):
 | dataset | 7, matching the unchanged enumeration input |
 | calendar / instrument / snapshot | 11 / 12 / 13; exact declaration snapshot ID, instrument ID and interval |
 | provenance / source links | 14 and 15, both linked to snapshot row 13 |
-| strategy / hypothesis / artifact | 100+i / 200+i / 300+i |
-| attempt | 400+i; run 1, index i, matching 100+i/200+i/300+i and dataset 7 |
+| strategy / hypothesis / artifact | 100+i / shared 200 / 300+i |
+| attempt | 400+i; run 1, index i, matching 100+i/200/300+i and dataset 7 |
 | Train / Validation job | 500+2*i / 501+2*i; run 1, index i, strategy 100+i, dataset 7 |
 
 Bind every FK/attempt key/trial ID to those same literals. The base raw fixture
@@ -331,6 +338,11 @@ Artifact paths/hashes are claims; do not create or authenticate
 files or a registry. Independently record the 16+117 ordered cell manifests and
 expected retained byte/node totals before assertions; no production reader or
 serializer may generate its own expected observation.
+
+The [hypothesis grounding correction](research-source-hypothesis-grounding-v1.md)
+is mandatory: the shared strategy-doc-v1/NULL hypothesis fixture and a positive
+control produced through the unchanged actual run_lineage + history writer must
+pass. A per-candidate synthetic hypothesis fixture alone is insufficient.
 
 Required graph regressions:
 

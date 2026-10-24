@@ -102,3 +102,12 @@ fallback. Ready-body update/transition and expected-head merge succeeded; GitHub
 merged state/SHA were read back. Local main fast-forwarded, complete tree equaled
 tested head and worktree was clean before the next branch. Final delivery body
 was updated. Only bounded root selection code follows; parent obligations remain.
+
+## Correction discovered during draft #217 (2026-10-24)
+
+The graph contract's hypothesis grounding was wrong: actual run_lineage/history
+stores a shared base hypothesis with strategy-doc-v1 and NULL strategy_id, not
+each candidate's strategy-v2/non-null ID. The selector slice is unaffected.
+Draft #217 stays unmerged until the [correction contract](../docs/plans/research-source-hypothesis-grounding-v1.md)
+and actual-writer positive control are delivered. Preserve the earlier delivery
+receipt above; it did not establish that missing writer compatibility evidence.
