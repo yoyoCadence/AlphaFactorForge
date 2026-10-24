@@ -4,7 +4,7 @@ Date: 2026-10-24
 Repo: yoyoCadence/AlphaFactorForge
 Branch: docs/p13c4b2b2-graph-adapters
 Baseline: merged #214 (`07cf11d`).
-Status: design/local verification complete; exact-head PR/CI delivery pending.
+Status: resolved; PR #215 merged and clean main verified on 2026-10-24.
 
 ## Summary
 
@@ -82,3 +82,23 @@ priority and explicit unsupported parent/file/original-execution boundaries.
 Source/schema/dependencies/workflows equal merged #214; git diff --check passes.
 Only five Markdown files are in scope. No new runtime test for documentation only.
 Fresh main/rebase and post-rebase scope/link/lifecycle checks precede publication.
+
+## Resolution (PR #215 delivery)
+
+[PR #215](https://github.com/yoyoCadence/AlphaFactorForge/pull/215) merged tested
+head `352b523ed38cdec884bce4dba0a09db52632d940` into unchanged #214 base
+`07cf11d13d073b1857c25451fa0edcf86553d28c`; merge is
+`731aa5e93aaf036f6adc7641d74241833e0d4e60`. All six jobs in
+[CI 40037779367](https://github.com/yoyoCadence/AlphaFactorForge/actions/runs/40037779367)
+succeeded, with every checkout log matching head/base. Rust: 998 + one ignored
+(297/699/2), 31.85 / 264.42 / 5.70 seconds. Vitest: 1242 / 80 files; E2E: 98
+with no retries. Typecheck/build/production audit zero and native render/invoke/
+metrics/event passed, including exact hosted policy restoration and owned cleanup.
+No failed CI attempt was retried.
+
+Fresh base/head were unchanged, review submissions/threads empty and PR mergeable.
+The already-confirmed connector write limitation used the repository's gh
+fallback. Ready-body update/transition and expected-head merge succeeded; GitHub
+merged state/SHA were read back. Local main fast-forwarded, complete tree equaled
+tested head and worktree was clean before the next branch. Final delivery body
+was updated. Only bounded root selection code follows; parent obligations remain.

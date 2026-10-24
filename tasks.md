@@ -6,6 +6,8 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Current Snapshot
 
+- **P13c-4b-2b-2a bounded root selection implemented and locally verified (2026-10-24)** from merged #215 (`731aa5e`). Private exact original campaign/config selection preserves legacy codecs/prefixed IDs and complete candidate manifests; checked raw-product/B/Q scratch limits precede Cartesian cloning. Thirteen new cases, independent v2/v3/long-float/campaign controls and four assertion-caught/restored mutants; **1011 Rust (one ignored) / 1242 Vitest / 80 files**, all-target check/Clippy/scoped format/typecheck/build pass (five existing warnings). Initial full Rust hit five existing stale-temp-style failures; unchanged source passed in a fresh TEMP/TMP root, with original evidence retained and separate Backlog investigation. No graph SQL/runtime/schema/spend/authority. Delivery PR records six-job CI/merge; complete eleven-table graph follows. [Handoff](handoffs/2026-10-24-p13c4b2b2a-root-selection-v1.md).
+
 - **P13c-4b-2b-2 graph adapter/fixture contract refined (2026-10-24)** from merged #214 (`07cf11d`). Documentation fixes original campaign/config selection, hardware-independent legacy parsing, checked pre-enumeration scratch sizing, exhaustive 117-column graph types/null markers, whole candidate/reference membership and full-fresh-closure recheck. Independent six-case manifests and original/dataset-a campaign IDs are recorded; stored strategy/dataset prefixes stay intact. Only bounded selection code follows delivery; complete graph/semantic/file/live-owner proof remains incomplete. Runtime/schema/dependencies/workflows stay at #214's six-job-verified **998 Rust (one ignored) / 1242 Vitest / 98 E2E** baseline. [Plan](docs/plans/research-source-graph-adapters-v1.md), [handoff](handoffs/2026-10-24-p13c4b2b2-graph-adapters-v1.md).
 
 - **P13c-4b-2b-1 bounded root observations implemented and locally verified (2026-10-24)** from merged #213 (`9fc320d`). Private guarded campaign/admission/run reads preserve exact types/bytes/REAL bits, singleton/reference order and caller-owned state. One shared byte/node budget checks remaining JSON nodes before ownership. Nineteen root/budget cases plus one bounded-parser case, all prior JSON/workspace tests and four assertion-caught/restored mutants pass; **998 Rust (one ignored) / 1242 Vitest / 80 files**, all-target check/Clippy/scoped format/typecheck/build pass (five existing warnings). Initial frontend sandbox spawn EPERM resolved by identical-command escalation. No runtime caller/schema/spend/IO/activation. Delivery PR records six-job CI/merge; complete graph adapter/fixture refinement follows. [Handoff](handoffs/2026-10-24-p13c4b2b1-root-observations-v1.md).
@@ -262,7 +264,8 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Next
 
-- **P13c-4b-2b-2a - Bounded original root selection**: after graph-adapter design delivery, implement only private immutable selection from captured campaign/config roots, unchanged legacy parsing/re-freeze/enumeration, deterministic concurrency parsing and checked scratch preflight before Cartesian cloning. Preserve exact strategy-v2/dataset-content-v2 strings and independent fixture joins/manifests; prove no selection/partial-family, SQL/IO/runtime/authority bypass. Full locked Rust/frontend/check/Clippy/scoped format and explicit restored mutants precede six-job CI/merge. [Frozen first slice](docs/plans/research-source-graph-adapters-v1.md#2-first-code-slice-bounded-root-selection).
+- **P13c-4b-2b-2b - Complete typed workspace row graph**: after bounded selection delivery, implement all eleven graph tables together using the fixed 117-column type/order/guard/null/query contracts, immutable capture/recheck APIs and root-continuing resource budget. Require config-enumerated complete jobs/attempts, exact referenced records/market/source joins, supported parent limits and full-fresh-closure comparison. Real migrated SQLite membership/corruption/whole-resource/rollback/contention/snapshot plus explicit restored mutants precede full checks and six-job delivery. No semantic source/file/registry/live-owner or runtime activation. [Frozen graph contract](docs/plans/research-source-graph-adapters-v1.md#3-complete-graph-api-and-exact-record-types).
+
 
 
 
@@ -338,9 +341,12 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 
 
+
 - **P09 authenticated external acceptance** (2026-09-21): implementation/local verification Done (below), but live Tiingo download, free entitlement and payment coverage still require the operator's token in Windows Credential Manager. User intends to register; native status currently `credential_missing`. Re-run the documented bounded range after setup and append evidence to the P09 handoff.
 
 ## Backlog
+
+- [ ] **TEST-WINDOWS-TEMP-ISOLATION-001 — Investigate PID-reused fixture state and cleanup (P3)** (2026-10-24): three campaign/admission and two alpha-transfer cases failed with old counts/Replayed in default TEMP; unchanged source passed all 1011 Rust tests in a unique TEMP/TMP root. Existing PID+counter helpers and deletion before DB-field drop can leave reusable SQLite state on Windows. Reproduce and scope a test-only identity/handle-close/cleanup fix for the three fixture groups; preserve original receipts and production behavior. Separate from P13; do not reorder the current product work. [Evidence](handoffs/2026-10-24-p13c4b2b2a-root-selection-v1.md#full-verification--windows-temp-evidence).
 
 
 - [ ] **TEST-E2E-FONT-SETTLE-002 — Deterministic font readiness in chart tests (P3)** (observed 2026-10-16): PR #191 final-head CI run `38925249196`, E2E job `117055010997`: pan.spec.ts:21 first attempt hit the existing 30 s wait for `link#afs-fonts[data-e2e-fonts="settled"]` in chartLayout.ts:24; configured retry passed (97 first-pass + 1 flaky, overall job success). Investigate controlled font-request success/error/hang readiness without raising timeout/retry settings or changing chart assertions. Separate test-only slice; preserve current research task order. [PR evidence](https://github.com/yoyoCadence/AlphaFactorForge/pull/191).
@@ -618,6 +624,8 @@ These were named inside the UI port entry and must not be buried by closing it. 
 - [ ] Full closed-loop AI automation. (Specification: ABC-14.)
 
 ## Done
+
+- [x] **P13c-4b-2b-2a - Bounded original root selection** (2026-10-24; baseline #215 `731aa5e`): private original re-freeze/exact selection, unchanged legacy config/enumeration, deterministic parser cores, checked scratch sizing before Cartesian cloning and complete prefixed candidate keys. Thirteen new cases/four assertion-caught/restored mutants; 1011 Rust (one ignored), 1242 Vitest / 80 files and check/Clippy/scoped format/typecheck/build pass. Initial default-TEMP failures retained; isolated unchanged-source full suite passed. No graph SQL/runtime/authority; parents incomplete. [Handoff](handoffs/2026-10-24-p13c4b2b2a-root-selection-v1.md).
 
 - [x] **P13c-4b-2b-2-design - Complete graph adapters and fixture joins** (2026-10-24; baseline #214 `07cf11d`): bounded original selection/scratch preflight, immutable graph APIs, exhaustive 117-column type/null/SQL binding rules, complete candidate/reference checks and fresh-closure recheck/fixture contracts. Schema/nullable grounding, six saved enumeration manifests, independent campaign identity controls, links/scope/task checks pass. Markdown only; first selector code Next after delivery, parents incomplete. [Handoff](handoffs/2026-10-24-p13c4b2b2-graph-adapters-v1.md).
 

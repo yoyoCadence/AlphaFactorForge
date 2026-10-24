@@ -7,6 +7,8 @@ use super::original_json::OriginalJson;
 use super::{capture_workspace_in, recheck_workspace_in, ExpectedWorkspace, WorkspaceObservation};
 use crate::error::{AppError, AppResult};
 
+mod selection;
+
 const MAX_TEXT_BYTES: usize = 4096;
 const MAX_JSON_BYTES: usize = 4 * 1024 * 1024;
 const MAX_TOTAL_TEXT_BYTES: usize = 32 * 1024 * 1024;
