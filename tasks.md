@@ -6,6 +6,8 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Current Snapshot
 
+- **P13c-4b-2b hypothesis grounding correction (2026-10-24)**: draft #217 revealed an error in the earlier graph design/fixture: actual runner/history stores a shared base hypothesis with strategy-doc-v1 and NULL strategy_id. A focused documentation correction freezes original domains/nullability/deduplication and a real-writer positive control before updating the draft. Candidate identities/complete closure/budget/transaction rules remain unchanged. #217 stays unmerged; original green synthetic checks cannot establish compatibility. [Correction](docs/plans/research-source-hypothesis-grounding-v1.md), [handoff](handoffs/2026-10-24-source-graph-hypothesis-correction-v1.md).
+
 - **P13c-4b-2b-2a bounded root selection implemented and locally verified (2026-10-24)** from merged #215 (`731aa5e`). Private exact original campaign/config selection preserves legacy codecs/prefixed IDs and complete candidate manifests; checked raw-product/B/Q scratch limits precede Cartesian cloning. Thirteen new cases, independent v2/v3/long-float/campaign controls and four assertion-caught/restored mutants; **1011 Rust (one ignored) / 1242 Vitest / 80 files**, all-target check/Clippy/scoped format/typecheck/build pass (five existing warnings). Initial full Rust hit five existing stale-temp-style failures; unchanged source passed in a fresh TEMP/TMP root, with original evidence retained and separate Backlog investigation. No graph SQL/runtime/schema/spend/authority. Delivery PR records six-job CI/merge; complete eleven-table graph follows. [Handoff](handoffs/2026-10-24-p13c4b2b2a-root-selection-v1.md).
 
 - **P13c-4b-2b-2 graph adapter/fixture contract refined (2026-10-24)** from merged #214 (`07cf11d`). Documentation fixes original campaign/config selection, hardware-independent legacy parsing, checked pre-enumeration scratch sizing, exhaustive 117-column graph types/null markers, whole candidate/reference membership and full-fresh-closure recheck. Independent six-case manifests and original/dataset-a campaign IDs are recorded; stored strategy/dataset prefixes stay intact. Only bounded selection code follows delivery; complete graph/semantic/file/live-owner proof remains incomplete. Runtime/schema/dependencies/workflows stay at #214's six-job-verified **998 Rust (one ignored) / 1242 Vitest / 98 E2E** baseline. [Plan](docs/plans/research-source-graph-adapters-v1.md), [handoff](handoffs/2026-10-24-p13c4b2b2-graph-adapters-v1.md).
@@ -264,7 +266,6 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Next
 
-- **P13c-4b-2b-2b - Complete typed workspace row graph**: after bounded selection delivery, implement all eleven graph tables together using the fixed 117-column type/order/guard/null/query contracts, immutable capture/recheck APIs and root-continuing resource budget. Require config-enumerated complete jobs/attempts, exact referenced records/market/source joins, supported parent limits and full-fresh-closure comparison. Real migrated SQLite membership/corruption/whole-resource/rollback/contention/snapshot plus explicit restored mutants precede full checks and six-job delivery. No semantic source/file/registry/live-owner or runtime activation. [Frozen graph contract](docs/plans/research-source-graph-adapters-v1.md#3-complete-graph-api-and-exact-record-types).
 
 
 
@@ -310,6 +311,9 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
   6. [x] **APP-STARTUP-ERROR-001 (P2)** — done 2026-10-14 on `fix/startup-error-dialog` (visible startup failure report; see Done). All six quick fixes are complete.
 
 ## In Progress
+
+
+- **P13c-4b-2b-2b - Complete typed workspace row graph**: draft [#217](https://github.com/yoyoCadence/AlphaFactorForge/pull/217) stays unmerged pending the hypothesis contract correction above, updated independent fixture and actual-writer positive control, then fresh full verification. Preserve all eleven tables/117 guarded cells, complete candidates/references, shared budget and caller-owned transactions. [Contract](docs/plans/research-source-graph-adapters-v1.md).
 
 
 
@@ -624,6 +628,8 @@ These were named inside the UI port entry and must not be buried by closing it. 
 - [ ] Full closed-loop AI automation. (Specification: ABC-14.)
 
 ## Done
+
+- [x] **P13c-4b-2b-hypothesis-contract - Correct original runner hypothesis grounding** (2026-10-24; baseline #216): source-grounded shared base hypothesis/domain/NULL correction and cfg(test)-only actual run_lineage/history-writer positive-control contract. Links/scope/static writer path checks pass; Markdown only, six-job delivery follows. Draft #217 must update its reader/fixture/evidence before merge. [Handoff](handoffs/2026-10-24-source-graph-hypothesis-correction-v1.md).
 
 - [x] **P13c-4b-2b-2a - Bounded original root selection** (2026-10-24; baseline #215 `731aa5e`): private original re-freeze/exact selection, unchanged legacy config/enumeration, deterministic parser cores, checked scratch sizing before Cartesian cloning and complete prefixed candidate keys. Thirteen new cases/four assertion-caught/restored mutants; 1011 Rust (one ignored), 1242 Vitest / 80 files and check/Clippy/scoped format/typecheck/build pass. Initial default-TEMP failures retained; isolated unchanged-source full suite passed. No graph SQL/runtime/authority; parents incomplete. [Handoff](handoffs/2026-10-24-p13c4b2b2a-root-selection-v1.md).
 
