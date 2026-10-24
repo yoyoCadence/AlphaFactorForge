@@ -4,7 +4,7 @@ Date: 2026-10-24
 Repo: yoyoCadence/AlphaFactorForge
 Branch: feat/p13c4b2b2b-source-graph
 Baseline: merged #216 (`4193eba`).
-Status: implementation/local verification complete; PR/CI delivery pending.
+Status: corrected implementation/local verification complete; updated PR #217/CI delivery pending.
 
 ## Summary
 
@@ -100,3 +100,66 @@ raw claims, never permission. Parent 4b-2/4b/P13c-4 remain incomplete.
 After verified delivery, freeze supported original semantic adapters and
 independent digest fixtures in a separate 4b-2c design PR before semantic code.
 Missing action/cost/source/file/warmup evidence must remain explicitly unsupported.
+
+## Correction after actual writer evidence (PR #218)
+
+The original implementation followed an incorrect earlier contract: actual
+run_lineage creates a shared base strategy-doc-v1 hypothesis with NULL strategy_id,
+and register_run_lineage_with_events preserves/deduplicates it. The original
+synthetic per-candidate fixture and green tests above did not prove compatibility.
+That design error was found before merge; #217 stayed draft. Preserve the original
+evidence: tested head `33d79af0725012fdff6c1a34e65c4be074870d35`, base #216,
+[CI 40061917565](https://github.com/yoyoCadence/AlphaFactorForge/actions/runs/40061917565)
+had six successful jobs: 1029 + one ignored (297/730/2), 32.04 / 272.51 / 5.81
+seconds, Vitest 1242/80, E2E 98 without retries, production audit zero and full
+native restoration/cleanup. It is not the corrected delivery result.
+
+[Correction #218](https://github.com/yoyoCadence/AlphaFactorForge/pull/218) merged
+the grounded contract first. #217 was rebased onto `f3a9d12`; only tasks.md
+conflicted and retained main's correct In Progress status. Candidate strategy-v2
+agreement and full closure/budget/transaction rules are unchanged. Hypothesis
+claims retain strategy-doc-v1 or existing strategy-v2; nonnull strategy_id must
+match its attempt, and NULL/shared base identity is preserved. Original semantic
+base/content identity remains the later adapter's responsibility.
+
+The independently revised fixture has one hypothesis 200 shared by all three
+attempts; raw original cells stay claims. New literal totals are **6102 bytes /
+184 nodes**. An initial mental total assertion (5902) was caught by independent
+Python counting before the fixture was written; no production reader supplied
+the expected counts. Canonical original base is 509 bytes; independent SHA-256
+is `bf9e2f86c96299155d9da6ba031a72d85e10faa2a41f07ac59cb8bae43aed61d`.
+
+A cfg(test)-only bridge calls unchanged actual run_lineage with controlled
+fixture metadata; graph tests then call the real history registration writer.
+The control proves one actual deduplicated base hypothesis/NULL strategy_id,
+three attempts with exact candidate/trial links and full capture/recheck. A
+separate positive case preserves matching nonnull candidate-bound references.
+Wrong-domain/bare/uppercase claims and cross-strategy IDs refuse. Twenty graph
+tests/all 82 confirmation-input cases pass. Whole byte/node padding was adjusted
+to actual retained rows; final JSON pre-copy refusal has 25 prior copies (26
+documents after padding). This replaces neither original numeric execution nor
+file/registry/source proof. Corrected six-mutant/full-check receipts follow.
+
+### Corrected local verification
+
+All six mutants assertion-failed at runtime (101): original mutual membership,
+inner-join omission, per-table budget reset and premature finish, plus forced
+nonnull hypothesis identity and forced candidate-hypothesis hash equality. The
+last two were caught by the actual-writer positive control. Exact restored
+graph.rs SHA-256:
+`d01ab1d9d157530130b60aeb03c6db3f59ca67b50e97f6aca6ca7e63a6a2df62`.
+Temporary correction/mutation drivers were removed.
+
+Fresh isolated full locked Rust: **1031 + one ignored** (297/732/2),
+10.40 / 90.91 / 5.64 seconds; first corrected full run passed. All-target
+check/Clippy, graph scoped format and isolated new-helper format pass; five
+existing warnings only. Existing runner formatting was not rewritten. Vitest
+**1242 / 80 files**, TypeScript and production build pass after Rust. Corrected
+fixture/117-column/234-projection/link checks and diff --check pass. Preserved
+TEMP `aff-p13c4b2b2b-corrected-{focused,rust,check,clippy,frontend}.log` and six
+corrected-mutant logs. The unique verification root's 43 regular files were
+removed after exact name/parent/no-reparse checks; logs remained outside it.
+
+Update the existing #217 after fresh-main rebase and relevant rechecks; the
+expected-old-head lease protects its necessary rebased push. Require new-head
+six-job CI and fresh base/reviews before expected-head merge and clean main.

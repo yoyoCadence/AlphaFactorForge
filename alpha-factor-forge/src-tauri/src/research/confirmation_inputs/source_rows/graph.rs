@@ -29,6 +29,10 @@ fn strategy_hash(s: &str) -> bool {
     s.strip_prefix("strategy-v2:").is_some_and(hash)
 }
 
+fn hypothesis_strategy_hash(s: &str) -> bool {
+    strategy_hash(s) || s.strip_prefix("strategy-doc-v1:").is_some_and(hash)
+}
+
 fn dataset_hash(s: &str) -> bool {
     s.strip_prefix("dataset-content-v2:").is_some_and(hash)
 }
@@ -164,8 +168,9 @@ fn validate_membership(rows: &SourceRowsObservation, selection: &SourceSelection
             .find(|h| h.id == attempt.hypothesis_id)
             .ok_or_else(invalid)?;
         if strategy.strategy_hash != candidate.strategy_hash()
-            || hypothesis.strategy_hash != candidate.strategy_hash()
-            || hypothesis.strategy_id != Some(attempt.strategy_id)
+            || hypothesis
+                .strategy_id
+                .is_some_and(|id| id != attempt.strategy_id)
         {
             return Err(invalid());
         }

@@ -264,7 +264,7 @@ fn read_hypothesis(
         mechanism: text_cell(row, 4, budget, |_| true)?,
         applicability_json: json_cell(row, 5, budget)?,
         failure_modes: text_cell(row, 6, budget, |_| true)?,
-        strategy_hash: text_cell(row, 7, budget, strategy_hash)?,
+        strategy_hash: text_cell(row, 7, budget, hypothesis_strategy_hash)?,
         strategy_id: optional_positive_cell(row, 8)?,
         parent_strategy_id: optional_positive_cell(row, 9)?,
         variation_kind: optional_text_cell(row, 10, budget, |_| true)?,

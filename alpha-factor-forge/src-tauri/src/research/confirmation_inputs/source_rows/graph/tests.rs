@@ -30,6 +30,10 @@ fn sql_value(value: &Value) -> SqlValue {
 }
 
 fn fixture() -> Fixture {
+    fixture_with_lineage(true)
+}
+
+fn fixture_with_lineage(include_lineage: bool) -> Fixture {
     let mut fixture = Fixture::new();
     let conn = fixture.connection();
     let expected = oracle();
@@ -49,6 +53,9 @@ fn fixture() -> Fixture {
         "discovery_jobs",
         "research_attempts",
     ] {
+        if !include_lineage && matches!(name, "hypotheses" | "research_attempts") {
+            continue;
+        }
         let table = expected["tables"]
             .as_array()
             .unwrap()
@@ -219,16 +226,93 @@ fn complete_graph_matches_all_independent_ordered_cells_and_usage() {
             .collect();
         assert_eq!(*rows, expected_rows, "{}", table["table"]);
     }
-    assert_eq!(saved.usage.text_bytes, 6576);
-    assert_eq!(saved.usage.json_nodes, 192);
+    assert_eq!(saved.usage.text_bytes, 6102);
+    assert_eq!(saved.usage.json_nodes, 184);
     assert_eq!(
         expected["expectedUsage"],
-        json!({"textBytes":6576,"jsonNodes":192})
+        json!({"textBytes":6102,"jsonNodes":184})
     );
     let expected = f.expected.clone();
     let tx = f.connection().transaction().unwrap();
     unchanged(&tx, || recheck_source_rows_in(&tx, &expected, &saved)).unwrap();
     assert!(!tx.is_autocommit());
+    tx.rollback().unwrap();
+}
+
+#[test]
+fn actual_unchanged_writer_shared_base_hypothesis_captures_and_rechecks() {
+    use crate::research::history;
+    use alpha_factor_forge::discovery_core::config::parse_discovery_config;
+    let mut f = fixture_with_lineage(false);
+    let oracle = oracle();
+    let raw: Value =
+        serde_json::from_str(oracle["tables"][2]["rows"][0][2].as_str().unwrap()).unwrap();
+    let config = parse_discovery_config(&raw, 64.0).unwrap();
+    let lineage = crate::discovery_runner::source_row_lineage_for_test(
+        &config,
+        &raw,
+        1,
+        &[100, 101, 102],
+        "1h",
+    )
+    .unwrap();
+    assert_eq!(lineage.len(), 3);
+    for (hypothesis, _) in &lineage {
+        assert_eq!(
+            hypothesis.strategy_hash,
+            oracle["baseStrategyDocumentHash"].as_str().unwrap()
+        );
+        assert!(hypothesis.strategy_id.is_none());
+    }
+    let events: Vec<String> = oracle["tables"][4]["rows"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|r| r[12].as_str().unwrap().into())
+        .collect();
+    let expected = f.expected.clone();
+    let tx = f.connection().transaction().unwrap();
+    let registered =
+        history::register_run_lineage_with_events(&tx, &lineage, Some(&events)).unwrap();
+    assert_eq!(registered.len(), 3);
+    assert!(registered
+        .iter()
+        .all(|(hypothesis, _)| *hypothesis == registered[0].0));
+    let saved = unchanged(&tx, || capture_source_rows_in(&tx, &expected, &locator())).unwrap();
+    assert_eq!(saved.hypotheses.len(), 1);
+    assert_eq!(saved.attempts.len(), 3);
+    assert_eq!(saved.jobs.len(), 6);
+    assert!(saved.hypotheses[0].strategy_id.is_none());
+    assert_eq!(
+        saved.hypotheses[0].strategy_hash,
+        oracle["baseStrategyDocumentHash"].as_str().unwrap()
+    );
+    for (i, attempt) in saved.attempts.iter().enumerate() {
+        assert_eq!(attempt.hypothesis_id, registered[0].0);
+        assert_eq!(attempt.strategy_id, 100 + i as i64);
+        assert_eq!(attempt.trial_event_id.as_ref(), Some(&events[i]));
+    }
+    unchanged(&tx, || recheck_source_rows_in(&tx, &expected, &saved)).unwrap();
+    tx.rollback().unwrap();
+}
+
+#[test]
+fn candidate_bound_nonnull_hypotheses_remain_exact_references() {
+    let mut f = fixture();
+    damage(&mut f);
+    let expected = f.expected.clone();
+    let tx = f.connection().transaction().unwrap();
+    tx.execute_batch("UPDATE hypotheses SET strategy_id=100,strategy_hash=(SELECT strategy_hash FROM strategy_def WHERE id=100),source='manual'; INSERT INTO hypotheses SELECT 201,hypothesis_hash,version,source,mechanism,applicability_json,failure_modes,(SELECT strategy_hash FROM strategy_def WHERE id=101),101,parent_strategy_id,variation_kind,content_json,created_at FROM hypotheses WHERE id=200; INSERT INTO hypotheses SELECT 202,hypothesis_hash,version,source,mechanism,applicability_json,failure_modes,(SELECT strategy_hash FROM strategy_def WHERE id=102),102,parent_strategy_id,variation_kind,content_json,created_at FROM hypotheses WHERE id=200; UPDATE research_attempts SET hypothesis_id=200+candidate_index").unwrap();
+    let saved = capture_source_rows_in(&tx, &expected, &locator()).unwrap();
+    assert_eq!(saved.hypotheses.len(), 3);
+    for (i, hypothesis) in saved.hypotheses.iter().enumerate() {
+        assert_eq!(hypothesis.strategy_id, Some(100 + i as i64));
+        assert_eq!(hypothesis.strategy_hash, saved.strategies[i].strategy_hash);
+    }
+    unchanged(&tx, || recheck_source_rows_in(&tx, &expected, &saved)).unwrap();
+    tx.execute_batch("UPDATE hypotheses SET strategy_id=999 WHERE id=200")
+        .unwrap();
+    invalid(capture_source_rows_in(&tx, &expected, &locator()));
     tx.rollback().unwrap();
 }
 
@@ -260,10 +344,9 @@ fn original_manifest_refuses_consistent_deletion_extra_members_and_broken_links(
         "DELETE FROM research_artifacts WHERE id=300",
         "DELETE FROM hypotheses WHERE id=200",
         "DELETE FROM strategy_def WHERE id=100",
-        "UPDATE hypotheses SET strategy_id=NULL WHERE id=200",
+        "UPDATE hypotheses SET strategy_id=999 WHERE id=200",
         "UPDATE hypotheses SET strategy_id=101 WHERE id=200",
         "UPDATE strategy_def SET strategy_hash='strategy-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' WHERE id=100",
-        "UPDATE hypotheses SET strategy_hash='strategy-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' WHERE id=200",
         "UPDATE strategy_def SET parent_strategy_id=999 WHERE id=100",
         "UPDATE hypotheses SET parent_strategy_id=999 WHERE id=200",
         "DELETE FROM market_snapshots",
@@ -610,6 +693,21 @@ fn finite_real_only_and_all_closed_vocabularies_and_integer_domains_are_checked(
             "'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'",
         ),
         ("market_calendars", "version", "''"),
+        (
+            "hypotheses",
+            "strategy_hash",
+            "'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'",
+        ),
+        (
+            "hypotheses",
+            "strategy_hash",
+            "'strategy-doc-v1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'",
+        ),
+        (
+            "hypotheses",
+            "strategy_hash",
+            "'strategy-doc-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'",
+        ),
     ] {
         let tx = f.connection().transaction().unwrap();
         tx.execute_batch(&format!(
@@ -629,8 +727,8 @@ const PAD_SLOTS: [(&str, &str, i64, usize, usize); 9] = [
     ("strategy_def", "dsl_json", 101, 0, 0),
     ("strategy_def", "dsl_json", 102, 0, 0),
     ("hypotheses", "content_json", 200, 43, 3),
-    ("hypotheses", "content_json", 201, 43, 3),
-    ("hypotheses", "content_json", 202, 43, 3),
+    ("market_snapshots", "content_json", 13, 43, 3),
+    ("market_instruments", "content_json", 12, 43, 3),
 ];
 
 #[test]
@@ -639,7 +737,7 @@ fn actual_rows_enforce_exact_whole_text_budget_and_one_over_without_table_resets
     damage(&mut f);
     let expected = f.expected.clone();
     let tx = f.connection().transaction().unwrap();
-    let mut remaining = 33_554_432 - 6576;
+    let mut remaining = 33_554_432 - 6102;
     for (table, column, id, old_bytes, _) in PAD_SLOTS {
         let added = remaining.min(4_194_304 - old_bytes);
         let bytes = old_bytes + added;
@@ -669,7 +767,7 @@ fn actual_rows_enforce_exact_whole_node_budget_before_copy_and_one_over() {
     damage(&mut f);
     let expected = f.expected.clone();
     let tx = f.connection().transaction().unwrap();
-    let mut remaining = 262_144 - 192;
+    let mut remaining = 262_144 - 184;
     for (table, column, id, _, old_nodes) in PAD_SLOTS {
         let added = remaining.min(65_536 - old_nodes);
         let nodes = old_nodes + added;
@@ -702,7 +800,7 @@ fn actual_rows_enforce_exact_whole_node_budget_before_copy_and_one_over() {
     invalid(capture_source_rows_in(&tx, &expected, &locator()));
     assert_eq!(
         super::super::super::original_json::owned_copy_count() - copies,
-        29 // 30 retained documents after padding, final refusal before its copy
+        25 // 26 retained documents after padding, final refusal before its copy
     );
     tx.rollback().unwrap();
 }

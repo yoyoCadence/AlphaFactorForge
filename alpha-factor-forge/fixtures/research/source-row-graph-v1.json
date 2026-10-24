@@ -1,6 +1,6 @@
 {
   "version": "source-row-graph-fixture-v1",
-  "note": "Independent literal input/ordered-cell oracle. Claims only; no files or execution. Counts include fixed 128 bytes and every retained row once.",
+  "note": "Independent literal input/ordered-cell oracle. Claims only; no files or execution. Counts include fixed 128 bytes and every retained row once. Corrected before delivery: one shared base hypothesis/NULL strategy_id; actual-writer control required. Earlier draft totals 6576/192 preserved in handoff.",
   "campaignId": "3d64d27d196dcb275b30a1d59a50ea3481199331cab4a04a2dda2b4fb0a47b9e",
   "tables": [
     {
@@ -177,7 +177,7 @@
         [
           401,
           "run:1:candidate:1",
-          201,
+          200,
           101,
           7,
           1,
@@ -192,7 +192,7 @@
         [
           402,
           "run:1:candidate:2",
-          202,
+          200,
           102,
           7,
           1,
@@ -268,36 +268,8 @@
           "claimed mechanism",
           "{}",
           "claimed failure",
-          "strategy-v2:26b3b04ef9d3c927cbfbda44074ebcc3df6b9e27b254576229faa5757aa49c60",
-          100,
+          "strategy-doc-v1:bf9e2f86c96299155d9da6ba031a72d85e10faa2a41f07ac59cb8bae43aed61d",
           null,
-          null,
-          " \n{\"n\":0.0036944444444444438,\"huge\":1e999}\t"
-        ],
-        [
-          201,
-          "000000000000000000000000000000000000000000000000000000000000000b",
-          "hypothesis-v1",
-          "discovery",
-          "claimed mechanism",
-          "{}",
-          "claimed failure",
-          "strategy-v2:3674c76f1087df677d1c3d7ea58ee2b1b2981557f01ea38edfc830cd3740ae30",
-          101,
-          null,
-          null,
-          " \n{\"n\":0.0036944444444444438,\"huge\":1e999}\t"
-        ],
-        [
-          202,
-          "000000000000000000000000000000000000000000000000000000000000000c",
-          "hypothesis-v1",
-          "discovery",
-          "claimed mechanism",
-          "{}",
-          "claimed failure",
-          "strategy-v2:eb2a7e1f826ae0317803e46bd291c8829c853bfd05434338df6f849808b224ba",
-          102,
           null,
           null,
           " \n{\"n\":0.0036944444444444438,\"huge\":1e999}\t"
@@ -564,7 +536,8 @@
     }
   ],
   "expectedUsage": {
-    "textBytes": 6576,
-    "jsonNodes": 192
-  }
+    "textBytes": 6102,
+    "jsonNodes": 184
+  },
+  "baseStrategyDocumentHash": "strategy-doc-v1:bf9e2f86c96299155d9da6ba031a72d85e10faa2a41f07ac59cb8bae43aed61d"
 }

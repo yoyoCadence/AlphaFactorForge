@@ -4,7 +4,7 @@ Date: 2026-10-24
 Repo: yoyoCadence/AlphaFactorForge
 Branch: docs/p13c4b2b-hypothesis-contract
 Baseline: merged #216 (`4193eba`).
-Status: correction design/local verification complete; PR/CI delivery pending. Draft #217 must remain unmerged.
+Status: resolved; PR #218 merged and clean main verified. Draft #217 remains pending corrected implementation/evidence.
 
 ## Summary
 
@@ -40,3 +40,22 @@ lifecycle and final CI delivery evidence follow below.
 Local link checks pass for all four evidence documents; static assertions confirm
 the actual writer's strategy-doc-v1/None and unchanged hypothesis registration.
 git diff --check and Markdown-only scope pass. No local runtime rerun for docs.
+
+## Resolution (PR #218 delivery)
+
+[PR #218](https://github.com/yoyoCadence/AlphaFactorForge/pull/218) merged tested
+head `c4912c985f6f1b5bdba611cb77c8fb7f0a192f8c` against unchanged #216 base
+`4193ebab3e1e8d8f25b92819191021d17966337a`; merge is
+`f3a9d12c128a32a12a81a5775c99399da40eaf05`. All six jobs in
+[CI 40062332415](https://github.com/yoyoCadence/AlphaFactorForge/actions/runs/40062332415)
+passed on that exact head/base: 1011 Rust + one ignored (297/712/2),
+16.39 / 219.93 / 5.64 seconds; Vitest 1242 / 80 files; E2E 98 without retries.
+Typecheck/build/production audit zero/native render-invoke-metrics-event pass,
+with exact hosted-policy restoration and owned process/directory cleanup.
+No failed CI attempt/retry. Review submissions/threads empty; fresh base unchanged.
+
+Expected-head merge completed through the repository's established gh fallback;
+GitHub merged state read back. Local main fast-forwarded, full tree matched the
+tested head and worktree was clean. Final PR body updated. Rebased #217 onto
+this correction; tasks.md conflict kept main's In Progress graph status instead
+of the uncorrected feature's premature Done. No runtime conflict occurred.

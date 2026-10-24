@@ -1951,6 +1951,38 @@ fn trial_hash(value: &Value) -> AppResult<String> {
     Ok(sha256_hex(&canonical_json(value)?))
 }
 
+/// Test-only bridge through the original lineage writer, without executing or
+/// registering a trial. The metadata here is controlled fixture input only.
+#[cfg(test)]
+pub(crate) fn source_row_lineage_for_test(
+    config: &ResolvedDiscoveryConfig,
+    raw_config: &Value,
+    run_id: i64,
+    strategy_ids: &[i64],
+    interval: &str,
+) -> AppResult<history::RunLineage> {
+    let plan = enumerate_candidates(config).map_err(|error| other(error.to_string()))?;
+    if plan.candidates.len() != strategy_ids.len() || strategy_ids.iter().any(|id| *id <= 0) {
+        return Err(other("invalid source-row test strategy IDs"));
+    }
+    let scheduled = plan
+        .candidates
+        .into_iter()
+        .zip(strategy_ids)
+        .map(|(candidate, id)| ScheduledCandidate {
+            candidate,
+            strategy_id: *id,
+        })
+        .collect::<Vec<_>>();
+    let dataset = VerifiedDataset {
+        id: config.dataset.id,
+        interval: interval.to_owned(),
+        content_hash: config.dataset.content_hash.clone(),
+        candle_count: 0,
+    };
+    run_lineage(config, raw_config, run_id, &dataset, &scheduled, None)
+}
+
 /// `(strategyHash, splitHash)` for every candidate of a frozen config, keyed
 /// by candidate index. New registrations and legacy backfill both derive the
 /// split identity here from the config and verified bar count, so one
