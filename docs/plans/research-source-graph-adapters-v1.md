@@ -374,3 +374,5 @@ unsupported until their own adapters. Record delivery in the
 [handoff](../../handoffs/2026-10-24-p13c4b2b2-graph-adapters-v1.md).
 
 Bounded selection implementation evidence: [4b-2b-2a handoff](../../handoffs/2026-10-24-p13c4b2b2a-root-selection-v1.md).
+
+Complete SQL graph implementation evidence: [4b-2b-2b handoff](../../handoffs/2026-10-24-p13c4b2b2b-source-graph-v1.md).

@@ -4,7 +4,7 @@ Date: 2026-10-24
 Repo: yoyoCadence/AlphaFactorForge
 Branch: feat/p13c4b2b2a-root-selection
 Baseline: merged #215 (`731aa5e`).
-Status: implementation/local verification complete; PR/CI delivery pending.
+Status: resolved; PR #216 merged and clean main verified on 2026-10-24.
 
 ## Summary
 
@@ -88,3 +88,23 @@ After fresh main/rebase and post-rebase focused/scope/link checks, publish the
 draft, verify six exact-head CI jobs/reviews/base, merge with expected head and
 verify clean main. Only the already-frozen eleven-table graph 4b-2b-2b follows.
 Keep Windows temp fixture isolation/cleanup as a separate Backlog investigation.
+
+## Resolution (PR #216 delivery)
+
+[PR #216](https://github.com/yoyoCadence/AlphaFactorForge/pull/216) merged tested
+head `16e4d1730ddaf94ea076c2dfb1ad57cb9d0e432a` into unchanged #215 base
+`731aa5e93aaf036f6adc7641d74241833e0d4e60`; merge is
+`4193ebab3e1e8d8f25b92819191021d17966337a`. All six jobs in
+[CI 40059556935](https://github.com/yoyoCadence/AlphaFactorForge/actions/runs/40059556935)
+passed on that exact head/base. Rust: 1011 + one ignored (297/712/2),
+27.53 / 303.60 / 6.09 seconds. Vitest: 1242 / 80 files; E2E: 98 without retries.
+Typecheck/build/production audit zero and native render/invoke/metrics/event pass,
+with exact hosted-policy restoration and owned process/directory cleanup.
+No failed CI attempt or rerun. Post-rebase focused 62/format/scope checks pass.
+
+Fresh base/head were unchanged, review submissions/threads empty and PR mergeable.
+Repository-prescribed gh fallback completed ready-body update/transition and
+expected-head merge. GitHub merged state/SHA were read back; local main
+fast-forwarded, full tree equaled tested head and worktree was clean before the
+next branch. Final delivery body updated. Only the frozen complete row graph
+follows; semantic/file/live-owner obligations and temp-isolation Backlog remain.

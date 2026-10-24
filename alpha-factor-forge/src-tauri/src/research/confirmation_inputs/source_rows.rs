@@ -7,6 +7,7 @@ use super::original_json::OriginalJson;
 use super::{capture_workspace_in, recheck_workspace_in, ExpectedWorkspace, WorkspaceObservation};
 use crate::error::{AppError, AppResult};
 
+pub(super) mod graph;
 mod selection;
 
 const MAX_TEXT_BYTES: usize = 4096;
