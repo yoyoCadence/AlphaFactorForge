@@ -8,6 +8,8 @@ use super::*;
 
 include!("graph/rows.rs");
 
+pub(in crate::research::confirmation_inputs) mod original_digests;
+
 #[derive(Clone, Eq, PartialEq)]
 pub(in crate::research::confirmation_inputs) struct SourceRowsObservation {
     roots: RootRowsObservation,

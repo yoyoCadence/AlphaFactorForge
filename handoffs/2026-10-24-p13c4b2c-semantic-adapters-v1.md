@@ -4,7 +4,7 @@ Date: 2026-10-24
 Repo: yoyoCadence/AlphaFactorForge
 Branch: docs/p13c4b2c-semantic-adapters
 Baseline: corrected merged #217 (`d88312e`).
-Status: design/local verification complete; PR/CI delivery pending. No semantic/runtime code.
+Status: resolved; PR #219 merged and clean main verified. No semantic/runtime code in this design.
 
 ## Summary
 
@@ -57,3 +57,22 @@ the plan. Seven framing controls include a leading-zero SHA to preserve 64-hex
 width. Local evidence links, Markdown-only scope, lifecycle and diff --check
 pass. The temporary oracle generator was removed; no production serializer or
 reader generated expected values. Six explicit first-code mutants are frozen.
+
+## Resolution (PR #219 delivery)
+
+[PR #219](https://github.com/yoyoCadence/AlphaFactorForge/pull/219) merged tested
+head `85f69b6a78a102140e1022acc2c4cd5fc1d76105` against unchanged #217 base
+`d88312ef0dc93fe1788e3e7e75b4a7eee8546533`; merge is
+`8238fe76956439c182be6478f502269ffd9eb0e8`. All six jobs in
+[CI 40081272256](https://github.com/yoyoCadence/AlphaFactorForge/actions/runs/40081272256)
+passed on that exact head/base: 1031 Rust + one ignored (297/732/2),
+16.37 / 232.39 / 5.65 seconds; Vitest 1242/80; E2E 98 without retries.
+Typecheck/build/production audit zero/native render-invoke-metrics-event pass,
+including exact hosted-policy restoration and owned cleanup. No CI failure or
+rerun. Fresh base unchanged; reviews/threads empty and PR mergeable.
+
+Repository-prescribed gh fallback completed ready/body/expected-head merge;
+GitHub merged state/SHA read back. Local main fast-forwarded, full tree equaled
+tested head and worktree was clean before the raw-digest branch. Final delivery
+body updated. Only the frozen private raw-digest observer follows; all original
+semantic/file/registry/owner obligations remain incomplete.

@@ -6,6 +6,8 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Current Snapshot
 
+- **P13c-4b-2c-1 raw original digests locally verified (2026-10-24)** from merged #219 (`8238fe7`). Private sealed-graph observation preserves exact original bytes, fixed part/domain/u64be-index framing and every engine; checked inclusive 32 MiB whole hash-work preflight precedes every SHA update. Independent 7938-work/704-output graph and seven framing controls, nine new cases/91 focused and six assertion-caught/restored mutants pass. **1040 Rust (one ignored) / 1242 Vitest / 80 files**, all-target check/Clippy/scoped format/typecheck/build pass (five existing warnings). No semantic/source/file/registry/owner authority or runtime caller. Exact-head delivery precedes original-format projection refinement. [Handoff](handoffs/2026-10-24-p13c4b2c1-original-digests-v1.md).
+
 - **P13c-4b-2c original adapter/digest design refined (2026-10-24)** from corrected merged #217 (`d88312e`). Actual writer/format matrix preserves shared base hypotheses, existing numeric identities and explicit missing original evidence. The first private code slice observes raw digests from the sealed complete graph, with exact H framing, all engines, checked 32 MiB whole hash-work preflight and <=786560 output-text bytes. Independent original graph vectors (7938 work / 704 output bytes) and seven framing controls are frozen before code; no semantic source/RegisteredSource/runtime activation. Documentation-only source/link/vector/lifecycle checks pass; only raw-digest code follows six-job design delivery. [Plan](docs/plans/research-original-semantic-adapters-v1.md), [handoff](handoffs/2026-10-24-p13c4b2c-semantic-adapters-v1.md).
 
 - **P13c-4b-2b-2b corrected complete SQL graph locally verified (2026-10-24)** from merged hypothesis correction #218 (`f3a9d12`). Eleven tables/117 guarded graph cells retain the complete candidate/reference closure and root-continuing budget. Shared base strategy-doc-v1/NULL hypotheses now match the actual writer, verified through unchanged run_lineage + history registration; candidate strategy-v2 agreement remains exact. Independent 133-column fixture now 6102 bytes/184 nodes; 20 graph tests/82 focused and six assertion-caught/restored mutants. **1031 Rust (one ignored) / 1242 Vitest / 80 files**, check/Clippy/scoped format/typecheck/build pass (five existing warnings). Original #217 green synthetic evidence is preserved but insufficient; updated-head six-job delivery follows. No semantic source/file/registry/live-owner authority. [Handoff](handoffs/2026-10-24-p13c4b2b2b-source-graph-v1.md).
@@ -270,7 +272,8 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Next
 
-- **P13c-4b-2c-1 - Bounded raw original digest observations**: after semantic/digest design delivery, implement only the private sealed-graph observer, fixed original-byte domain/part/index framing, immutable raw digest records and checked whole-operation hash-work preflight before SHA updates. Use independently frozen graph/framing vectors, real captured exact/one-over work limits, complete engines and six assertion-caught/restored mutants. Full locked Rust before Node, check/Clippy/scoped format and six-job delivery. No JSON numeric reinterpretation, semantic/source/file/registry/cost/warmup/owner authority or runtime caller. [Frozen slice](docs/plans/research-original-semantic-adapters-v1.md#3-first-code-api-sealed-graph-in-raw-digest-observation-out).
+- **P13c-4b-2c-2-design - Original candidate/engine/hypothesis projections**: after 4b-2c-1 six-job delivery and clean main, freeze exact original-format projections and independently authored fixtures plus actual-producer positive controls for v1 params/v2 fixed DSL/v3 walk-forward, shared-base/dedup attribution and legacy numeric refusals. Refine a bounded first semantic code slice before implementation; no source builder, file/registry/owner authority or runtime activation. [Ordered contract](docs/plans/research-original-semantic-adapters-v1.md#2-ordered-implementation-slices).
+
 
 
 
@@ -318,6 +321,7 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
   6. [x] **APP-STARTUP-ERROR-001 (P2)** — done 2026-10-14 on `fix/startup-error-dialog` (visible startup failure report; see Done). All six quick fixes are complete.
 
 ## In Progress
+
 
 
 
@@ -635,6 +639,8 @@ These were named inside the UI port entry and must not be buried by closing it. 
 - [ ] Full closed-loop AI automation. (Specification: ABC-14.)
 
 ## Done
+
+- [x] **P13c-4b-2c-1 - Bounded raw original digest observations** (2026-10-24; baseline #219 `8238fe7`): private complete-graph original-byte digests, fixed domains/parts/binary indexes, all engines, checked whole work/output/reference preflight before SHA and immutable records. Nine cases/91 focused and six assertion-caught/restored mutants; 1040 Rust (one ignored), 1242 Vitest / 80 files, all-target check/Clippy/scoped format/typecheck/build pass. Exact-head six-job delivery follows; raw observations grant no semantic/source/runtime authority. [Handoff](handoffs/2026-10-24-p13c4b2c1-original-digests-v1.md).
 
 - [x] **P13c-4b-2c-design - Original semantic source boundaries and first digest contract** (2026-10-24; baseline #217 `d88312e`): actual-producer format/obligation matrix plus exact private raw digest API/framing/work/output limits, independent graph and seven framing controls. Source/vector/link/scope/lifecycle checks pass; Markdown only. First raw-digest code follows verified delivery; further semantic projection fixtures/producer controls and all file/registry/owner gates remain required. [Handoff](handoffs/2026-10-24-p13c4b2c-semantic-adapters-v1.md).
 

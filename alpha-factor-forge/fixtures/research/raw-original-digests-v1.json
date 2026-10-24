@@ -1,0 +1,22 @@
+{
+  "version": "raw-original-digests-v1",
+  "source": "source-row-graph-v1.json; independent hashlib/struct vectors frozen in research-original-semantic-adapters-v1.md before implementation",
+  "workBytes": 7938,
+  "outputTextBytes": 704,
+  "campaignDocumentHash": "a9087d0ba19e390887639986a7d738d95fdcda1b0e24aaa7af65878eec72ec67",
+  "engineManifestHash": "951e9ff8b565178772c63629e7288a146c10b372ae6f73a06cfb0ad8c363bdcb",
+  "candidates": [
+    {"index": 0, "definitionHash": "93a7e97bfdc4ead1fbcf32fe12223c0548304898779e7e2d4c2fe828c9f7c2f3", "executionHash": "9b050faf9bec8072320a5b2fc9687dc438852cb99abf004cf3e787daa73b58e2", "lineageHash": "57b88054c233a12680af6cccd96b74abaa57abda57adb71389fbef2a3953e313"},
+    {"index": 1, "definitionHash": "93a7e97bfdc4ead1fbcf32fe12223c0548304898779e7e2d4c2fe828c9f7c2f3", "executionHash": "9b050faf9bec8072320a5b2fc9687dc438852cb99abf004cf3e787daa73b58e2", "lineageHash": "8c7b6d09aff50fb7b7ec2ba69777d308d03590c7d53a71344bf9b5865a21805d"},
+    {"index": 2, "definitionHash": "93a7e97bfdc4ead1fbcf32fe12223c0548304898779e7e2d4c2fe828c9f7c2f3", "executionHash": "9b050faf9bec8072320a5b2fc9687dc438852cb99abf004cf3e787daa73b58e2", "lineageHash": "13ce9ea17324a51dc47310b8c8385d283c1e9b184ca74885cdc6811e16481725"}
+  ],
+  "framingControls": [
+    {"domain": "definition", "parts": ["ab"], "hash": "a7f9ca48346f44385d28948d98ceb8ed9a5bc30c44fe0b720972300f07ace634", "bytes": 45},
+    {"domain": "definition", "parts": ["a", "b"], "hash": "f102583b717e6f7c1813185865310e247ead39ec1a4748f2c2133cb767270c4e", "bytes": 53},
+    {"domain": "execution", "parts": ["a", "b"], "hash": "8801a745f2aef393b8d11a4d1595596395a8d9b49482f3f52b3252066ebb70d5", "bytes": 52},
+    {"domain": "execution", "parts": ["b", "a"], "hash": "3446090eb2a57af561580c31d30031b9b3bee293ea5be5dc7ae8adc3f6bf7b89", "bytes": 52},
+    {"domain": "definition", "parts": [" \nnull\t"], "hash": "28ef1ab2ae2856edcfbcdeb50167e376fec049b36ba59e8bb4bbd17e546b1689", "bytes": 50},
+    {"domain": "definition", "parts": [""], "hash": "2b987984ae2df60e04a4d4b219b53035c06e5ffce8716591b8b7d97d898f265f", "bytes": 43},
+    {"domain": "definition", "parts": ["leading-zero-138"], "hash": "006edaa51939502173b18a36b2135a5d5ae6a9272a4f5fbd941a255cb925d393", "bytes": 59}
+  ]
+}

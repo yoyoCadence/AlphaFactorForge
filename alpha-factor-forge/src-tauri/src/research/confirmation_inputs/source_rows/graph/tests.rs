@@ -13,7 +13,7 @@ fn oracle() -> Value {
     .unwrap()
 }
 
-fn locator() -> SourceLocator {
+pub(super) fn locator() -> SourceLocator {
     SourceLocator::new(oracle()["campaignId"].as_str().unwrap(), 1).unwrap()
 }
 
@@ -29,7 +29,7 @@ fn sql_value(value: &Value) -> SqlValue {
     }
 }
 
-fn fixture() -> Fixture {
+pub(super) fn fixture() -> Fixture {
     fixture_with_lineage(true)
 }
 
@@ -90,7 +90,7 @@ fn fixture_with_lineage(include_lineage: bool) -> Fixture {
     fixture
 }
 
-fn capture(f: &mut Fixture) -> SourceRowsObservation {
+pub(super) fn capture(f: &mut Fixture) -> SourceRowsObservation {
     let expected = f.expected.clone();
     let tx = f.connection().transaction().unwrap();
     let observed = unchanged(&tx, || capture_source_rows_in(&tx, &expected, &locator())).unwrap();
@@ -123,7 +123,7 @@ fn unconstrained(conn: &Connection, table: &str) {
     conn.execute_batch(&format!("CREATE TABLE damaged_graph ({}); INSERT INTO damaged_graph SELECT * FROM {table}; DROP TABLE {table}; ALTER TABLE damaged_graph RENAME TO {table}",columns.join(","))).unwrap();
 }
 
-fn damage(f: &mut Fixture) {
+pub(super) fn damage(f: &mut Fixture) {
     f.connection()
         .execute_batch("PRAGMA foreign_keys=OFF")
         .unwrap();
@@ -291,6 +291,15 @@ fn actual_unchanged_writer_shared_base_hypothesis_captures_and_rechecks() {
         assert_eq!(attempt.hypothesis_id, registered[0].0);
         assert_eq!(attempt.strategy_id, 100 + i as i64);
         assert_eq!(attempt.trial_event_id.as_ref(), Some(&events[i]));
+    }
+    let digests = unchanged(&tx, || original_digests::observe_raw_digests(&saved)).unwrap();
+    assert_eq!(digests.candidates().len(), 3);
+    assert_eq!(digests.engine_manifest_hash().len(), 64);
+    for (i, candidate) in digests.candidates().iter().enumerate() {
+        assert_eq!(candidate.index(), i as i64);
+        assert_eq!(candidate.definition_hash().len(), 64);
+        assert_eq!(candidate.execution_hash().len(), 64);
+        assert_eq!(candidate.lineage_hash().len(), 64);
     }
     unchanged(&tx, || recheck_source_rows_in(&tx, &expected, &saved)).unwrap();
     tx.rollback().unwrap();
@@ -805,7 +814,7 @@ fn actual_rows_enforce_exact_whole_node_budget_before_copy_and_one_over() {
     tx.rollback().unwrap();
 }
 
-fn large_family(f: &mut Fixture) {
+pub(super) fn large_family(f: &mut Fixture) {
     use alpha_factor_forge::discovery_core::{
         config::parse_discovery_config, enumerate::enumerate_candidates,
     };
