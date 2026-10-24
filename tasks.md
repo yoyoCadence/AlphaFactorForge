@@ -1,10 +1,12 @@
-﻿# AlphaFactorForge Tasks
+# AlphaFactorForge Tasks
 
 This is the single active task board for the workspace. The former `task.md` legacy feature map has been merged into this file and should not be recreated as a second task board.
 
 Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Current Snapshot
+
+- **P13c-4b-2c-2a actual producer conformance locally verified (2026-10-25)** from merged #221 (`bf0d69c`). Only the private unchanged runner projection extraction plus six actual producer/repository/history controls; all nine pre-code candidate literals match, including ordered/shared-base dedup and v2/v3 DSL projections. Existing-row contradictory claims remain preserved characterization; intended numeric hash refuses before writes. Six assertion-caught mutants restored exactly; **1046 Rust (one ignored) / 1242 Vitest / 80 files**, all-target check/Clippy/scoped format/typecheck/build pass (five existing warnings). Owned isolated full-check root removed, logs retained. Exact-head six-job CI/merge follows; bounded consumer design is Next after delivery. [Handoff](handoffs/2026-10-24-p13c4b2c2a-producer-controls-v1.md).
 
 - **P13c-4b-2c-2 original producer projection contract refined (2026-10-24)** from merged #220 (`59a19b6`). Independent four-case/nine-candidate literals freeze fresh DTOs, v1 ordered axes/shared dedup, v2/v3 engine/input/hypothesis projections and the existing numeric intended-hash refusal. Actual source review preserves existing-row hash-conflict bytes/metadata and separates raw/semantic authority. Identity/seed/strict nested JSON/checksum/reference checks pass; first code is only the private actual producer extraction and conformance controls. No producer-conformance pass is claimed by this unconsumed fixture; semantic consumers follow separate bounded refinement. Runtime remains #220 verified **1040 Rust (one ignored) / 1242 Vitest / 98 E2E**. [Plan](docs/plans/research-original-producer-projections-v1.md), [handoff](handoffs/2026-10-24-p13c4b2c2-projection-contracts-v1.md).
 
@@ -274,7 +276,8 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Next
 
-- **P13c-4b-2c-2a - Actual producer projection conformance**: after projection-design six-job delivery and clean main, extract only the private candidate_strategy_def from its unchanged runner start position and add literal actual helper/engine/run_lineage/repository/history controls. Use fresh per-case migrated file SQLite/leases, exact ordered/shared/dedup/DSL/v3 projections, existing-row conflict characterization and numeric refusal; six restored assertion mutants and full locked Rust before Node/check/Clippy/scoped format/six-job delivery. No semantic consumer, source builder, execution/enqueue/registry or numeric-policy change. [Frozen first code](docs/plans/research-original-producer-projections-v1.md#5-first-code-slice-actual-producer-controls-before-consumer-code).
+- **P13c-4b-2c-2b-design - Bounded sealed-graph semantic consumer contract**: Next after actual producer controls deliver. Refine private candidate/engine/shared-hypothesis observation APIs, original-format numeric/type/hash refusal, immutable output and whole-operation parse/enumeration/scratch budgets before separate code. Ground all controls in #221 literals and actual producer-conformance evidence; no source builder or missing cost/action/file/candle/trial/live-owner/registry authority. [Required refinement](docs/plans/research-original-producer-projections-v1.md#6-delivery-and-subsequent-work).
+
 
 
 
@@ -324,6 +327,7 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
   6. [x] **APP-STARTUP-ERROR-001 (P2)** — done 2026-10-14 on `fix/startup-error-dialog` (visible startup failure report; see Done). All six quick fixes are complete.
 
 ## In Progress
+
 
 
 
@@ -643,6 +647,8 @@ These were named inside the UI port entry and must not be buried by closing it. 
 - [ ] Full closed-loop AI automation. (Specification: ABC-14.)
 
 ## Done
+
+- [x] **P13c-4b-2c-2a - Actual producer projection conformance** (2026-10-25; baseline #221 `bf0d69c`): unchanged private candidate_strategy_def extraction, six actual helper/engine/lineage/repository/history tests against nine frozen literal candidates, conflict-byte/metadata characterization and no-write numeric refusal. Six assertion-caught/restored mutants; 1046 Rust (one ignored), 1242 Vitest / 80 files, all-target check/Clippy/scoped format/typecheck/build pass. Local implementation complete; six exact-head CI jobs and verified merge remain delivery gates recorded by the PR/handoff. Consumer APIs/budgets require separate refinement; no runtime/source authority. [Handoff](handoffs/2026-10-24-p13c4b2c2a-producer-controls-v1.md).
 
 - [x] **P13c-4b-2c-2-design - Original producer projection contract** (2026-10-24; baseline #220 `59a19b6`): source-grounded fresh/conflict boundaries, literal original engine catalog, independent four-case/nine-candidate exact DTO/input/hypothesis fixture and existing numeric refusal. Independent identities/seeds/nested JSON/checksums/references/source/links/scope/lifecycle verified; actual producer conformance remains next code, before consumers. Design/data-only; six-job delivery follows. [Handoff](handoffs/2026-10-24-p13c4b2c2-projection-contracts-v1.md).
 
