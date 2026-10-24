@@ -251,3 +251,8 @@ calibration or reserved seed 20261117. Record delivery in the
 The [concrete SQL/tuple refinement](research-source-sql-projection-v1.md) fixes
 the complete column manifest and shared pre-copy budget; root observations are
 the first bounded code slice and remain incomplete source evidence.
+
+The [original semantic adapter/digest refinement](research-original-semantic-adapters-v1.md)
+grounds actual producer formats and freezes the first bounded raw-byte digest
+slice. Raw digests remain consistency observations; all required semantic/file/
+registry/live-owner gates still precede RegisteredSource construction.
