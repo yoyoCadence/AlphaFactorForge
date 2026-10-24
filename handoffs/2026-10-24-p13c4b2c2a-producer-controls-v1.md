@@ -3,7 +3,7 @@
 Date: 2026-10-24
 Repo: yoyoCadence/AlphaFactorForge
 Branch: feat/p13c4b2c2a-producer-controls
-Status: Local implementation and all checks verified; exact-head CI/delivery pending
+Status: Resolved; merged as PR #222 with six exact-head/base jobs
 
 ## Summary
 
@@ -105,3 +105,22 @@ Local implementation is complete; draft publication, six exact-head/base jobs,
 fresh reviews/main, expected-head merge and clean-main tree verification remain
 delivery requirements. The next slice refines bounded sealed-graph consumer
 APIs and whole-operation budgets before semantic implementation.
+
+## Resolution (2026-10-25 delivery)
+
+[PR #222](https://github.com/yoyoCadence/AlphaFactorForge/pull/222) merged as
+`754b08a2a3a1010a68795f9e7cdae82db0d00b08`. Tested head
+`6c04c39a078d148c287ece660e8bbe20c005094c`, base
+`bf0d69c5090b6b6861df106b6f7d67c31d2da2f9`; CI run **40143396281**.
+All six completed job logs show the exact head/base checkout. Rust **1046 plus
+one ignored** (297/747/2; 32.30/281.71/5.79 s), including all six new controls;
+Vitest **1242 / 80 files**, E2E **98 without retries**, production audit **0**.
+Native render/SQLite invoke/metrics/event round trip, exact hosted-policy
+restoration and owned process/TEMP cleanup pass.
+
+Fresh main remained unchanged; no reviews/threads and mergeable before ready
+and expected-head merge. GitHub merged/closed was read back. Local main
+fast-forwarded to the merge; its full tree equals the tested head and worktree
+is clean. Final PR body contains this receipt. Next is the separately scoped
+bounded sealed-graph consumer contract; parent source/admission phases remain
+incomplete.
