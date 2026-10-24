@@ -17,6 +17,7 @@ mod control_api;
 mod history;
 mod host;
 mod ownership;
+mod projection_controls;
 
 thread_local! {
     // Deterministically hand over between the advisory preflight and the

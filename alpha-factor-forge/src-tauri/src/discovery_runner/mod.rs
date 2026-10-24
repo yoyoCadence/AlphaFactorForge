@@ -640,31 +640,7 @@ impl DiscoveryRunner {
             let mut scheduled = Vec::with_capacity(plan.candidates.len());
             let mut specs = Vec::with_capacity(plan.candidates.len());
             for candidate in &plan.candidates {
-                let definition_json = serde_json::to_string(&candidate.strategy)?;
-                let dsl = candidate.strategy.get("dsl").filter(|_| {
-                    candidate.strategy.get("mode").and_then(Value::as_str) == Some("dsl")
-                });
-                let dsl_name = dsl.and_then(|dsl| dsl.get("name")).and_then(Value::as_str);
-                let strategy = StrategyDef {
-                    id: None,
-                    name: dsl_name.map(str::to_string).unwrap_or_else(|| format!(
-                        "Discovery {} #{:04}",
-                        candidate.base_id,
-                        candidate.index + 1
-                    )),
-                    kind: if dsl.is_some() { "dsl" } else { "params" }.into(),
-                    dsl_json: dsl.map(serde_json::to_string).transpose()?,
-                    original_definition_json: definition_json,
-                    param_schema_json: dsl
-                        .and_then(|dsl| dsl.get("params"))
-                        .map(serde_json::to_string)
-                        .transpose()?,
-                    source: if dsl.is_some() { "traditional" } else { "sweep" }.into(),
-                    ai_prompt_hash: None,
-                    strategy_hash: candidate.strategy_hash.clone(),
-                    lifecycle: "candidate".into(),
-                    parent_strategy_id: None,
-                };
+                let strategy = candidate_strategy_def(candidate)?;
                 let strategy_id =
                     repositories::get_or_insert_verified_runner_strategy(&conn, self.epoch, &strategy)?;
                 scheduled.push(ScheduledCandidate {
@@ -1844,6 +1820,43 @@ fn progress_snapshot(
         best_strategy_id: run.best_strategy_id,
         error_message: run.error_message.clone(),
         last_event_sequence: last_event_sequence(run.progress_json.as_deref()),
+    })
+}
+
+/// Preserve the fresh strategy projection used by the runner write boundary.
+fn candidate_strategy_def(candidate: &EnumeratedCandidate) -> AppResult<StrategyDef> {
+    let definition_json = serde_json::to_string(&candidate.strategy)?;
+    let dsl = candidate
+        .strategy
+        .get("dsl")
+        .filter(|_| candidate.strategy.get("mode").and_then(Value::as_str) == Some("dsl"));
+    let dsl_name = dsl.and_then(|dsl| dsl.get("name")).and_then(Value::as_str);
+    Ok(StrategyDef {
+        id: None,
+        name: dsl_name.map(str::to_string).unwrap_or_else(|| {
+            format!(
+                "Discovery {} #{:04}",
+                candidate.base_id,
+                candidate.index + 1
+            )
+        }),
+        kind: if dsl.is_some() { "dsl" } else { "params" }.into(),
+        dsl_json: dsl.map(serde_json::to_string).transpose()?,
+        original_definition_json: definition_json,
+        param_schema_json: dsl
+            .and_then(|dsl| dsl.get("params"))
+            .map(serde_json::to_string)
+            .transpose()?,
+        source: if dsl.is_some() {
+            "traditional"
+        } else {
+            "sweep"
+        }
+        .into(),
+        ai_prompt_hash: None,
+        strategy_hash: candidate.strategy_hash.clone(),
+        lifecycle: "candidate".into(),
+        parent_strategy_id: None,
     })
 }
 

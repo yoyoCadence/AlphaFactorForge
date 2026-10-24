@@ -3,7 +3,7 @@
 Date: 2026-10-24
 Repo: yoyoCadence/AlphaFactorForge
 Branch: docs/p13c4b2c2-projection-contracts
-Status: Design/fixture locally verified; exact-head delivery required
+Status: Resolved; PR #221 delivered; actual conformance code proceeds separately
 
 ## Summary
 
@@ -86,3 +86,23 @@ checksum. The temporary independent authoring script was removed after checking;
 no generator or project dependency is added. Only six intended design/data/task/
 handoff paths are in scope. Delivery still requires fresh-main rebase, relevant
 artifact rechecks, exact-head six-job CI and expected-head merge/clean main.
+
+## Resolution (PR #221 delivery)
+
+[PR #221](https://github.com/yoyoCadence/AlphaFactorForge/pull/221) merged tested
+head `d9b70726e29b5e66f102d385d7943b9b90c94072` against unchanged #220 base
+`59a19b6caed1b02284dbcea016be0f6d4dd29a50`; merge is
+`bf0d69c5090b6b6861df106b6f7d67c31d2da2f9`. All six jobs in
+[CI 40102860750](https://github.com/yoyoCadence/AlphaFactorForge/actions/runs/40102860750)
+passed on the exact head/base, confirmed in every checkout log. Rust **1040 +
+one ignored** (297/741/2), 33.96 / 274.17 / 5.65 seconds; Vitest 1242/80;
+E2E 98 without retries. Typecheck/build/production audit zero/native
+render-invoke-metrics-event pass, including exact hosted-policy restoration and
+owned cleanup. No CI failure or rerun. Post-rebase artifact checks pass; fresh
+base unchanged, review submissions/threads empty and PR mergeable.
+
+Repository-prescribed gh fallback completed ready/body/expected-head merge;
+GitHub merged state/SHA read back. Local main fast-forwarded, full tree equaled
+tested head and worktree was clean before the producer-control branch. Final
+PR body updated. This delivery verifies design/data only; actual producer
+conformance is the next code's required evidence, not claimed by this CI.
