@@ -52,6 +52,9 @@ input, statistical calibration or reserved-seed activity follows from these rows
    for the matrix above, including v1 params, v2 fixed DSL, v3 walk-forward,
    shared bases/dedup attribution and legacy numeric refusals. Never recreate the
    #217 synthetic-only compatibility gap. No source builder yet.
+   The [producer projection refinement](research-original-producer-projections-v1.md)
+   freezes independent controls and an initial private producer-helper/conformance
+   slice before subsequent bounded consumer API/code refinement.
 3. Warmup/market/trial semantic adapters require their same independent evidence;
    file/candle/availability authentication remains 4b-3, and current actual-owner/
    registry/IMMEDIATE final admission remains 4d. Missing action/cost originals

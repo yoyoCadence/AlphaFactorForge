@@ -3,7 +3,7 @@
 Date: 2026-10-24
 Repo: yoyoCadence/AlphaFactorForge
 Branch: feat/p13c4b2c1-original-digests
-Status: Locally verified; exact-head CI and delivery required
+Status: Resolved; PR #220 delivered and next design proceeds separately
 
 ## Summary
 
@@ -98,3 +98,23 @@ Fetch/fast-forward main, rebase, relevant post-rebase checks and explicit scoped
 commit/push precede the draft PR. Require all six exact-head jobs, fresh base and
 reviews, expected-head merge, GitHub read-back and clean main before starting
 the next original-format projection design.
+
+## Resolution (PR #220 delivery)
+
+[PR #220](https://github.com/yoyoCadence/AlphaFactorForge/pull/220) merged tested
+head `19f5785a55c965acde4187770593e28001ed8bc3` against unchanged #219 base
+`8238fe76956439c182be6478f502269ffd9eb0e8`; merge is
+`59a19b6caed1b02284dbcea016be0f6d4dd29a50`. All six jobs in
+[CI 40100378297](https://github.com/yoyoCadence/AlphaFactorForge/actions/runs/40100378297)
+passed on that exact head/base, confirmed in every checkout log. Rust **1040 +
+one ignored** (297/741/2), 27.54 / 295.52 / 5.77 seconds; Vitest 1242/80;
+E2E 98 without retries. Typecheck/build/production audit zero/native
+render-invoke-metrics-event pass with exact hosted-policy restoration and owned
+cleanup. No CI failure or rerun. Post-rebase focused 91 and scoped format pass;
+fresh base unchanged, review submissions/threads empty and PR mergeable.
+
+Repository-prescribed gh fallback completed ready/body/expected-head merge;
+GitHub merged state/SHA read back. Local main fast-forwarded, complete tree
+equaled tested head, and worktree was clean before the next design branch.
+Final PR body updated. Only original-format projection/producer-control design
+follows; semantic/source/file/registry/current-owner authority stays incomplete.
