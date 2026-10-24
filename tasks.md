@@ -6,6 +6,8 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Current Snapshot
 
+- **P13c-4b-2c original adapter/digest design refined (2026-10-24)** from corrected merged #217 (`d88312e`). Actual writer/format matrix preserves shared base hypotheses, existing numeric identities and explicit missing original evidence. The first private code slice observes raw digests from the sealed complete graph, with exact H framing, all engines, checked 32 MiB whole hash-work preflight and <=786560 output-text bytes. Independent original graph vectors (7938 work / 704 output bytes) and seven framing controls are frozen before code; no semantic source/RegisteredSource/runtime activation. Documentation-only source/link/vector/lifecycle checks pass; only raw-digest code follows six-job design delivery. [Plan](docs/plans/research-original-semantic-adapters-v1.md), [handoff](handoffs/2026-10-24-p13c4b2c-semantic-adapters-v1.md).
+
 - **P13c-4b-2b-2b corrected complete SQL graph locally verified (2026-10-24)** from merged hypothesis correction #218 (`f3a9d12`). Eleven tables/117 guarded graph cells retain the complete candidate/reference closure and root-continuing budget. Shared base strategy-doc-v1/NULL hypotheses now match the actual writer, verified through unchanged run_lineage + history registration; candidate strategy-v2 agreement remains exact. Independent 133-column fixture now 6102 bytes/184 nodes; 20 graph tests/82 focused and six assertion-caught/restored mutants. **1031 Rust (one ignored) / 1242 Vitest / 80 files**, check/Clippy/scoped format/typecheck/build pass (five existing warnings). Original #217 green synthetic evidence is preserved but insufficient; updated-head six-job delivery follows. No semantic source/file/registry/live-owner authority. [Handoff](handoffs/2026-10-24-p13c4b2b2b-source-graph-v1.md).
 
 - **P13c-4b-2b hypothesis grounding correction (2026-10-24)**: draft #217 revealed an error in the earlier graph design/fixture: actual runner/history stores a shared base hypothesis with strategy-doc-v1 and NULL strategy_id. A focused documentation correction freezes original domains/nullability/deduplication and a real-writer positive control before updating the draft. Candidate identities/complete closure/budget/transaction rules remain unchanged. #217 stays unmerged; original green synthetic checks cannot establish compatibility. [Correction](docs/plans/research-source-hypothesis-grounding-v1.md), [handoff](handoffs/2026-10-24-source-graph-hypothesis-correction-v1.md).
@@ -268,7 +270,8 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Next
 
-- **P13c-4b-2c-design - Original semantic source adapters and digest fixtures**: after corrected complete SQL graph delivery, freeze supported original strategy/config/engine/input/hypothesis/trial/market adapters, unchanged numeric identity policies, exact byte framing and independent fixtures before semantic code. Ground every projection/lineage check and unsupported action/cost/source/file/warmup path in existing formats; do not invent missing evidence or construct RegisteredSource early. Documentation-only PR; preserve parent/final activation gates. [Parent semantic contract](docs/plans/research-source-reference-observation-v1.md#5-original-byte-digests-and-semantic-assembly).
+- **P13c-4b-2c-1 - Bounded raw original digest observations**: after semantic/digest design delivery, implement only the private sealed-graph observer, fixed original-byte domain/part/index framing, immutable raw digest records and checked whole-operation hash-work preflight before SHA updates. Use independently frozen graph/framing vectors, real captured exact/one-over work limits, complete engines and six assertion-caught/restored mutants. Full locked Rust before Node, check/Clippy/scoped format and six-job delivery. No JSON numeric reinterpretation, semantic/source/file/registry/cost/warmup/owner authority or runtime caller. [Frozen slice](docs/plans/research-original-semantic-adapters-v1.md#3-first-code-api-sealed-graph-in-raw-digest-observation-out).
+
 
 
 
@@ -315,6 +318,7 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
   6. [x] **APP-STARTUP-ERROR-001 (P2)** — done 2026-10-14 on `fix/startup-error-dialog` (visible startup failure report; see Done). All six quick fixes are complete.
 
 ## In Progress
+
 
 
 
@@ -631,6 +635,8 @@ These were named inside the UI port entry and must not be buried by closing it. 
 - [ ] Full closed-loop AI automation. (Specification: ABC-14.)
 
 ## Done
+
+- [x] **P13c-4b-2c-design - Original semantic source boundaries and first digest contract** (2026-10-24; baseline #217 `d88312e`): actual-producer format/obligation matrix plus exact private raw digest API/framing/work/output limits, independent graph and seven framing controls. Source/vector/link/scope/lifecycle checks pass; Markdown only. First raw-digest code follows verified delivery; further semantic projection fixtures/producer controls and all file/registry/owner gates remain required. [Handoff](handoffs/2026-10-24-p13c4b2c-semantic-adapters-v1.md).
 
 - [x] **P13c-4b-2b-2b - Complete typed workspace row graph** (2026-10-24; corrected baseline #218 `f3a9d12`): all eleven tables/117 graph cells, immutable complete capture/recheck, full config membership/reference checks and shared budget. Actual writer's shared base hypothesis/NULL identity is preserved; positive candidate-bound references remain exact. Independent full-cell/counter fixture, 20 tests/82 focused and six assertion-caught/restored mutants; 1031 Rust (one ignored), 1242 Vitest / 80 files, check/Clippy/scoped format/typecheck/build pass. Updated #217 delivery follows; source/file/registry/live-owner authority remains incomplete. [Handoff](handoffs/2026-10-24-p13c4b2b2b-source-graph-v1.md).
 

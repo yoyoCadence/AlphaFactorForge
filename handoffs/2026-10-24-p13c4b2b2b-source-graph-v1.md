@@ -4,7 +4,7 @@ Date: 2026-10-24
 Repo: yoyoCadence/AlphaFactorForge
 Branch: feat/p13c4b2b2b-source-graph
 Baseline: merged #216 (`4193eba`).
-Status: corrected implementation/local verification complete; updated PR #217/CI delivery pending.
+Status: resolved; corrected PR #217 merged and clean main verified on 2026-10-24.
 
 ## Summary
 
@@ -163,3 +163,24 @@ removed after exact name/parent/no-reparse checks; logs remained outside it.
 Update the existing #217 after fresh-main rebase and relevant rechecks; the
 expected-old-head lease protects its necessary rebased push. Require new-head
 six-job CI and fresh base/reviews before expected-head merge and clean main.
+
+## Resolution (corrected PR #217 delivery)
+
+[PR #217](https://github.com/yoyoCadence/AlphaFactorForge/pull/217) merged corrected
+head `4b1a04e655757f02aad910360f5a3b451a0fb6e3` into unchanged #218 base
+`f3a9d12c128a32a12a81a5775c99399da40eaf05`; merge is
+`d88312ef0dc93fe1788e3e7e75b4a7eee8546533`. All six jobs in
+[corrected CI 40079507097](https://github.com/yoyoCadence/AlphaFactorForge/actions/runs/40079507097)
+passed on that exact head/base. Rust: 1031 + one ignored (297/732/2),
+27.41 / 376.41 / 8.55 seconds; Vitest 1242 / 80 files; E2E 98 without retries.
+Typecheck/build/production audit zero/native render-invoke-metrics-event pass,
+with exact hosted-policy restoration and owned cleanup. No corrected CI failure
+or rerun. Post-rebase focused 82 and scoped format pass; final base unchanged,
+review submissions/threads empty and PR mergeable.
+
+The already-confirmed connector write limitation used the repository's gh
+fallback; expected-head ready/merge succeeded. GitHub merged state/SHA read back;
+local main fast-forwarded, complete tree matched tested head and worktree was
+clean before the next branch. Final PR body updated. Original synthetic CI and
+its missing writer evidence remain recorded above. Next is the separately
+frozen original semantic/digest design; source/file/registry/owner gates remain.
