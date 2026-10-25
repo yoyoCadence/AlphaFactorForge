@@ -1,10 +1,12 @@
-# AlphaFactorForge Tasks
+﻿# AlphaFactorForge Tasks
 
 This is the single active task board for the workspace. The former `task.md` legacy feature map has been merged into this file and should not be recreated as a second task board.
 
 Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Current Snapshot
+
+- **P13c-4b-2c-2b-2 original lineage semantics locally verified** (2026-10-25; baseline #225 `bca7d5a`): one sealed preparation/whole-family immutable observation, borrowed ID-reference resolution, original candidate/cost/DSL/input/engine/winning-base/shared-hypothesis agreement and complete W32 MiB/C64 MiB/O4 MiB preflight with unchanged helpers. Six restored assertion mutants and31 lineage cases pass, including four frozen outputs/work, nonmonotonic IDs, real W/C exact/one-over and actual-writer1101-candidate O boundary. Full isolated **1077 Rust (one ignored)**, locked all-target check/Clippy/scoped format, **1242 Vitest/80 files** (four-worker retry after one default-worker timing failure), typecheck/build pass; five old Clippy warnings only. Owned roots cleaned. Local implementation complete; exact-head six CI jobs and verified merge remain delivery gates. Missing envelope/mode coverage and all source/live admission gates remain tracked. [Handoff](handoffs/2026-10-25-p13c4b2c2b2-lineage-semantics-v1.md).
 
 - **P13c-4b-2c-2b-2 original lineage semantic contract refined (2026-10-25)** from merged #224 (`3241451`). One sealed whole-family historical observation, explicit first mode catalog, original cost/type/hash/DSL and exact input/engine/winning-base/shared-hypothesis rules. Whole post-preparation W32 MiB / C64 MiB / O4 MiB preflight, four independent Python/Node result/work controls, an explicit nonmonotonic library-ID/reference control and three feasible real-capture boundary recipes are frozen before code; output uses 44*25+1 candidates within64-per-axis cap. Strict JSON/source/links/scope/lifecycle checks pass. Design/data only; no future semantic test is claimed. Runtime remains #224 verified **1061 Rust (one ignored) / 1242 Vitest / 98 E2E**; exact-head delivery precedes code. Missing mode coverage/source/live gates remain tracked. [Plan](docs/plans/research-original-lineage-semantics-v1.md), [handoff](handoffs/2026-10-25-p13c4b2c2b2-semantic-contract-v1.md).
 
@@ -282,7 +284,6 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Next
 
-- **P13c-4b-2c-2b-2 - Original lineage semantic observation**: Next after semantic design delivery. Implement only the sealed graph/one-preparation entry, immutable whole-family result, supported original candidate/cost/DSL/input/engine/winning-base/shared-hypothesis checks and complete W/C/O preflight using unchanged helpers. Four independent literal results/work counts plus nonmonotonic library references, real feasible W/C/O boundaries, every field/type/refusal/caller-state control and six restored assertion mutants; isolated full locked Rust before Node and six-job delivery. No source/RegisteredSource/live admission. [Frozen code contract](docs/plans/research-original-lineage-semantics-v1.md#6-first-code-verification-and-delivery).
 
 
 
@@ -336,6 +337,7 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
   6. [x] **APP-STARTUP-ERROR-001 (P2)** — done 2026-10-14 on `fix/startup-error-dialog` (visible startup failure report; see Done). All six quick fixes are complete.
 
 ## In Progress
+
 
 
 
@@ -661,6 +663,8 @@ These were named inside the UI port entry and must not be buried by closing it. 
 - [ ] Full closed-loop AI automation. (Specification: ABC-14.)
 
 ## Done
+
+- [x] **P13c-4b-2c-2b-2 - Original lineage semantic observation** (2026-10-25; baseline #225 `bca7d5a`): one sealed preparation/whole-family immutable observation, borrowed ID-reference resolution, original candidate/cost/DSL/input/engine/winning-base/shared-hypothesis agreement and complete W32 MiB/C64 MiB/O4 MiB preflight with unchanged helpers. Six restored assertion mutants and31 lineage cases pass, including four frozen outputs/work, nonmonotonic IDs, real W/C exact/one-over and actual-writer1101-candidate O boundary. Full isolated **1077 Rust (one ignored)**, locked all-target check/Clippy/scoped format, **1242 Vitest/80 files** (four-worker retry after one default-worker timing failure), typecheck/build pass; five old Clippy warnings only. Owned roots cleaned. Local implementation complete; exact-head six CI jobs and verified merge remain delivery gates. Missing envelope/mode coverage and all source/live admission gates remain tracked. [Handoff](handoffs/2026-10-25-p13c4b2c2b2-lineage-semantics-v1.md).
 
 - [x] **P13c-4b-2c-2b-2-design - Original lineage semantic comparison contract** (2026-10-25; baseline #224 `3241451`): original whole-family comparison/API/immutable output, explicit supported catalog and W/C/O preflight using unchanged identities/canonical helpers; four independent literal results/work plus feasible hash/copy/output recipes, independently verified in Python/Node. Source axis-cap review corrected draft output construction to44*25+1 before publication; original failure/decision recorded. Docs/data locally complete; six exact-head CI and merge remain delivery gates. Mode coverage and all remaining source/admission obligations stay incomplete. [Handoff](handoffs/2026-10-25-p13c4b2c2b2-semantic-contract-v1.md).
 

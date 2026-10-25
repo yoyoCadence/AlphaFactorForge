@@ -1964,6 +1964,19 @@ fn trial_hash(value: &Value) -> AppResult<String> {
     Ok(sha256_hex(&canonical_json(value)?))
 }
 
+/// Test-only access to original candidate projection; no run admission/execution.
+#[cfg(test)]
+pub(crate) fn source_row_strategies_for_test(
+    config: &ResolvedDiscoveryConfig,
+) -> AppResult<Vec<StrategyDef>> {
+    enumerate_candidates(config)
+        .map_err(|error| other(error.to_string()))?
+        .candidates
+        .iter()
+        .map(candidate_strategy_def)
+        .collect()
+}
+
 /// Test-only bridge through the original lineage writer, without executing or
 /// registering a trial. The metadata here is controlled fixture input only.
 #[cfg(test)]
