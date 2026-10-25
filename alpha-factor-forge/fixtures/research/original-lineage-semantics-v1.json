@@ -493,5 +493,99 @@
         "dsl.params.noise": "24000 integer zeros, same in saved DSL; in first candidate change first stated count to integer 10"
       }
     }
-  ]
+  ],
+  "idOrderControl": {
+    "id": "v1-library-id-order",
+    "producerTemplate": "v1-shared-dedup",
+    "strategyIdsByCandidateIndex": [
+      41,
+      11,
+      31,
+      21
+    ],
+    "hypothesisIdsByProducerOrder": [
+      91,
+      51
+    ],
+    "strategyCandidateIndexesInSqlOrder": [
+      1,
+      3,
+      2,
+      0
+    ],
+    "hypothesisProducerIndexesInSqlOrder": [
+      1,
+      0
+    ],
+    "inputs": [
+      {
+        "index": 0,
+        "inputFingerprintJson": "{\"appliedAxes\":{\"fastMA\":8.0},\"baseId\":\"grid-low\",\"candidateIndex\":0,\"configHash\":\"fa39438268b4245ec73f83bbd854206688656a1e9c3402b8734de6959554a9e6\",\"datasetHash\":\"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"datasetId\":7,\"envelopeVersion\":\"discovery-config-v1\",\"interval\":\"1h\",\"rootSeed\":20260726,\"seeds\":{\"randomEntry\":943067094},\"strategyHash\":\"strategy-v2:26b3b04ef9d3c927cbfbda44074ebcc3df6b9e27b254576229faa5757aa49c60\",\"strategyId\":41}",
+        "sha256": "9126d7fec088c0784d7637f673136af85bb517886168f07f3885c37f3508d873"
+      },
+      {
+        "index": 1,
+        "inputFingerprintJson": "{\"appliedAxes\":{\"fastMA\":5.0},\"baseId\":\"grid-low\",\"candidateIndex\":1,\"configHash\":\"fa39438268b4245ec73f83bbd854206688656a1e9c3402b8734de6959554a9e6\",\"datasetHash\":\"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"datasetId\":7,\"envelopeVersion\":\"discovery-config-v1\",\"interval\":\"1h\",\"rootSeed\":20260726,\"seeds\":{\"randomEntry\":3949539066},\"strategyHash\":\"strategy-v2:3674c76f1087df677d1c3d7ea58ee2b1b2981557f01ea38edfc830cd3740ae30\",\"strategyId\":11}",
+        "sha256": "c442685b12dc47974b192d5c486d30bbeb6195439fcfe18a8e50f08c43781cde"
+      },
+      {
+        "index": 2,
+        "inputFingerprintJson": "{\"appliedAxes\":{\"fastMA\":11.0},\"baseId\":\"grid-low\",\"candidateIndex\":2,\"configHash\":\"fa39438268b4245ec73f83bbd854206688656a1e9c3402b8734de6959554a9e6\",\"datasetHash\":\"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"datasetId\":7,\"envelopeVersion\":\"discovery-config-v1\",\"interval\":\"1h\",\"rootSeed\":20260726,\"seeds\":{\"randomEntry\":2643074736},\"strategyHash\":\"strategy-v2:eb2a7e1f826ae0317803e46bd291c8829c853bfd05434338df6f849808b224ba\",\"strategyId\":31}",
+        "sha256": "b3fdf71839e266ad6174c28b6dab8ff1516230be03c8e063dec93f0cb705093b"
+      },
+      {
+        "index": 3,
+        "inputFingerprintJson": "{\"appliedAxes\":{\"fastMA\":14.0},\"baseId\":\"grid-high\",\"candidateIndex\":3,\"configHash\":\"fa39438268b4245ec73f83bbd854206688656a1e9c3402b8734de6959554a9e6\",\"datasetHash\":\"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"datasetId\":7,\"envelopeVersion\":\"discovery-config-v1\",\"interval\":\"1h\",\"rootSeed\":20260726,\"seeds\":{\"randomEntry\":364136888},\"strategyHash\":\"strategy-v2:f5b80d12bc2312ced8eb5e419057524ab1350eedd1b7d2d0228c372ad9643124\",\"strategyId\":21}",
+        "sha256": "970a4a0b46f1d0635b7654aeb8eefc4a97151bdeb628e96f8722d79c4b77e154"
+      }
+    ],
+    "hashBytes": 8203,
+    "copyBytes": 16941,
+    "cloneNodes": 152,
+    "outputBytes": 657,
+    "parseBytes": 13396,
+    "parseNodes": 628,
+    "expansionBytes": 3309,
+    "expansionNodes": 228,
+    "scratchBytes": 16705,
+    "scratchNodes": 856,
+    "expectedObservation": {
+      "configHash": "fa39438268b4245ec73f83bbd854206688656a1e9c3402b8734de6959554a9e6",
+      "candidates": [
+        {
+          "index": 0,
+          "strategyId": 41,
+          "strategyHash": "strategy-v2:26b3b04ef9d3c927cbfbda44074ebcc3df6b9e27b254576229faa5757aa49c60",
+          "hypothesisId": 91,
+          "hypothesisHash": "2d840c49f0b40cad3b3107bded44fb50bbbe7e121965a5b8985353c70e0cb2a6",
+          "baseId": "grid-low"
+        },
+        {
+          "index": 1,
+          "strategyId": 11,
+          "strategyHash": "strategy-v2:3674c76f1087df677d1c3d7ea58ee2b1b2981557f01ea38edfc830cd3740ae30",
+          "hypothesisId": 91,
+          "hypothesisHash": "2d840c49f0b40cad3b3107bded44fb50bbbe7e121965a5b8985353c70e0cb2a6",
+          "baseId": "grid-low"
+        },
+        {
+          "index": 2,
+          "strategyId": 31,
+          "strategyHash": "strategy-v2:eb2a7e1f826ae0317803e46bd291c8829c853bfd05434338df6f849808b224ba",
+          "hypothesisId": 91,
+          "hypothesisHash": "2d840c49f0b40cad3b3107bded44fb50bbbe7e121965a5b8985353c70e0cb2a6",
+          "baseId": "grid-low"
+        },
+        {
+          "index": 3,
+          "strategyId": 21,
+          "strategyHash": "strategy-v2:f5b80d12bc2312ced8eb5e419057524ab1350eedd1b7d2d0228c372ad9643124",
+          "hypothesisId": 51,
+          "hypothesisHash": "2ae35a712d6d742c15227e9289951e5de4a7f69f1c38d813701dd8c660764ef8",
+          "baseId": "grid-high"
+        }
+      ]
+    },
+    "note": "IDs/references and four exact input strategyId integers change; definitions/base/hypothesis content and identity bytes stay unchanged. SQL order is deliberately different from candidate/base order. No semantic/capture test is claimed yet."
+  }
 }

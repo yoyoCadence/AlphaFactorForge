@@ -47,7 +47,10 @@ family either returns once or refuses; no partial/selected success escapes.
 
 Resolve every prepared candidate by its captured attempt/strategy references;
 require complete ordered plan/row alignment and every retained strategy exactly
-once, preserving raw failed members. Use the original enumerated candidate and
+once, preserving raw failed members. Strategy/hypothesis vectors are SQL-ID-
+ordered independently of candidate/base order. Pair their parsed documents with
+their own captured rows, then use bounded borrowed ID indexes to resolve attempt
+references. Never zip those vectors directly to the candidate/base sequence. Use the original enumerated candidate and
 winning base, not a replacement enumeration or any base with a matching hash.
 Captured graph membership is historical consistency, never a current live fence.
 
@@ -217,6 +220,14 @@ the future consumer. No actual market, execution, sampling or reserved-seed use.
 | v2-fixed-dsl | 3623 | 8358 | 41 | 213 |
 | v3-walk-forward | 3788 | 8688 | 41 | 213 |
 
+The additional id-order control reuses shared-dedup with strategy IDs by
+candidate [41,11,31,21] and hypothesis IDs by producer order [91,51]. Four
+independently frozen input strategyId fields change; SQL strategy order is
+candidate indexes [1,3,2,0], SQL hypothesis order is producer indexes [1,0].
+Expected result follows actual references, with unchanged W8203/C16941/nodes152/
+O657; P+E becomes16705 bytes/856 nodes. This positive must survive compatible
+existing library row IDs, not assume insertion/candidate order matches row IDs.
+
 Reuse actual SQL-captured literal graphs and #222 actual producer evidence.
 Every result field and whole work count must match these literals. Whitespace/
 key-order changes keep semantic observations while raw digests change; use the
@@ -279,7 +290,8 @@ test-only bridge. No existing parser/identity/producer/persistence/command polic
 change. Preserve all existing fixture bytes and the preparation/selection API.
 Format only new/scoped code; do not reformat the legacy runner file globally.
 
-Tests must cover all literal results/work; compatible saved byte formatting;
+Tests must cover all literal results/work and nonmonotonic library ID/reference
+order; compatible saved byte formatting;
 integer/float legacy meaning; params unexpected DSL and DSL missing/contradictory
 projection; wrong type/markers/parent/cost bits; every input field/type/key/axis/
 seed; every engine key/version including a late changed member; original raw vs

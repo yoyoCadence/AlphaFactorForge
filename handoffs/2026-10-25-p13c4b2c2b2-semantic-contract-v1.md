@@ -117,3 +117,22 @@ scope/visibility/lifecycle/diff checks pass. Runtime/schema/dependencies/workflo
 and original producer/preparation fixtures stay unchanged. No future semantic
 control or local runtime/statistical suite is claimed by this design/data.
 Six exact-head/base CI and merge receipt follow; only frozen semantic code next.
+
+## Resolution (SQL-ID order control before delivery)
+
+Actual graph source orders strategy/hypothesis rows by ID, independently of
+candidate/base order. The same reference-resolution contract now has an explicit
+independent positive: shared-dedup strategy IDs [41,11,31,21], hypothesis IDs
+[91,51], input strategyId integers updated in four literal documents. SQL orders
+are [1,3,2,0] and [1,0]; every semantic result must follow references. Existing
+definitions/base/hypothesis bytes and W/C/output stay unchanged; P+E is16705/856.
+The fixture freezes exact new input strings/checksums and result IDs. This
+clarifies the existing ID-reference rule and prevents a sorted-row zip from
+passing only sequential test IDs. Same design PR will receive a new head and
+six new exact-head/base checks; earlier-head CI is not delivery evidence.
+
+Independent Node literal substitution verifies all four changed input strings/
+SHA-256 values, actual reference result IDs and unchanged W/C/O, plus exact
++4-byte P/combined work. The source's BTreeSet-ID reads and candidate-index
+ordering were rechecked; no runtime/fixture compatibility is claimed before
+the future actual captured control runs.
