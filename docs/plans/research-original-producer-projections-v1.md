@@ -219,3 +219,9 @@ budgets before their separate implementation. Only consistent private
 observations are contemplated. Missing original cost/action/file/candle/trial
 evidence and final live-owner/registry admission remain their own gates. Parent
 4b-2c/4b-2/4b/P13c-4 remain incomplete. No RegisteredSource/runtime activation.
+
+The [bounded lineage consumer refinement](research-original-lineage-consumers-v1.md)
+now fixes sealed-graph preparation, a shared original run-plan path and combined
+parse/expansion work before separate semantic comparison code. Actual producer
+controls delivered in #222; this does not change the earlier design's historical
+verification claims or grant source authority.

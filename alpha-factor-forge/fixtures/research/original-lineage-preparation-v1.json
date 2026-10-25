@@ -1,0 +1,370 @@
+{
+  "version": "original-lineage-preparation-fixture-v1",
+  "note": "Independent Python JSON/arithmetic counts over unchanged pre-code producer literals; config weight two reserves original/resolved payload. Preparation only, never semantic/source proof. Engine per stored attempt; hypothesis per stored row.",
+  "producerFixture": "original-producer-projections-v1.json",
+  "maxScratchBytes": 33554432,
+  "maxScratchNodes": 262144,
+  "cases": [
+    {
+      "id": "v1-ordered-axes",
+      "candidates": 3,
+      "hypotheses": 1,
+      "manifest": [
+        {
+          "path": "configJson",
+          "weight": 2,
+          "bytes": 1928,
+          "nodes": 109,
+          "sha256": "ecb023d26558412ebd951fa7e230f6486910ff5a623c55d4a4d959ad2881a063"
+        },
+        {
+          "path": "candidates/0/freshStrategy/original_definition_json",
+          "weight": 1,
+          "bytes": 513,
+          "nodes": 34,
+          "sha256": "78edba111d5b56491d41296c3739b9817e205515e3296ff1100dcc0899efc175"
+        },
+        {
+          "path": "candidates/0/inputFingerprintJson",
+          "weight": 1,
+          "bytes": 496,
+          "nodes": 16,
+          "sha256": "4d2293cb2aa5c51014750813376730d5d1722980ec84be9fb36db0ce2a606805"
+        },
+        {
+          "path": "candidates/0/engineFingerprintJson",
+          "weight": 1,
+          "bytes": 592,
+          "nodes": 22,
+          "sha256": "3eac6bb5e63bd0444ac385dda23c0cdf3b25f53222e00c3ab97f17f1969dfd1f"
+        },
+        {
+          "path": "candidates/1/freshStrategy/original_definition_json",
+          "weight": 1,
+          "bytes": 513,
+          "nodes": 34,
+          "sha256": "944a5a5a07f8240d87c0b533c1542bac537e625177d22cd501c87cce5b72b6a5"
+        },
+        {
+          "path": "candidates/1/inputFingerprintJson",
+          "weight": 1,
+          "bytes": 497,
+          "nodes": 16,
+          "sha256": "870af24646e517a25d8c9a090b98b7b75c038c856ddf7ff326b5b4b306110d91"
+        },
+        {
+          "path": "candidates/1/engineFingerprintJson",
+          "weight": 1,
+          "bytes": 592,
+          "nodes": 22,
+          "sha256": "3eac6bb5e63bd0444ac385dda23c0cdf3b25f53222e00c3ab97f17f1969dfd1f"
+        },
+        {
+          "path": "candidates/2/freshStrategy/original_definition_json",
+          "weight": 1,
+          "bytes": 514,
+          "nodes": 34,
+          "sha256": "17b0498acbdf396ae02bab8ff3f3873517e4fa12b24702e0a5abf9cf87a65f5f"
+        },
+        {
+          "path": "candidates/2/inputFingerprintJson",
+          "weight": 1,
+          "bytes": 498,
+          "nodes": 16,
+          "sha256": "2fe60ad54ffd409bdc0e67938719a2af4d74d805cd9e47fb7db9286129cb3ef6"
+        },
+        {
+          "path": "candidates/2/engineFingerprintJson",
+          "weight": 1,
+          "bytes": 592,
+          "nodes": 22,
+          "sha256": "3eac6bb5e63bd0444ac385dda23c0cdf3b25f53222e00c3ab97f17f1969dfd1f"
+        },
+        {
+          "path": "hypotheses/0/documentJson",
+          "weight": 1,
+          "bytes": 819,
+          "nodes": 18,
+          "sha256": "7d02c9f48e14dcf6177d46f3dcadd94436fd658228e7a172e441010d89128e9f"
+        },
+        {
+          "path": "hypotheses/0/applicabilityJson",
+          "weight": 1,
+          "bytes": 222,
+          "nodes": 9,
+          "sha256": "3ede35bc2c86b45058d9afd408b6c578ed8725a9113c0255574a97c1e35d8bc9"
+        }
+      ],
+      "parseBytes": 9704,
+      "parseNodes": 461,
+      "expansionBytes": 1743,
+      "expansionNodes": 120,
+      "scratchBytes": 11447,
+      "scratchNodes": 581,
+      "rawCandidates": 3,
+      "finalCandidates": 3
+    },
+    {
+      "id": "v1-shared-dedup",
+      "candidates": 4,
+      "hypotheses": 2,
+      "manifest": [
+        {
+          "path": "configJson",
+          "weight": 2,
+          "bytes": 2514,
+          "nodes": 147,
+          "sha256": "fa39438268b4245ec73f83bbd854206688656a1e9c3402b8734de6959554a9e6"
+        },
+        {
+          "path": "candidates/0/freshStrategy/original_definition_json",
+          "weight": 1,
+          "bytes": 511,
+          "nodes": 34,
+          "sha256": "df50868e94154a7cf71ee87032759ac12f223ccea6f902b074de1ec507aa4faf"
+        },
+        {
+          "path": "candidates/0/inputFingerprintJson",
+          "weight": 1,
+          "bytes": 482,
+          "nodes": 15,
+          "sha256": "7b074eccd046802753860a99de3815509c7fd8f6694c90015e39843527a0ca27"
+        },
+        {
+          "path": "candidates/0/engineFingerprintJson",
+          "weight": 1,
+          "bytes": 592,
+          "nodes": 22,
+          "sha256": "3eac6bb5e63bd0444ac385dda23c0cdf3b25f53222e00c3ab97f17f1969dfd1f"
+        },
+        {
+          "path": "candidates/1/freshStrategy/original_definition_json",
+          "weight": 1,
+          "bytes": 511,
+          "nodes": 34,
+          "sha256": "61cbe855007b854848a0d331535a00643dbaa095455f1309beec79ba5dfc63fa"
+        },
+        {
+          "path": "candidates/1/inputFingerprintJson",
+          "weight": 1,
+          "bytes": 483,
+          "nodes": 15,
+          "sha256": "dc8ec07f64ea79bcf38fbc2f448e42bcd679e27e3d2f7b74e5bcc364230416c5"
+        },
+        {
+          "path": "candidates/1/engineFingerprintJson",
+          "weight": 1,
+          "bytes": 592,
+          "nodes": 22,
+          "sha256": "3eac6bb5e63bd0444ac385dda23c0cdf3b25f53222e00c3ab97f17f1969dfd1f"
+        },
+        {
+          "path": "candidates/2/freshStrategy/original_definition_json",
+          "weight": 1,
+          "bytes": 512,
+          "nodes": 34,
+          "sha256": "7ba8752ebfc72d9a1d6e3143aa7127823a29b292de5932715a5412a776f7555f"
+        },
+        {
+          "path": "candidates/2/inputFingerprintJson",
+          "weight": 1,
+          "bytes": 484,
+          "nodes": 15,
+          "sha256": "7a3cb064246d5b9c4d3cbd09577796b9323cdc2e2bca1b7f7e6b4077610077f6"
+        },
+        {
+          "path": "candidates/2/engineFingerprintJson",
+          "weight": 1,
+          "bytes": 592,
+          "nodes": 22,
+          "sha256": "3eac6bb5e63bd0444ac385dda23c0cdf3b25f53222e00c3ab97f17f1969dfd1f"
+        },
+        {
+          "path": "candidates/3/freshStrategy/original_definition_json",
+          "weight": 1,
+          "bytes": 512,
+          "nodes": 34,
+          "sha256": "715a510527e4bb26738375e6802ce59e8400214fcb1619406d4c785b697608a5"
+        },
+        {
+          "path": "candidates/3/inputFingerprintJson",
+          "weight": 1,
+          "bytes": 484,
+          "nodes": 15,
+          "sha256": "cf13afee8078c5e2a11a8567eafdc5e683e23f3f0c807f25766f01fabcd0df04"
+        },
+        {
+          "path": "candidates/3/engineFingerprintJson",
+          "weight": 1,
+          "bytes": 592,
+          "nodes": 22,
+          "sha256": "3eac6bb5e63bd0444ac385dda23c0cdf3b25f53222e00c3ab97f17f1969dfd1f"
+        },
+        {
+          "path": "hypotheses/0/documentJson",
+          "weight": 1,
+          "bytes": 795,
+          "nodes": 17,
+          "sha256": "2d840c49f0b40cad3b3107bded44fb50bbbe7e121965a5b8985353c70e0cb2a6"
+        },
+        {
+          "path": "hypotheses/0/applicabilityJson",
+          "weight": 1,
+          "bytes": 213,
+          "nodes": 8,
+          "sha256": "23be2becdf0319eedbebcd9fba609a8be3534e1e9e188f61a3a434b884ea51a2"
+        },
+        {
+          "path": "hypotheses/1/documentJson",
+          "weight": 1,
+          "bytes": 796,
+          "nodes": 17,
+          "sha256": "2ae35a712d6d742c15227e9289951e5de4a7f69f1c38d813701dd8c660764ef8"
+        },
+        {
+          "path": "hypotheses/1/applicabilityJson",
+          "weight": 1,
+          "bytes": 213,
+          "nodes": 8,
+          "sha256": "23be2becdf0319eedbebcd9fba609a8be3534e1e9e188f61a3a434b884ea51a2"
+        }
+      ],
+      "parseBytes": 13392,
+      "parseNodes": 628,
+      "expansionBytes": 3309,
+      "expansionNodes": 228,
+      "scratchBytes": 16701,
+      "scratchNodes": 856,
+      "rawCandidates": 6,
+      "finalCandidates": 4
+    },
+    {
+      "id": "v2-fixed-dsl",
+      "candidates": 1,
+      "hypotheses": 1,
+      "manifest": [
+        {
+          "path": "configJson",
+          "weight": 2,
+          "bytes": 1817,
+          "nodes": 103,
+          "sha256": "68c3d3ffd5cdcc213e42ebe1a4110fad5dca7a511089f0bd539cf583264d1c05"
+        },
+        {
+          "path": "candidates/0/freshStrategy/original_definition_json",
+          "weight": 1,
+          "bytes": 447,
+          "nodes": 37,
+          "sha256": "7d1dfcb396cb67f23787f9f9ff482af4dfdcab7ea22ff4bbc4ea70ac6e522b14"
+        },
+        {
+          "path": "candidates/0/freshStrategy/dsl_json",
+          "weight": 1,
+          "bytes": 322,
+          "nodes": 28,
+          "sha256": "20b89bdf54340db55580538ffec5ffe25dbf2ca59e0914427c617914aa9265a2"
+        },
+        {
+          "path": "candidates/0/inputFingerprintJson",
+          "weight": 1,
+          "bytes": 471,
+          "nodes": 14,
+          "sha256": "f91fbf820154cbaa9f15679ccb814e62103f5fde8eba833319880821294eea04"
+        },
+        {
+          "path": "candidates/0/engineFingerprintJson",
+          "weight": 1,
+          "bytes": 624,
+          "nodes": 23,
+          "sha256": "f2baa5d69c079dd65dcd1e690c5b97e303b3b8c1bc044ab735e7bb608f55edd6"
+        },
+        {
+          "path": "hypotheses/0/documentJson",
+          "weight": 1,
+          "bytes": 800,
+          "nodes": 16,
+          "sha256": "3014349b7d10936707a90b9b32c2a5c4972b74f943bb81b053863d0626dccc41"
+        },
+        {
+          "path": "hypotheses/0/applicabilityJson",
+          "weight": 1,
+          "bytes": 205,
+          "nodes": 7,
+          "sha256": "70231dfa441b06796bf202f25bbd96e11016ab0a4f77523823afd6da48629a03"
+        }
+      ],
+      "parseBytes": 6503,
+      "parseNodes": 331,
+      "expansionBytes": 460,
+      "expansionNodes": 39,
+      "scratchBytes": 6963,
+      "scratchNodes": 370,
+      "rawCandidates": 1,
+      "finalCandidates": 1
+    },
+    {
+      "id": "v3-walk-forward",
+      "candidates": 1,
+      "hypotheses": 1,
+      "manifest": [
+        {
+          "path": "configJson",
+          "weight": 2,
+          "bytes": 1982,
+          "nodes": 109,
+          "sha256": "a85d6b2d0aab6988f52372268972165f30a358860634e2ad3e0a45d3c09c1729"
+        },
+        {
+          "path": "candidates/0/freshStrategy/original_definition_json",
+          "weight": 1,
+          "bytes": 447,
+          "nodes": 37,
+          "sha256": "7d1dfcb396cb67f23787f9f9ff482af4dfdcab7ea22ff4bbc4ea70ac6e522b14"
+        },
+        {
+          "path": "candidates/0/freshStrategy/dsl_json",
+          "weight": 1,
+          "bytes": 322,
+          "nodes": 28,
+          "sha256": "20b89bdf54340db55580538ffec5ffe25dbf2ca59e0914427c617914aa9265a2"
+        },
+        {
+          "path": "candidates/0/inputFingerprintJson",
+          "weight": 1,
+          "bytes": 471,
+          "nodes": 14,
+          "sha256": "887405983290af3f1a7762e93fc6678330d2166faade99a7bceeb4c21ab98000"
+        },
+        {
+          "path": "candidates/0/engineFingerprintJson",
+          "weight": 1,
+          "bytes": 714,
+          "nodes": 25,
+          "sha256": "4b50f9a7b5fa087807c562cd104be9e0218ce502b209eda6626f709fb05f6c8b"
+        },
+        {
+          "path": "hypotheses/0/documentJson",
+          "weight": 1,
+          "bytes": 800,
+          "nodes": 16,
+          "sha256": "3014349b7d10936707a90b9b32c2a5c4972b74f943bb81b053863d0626dccc41"
+        },
+        {
+          "path": "hypotheses/0/applicabilityJson",
+          "weight": 1,
+          "bytes": 205,
+          "nodes": 7,
+          "sha256": "70231dfa441b06796bf202f25bbd96e11016ab0a4f77523823afd6da48629a03"
+        }
+      ],
+      "parseBytes": 6923,
+      "parseNodes": 345,
+      "expansionBytes": 460,
+      "expansionNodes": 39,
+      "scratchBytes": 7383,
+      "scratchNodes": 384,
+      "rawCandidates": 1,
+      "finalCandidates": 1
+    }
+  ]
+}
