@@ -9,6 +9,7 @@ use super::*;
 include!("graph/rows.rs");
 
 pub(in crate::research::confirmation_inputs) mod original_digests;
+pub(in crate::research::confirmation_inputs) mod original_lineage;
 
 #[derive(Clone, Eq, PartialEq)]
 pub(in crate::research::confirmation_inputs) struct SourceRowsObservation {

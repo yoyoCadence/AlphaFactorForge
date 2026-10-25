@@ -3,7 +3,7 @@
 Date: 2026-10-25
 Repo: yoyoCadence/AlphaFactorForge
 Branch: docs/p13c4b2c2b-consumer-contract
-Status: Design/data independently verified; exact-head CI/delivery pending
+Status: Resolved; merged as PR #223 with six exact-head/base jobs
 
 ## Summary
 
@@ -71,3 +71,21 @@ helper visibility and the distinction between logical payload work and heap
 memory. Scope/lifecycle/diff checks pass; source/schema/dependencies/workflows
 and the original producer fixture remain unchanged. No local runtime/statistical
 suite is claimed for documentation/data. Six-job CI and merge receipt follow.
+
+## Resolution (2026-10-25 delivery)
+
+[PR #223](https://github.com/yoyoCadence/AlphaFactorForge/pull/223) merged as
+`6e41648155c18b55b26ec29d8577bcb0d71620a4`. Head
+`bf8edfd51a0caebccc94ffb07e0ec8405e76e207`, base
+`754b08a2a3a1010a68795f9e7cdae82db0d00b08`; run **40144627705**.
+All six completed job logs show this exact head/base. Rust **1046 plus one
+ignored** (297/747/2; 35.40/275.94/5.61 s), Vitest **1242 / 80 files**,
+E2E **98 without retries**, production audit **0**. Native render/invoke/metrics/
+event, exact hosted-policy restoration and owned process/TEMP cleanup pass.
+No future preparation test is claimed by these unchanged runtime suites.
+
+Fresh main unchanged, no reviews/threads, mergeable, ready then expected-head
+merge. GitHub merged/closed read back; local main fast-forwarded with full tree
+equal to tested head and clean worktree. Final PR body contains receipt. Only
+4b-2c-2b-1 preparation implementation follows; semantics/source admission remains
+incomplete.
