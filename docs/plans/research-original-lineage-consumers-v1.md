@@ -244,3 +244,9 @@ policy invention follows. Warmup/market/trial, authenticated files/candles and
 missing original cost/action evidence remain separately scoped. Final current
 owner/registry/IMMEDIATE admission and policy/mediation authority stay unavailable.
 Parents 4b-2c/4b-2/4b/P13c-4 remain incomplete. No RegisteredSource or execution.
+
+The [whole-family semantic refinement](research-original-lineage-semantics-v1.md)
+now fixes the first supported mode catalog, exact candidate/input/engine/shared-
+hypothesis comparison, immutable output and whole post-preparation copy/hash/
+output reservations. Preparation delivered in #224; no new semantic/source
+authority is inferred from its historical controls.
