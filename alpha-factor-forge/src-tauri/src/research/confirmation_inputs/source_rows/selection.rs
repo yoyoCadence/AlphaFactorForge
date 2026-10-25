@@ -6,13 +6,15 @@ use std::io::{self, Write};
 use alpha_factor_forge::discovery_core::{
     campaign::{freeze_campaign, CAMPAIGN_DECLARATION_VERSION},
     config::{axis_values, parse_discovery_config, ResolvedDiscoveryConfig},
-    enumerate::enumerate_candidates,
+    enumerate::{enumerate_candidates, CandidatePlan},
     seed::is_durable_identity,
 };
 use serde::Serialize;
 use serde_json::Value;
 
-use super::{hash, invalid, RootRowsObservation, MAX_TOTAL_JSON_NODES, MAX_TOTAL_TEXT_BYTES};
+use super::{
+    hash, invalid, OriginalJson, RootRowsObservation, MAX_TOTAL_JSON_NODES, MAX_TOTAL_TEXT_BYTES,
+};
 use crate::error::AppResult;
 
 const MAX_CANDIDATES: usize = 4096;
@@ -216,8 +218,114 @@ fn scratch_preflight(config: &ResolvedDiscoveryConfig) -> AppResult<ScratchUsage
 
 #[cfg(test)]
 thread_local! {
-    static ENUM_ENTRIES: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
-    static DENY_ENUM: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+    pub(super) static ENUM_ENTRIES: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+    pub(super) static DENY_ENUM: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+    pub(super) static PARSE_ENTRIES: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+    pub(super) static DENY_PARSE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Internal parsed/enumerated payload; never a semantic/source observation.
+pub(super) struct PreparedRunPlan {
+    raw_config: Value,
+    config: ResolvedDiscoveryConfig,
+    plan: CandidatePlan,
+    expansion: ScratchUsage,
+}
+
+impl PreparedRunPlan {
+    pub(super) fn raw_config(&self) -> &Value {
+        &self.raw_config
+    }
+    pub(super) fn config(&self) -> &ResolvedDiscoveryConfig {
+        &self.config
+    }
+    pub(super) fn plan(&self) -> &CandidatePlan {
+        &self.plan
+    }
+    pub(super) fn expansion(&self) -> (usize, usize) {
+        (self.expansion.bytes, self.expansion.nodes)
+    }
+    fn into_parts(self) -> (Value, ResolvedDiscoveryConfig, CandidatePlan) {
+        (self.raw_config, self.config, self.plan)
+    }
+}
+
+/// One unchanged legacy parse boundary, shared with bounded graph preparation.
+pub(super) fn materialize(original: &OriginalJson) -> AppResult<Value> {
+    #[cfg(test)]
+    {
+        PARSE_ENTRIES.with(|value| value.set(value.get() + 1));
+        assert!(
+            !DENY_PARSE.with(std::cell::Cell::get),
+            "JSON materialization must not run before parse-work refusal"
+        );
+    }
+    serde_json::from_slice(original.as_bytes()).map_err(|_| invalid())
+}
+
+pub(super) fn prepare_run_plan(
+    original: &OriginalJson,
+    expected_dataset_hash: &str,
+    prior_bytes: usize,
+    prior_nodes: usize,
+) -> AppResult<PreparedRunPlan> {
+    if prior_bytes > MAX_TOTAL_TEXT_BYTES || prior_nodes > MAX_TOTAL_JSON_NODES {
+        return Err(invalid());
+    }
+    let raw = materialize(original)?;
+    let config = parse_discovery_config(&raw, parser_cores(&raw)?).map_err(|_| invalid())?;
+    if config.dataset.content_hash != expected_dataset_hash {
+        return Err(invalid());
+    }
+    let expansion = scratch_preflight(&config)?;
+    let mut combined = ScratchUsage {
+        bytes: prior_bytes,
+        nodes: prior_nodes,
+    };
+    combined.add_product(1, expansion.bytes, expansion.nodes)?;
+    #[cfg(test)]
+    {
+        ENUM_ENTRIES.with(|value| value.set(value.get() + 1));
+        assert!(
+            !DENY_ENUM.with(std::cell::Cell::get),
+            "Cartesian enumeration must not run before resource refusal"
+        );
+    }
+    let plan = enumerate_candidates(&config).map_err(|_| invalid())?;
+    let total = plan
+        .counts
+        .pruned_invalid
+        .checked_add(plan.counts.duplicates)
+        .and_then(|v| v.checked_add(plan.counts.final_unique));
+    if plan.candidates.is_empty()
+        || plan.candidates.len() > MAX_CANDIDATES
+        || usize::try_from(plan.counts.final_unique).ok() != Some(plan.candidates.len())
+        || plan.counts.raw <= 0
+        || plan.counts.raw > config.caps.candidates
+        || plan.counts.pruned_invalid < 0
+        || plan.counts.duplicates < 0
+        || total != Some(plan.counts.raw)
+        || plan.tested_combinations.n != plan.counts.final_unique
+        || plan.tested_combinations.basis != "lineage-final-unique"
+        || plan.dataset_content_hash != expected_dataset_hash
+        || plan.root_seed != config.root_seed
+        || plan.contract_version != config.contracts.enumeration
+    {
+        return Err(invalid());
+    }
+    for (index, candidate) in plan.candidates.iter().enumerate() {
+        if candidate.index != index as i64
+            || !is_durable_identity(&candidate.strategy_hash, "strategy-v2")
+        {
+            return Err(invalid());
+        }
+    }
+    Ok(PreparedRunPlan {
+        raw_config: raw,
+        config,
+        plan,
+        expansion,
+    })
 }
 
 pub(super) fn derive_selection(roots: &RootRowsObservation) -> AppResult<SourceSelection> {
@@ -251,43 +359,8 @@ pub(super) fn derive_selection(roots: &RootRowsObservation) -> AppResult<SourceS
     if !hash(snapshot_id) || interval.is_empty() || interval.len() > 4096 {
         return Err(invalid());
     }
-    let raw: Value =
-        serde_json::from_slice(roots.run.config_json.as_bytes()).map_err(|_| invalid())?;
-    let config = parse_discovery_config(&raw, parser_cores(&raw)?).map_err(|_| invalid())?;
-    if config.dataset.content_hash != dataset_hash {
-        return Err(invalid());
-    }
-    scratch_preflight(&config)?;
-    #[cfg(test)]
-    {
-        ENUM_ENTRIES.with(|value| value.set(value.get() + 1));
-        assert!(
-            !DENY_ENUM.with(std::cell::Cell::get),
-            "Cartesian enumeration must not run before resource refusal"
-        );
-    }
-    let plan = enumerate_candidates(&config).map_err(|_| invalid())?;
-    let total = plan
-        .counts
-        .pruned_invalid
-        .checked_add(plan.counts.duplicates)
-        .and_then(|v| v.checked_add(plan.counts.final_unique));
-    if plan.candidates.is_empty()
-        || plan.candidates.len() > MAX_CANDIDATES
-        || usize::try_from(plan.counts.final_unique).ok() != Some(plan.candidates.len())
-        || plan.counts.raw <= 0
-        || plan.counts.raw > config.caps.candidates
-        || plan.counts.pruned_invalid < 0
-        || plan.counts.duplicates < 0
-        || total != Some(plan.counts.raw)
-        || plan.tested_combinations.n != plan.counts.final_unique
-        || plan.tested_combinations.basis != "lineage-final-unique"
-        || plan.dataset_content_hash != dataset_hash
-        || plan.root_seed != config.root_seed
-        || plan.contract_version != config.contracts.enumeration
-    {
-        return Err(invalid());
-    }
+    let (_, config, plan) =
+        prepare_run_plan(&roots.run.config_json, dataset_hash, 0, 0)?.into_parts();
     let mut candidates = Vec::new();
     for (index, candidate) in plan.candidates.into_iter().enumerate() {
         if candidate.index != index as i64

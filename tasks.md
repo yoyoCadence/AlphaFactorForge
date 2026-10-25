@@ -6,6 +6,8 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Current Snapshot
 
+- **P13c-4b-2c-2b-1 bounded original lineage preparation locally verified (2026-10-25)** from merged #223 (`6e41648`). Private borrowed graph/parsed vectors and one shared unchanged run-plan path reserve complete P before materialization and P+raw expansion before enumeration (32 MiB / 262144 nodes). Four literal graphs/15 new cases, real exact/one-over byte/node controls, 77 source_rows tests and four assertion-caught/restored mutants pass. **1061 Rust (one ignored) / 1242 Vitest / 80 files**, locked all-target check/Clippy/scoped format/typecheck/build pass (five existing warnings); final caller-state success/refusal extension focused/Clippy passes. Owned root cleaned, logs retained. Exact-head six-job delivery precedes semantic output/hash-copy refinement. Preparation grants no source/semantic/admission authority. [Handoff](handoffs/2026-10-25-p13c4b2c2b1-lineage-preparation-v1.md).
+
 - **P13c-4b-2c-2b bounded consumer preparation contract refined (2026-10-25)** from merged #222 (`754b08a`). Sealed-graph borrowed preparation and one shared original run plan reserve the complete weighted JSON manifest before parsing, then combine P with unchanged raw-expansion B/Q before Cartesian cloning (32 MiB / 262144 nodes). Four independent cases/43 exact document checksums freeze parse/expansion/combined counts; actual future preparation tests are not claimed. First code is preparation only; semantic output/hash-copy budget and all source/admission gates remain separate. Docs/data validation and six-job delivery precede code. Runtime remains #222 verified **1046 Rust (one ignored) / 1242 Vitest / 98 E2E**. [Plan](docs/plans/research-original-lineage-consumers-v1.md), [handoff](handoffs/2026-10-25-p13c4b2c2b-consumer-contract-v1.md).
 
 - **P13c-4b-2c-2a actual producer conformance locally verified (2026-10-25)** from merged #221 (`bf0d69c`). Only the private unchanged runner projection extraction plus six actual producer/repository/history controls; all nine pre-code candidate literals match, including ordered/shared-base dedup and v2/v3 DSL projections. Existing-row contradictory claims remain preserved characterization; intended numeric hash refuses before writes. Six assertion-caught mutants restored exactly; **1046 Rust (one ignored) / 1242 Vitest / 80 files**, all-target check/Clippy/scoped format/typecheck/build pass (five existing warnings). Owned isolated full-check root removed, logs retained. Exact-head six-job CI/merge follows; bounded consumer design is Next after delivery. [Handoff](handoffs/2026-10-24-p13c4b2c2a-producer-controls-v1.md).
@@ -278,7 +280,8 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Next
 
-- **P13c-4b-2c-2b-1 - Bounded original lineage preparation**: Next after bounded consumer design delivery. Implement only the sealed-graph borrowed preparation, complete weighted parse manifest, shared original run-plan extraction and combined P+B/Q pre-enumeration limit. Literal complete SQL graphs, real exact/one-over byte/node boundaries, immutable caller state, parse/enumeration tripwires and four restored assertion mutants; full isolated locked Rust before Node and six-job delivery. No semantic comparison/source builder/runtime authority. [First code contract](docs/plans/research-original-lineage-consumers-v1.md#1-supported-comparison-boundary-and-api-order).
+- **P13c-4b-2c-2b-2-design - Original lineage semantic comparison contract**: Next after bounded preparation delivers. Finalize immutable observation output, original numeric/type/hash/DSL/input/engine/winning-base shared-hypothesis comparison, whole copy/canonical-hash work and independent literal/refusal/mutant controls before separate code. Reuse the sealed prepared input and preserve original bytes/policies; no missing market/warmup/cost/action/file/candle/trial/live-owner/registry authority or source builder. [Required refinement](docs/plans/research-original-lineage-consumers-v1.md#6-later-semantic-gates-remain-mandatory).
+
 
 
 
@@ -330,6 +333,7 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
   6. [x] **APP-STARTUP-ERROR-001 (P2)** — done 2026-10-14 on `fix/startup-error-dialog` (visible startup failure report; see Done). All six quick fixes are complete.
 
 ## In Progress
+
 
 
 
@@ -651,6 +655,8 @@ These were named inside the UI port entry and must not be buried by closing it. 
 - [ ] Full closed-loop AI automation. (Specification: ABC-14.)
 
 ## Done
+
+- [x] **P13c-4b-2c-2b-1 - Bounded original lineage preparation** (2026-10-25; baseline #223 `6e41648`): sealed borrowed graph, read-only parsed vectors/one run plan, complete weighted P preflight and combined unchanged raw-expansion bound before Cartesian cloning. Four literal graphs / 15 new tests, real byte/node exact/one-over tripwires, 77 source_rows and four restored assertion mutants; 1061 Rust (one ignored), 1242 Vitest / 80 files and check/Clippy/scoped format/typecheck/build pass. Final success/refusal caller-state extension focused/Clippy verified. Local implementation complete; six exact-head CI and merge remain delivery gates. Semantic output/hash/copy refinement and all source/admission gates remain separate. [Handoff](handoffs/2026-10-25-p13c4b2c2b1-lineage-preparation-v1.md).
 
 - [x] **P13c-4b-2c-2b-design - Bounded sealed-graph consumer preparation contract** (2026-10-25; baseline #222 `754b08a`): private borrowed preparation/API order, complete weighted P preflight, unchanged shared run-plan extraction and combined parse/expansion limit; four independent cases / 43 exact document manifest controls. First code only prepares, with actual captured-boundary/tripwire/mutant tests required. Semantic output/hash/copy budget and source/market/file/cost/trial/live admission remain separate. Design/data locally complete; six exact-head CI jobs and merge remain delivery gates. [Handoff](handoffs/2026-10-25-p13c4b2c2b-consumer-contract-v1.md).
 
