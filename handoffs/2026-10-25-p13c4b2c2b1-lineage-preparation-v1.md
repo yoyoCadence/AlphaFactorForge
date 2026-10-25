@@ -3,7 +3,7 @@
 Date: 2026-10-25
 Repo: yoyoCadence/AlphaFactorForge
 Branch: feat/p13c4b2c2b1-lineage-preparation
-Status: Local implementation and all checks verified; exact-head CI/delivery pending
+Status: Resolved; merged as PR #224 with six exact-head/base jobs
 
 ## Summary
 
@@ -127,3 +127,21 @@ fixture and diff checks pass. Local implementation complete; draft publication,
 six exact-head/base jobs, fresh reviews/main, expected-head merge and clean-main
 full-tree receipt remain delivery gates. Next is the required semantic output/
 copy/hash-work refinement before any comparison/source implementation.
+
+## Resolution (2026-10-25 delivery)
+
+[PR #224](https://github.com/yoyoCadence/AlphaFactorForge/pull/224) merged as
+`3241451fe0cdbaa0735b2e488aedaf5852cae0d6`. Head
+`62142358f7316870c72258ccc565575ea76a4040`, base
+`6e41648155c18b55b26ec29d8577bcb0d71620a4`; CI run **40146386693**.
+Every completed job log shows this exact head/base checkout. Complete final
+Rust **1061 plus one ignored** (297/762/2; 28.10/267.04/5.71 s), including
+all 15 new preparation tests; Vitest **1242 / 80 files**, E2E **98 without
+retries**, production audit **0**. Native render/invoke/metrics/event round trip,
+exact hosted-policy restoration and owned process/TEMP cleanup pass.
+
+Fresh main unchanged, no reviews/threads, mergeable, ready then expected-head
+merge. GitHub merged/closed read back. Local main fast-forwarded; full tree equals
+tested head, worktree clean. Final PR body contains receipt. The separate
+semantic output/copy/hash-work contract is next; no semantic/source/admission
+authority follows from prepared claims.

@@ -1,0 +1,497 @@
+{
+  "version": "original-lineage-semantics-fixture-v1",
+  "note": "Independent pre-code Python canonical JSON / tagged binary encoding oracle over unchanged producer literals. Logical conservative copy reserve, exact hash preimages/output strings; historical consistency only. Hypothesis IDs 200+i refer to the separately seeded complete graph, not producer fresh DB IDs.",
+  "producerFixture": "original-producer-projections-v1.json",
+  "catalogModes": {
+    "discovery-config-v1": [
+      "params"
+    ],
+    "discovery-config-v2": [
+      "dsl"
+    ],
+    "discovery-config-v3": [
+      "dsl"
+    ]
+  },
+  "maxHashBytes": 33554432,
+  "maxCopyBytes": 67108864,
+  "maxOutputBytes": 4194304,
+  "identityConstructedKeyBytes": 36,
+  "identityTemporaryHexBytes": 64,
+  "identityResultBytes": 76,
+  "cases": [
+    {
+      "id": "v1-ordered-axes",
+      "configJsonBytes": 1928,
+      "configHash": "ecb023d26558412ebd951fa7e230f6486910ff5a623c55d4a4d959ad2881a063",
+      "strategies": [
+        {
+          "index": 0,
+          "definitionJsonBytes": 513,
+          "identityPayloadBytes": 758,
+          "identityHashBytes": 770,
+          "cloneNodes": 38,
+          "nestedDslBytes": 0,
+          "savedDslBytes": 0,
+          "copyBytes": 1447
+        },
+        {
+          "index": 1,
+          "definitionJsonBytes": 513,
+          "identityPayloadBytes": 758,
+          "identityHashBytes": 770,
+          "cloneNodes": 38,
+          "nestedDslBytes": 0,
+          "savedDslBytes": 0,
+          "copyBytes": 1447
+        },
+        {
+          "index": 2,
+          "definitionJsonBytes": 514,
+          "identityPayloadBytes": 758,
+          "identityHashBytes": 770,
+          "cloneNodes": 38,
+          "nestedDslBytes": 0,
+          "savedDslBytes": 0,
+          "copyBytes": 1448
+        }
+      ],
+      "winningBases": [
+        {
+          "baseId": "ma-cross",
+          "canonicalJsonBytes": 509,
+          "strategyDocHash": "strategy-doc-v1:bf9e2f86c96299155d9da6ba031a72d85e10faa2a41f07ac59cb8bae43aed61d",
+          "hashBytes": 509,
+          "copyBytes": 1082
+        }
+      ],
+      "hypotheses": [
+        {
+          "hash": "7d02c9f48e14dcf6177d46f3dcadd94436fd658228e7a172e441010d89128e9f",
+          "canonicalJsonBytes": 819,
+          "hashBytes": 819,
+          "copyBytes": 1702
+        }
+      ],
+      "hashBytes": 5566,
+      "copyBytes": 11490,
+      "cloneNodes": 114,
+      "outputBytes": 508,
+      "expectedObservation": {
+        "configHash": "ecb023d26558412ebd951fa7e230f6486910ff5a623c55d4a4d959ad2881a063",
+        "candidates": [
+          {
+            "index": 0,
+            "strategyId": 1,
+            "strategyHash": "strategy-v2:26b3b04ef9d3c927cbfbda44074ebcc3df6b9e27b254576229faa5757aa49c60",
+            "hypothesisId": 200,
+            "hypothesisHash": "7d02c9f48e14dcf6177d46f3dcadd94436fd658228e7a172e441010d89128e9f",
+            "baseId": "ma-cross"
+          },
+          {
+            "index": 1,
+            "strategyId": 2,
+            "strategyHash": "strategy-v2:3674c76f1087df677d1c3d7ea58ee2b1b2981557f01ea38edfc830cd3740ae30",
+            "hypothesisId": 200,
+            "hypothesisHash": "7d02c9f48e14dcf6177d46f3dcadd94436fd658228e7a172e441010d89128e9f",
+            "baseId": "ma-cross"
+          },
+          {
+            "index": 2,
+            "strategyId": 3,
+            "strategyHash": "strategy-v2:eb2a7e1f826ae0317803e46bd291c8829c853bfd05434338df6f849808b224ba",
+            "hypothesisId": 200,
+            "hypothesisHash": "7d02c9f48e14dcf6177d46f3dcadd94436fd658228e7a172e441010d89128e9f",
+            "baseId": "ma-cross"
+          }
+        ]
+      }
+    },
+    {
+      "id": "v1-shared-dedup",
+      "configJsonBytes": 2514,
+      "configHash": "fa39438268b4245ec73f83bbd854206688656a1e9c3402b8734de6959554a9e6",
+      "strategies": [
+        {
+          "index": 0,
+          "definitionJsonBytes": 511,
+          "identityPayloadBytes": 758,
+          "identityHashBytes": 770,
+          "cloneNodes": 38,
+          "nestedDslBytes": 0,
+          "savedDslBytes": 0,
+          "copyBytes": 1445
+        },
+        {
+          "index": 1,
+          "definitionJsonBytes": 511,
+          "identityPayloadBytes": 758,
+          "identityHashBytes": 770,
+          "cloneNodes": 38,
+          "nestedDslBytes": 0,
+          "savedDslBytes": 0,
+          "copyBytes": 1445
+        },
+        {
+          "index": 2,
+          "definitionJsonBytes": 512,
+          "identityPayloadBytes": 758,
+          "identityHashBytes": 770,
+          "cloneNodes": 38,
+          "nestedDslBytes": 0,
+          "savedDslBytes": 0,
+          "copyBytes": 1446
+        },
+        {
+          "index": 3,
+          "definitionJsonBytes": 512,
+          "identityPayloadBytes": 758,
+          "identityHashBytes": 770,
+          "cloneNodes": 38,
+          "nestedDslBytes": 0,
+          "savedDslBytes": 0,
+          "copyBytes": 1446
+        }
+      ],
+      "winningBases": [
+        {
+          "baseId": "grid-low",
+          "canonicalJsonBytes": 509,
+          "strategyDocHash": "strategy-doc-v1:bf9e2f86c96299155d9da6ba031a72d85e10faa2a41f07ac59cb8bae43aed61d",
+          "hashBytes": 509,
+          "copyBytes": 1082
+        },
+        {
+          "baseId": "grid-high",
+          "canonicalJsonBytes": 509,
+          "strategyDocHash": "strategy-doc-v1:bf9e2f86c96299155d9da6ba031a72d85e10faa2a41f07ac59cb8bae43aed61d",
+          "hashBytes": 509,
+          "copyBytes": 1082
+        }
+      ],
+      "hypotheses": [
+        {
+          "hash": "2d840c49f0b40cad3b3107bded44fb50bbbe7e121965a5b8985353c70e0cb2a6",
+          "canonicalJsonBytes": 795,
+          "hashBytes": 795,
+          "copyBytes": 1654
+        },
+        {
+          "hash": "2ae35a712d6d742c15227e9289951e5de4a7f69f1c38d813701dd8c660764ef8",
+          "canonicalJsonBytes": 796,
+          "hashBytes": 796,
+          "copyBytes": 1656
+        }
+      ],
+      "hashBytes": 8203,
+      "copyBytes": 16941,
+      "cloneNodes": 152,
+      "outputBytes": 657,
+      "expectedObservation": {
+        "configHash": "fa39438268b4245ec73f83bbd854206688656a1e9c3402b8734de6959554a9e6",
+        "candidates": [
+          {
+            "index": 0,
+            "strategyId": 1,
+            "strategyHash": "strategy-v2:26b3b04ef9d3c927cbfbda44074ebcc3df6b9e27b254576229faa5757aa49c60",
+            "hypothesisId": 200,
+            "hypothesisHash": "2d840c49f0b40cad3b3107bded44fb50bbbe7e121965a5b8985353c70e0cb2a6",
+            "baseId": "grid-low"
+          },
+          {
+            "index": 1,
+            "strategyId": 2,
+            "strategyHash": "strategy-v2:3674c76f1087df677d1c3d7ea58ee2b1b2981557f01ea38edfc830cd3740ae30",
+            "hypothesisId": 200,
+            "hypothesisHash": "2d840c49f0b40cad3b3107bded44fb50bbbe7e121965a5b8985353c70e0cb2a6",
+            "baseId": "grid-low"
+          },
+          {
+            "index": 2,
+            "strategyId": 3,
+            "strategyHash": "strategy-v2:eb2a7e1f826ae0317803e46bd291c8829c853bfd05434338df6f849808b224ba",
+            "hypothesisId": 200,
+            "hypothesisHash": "2d840c49f0b40cad3b3107bded44fb50bbbe7e121965a5b8985353c70e0cb2a6",
+            "baseId": "grid-low"
+          },
+          {
+            "index": 3,
+            "strategyId": 4,
+            "strategyHash": "strategy-v2:f5b80d12bc2312ced8eb5e419057524ab1350eedd1b7d2d0228c372ad9643124",
+            "hypothesisId": 201,
+            "hypothesisHash": "2ae35a712d6d742c15227e9289951e5de4a7f69f1c38d813701dd8c660764ef8",
+            "baseId": "grid-high"
+          }
+        ]
+      }
+    },
+    {
+      "id": "v2-fixed-dsl",
+      "configJsonBytes": 1817,
+      "configHash": "a77e90b6f4ee037b12c989bb81c16460669c5b8a3b8a196f7d95e507fd1e5df3",
+      "strategies": [
+        {
+          "index": 0,
+          "definitionJsonBytes": 447,
+          "identityPayloadBytes": 672,
+          "identityHashBytes": 684,
+          "cloneNodes": 41,
+          "nestedDslBytes": 422,
+          "savedDslBytes": 422,
+          "copyBytes": 2139
+        }
+      ],
+      "winningBases": [
+        {
+          "baseId": "dsl-cross",
+          "canonicalJsonBytes": 322,
+          "strategyDocHash": "strategy-doc-v1:20b89bdf54340db55580538ffec5ffe25dbf2ca59e0914427c617914aa9265a2",
+          "hashBytes": 322,
+          "copyBytes": 708
+        }
+      ],
+      "hypotheses": [
+        {
+          "hash": "3014349b7d10936707a90b9b32c2a5c4972b74f943bb81b053863d0626dccc41",
+          "canonicalJsonBytes": 800,
+          "hashBytes": 800,
+          "copyBytes": 1664
+        }
+      ],
+      "hashBytes": 3623,
+      "copyBytes": 8358,
+      "cloneNodes": 41,
+      "outputBytes": 213,
+      "expectedObservation": {
+        "configHash": "a77e90b6f4ee037b12c989bb81c16460669c5b8a3b8a196f7d95e507fd1e5df3",
+        "candidates": [
+          {
+            "index": 0,
+            "strategyId": 1,
+            "strategyHash": "strategy-v2:ec7a4e080eeda603a343839e085e2ef997721906d70f8ce8e6aff6b6d31a9a40",
+            "hypothesisId": 200,
+            "hypothesisHash": "3014349b7d10936707a90b9b32c2a5c4972b74f943bb81b053863d0626dccc41",
+            "baseId": "dsl-cross"
+          }
+        ]
+      }
+    },
+    {
+      "id": "v3-walk-forward",
+      "configJsonBytes": 1982,
+      "configHash": "8aa940678d66a562d7ca9efee85705b5dcfc935dd573fbe05aaa83d60c5bd87d",
+      "strategies": [
+        {
+          "index": 0,
+          "definitionJsonBytes": 447,
+          "identityPayloadBytes": 672,
+          "identityHashBytes": 684,
+          "cloneNodes": 41,
+          "nestedDslBytes": 422,
+          "savedDslBytes": 422,
+          "copyBytes": 2139
+        }
+      ],
+      "winningBases": [
+        {
+          "baseId": "dsl-cross",
+          "canonicalJsonBytes": 322,
+          "strategyDocHash": "strategy-doc-v1:20b89bdf54340db55580538ffec5ffe25dbf2ca59e0914427c617914aa9265a2",
+          "hashBytes": 322,
+          "copyBytes": 708
+        }
+      ],
+      "hypotheses": [
+        {
+          "hash": "3014349b7d10936707a90b9b32c2a5c4972b74f943bb81b053863d0626dccc41",
+          "canonicalJsonBytes": 800,
+          "hashBytes": 800,
+          "copyBytes": 1664
+        }
+      ],
+      "hashBytes": 3788,
+      "copyBytes": 8688,
+      "cloneNodes": 41,
+      "outputBytes": 213,
+      "expectedObservation": {
+        "configHash": "8aa940678d66a562d7ca9efee85705b5dcfc935dd573fbe05aaa83d60c5bd87d",
+        "candidates": [
+          {
+            "index": 0,
+            "strategyId": 1,
+            "strategyHash": "strategy-v2:ec7a4e080eeda603a343839e085e2ef997721906d70f8ce8e6aff6b6d31a9a40",
+            "hypothesisId": 200,
+            "hypothesisHash": "3014349b7d10936707a90b9b32c2a5c4972b74f943bb81b053863d0626dccc41",
+            "baseId": "dsl-cross"
+          }
+        ]
+      }
+    }
+  ],
+  "outputBoundaryRecipe": {
+    "familyCandidates": 1101,
+    "mainCandidates": 1100,
+    "mainBaseIdBytes": 3672,
+    "otherCandidates": 1,
+    "otherBaseIdBytes": 900,
+    "configHashBytes": 64,
+    "strategyHashBytes": 76,
+    "hypothesisHashBytes": 64,
+    "exactOutputBytes": 4194304,
+    "oneOverOtherBaseIdBytes": 901,
+    "producerTemplate": "v1-ordered-axes",
+    "configCandidatesCap": 4096,
+    "mainBaseIdCharacter": "m",
+    "otherBaseIdCharacter": "o",
+    "mainAxes": [
+      {
+        "key": "fastMA",
+        "min": 1,
+        "max": 44,
+        "step": 1
+      },
+      {
+        "key": "emaPeriod",
+        "min": 1,
+        "max": 25,
+        "step": 1
+      }
+    ],
+    "baseSlowMA": 2000,
+    "otherFixedEmaPeriod": 51,
+    "sourceBaseEmaPeriod": 50,
+    "otherAxes": [],
+    "exactTotals": {
+      "hashBytes": 862057,
+      "copyBytes": 5818958,
+      "cloneNodes": 41838,
+      "parseBytes": 5826401,
+      "parseNodes": 79614,
+      "expansionBytes": 4679715,
+      "expansionNodes": 44036,
+      "scratchBytes": 10506116,
+      "scratchNodes": 123650,
+      "outputBytes": 4194304
+    },
+    "oneOverTotals": {
+      "hashBytes": 862059,
+      "copyBytes": 5818963,
+      "cloneNodes": 41838,
+      "parseBytes": 5826405,
+      "parseNodes": 79614,
+      "expansionBytes": 4679716,
+      "expansionNodes": 44036,
+      "scratchBytes": 10506121,
+      "scratchNodes": 123650,
+      "outputBytes": 4194305
+    }
+  },
+  "resourceBoundaryRecipes": [
+    {
+      "kind": "hash",
+      "producerTemplate": "v1-ordered-axes",
+      "familyCandidates": 8,
+      "numericScalarsPerStoredDefinition": 32000,
+      "paddingField": "entryCode",
+      "asciiPaddingBytesByCandidateIndex": [
+        3905206,
+        3905206,
+        3905206,
+        3905206,
+        3905206,
+        3905206,
+        3905205,
+        3905205
+      ],
+      "zeroToTenReplacementsInFirstCandidate": 0,
+      "exact": {
+        "hashBytes": 33554432,
+        "copyBytes": 65317632,
+        "parseBytes": 31770868,
+        "parseNodes": 256789,
+        "expansionBytes": 4672,
+        "expansionNodes": 320,
+        "scratchBytes": 31775540,
+        "scratchNodes": 257109,
+        "outputBytes": 1288
+      },
+      "oneOver": {
+        "hashBytes": 33554433,
+        "copyBytes": 65317634,
+        "parseBytes": 31770869,
+        "parseNodes": 256789,
+        "expansionBytes": 4672,
+        "expansionNodes": 320,
+        "scratchBytes": 31775541,
+        "scratchNodes": 257109,
+        "outputBytes": 1288
+      },
+      "oneOverChange": "first entryCode +1 byte",
+      "configCandidatesCap": 4096,
+      "normalRows": "Independent original enumeration/hash-sort/seed-v1 and original lineage; dataset 7, interval 1h, run 1, strategy index+1, hypothesis 200+base order. Only stored definition/DSL claims below are changed before raw SQL capture.",
+      "configChanges": {
+        "singleBaseId": "resource-main",
+        "fastMAAxis": {
+          "min": 1,
+          "max": 8,
+          "step": 1
+        },
+        "retainConstantSlowMAAxis": 21
+      },
+      "storedChanges": {
+        "entryRules": "32000 integer zeros per stored definition",
+        "entryCode": "x repeated exactly asciiPaddingBytesByCandidateIndex"
+      }
+    },
+    {
+      "kind": "copy",
+      "producerTemplate": "v2-fixed-dsl",
+      "familyCandidates": 5,
+      "numericScalarsPerStoredDefinition": 24000,
+      "paddingField": "dsl.name (also saved DSL)",
+      "asciiPaddingBytesByCandidateIndex": [
+        3179885,
+        3179885,
+        3179884,
+        3179884,
+        3179884
+      ],
+      "zeroToTenReplacementsInFirstCandidate": 1,
+      "exact": {
+        "hashBytes": 16992360,
+        "copyBytes": 67108864,
+        "parseBytes": 32301046,
+        "parseNodes": 241169,
+        "expansionBytes": 2300,
+        "expansionNodes": 195,
+        "scratchBytes": 32303346,
+        "scratchNodes": 241364,
+        "outputBytes": 834
+      },
+      "oneOver": {
+        "hashBytes": 16992360,
+        "copyBytes": 67108865,
+        "parseBytes": 32301048,
+        "parseNodes": 241169,
+        "expansionBytes": 2300,
+        "expansionNodes": 195,
+        "scratchBytes": 32303348,
+        "scratchNodes": 241364,
+        "outputBytes": 834
+      },
+      "oneOverChange": "one additional 0 -> 10 replacement in first candidate nested and saved DSL",
+      "configCandidatesCap": 4096,
+      "normalRows": "Independent original enumeration/hash-sort/seed-v1 and original lineage; dataset 7, interval 1h, run 1, strategy index+1, hypothesis 200+base order. Only stored definition/DSL claims below are changed before raw SQL capture.",
+      "configChanges": {
+        "baseCopies": 5,
+        "baseIdPattern": "resource-dsl-{i}",
+        "originalDslNamePattern": "Resource {i}",
+        "axes": []
+      },
+      "storedChanges": {
+        "dsl.name": "x repeated exactly asciiPaddingBytesByCandidateIndex, same in saved DSL",
+        "dsl.params.noise": "24000 integer zeros, same in saved DSL; in first candidate change first stated count to integer 10"
+      }
+    }
+  ]
+}

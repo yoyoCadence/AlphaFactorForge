@@ -6,6 +6,8 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Current Snapshot
 
+- **P13c-4b-2c-2b-2 original lineage semantic contract refined (2026-10-25)** from merged #224 (`3241451`). One sealed whole-family historical observation, explicit first mode catalog, original cost/type/hash/DSL and exact input/engine/winning-base/shared-hypothesis rules. Whole post-preparation W32 MiB / C64 MiB / O4 MiB preflight, four independent Python/Node result/work controls and three feasible real-capture boundary recipes are frozen before code; output uses 44*25+1 candidates within64-per-axis cap. Strict JSON/source/links/scope/lifecycle checks pass. Design/data only; no future semantic test is claimed. Runtime remains #224 verified **1061 Rust (one ignored) / 1242 Vitest / 98 E2E**; exact-head delivery precedes code. Missing mode coverage/source/live gates remain tracked. [Plan](docs/plans/research-original-lineage-semantics-v1.md), [handoff](handoffs/2026-10-25-p13c4b2c2b2-semantic-contract-v1.md).
+
 - **P13c-4b-2c-2b-1 bounded original lineage preparation locally verified (2026-10-25)** from merged #223 (`6e41648`). Private borrowed graph/parsed vectors and one shared unchanged run-plan path reserve complete P before materialization and P+raw expansion before enumeration (32 MiB / 262144 nodes). Four literal graphs/15 new cases, real exact/one-over byte/node controls, 77 source_rows tests and four assertion-caught/restored mutants pass. **1061 Rust (one ignored) / 1242 Vitest / 80 files**, locked all-target check/Clippy/scoped format/typecheck/build pass (five existing warnings); final caller-state success/refusal extension focused/Clippy passes. Owned root cleaned, logs retained. Exact-head six-job delivery precedes semantic output/hash-copy refinement. Preparation grants no source/semantic/admission authority. [Handoff](handoffs/2026-10-25-p13c4b2c2b1-lineage-preparation-v1.md).
 
 - **P13c-4b-2c-2b bounded consumer preparation contract refined (2026-10-25)** from merged #222 (`754b08a`). Sealed-graph borrowed preparation and one shared original run plan reserve the complete weighted JSON manifest before parsing, then combine P with unchanged raw-expansion B/Q before Cartesian cloning (32 MiB / 262144 nodes). Four independent cases/43 exact document checksums freeze parse/expansion/combined counts; actual future preparation tests are not claimed. First code is preparation only; semantic output/hash-copy budget and all source/admission gates remain separate. Docs/data validation and six-job delivery precede code. Runtime remains #222 verified **1046 Rust (one ignored) / 1242 Vitest / 98 E2E**. [Plan](docs/plans/research-original-lineage-consumers-v1.md), [handoff](handoffs/2026-10-25-p13c4b2c2b-consumer-contract-v1.md).
@@ -280,7 +282,8 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Next
 
-- **P13c-4b-2c-2b-2-design - Original lineage semantic comparison contract**: Next after bounded preparation delivers. Finalize immutable observation output, original numeric/type/hash/DSL/input/engine/winning-base shared-hypothesis comparison, whole copy/canonical-hash work and independent literal/refusal/mutant controls before separate code. Reuse the sealed prepared input and preserve original bytes/policies; no missing market/warmup/cost/action/file/candle/trial/live-owner/registry authority or source builder. [Required refinement](docs/plans/research-original-lineage-consumers-v1.md#6-later-semantic-gates-remain-mandatory).
+- **P13c-4b-2c-2b-2 - Original lineage semantic observation**: Next after semantic design delivery. Implement only the sealed graph/one-preparation entry, immutable whole-family result, supported original candidate/cost/DSL/input/engine/winning-base/shared-hypothesis checks and complete W/C/O preflight using unchanged helpers. Four independent literal results/work counts, real feasible W/C/O boundaries, every field/type/refusal/caller-state control and six restored assertion mutants; isolated full locked Rust before Node and six-job delivery. No source/RegisteredSource/live admission. [Frozen code contract](docs/plans/research-original-lineage-semantics-v1.md#6-first-code-verification-and-delivery).
+
 
 
 
@@ -373,9 +376,12 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 
 
+
 - **P09 authenticated external acceptance** (2026-09-21): implementation/local verification Done (below), but live Tiingo download, free entitlement and payment coverage still require the operator's token in Windows Credential Manager. User intends to register; native status currently `credential_missing`. Re-run the documented bounded range after setup and append evidence to the P09 handoff.
 
 ## Backlog
+
+- **P13c-4b-2c-2b-3 - Original envelope/mode coverage extension**: After 2b-2 delivers, promote/refine this support design before warmup/market/trial code. First semantic catalog only covers producer-grounded v1 params / v2-v3 fixed DSL; add independently frozen actual producer/conformance controls before extending to v2/v3 params or mixed-mode families. No fallback or claim that parent source adapters are complete. [Remaining coverage](docs/plans/research-original-lineage-semantics-v1.md#7-remaining-source-obligations).
 
 - [ ] **TEST-WINDOWS-TEMP-ISOLATION-001 — Investigate PID-reused fixture state and cleanup (P3)** (2026-10-24): three campaign/admission and two alpha-transfer cases failed with old counts/Replayed in default TEMP; unchanged source passed all 1011 Rust tests in a unique TEMP/TMP root. Existing PID+counter helpers and deletion before DB-field drop can leave reusable SQLite state on Windows. Reproduce and scope a test-only identity/handle-close/cleanup fix for the three fixture groups; preserve original receipts and production behavior. Separate from P13; do not reorder the current product work. [Evidence](handoffs/2026-10-24-p13c4b2b2a-root-selection-v1.md#full-verification--windows-temp-evidence).
 
@@ -655,6 +661,8 @@ These were named inside the UI port entry and must not be buried by closing it. 
 - [ ] Full closed-loop AI automation. (Specification: ABC-14.)
 
 ## Done
+
+- [x] **P13c-4b-2c-2b-2-design - Original lineage semantic comparison contract** (2026-10-25; baseline #224 `3241451`): original whole-family comparison/API/immutable output, explicit supported catalog and W/C/O preflight using unchanged identities/canonical helpers; four independent literal results/work plus feasible hash/copy/output recipes, independently verified in Python/Node. Source axis-cap review corrected draft output construction to44*25+1 before publication; original failure/decision recorded. Docs/data locally complete; six exact-head CI and merge remain delivery gates. Mode coverage and all remaining source/admission obligations stay incomplete. [Handoff](handoffs/2026-10-25-p13c4b2c2b2-semantic-contract-v1.md).
 
 - [x] **P13c-4b-2c-2b-1 - Bounded original lineage preparation** (2026-10-25; baseline #223 `6e41648`): sealed borrowed graph, read-only parsed vectors/one run plan, complete weighted P preflight and combined unchanged raw-expansion bound before Cartesian cloning. Four literal graphs / 15 new tests, real byte/node exact/one-over tripwires, 77 source_rows and four restored assertion mutants; 1061 Rust (one ignored), 1242 Vitest / 80 files and check/Clippy/scoped format/typecheck/build pass. Final success/refusal caller-state extension focused/Clippy verified. Local implementation complete; six exact-head CI and merge remain delivery gates. Semantic output/hash/copy refinement and all source/admission gates remain separate. [Handoff](handoffs/2026-10-25-p13c4b2c2b1-lineage-preparation-v1.md).
 
