@@ -1,4 +1,4 @@
-//! Bounded preparation of original lineage claims, never semantic/source proof.
+//! Bounded preparation and whole-family historical lineage agreement.
 //! The graph stays borrowed; only the declared JSON and one run plan materialize.
 
 use alpha_factor_forge::discovery_core::{
@@ -9,6 +9,8 @@ use serde_json::Value;
 use super::super::selection::{materialize, prepare_run_plan, PreparedRunPlan};
 use super::{OriginalJson, SourceRowsObservation, MAX_TOTAL_JSON_NODES, MAX_TOTAL_TEXT_BYTES};
 use crate::error::{AppError, AppResult};
+
+mod semantics;
 
 fn invalid() -> AppError {
     AppError::Other("original_lineage_invalid".into())
@@ -207,6 +209,62 @@ pub(in crate::research::confirmation_inputs) fn prepare_original_lineage(
         parse,
         combined,
     })
+}
+
+/// Complete historical lineage agreement; no source/admission capability.
+#[derive(Clone, Eq, PartialEq)]
+pub(in crate::research::confirmation_inputs) struct OriginalLineageObservation {
+    config_hash: String,
+    candidates: Vec<CandidateLineageObservation>,
+}
+
+#[derive(Clone, Eq, PartialEq)]
+pub(in crate::research::confirmation_inputs) struct CandidateLineageObservation {
+    index: i64,
+    strategy_id: i64,
+    strategy_hash: String,
+    hypothesis_id: i64,
+    hypothesis_hash: String,
+    base_id: String,
+}
+
+impl OriginalLineageObservation {
+    pub(in crate::research::confirmation_inputs) fn config_hash(&self) -> &str {
+        &self.config_hash
+    }
+    pub(in crate::research::confirmation_inputs) fn candidates(
+        &self,
+    ) -> &[CandidateLineageObservation] {
+        &self.candidates
+    }
+}
+
+impl CandidateLineageObservation {
+    pub(in crate::research::confirmation_inputs) fn index(&self) -> i64 {
+        self.index
+    }
+    pub(in crate::research::confirmation_inputs) fn strategy_id(&self) -> i64 {
+        self.strategy_id
+    }
+    pub(in crate::research::confirmation_inputs) fn strategy_hash(&self) -> &str {
+        &self.strategy_hash
+    }
+    pub(in crate::research::confirmation_inputs) fn hypothesis_id(&self) -> i64 {
+        self.hypothesis_id
+    }
+    pub(in crate::research::confirmation_inputs) fn hypothesis_hash(&self) -> &str {
+        &self.hypothesis_hash
+    }
+    pub(in crate::research::confirmation_inputs) fn base_id(&self) -> &str {
+        &self.base_id
+    }
+}
+
+pub(in crate::research::confirmation_inputs) fn observe_original_lineage(
+    rows: &SourceRowsObservation,
+) -> AppResult<OriginalLineageObservation> {
+    let prepared = prepare_original_lineage(rows)?;
+    semantics::observe(&prepared)
 }
 
 #[cfg(test)]

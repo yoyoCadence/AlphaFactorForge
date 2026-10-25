@@ -13,6 +13,9 @@ use std::{
     time::Duration,
 };
 
+mod semantic_boundaries;
+mod semantic_controls;
+
 #[path = "boundaries.rs"]
 mod boundaries;
 

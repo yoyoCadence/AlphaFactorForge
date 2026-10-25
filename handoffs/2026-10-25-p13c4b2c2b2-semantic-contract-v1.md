@@ -3,7 +3,7 @@
 Date: 2026-10-25
 Repo: yoyoCadence/AlphaFactorForge
 Branch: docs/p13c4b2c2b2-semantic-contract
-Status: Design/data independently verified; exact-head CI/delivery pending
+Status: Resolved; merged as PR #225 with six final-head/base jobs
 
 ## Summary
 
@@ -136,3 +136,22 @@ SHA-256 values, actual reference result IDs and unchanged W/C/O, plus exact
 +4-byte P/combined work. The source's BTreeSet-ID reads and candidate-index
 ordering were rechecked; no runtime/fixture compatibility is claimed before
 the future actual captured control runs.
+
+## Resolution (2026-10-25 delivery)
+
+[PR #225](https://github.com/yoyoCadence/AlphaFactorForge/pull/225) merged as
+`bca7d5a0d42213806f9d9f85dc03d2d70fc01d64`. Final head
+`678a2714d1d975776c2b47c546c8e1263b8072c9`, base
+`3241451fe0cdbaa0735b2e488aedaf5852cae0d6`; run **40166418912**.
+All six completed job logs show this exact head/base; earlier head/run is not
+final delivery evidence. Rust **1061 plus one ignored** (297/762/2;
+16.64/246.94/5.66 s), Vitest **1242 / 80 files**, E2E **98 without retries**,
+production audit **0**. Native render/invoke/metrics/event, exact hosted-policy
+restoration and owned process/TEMP cleanup pass. Generic unchanged runtime
+checks do not claim future semantic/capture tests ran.
+
+Fresh main unchanged, no reviews/threads, mergeable, ready then expected-head
+merge. GitHub merged/closed read back; local main fast-forwarded with full tree
+equal to final tested head and clean worktree. Final PR body includes receipt.
+Only the frozen whole-family semantic implementation follows; source/admission
+and missing mode coverage gates remain incomplete.
