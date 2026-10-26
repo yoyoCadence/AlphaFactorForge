@@ -129,12 +129,35 @@ fn stored_attempt(conn: &Connection, id: i64) -> Value {
 }
 
 fn conforms(id: &str) {
-    let case = control(id);
+    conforms_case(control(id));
+}
+
+// Both fixture generations exercise the same unchanged production writers.
+fn conforms_case(case: Value) {
+    let id = case["id"].as_str().unwrap();
     let raw: Value = serde_json::from_str(case["configJson"].as_str().unwrap()).unwrap();
     let config = parse_discovery_config(&raw, case["parserCores"].as_f64().unwrap()).unwrap();
     let plan = enumerate_candidates(&config).unwrap();
     let expected = case["candidates"].as_array().unwrap();
     assert_eq!(plan.candidates.len(), expected.len(), "{id}");
+    if let Some(counts) = case.get("counts") {
+        assert_eq!(serde_json::to_value(plan.counts).unwrap(), *counts, "{id}");
+    }
+    if let Some(raw_sha) = case.get("configRawSha256") {
+        assert_eq!(
+            sha256_hex(case["configJson"].as_str().unwrap().as_bytes()),
+            *raw_sha,
+            "{id}"
+        );
+        let base_ids: Vec<_> = config.bases.iter().map(|base| base.id.as_str()).collect();
+        assert_eq!(
+            serde_json::to_value(base_ids).unwrap(),
+            case["configBaseIds"],
+            "{id}"
+        );
+        assert_eq!(config.envelope_version, case["envelopeVersion"], "{id}");
+    }
+
     assert_eq!(
         sha256_hex(&canonical_json(&raw).unwrap()),
         case["configHash"],
@@ -239,6 +262,17 @@ fn conforms(id: &str) {
     let tx = f.conn.as_mut().unwrap().transaction().unwrap();
     let registered =
         research_history::register_run_lineage_with_events(&tx, &lineage, None).unwrap();
+    if let Some(references) = case.get("expectedFreshHistoryReferences") {
+        let actual: Vec<_> = registered.iter().zip(&lineage).map(|((hypothesis_id, _), (_, attempt))| {
+            json!({"index":attempt.candidate_index,"hypothesisId":hypothesis_id,"strategyId":attempt.strategy_id})
+        }).collect();
+        assert_eq!(
+            json!(actual),
+            *references,
+            "{id}: actual first-encounter history IDs"
+        );
+    }
+
     // Complete hypothesis content deduplicates; attempts keep their unique keys.
     for ((hypothesis, _), (registered_hypothesis, _)) in lineage.iter().zip(&registered) {
         let (again, created) = research_history::register_hypothesis(&tx, hypothesis).unwrap();
@@ -255,6 +289,10 @@ fn conforms(id: &str) {
         "{id}"
     );
     for ((hypothesis_id, attempt_id), expected) in registered.iter().zip(expected) {
+        if let Some(fresh_id) = expected.get("freshHypothesisId") {
+            assert_eq!(json!(hypothesis_id), *fresh_id, "{id}");
+        }
+
         let h = hypotheses
             .iter()
             .find(|h| h["hash"] == expected["hypothesisHash"])
@@ -288,6 +326,7 @@ fn conforms(id: &str) {
         "discovery_jobs",
         "research_artifacts",
         "backtest_summary",
+        "validation_records",
         "trades",
     ] {
         assert_eq!(
@@ -297,6 +336,52 @@ fn conforms(id: &str) {
         );
     }
     assert_eq!(count(f.conn(), "strategy_def"), expected.len() as i64);
+    let saved_config: String = f
+        .conn()
+        .query_row(
+            "SELECT config_json FROM discovery_runs WHERE id=?1",
+            [case["runId"].as_i64().unwrap()],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(
+        saved_config, case["configJson"],
+        "{id}: exact original config bytes"
+    );
+}
+
+fn mode_family_conforms(id: &str) {
+    const MODE_CONTROLS: &str =
+        include_str!("../../../../fixtures/research/original-producer-mode-coverage-v1.json");
+    let controls: Value = serde_json::from_str(MODE_CONTROLS).unwrap();
+    let case = controls["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|case| case["id"] == id)
+        .unwrap()
+        .clone();
+    conforms_case(case);
+}
+
+#[test]
+fn mode_family_v2_params_original_producer_conforms() {
+    mode_family_conforms("v2-params");
+}
+
+#[test]
+fn mode_family_v3_params_original_producer_conforms() {
+    mode_family_conforms("v3-params");
+}
+
+#[test]
+fn mode_family_v2_mixed_original_producer_conforms() {
+    mode_family_conforms("v2-mixed-params-first");
+}
+
+#[test]
+fn mode_family_v3_dsl_first_original_producer_conforms() {
+    mode_family_conforms("v3-mixed-dsl-first");
 }
 
 #[test]
