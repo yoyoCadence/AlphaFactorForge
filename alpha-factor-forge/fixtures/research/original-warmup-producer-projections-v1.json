@@ -1,0 +1,910 @@
+{
+  "version": "original-warmup-producer-projections-v1",
+  "note": "Independently authored producer-level arithmetic controls; no original admission, authenticated candle count, execution or consumer support claim. Existing original JSON/numeric/identity policies unchanged.",
+  "maxSafeInteger": 9007199254740991,
+  "sourceFixtures": [
+    {
+      "path": "original-producer-projections-v1.json",
+      "lfPackagingSha256": "62477d35d2f4db70e682cdf230b44788a0319024b493ef6765bb6881ebe8d6d9"
+    },
+    {
+      "path": "original-producer-mode-coverage-v1.json",
+      "lfPackagingSha256": "f61dbea3c78265d2758beaeff1ce41eda41e6530008655484cf84cfd60ca474e"
+    }
+  ],
+  "cases": [
+    {
+      "id": "params-ma-cross",
+      "strategyJson": "{\"bbMult\":2,\"bbPeriod\":20,\"direction\":\"long\",\"emaPeriod\":50,\"entryCode\":\"crossUp(macd, macdSignal)\",\"entryRules\":[{\"l\":\"maFast\",\"op\":\"crossUp\",\"r\":\"maSlow\"}],\"entrySig\":\"maCrossUp\",\"exitCode\":\"crossDown(macd, macdSignal)\",\"exitRules\":[{\"l\":\"maFast\",\"op\":\"crossDown\",\"r\":\"maSlow\"}],\"exitSig\":\"maCrossDown\",\"fastMA\":8.0,\"feePct\":0.05,\"fillMode\":\"close\",\"macdFast\":12,\"macdSignal\":9,\"macdSlow\":26,\"mode\":\"params\",\"rsiBuy\":30,\"rsiPeriod\":14,\"rsiSell\":70,\"sizePct\":100,\"slPct\":0,\"slipPct\":0.02,\"slowMA\":21.0,\"tpPct\":0}",
+      "strategySha256": "78edba111d5b56491d41296c3739b9817e205515e3296ff1100dcc0899efc175",
+      "holdingAllowanceBars": 10,
+      "expected": {
+        "status": "ok",
+        "derivation": {
+          "maxSignalLookbackBars": 22,
+          "holdingAllowanceBars": 10,
+          "embargoBars": 32
+        }
+      },
+      "note": ""
+    },
+    {
+      "id": "params-fast-dominates",
+      "strategyJson": "{\"bbMult\":2,\"bbPeriod\":20,\"direction\":\"long\",\"emaPeriod\":50,\"entryCode\":\"crossUp(macd, macdSignal)\",\"entryRules\":[{\"l\":\"maFast\",\"op\":\"crossUp\",\"r\":\"maSlow\"}],\"entrySig\":\"maCrossUp\",\"exitCode\":\"crossDown(macd, macdSignal)\",\"exitRules\":[{\"l\":\"maFast\",\"op\":\"crossDown\",\"r\":\"maSlow\"}],\"exitSig\":\"maCrossDown\",\"fastMA\":30,\"feePct\":0.05,\"fillMode\":\"close\",\"macdFast\":12,\"macdSignal\":9,\"macdSlow\":26,\"mode\":\"params\",\"rsiBuy\":30,\"rsiPeriod\":14,\"rsiSell\":70,\"sizePct\":100,\"slPct\":0,\"slipPct\":0.02,\"slowMA\":10,\"tpPct\":0}",
+      "strategySha256": "9215a30aac86655d4fe1b25899a476e2f7a24d8761b6477e2fe19a7559cfad34",
+      "holdingAllowanceBars": 0,
+      "expected": {
+        "status": "ok",
+        "derivation": {
+          "maxSignalLookbackBars": 31,
+          "holdingAllowanceBars": 0,
+          "embargoBars": 31
+        }
+      },
+      "note": ""
+    },
+    {
+      "id": "params-price-no-cross",
+      "strategyJson": "{\"bbMult\":2,\"bbPeriod\":20,\"direction\":\"long\",\"emaPeriod\":50,\"entryCode\":\"crossUp(macd, macdSignal)\",\"entryRules\":[{\"l\":\"maFast\",\"op\":\"crossUp\",\"r\":\"maSlow\"}],\"entrySig\":\"priceAboveSlow\",\"exitCode\":\"crossDown(macd, macdSignal)\",\"exitRules\":[{\"l\":\"maFast\",\"op\":\"crossDown\",\"r\":\"maSlow\"}],\"exitSig\":\"priceBelowSlow\",\"fastMA\":400,\"feePct\":0.05,\"fillMode\":\"close\",\"macdFast\":12,\"macdSignal\":9,\"macdSlow\":26,\"mode\":\"params\",\"rsiBuy\":30,\"rsiPeriod\":14,\"rsiSell\":70,\"sizePct\":100,\"slPct\":0,\"slipPct\":0.02,\"slowMA\":13,\"tpPct\":0}",
+      "strategySha256": "6d0c14daadbfddb20849fb648de42f97e0634d493434d37eaf57be83dbbc3ce8",
+      "holdingAllowanceBars": 7,
+      "expected": {
+        "status": "ok",
+        "derivation": {
+          "maxSignalLookbackBars": 13,
+          "holdingAllowanceBars": 7,
+          "embargoBars": 20
+        }
+      },
+      "note": ""
+    },
+    {
+      "id": "params-ema-cross",
+      "strategyJson": "{\"bbMult\":2,\"bbPeriod\":20,\"direction\":\"long\",\"emaPeriod\":17,\"entryCode\":\"crossUp(macd, macdSignal)\",\"entryRules\":[{\"l\":\"maFast\",\"op\":\"crossUp\",\"r\":\"maSlow\"}],\"entrySig\":\"emaCrossUp\",\"exitCode\":\"crossDown(macd, macdSignal)\",\"exitRules\":[{\"l\":\"maFast\",\"op\":\"crossDown\",\"r\":\"maSlow\"}],\"exitSig\":\"emaCrossDown\",\"fastMA\":8.0,\"feePct\":0.05,\"fillMode\":\"close\",\"macdFast\":12,\"macdSignal\":9,\"macdSlow\":26,\"mode\":\"params\",\"rsiBuy\":30,\"rsiPeriod\":14,\"rsiSell\":70,\"sizePct\":100,\"slPct\":0,\"slipPct\":0.02,\"slowMA\":21.0,\"tpPct\":0}",
+      "strategySha256": "2d8b29cca5a13b4e70dd81fdd2c4759ee325fa416a6ae1dca0d0623d731ddf7d",
+      "holdingAllowanceBars": 3,
+      "expected": {
+        "status": "ok",
+        "derivation": {
+          "maxSignalLookbackBars": 18,
+          "holdingAllowanceBars": 3,
+          "embargoBars": 21
+        }
+      },
+      "note": ""
+    },
+    {
+      "id": "params-rsi-previous",
+      "strategyJson": "{\"bbMult\":2,\"bbPeriod\":20,\"direction\":\"long\",\"emaPeriod\":50,\"entryCode\":\"crossUp(macd, macdSignal)\",\"entryRules\":[{\"l\":\"maFast\",\"op\":\"crossUp\",\"r\":\"maSlow\"}],\"entrySig\":\"rsiOversold\",\"exitCode\":\"crossDown(macd, macdSignal)\",\"exitRules\":[{\"l\":\"maFast\",\"op\":\"crossDown\",\"r\":\"maSlow\"}],\"exitSig\":\"rsiOverbought\",\"fastMA\":8.0,\"feePct\":0.05,\"fillMode\":\"close\",\"macdFast\":12,\"macdSignal\":9,\"macdSlow\":26,\"mode\":\"params\",\"rsiBuy\":30,\"rsiPeriod\":14,\"rsiSell\":70,\"sizePct\":100,\"slPct\":0,\"slipPct\":0.02,\"slowMA\":21.0,\"tpPct\":0}",
+      "strategySha256": "741da2657a69dd2bedc1a40cf5d005008686b79f6c524669ee78c3229054c671",
+      "holdingAllowanceBars": 0,
+      "expected": {
+        "status": "ok",
+        "derivation": {
+          "maxSignalLookbackBars": 16,
+          "holdingAllowanceBars": 0,
+          "embargoBars": 16
+        }
+      },
+      "note": ""
+    },
+    {
+      "id": "params-macd-swapped",
+      "strategyJson": "{\"bbMult\":2,\"bbPeriod\":20,\"direction\":\"long\",\"emaPeriod\":50,\"entryCode\":\"crossUp(macd, macdSignal)\",\"entryRules\":[{\"l\":\"maFast\",\"op\":\"crossUp\",\"r\":\"maSlow\"}],\"entrySig\":\"macdCrossUp\",\"exitCode\":\"crossDown(macd, macdSignal)\",\"exitRules\":[{\"l\":\"maFast\",\"op\":\"crossDown\",\"r\":\"maSlow\"}],\"exitSig\":\"macdCrossDown\",\"fastMA\":8.0,\"feePct\":0.05,\"fillMode\":\"close\",\"macdFast\":26,\"macdSignal\":9,\"macdSlow\":12,\"mode\":\"params\",\"rsiBuy\":30,\"rsiPeriod\":14,\"rsiSell\":70,\"sizePct\":100,\"slPct\":0,\"slipPct\":0.02,\"slowMA\":21.0,\"tpPct\":0}",
+      "strategySha256": "4250e9d7273ed5a9d2f851db6a73d8745edf5cfc7a01b8aedf3d73132c23e0d2",
+      "holdingAllowanceBars": 2,
+      "expected": {
+        "status": "ok",
+        "derivation": {
+          "maxSignalLookbackBars": 35,
+          "holdingAllowanceBars": 2,
+          "embargoBars": 37
+        }
+      },
+      "note": ""
+    },
+    {
+      "id": "params-bollinger",
+      "strategyJson": "{\"bbMult\":2,\"bbPeriod\":20,\"direction\":\"long\",\"emaPeriod\":50,\"entryCode\":\"crossUp(macd, macdSignal)\",\"entryRules\":[{\"l\":\"maFast\",\"op\":\"crossUp\",\"r\":\"maSlow\"}],\"entrySig\":\"bbLowerTouch\",\"exitCode\":\"crossDown(macd, macdSignal)\",\"exitRules\":[{\"l\":\"maFast\",\"op\":\"crossDown\",\"r\":\"maSlow\"}],\"exitSig\":\"bbUpperTouch\",\"fastMA\":8.0,\"feePct\":0.05,\"fillMode\":\"close\",\"macdFast\":12,\"macdSignal\":9,\"macdSlow\":26,\"mode\":\"params\",\"rsiBuy\":30,\"rsiPeriod\":14,\"rsiSell\":70,\"sizePct\":100,\"slPct\":0,\"slipPct\":0.02,\"slowMA\":21.0,\"tpPct\":0}",
+      "strategySha256": "960bac5d0b517a68056dbe0ba61dd09230d5ff0ec8c5aed24f010fbc91ed9cf5",
+      "holdingAllowanceBars": 4,
+      "expected": {
+        "status": "ok",
+        "derivation": {
+          "maxSignalLookbackBars": 20,
+          "holdingAllowanceBars": 4,
+          "embargoBars": 24
+        }
+      },
+      "note": ""
+    },
+    {
+      "id": "params-exit-dominates",
+      "strategyJson": "{\"bbMult\":2,\"bbPeriod\":20,\"direction\":\"long\",\"emaPeriod\":50,\"entryCode\":\"crossUp(macd, macdSignal)\",\"entryRules\":[{\"l\":\"maFast\",\"op\":\"crossUp\",\"r\":\"maSlow\"}],\"entrySig\":\"priceAboveSlow\",\"exitCode\":\"crossDown(macd, macdSignal)\",\"exitRules\":[{\"l\":\"maFast\",\"op\":\"crossDown\",\"r\":\"maSlow\"}],\"exitSig\":\"macdCrossDown\",\"fastMA\":8.0,\"feePct\":0.05,\"fillMode\":\"close\",\"macdFast\":12,\"macdSignal\":9,\"macdSlow\":26,\"mode\":\"params\",\"rsiBuy\":30,\"rsiPeriod\":14,\"rsiSell\":70,\"sizePct\":100,\"slPct\":0,\"slipPct\":0.02,\"slowMA\":3,\"tpPct\":0}",
+      "strategySha256": "538b41c2378f2744de4eda85e18a7ded51e495a45e1f6eb41e65370e0fcd1194",
+      "holdingAllowanceBars": 1,
+      "expected": {
+        "status": "ok",
+        "derivation": {
+          "maxSignalLookbackBars": 35,
+          "holdingAllowanceBars": 1,
+          "embargoBars": 36
+        }
+      },
+      "note": ""
+    },
+    {
+      "id": "params-unused-large",
+      "strategyJson": "{\"bbMult\":2,\"bbPeriod\":400,\"direction\":\"long\",\"emaPeriod\":400,\"entryCode\":\"crossUp(macd, macdSignal)\",\"entryRules\":[{\"l\":\"maFast\",\"op\":\"crossUp\",\"r\":\"maSlow\"}],\"entrySig\":\"maCrossUp\",\"exitCode\":\"crossDown(macd, macdSignal)\",\"exitRules\":[{\"l\":\"maFast\",\"op\":\"crossDown\",\"r\":\"maSlow\"}],\"exitSig\":\"maCrossDown\",\"fastMA\":5,\"feePct\":0.05,\"fillMode\":\"close\",\"macdFast\":400,\"macdSignal\":400,\"macdSlow\":400,\"mode\":\"params\",\"rsiBuy\":30,\"rsiPeriod\":400,\"rsiSell\":70,\"sizePct\":100,\"slPct\":0,\"slipPct\":0.02,\"slowMA\":8,\"tpPct\":0}",
+      "strategySha256": "df6758ab5b208f0533bdf5bcc0193e5499d8000c3d4dc8ccf93af530a04e501e",
+      "holdingAllowanceBars": 0,
+      "expected": {
+        "status": "ok",
+        "derivation": {
+          "maxSignalLookbackBars": 9,
+          "holdingAllowanceBars": 0,
+          "embargoBars": 9
+        }
+      },
+      "note": ""
+    },
+    {
+      "id": "params-safe-embargo-exact",
+      "strategyJson": "{\"bbMult\":2,\"bbPeriod\":20,\"direction\":\"long\",\"emaPeriod\":50,\"entryCode\":\"crossUp(macd, macdSignal)\",\"entryRules\":[{\"l\":\"maFast\",\"op\":\"crossUp\",\"r\":\"maSlow\"}],\"entrySig\":\"priceAboveSlow\",\"exitCode\":\"crossDown(macd, macdSignal)\",\"exitRules\":[{\"l\":\"maFast\",\"op\":\"crossDown\",\"r\":\"maSlow\"}],\"exitSig\":\"priceBelowSlow\",\"fastMA\":8.0,\"feePct\":0.05,\"fillMode\":\"close\",\"macdFast\":12,\"macdSignal\":9,\"macdSlow\":26,\"mode\":\"params\",\"rsiBuy\":30,\"rsiPeriod\":14,\"rsiSell\":70,\"sizePct\":100,\"slPct\":0,\"slipPct\":0.02,\"slowMA\":1,\"tpPct\":0}",
+      "strategySha256": "d1d73a39353eb46a02338191ea8335da09ff6f9be2ef61830f472ea165fe6e82",
+      "holdingAllowanceBars": 9007199254740990,
+      "expected": {
+        "status": "ok",
+        "derivation": {
+          "maxSignalLookbackBars": 1,
+          "holdingAllowanceBars": 9007199254740990,
+          "embargoBars": 9007199254740991
+        }
+      },
+      "note": ""
+    },
+    {
+      "id": "params-safe-lookback-exact",
+      "strategyJson": "{\"bbMult\":2,\"bbPeriod\":20,\"direction\":\"long\",\"emaPeriod\":50,\"entryCode\":\"crossUp(macd, macdSignal)\",\"entryRules\":[{\"l\":\"maFast\",\"op\":\"crossUp\",\"r\":\"maSlow\"}],\"entrySig\":\"maCrossUp\",\"exitCode\":\"crossDown(macd, macdSignal)\",\"exitRules\":[{\"l\":\"maFast\",\"op\":\"crossDown\",\"r\":\"maSlow\"}],\"exitSig\":\"maCrossDown\",\"fastMA\":9007199254740990,\"feePct\":0.05,\"fillMode\":\"close\",\"macdFast\":12,\"macdSignal\":9,\"macdSlow\":26,\"mode\":\"params\",\"rsiBuy\":30,\"rsiPeriod\":14,\"rsiSell\":70,\"sizePct\":100,\"slPct\":0,\"slipPct\":0.02,\"slowMA\":1,\"tpPct\":0}",
+      "strategySha256": "85d6cac92fd4e3ba308d82595521248c1575cd8943527a737849657b6f479f6b",
+      "holdingAllowanceBars": 0,
+      "expected": {
+        "status": "ok",
+        "derivation": {
+          "maxSignalLookbackBars": 9007199254740991,
+          "holdingAllowanceBars": 0,
+          "embargoBars": 9007199254740991
+        }
+      },
+      "note": ""
+    },
+    {
+      "id": "params-macd-safe-exact",
+      "strategyJson": "{\"bbMult\":2,\"bbPeriod\":20,\"direction\":\"long\",\"emaPeriod\":50,\"entryCode\":\"crossUp(macd, macdSignal)\",\"entryRules\":[{\"l\":\"maFast\",\"op\":\"crossUp\",\"r\":\"maSlow\"}],\"entrySig\":\"macdCrossUp\",\"exitCode\":\"crossDown(macd, macdSignal)\",\"exitRules\":[{\"l\":\"maFast\",\"op\":\"crossDown\",\"r\":\"maSlow\"}],\"exitSig\":\"macdCrossDown\",\"fastMA\":8.0,\"feePct\":0.05,\"fillMode\":\"close\",\"macdFast\":9007199254740989,\"macdSignal\":2,\"macdSlow\":1,\"mode\":\"params\",\"rsiBuy\":30,\"rsiPeriod\":14,\"rsiSell\":70,\"sizePct\":100,\"slPct\":0,\"slipPct\":0.02,\"slowMA\":21.0,\"tpPct\":0}",
+      "strategySha256": "7a8eb9033232f3129bb5188dd1739b372d999dd2b70a166c1681f2e81b44f695",
+      "holdingAllowanceBars": 0,
+      "expected": {
+        "status": "ok",
+        "derivation": {
+          "maxSignalLookbackBars": 9007199254740991,
+          "holdingAllowanceBars": 0,
+          "embargoBars": 9007199254740991
+        }
+      },
+      "note": ""
+    },
+    {
+      "id": "dsl-fixed-sma-cross",
+      "strategyJson": "{\"direction\":\"long\",\"dsl\":{\"entry\":{\"args\":[{\"ind\":\"SMA\",\"len\":\"$fast\",\"src\":\"CLOSE\"},{\"ind\":\"SMA\",\"len\":\"$slow\",\"src\":\"CLOSE\"}],\"op\":\"CROSS_UP\"},\"exit\":{\"args\":[{\"ind\":\"SMA\",\"len\":\"$fast\",\"src\":\"CLOSE\"},{\"ind\":\"SMA\",\"len\":\"$slow\",\"src\":\"CLOSE\"}],\"op\":\"CROSS_DOWN\"},\"name\":\"Fixed SMA cross\",\"params\":{\"fast\":2,\"slow\":3},\"version\":\"strategy-dsl-v1\"},\"feePct\":0.05,\"fillMode\":\"nextOpen\",\"mode\":\"dsl\",\"sizePct\":100,\"slPct\":2,\"slipPct\":0.02,\"tpPct\":4}",
+      "strategySha256": "7d1dfcb396cb67f23787f9f9ff482af4dfdcab7ea22ff4bbc4ea70ac6e522b14",
+      "holdingAllowanceBars": 10,
+      "expected": {
+        "status": "ok",
+        "derivation": {
+          "maxSignalLookbackBars": 4,
+          "holdingAllowanceBars": 10,
+          "embargoBars": 14
+        }
+      },
+      "note": ""
+    },
+    {
+      "id": "dsl-price-only",
+      "strategyJson": "{\"direction\":\"long\",\"dsl\":{\"entry\":{\"args\":[{\"ind\":\"CLOSE\"},{\"op\":\"CONST\",\"v\":0}],\"op\":\"GT\"},\"exit\":{\"args\":[{\"ind\":\"OPEN\"},{\"op\":\"CONST\",\"v\":0}],\"op\":\"LT\"},\"name\":\"dsl-price-only\",\"params\":{},\"version\":\"strategy-dsl-v1\"},\"feePct\":0.05,\"fillMode\":\"nextOpen\",\"mode\":\"dsl\",\"sizePct\":100,\"slPct\":2,\"slipPct\":0.02,\"tpPct\":4}",
+      "strategySha256": "5e2c89f094d120396483b54e5f70caf8ae6e0c6d03e75d253ee30a8dd815289d",
+      "holdingAllowanceBars": 0,
+      "expected": {
+        "status": "ok",
+        "derivation": {
+          "maxSignalLookbackBars": 1,
+          "holdingAllowanceBars": 0,
+          "embargoBars": 1
+        }
+      },
+      "note": ""
+    },
+    {
+      "id": "dsl-price-extremes",
+      "strategyJson": "{\"direction\":\"long\",\"dsl\":{\"entry\":{\"args\":[{\"ind\":\"HIGH\"},{\"ind\":\"LOW\"}],\"op\":\"GTE\"},\"exit\":{\"args\":[{\"ind\":\"LOW\"},{\"ind\":\"HIGH\"}],\"op\":\"LTE\"},\"name\":\"dsl-price-extremes\",\"params\":{},\"version\":\"strategy-dsl-v1\"},\"feePct\":0.05,\"fillMode\":\"nextOpen\",\"mode\":\"dsl\",\"sizePct\":100,\"slPct\":2,\"slipPct\":0.02,\"tpPct\":4}",
+      "strategySha256": "892e49e5c055a9e93349bafa0a3a1adbcad93019553a3f631e8b57c9aeb2cc67",
+      "holdingAllowanceBars": 2,
+      "expected": {
+        "status": "ok",
+        "derivation": {
+          "maxSignalLookbackBars": 1,
+          "holdingAllowanceBars": 2,
+          "embargoBars": 3
+        }
+      },
+      "note": ""
+    },
+    {
+      "id": "dsl-pointwise-max",
+      "strategyJson": "{\"direction\":\"long\",\"dsl\":{\"entry\":{\"args\":[{\"args\":[{\"args\":[{\"args\":[{\"ind\":\"EMA\",\"len\":4,\"src\":\"CLOSE\"},{\"ind\":\"SMA\",\"len\":6,\"src\":\"CLOSE\"}],\"op\":\"SUB\"}],\"op\":\"ABS\"},{\"args\":[{\"args\":[{\"ind\":\"WMA\",\"len\":8,\"src\":\"CLOSE\"},{\"op\":\"CONST\",\"v\":2}],\"op\":\"MUL\"},{\"args\":[{\"op\":\"CONST\",\"v\":1},{\"op\":\"CONST\",\"v\":2}],\"op\":\"ADD\"}],\"op\":\"DIV\"}],\"op\":\"MAX\"},{\"op\":\"CONST\",\"v\":0}],\"op\":\"GT\"},\"exit\":{\"args\":[{\"args\":[{\"args\":[{\"ind\":\"STDDEV\",\"len\":7,\"src\":\"CLOSE\"},{\"op\":\"CONST\",\"v\":0},{\"op\":\"CONST\",\"v\":100}],\"op\":\"CLAMP\"},{\"args\":[{\"ind\":\"HLC3\"},{\"op\":\"CONST\",\"v\":1}],\"op\":\"MIN\"}],\"op\":\"LTE\"}],\"op\":\"NOT\"},\"name\":\"dsl-pointwise-max\",\"params\":{},\"version\":\"strategy-dsl-v1\"},\"feePct\":0.05,\"fillMode\":\"nextOpen\",\"mode\":\"dsl\",\"sizePct\":100,\"slPct\":2,\"slipPct\":0.02,\"tpPct\":4}",
+      "strategySha256": "cbd725d07c1f5c467f09be9e6afcf1159469eac83755ce0eb1f7169c41728bdc",
+      "holdingAllowanceBars": 3,
+      "expected": {
+        "status": "ok",
+        "derivation": {
+          "maxSignalLookbackBars": 8,
+          "holdingAllowanceBars": 3,
+          "embargoBars": 11
+        }
+      },
+      "note": ""
+    },
+    {
+      "id": "dsl-rsi-roc-cross",
+      "strategyJson": "{\"direction\":\"long\",\"dsl\":{\"entry\":{\"args\":[{\"ind\":\"RSI\",\"len\":14,\"src\":\"CLOSE\"},{\"op\":\"CONST\",\"v\":30}],\"op\":\"CROSS_UP\"},\"exit\":{\"args\":[{\"ind\":\"ROC\",\"len\":8,\"src\":\"CLOSE\"},{\"op\":\"CONST\",\"v\":0}],\"op\":\"LT\"},\"name\":\"dsl-rsi-roc-cross\",\"params\":{},\"version\":\"strategy-dsl-v1\"},\"feePct\":0.05,\"fillMode\":\"nextOpen\",\"mode\":\"dsl\",\"sizePct\":100,\"slPct\":2,\"slipPct\":0.02,\"tpPct\":4}",
+      "strategySha256": "7260c6fbcd4ad45360488af1362ae2617389dfe3f7bd3d2e24cb3dd1bcb4b024",
+      "holdingAllowanceBars": 2,
+      "expected": {
+        "status": "ok",
+        "derivation": {
+          "maxSignalLookbackBars": 16,
+          "holdingAllowanceBars": 2,
+          "embargoBars": 18
+        }
+      },
+      "note": ""
+    },
+    {
+      "id": "dsl-exit-cross-dominates",
+      "strategyJson": "{\"direction\":\"long\",\"dsl\":{\"entry\":{\"args\":[{\"args\":[{\"ind\":\"SMA\",\"len\":5,\"src\":\"CLOSE\"}],\"n\":3,\"op\":\"SHIFT\"},{\"op\":\"CONST\",\"v\":0}],\"op\":\"GT\"},\"exit\":{\"args\":[{\"ind\":\"EMA\",\"len\":9,\"src\":\"CLOSE\"},{\"op\":\"CONST\",\"v\":0}],\"op\":\"CROSS_DOWN\"},\"name\":\"dsl-exit-cross-dominates\",\"params\":{},\"version\":\"strategy-dsl-v1\"},\"feePct\":0.05,\"fillMode\":\"nextOpen\",\"mode\":\"dsl\",\"sizePct\":100,\"slPct\":2,\"slipPct\":0.02,\"tpPct\":4}",
+      "strategySha256": "488c1ce3e34df32518b44c469f9225f41615f1c279b1e006e8d7a19647da6e6d",
+      "holdingAllowanceBars": 4,
+      "expected": {
+        "status": "ok",
+        "derivation": {
+          "maxSignalLookbackBars": 10,
+          "holdingAllowanceBars": 4,
+          "embargoBars": 14
+        }
+      },
+      "note": ""
+    },
+    {
+      "id": "dsl-typed-nested-temporal",
+      "strategyJson": "{\"direction\":\"long\",\"dsl\":{\"entry\":{\"args\":[{\"args\":[{\"ind\":\"RSI\",\"len\":\"$length\",\"src\":\"CLOSE\"}],\"n\":\"$offset\",\"op\":\"SHIFT\"}],\"n\":\"$trend\",\"op\":\"RISING\"},\"exit\":{\"args\":[{\"ind\":\"ROC\",\"len\":7,\"src\":\"CLOSE\"}],\"n\":3,\"op\":\"FALLING\"},\"name\":\"dsl-typed-nested-temporal\",\"params\":{\"length\":{\"default\":6,\"max\":400,\"min\":2,\"type\":\"int\"},\"offset\":2,\"trend\":4,\"unused\":400},\"version\":\"strategy-dsl-v1\"},\"feePct\":0.05,\"fillMode\":\"nextOpen\",\"mode\":\"dsl\",\"sizePct\":100,\"slPct\":2,\"slipPct\":0.02,\"tpPct\":4}",
+      "strategySha256": "82ea1eb694ace50f9f5eeb68f654de5bee5be64540085e60dbeda0d64cb7f7c0",
+      "holdingAllowanceBars": 5,
+      "expected": {
+        "status": "ok",
+        "derivation": {
+          "maxSignalLookbackBars": 13,
+          "holdingAllowanceBars": 5,
+          "embargoBars": 18
+        }
+      },
+      "note": ""
+    },
+    {
+      "id": "dsl-other-indicators",
+      "strategyJson": "{\"direction\":\"long\",\"dsl\":{\"entry\":{\"args\":[{\"args\":[{\"ind\":\"ATR\",\"len\":11},{\"ind\":\"STDDEV\",\"len\":13,\"src\":\"CLOSE\"}],\"op\":\"GT\"},{\"args\":[{\"ind\":\"WMA\",\"len\":17,\"src\":\"CLOSE\"},{\"ind\":\"HLC3\"}],\"op\":\"GTE\"}],\"op\":\"AND\"},\"exit\":{\"args\":[{\"args\":[{\"ind\":\"HIGHEST\",\"len\":19,\"src\":\"CLOSE\"},{\"ind\":\"LOWEST\",\"len\":23,\"src\":\"CLOSE\"}],\"op\":\"LT\"},{\"args\":[{\"ind\":\"EMA\",\"len\":7,\"src\":\"CLOSE\"},{\"ind\":\"SMA\",\"len\":8,\"src\":\"CLOSE\"}],\"op\":\"CROSS_DOWN\"}],\"op\":\"OR\"},\"name\":\"dsl-other-indicators\",\"params\":{},\"version\":\"strategy-dsl-v1\"},\"feePct\":0.05,\"fillMode\":\"nextOpen\",\"mode\":\"dsl\",\"sizePct\":100,\"slPct\":2,\"slipPct\":0.02,\"tpPct\":4}",
+      "strategySha256": "9afd5f478fe76ac5f14a7a09beb40d375a6b77e4f04e15a063f331b68f4f302f",
+      "holdingAllowanceBars": 1,
+      "expected": {
+        "status": "ok",
+        "derivation": {
+          "maxSignalLookbackBars": 23,
+          "holdingAllowanceBars": 1,
+          "embargoBars": 24
+        }
+      },
+      "note": ""
+    },
+    {
+      "id": "dsl-derived-over-400",
+      "strategyJson": "{\"direction\":\"long\",\"dsl\":{\"entry\":{\"args\":[{\"args\":[{\"ind\":\"ROC\",\"len\":400,\"src\":\"CLOSE\"}],\"n\":400,\"op\":\"SHIFT\"},{\"op\":\"CONST\",\"v\":0}],\"op\":\"CROSS_UP\"},\"exit\":{\"args\":[{\"ind\":\"OPEN\"},{\"op\":\"CONST\",\"v\":0}],\"op\":\"LT\"},\"name\":\"dsl-derived-over-400\",\"params\":{},\"version\":\"strategy-dsl-v1\"},\"feePct\":0.05,\"fillMode\":\"nextOpen\",\"mode\":\"dsl\",\"sizePct\":100,\"slPct\":2,\"slipPct\":0.02,\"tpPct\":4}",
+      "strategySha256": "8e95e084e9d29921ddc9f67bee91310ce8224adb7539495e9412fc1733688b29",
+      "holdingAllowanceBars": 0,
+      "expected": {
+        "status": "ok",
+        "derivation": {
+          "maxSignalLookbackBars": 802,
+          "holdingAllowanceBars": 0,
+          "embargoBars": 802
+        }
+      },
+      "note": "400 bounds each temporal/indicator argument, not the derived whole lookback."
+    },
+    {
+      "id": "dsl-depth-eight-safe-embargo",
+      "strategyJson": "{\"direction\":\"long\",\"dsl\":{\"entry\":{\"args\":[{\"args\":[{\"args\":[{\"args\":[{\"args\":[{\"args\":[{\"args\":[{\"ind\":\"ROC\",\"len\":400,\"src\":\"CLOSE\"}],\"n\":400,\"op\":\"SHIFT\"}],\"n\":400,\"op\":\"SHIFT\"}],\"n\":400,\"op\":\"SHIFT\"}],\"n\":400,\"op\":\"SHIFT\"}],\"n\":400,\"op\":\"SHIFT\"}],\"n\":400,\"op\":\"SHIFT\"}],\"n\":400,\"op\":\"RISING\"},\"exit\":{\"args\":[{\"ind\":\"OPEN\"},{\"op\":\"CONST\",\"v\":0}],\"op\":\"LT\"},\"name\":\"dsl-depth-eight-safe-embargo\",\"params\":{},\"version\":\"strategy-dsl-v1\"},\"feePct\":0.05,\"fillMode\":\"nextOpen\",\"mode\":\"dsl\",\"sizePct\":100,\"slPct\":2,\"slipPct\":0.02,\"tpPct\":4}",
+      "strategySha256": "76ef13a5afaf4dfea81b739e564f4c1fd661f5bfe2cc9b6fe799b07ed77f676a",
+      "holdingAllowanceBars": 9007199254737790,
+      "expected": {
+        "status": "ok",
+        "derivation": {
+          "maxSignalLookbackBars": 3201,
+          "holdingAllowanceBars": 9007199254737790,
+          "embargoBars": 9007199254740991
+        }
+      },
+      "note": "Eight entry levels; 401+7*400=3201. No candle or fold viability claim."
+    },
+    {
+      "id": "refuse-ma-lookback-one-over",
+      "strategyJson": "{\"bbMult\":2,\"bbPeriod\":20,\"direction\":\"long\",\"emaPeriod\":50,\"entryCode\":\"crossUp(macd, macdSignal)\",\"entryRules\":[{\"l\":\"maFast\",\"op\":\"crossUp\",\"r\":\"maSlow\"}],\"entrySig\":\"maCrossUp\",\"exitCode\":\"crossDown(macd, macdSignal)\",\"exitRules\":[{\"l\":\"maFast\",\"op\":\"crossDown\",\"r\":\"maSlow\"}],\"exitSig\":\"maCrossDown\",\"fastMA\":9007199254740991,\"feePct\":0.05,\"fillMode\":\"close\",\"macdFast\":12,\"macdSignal\":9,\"macdSlow\":26,\"mode\":\"params\",\"rsiBuy\":30,\"rsiPeriod\":14,\"rsiSell\":70,\"sizePct\":100,\"slPct\":0,\"slipPct\":0.02,\"slowMA\":1,\"tpPct\":0}",
+      "strategySha256": "bdc4f419b9238a237403ec1ba58dee9fa47755080e69efdca34cc48e390b3f13",
+      "holdingAllowanceBars": 0,
+      "expected": {
+        "status": "refused",
+        "phase": "embargo"
+      },
+      "note": ""
+    },
+    {
+      "id": "refuse-used-period-unsafe",
+      "strategyJson": "{\"bbMult\":2,\"bbPeriod\":20,\"direction\":\"long\",\"emaPeriod\":50,\"entryCode\":\"crossUp(macd, macdSignal)\",\"entryRules\":[{\"l\":\"maFast\",\"op\":\"crossUp\",\"r\":\"maSlow\"}],\"entrySig\":\"maCrossUp\",\"exitCode\":\"crossDown(macd, macdSignal)\",\"exitRules\":[{\"l\":\"maFast\",\"op\":\"crossDown\",\"r\":\"maSlow\"}],\"exitSig\":\"maCrossDown\",\"fastMA\":9007199254740992,\"feePct\":0.05,\"fillMode\":\"close\",\"macdFast\":12,\"macdSignal\":9,\"macdSlow\":26,\"mode\":\"params\",\"rsiBuy\":30,\"rsiPeriod\":14,\"rsiSell\":70,\"sizePct\":100,\"slPct\":0,\"slipPct\":0.02,\"slowMA\":1,\"tpPct\":0}",
+      "strategySha256": "d286a3d6eb3df56abb7ddb189397d2c8d670a44b86f79024ca7f68b4fd27c80f",
+      "holdingAllowanceBars": 0,
+      "expected": {
+        "status": "refused",
+        "phase": "embargo"
+      },
+      "note": "Standalone executor input; the original config parser rejects this earlier."
+    },
+    {
+      "id": "refuse-embargo-one-over",
+      "strategyJson": "{\"bbMult\":2,\"bbPeriod\":20,\"direction\":\"long\",\"emaPeriod\":50,\"entryCode\":\"crossUp(macd, macdSignal)\",\"entryRules\":[{\"l\":\"maFast\",\"op\":\"crossUp\",\"r\":\"maSlow\"}],\"entrySig\":\"priceAboveSlow\",\"exitCode\":\"crossDown(macd, macdSignal)\",\"exitRules\":[{\"l\":\"maFast\",\"op\":\"crossDown\",\"r\":\"maSlow\"}],\"exitSig\":\"priceBelowSlow\",\"fastMA\":8.0,\"feePct\":0.05,\"fillMode\":\"close\",\"macdFast\":12,\"macdSignal\":9,\"macdSlow\":26,\"mode\":\"params\",\"rsiBuy\":30,\"rsiPeriod\":14,\"rsiSell\":70,\"sizePct\":100,\"slPct\":0,\"slipPct\":0.02,\"slowMA\":1,\"tpPct\":0}",
+      "strategySha256": "d1d73a39353eb46a02338191ea8335da09ff6f9be2ef61830f472ea165fe6e82",
+      "holdingAllowanceBars": 9007199254740991,
+      "expected": {
+        "status": "refused",
+        "phase": "embargo"
+      },
+      "note": ""
+    },
+    {
+      "id": "refuse-holding-negative",
+      "strategyJson": "{\"bbMult\":2,\"bbPeriod\":20,\"direction\":\"long\",\"emaPeriod\":50,\"entryCode\":\"crossUp(macd, macdSignal)\",\"entryRules\":[{\"l\":\"maFast\",\"op\":\"crossUp\",\"r\":\"maSlow\"}],\"entrySig\":\"maCrossUp\",\"exitCode\":\"crossDown(macd, macdSignal)\",\"exitRules\":[{\"l\":\"maFast\",\"op\":\"crossDown\",\"r\":\"maSlow\"}],\"exitSig\":\"maCrossDown\",\"fastMA\":8.0,\"feePct\":0.05,\"fillMode\":\"close\",\"macdFast\":12,\"macdSignal\":9,\"macdSlow\":26,\"mode\":\"params\",\"rsiBuy\":30,\"rsiPeriod\":14,\"rsiSell\":70,\"sizePct\":100,\"slPct\":0,\"slipPct\":0.02,\"slowMA\":21.0,\"tpPct\":0}",
+      "strategySha256": "78edba111d5b56491d41296c3739b9817e205515e3296ff1100dcc0899efc175",
+      "holdingAllowanceBars": -1,
+      "expected": {
+        "status": "refused",
+        "phase": "embargo"
+      },
+      "note": ""
+    },
+    {
+      "id": "refuse-holding-unsafe",
+      "strategyJson": "{\"bbMult\":2,\"bbPeriod\":20,\"direction\":\"long\",\"emaPeriod\":50,\"entryCode\":\"crossUp(macd, macdSignal)\",\"entryRules\":[{\"l\":\"maFast\",\"op\":\"crossUp\",\"r\":\"maSlow\"}],\"entrySig\":\"maCrossUp\",\"exitCode\":\"crossDown(macd, macdSignal)\",\"exitRules\":[{\"l\":\"maFast\",\"op\":\"crossDown\",\"r\":\"maSlow\"}],\"exitSig\":\"maCrossDown\",\"fastMA\":8.0,\"feePct\":0.05,\"fillMode\":\"close\",\"macdFast\":12,\"macdSignal\":9,\"macdSlow\":26,\"mode\":\"params\",\"rsiBuy\":30,\"rsiPeriod\":14,\"rsiSell\":70,\"sizePct\":100,\"slPct\":0,\"slipPct\":0.02,\"slowMA\":21.0,\"tpPct\":0}",
+      "strategySha256": "78edba111d5b56491d41296c3739b9817e205515e3296ff1100dcc0899efc175",
+      "holdingAllowanceBars": 9007199254740992,
+      "expected": {
+        "status": "refused",
+        "phase": "embargo"
+      },
+      "note": ""
+    },
+    {
+      "id": "refuse-used-period-zero",
+      "strategyJson": "{\"bbMult\":2,\"bbPeriod\":20,\"direction\":\"long\",\"emaPeriod\":50,\"entryCode\":\"crossUp(macd, macdSignal)\",\"entryRules\":[{\"l\":\"maFast\",\"op\":\"crossUp\",\"r\":\"maSlow\"}],\"entrySig\":\"maCrossUp\",\"exitCode\":\"crossDown(macd, macdSignal)\",\"exitRules\":[{\"l\":\"maFast\",\"op\":\"crossDown\",\"r\":\"maSlow\"}],\"exitSig\":\"maCrossDown\",\"fastMA\":0,\"feePct\":0.05,\"fillMode\":\"close\",\"macdFast\":12,\"macdSignal\":9,\"macdSlow\":26,\"mode\":\"params\",\"rsiBuy\":30,\"rsiPeriod\":14,\"rsiSell\":70,\"sizePct\":100,\"slPct\":0,\"slipPct\":0.02,\"slowMA\":21.0,\"tpPct\":0}",
+      "strategySha256": "12b0f0bd9c79de25696f631ce561456dbf9c81a61d411a31a78517faa501c2f2",
+      "holdingAllowanceBars": 0,
+      "expected": {
+        "status": "refused",
+        "phase": "parse"
+      },
+      "note": ""
+    },
+    {
+      "id": "refuse-unused-period-zero",
+      "strategyJson": "{\"bbMult\":2,\"bbPeriod\":20,\"direction\":\"long\",\"emaPeriod\":0,\"entryCode\":\"crossUp(macd, macdSignal)\",\"entryRules\":[{\"l\":\"maFast\",\"op\":\"crossUp\",\"r\":\"maSlow\"}],\"entrySig\":\"maCrossUp\",\"exitCode\":\"crossDown(macd, macdSignal)\",\"exitRules\":[{\"l\":\"maFast\",\"op\":\"crossDown\",\"r\":\"maSlow\"}],\"exitSig\":\"maCrossDown\",\"fastMA\":8.0,\"feePct\":0.05,\"fillMode\":\"close\",\"macdFast\":12,\"macdSignal\":9,\"macdSlow\":26,\"mode\":\"params\",\"rsiBuy\":30,\"rsiPeriod\":14,\"rsiSell\":70,\"sizePct\":100,\"slPct\":0,\"slipPct\":0.02,\"slowMA\":21.0,\"tpPct\":0}",
+      "strategySha256": "b4be5164c10e604e830365ee04a10917c7b2a68612781721e91122c0d0cdbe75",
+      "holdingAllowanceBars": 0,
+      "expected": {
+        "status": "refused",
+        "phase": "parse"
+      },
+      "note": "Used-only derivation does not bypass CandidateStrategy parsing of all projected periods."
+    },
+    {
+      "id": "refuse-period-fraction",
+      "strategyJson": "{\"bbMult\":2,\"bbPeriod\":20,\"direction\":\"long\",\"emaPeriod\":50,\"entryCode\":\"crossUp(macd, macdSignal)\",\"entryRules\":[{\"l\":\"maFast\",\"op\":\"crossUp\",\"r\":\"maSlow\"}],\"entrySig\":\"maCrossUp\",\"exitCode\":\"crossDown(macd, macdSignal)\",\"exitRules\":[{\"l\":\"maFast\",\"op\":\"crossDown\",\"r\":\"maSlow\"}],\"exitSig\":\"maCrossDown\",\"fastMA\":1.5,\"feePct\":0.05,\"fillMode\":\"close\",\"macdFast\":12,\"macdSignal\":9,\"macdSlow\":26,\"mode\":\"params\",\"rsiBuy\":30,\"rsiPeriod\":14,\"rsiSell\":70,\"sizePct\":100,\"slPct\":0,\"slipPct\":0.02,\"slowMA\":21.0,\"tpPct\":0}",
+      "strategySha256": "4d54ff4a3d102b3a1527a5151c9e67ab4decf3972d9b7333070e13b76863b765",
+      "holdingAllowanceBars": 0,
+      "expected": {
+        "status": "refused",
+        "phase": "parse"
+      },
+      "note": ""
+    },
+    {
+      "id": "refuse-period-string",
+      "strategyJson": "{\"bbMult\":2,\"bbPeriod\":20,\"direction\":\"long\",\"emaPeriod\":50,\"entryCode\":\"crossUp(macd, macdSignal)\",\"entryRules\":[{\"l\":\"maFast\",\"op\":\"crossUp\",\"r\":\"maSlow\"}],\"entrySig\":\"maCrossUp\",\"exitCode\":\"crossDown(macd, macdSignal)\",\"exitRules\":[{\"l\":\"maFast\",\"op\":\"crossDown\",\"r\":\"maSlow\"}],\"exitSig\":\"maCrossDown\",\"fastMA\":\"8\",\"feePct\":0.05,\"fillMode\":\"close\",\"macdFast\":12,\"macdSignal\":9,\"macdSlow\":26,\"mode\":\"params\",\"rsiBuy\":30,\"rsiPeriod\":14,\"rsiSell\":70,\"sizePct\":100,\"slPct\":0,\"slipPct\":0.02,\"slowMA\":21.0,\"tpPct\":0}",
+      "strategySha256": "4a1206c83b4ebb6b3b911607c122d35dbe7cf75c07724c78645fbd80e110c4d1",
+      "holdingAllowanceBars": 0,
+      "expected": {
+        "status": "refused",
+        "phase": "parse"
+      },
+      "note": ""
+    },
+    {
+      "id": "refuse-period-missing",
+      "strategyJson": "{\"bbMult\":2,\"bbPeriod\":20,\"direction\":\"long\",\"emaPeriod\":50,\"entryCode\":\"crossUp(macd, macdSignal)\",\"entryRules\":[{\"l\":\"maFast\",\"op\":\"crossUp\",\"r\":\"maSlow\"}],\"entrySig\":\"maCrossUp\",\"exitCode\":\"crossDown(macd, macdSignal)\",\"exitRules\":[{\"l\":\"maFast\",\"op\":\"crossDown\",\"r\":\"maSlow\"}],\"exitSig\":\"maCrossDown\",\"fastMA\":8.0,\"feePct\":0.05,\"fillMode\":\"close\",\"macdFast\":12,\"macdSignal\":9,\"macdSlow\":26,\"mode\":\"params\",\"rsiBuy\":30,\"rsiPeriod\":14,\"rsiSell\":70,\"sizePct\":100,\"slPct\":0,\"slipPct\":0.02,\"tpPct\":0}",
+      "strategySha256": "514a2f41646c50e3a8627510adba826a2e3e00337632f314ad680db8a73ba51a",
+      "holdingAllowanceBars": 0,
+      "expected": {
+        "status": "refused",
+        "phase": "parse"
+      },
+      "note": ""
+    },
+    {
+      "id": "refuse-unsupported-signal",
+      "strategyJson": "{\"bbMult\":2,\"bbPeriod\":20,\"direction\":\"long\",\"emaPeriod\":50,\"entryCode\":\"crossUp(macd, macdSignal)\",\"entryRules\":[{\"l\":\"maFast\",\"op\":\"crossUp\",\"r\":\"maSlow\"}],\"entrySig\":\"maCrossUp\",\"exitCode\":\"crossDown(macd, macdSignal)\",\"exitRules\":[{\"l\":\"maFast\",\"op\":\"crossDown\",\"r\":\"maSlow\"}],\"exitSig\":\"stochOverbought\",\"fastMA\":8.0,\"feePct\":0.05,\"fillMode\":\"close\",\"macdFast\":12,\"macdSignal\":9,\"macdSlow\":26,\"mode\":\"params\",\"rsiBuy\":30,\"rsiPeriod\":14,\"rsiSell\":70,\"sizePct\":100,\"slPct\":0,\"slipPct\":0.02,\"slowMA\":21.0,\"tpPct\":0}",
+      "strategySha256": "155aeb23d5300d6bdc2a27a4ec6671ab3a2c4a6bd89176bf734c0c3a282c4e29",
+      "holdingAllowanceBars": 0,
+      "expected": {
+        "status": "refused",
+        "phase": "embargo"
+      },
+      "note": ""
+    },
+    {
+      "id": "refuse-mode-code",
+      "strategyJson": "{\"bbMult\":2,\"bbPeriod\":20,\"direction\":\"long\",\"emaPeriod\":50,\"entryCode\":\"crossUp(macd, macdSignal)\",\"entryRules\":[{\"l\":\"maFast\",\"op\":\"crossUp\",\"r\":\"maSlow\"}],\"entrySig\":\"maCrossUp\",\"exitCode\":\"crossDown(macd, macdSignal)\",\"exitRules\":[{\"l\":\"maFast\",\"op\":\"crossDown\",\"r\":\"maSlow\"}],\"exitSig\":\"maCrossDown\",\"fastMA\":8.0,\"feePct\":0.05,\"fillMode\":\"close\",\"macdFast\":12,\"macdSignal\":9,\"macdSlow\":26,\"mode\":\"code\",\"rsiBuy\":30,\"rsiPeriod\":14,\"rsiSell\":70,\"sizePct\":100,\"slPct\":0,\"slipPct\":0.02,\"slowMA\":21.0,\"tpPct\":0}",
+      "strategySha256": "f1e63c319dc5d83169330acaefea5ac892073fb7ed2ccb4a8656ea605e8a17c5",
+      "holdingAllowanceBars": 0,
+      "expected": {
+        "status": "refused",
+        "phase": "parse"
+      },
+      "note": ""
+    },
+    {
+      "id": "refuse-mode-blocks",
+      "strategyJson": "{\"bbMult\":2,\"bbPeriod\":20,\"direction\":\"long\",\"emaPeriod\":50,\"entryCode\":\"crossUp(macd, macdSignal)\",\"entryRules\":[{\"l\":\"maFast\",\"op\":\"crossUp\",\"r\":\"maSlow\"}],\"entrySig\":\"maCrossUp\",\"exitCode\":\"crossDown(macd, macdSignal)\",\"exitRules\":[{\"l\":\"maFast\",\"op\":\"crossDown\",\"r\":\"maSlow\"}],\"exitSig\":\"maCrossDown\",\"fastMA\":8.0,\"feePct\":0.05,\"fillMode\":\"close\",\"macdFast\":12,\"macdSignal\":9,\"macdSlow\":26,\"mode\":\"blocks\",\"rsiBuy\":30,\"rsiPeriod\":14,\"rsiSell\":70,\"sizePct\":100,\"slPct\":0,\"slipPct\":0.02,\"slowMA\":21.0,\"tpPct\":0}",
+      "strategySha256": "1dca312ecea93cbbd0e1bc7902de07228b10d976e1d7c5481e1ee30f559e16ee",
+      "holdingAllowanceBars": 0,
+      "expected": {
+        "status": "refused",
+        "phase": "parse"
+      },
+      "note": ""
+    },
+    {
+      "id": "refuse-mode-manual",
+      "strategyJson": "{\"bbMult\":2,\"bbPeriod\":20,\"direction\":\"long\",\"emaPeriod\":50,\"entryCode\":\"crossUp(macd, macdSignal)\",\"entryRules\":[{\"l\":\"maFast\",\"op\":\"crossUp\",\"r\":\"maSlow\"}],\"entrySig\":\"maCrossUp\",\"exitCode\":\"crossDown(macd, macdSignal)\",\"exitRules\":[{\"l\":\"maFast\",\"op\":\"crossDown\",\"r\":\"maSlow\"}],\"exitSig\":\"maCrossDown\",\"fastMA\":8.0,\"feePct\":0.05,\"fillMode\":\"close\",\"macdFast\":12,\"macdSignal\":9,\"macdSlow\":26,\"mode\":\"manual\",\"rsiBuy\":30,\"rsiPeriod\":14,\"rsiSell\":70,\"sizePct\":100,\"slPct\":0,\"slipPct\":0.02,\"slowMA\":21.0,\"tpPct\":0}",
+      "strategySha256": "b45f64eec4a936341636badc039b3d4fcffec2b45e8234178252d63944b7bfef",
+      "holdingAllowanceBars": 0,
+      "expected": {
+        "status": "refused",
+        "phase": "parse"
+      },
+      "note": ""
+    },
+    {
+      "id": "refuse-dsl-missing",
+      "strategyJson": "{\"direction\":\"long\",\"feePct\":0.05,\"fillMode\":\"nextOpen\",\"mode\":\"dsl\",\"sizePct\":100,\"slPct\":2,\"slipPct\":0.02,\"tpPct\":4}",
+      "strategySha256": "021bf5fe491eca3d1d0ee783b0f7bfd5d0363379e64f77234fab91f2b7a29e47",
+      "holdingAllowanceBars": 0,
+      "expected": {
+        "status": "refused",
+        "phase": "parse"
+      },
+      "note": ""
+    },
+    {
+      "id": "refuse-dsl-len-one",
+      "strategyJson": "{\"direction\":\"long\",\"dsl\":{\"entry\":{\"args\":[{\"ind\":\"SMA\",\"len\":1,\"src\":\"CLOSE\"},{\"op\":\"CONST\",\"v\":0}],\"op\":\"GT\"},\"exit\":{\"args\":[{\"ind\":\"OPEN\"},{\"op\":\"CONST\",\"v\":0}],\"op\":\"LT\"},\"name\":\"refuse-dsl-len-one\",\"params\":{},\"version\":\"strategy-dsl-v1\"},\"feePct\":0.05,\"fillMode\":\"nextOpen\",\"mode\":\"dsl\",\"sizePct\":100,\"slPct\":2,\"slipPct\":0.02,\"tpPct\":4}",
+      "strategySha256": "e289d216c8771af58ebae73ee1dac94cec84c71ff9e93718704aebed0e5c0efe",
+      "holdingAllowanceBars": 0,
+      "expected": {
+        "status": "refused",
+        "phase": "parse"
+      },
+      "note": ""
+    },
+    {
+      "id": "refuse-dsl-len-401",
+      "strategyJson": "{\"direction\":\"long\",\"dsl\":{\"entry\":{\"args\":[{\"ind\":\"SMA\",\"len\":401,\"src\":\"CLOSE\"},{\"op\":\"CONST\",\"v\":0}],\"op\":\"GT\"},\"exit\":{\"args\":[{\"ind\":\"OPEN\"},{\"op\":\"CONST\",\"v\":0}],\"op\":\"LT\"},\"name\":\"refuse-dsl-len-401\",\"params\":{},\"version\":\"strategy-dsl-v1\"},\"feePct\":0.05,\"fillMode\":\"nextOpen\",\"mode\":\"dsl\",\"sizePct\":100,\"slPct\":2,\"slipPct\":0.02,\"tpPct\":4}",
+      "strategySha256": "76ea91b61968e4dd6471dc4ffb3ec5fa27f699849cc3aa834b3df03a22a71b6d",
+      "holdingAllowanceBars": 0,
+      "expected": {
+        "status": "refused",
+        "phase": "parse"
+      },
+      "note": ""
+    },
+    {
+      "id": "refuse-dsl-shift-zero",
+      "strategyJson": "{\"direction\":\"long\",\"dsl\":{\"entry\":{\"args\":[{\"args\":[{\"ind\":\"SMA\",\"len\":3,\"src\":\"CLOSE\"}],\"n\":0,\"op\":\"SHIFT\"},{\"op\":\"CONST\",\"v\":0}],\"op\":\"GT\"},\"exit\":{\"args\":[{\"ind\":\"OPEN\"},{\"op\":\"CONST\",\"v\":0}],\"op\":\"LT\"},\"name\":\"refuse-dsl-shift-zero\",\"params\":{},\"version\":\"strategy-dsl-v1\"},\"feePct\":0.05,\"fillMode\":\"nextOpen\",\"mode\":\"dsl\",\"sizePct\":100,\"slPct\":2,\"slipPct\":0.02,\"tpPct\":4}",
+      "strategySha256": "f5dfd058379f787b50b381dbb76d619973c626ee19c782d8a969a8d812548814",
+      "holdingAllowanceBars": 0,
+      "expected": {
+        "status": "refused",
+        "phase": "parse"
+      },
+      "note": ""
+    },
+    {
+      "id": "refuse-dsl-unknown-reference",
+      "strategyJson": "{\"direction\":\"long\",\"dsl\":{\"entry\":{\"args\":[{\"ind\":\"SMA\",\"len\":\"$missing\",\"src\":\"CLOSE\"},{\"op\":\"CONST\",\"v\":0}],\"op\":\"GT\"},\"exit\":{\"args\":[{\"ind\":\"OPEN\"},{\"op\":\"CONST\",\"v\":0}],\"op\":\"LT\"},\"name\":\"refuse-dsl-unknown-reference\",\"params\":{},\"version\":\"strategy-dsl-v1\"},\"feePct\":0.05,\"fillMode\":\"nextOpen\",\"mode\":\"dsl\",\"sizePct\":100,\"slPct\":2,\"slipPct\":0.02,\"tpPct\":4}",
+      "strategySha256": "4b66507577a614050aa5f1cc2c64b4fa5a316d41ceb49a7b54e83a5041535f1c",
+      "holdingAllowanceBars": 0,
+      "expected": {
+        "status": "refused",
+        "phase": "parse"
+      },
+      "note": ""
+    },
+    {
+      "id": "refuse-dsl-unused-invalid-param",
+      "strategyJson": "{\"direction\":\"long\",\"dsl\":{\"entry\":{\"args\":[{\"ind\":\"CLOSE\"},{\"op\":\"CONST\",\"v\":0}],\"op\":\"GT\"},\"exit\":{\"args\":[{\"ind\":\"OPEN\"},{\"op\":\"CONST\",\"v\":0}],\"op\":\"LT\"},\"name\":\"refuse-dsl-unused-invalid-param\",\"params\":{\"unused\":{\"default\":0,\"max\":2,\"min\":1,\"type\":\"int\"}},\"version\":\"strategy-dsl-v1\"},\"feePct\":0.05,\"fillMode\":\"nextOpen\",\"mode\":\"dsl\",\"sizePct\":100,\"slPct\":2,\"slipPct\":0.02,\"tpPct\":4}",
+      "strategySha256": "ed67da1a3938c3d4bc3b21efe46d767d250257e2c281d8ae0b7183eb0bd55f4e",
+      "holdingAllowanceBars": 0,
+      "expected": {
+        "status": "refused",
+        "phase": "parse"
+      },
+      "note": ""
+    },
+    {
+      "id": "refuse-dsl-number-root",
+      "strategyJson": "{\"direction\":\"long\",\"dsl\":{\"entry\":{\"ind\":\"SMA\",\"len\":3,\"src\":\"CLOSE\"},\"exit\":{\"args\":[{\"ind\":\"OPEN\"},{\"op\":\"CONST\",\"v\":0}],\"op\":\"LT\"},\"name\":\"refuse-dsl-number-root\",\"params\":{},\"version\":\"strategy-dsl-v1\"},\"feePct\":0.05,\"fillMode\":\"nextOpen\",\"mode\":\"dsl\",\"sizePct\":100,\"slPct\":2,\"slipPct\":0.02,\"tpPct\":4}",
+      "strategySha256": "a66d4faec2684b0436886f775655b47c7f4797565b9f246eaa8b0fa53546a3db",
+      "holdingAllowanceBars": 0,
+      "expected": {
+        "status": "refused",
+        "phase": "parse"
+      },
+      "note": ""
+    },
+    {
+      "id": "refuse-dsl-depth-nine",
+      "strategyJson": "{\"direction\":\"long\",\"dsl\":{\"entry\":{\"args\":[{\"args\":[{\"args\":[{\"args\":[{\"args\":[{\"args\":[{\"args\":[{\"args\":[{\"ind\":\"ROC\",\"len\":400,\"src\":\"CLOSE\"}],\"n\":400,\"op\":\"SHIFT\"}],\"n\":400,\"op\":\"SHIFT\"}],\"n\":400,\"op\":\"SHIFT\"}],\"n\":400,\"op\":\"SHIFT\"}],\"n\":400,\"op\":\"SHIFT\"}],\"n\":400,\"op\":\"SHIFT\"}],\"n\":400,\"op\":\"RISING\"}],\"op\":\"NOT\"},\"exit\":{\"args\":[{\"ind\":\"OPEN\"},{\"op\":\"CONST\",\"v\":0}],\"op\":\"LT\"},\"name\":\"refuse-dsl-depth-nine\",\"params\":{},\"version\":\"strategy-dsl-v1\"},\"feePct\":0.05,\"fillMode\":\"nextOpen\",\"mode\":\"dsl\",\"sizePct\":100,\"slPct\":2,\"slipPct\":0.02,\"tpPct\":4}",
+      "strategySha256": "8ab5f8b4498ff2e65860e6e7413f2e4537f4c76fa8d5b6b907921ad86fb72942",
+      "holdingAllowanceBars": 0,
+      "expected": {
+        "status": "refused",
+        "phase": "parse"
+      },
+      "note": ""
+    },
+    {
+      "id": "refuse-dsl-node-cap",
+      "strategyJson": "{\"direction\":\"long\",\"dsl\":{\"entry\":{\"args\":[{\"args\":[{\"args\":[{\"args\":[{\"args\":[{\"args\":[{\"ind\":\"CLOSE\"},{\"op\":\"CONST\",\"v\":0}],\"op\":\"GT\"},{\"args\":[{\"ind\":\"CLOSE\"},{\"op\":\"CONST\",\"v\":0}],\"op\":\"GT\"}],\"op\":\"AND\"},{\"args\":[{\"args\":[{\"ind\":\"CLOSE\"},{\"op\":\"CONST\",\"v\":0}],\"op\":\"GT\"},{\"args\":[{\"ind\":\"CLOSE\"},{\"op\":\"CONST\",\"v\":0}],\"op\":\"GT\"}],\"op\":\"AND\"}],\"op\":\"AND\"},{\"args\":[{\"args\":[{\"args\":[{\"ind\":\"CLOSE\"},{\"op\":\"CONST\",\"v\":0}],\"op\":\"GT\"},{\"args\":[{\"ind\":\"CLOSE\"},{\"op\":\"CONST\",\"v\":0}],\"op\":\"GT\"}],\"op\":\"AND\"},{\"args\":[{\"args\":[{\"ind\":\"CLOSE\"},{\"op\":\"CONST\",\"v\":0}],\"op\":\"GT\"},{\"args\":[{\"ind\":\"CLOSE\"},{\"op\":\"CONST\",\"v\":0}],\"op\":\"GT\"}],\"op\":\"AND\"}],\"op\":\"AND\"}],\"op\":\"AND\"},{\"args\":[{\"args\":[{\"args\":[{\"args\":[{\"ind\":\"CLOSE\"},{\"op\":\"CONST\",\"v\":0}],\"op\":\"GT\"},{\"args\":[{\"ind\":\"CLOSE\"},{\"op\":\"CONST\",\"v\":0}],\"op\":\"GT\"}],\"op\":\"AND\"},{\"args\":[{\"args\":[{\"ind\":\"CLOSE\"},{\"op\":\"CONST\",\"v\":0}],\"op\":\"GT\"},{\"args\":[{\"ind\":\"CLOSE\"},{\"op\":\"CONST\",\"v\":0}],\"op\":\"GT\"}],\"op\":\"AND\"}],\"op\":\"AND\"},{\"args\":[{\"args\":[{\"args\":[{\"ind\":\"CLOSE\"},{\"op\":\"CONST\",\"v\":0}],\"op\":\"GT\"},{\"args\":[{\"ind\":\"CLOSE\"},{\"op\":\"CONST\",\"v\":0}],\"op\":\"GT\"}],\"op\":\"AND\"},{\"args\":[{\"args\":[{\"ind\":\"CLOSE\"},{\"op\":\"CONST\",\"v\":0}],\"op\":\"GT\"},{\"args\":[{\"ind\":\"CLOSE\"},{\"op\":\"CONST\",\"v\":0}],\"op\":\"GT\"}],\"op\":\"AND\"}],\"op\":\"AND\"}],\"op\":\"AND\"}],\"op\":\"AND\"},{\"args\":[{\"ind\":\"CLOSE\"},{\"op\":\"CONST\",\"v\":0}],\"op\":\"GT\"}],\"op\":\"AND\"},\"exit\":{\"args\":[{\"ind\":\"OPEN\"},{\"op\":\"CONST\",\"v\":0}],\"op\":\"LT\"},\"name\":\"refuse-dsl-node-cap\",\"params\":{},\"version\":\"strategy-dsl-v1\"},\"feePct\":0.05,\"fillMode\":\"nextOpen\",\"mode\":\"dsl\",\"sizePct\":100,\"slPct\":2,\"slipPct\":0.02,\"tpPct\":4}",
+      "strategySha256": "0844dc15f564330f35b496243cbc93c8d988feba71da7690288f5f9337421f02",
+      "holdingAllowanceBars": 0,
+      "expected": {
+        "status": "refused",
+        "phase": "parse"
+      },
+      "note": ""
+    },
+    {
+      "id": "refuse-dsl-holding-negative",
+      "strategyJson": "{\"direction\":\"long\",\"dsl\":{\"entry\":{\"args\":[{\"ind\":\"SMA\",\"len\":\"$fast\",\"src\":\"CLOSE\"},{\"ind\":\"SMA\",\"len\":\"$slow\",\"src\":\"CLOSE\"}],\"op\":\"CROSS_UP\"},\"exit\":{\"args\":[{\"ind\":\"SMA\",\"len\":\"$fast\",\"src\":\"CLOSE\"},{\"ind\":\"SMA\",\"len\":\"$slow\",\"src\":\"CLOSE\"}],\"op\":\"CROSS_DOWN\"},\"name\":\"Fixed SMA cross\",\"params\":{\"fast\":2,\"slow\":3},\"version\":\"strategy-dsl-v1\"},\"feePct\":0.05,\"fillMode\":\"nextOpen\",\"mode\":\"dsl\",\"sizePct\":100,\"slPct\":2,\"slipPct\":0.02,\"tpPct\":4}",
+      "strategySha256": "7d1dfcb396cb67f23787f9f9ff482af4dfdcab7ea22ff4bbc4ea70ac6e522b14",
+      "holdingAllowanceBars": -1,
+      "expected": {
+        "status": "refused",
+        "phase": "embargo"
+      },
+      "note": ""
+    },
+    {
+      "id": "refuse-dsl-embargo-one-over",
+      "strategyJson": "{\"direction\":\"long\",\"dsl\":{\"entry\":{\"args\":[{\"ind\":\"SMA\",\"len\":\"$fast\",\"src\":\"CLOSE\"},{\"ind\":\"SMA\",\"len\":\"$slow\",\"src\":\"CLOSE\"}],\"op\":\"CROSS_UP\"},\"exit\":{\"args\":[{\"ind\":\"SMA\",\"len\":\"$fast\",\"src\":\"CLOSE\"},{\"ind\":\"SMA\",\"len\":\"$slow\",\"src\":\"CLOSE\"}],\"op\":\"CROSS_DOWN\"},\"name\":\"Fixed SMA cross\",\"params\":{\"fast\":2,\"slow\":3},\"version\":\"strategy-dsl-v1\"},\"feePct\":0.05,\"fillMode\":\"nextOpen\",\"mode\":\"dsl\",\"sizePct\":100,\"slPct\":2,\"slipPct\":0.02,\"tpPct\":4}",
+      "strategySha256": "7d1dfcb396cb67f23787f9f9ff482af4dfdcab7ea22ff4bbc4ea70ac6e522b14",
+      "holdingAllowanceBars": 9007199254740988,
+      "expected": {
+        "status": "refused",
+        "phase": "embargo"
+      },
+      "note": ""
+    }
+  ],
+  "families": [
+    {
+      "sourceFixture": "original-producer-projections-v1.json",
+      "caseId": "v1-ordered-axes",
+      "envelopeVersion": "discovery-config-v1",
+      "candidates": [
+        {
+          "candidateIndex": 0,
+          "strategyHash": "strategy-v2:26b3b04ef9d3c927cbfbda44074ebcc3df6b9e27b254576229faa5757aa49c60",
+          "mode": "params",
+          "expected": {
+            "maxSignalLookbackBars": 22,
+            "holdingAllowanceBars": 10,
+            "embargoBars": 32
+          }
+        },
+        {
+          "candidateIndex": 1,
+          "strategyHash": "strategy-v2:3674c76f1087df677d1c3d7ea58ee2b1b2981557f01ea38edfc830cd3740ae30",
+          "mode": "params",
+          "expected": {
+            "maxSignalLookbackBars": 22,
+            "holdingAllowanceBars": 10,
+            "embargoBars": 32
+          }
+        },
+        {
+          "candidateIndex": 2,
+          "strategyHash": "strategy-v2:eb2a7e1f826ae0317803e46bd291c8829c853bfd05434338df6f849808b224ba",
+          "mode": "params",
+          "expected": {
+            "maxSignalLookbackBars": 22,
+            "holdingAllowanceBars": 10,
+            "embargoBars": 32
+          }
+        }
+      ]
+    },
+    {
+      "sourceFixture": "original-producer-projections-v1.json",
+      "caseId": "v1-shared-dedup",
+      "envelopeVersion": "discovery-config-v1",
+      "candidates": [
+        {
+          "candidateIndex": 0,
+          "strategyHash": "strategy-v2:26b3b04ef9d3c927cbfbda44074ebcc3df6b9e27b254576229faa5757aa49c60",
+          "mode": "params",
+          "expected": {
+            "maxSignalLookbackBars": 22,
+            "holdingAllowanceBars": 10,
+            "embargoBars": 32
+          }
+        },
+        {
+          "candidateIndex": 1,
+          "strategyHash": "strategy-v2:3674c76f1087df677d1c3d7ea58ee2b1b2981557f01ea38edfc830cd3740ae30",
+          "mode": "params",
+          "expected": {
+            "maxSignalLookbackBars": 22,
+            "holdingAllowanceBars": 10,
+            "embargoBars": 32
+          }
+        },
+        {
+          "candidateIndex": 2,
+          "strategyHash": "strategy-v2:eb2a7e1f826ae0317803e46bd291c8829c853bfd05434338df6f849808b224ba",
+          "mode": "params",
+          "expected": {
+            "maxSignalLookbackBars": 22,
+            "holdingAllowanceBars": 10,
+            "embargoBars": 32
+          }
+        },
+        {
+          "candidateIndex": 3,
+          "strategyHash": "strategy-v2:f5b80d12bc2312ced8eb5e419057524ab1350eedd1b7d2d0228c372ad9643124",
+          "mode": "params",
+          "expected": {
+            "maxSignalLookbackBars": 22,
+            "holdingAllowanceBars": 10,
+            "embargoBars": 32
+          }
+        }
+      ]
+    },
+    {
+      "sourceFixture": "original-producer-projections-v1.json",
+      "caseId": "v2-fixed-dsl",
+      "envelopeVersion": "discovery-config-v2",
+      "candidates": [
+        {
+          "candidateIndex": 0,
+          "strategyHash": "strategy-v2:ec7a4e080eeda603a343839e085e2ef997721906d70f8ce8e6aff6b6d31a9a40",
+          "mode": "dsl",
+          "expected": {
+            "maxSignalLookbackBars": 4,
+            "holdingAllowanceBars": 10,
+            "embargoBars": 14
+          }
+        }
+      ]
+    },
+    {
+      "sourceFixture": "original-producer-projections-v1.json",
+      "caseId": "v3-walk-forward",
+      "envelopeVersion": "discovery-config-v3",
+      "candidates": [
+        {
+          "candidateIndex": 0,
+          "strategyHash": "strategy-v2:ec7a4e080eeda603a343839e085e2ef997721906d70f8ce8e6aff6b6d31a9a40",
+          "mode": "dsl",
+          "expected": {
+            "maxSignalLookbackBars": 4,
+            "holdingAllowanceBars": 10,
+            "embargoBars": 14
+          }
+        }
+      ]
+    },
+    {
+      "sourceFixture": "original-producer-mode-coverage-v1.json",
+      "caseId": "v2-params",
+      "envelopeVersion": "discovery-config-v2",
+      "candidates": [
+        {
+          "candidateIndex": 0,
+          "strategyHash": "strategy-v2:26b3b04ef9d3c927cbfbda44074ebcc3df6b9e27b254576229faa5757aa49c60",
+          "mode": "params",
+          "expected": {
+            "maxSignalLookbackBars": 22,
+            "holdingAllowanceBars": 10,
+            "embargoBars": 32
+          }
+        },
+        {
+          "candidateIndex": 1,
+          "strategyHash": "strategy-v2:3674c76f1087df677d1c3d7ea58ee2b1b2981557f01ea38edfc830cd3740ae30",
+          "mode": "params",
+          "expected": {
+            "maxSignalLookbackBars": 22,
+            "holdingAllowanceBars": 10,
+            "embargoBars": 32
+          }
+        },
+        {
+          "candidateIndex": 2,
+          "strategyHash": "strategy-v2:eb2a7e1f826ae0317803e46bd291c8829c853bfd05434338df6f849808b224ba",
+          "mode": "params",
+          "expected": {
+            "maxSignalLookbackBars": 22,
+            "holdingAllowanceBars": 10,
+            "embargoBars": 32
+          }
+        }
+      ]
+    },
+    {
+      "sourceFixture": "original-producer-mode-coverage-v1.json",
+      "caseId": "v3-params",
+      "envelopeVersion": "discovery-config-v3",
+      "candidates": [
+        {
+          "candidateIndex": 0,
+          "strategyHash": "strategy-v2:26b3b04ef9d3c927cbfbda44074ebcc3df6b9e27b254576229faa5757aa49c60",
+          "mode": "params",
+          "expected": {
+            "maxSignalLookbackBars": 22,
+            "holdingAllowanceBars": 10,
+            "embargoBars": 32
+          }
+        },
+        {
+          "candidateIndex": 1,
+          "strategyHash": "strategy-v2:3674c76f1087df677d1c3d7ea58ee2b1b2981557f01ea38edfc830cd3740ae30",
+          "mode": "params",
+          "expected": {
+            "maxSignalLookbackBars": 22,
+            "holdingAllowanceBars": 10,
+            "embargoBars": 32
+          }
+        },
+        {
+          "candidateIndex": 2,
+          "strategyHash": "strategy-v2:eb2a7e1f826ae0317803e46bd291c8829c853bfd05434338df6f849808b224ba",
+          "mode": "params",
+          "expected": {
+            "maxSignalLookbackBars": 22,
+            "holdingAllowanceBars": 10,
+            "embargoBars": 32
+          }
+        }
+      ]
+    },
+    {
+      "sourceFixture": "original-producer-mode-coverage-v1.json",
+      "caseId": "v2-mixed-params-first",
+      "envelopeVersion": "discovery-config-v2",
+      "candidates": [
+        {
+          "candidateIndex": 0,
+          "strategyHash": "strategy-v2:26b3b04ef9d3c927cbfbda44074ebcc3df6b9e27b254576229faa5757aa49c60",
+          "mode": "params",
+          "expected": {
+            "maxSignalLookbackBars": 22,
+            "holdingAllowanceBars": 10,
+            "embargoBars": 32
+          }
+        },
+        {
+          "candidateIndex": 1,
+          "strategyHash": "strategy-v2:3674c76f1087df677d1c3d7ea58ee2b1b2981557f01ea38edfc830cd3740ae30",
+          "mode": "params",
+          "expected": {
+            "maxSignalLookbackBars": 22,
+            "holdingAllowanceBars": 10,
+            "embargoBars": 32
+          }
+        },
+        {
+          "candidateIndex": 2,
+          "strategyHash": "strategy-v2:eb2a7e1f826ae0317803e46bd291c8829c853bfd05434338df6f849808b224ba",
+          "mode": "params",
+          "expected": {
+            "maxSignalLookbackBars": 22,
+            "holdingAllowanceBars": 10,
+            "embargoBars": 32
+          }
+        },
+        {
+          "candidateIndex": 3,
+          "strategyHash": "strategy-v2:ec7a4e080eeda603a343839e085e2ef997721906d70f8ce8e6aff6b6d31a9a40",
+          "mode": "dsl",
+          "expected": {
+            "maxSignalLookbackBars": 4,
+            "holdingAllowanceBars": 10,
+            "embargoBars": 14
+          }
+        }
+      ]
+    },
+    {
+      "sourceFixture": "original-producer-mode-coverage-v1.json",
+      "caseId": "v3-mixed-dsl-first",
+      "envelopeVersion": "discovery-config-v3",
+      "candidates": [
+        {
+          "candidateIndex": 0,
+          "strategyHash": "strategy-v2:26b3b04ef9d3c927cbfbda44074ebcc3df6b9e27b254576229faa5757aa49c60",
+          "mode": "params",
+          "expected": {
+            "maxSignalLookbackBars": 22,
+            "holdingAllowanceBars": 10,
+            "embargoBars": 32
+          }
+        },
+        {
+          "candidateIndex": 1,
+          "strategyHash": "strategy-v2:3674c76f1087df677d1c3d7ea58ee2b1b2981557f01ea38edfc830cd3740ae30",
+          "mode": "params",
+          "expected": {
+            "maxSignalLookbackBars": 22,
+            "holdingAllowanceBars": 10,
+            "embargoBars": 32
+          }
+        },
+        {
+          "candidateIndex": 2,
+          "strategyHash": "strategy-v2:eb2a7e1f826ae0317803e46bd291c8829c853bfd05434338df6f849808b224ba",
+          "mode": "params",
+          "expected": {
+            "maxSignalLookbackBars": 22,
+            "holdingAllowanceBars": 10,
+            "embargoBars": 32
+          }
+        },
+        {
+          "candidateIndex": 3,
+          "strategyHash": "strategy-v2:ec7a4e080eeda603a343839e085e2ef997721906d70f8ce8e6aff6b6d31a9a40",
+          "mode": "dsl",
+          "expected": {
+            "maxSignalLookbackBars": 4,
+            "holdingAllowanceBars": 10,
+            "embargoBars": 14
+          }
+        }
+      ]
+    }
+  ]
+}
