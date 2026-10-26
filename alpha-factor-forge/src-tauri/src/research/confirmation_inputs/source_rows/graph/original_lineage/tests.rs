@@ -15,6 +15,7 @@ use std::{
 
 mod semantic_boundaries;
 mod semantic_controls;
+mod semantic_modes;
 
 #[path = "boundaries.rs"]
 mod boundaries;
@@ -55,6 +56,9 @@ fn table<'a>(tables: &'a mut Value, name: &str) -> &'a mut Value {
 // Literal rows are input controls, never expected values from the new adapter.
 fn tables(id: &str) -> Value {
     let c = case(id);
+    tables_case(&c)
+}
+fn tables_case(c: &Value) -> Value {
     let mut tables = serde_json::from_str::<Value>(GRAPH).unwrap()["tables"].clone();
     table(&mut tables, "discovery_runs")["rows"][0][2] = c["configJson"].clone();
     table(&mut tables, "research_artifacts")["rows"] = json!([]);
