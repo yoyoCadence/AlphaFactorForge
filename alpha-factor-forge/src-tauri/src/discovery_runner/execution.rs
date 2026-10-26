@@ -1256,6 +1256,10 @@ pub fn trial_split_identity(
 }
 
 #[cfg(test)]
+#[path = "warmup_controls.rs"]
+mod warmup_controls;
+
+#[cfg(test)]
 pub(crate) mod tests {
     use super::*;
     use crate::db::repositories::validate_validation_bundle;
