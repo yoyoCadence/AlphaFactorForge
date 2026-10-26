@@ -390,31 +390,6 @@ fn semantic_success_and_refusal_preserve_caller_transaction_and_workspace() {
 }
 
 #[test]
-fn semantic_unsupported_original_envelope_modes_are_not_promoted() {
-    use super::semantic_boundaries::produced;
-    for version in ["v2-fixed-dsl", "v3-walk-forward"] {
-        let mut raw: Value =
-            serde_json::from_str(case(version)["configJson"].as_str().unwrap()).unwrap();
-        let param: Value =
-            serde_json::from_str(case("v1-ordered-axes")["configJson"].as_str().unwrap()).unwrap();
-        raw["bases"] = param["bases"].clone();
-        let mut f = produced(&raw);
-        let rows = f.capture();
-        assert!(prepare_original_lineage(&rows).is_ok());
-        refused(observe_original_lineage(&rows));
-        let dsl: Value =
-            serde_json::from_str(case(version)["configJson"].as_str().unwrap()).unwrap();
-        raw["bases"]
-            .as_array_mut()
-            .unwrap()
-            .push(dsl["bases"][0].clone());
-        let mut f = produced(&raw);
-        let rows = f.capture();
-        assert!(prepare_original_lineage(&rows).is_ok());
-        refused(observe_original_lineage(&rows));
-    }
-}
-#[test]
 fn semantic_original_zero_bits_and_admission_cost_mismatch_refuse() {
     use super::semantic_boundaries::produced;
     let mut raw: Value =

@@ -196,16 +196,15 @@ impl<'p, 'g> Context<'p, 'g> {
         let rows = p.rows();
         let cfg = p.config();
         let plan = p.plan();
-        let mode = match cfg.envelope_version.as_str() {
-            "discovery-config-v1" => "params",
-            "discovery-config-v2" | "discovery-config-v3" => "dsl",
+        let params_only = match cfg.envelope_version.as_str() {
+            "discovery-config-v1" => true,
+            "discovery-config-v2" | "discovery-config-v3" => false,
             _ => return Err(invalid()),
         };
-        require(
-            cfg.bases
-                .iter()
-                .all(|b| b.strategy.get("mode").and_then(Value::as_str) == Some(mode)),
-        )?;
+        require(cfg.bases.iter().all(|b| {
+            b.strategy.get("mode").and_then(Value::as_str) == Some("params")
+                || (!params_only && b.strategy.get("mode").and_then(Value::as_str) == Some("dsl"))
+        }))?;
         let n = plan.candidates.len();
         require(
             n > 0
@@ -257,6 +256,7 @@ impl<'p, 'g> Context<'p, 'g> {
             let si = *strategies.get(&a.strategy_id).ok_or_else(invalid)?;
             let hi = *hypotheses.get(&a.hypothesis_id).ok_or_else(invalid)?;
             let bi = *bases.get(candidate.base_id.as_str()).ok_or_else(invalid)?;
+            let mode = text(&cfg.bases[bi].strategy, "mode")?;
             let s = &rows.strategies[si];
             let docs = &p.strategies()[si];
             let d = docs.definition();
@@ -304,7 +304,8 @@ impl<'p, 'g> Context<'p, 'g> {
         for (bi, hi) in &winners {
             let row = &rows.hypotheses[*hi];
             require(hashes.insert(row.hypothesis_hash.as_str()) && hash(&row.hypothesis_hash))?;
-            check_hypothesis(p, *hi, &cfg.bases[*bi], mode)?;
+            let base = &cfg.bases[*bi];
+            check_hypothesis(p, *hi, base, text(&base.strategy, "mode")?)?;
         }
         Ok(Self {
             p,

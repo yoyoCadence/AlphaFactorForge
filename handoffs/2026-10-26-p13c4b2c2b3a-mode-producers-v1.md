@@ -3,7 +3,7 @@
 Date: 2026-10-26
 Repo: yoyoCadence/AlphaFactorForge
 Branch: test/p13c4b2c2b3a-mode-producers
-Status: Local implementation/verification complete; exact-head CI/merge delivery pending.
+Status: Resolved; delivered by #228. User resumed for 3b.
 
 ## Summary
 
@@ -26,3 +26,7 @@ The full-check root `aff-p13c4b2c2b3a-full-511b85af01394280a0fda625270723c9` was
 ## Local scope and timing
 
 The full locked suite compiled in31.44 s; final validation_records assertion extension was separately verified by all ten producer controls (compile17.01 s/tests0.39 s), followed by locked all-target check14.00 s/Clippy7.53 s. The five warnings are the pre-existing backtest/score/file-command warnings. Scoped rustfmt/diff/link/lifecycle checks pass; the frozen mode fixture SHA remains `ac7ad90c62a3430ffb013dfcf54c04fadf6c8ea9be9979a21fdd4950ae436522`. Production files and all fixture bytes remain unchanged.
+
+## Resolution (2026-10-26)
+
+[PR #228](https://github.com/yoyoCadence/AlphaFactorForge/pull/228) merged as `6be1c1f4346c7a9890cab15a6cb5d04428de7743`. Tested head `cc9608aa0b1f11bed7402cbeef7063e81b5c88ce` / base `f59513869d4406a3edac88527752c1ddc4d8d74d`, workflow40289300759: all six completed job logs confirm that exact pair. Rust1081/one ignored (297/782/2), Vitest1242/80, E2E98/no retries, production audit0 and native rendered/SQLite/metrics/event roundtrip with exact policy restoration/owned cleanup pass. Fresh reviews/threads empty; main unchanged; expected-head merge without bypass; GitHub merged readback, clean local main and full-tree equality (`47b5cd0e4625b03efa96dfb83f2d9b25aaf43475`) verified. Final PR body receipt verified. The producer session stopped after merge. The user's later resume authorizes the planned 3b semantic extension; no wider admission claim follows.
