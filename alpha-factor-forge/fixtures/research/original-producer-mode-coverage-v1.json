@@ -1,0 +1,1344 @@
+{
+  "version": "original-producer-mode-coverage-fixture-v1",
+  "note": "Independent Python json/hashlib/struct Cartesian enumeration and original literal projections; no project imports/execution. First-encounter history IDs are distinct from config-base order. Observation hypothesis IDs200+i seed the separately captured graph, not fresh history DB IDs. Future producer/consumer tests are not claimed.",
+  "datasetId": 7,
+  "interval": "1h",
+  "runId": 1,
+  "parserCores": 64,
+  "cases": [
+    {
+      "id": "v2-params",
+      "source": {
+        "envelopeTemplate": "v2-fixed-dsl",
+        "paramsBase": "v1-ordered-axes",
+        "dslBase": null,
+        "fixture": "original-producer-projections-v1.json"
+      },
+      "parserCores": 64,
+      "runId": 1,
+      "interval": "1h",
+      "configJson": "{\"bases\":[{\"axes\":[{\"key\":\"fastMA\",\"max\":11,\"min\":5,\"step\":3},{\"key\":\"slowMA\",\"max\":21,\"min\":21,\"step\":1}],\"id\":\"ma-cross\",\"presetVersion\":\"discovery-preset-v1\",\"strategy\":{\"bbMult\":2,\"bbPeriod\":20,\"direction\":\"long\",\"emaPeriod\":50,\"entryCode\":\"crossUp(macd, macdSignal)\",\"entryRules\":[{\"l\":\"maFast\",\"op\":\"crossUp\",\"r\":\"maSlow\"}],\"entrySig\":\"maCrossUp\",\"exitCode\":\"crossDown(macd, macdSignal)\",\"exitRules\":[{\"l\":\"maFast\",\"op\":\"crossDown\",\"r\":\"maSlow\"}],\"exitSig\":\"maCrossDown\",\"fastMA\":9,\"feePct\":0.05,\"fillMode\":\"close\",\"macdFast\":12,\"macdSignal\":9,\"macdSlow\":26,\"mode\":\"params\",\"rsiBuy\":30,\"rsiPeriod\":14,\"rsiSell\":70,\"sizePct\":100,\"slPct\":0,\"slipPct\":0.02,\"slowMA\":21,\"tpPct\":0}}],\"benchmarkCosts\":{\"feePct\":0.05,\"slipPct\":0.02},\"caps\":{\"candidates\":256},\"contracts\":{\"backtest\":\"backtest-execution-v1\",\"benchmarks\":\"benchmark-suite-v1\",\"datasetHash\":\"dataset-content-v2\",\"embargo\":\"embargo-derivation-v1\",\"enumeration\":\"discovery-enumeration-v2\",\"gate\":\"gate-v1\",\"metrics\":\"metrics-v2\",\"randomEntry\":\"random-entry-v1\",\"score\":\"score-v1\",\"seed\":\"seed-v1\",\"split\":\"validation-split-v1\",\"strategyDsl\":\"strategy-dsl-v1\",\"strategyHash\":\"strategy-v2\"},\"dataset\":{\"contentHash\":\"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"id\":7},\"embargo\":{\"holdingAllowanceBars\":10},\"envelopeVersion\":\"discovery-config-v2\",\"execution\":{\"startEquity\":10000},\"gateConfig\":{\"maxDrawdown\":0.35,\"maxMonthlyContribution\":0.4,\"maxSingleTradeContribution\":0.25,\"minAvgTradeReturn\":0,\"minRandomEntryPercentile\":95,\"minRollingPositiveRatio\":0.55,\"minTrades\":30,\"rollingWindowBars\":30},\"maxConcurrency\":null,\"randomEntry\":{\"runs\":200},\"rootSeed\":20260726,\"scoreConfig\":{\"caps\":{\"cagr\":1,\"calmar\":5,\"complexityUnits\":40,\"consistencySigmaScale\":10,\"dataMiningLog10\":4,\"profitFactor\":3,\"sortino\":5,\"turnover\":0.1},\"weights\":{\"cagr\":1,\"calmar\":1,\"complexity\":0.5,\"consistency\":1,\"dataMining\":1,\"profitFactor\":1,\"regime\":0,\"sortino\":1,\"turnover\":0.5}}}",
+      "configRawSha256": "908527467a7d0877b40b732da2d8bcdd7f8ce8d177342e1c68a27699a0e8979b",
+      "configHash": "908527467a7d0877b40b732da2d8bcdd7f8ce8d177342e1c68a27699a0e8979b",
+      "configBaseIds": [
+        "ma-cross"
+      ],
+      "envelopeVersion": "discovery-config-v2",
+      "counts": {
+        "raw": 3,
+        "prunedInvalid": 0,
+        "duplicates": 0,
+        "finalUnique": 3
+      },
+      "engineFingerprintJson": "{\"benchmarkRecord\":\"bench-record-v1\",\"benchmarks\":\"benchmark-suite-v1\",\"configContracts\":{\"backtest\":\"backtest-execution-v1\",\"benchmarks\":\"benchmark-suite-v1\",\"datasetHash\":\"dataset-content-v2\",\"embargo\":\"embargo-derivation-v1\",\"enumeration\":\"discovery-enumeration-v2\",\"gate\":\"gate-v1\",\"metrics\":\"metrics-v2\",\"randomEntry\":\"random-entry-v1\",\"score\":\"score-v1\",\"seed\":\"seed-v1\",\"split\":\"validation-split-v1\",\"strategyDsl\":\"strategy-dsl-v1\",\"strategyHash\":\"strategy-v2\"},\"execution\":\"backtest-execution-v1\",\"gate\":\"gate-v1\",\"metrics\":\"metrics-v2\",\"package\":\"0.1.0\",\"score\":\"score-v1\",\"validationRecord\":\"validation-record-v2\"}",
+      "engineJsonSha256": "f2baa5d69c079dd65dcd1e690c5b97e303b3b8c1bc044ab735e7bb608f55edd6",
+      "hypotheses": [
+        {
+          "baseId": "ma-cross",
+          "hash": "7d02c9f48e14dcf6177d46f3dcadd94436fd658228e7a172e441010d89128e9f",
+          "documentJson": "{\"applicability\":{\"axes\":[\"fastMA\",\"slowMA\"],\"datasetHash\":\"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"datasetId\":7,\"embargo\":\"embargo-derivation-v1\",\"interval\":\"1h\",\"split\":\"validation-split-v1\"},\"failureModes\":\"Not stated: a mechanical parameter sweep of a preset strategy. Treated as unexplained until a hypothesis with stated failure modes replaces it (P15).\",\"mechanism\":\"preset discovery-preset-v1 base ma-cross: entry on maCrossUp, exit on maCrossDown; the parameter sweep asks whether the mechanism survives neighbouring fastMA, slowMA\",\"parentStrategyId\":null,\"source\":\"discovery\",\"strategyHash\":\"strategy-doc-v1:bf9e2f86c96299155d9da6ba031a72d85e10faa2a41f07ac59cb8bae43aed61d\",\"strategyId\":null,\"variationKind\":\"param-sweep:fastMA,slowMA\",\"version\":\"hypothesis-v1\"}",
+          "applicabilityJson": "{\"axes\":[\"fastMA\",\"slowMA\"],\"datasetHash\":\"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"datasetId\":7,\"embargo\":\"embargo-derivation-v1\",\"interval\":\"1h\",\"split\":\"validation-split-v1\"}",
+          "freshHistoryId": 1,
+          "observationId": 200
+        }
+      ],
+      "candidates": [
+        {
+          "strategyId": 1,
+          "index": 0,
+          "baseId": "ma-cross",
+          "strategyHash": "strategy-v2:26b3b04ef9d3c927cbfbda44074ebcc3df6b9e27b254576229faa5757aa49c60",
+          "appliedAxes": {
+            "fastMA": 8.0,
+            "slowMA": 21.0
+          },
+          "seeds": {
+            "randomEntry": 943067094
+          },
+          "freshStrategy": {
+            "id": null,
+            "name": "Discovery ma-cross #0001",
+            "type": "params",
+            "dsl_json": null,
+            "original_definition_json": "{\"bbMult\":2,\"bbPeriod\":20,\"direction\":\"long\",\"emaPeriod\":50,\"entryCode\":\"crossUp(macd, macdSignal)\",\"entryRules\":[{\"l\":\"maFast\",\"op\":\"crossUp\",\"r\":\"maSlow\"}],\"entrySig\":\"maCrossUp\",\"exitCode\":\"crossDown(macd, macdSignal)\",\"exitRules\":[{\"l\":\"maFast\",\"op\":\"crossDown\",\"r\":\"maSlow\"}],\"exitSig\":\"maCrossDown\",\"fastMA\":8.0,\"feePct\":0.05,\"fillMode\":\"close\",\"macdFast\":12,\"macdSignal\":9,\"macdSlow\":26,\"mode\":\"params\",\"rsiBuy\":30,\"rsiPeriod\":14,\"rsiSell\":70,\"sizePct\":100,\"slPct\":0,\"slipPct\":0.02,\"slowMA\":21.0,\"tpPct\":0}",
+            "param_schema_json": null,
+            "source": "sweep",
+            "ai_prompt_hash": null,
+            "strategy_hash": "strategy-v2:26b3b04ef9d3c927cbfbda44074ebcc3df6b9e27b254576229faa5757aa49c60",
+            "lifecycle": "candidate",
+            "parent_strategy_id": null
+          },
+          "attemptKey": "run:1:candidate:0",
+          "inputFingerprintJson": "{\"appliedAxes\":{\"fastMA\":8.0,\"slowMA\":21.0},\"baseId\":\"ma-cross\",\"candidateIndex\":0,\"configHash\":\"908527467a7d0877b40b732da2d8bcdd7f8ce8d177342e1c68a27699a0e8979b\",\"datasetHash\":\"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"datasetId\":7,\"envelopeVersion\":\"discovery-config-v2\",\"interval\":\"1h\",\"rootSeed\":20260726,\"seeds\":{\"randomEntry\":943067094},\"strategyHash\":\"strategy-v2:26b3b04ef9d3c927cbfbda44074ebcc3df6b9e27b254576229faa5757aa49c60\",\"strategyId\":1}",
+          "hypothesisHash": "7d02c9f48e14dcf6177d46f3dcadd94436fd658228e7a172e441010d89128e9f",
+          "freshHypothesisId": 1
+        },
+        {
+          "strategyId": 2,
+          "index": 1,
+          "baseId": "ma-cross",
+          "strategyHash": "strategy-v2:3674c76f1087df677d1c3d7ea58ee2b1b2981557f01ea38edfc830cd3740ae30",
+          "appliedAxes": {
+            "fastMA": 5.0,
+            "slowMA": 21.0
+          },
+          "seeds": {
+            "randomEntry": 3949539066
+          },
+          "freshStrategy": {
+            "id": null,
+            "name": "Discovery ma-cross #0002",
+            "type": "params",
+            "dsl_json": null,
+            "original_definition_json": "{\"bbMult\":2,\"bbPeriod\":20,\"direction\":\"long\",\"emaPeriod\":50,\"entryCode\":\"crossUp(macd, macdSignal)\",\"entryRules\":[{\"l\":\"maFast\",\"op\":\"crossUp\",\"r\":\"maSlow\"}],\"entrySig\":\"maCrossUp\",\"exitCode\":\"crossDown(macd, macdSignal)\",\"exitRules\":[{\"l\":\"maFast\",\"op\":\"crossDown\",\"r\":\"maSlow\"}],\"exitSig\":\"maCrossDown\",\"fastMA\":5.0,\"feePct\":0.05,\"fillMode\":\"close\",\"macdFast\":12,\"macdSignal\":9,\"macdSlow\":26,\"mode\":\"params\",\"rsiBuy\":30,\"rsiPeriod\":14,\"rsiSell\":70,\"sizePct\":100,\"slPct\":0,\"slipPct\":0.02,\"slowMA\":21.0,\"tpPct\":0}",
+            "param_schema_json": null,
+            "source": "sweep",
+            "ai_prompt_hash": null,
+            "strategy_hash": "strategy-v2:3674c76f1087df677d1c3d7ea58ee2b1b2981557f01ea38edfc830cd3740ae30",
+            "lifecycle": "candidate",
+            "parent_strategy_id": null
+          },
+          "attemptKey": "run:1:candidate:1",
+          "inputFingerprintJson": "{\"appliedAxes\":{\"fastMA\":5.0,\"slowMA\":21.0},\"baseId\":\"ma-cross\",\"candidateIndex\":1,\"configHash\":\"908527467a7d0877b40b732da2d8bcdd7f8ce8d177342e1c68a27699a0e8979b\",\"datasetHash\":\"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"datasetId\":7,\"envelopeVersion\":\"discovery-config-v2\",\"interval\":\"1h\",\"rootSeed\":20260726,\"seeds\":{\"randomEntry\":3949539066},\"strategyHash\":\"strategy-v2:3674c76f1087df677d1c3d7ea58ee2b1b2981557f01ea38edfc830cd3740ae30\",\"strategyId\":2}",
+          "hypothesisHash": "7d02c9f48e14dcf6177d46f3dcadd94436fd658228e7a172e441010d89128e9f",
+          "freshHypothesisId": 1
+        },
+        {
+          "strategyId": 3,
+          "index": 2,
+          "baseId": "ma-cross",
+          "strategyHash": "strategy-v2:eb2a7e1f826ae0317803e46bd291c8829c853bfd05434338df6f849808b224ba",
+          "appliedAxes": {
+            "fastMA": 11.0,
+            "slowMA": 21.0
+          },
+          "seeds": {
+            "randomEntry": 2643074736
+          },
+          "freshStrategy": {
+            "id": null,
+            "name": "Discovery ma-cross #0003",
+            "type": "params",
+            "dsl_json": null,
+            "original_definition_json": "{\"bbMult\":2,\"bbPeriod\":20,\"direction\":\"long\",\"emaPeriod\":50,\"entryCode\":\"crossUp(macd, macdSignal)\",\"entryRules\":[{\"l\":\"maFast\",\"op\":\"crossUp\",\"r\":\"maSlow\"}],\"entrySig\":\"maCrossUp\",\"exitCode\":\"crossDown(macd, macdSignal)\",\"exitRules\":[{\"l\":\"maFast\",\"op\":\"crossDown\",\"r\":\"maSlow\"}],\"exitSig\":\"maCrossDown\",\"fastMA\":11.0,\"feePct\":0.05,\"fillMode\":\"close\",\"macdFast\":12,\"macdSignal\":9,\"macdSlow\":26,\"mode\":\"params\",\"rsiBuy\":30,\"rsiPeriod\":14,\"rsiSell\":70,\"sizePct\":100,\"slPct\":0,\"slipPct\":0.02,\"slowMA\":21.0,\"tpPct\":0}",
+            "param_schema_json": null,
+            "source": "sweep",
+            "ai_prompt_hash": null,
+            "strategy_hash": "strategy-v2:eb2a7e1f826ae0317803e46bd291c8829c853bfd05434338df6f849808b224ba",
+            "lifecycle": "candidate",
+            "parent_strategy_id": null
+          },
+          "attemptKey": "run:1:candidate:2",
+          "inputFingerprintJson": "{\"appliedAxes\":{\"fastMA\":11.0,\"slowMA\":21.0},\"baseId\":\"ma-cross\",\"candidateIndex\":2,\"configHash\":\"908527467a7d0877b40b732da2d8bcdd7f8ce8d177342e1c68a27699a0e8979b\",\"datasetHash\":\"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"datasetId\":7,\"envelopeVersion\":\"discovery-config-v2\",\"interval\":\"1h\",\"rootSeed\":20260726,\"seeds\":{\"randomEntry\":2643074736},\"strategyHash\":\"strategy-v2:eb2a7e1f826ae0317803e46bd291c8829c853bfd05434338df6f849808b224ba\",\"strategyId\":3}",
+          "hypothesisHash": "7d02c9f48e14dcf6177d46f3dcadd94436fd658228e7a172e441010d89128e9f",
+          "freshHypothesisId": 1
+        }
+      ],
+      "expectedFreshHistoryReferences": [
+        {
+          "index": 0,
+          "hypothesisId": 1,
+          "strategyId": 1
+        },
+        {
+          "index": 1,
+          "hypothesisId": 1,
+          "strategyId": 2
+        },
+        {
+          "index": 2,
+          "hypothesisId": 1,
+          "strategyId": 3
+        }
+      ],
+      "expectedObservation": {
+        "configHash": "908527467a7d0877b40b732da2d8bcdd7f8ce8d177342e1c68a27699a0e8979b",
+        "candidates": [
+          {
+            "index": 0,
+            "strategyId": 1,
+            "strategyHash": "strategy-v2:26b3b04ef9d3c927cbfbda44074ebcc3df6b9e27b254576229faa5757aa49c60",
+            "hypothesisId": 200,
+            "hypothesisHash": "7d02c9f48e14dcf6177d46f3dcadd94436fd658228e7a172e441010d89128e9f",
+            "baseId": "ma-cross"
+          },
+          {
+            "index": 1,
+            "strategyId": 2,
+            "strategyHash": "strategy-v2:3674c76f1087df677d1c3d7ea58ee2b1b2981557f01ea38edfc830cd3740ae30",
+            "hypothesisId": 200,
+            "hypothesisHash": "7d02c9f48e14dcf6177d46f3dcadd94436fd658228e7a172e441010d89128e9f",
+            "baseId": "ma-cross"
+          },
+          {
+            "index": 2,
+            "strategyId": 3,
+            "strategyHash": "strategy-v2:eb2a7e1f826ae0317803e46bd291c8829c853bfd05434338df6f849808b224ba",
+            "hypothesisId": 200,
+            "hypothesisHash": "7d02c9f48e14dcf6177d46f3dcadd94436fd658228e7a172e441010d89128e9f",
+            "baseId": "ma-cross"
+          }
+        ]
+      },
+      "work": {
+        "hashBytes": 5598,
+        "copyBytes": 11554,
+        "cloneNodes": 114,
+        "outputBytes": 508,
+        "parseBytes": 9864,
+        "parseNodes": 466,
+        "expansionBytes": 1743,
+        "expansionNodes": 120,
+        "scratchBytes": 11607,
+        "scratchNodes": 586,
+        "manifest": [
+          {
+            "kind": "config",
+            "index": null,
+            "weight": 2,
+            "bytes": 1960,
+            "nodes": 110,
+            "sha256": "908527467a7d0877b40b732da2d8bcdd7f8ce8d177342e1c68a27699a0e8979b"
+          },
+          {
+            "kind": "definition",
+            "index": 0,
+            "weight": 1,
+            "bytes": 513,
+            "nodes": 34,
+            "sha256": "78edba111d5b56491d41296c3739b9817e205515e3296ff1100dcc0899efc175"
+          },
+          {
+            "kind": "input",
+            "index": 0,
+            "weight": 1,
+            "bytes": 496,
+            "nodes": 16,
+            "sha256": "d1f60e74d70a69a6f6d1fd59a82a961f332c1ae5828ae4c66aba6ccc545f5006"
+          },
+          {
+            "kind": "engine",
+            "index": 0,
+            "weight": 1,
+            "bytes": 624,
+            "nodes": 23,
+            "sha256": "f2baa5d69c079dd65dcd1e690c5b97e303b3b8c1bc044ab735e7bb608f55edd6"
+          },
+          {
+            "kind": "definition",
+            "index": 1,
+            "weight": 1,
+            "bytes": 513,
+            "nodes": 34,
+            "sha256": "944a5a5a07f8240d87c0b533c1542bac537e625177d22cd501c87cce5b72b6a5"
+          },
+          {
+            "kind": "input",
+            "index": 1,
+            "weight": 1,
+            "bytes": 497,
+            "nodes": 16,
+            "sha256": "ae0286de92de49375c4bbc998162a0c4ed2c57ea8667a154364b4be3ff47164b"
+          },
+          {
+            "kind": "engine",
+            "index": 1,
+            "weight": 1,
+            "bytes": 624,
+            "nodes": 23,
+            "sha256": "f2baa5d69c079dd65dcd1e690c5b97e303b3b8c1bc044ab735e7bb608f55edd6"
+          },
+          {
+            "kind": "definition",
+            "index": 2,
+            "weight": 1,
+            "bytes": 514,
+            "nodes": 34,
+            "sha256": "17b0498acbdf396ae02bab8ff3f3873517e4fa12b24702e0a5abf9cf87a65f5f"
+          },
+          {
+            "kind": "input",
+            "index": 2,
+            "weight": 1,
+            "bytes": 498,
+            "nodes": 16,
+            "sha256": "1337ac4b5b656a0034951b2cecdfb2aa3871ab82a5a2af42f6d849ffbcb9fc10"
+          },
+          {
+            "kind": "engine",
+            "index": 2,
+            "weight": 1,
+            "bytes": 624,
+            "nodes": 23,
+            "sha256": "f2baa5d69c079dd65dcd1e690c5b97e303b3b8c1bc044ab735e7bb608f55edd6"
+          },
+          {
+            "kind": "content",
+            "index": 0,
+            "weight": 1,
+            "bytes": 819,
+            "nodes": 18,
+            "sha256": "7d02c9f48e14dcf6177d46f3dcadd94436fd658228e7a172e441010d89128e9f"
+          },
+          {
+            "kind": "applicability",
+            "index": 0,
+            "weight": 1,
+            "bytes": 222,
+            "nodes": 9,
+            "sha256": "3ede35bc2c86b45058d9afd408b6c578ed8725a9113c0255574a97c1e35d8bc9"
+          }
+        ]
+      }
+    },
+    {
+      "id": "v3-params",
+      "source": {
+        "envelopeTemplate": "v3-walk-forward",
+        "paramsBase": "v1-ordered-axes",
+        "dslBase": null,
+        "fixture": "original-producer-projections-v1.json"
+      },
+      "parserCores": 64,
+      "runId": 1,
+      "interval": "1h",
+      "configJson": "{\"bases\":[{\"axes\":[{\"key\":\"fastMA\",\"max\":11,\"min\":5,\"step\":3},{\"key\":\"slowMA\",\"max\":21,\"min\":21,\"step\":1}],\"id\":\"ma-cross\",\"presetVersion\":\"discovery-preset-v1\",\"strategy\":{\"bbMult\":2,\"bbPeriod\":20,\"direction\":\"long\",\"emaPeriod\":50,\"entryCode\":\"crossUp(macd, macdSignal)\",\"entryRules\":[{\"l\":\"maFast\",\"op\":\"crossUp\",\"r\":\"maSlow\"}],\"entrySig\":\"maCrossUp\",\"exitCode\":\"crossDown(macd, macdSignal)\",\"exitRules\":[{\"l\":\"maFast\",\"op\":\"crossDown\",\"r\":\"maSlow\"}],\"exitSig\":\"maCrossDown\",\"fastMA\":9,\"feePct\":0.05,\"fillMode\":\"close\",\"macdFast\":12,\"macdSignal\":9,\"macdSlow\":26,\"mode\":\"params\",\"rsiBuy\":30,\"rsiPeriod\":14,\"rsiSell\":70,\"sizePct\":100,\"slPct\":0,\"slipPct\":0.02,\"slowMA\":21,\"tpPct\":0}}],\"benchmarkCosts\":{\"feePct\":0.05,\"slipPct\":0.02},\"caps\":{\"candidates\":256},\"contracts\":{\"backtest\":\"backtest-execution-v1\",\"benchmarks\":\"benchmark-suite-v1\",\"datasetHash\":\"dataset-content-v2\",\"embargo\":\"embargo-derivation-v1\",\"enumeration\":\"discovery-enumeration-v2\",\"gate\":\"gate-v1\",\"metrics\":\"metrics-v2\",\"randomEntry\":\"random-entry-v1\",\"score\":\"score-v1\",\"seed\":\"seed-v1\",\"split\":\"validation-split-v1\",\"strategyDsl\":\"strategy-dsl-v1\",\"strategyHash\":\"strategy-v2\",\"walkForward\":\"research-walk-forward-v1\",\"walkForwardEvidence\":\"walk-forward-evidence-v1\"},\"dataset\":{\"contentHash\":\"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"id\":7},\"embargo\":{\"holdingAllowanceBars\":10},\"envelopeVersion\":\"discovery-config-v3\",\"execution\":{\"startEquity\":10000},\"gateConfig\":{\"maxDrawdown\":0.35,\"maxMonthlyContribution\":0.4,\"maxSingleTradeContribution\":0.25,\"minAvgTradeReturn\":0,\"minRandomEntryPercentile\":95,\"minRollingPositiveRatio\":0.55,\"minTrades\":30,\"rollingWindowBars\":30},\"maxConcurrency\":null,\"randomEntry\":{\"runs\":200},\"rootSeed\":20260726,\"scoreConfig\":{\"caps\":{\"cagr\":1,\"calmar\":5,\"complexityUnits\":40,\"consistencySigmaScale\":10,\"dataMiningLog10\":4,\"profitFactor\":3,\"sortino\":5,\"turnover\":0.1},\"weights\":{\"cagr\":1,\"calmar\":1,\"complexity\":0.5,\"consistency\":1,\"dataMining\":1,\"profitFactor\":1,\"regime\":0,\"sortino\":1,\"turnover\":0.5}},\"walkForward\":{\"foldCount\":3,\"foldValidationBars\":8,\"minimumTrainBars\":20}}",
+      "configRawSha256": "7cdecadf08cc28d3b23e5f81c393ed7d229c59dc0798daddb214d9375baaaea7",
+      "configHash": "7cdecadf08cc28d3b23e5f81c393ed7d229c59dc0798daddb214d9375baaaea7",
+      "configBaseIds": [
+        "ma-cross"
+      ],
+      "envelopeVersion": "discovery-config-v3",
+      "counts": {
+        "raw": 3,
+        "prunedInvalid": 0,
+        "duplicates": 0,
+        "finalUnique": 3
+      },
+      "engineFingerprintJson": "{\"benchmarkRecord\":\"bench-record-v1\",\"benchmarks\":\"benchmark-suite-v1\",\"configContracts\":{\"backtest\":\"backtest-execution-v1\",\"benchmarks\":\"benchmark-suite-v1\",\"datasetHash\":\"dataset-content-v2\",\"embargo\":\"embargo-derivation-v1\",\"enumeration\":\"discovery-enumeration-v2\",\"gate\":\"gate-v1\",\"metrics\":\"metrics-v2\",\"randomEntry\":\"random-entry-v1\",\"score\":\"score-v1\",\"seed\":\"seed-v1\",\"split\":\"validation-split-v1\",\"strategyDsl\":\"strategy-dsl-v1\",\"strategyHash\":\"strategy-v2\",\"walkForward\":\"research-walk-forward-v1\",\"walkForwardEvidence\":\"walk-forward-evidence-v1\"},\"execution\":\"backtest-execution-v1\",\"gate\":\"gate-v1\",\"metrics\":\"metrics-v2\",\"package\":\"0.1.0\",\"score\":\"score-v1\",\"validationRecord\":\"validation-record-v2\"}",
+      "engineJsonSha256": "4b50f9a7b5fa087807c562cd104be9e0218ce502b209eda6626f709fb05f6c8b",
+      "hypotheses": [
+        {
+          "baseId": "ma-cross",
+          "hash": "7d02c9f48e14dcf6177d46f3dcadd94436fd658228e7a172e441010d89128e9f",
+          "documentJson": "{\"applicability\":{\"axes\":[\"fastMA\",\"slowMA\"],\"datasetHash\":\"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"datasetId\":7,\"embargo\":\"embargo-derivation-v1\",\"interval\":\"1h\",\"split\":\"validation-split-v1\"},\"failureModes\":\"Not stated: a mechanical parameter sweep of a preset strategy. Treated as unexplained until a hypothesis with stated failure modes replaces it (P15).\",\"mechanism\":\"preset discovery-preset-v1 base ma-cross: entry on maCrossUp, exit on maCrossDown; the parameter sweep asks whether the mechanism survives neighbouring fastMA, slowMA\",\"parentStrategyId\":null,\"source\":\"discovery\",\"strategyHash\":\"strategy-doc-v1:bf9e2f86c96299155d9da6ba031a72d85e10faa2a41f07ac59cb8bae43aed61d\",\"strategyId\":null,\"variationKind\":\"param-sweep:fastMA,slowMA\",\"version\":\"hypothesis-v1\"}",
+          "applicabilityJson": "{\"axes\":[\"fastMA\",\"slowMA\"],\"datasetHash\":\"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"datasetId\":7,\"embargo\":\"embargo-derivation-v1\",\"interval\":\"1h\",\"split\":\"validation-split-v1\"}",
+          "freshHistoryId": 1,
+          "observationId": 200
+        }
+      ],
+      "candidates": [
+        {
+          "strategyId": 1,
+          "index": 0,
+          "baseId": "ma-cross",
+          "strategyHash": "strategy-v2:26b3b04ef9d3c927cbfbda44074ebcc3df6b9e27b254576229faa5757aa49c60",
+          "appliedAxes": {
+            "fastMA": 8.0,
+            "slowMA": 21.0
+          },
+          "seeds": {
+            "randomEntry": 943067094
+          },
+          "freshStrategy": {
+            "id": null,
+            "name": "Discovery ma-cross #0001",
+            "type": "params",
+            "dsl_json": null,
+            "original_definition_json": "{\"bbMult\":2,\"bbPeriod\":20,\"direction\":\"long\",\"emaPeriod\":50,\"entryCode\":\"crossUp(macd, macdSignal)\",\"entryRules\":[{\"l\":\"maFast\",\"op\":\"crossUp\",\"r\":\"maSlow\"}],\"entrySig\":\"maCrossUp\",\"exitCode\":\"crossDown(macd, macdSignal)\",\"exitRules\":[{\"l\":\"maFast\",\"op\":\"crossDown\",\"r\":\"maSlow\"}],\"exitSig\":\"maCrossDown\",\"fastMA\":8.0,\"feePct\":0.05,\"fillMode\":\"close\",\"macdFast\":12,\"macdSignal\":9,\"macdSlow\":26,\"mode\":\"params\",\"rsiBuy\":30,\"rsiPeriod\":14,\"rsiSell\":70,\"sizePct\":100,\"slPct\":0,\"slipPct\":0.02,\"slowMA\":21.0,\"tpPct\":0}",
+            "param_schema_json": null,
+            "source": "sweep",
+            "ai_prompt_hash": null,
+            "strategy_hash": "strategy-v2:26b3b04ef9d3c927cbfbda44074ebcc3df6b9e27b254576229faa5757aa49c60",
+            "lifecycle": "candidate",
+            "parent_strategy_id": null
+          },
+          "attemptKey": "run:1:candidate:0",
+          "inputFingerprintJson": "{\"appliedAxes\":{\"fastMA\":8.0,\"slowMA\":21.0},\"baseId\":\"ma-cross\",\"candidateIndex\":0,\"configHash\":\"7cdecadf08cc28d3b23e5f81c393ed7d229c59dc0798daddb214d9375baaaea7\",\"datasetHash\":\"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"datasetId\":7,\"envelopeVersion\":\"discovery-config-v3\",\"interval\":\"1h\",\"rootSeed\":20260726,\"seeds\":{\"randomEntry\":943067094},\"strategyHash\":\"strategy-v2:26b3b04ef9d3c927cbfbda44074ebcc3df6b9e27b254576229faa5757aa49c60\",\"strategyId\":1}",
+          "hypothesisHash": "7d02c9f48e14dcf6177d46f3dcadd94436fd658228e7a172e441010d89128e9f",
+          "freshHypothesisId": 1
+        },
+        {
+          "strategyId": 2,
+          "index": 1,
+          "baseId": "ma-cross",
+          "strategyHash": "strategy-v2:3674c76f1087df677d1c3d7ea58ee2b1b2981557f01ea38edfc830cd3740ae30",
+          "appliedAxes": {
+            "fastMA": 5.0,
+            "slowMA": 21.0
+          },
+          "seeds": {
+            "randomEntry": 3949539066
+          },
+          "freshStrategy": {
+            "id": null,
+            "name": "Discovery ma-cross #0002",
+            "type": "params",
+            "dsl_json": null,
+            "original_definition_json": "{\"bbMult\":2,\"bbPeriod\":20,\"direction\":\"long\",\"emaPeriod\":50,\"entryCode\":\"crossUp(macd, macdSignal)\",\"entryRules\":[{\"l\":\"maFast\",\"op\":\"crossUp\",\"r\":\"maSlow\"}],\"entrySig\":\"maCrossUp\",\"exitCode\":\"crossDown(macd, macdSignal)\",\"exitRules\":[{\"l\":\"maFast\",\"op\":\"crossDown\",\"r\":\"maSlow\"}],\"exitSig\":\"maCrossDown\",\"fastMA\":5.0,\"feePct\":0.05,\"fillMode\":\"close\",\"macdFast\":12,\"macdSignal\":9,\"macdSlow\":26,\"mode\":\"params\",\"rsiBuy\":30,\"rsiPeriod\":14,\"rsiSell\":70,\"sizePct\":100,\"slPct\":0,\"slipPct\":0.02,\"slowMA\":21.0,\"tpPct\":0}",
+            "param_schema_json": null,
+            "source": "sweep",
+            "ai_prompt_hash": null,
+            "strategy_hash": "strategy-v2:3674c76f1087df677d1c3d7ea58ee2b1b2981557f01ea38edfc830cd3740ae30",
+            "lifecycle": "candidate",
+            "parent_strategy_id": null
+          },
+          "attemptKey": "run:1:candidate:1",
+          "inputFingerprintJson": "{\"appliedAxes\":{\"fastMA\":5.0,\"slowMA\":21.0},\"baseId\":\"ma-cross\",\"candidateIndex\":1,\"configHash\":\"7cdecadf08cc28d3b23e5f81c393ed7d229c59dc0798daddb214d9375baaaea7\",\"datasetHash\":\"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"datasetId\":7,\"envelopeVersion\":\"discovery-config-v3\",\"interval\":\"1h\",\"rootSeed\":20260726,\"seeds\":{\"randomEntry\":3949539066},\"strategyHash\":\"strategy-v2:3674c76f1087df677d1c3d7ea58ee2b1b2981557f01ea38edfc830cd3740ae30\",\"strategyId\":2}",
+          "hypothesisHash": "7d02c9f48e14dcf6177d46f3dcadd94436fd658228e7a172e441010d89128e9f",
+          "freshHypothesisId": 1
+        },
+        {
+          "strategyId": 3,
+          "index": 2,
+          "baseId": "ma-cross",
+          "strategyHash": "strategy-v2:eb2a7e1f826ae0317803e46bd291c8829c853bfd05434338df6f849808b224ba",
+          "appliedAxes": {
+            "fastMA": 11.0,
+            "slowMA": 21.0
+          },
+          "seeds": {
+            "randomEntry": 2643074736
+          },
+          "freshStrategy": {
+            "id": null,
+            "name": "Discovery ma-cross #0003",
+            "type": "params",
+            "dsl_json": null,
+            "original_definition_json": "{\"bbMult\":2,\"bbPeriod\":20,\"direction\":\"long\",\"emaPeriod\":50,\"entryCode\":\"crossUp(macd, macdSignal)\",\"entryRules\":[{\"l\":\"maFast\",\"op\":\"crossUp\",\"r\":\"maSlow\"}],\"entrySig\":\"maCrossUp\",\"exitCode\":\"crossDown(macd, macdSignal)\",\"exitRules\":[{\"l\":\"maFast\",\"op\":\"crossDown\",\"r\":\"maSlow\"}],\"exitSig\":\"maCrossDown\",\"fastMA\":11.0,\"feePct\":0.05,\"fillMode\":\"close\",\"macdFast\":12,\"macdSignal\":9,\"macdSlow\":26,\"mode\":\"params\",\"rsiBuy\":30,\"rsiPeriod\":14,\"rsiSell\":70,\"sizePct\":100,\"slPct\":0,\"slipPct\":0.02,\"slowMA\":21.0,\"tpPct\":0}",
+            "param_schema_json": null,
+            "source": "sweep",
+            "ai_prompt_hash": null,
+            "strategy_hash": "strategy-v2:eb2a7e1f826ae0317803e46bd291c8829c853bfd05434338df6f849808b224ba",
+            "lifecycle": "candidate",
+            "parent_strategy_id": null
+          },
+          "attemptKey": "run:1:candidate:2",
+          "inputFingerprintJson": "{\"appliedAxes\":{\"fastMA\":11.0,\"slowMA\":21.0},\"baseId\":\"ma-cross\",\"candidateIndex\":2,\"configHash\":\"7cdecadf08cc28d3b23e5f81c393ed7d229c59dc0798daddb214d9375baaaea7\",\"datasetHash\":\"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"datasetId\":7,\"envelopeVersion\":\"discovery-config-v3\",\"interval\":\"1h\",\"rootSeed\":20260726,\"seeds\":{\"randomEntry\":2643074736},\"strategyHash\":\"strategy-v2:eb2a7e1f826ae0317803e46bd291c8829c853bfd05434338df6f849808b224ba\",\"strategyId\":3}",
+          "hypothesisHash": "7d02c9f48e14dcf6177d46f3dcadd94436fd658228e7a172e441010d89128e9f",
+          "freshHypothesisId": 1
+        }
+      ],
+      "expectedFreshHistoryReferences": [
+        {
+          "index": 0,
+          "hypothesisId": 1,
+          "strategyId": 1
+        },
+        {
+          "index": 1,
+          "hypothesisId": 1,
+          "strategyId": 2
+        },
+        {
+          "index": 2,
+          "hypothesisId": 1,
+          "strategyId": 3
+        }
+      ],
+      "expectedObservation": {
+        "configHash": "7cdecadf08cc28d3b23e5f81c393ed7d229c59dc0798daddb214d9375baaaea7",
+        "candidates": [
+          {
+            "index": 0,
+            "strategyId": 1,
+            "strategyHash": "strategy-v2:26b3b04ef9d3c927cbfbda44074ebcc3df6b9e27b254576229faa5757aa49c60",
+            "hypothesisId": 200,
+            "hypothesisHash": "7d02c9f48e14dcf6177d46f3dcadd94436fd658228e7a172e441010d89128e9f",
+            "baseId": "ma-cross"
+          },
+          {
+            "index": 1,
+            "strategyId": 2,
+            "strategyHash": "strategy-v2:3674c76f1087df677d1c3d7ea58ee2b1b2981557f01ea38edfc830cd3740ae30",
+            "hypothesisId": 200,
+            "hypothesisHash": "7d02c9f48e14dcf6177d46f3dcadd94436fd658228e7a172e441010d89128e9f",
+            "baseId": "ma-cross"
+          },
+          {
+            "index": 2,
+            "strategyId": 3,
+            "strategyHash": "strategy-v2:eb2a7e1f826ae0317803e46bd291c8829c853bfd05434338df6f849808b224ba",
+            "hypothesisId": 200,
+            "hypothesisHash": "7d02c9f48e14dcf6177d46f3dcadd94436fd658228e7a172e441010d89128e9f",
+            "baseId": "ma-cross"
+          }
+        ]
+      },
+      "work": {
+        "hashBytes": 5763,
+        "copyBytes": 11884,
+        "cloneNodes": 114,
+        "outputBytes": 508,
+        "parseBytes": 10464,
+        "parseNodes": 484,
+        "expansionBytes": 1743,
+        "expansionNodes": 120,
+        "scratchBytes": 12207,
+        "scratchNodes": 604,
+        "manifest": [
+          {
+            "kind": "config",
+            "index": null,
+            "weight": 2,
+            "bytes": 2125,
+            "nodes": 116,
+            "sha256": "7cdecadf08cc28d3b23e5f81c393ed7d229c59dc0798daddb214d9375baaaea7"
+          },
+          {
+            "kind": "definition",
+            "index": 0,
+            "weight": 1,
+            "bytes": 513,
+            "nodes": 34,
+            "sha256": "78edba111d5b56491d41296c3739b9817e205515e3296ff1100dcc0899efc175"
+          },
+          {
+            "kind": "input",
+            "index": 0,
+            "weight": 1,
+            "bytes": 496,
+            "nodes": 16,
+            "sha256": "88f242eb06371b79693bc236feb1e007d308ebf63b2cfcc2188e888954506d41"
+          },
+          {
+            "kind": "engine",
+            "index": 0,
+            "weight": 1,
+            "bytes": 714,
+            "nodes": 25,
+            "sha256": "4b50f9a7b5fa087807c562cd104be9e0218ce502b209eda6626f709fb05f6c8b"
+          },
+          {
+            "kind": "definition",
+            "index": 1,
+            "weight": 1,
+            "bytes": 513,
+            "nodes": 34,
+            "sha256": "944a5a5a07f8240d87c0b533c1542bac537e625177d22cd501c87cce5b72b6a5"
+          },
+          {
+            "kind": "input",
+            "index": 1,
+            "weight": 1,
+            "bytes": 497,
+            "nodes": 16,
+            "sha256": "fc14d022e21d83b840bb58d2d0e884a6e24869e9b45eb405d07b6929d7a199b8"
+          },
+          {
+            "kind": "engine",
+            "index": 1,
+            "weight": 1,
+            "bytes": 714,
+            "nodes": 25,
+            "sha256": "4b50f9a7b5fa087807c562cd104be9e0218ce502b209eda6626f709fb05f6c8b"
+          },
+          {
+            "kind": "definition",
+            "index": 2,
+            "weight": 1,
+            "bytes": 514,
+            "nodes": 34,
+            "sha256": "17b0498acbdf396ae02bab8ff3f3873517e4fa12b24702e0a5abf9cf87a65f5f"
+          },
+          {
+            "kind": "input",
+            "index": 2,
+            "weight": 1,
+            "bytes": 498,
+            "nodes": 16,
+            "sha256": "b104319429e060863159a1481489c9065eecca768c38a286e59ea6af18d7089e"
+          },
+          {
+            "kind": "engine",
+            "index": 2,
+            "weight": 1,
+            "bytes": 714,
+            "nodes": 25,
+            "sha256": "4b50f9a7b5fa087807c562cd104be9e0218ce502b209eda6626f709fb05f6c8b"
+          },
+          {
+            "kind": "content",
+            "index": 0,
+            "weight": 1,
+            "bytes": 819,
+            "nodes": 18,
+            "sha256": "7d02c9f48e14dcf6177d46f3dcadd94436fd658228e7a172e441010d89128e9f"
+          },
+          {
+            "kind": "applicability",
+            "index": 0,
+            "weight": 1,
+            "bytes": 222,
+            "nodes": 9,
+            "sha256": "3ede35bc2c86b45058d9afd408b6c578ed8725a9113c0255574a97c1e35d8bc9"
+          }
+        ]
+      }
+    },
+    {
+      "id": "v2-mixed-params-first",
+      "source": {
+        "envelopeTemplate": "v2-fixed-dsl",
+        "paramsBase": "v1-ordered-axes",
+        "dslBase": "v2-fixed-dsl",
+        "fixture": "original-producer-projections-v1.json"
+      },
+      "parserCores": 64,
+      "runId": 1,
+      "interval": "1h",
+      "configJson": "{\"bases\":[{\"axes\":[{\"key\":\"fastMA\",\"max\":11,\"min\":5,\"step\":3},{\"key\":\"slowMA\",\"max\":21,\"min\":21,\"step\":1}],\"id\":\"ma-cross\",\"presetVersion\":\"discovery-preset-v1\",\"strategy\":{\"bbMult\":2,\"bbPeriod\":20,\"direction\":\"long\",\"emaPeriod\":50,\"entryCode\":\"crossUp(macd, macdSignal)\",\"entryRules\":[{\"l\":\"maFast\",\"op\":\"crossUp\",\"r\":\"maSlow\"}],\"entrySig\":\"maCrossUp\",\"exitCode\":\"crossDown(macd, macdSignal)\",\"exitRules\":[{\"l\":\"maFast\",\"op\":\"crossDown\",\"r\":\"maSlow\"}],\"exitSig\":\"maCrossDown\",\"fastMA\":9,\"feePct\":0.05,\"fillMode\":\"close\",\"macdFast\":12,\"macdSignal\":9,\"macdSlow\":26,\"mode\":\"params\",\"rsiBuy\":30,\"rsiPeriod\":14,\"rsiSell\":70,\"sizePct\":100,\"slPct\":0,\"slipPct\":0.02,\"slowMA\":21,\"tpPct\":0}},{\"axes\":[],\"id\":\"dsl-cross\",\"presetVersion\":\"discovery-dsl-preset-v1\",\"strategy\":{\"direction\":\"long\",\"dsl\":{\"entry\":{\"args\":[{\"ind\":\"SMA\",\"len\":\"$fast\",\"src\":\"CLOSE\"},{\"ind\":\"SMA\",\"len\":\"$slow\",\"src\":\"CLOSE\"}],\"op\":\"CROSS_UP\"},\"exit\":{\"args\":[{\"ind\":\"SMA\",\"len\":\"$fast\",\"src\":\"CLOSE\"},{\"ind\":\"SMA\",\"len\":\"$slow\",\"src\":\"CLOSE\"}],\"op\":\"CROSS_DOWN\"},\"name\":\"Fixed SMA cross\",\"params\":{\"fast\":2,\"slow\":3},\"version\":\"strategy-dsl-v1\"},\"feePct\":0.05,\"fillMode\":\"nextOpen\",\"mode\":\"dsl\",\"sizePct\":100,\"slPct\":2,\"slipPct\":0.02,\"tpPct\":4}}],\"benchmarkCosts\":{\"feePct\":0.05,\"slipPct\":0.02},\"caps\":{\"candidates\":256},\"contracts\":{\"backtest\":\"backtest-execution-v1\",\"benchmarks\":\"benchmark-suite-v1\",\"datasetHash\":\"dataset-content-v2\",\"embargo\":\"embargo-derivation-v1\",\"enumeration\":\"discovery-enumeration-v2\",\"gate\":\"gate-v1\",\"metrics\":\"metrics-v2\",\"randomEntry\":\"random-entry-v1\",\"score\":\"score-v1\",\"seed\":\"seed-v1\",\"split\":\"validation-split-v1\",\"strategyDsl\":\"strategy-dsl-v1\",\"strategyHash\":\"strategy-v2\"},\"dataset\":{\"contentHash\":\"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"id\":7},\"embargo\":{\"holdingAllowanceBars\":10},\"envelopeVersion\":\"discovery-config-v2\",\"execution\":{\"startEquity\":10000},\"gateConfig\":{\"maxDrawdown\":0.35,\"maxMonthlyContribution\":0.4,\"maxSingleTradeContribution\":0.25,\"minAvgTradeReturn\":0,\"minRandomEntryPercentile\":95,\"minRollingPositiveRatio\":0.55,\"minTrades\":30,\"rollingWindowBars\":30},\"maxConcurrency\":null,\"randomEntry\":{\"runs\":200},\"rootSeed\":20260726,\"scoreConfig\":{\"caps\":{\"cagr\":1,\"calmar\":5,\"complexityUnits\":40,\"consistencySigmaScale\":10,\"dataMiningLog10\":4,\"profitFactor\":3,\"sortino\":5,\"turnover\":0.1},\"weights\":{\"cagr\":1,\"calmar\":1,\"complexity\":0.5,\"consistency\":1,\"dataMining\":1,\"profitFactor\":1,\"regime\":0,\"sortino\":1,\"turnover\":0.5}}}",
+      "configRawSha256": "f70e4ab34baa35e30f58c310f4bcdb5f6d56d6f9da598000d73eb3e1ec85a964",
+      "configHash": "f70e4ab34baa35e30f58c310f4bcdb5f6d56d6f9da598000d73eb3e1ec85a964",
+      "configBaseIds": [
+        "ma-cross",
+        "dsl-cross"
+      ],
+      "envelopeVersion": "discovery-config-v2",
+      "counts": {
+        "raw": 4,
+        "prunedInvalid": 0,
+        "duplicates": 0,
+        "finalUnique": 4
+      },
+      "engineFingerprintJson": "{\"benchmarkRecord\":\"bench-record-v1\",\"benchmarks\":\"benchmark-suite-v1\",\"configContracts\":{\"backtest\":\"backtest-execution-v1\",\"benchmarks\":\"benchmark-suite-v1\",\"datasetHash\":\"dataset-content-v2\",\"embargo\":\"embargo-derivation-v1\",\"enumeration\":\"discovery-enumeration-v2\",\"gate\":\"gate-v1\",\"metrics\":\"metrics-v2\",\"randomEntry\":\"random-entry-v1\",\"score\":\"score-v1\",\"seed\":\"seed-v1\",\"split\":\"validation-split-v1\",\"strategyDsl\":\"strategy-dsl-v1\",\"strategyHash\":\"strategy-v2\"},\"execution\":\"backtest-execution-v1\",\"gate\":\"gate-v1\",\"metrics\":\"metrics-v2\",\"package\":\"0.1.0\",\"score\":\"score-v1\",\"validationRecord\":\"validation-record-v2\"}",
+      "engineJsonSha256": "f2baa5d69c079dd65dcd1e690c5b97e303b3b8c1bc044ab735e7bb608f55edd6",
+      "hypotheses": [
+        {
+          "baseId": "ma-cross",
+          "hash": "7d02c9f48e14dcf6177d46f3dcadd94436fd658228e7a172e441010d89128e9f",
+          "documentJson": "{\"applicability\":{\"axes\":[\"fastMA\",\"slowMA\"],\"datasetHash\":\"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"datasetId\":7,\"embargo\":\"embargo-derivation-v1\",\"interval\":\"1h\",\"split\":\"validation-split-v1\"},\"failureModes\":\"Not stated: a mechanical parameter sweep of a preset strategy. Treated as unexplained until a hypothesis with stated failure modes replaces it (P15).\",\"mechanism\":\"preset discovery-preset-v1 base ma-cross: entry on maCrossUp, exit on maCrossDown; the parameter sweep asks whether the mechanism survives neighbouring fastMA, slowMA\",\"parentStrategyId\":null,\"source\":\"discovery\",\"strategyHash\":\"strategy-doc-v1:bf9e2f86c96299155d9da6ba031a72d85e10faa2a41f07ac59cb8bae43aed61d\",\"strategyId\":null,\"variationKind\":\"param-sweep:fastMA,slowMA\",\"version\":\"hypothesis-v1\"}",
+          "applicabilityJson": "{\"axes\":[\"fastMA\",\"slowMA\"],\"datasetHash\":\"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"datasetId\":7,\"embargo\":\"embargo-derivation-v1\",\"interval\":\"1h\",\"split\":\"validation-split-v1\"}",
+          "freshHistoryId": 1,
+          "observationId": 200
+        },
+        {
+          "baseId": "dsl-cross",
+          "hash": "3014349b7d10936707a90b9b32c2a5c4972b74f943bb81b053863d0626dccc41",
+          "documentJson": "{\"applicability\":{\"axes\":[],\"datasetHash\":\"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"datasetId\":7,\"embargo\":\"embargo-derivation-v1\",\"interval\":\"1h\",\"split\":\"validation-split-v1\"},\"failureModes\":\"Authored DSL candidate: fails if the frozen expression has no trades, loses after costs, or does not pass the existing validation gates. AI rationale/failure-mode generation remains P15.\",\"mechanism\":\"discovery-dsl-preset-v1 base dsl-cross: fixed executable DSL \\\"Fixed SMA cross\\\"; entry/exit expression trees are frozen before queue admission\",\"parentStrategyId\":null,\"source\":\"discovery\",\"strategyHash\":\"strategy-doc-v1:20b89bdf54340db55580538ffec5ffe25dbf2ca59e0914427c617914aa9265a2\",\"strategyId\":null,\"variationKind\":\"dsl-fixed\",\"version\":\"hypothesis-v1\"}",
+          "applicabilityJson": "{\"axes\":[],\"datasetHash\":\"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"datasetId\":7,\"embargo\":\"embargo-derivation-v1\",\"interval\":\"1h\",\"split\":\"validation-split-v1\"}",
+          "freshHistoryId": 2,
+          "observationId": 201
+        }
+      ],
+      "candidates": [
+        {
+          "strategyId": 1,
+          "index": 0,
+          "baseId": "ma-cross",
+          "strategyHash": "strategy-v2:26b3b04ef9d3c927cbfbda44074ebcc3df6b9e27b254576229faa5757aa49c60",
+          "appliedAxes": {
+            "fastMA": 8.0,
+            "slowMA": 21.0
+          },
+          "seeds": {
+            "randomEntry": 943067094
+          },
+          "freshStrategy": {
+            "id": null,
+            "name": "Discovery ma-cross #0001",
+            "type": "params",
+            "dsl_json": null,
+            "original_definition_json": "{\"bbMult\":2,\"bbPeriod\":20,\"direction\":\"long\",\"emaPeriod\":50,\"entryCode\":\"crossUp(macd, macdSignal)\",\"entryRules\":[{\"l\":\"maFast\",\"op\":\"crossUp\",\"r\":\"maSlow\"}],\"entrySig\":\"maCrossUp\",\"exitCode\":\"crossDown(macd, macdSignal)\",\"exitRules\":[{\"l\":\"maFast\",\"op\":\"crossDown\",\"r\":\"maSlow\"}],\"exitSig\":\"maCrossDown\",\"fastMA\":8.0,\"feePct\":0.05,\"fillMode\":\"close\",\"macdFast\":12,\"macdSignal\":9,\"macdSlow\":26,\"mode\":\"params\",\"rsiBuy\":30,\"rsiPeriod\":14,\"rsiSell\":70,\"sizePct\":100,\"slPct\":0,\"slipPct\":0.02,\"slowMA\":21.0,\"tpPct\":0}",
+            "param_schema_json": null,
+            "source": "sweep",
+            "ai_prompt_hash": null,
+            "strategy_hash": "strategy-v2:26b3b04ef9d3c927cbfbda44074ebcc3df6b9e27b254576229faa5757aa49c60",
+            "lifecycle": "candidate",
+            "parent_strategy_id": null
+          },
+          "attemptKey": "run:1:candidate:0",
+          "inputFingerprintJson": "{\"appliedAxes\":{\"fastMA\":8.0,\"slowMA\":21.0},\"baseId\":\"ma-cross\",\"candidateIndex\":0,\"configHash\":\"f70e4ab34baa35e30f58c310f4bcdb5f6d56d6f9da598000d73eb3e1ec85a964\",\"datasetHash\":\"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"datasetId\":7,\"envelopeVersion\":\"discovery-config-v2\",\"interval\":\"1h\",\"rootSeed\":20260726,\"seeds\":{\"randomEntry\":943067094},\"strategyHash\":\"strategy-v2:26b3b04ef9d3c927cbfbda44074ebcc3df6b9e27b254576229faa5757aa49c60\",\"strategyId\":1}",
+          "hypothesisHash": "7d02c9f48e14dcf6177d46f3dcadd94436fd658228e7a172e441010d89128e9f",
+          "freshHypothesisId": 1
+        },
+        {
+          "strategyId": 2,
+          "index": 1,
+          "baseId": "ma-cross",
+          "strategyHash": "strategy-v2:3674c76f1087df677d1c3d7ea58ee2b1b2981557f01ea38edfc830cd3740ae30",
+          "appliedAxes": {
+            "fastMA": 5.0,
+            "slowMA": 21.0
+          },
+          "seeds": {
+            "randomEntry": 3949539066
+          },
+          "freshStrategy": {
+            "id": null,
+            "name": "Discovery ma-cross #0002",
+            "type": "params",
+            "dsl_json": null,
+            "original_definition_json": "{\"bbMult\":2,\"bbPeriod\":20,\"direction\":\"long\",\"emaPeriod\":50,\"entryCode\":\"crossUp(macd, macdSignal)\",\"entryRules\":[{\"l\":\"maFast\",\"op\":\"crossUp\",\"r\":\"maSlow\"}],\"entrySig\":\"maCrossUp\",\"exitCode\":\"crossDown(macd, macdSignal)\",\"exitRules\":[{\"l\":\"maFast\",\"op\":\"crossDown\",\"r\":\"maSlow\"}],\"exitSig\":\"maCrossDown\",\"fastMA\":5.0,\"feePct\":0.05,\"fillMode\":\"close\",\"macdFast\":12,\"macdSignal\":9,\"macdSlow\":26,\"mode\":\"params\",\"rsiBuy\":30,\"rsiPeriod\":14,\"rsiSell\":70,\"sizePct\":100,\"slPct\":0,\"slipPct\":0.02,\"slowMA\":21.0,\"tpPct\":0}",
+            "param_schema_json": null,
+            "source": "sweep",
+            "ai_prompt_hash": null,
+            "strategy_hash": "strategy-v2:3674c76f1087df677d1c3d7ea58ee2b1b2981557f01ea38edfc830cd3740ae30",
+            "lifecycle": "candidate",
+            "parent_strategy_id": null
+          },
+          "attemptKey": "run:1:candidate:1",
+          "inputFingerprintJson": "{\"appliedAxes\":{\"fastMA\":5.0,\"slowMA\":21.0},\"baseId\":\"ma-cross\",\"candidateIndex\":1,\"configHash\":\"f70e4ab34baa35e30f58c310f4bcdb5f6d56d6f9da598000d73eb3e1ec85a964\",\"datasetHash\":\"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"datasetId\":7,\"envelopeVersion\":\"discovery-config-v2\",\"interval\":\"1h\",\"rootSeed\":20260726,\"seeds\":{\"randomEntry\":3949539066},\"strategyHash\":\"strategy-v2:3674c76f1087df677d1c3d7ea58ee2b1b2981557f01ea38edfc830cd3740ae30\",\"strategyId\":2}",
+          "hypothesisHash": "7d02c9f48e14dcf6177d46f3dcadd94436fd658228e7a172e441010d89128e9f",
+          "freshHypothesisId": 1
+        },
+        {
+          "strategyId": 3,
+          "index": 2,
+          "baseId": "ma-cross",
+          "strategyHash": "strategy-v2:eb2a7e1f826ae0317803e46bd291c8829c853bfd05434338df6f849808b224ba",
+          "appliedAxes": {
+            "fastMA": 11.0,
+            "slowMA": 21.0
+          },
+          "seeds": {
+            "randomEntry": 2643074736
+          },
+          "freshStrategy": {
+            "id": null,
+            "name": "Discovery ma-cross #0003",
+            "type": "params",
+            "dsl_json": null,
+            "original_definition_json": "{\"bbMult\":2,\"bbPeriod\":20,\"direction\":\"long\",\"emaPeriod\":50,\"entryCode\":\"crossUp(macd, macdSignal)\",\"entryRules\":[{\"l\":\"maFast\",\"op\":\"crossUp\",\"r\":\"maSlow\"}],\"entrySig\":\"maCrossUp\",\"exitCode\":\"crossDown(macd, macdSignal)\",\"exitRules\":[{\"l\":\"maFast\",\"op\":\"crossDown\",\"r\":\"maSlow\"}],\"exitSig\":\"maCrossDown\",\"fastMA\":11.0,\"feePct\":0.05,\"fillMode\":\"close\",\"macdFast\":12,\"macdSignal\":9,\"macdSlow\":26,\"mode\":\"params\",\"rsiBuy\":30,\"rsiPeriod\":14,\"rsiSell\":70,\"sizePct\":100,\"slPct\":0,\"slipPct\":0.02,\"slowMA\":21.0,\"tpPct\":0}",
+            "param_schema_json": null,
+            "source": "sweep",
+            "ai_prompt_hash": null,
+            "strategy_hash": "strategy-v2:eb2a7e1f826ae0317803e46bd291c8829c853bfd05434338df6f849808b224ba",
+            "lifecycle": "candidate",
+            "parent_strategy_id": null
+          },
+          "attemptKey": "run:1:candidate:2",
+          "inputFingerprintJson": "{\"appliedAxes\":{\"fastMA\":11.0,\"slowMA\":21.0},\"baseId\":\"ma-cross\",\"candidateIndex\":2,\"configHash\":\"f70e4ab34baa35e30f58c310f4bcdb5f6d56d6f9da598000d73eb3e1ec85a964\",\"datasetHash\":\"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"datasetId\":7,\"envelopeVersion\":\"discovery-config-v2\",\"interval\":\"1h\",\"rootSeed\":20260726,\"seeds\":{\"randomEntry\":2643074736},\"strategyHash\":\"strategy-v2:eb2a7e1f826ae0317803e46bd291c8829c853bfd05434338df6f849808b224ba\",\"strategyId\":3}",
+          "hypothesisHash": "7d02c9f48e14dcf6177d46f3dcadd94436fd658228e7a172e441010d89128e9f",
+          "freshHypothesisId": 1
+        },
+        {
+          "strategyId": 4,
+          "index": 3,
+          "baseId": "dsl-cross",
+          "strategyHash": "strategy-v2:ec7a4e080eeda603a343839e085e2ef997721906d70f8ce8e6aff6b6d31a9a40",
+          "appliedAxes": {},
+          "seeds": {
+            "randomEntry": 256232906
+          },
+          "freshStrategy": {
+            "id": null,
+            "name": "Fixed SMA cross",
+            "type": "dsl",
+            "dsl_json": "{\"entry\":{\"args\":[{\"ind\":\"SMA\",\"len\":\"$fast\",\"src\":\"CLOSE\"},{\"ind\":\"SMA\",\"len\":\"$slow\",\"src\":\"CLOSE\"}],\"op\":\"CROSS_UP\"},\"exit\":{\"args\":[{\"ind\":\"SMA\",\"len\":\"$fast\",\"src\":\"CLOSE\"},{\"ind\":\"SMA\",\"len\":\"$slow\",\"src\":\"CLOSE\"}],\"op\":\"CROSS_DOWN\"},\"name\":\"Fixed SMA cross\",\"params\":{\"fast\":2,\"slow\":3},\"version\":\"strategy-dsl-v1\"}",
+            "original_definition_json": "{\"direction\":\"long\",\"dsl\":{\"entry\":{\"args\":[{\"ind\":\"SMA\",\"len\":\"$fast\",\"src\":\"CLOSE\"},{\"ind\":\"SMA\",\"len\":\"$slow\",\"src\":\"CLOSE\"}],\"op\":\"CROSS_UP\"},\"exit\":{\"args\":[{\"ind\":\"SMA\",\"len\":\"$fast\",\"src\":\"CLOSE\"},{\"ind\":\"SMA\",\"len\":\"$slow\",\"src\":\"CLOSE\"}],\"op\":\"CROSS_DOWN\"},\"name\":\"Fixed SMA cross\",\"params\":{\"fast\":2,\"slow\":3},\"version\":\"strategy-dsl-v1\"},\"feePct\":0.05,\"fillMode\":\"nextOpen\",\"mode\":\"dsl\",\"sizePct\":100,\"slPct\":2,\"slipPct\":0.02,\"tpPct\":4}",
+            "param_schema_json": "{\"fast\":2,\"slow\":3}",
+            "source": "traditional",
+            "ai_prompt_hash": null,
+            "strategy_hash": "strategy-v2:ec7a4e080eeda603a343839e085e2ef997721906d70f8ce8e6aff6b6d31a9a40",
+            "lifecycle": "candidate",
+            "parent_strategy_id": null
+          },
+          "attemptKey": "run:1:candidate:3",
+          "inputFingerprintJson": "{\"appliedAxes\":{},\"baseId\":\"dsl-cross\",\"candidateIndex\":3,\"configHash\":\"f70e4ab34baa35e30f58c310f4bcdb5f6d56d6f9da598000d73eb3e1ec85a964\",\"datasetHash\":\"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"datasetId\":7,\"envelopeVersion\":\"discovery-config-v2\",\"interval\":\"1h\",\"rootSeed\":20260726,\"seeds\":{\"randomEntry\":256232906},\"strategyHash\":\"strategy-v2:ec7a4e080eeda603a343839e085e2ef997721906d70f8ce8e6aff6b6d31a9a40\",\"strategyId\":4}",
+          "hypothesisHash": "3014349b7d10936707a90b9b32c2a5c4972b74f943bb81b053863d0626dccc41",
+          "freshHypothesisId": 2
+        }
+      ],
+      "expectedFreshHistoryReferences": [
+        {
+          "index": 0,
+          "hypothesisId": 1,
+          "strategyId": 1
+        },
+        {
+          "index": 1,
+          "hypothesisId": 1,
+          "strategyId": 2
+        },
+        {
+          "index": 2,
+          "hypothesisId": 1,
+          "strategyId": 3
+        },
+        {
+          "index": 3,
+          "hypothesisId": 2,
+          "strategyId": 4
+        }
+      ],
+      "expectedObservation": {
+        "configHash": "f70e4ab34baa35e30f58c310f4bcdb5f6d56d6f9da598000d73eb3e1ec85a964",
+        "candidates": [
+          {
+            "index": 0,
+            "strategyId": 1,
+            "strategyHash": "strategy-v2:26b3b04ef9d3c927cbfbda44074ebcc3df6b9e27b254576229faa5757aa49c60",
+            "hypothesisId": 200,
+            "hypothesisHash": "7d02c9f48e14dcf6177d46f3dcadd94436fd658228e7a172e441010d89128e9f",
+            "baseId": "ma-cross"
+          },
+          {
+            "index": 1,
+            "strategyId": 2,
+            "strategyHash": "strategy-v2:3674c76f1087df677d1c3d7ea58ee2b1b2981557f01ea38edfc830cd3740ae30",
+            "hypothesisId": 200,
+            "hypothesisHash": "7d02c9f48e14dcf6177d46f3dcadd94436fd658228e7a172e441010d89128e9f",
+            "baseId": "ma-cross"
+          },
+          {
+            "index": 2,
+            "strategyId": 3,
+            "strategyHash": "strategy-v2:eb2a7e1f826ae0317803e46bd291c8829c853bfd05434338df6f849808b224ba",
+            "hypothesisId": 200,
+            "hypothesisHash": "7d02c9f48e14dcf6177d46f3dcadd94436fd658228e7a172e441010d89128e9f",
+            "baseId": "ma-cross"
+          },
+          {
+            "index": 3,
+            "strategyId": 4,
+            "strategyHash": "strategy-v2:ec7a4e080eeda603a343839e085e2ef997721906d70f8ce8e6aff6b6d31a9a40",
+            "hypothesisId": 201,
+            "hypothesisHash": "3014349b7d10936707a90b9b32c2a5c4972b74f943bb81b053863d0626dccc41",
+            "baseId": "dsl-cross"
+          }
+        ]
+      },
+      "work": {
+        "hashBytes": 7934,
+        "copyBytes": 17274,
+        "cloneNodes": 155,
+        "outputBytes": 657,
+        "parseBytes": 13793,
+        "parseNodes": 673,
+        "expansionBytes": 2203,
+        "expansionNodes": 159,
+        "scratchBytes": 15996,
+        "scratchNodes": 832,
+        "manifest": [
+          {
+            "kind": "config",
+            "index": null,
+            "weight": 2,
+            "bytes": 2490,
+            "nodes": 151,
+            "sha256": "f70e4ab34baa35e30f58c310f4bcdb5f6d56d6f9da598000d73eb3e1ec85a964"
+          },
+          {
+            "kind": "definition",
+            "index": 0,
+            "weight": 1,
+            "bytes": 513,
+            "nodes": 34,
+            "sha256": "78edba111d5b56491d41296c3739b9817e205515e3296ff1100dcc0899efc175"
+          },
+          {
+            "kind": "input",
+            "index": 0,
+            "weight": 1,
+            "bytes": 496,
+            "nodes": 16,
+            "sha256": "5c8bc5bfcc076c1f12ad23890114495293189be9371325beed29a5eea41a0547"
+          },
+          {
+            "kind": "engine",
+            "index": 0,
+            "weight": 1,
+            "bytes": 624,
+            "nodes": 23,
+            "sha256": "f2baa5d69c079dd65dcd1e690c5b97e303b3b8c1bc044ab735e7bb608f55edd6"
+          },
+          {
+            "kind": "definition",
+            "index": 1,
+            "weight": 1,
+            "bytes": 513,
+            "nodes": 34,
+            "sha256": "944a5a5a07f8240d87c0b533c1542bac537e625177d22cd501c87cce5b72b6a5"
+          },
+          {
+            "kind": "input",
+            "index": 1,
+            "weight": 1,
+            "bytes": 497,
+            "nodes": 16,
+            "sha256": "e2591cf5e3c0f73dda41aa87700722a48dbff2a55cbf64cc32264645624a6a28"
+          },
+          {
+            "kind": "engine",
+            "index": 1,
+            "weight": 1,
+            "bytes": 624,
+            "nodes": 23,
+            "sha256": "f2baa5d69c079dd65dcd1e690c5b97e303b3b8c1bc044ab735e7bb608f55edd6"
+          },
+          {
+            "kind": "definition",
+            "index": 2,
+            "weight": 1,
+            "bytes": 514,
+            "nodes": 34,
+            "sha256": "17b0498acbdf396ae02bab8ff3f3873517e4fa12b24702e0a5abf9cf87a65f5f"
+          },
+          {
+            "kind": "input",
+            "index": 2,
+            "weight": 1,
+            "bytes": 498,
+            "nodes": 16,
+            "sha256": "c96ea530126573c85ac3aaeb2846db516c4c5868b40be29f58731a4760a86488"
+          },
+          {
+            "kind": "engine",
+            "index": 2,
+            "weight": 1,
+            "bytes": 624,
+            "nodes": 23,
+            "sha256": "f2baa5d69c079dd65dcd1e690c5b97e303b3b8c1bc044ab735e7bb608f55edd6"
+          },
+          {
+            "kind": "definition",
+            "index": 3,
+            "weight": 1,
+            "bytes": 447,
+            "nodes": 37,
+            "sha256": "7d1dfcb396cb67f23787f9f9ff482af4dfdcab7ea22ff4bbc4ea70ac6e522b14"
+          },
+          {
+            "kind": "dsl",
+            "index": 3,
+            "weight": 1,
+            "bytes": 322,
+            "nodes": 28,
+            "sha256": "20b89bdf54340db55580538ffec5ffe25dbf2ca59e0914427c617914aa9265a2"
+          },
+          {
+            "kind": "input",
+            "index": 3,
+            "weight": 1,
+            "bytes": 471,
+            "nodes": 14,
+            "sha256": "64fdc59e9301b9ef74403078b0ff555d0ca25a065658cac971cf9d93b176d14a"
+          },
+          {
+            "kind": "engine",
+            "index": 3,
+            "weight": 1,
+            "bytes": 624,
+            "nodes": 23,
+            "sha256": "f2baa5d69c079dd65dcd1e690c5b97e303b3b8c1bc044ab735e7bb608f55edd6"
+          },
+          {
+            "kind": "content",
+            "index": 0,
+            "weight": 1,
+            "bytes": 819,
+            "nodes": 18,
+            "sha256": "7d02c9f48e14dcf6177d46f3dcadd94436fd658228e7a172e441010d89128e9f"
+          },
+          {
+            "kind": "applicability",
+            "index": 0,
+            "weight": 1,
+            "bytes": 222,
+            "nodes": 9,
+            "sha256": "3ede35bc2c86b45058d9afd408b6c578ed8725a9113c0255574a97c1e35d8bc9"
+          },
+          {
+            "kind": "content",
+            "index": 1,
+            "weight": 1,
+            "bytes": 800,
+            "nodes": 16,
+            "sha256": "3014349b7d10936707a90b9b32c2a5c4972b74f943bb81b053863d0626dccc41"
+          },
+          {
+            "kind": "applicability",
+            "index": 1,
+            "weight": 1,
+            "bytes": 205,
+            "nodes": 7,
+            "sha256": "70231dfa441b06796bf202f25bbd96e11016ab0a4f77523823afd6da48629a03"
+          }
+        ]
+      }
+    },
+    {
+      "id": "v3-mixed-dsl-first",
+      "source": {
+        "envelopeTemplate": "v3-walk-forward",
+        "paramsBase": "v1-ordered-axes",
+        "dslBase": "v2-fixed-dsl",
+        "fixture": "original-producer-projections-v1.json"
+      },
+      "parserCores": 64,
+      "runId": 1,
+      "interval": "1h",
+      "configJson": "{\n  \"bases\": [\n    {\n      \"axes\": [],\n      \"id\": \"dsl-cross\",\n      \"presetVersion\": \"discovery-dsl-preset-v1\",\n      \"strategy\": {\n        \"direction\": \"long\",\n        \"dsl\": {\n          \"entry\": {\n            \"args\": [\n              {\n                \"ind\": \"SMA\",\n                \"len\": \"$fast\",\n                \"src\": \"CLOSE\"\n              },\n              {\n                \"ind\": \"SMA\",\n                \"len\": \"$slow\",\n                \"src\": \"CLOSE\"\n              }\n            ],\n            \"op\": \"CROSS_UP\"\n          },\n          \"exit\": {\n            \"args\": [\n              {\n                \"ind\": \"SMA\",\n                \"len\": \"$fast\",\n                \"src\": \"CLOSE\"\n              },\n              {\n                \"ind\": \"SMA\",\n                \"len\": \"$slow\",\n                \"src\": \"CLOSE\"\n              }\n            ],\n            \"op\": \"CROSS_DOWN\"\n          },\n          \"name\": \"Fixed SMA cross\",\n          \"params\": {\n            \"fast\": 2,\n            \"slow\": 3\n          },\n          \"version\": \"strategy-dsl-v1\"\n        },\n        \"feePct\": 0.05,\n        \"fillMode\": \"nextOpen\",\n        \"mode\": \"dsl\",\n        \"sizePct\": 100,\n        \"slPct\": 2,\n        \"slipPct\": 0.02,\n        \"tpPct\": 4\n      }\n    },\n    {\n      \"axes\": [\n        {\n          \"key\": \"fastMA\",\n          \"max\": 11,\n          \"min\": 5,\n          \"step\": 3\n        },\n        {\n          \"key\": \"slowMA\",\n          \"max\": 21,\n          \"min\": 21,\n          \"step\": 1\n        }\n      ],\n      \"id\": \"ma-cross\",\n      \"presetVersion\": \"discovery-preset-v1\",\n      \"strategy\": {\n        \"bbMult\": 2,\n        \"bbPeriod\": 20,\n        \"direction\": \"long\",\n        \"emaPeriod\": 50,\n        \"entryCode\": \"crossUp(macd, macdSignal)\",\n        \"entryRules\": [\n          {\n            \"l\": \"maFast\",\n            \"op\": \"crossUp\",\n            \"r\": \"maSlow\"\n          }\n        ],\n        \"entrySig\": \"maCrossUp\",\n        \"exitCode\": \"crossDown(macd, macdSignal)\",\n        \"exitRules\": [\n          {\n            \"l\": \"maFast\",\n            \"op\": \"crossDown\",\n            \"r\": \"maSlow\"\n          }\n        ],\n        \"exitSig\": \"maCrossDown\",\n        \"fastMA\": 9,\n        \"feePct\": 0.05,\n        \"fillMode\": \"close\",\n        \"macdFast\": 12,\n        \"macdSignal\": 9,\n        \"macdSlow\": 26,\n        \"mode\": \"params\",\n        \"rsiBuy\": 30,\n        \"rsiPeriod\": 14,\n        \"rsiSell\": 70,\n        \"sizePct\": 100,\n        \"slPct\": 0,\n        \"slipPct\": 0.02,\n        \"slowMA\": 21,\n        \"tpPct\": 0\n      }\n    }\n  ],\n  \"benchmarkCosts\": {\n    \"feePct\": 0.05,\n    \"slipPct\": 0.02\n  },\n  \"caps\": {\n    \"candidates\": 256\n  },\n  \"contracts\": {\n    \"backtest\": \"backtest-execution-v1\",\n    \"benchmarks\": \"benchmark-suite-v1\",\n    \"datasetHash\": \"dataset-content-v2\",\n    \"embargo\": \"embargo-derivation-v1\",\n    \"enumeration\": \"discovery-enumeration-v2\",\n    \"gate\": \"gate-v1\",\n    \"metrics\": \"metrics-v2\",\n    \"randomEntry\": \"random-entry-v1\",\n    \"score\": \"score-v1\",\n    \"seed\": \"seed-v1\",\n    \"split\": \"validation-split-v1\",\n    \"strategyDsl\": \"strategy-dsl-v1\",\n    \"strategyHash\": \"strategy-v2\",\n    \"walkForward\": \"research-walk-forward-v1\",\n    \"walkForwardEvidence\": \"walk-forward-evidence-v1\"\n  },\n  \"dataset\": {\n    \"contentHash\": \"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\n    \"id\": 7\n  },\n  \"embargo\": {\n    \"holdingAllowanceBars\": 10\n  },\n  \"envelopeVersion\": \"discovery-config-v3\",\n  \"execution\": {\n    \"startEquity\": 10000\n  },\n  \"gateConfig\": {\n    \"maxDrawdown\": 0.35,\n    \"maxMonthlyContribution\": 0.4,\n    \"maxSingleTradeContribution\": 0.25,\n    \"minAvgTradeReturn\": 0,\n    \"minRandomEntryPercentile\": 95,\n    \"minRollingPositiveRatio\": 0.55,\n    \"minTrades\": 30,\n    \"rollingWindowBars\": 30\n  },\n  \"maxConcurrency\": null,\n  \"randomEntry\": {\n    \"runs\": 200\n  },\n  \"rootSeed\": 20260726,\n  \"scoreConfig\": {\n    \"caps\": {\n      \"cagr\": 1,\n      \"calmar\": 5,\n      \"complexityUnits\": 40,\n      \"consistencySigmaScale\": 10,\n      \"dataMiningLog10\": 4,\n      \"profitFactor\": 3,\n      \"sortino\": 5,\n      \"turnover\": 0.1\n    },\n    \"weights\": {\n      \"cagr\": 1,\n      \"calmar\": 1,\n      \"complexity\": 0.5,\n      \"consistency\": 1,\n      \"dataMining\": 1,\n      \"profitFactor\": 1,\n      \"regime\": 0,\n      \"sortino\": 1,\n      \"turnover\": 0.5\n    }\n  },\n  \"walkForward\": {\n    \"foldCount\": 3,\n    \"foldValidationBars\": 8,\n    \"minimumTrainBars\": 20\n  }\n}",
+      "configRawSha256": "239ae356906f0f092dd29aa1a75130825a8e1fd01faf7e7dfcef1c5e3928a37f",
+      "configHash": "a420e71e3821159ba901b16e2e03d755049044c07eb95fef7e723d5d28008a5f",
+      "configBaseIds": [
+        "dsl-cross",
+        "ma-cross"
+      ],
+      "envelopeVersion": "discovery-config-v3",
+      "counts": {
+        "raw": 4,
+        "prunedInvalid": 0,
+        "duplicates": 0,
+        "finalUnique": 4
+      },
+      "engineFingerprintJson": "{\"benchmarkRecord\":\"bench-record-v1\",\"benchmarks\":\"benchmark-suite-v1\",\"configContracts\":{\"backtest\":\"backtest-execution-v1\",\"benchmarks\":\"benchmark-suite-v1\",\"datasetHash\":\"dataset-content-v2\",\"embargo\":\"embargo-derivation-v1\",\"enumeration\":\"discovery-enumeration-v2\",\"gate\":\"gate-v1\",\"metrics\":\"metrics-v2\",\"randomEntry\":\"random-entry-v1\",\"score\":\"score-v1\",\"seed\":\"seed-v1\",\"split\":\"validation-split-v1\",\"strategyDsl\":\"strategy-dsl-v1\",\"strategyHash\":\"strategy-v2\",\"walkForward\":\"research-walk-forward-v1\",\"walkForwardEvidence\":\"walk-forward-evidence-v1\"},\"execution\":\"backtest-execution-v1\",\"gate\":\"gate-v1\",\"metrics\":\"metrics-v2\",\"package\":\"0.1.0\",\"score\":\"score-v1\",\"validationRecord\":\"validation-record-v2\"}",
+      "engineJsonSha256": "4b50f9a7b5fa087807c562cd104be9e0218ce502b209eda6626f709fb05f6c8b",
+      "hypotheses": [
+        {
+          "baseId": "ma-cross",
+          "hash": "7d02c9f48e14dcf6177d46f3dcadd94436fd658228e7a172e441010d89128e9f",
+          "documentJson": "{\"applicability\":{\"axes\":[\"fastMA\",\"slowMA\"],\"datasetHash\":\"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"datasetId\":7,\"embargo\":\"embargo-derivation-v1\",\"interval\":\"1h\",\"split\":\"validation-split-v1\"},\"failureModes\":\"Not stated: a mechanical parameter sweep of a preset strategy. Treated as unexplained until a hypothesis with stated failure modes replaces it (P15).\",\"mechanism\":\"preset discovery-preset-v1 base ma-cross: entry on maCrossUp, exit on maCrossDown; the parameter sweep asks whether the mechanism survives neighbouring fastMA, slowMA\",\"parentStrategyId\":null,\"source\":\"discovery\",\"strategyHash\":\"strategy-doc-v1:bf9e2f86c96299155d9da6ba031a72d85e10faa2a41f07ac59cb8bae43aed61d\",\"strategyId\":null,\"variationKind\":\"param-sweep:fastMA,slowMA\",\"version\":\"hypothesis-v1\"}",
+          "applicabilityJson": "{\"axes\":[\"fastMA\",\"slowMA\"],\"datasetHash\":\"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"datasetId\":7,\"embargo\":\"embargo-derivation-v1\",\"interval\":\"1h\",\"split\":\"validation-split-v1\"}",
+          "freshHistoryId": 1,
+          "observationId": 200
+        },
+        {
+          "baseId": "dsl-cross",
+          "hash": "3014349b7d10936707a90b9b32c2a5c4972b74f943bb81b053863d0626dccc41",
+          "documentJson": "{\"applicability\":{\"axes\":[],\"datasetHash\":\"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"datasetId\":7,\"embargo\":\"embargo-derivation-v1\",\"interval\":\"1h\",\"split\":\"validation-split-v1\"},\"failureModes\":\"Authored DSL candidate: fails if the frozen expression has no trades, loses after costs, or does not pass the existing validation gates. AI rationale/failure-mode generation remains P15.\",\"mechanism\":\"discovery-dsl-preset-v1 base dsl-cross: fixed executable DSL \\\"Fixed SMA cross\\\"; entry/exit expression trees are frozen before queue admission\",\"parentStrategyId\":null,\"source\":\"discovery\",\"strategyHash\":\"strategy-doc-v1:20b89bdf54340db55580538ffec5ffe25dbf2ca59e0914427c617914aa9265a2\",\"strategyId\":null,\"variationKind\":\"dsl-fixed\",\"version\":\"hypothesis-v1\"}",
+          "applicabilityJson": "{\"axes\":[],\"datasetHash\":\"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"datasetId\":7,\"embargo\":\"embargo-derivation-v1\",\"interval\":\"1h\",\"split\":\"validation-split-v1\"}",
+          "freshHistoryId": 2,
+          "observationId": 201
+        }
+      ],
+      "candidates": [
+        {
+          "strategyId": 1,
+          "index": 0,
+          "baseId": "ma-cross",
+          "strategyHash": "strategy-v2:26b3b04ef9d3c927cbfbda44074ebcc3df6b9e27b254576229faa5757aa49c60",
+          "appliedAxes": {
+            "fastMA": 8.0,
+            "slowMA": 21.0
+          },
+          "seeds": {
+            "randomEntry": 943067094
+          },
+          "freshStrategy": {
+            "id": null,
+            "name": "Discovery ma-cross #0001",
+            "type": "params",
+            "dsl_json": null,
+            "original_definition_json": "{\"bbMult\":2,\"bbPeriod\":20,\"direction\":\"long\",\"emaPeriod\":50,\"entryCode\":\"crossUp(macd, macdSignal)\",\"entryRules\":[{\"l\":\"maFast\",\"op\":\"crossUp\",\"r\":\"maSlow\"}],\"entrySig\":\"maCrossUp\",\"exitCode\":\"crossDown(macd, macdSignal)\",\"exitRules\":[{\"l\":\"maFast\",\"op\":\"crossDown\",\"r\":\"maSlow\"}],\"exitSig\":\"maCrossDown\",\"fastMA\":8.0,\"feePct\":0.05,\"fillMode\":\"close\",\"macdFast\":12,\"macdSignal\":9,\"macdSlow\":26,\"mode\":\"params\",\"rsiBuy\":30,\"rsiPeriod\":14,\"rsiSell\":70,\"sizePct\":100,\"slPct\":0,\"slipPct\":0.02,\"slowMA\":21.0,\"tpPct\":0}",
+            "param_schema_json": null,
+            "source": "sweep",
+            "ai_prompt_hash": null,
+            "strategy_hash": "strategy-v2:26b3b04ef9d3c927cbfbda44074ebcc3df6b9e27b254576229faa5757aa49c60",
+            "lifecycle": "candidate",
+            "parent_strategy_id": null
+          },
+          "attemptKey": "run:1:candidate:0",
+          "inputFingerprintJson": "{\"appliedAxes\":{\"fastMA\":8.0,\"slowMA\":21.0},\"baseId\":\"ma-cross\",\"candidateIndex\":0,\"configHash\":\"a420e71e3821159ba901b16e2e03d755049044c07eb95fef7e723d5d28008a5f\",\"datasetHash\":\"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"datasetId\":7,\"envelopeVersion\":\"discovery-config-v3\",\"interval\":\"1h\",\"rootSeed\":20260726,\"seeds\":{\"randomEntry\":943067094},\"strategyHash\":\"strategy-v2:26b3b04ef9d3c927cbfbda44074ebcc3df6b9e27b254576229faa5757aa49c60\",\"strategyId\":1}",
+          "hypothesisHash": "7d02c9f48e14dcf6177d46f3dcadd94436fd658228e7a172e441010d89128e9f",
+          "freshHypothesisId": 1
+        },
+        {
+          "strategyId": 2,
+          "index": 1,
+          "baseId": "ma-cross",
+          "strategyHash": "strategy-v2:3674c76f1087df677d1c3d7ea58ee2b1b2981557f01ea38edfc830cd3740ae30",
+          "appliedAxes": {
+            "fastMA": 5.0,
+            "slowMA": 21.0
+          },
+          "seeds": {
+            "randomEntry": 3949539066
+          },
+          "freshStrategy": {
+            "id": null,
+            "name": "Discovery ma-cross #0002",
+            "type": "params",
+            "dsl_json": null,
+            "original_definition_json": "{\"bbMult\":2,\"bbPeriod\":20,\"direction\":\"long\",\"emaPeriod\":50,\"entryCode\":\"crossUp(macd, macdSignal)\",\"entryRules\":[{\"l\":\"maFast\",\"op\":\"crossUp\",\"r\":\"maSlow\"}],\"entrySig\":\"maCrossUp\",\"exitCode\":\"crossDown(macd, macdSignal)\",\"exitRules\":[{\"l\":\"maFast\",\"op\":\"crossDown\",\"r\":\"maSlow\"}],\"exitSig\":\"maCrossDown\",\"fastMA\":5.0,\"feePct\":0.05,\"fillMode\":\"close\",\"macdFast\":12,\"macdSignal\":9,\"macdSlow\":26,\"mode\":\"params\",\"rsiBuy\":30,\"rsiPeriod\":14,\"rsiSell\":70,\"sizePct\":100,\"slPct\":0,\"slipPct\":0.02,\"slowMA\":21.0,\"tpPct\":0}",
+            "param_schema_json": null,
+            "source": "sweep",
+            "ai_prompt_hash": null,
+            "strategy_hash": "strategy-v2:3674c76f1087df677d1c3d7ea58ee2b1b2981557f01ea38edfc830cd3740ae30",
+            "lifecycle": "candidate",
+            "parent_strategy_id": null
+          },
+          "attemptKey": "run:1:candidate:1",
+          "inputFingerprintJson": "{\"appliedAxes\":{\"fastMA\":5.0,\"slowMA\":21.0},\"baseId\":\"ma-cross\",\"candidateIndex\":1,\"configHash\":\"a420e71e3821159ba901b16e2e03d755049044c07eb95fef7e723d5d28008a5f\",\"datasetHash\":\"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"datasetId\":7,\"envelopeVersion\":\"discovery-config-v3\",\"interval\":\"1h\",\"rootSeed\":20260726,\"seeds\":{\"randomEntry\":3949539066},\"strategyHash\":\"strategy-v2:3674c76f1087df677d1c3d7ea58ee2b1b2981557f01ea38edfc830cd3740ae30\",\"strategyId\":2}",
+          "hypothesisHash": "7d02c9f48e14dcf6177d46f3dcadd94436fd658228e7a172e441010d89128e9f",
+          "freshHypothesisId": 1
+        },
+        {
+          "strategyId": 3,
+          "index": 2,
+          "baseId": "ma-cross",
+          "strategyHash": "strategy-v2:eb2a7e1f826ae0317803e46bd291c8829c853bfd05434338df6f849808b224ba",
+          "appliedAxes": {
+            "fastMA": 11.0,
+            "slowMA": 21.0
+          },
+          "seeds": {
+            "randomEntry": 2643074736
+          },
+          "freshStrategy": {
+            "id": null,
+            "name": "Discovery ma-cross #0003",
+            "type": "params",
+            "dsl_json": null,
+            "original_definition_json": "{\"bbMult\":2,\"bbPeriod\":20,\"direction\":\"long\",\"emaPeriod\":50,\"entryCode\":\"crossUp(macd, macdSignal)\",\"entryRules\":[{\"l\":\"maFast\",\"op\":\"crossUp\",\"r\":\"maSlow\"}],\"entrySig\":\"maCrossUp\",\"exitCode\":\"crossDown(macd, macdSignal)\",\"exitRules\":[{\"l\":\"maFast\",\"op\":\"crossDown\",\"r\":\"maSlow\"}],\"exitSig\":\"maCrossDown\",\"fastMA\":11.0,\"feePct\":0.05,\"fillMode\":\"close\",\"macdFast\":12,\"macdSignal\":9,\"macdSlow\":26,\"mode\":\"params\",\"rsiBuy\":30,\"rsiPeriod\":14,\"rsiSell\":70,\"sizePct\":100,\"slPct\":0,\"slipPct\":0.02,\"slowMA\":21.0,\"tpPct\":0}",
+            "param_schema_json": null,
+            "source": "sweep",
+            "ai_prompt_hash": null,
+            "strategy_hash": "strategy-v2:eb2a7e1f826ae0317803e46bd291c8829c853bfd05434338df6f849808b224ba",
+            "lifecycle": "candidate",
+            "parent_strategy_id": null
+          },
+          "attemptKey": "run:1:candidate:2",
+          "inputFingerprintJson": "{\"appliedAxes\":{\"fastMA\":11.0,\"slowMA\":21.0},\"baseId\":\"ma-cross\",\"candidateIndex\":2,\"configHash\":\"a420e71e3821159ba901b16e2e03d755049044c07eb95fef7e723d5d28008a5f\",\"datasetHash\":\"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"datasetId\":7,\"envelopeVersion\":\"discovery-config-v3\",\"interval\":\"1h\",\"rootSeed\":20260726,\"seeds\":{\"randomEntry\":2643074736},\"strategyHash\":\"strategy-v2:eb2a7e1f826ae0317803e46bd291c8829c853bfd05434338df6f849808b224ba\",\"strategyId\":3}",
+          "hypothesisHash": "7d02c9f48e14dcf6177d46f3dcadd94436fd658228e7a172e441010d89128e9f",
+          "freshHypothesisId": 1
+        },
+        {
+          "strategyId": 4,
+          "index": 3,
+          "baseId": "dsl-cross",
+          "strategyHash": "strategy-v2:ec7a4e080eeda603a343839e085e2ef997721906d70f8ce8e6aff6b6d31a9a40",
+          "appliedAxes": {},
+          "seeds": {
+            "randomEntry": 256232906
+          },
+          "freshStrategy": {
+            "id": null,
+            "name": "Fixed SMA cross",
+            "type": "dsl",
+            "dsl_json": "{\"entry\":{\"args\":[{\"ind\":\"SMA\",\"len\":\"$fast\",\"src\":\"CLOSE\"},{\"ind\":\"SMA\",\"len\":\"$slow\",\"src\":\"CLOSE\"}],\"op\":\"CROSS_UP\"},\"exit\":{\"args\":[{\"ind\":\"SMA\",\"len\":\"$fast\",\"src\":\"CLOSE\"},{\"ind\":\"SMA\",\"len\":\"$slow\",\"src\":\"CLOSE\"}],\"op\":\"CROSS_DOWN\"},\"name\":\"Fixed SMA cross\",\"params\":{\"fast\":2,\"slow\":3},\"version\":\"strategy-dsl-v1\"}",
+            "original_definition_json": "{\"direction\":\"long\",\"dsl\":{\"entry\":{\"args\":[{\"ind\":\"SMA\",\"len\":\"$fast\",\"src\":\"CLOSE\"},{\"ind\":\"SMA\",\"len\":\"$slow\",\"src\":\"CLOSE\"}],\"op\":\"CROSS_UP\"},\"exit\":{\"args\":[{\"ind\":\"SMA\",\"len\":\"$fast\",\"src\":\"CLOSE\"},{\"ind\":\"SMA\",\"len\":\"$slow\",\"src\":\"CLOSE\"}],\"op\":\"CROSS_DOWN\"},\"name\":\"Fixed SMA cross\",\"params\":{\"fast\":2,\"slow\":3},\"version\":\"strategy-dsl-v1\"},\"feePct\":0.05,\"fillMode\":\"nextOpen\",\"mode\":\"dsl\",\"sizePct\":100,\"slPct\":2,\"slipPct\":0.02,\"tpPct\":4}",
+            "param_schema_json": "{\"fast\":2,\"slow\":3}",
+            "source": "traditional",
+            "ai_prompt_hash": null,
+            "strategy_hash": "strategy-v2:ec7a4e080eeda603a343839e085e2ef997721906d70f8ce8e6aff6b6d31a9a40",
+            "lifecycle": "candidate",
+            "parent_strategy_id": null
+          },
+          "attemptKey": "run:1:candidate:3",
+          "inputFingerprintJson": "{\"appliedAxes\":{},\"baseId\":\"dsl-cross\",\"candidateIndex\":3,\"configHash\":\"a420e71e3821159ba901b16e2e03d755049044c07eb95fef7e723d5d28008a5f\",\"datasetHash\":\"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"datasetId\":7,\"envelopeVersion\":\"discovery-config-v3\",\"interval\":\"1h\",\"rootSeed\":20260726,\"seeds\":{\"randomEntry\":256232906},\"strategyHash\":\"strategy-v2:ec7a4e080eeda603a343839e085e2ef997721906d70f8ce8e6aff6b6d31a9a40\",\"strategyId\":4}",
+          "hypothesisHash": "3014349b7d10936707a90b9b32c2a5c4972b74f943bb81b053863d0626dccc41",
+          "freshHypothesisId": 2
+        }
+      ],
+      "expectedFreshHistoryReferences": [
+        {
+          "index": 0,
+          "hypothesisId": 1,
+          "strategyId": 1
+        },
+        {
+          "index": 1,
+          "hypothesisId": 1,
+          "strategyId": 2
+        },
+        {
+          "index": 2,
+          "hypothesisId": 1,
+          "strategyId": 3
+        },
+        {
+          "index": 3,
+          "hypothesisId": 2,
+          "strategyId": 4
+        }
+      ],
+      "expectedObservation": {
+        "configHash": "a420e71e3821159ba901b16e2e03d755049044c07eb95fef7e723d5d28008a5f",
+        "candidates": [
+          {
+            "index": 0,
+            "strategyId": 1,
+            "strategyHash": "strategy-v2:26b3b04ef9d3c927cbfbda44074ebcc3df6b9e27b254576229faa5757aa49c60",
+            "hypothesisId": 200,
+            "hypothesisHash": "7d02c9f48e14dcf6177d46f3dcadd94436fd658228e7a172e441010d89128e9f",
+            "baseId": "ma-cross"
+          },
+          {
+            "index": 1,
+            "strategyId": 2,
+            "strategyHash": "strategy-v2:3674c76f1087df677d1c3d7ea58ee2b1b2981557f01ea38edfc830cd3740ae30",
+            "hypothesisId": 200,
+            "hypothesisHash": "7d02c9f48e14dcf6177d46f3dcadd94436fd658228e7a172e441010d89128e9f",
+            "baseId": "ma-cross"
+          },
+          {
+            "index": 2,
+            "strategyId": 3,
+            "strategyHash": "strategy-v2:eb2a7e1f826ae0317803e46bd291c8829c853bfd05434338df6f849808b224ba",
+            "hypothesisId": 200,
+            "hypothesisHash": "7d02c9f48e14dcf6177d46f3dcadd94436fd658228e7a172e441010d89128e9f",
+            "baseId": "ma-cross"
+          },
+          {
+            "index": 3,
+            "strategyId": 4,
+            "strategyHash": "strategy-v2:ec7a4e080eeda603a343839e085e2ef997721906d70f8ce8e6aff6b6d31a9a40",
+            "hypothesisId": 201,
+            "hypothesisHash": "3014349b7d10936707a90b9b32c2a5c4972b74f943bb81b053863d0626dccc41",
+            "baseId": "dsl-cross"
+          }
+        ]
+      },
+      "work": {
+        "hashBytes": 8099,
+        "copyBytes": 17604,
+        "cloneNodes": 155,
+        "outputBytes": 657,
+        "parseBytes": 17929,
+        "parseNodes": 693,
+        "expansionBytes": 2203,
+        "expansionNodes": 159,
+        "scratchBytes": 20132,
+        "scratchNodes": 852,
+        "manifest": [
+          {
+            "kind": "config",
+            "index": null,
+            "weight": 2,
+            "bytes": 4378,
+            "nodes": 157,
+            "sha256": "239ae356906f0f092dd29aa1a75130825a8e1fd01faf7e7dfcef1c5e3928a37f"
+          },
+          {
+            "kind": "definition",
+            "index": 0,
+            "weight": 1,
+            "bytes": 513,
+            "nodes": 34,
+            "sha256": "78edba111d5b56491d41296c3739b9817e205515e3296ff1100dcc0899efc175"
+          },
+          {
+            "kind": "input",
+            "index": 0,
+            "weight": 1,
+            "bytes": 496,
+            "nodes": 16,
+            "sha256": "f66401d49c78cdb9357fb6b93f29c32518f0767adfe8918cb5a4fe9927c1a4c7"
+          },
+          {
+            "kind": "engine",
+            "index": 0,
+            "weight": 1,
+            "bytes": 714,
+            "nodes": 25,
+            "sha256": "4b50f9a7b5fa087807c562cd104be9e0218ce502b209eda6626f709fb05f6c8b"
+          },
+          {
+            "kind": "definition",
+            "index": 1,
+            "weight": 1,
+            "bytes": 513,
+            "nodes": 34,
+            "sha256": "944a5a5a07f8240d87c0b533c1542bac537e625177d22cd501c87cce5b72b6a5"
+          },
+          {
+            "kind": "input",
+            "index": 1,
+            "weight": 1,
+            "bytes": 497,
+            "nodes": 16,
+            "sha256": "5d8665cf4a79a07bf98577739a4161ed9ce9b3dde7b7048802c83a9b957e83ee"
+          },
+          {
+            "kind": "engine",
+            "index": 1,
+            "weight": 1,
+            "bytes": 714,
+            "nodes": 25,
+            "sha256": "4b50f9a7b5fa087807c562cd104be9e0218ce502b209eda6626f709fb05f6c8b"
+          },
+          {
+            "kind": "definition",
+            "index": 2,
+            "weight": 1,
+            "bytes": 514,
+            "nodes": 34,
+            "sha256": "17b0498acbdf396ae02bab8ff3f3873517e4fa12b24702e0a5abf9cf87a65f5f"
+          },
+          {
+            "kind": "input",
+            "index": 2,
+            "weight": 1,
+            "bytes": 498,
+            "nodes": 16,
+            "sha256": "b2fcdd561bda2435ac3c108b119bbabea9540e7284fcfc8c3dfd39a1acb4b2aa"
+          },
+          {
+            "kind": "engine",
+            "index": 2,
+            "weight": 1,
+            "bytes": 714,
+            "nodes": 25,
+            "sha256": "4b50f9a7b5fa087807c562cd104be9e0218ce502b209eda6626f709fb05f6c8b"
+          },
+          {
+            "kind": "definition",
+            "index": 3,
+            "weight": 1,
+            "bytes": 447,
+            "nodes": 37,
+            "sha256": "7d1dfcb396cb67f23787f9f9ff482af4dfdcab7ea22ff4bbc4ea70ac6e522b14"
+          },
+          {
+            "kind": "dsl",
+            "index": 3,
+            "weight": 1,
+            "bytes": 322,
+            "nodes": 28,
+            "sha256": "20b89bdf54340db55580538ffec5ffe25dbf2ca59e0914427c617914aa9265a2"
+          },
+          {
+            "kind": "input",
+            "index": 3,
+            "weight": 1,
+            "bytes": 471,
+            "nodes": 14,
+            "sha256": "d6d3e07c68048ecc1d0ffc59b2385ddad88661a7cdb153e05832d1a0a3987bd4"
+          },
+          {
+            "kind": "engine",
+            "index": 3,
+            "weight": 1,
+            "bytes": 714,
+            "nodes": 25,
+            "sha256": "4b50f9a7b5fa087807c562cd104be9e0218ce502b209eda6626f709fb05f6c8b"
+          },
+          {
+            "kind": "content",
+            "index": 0,
+            "weight": 1,
+            "bytes": 819,
+            "nodes": 18,
+            "sha256": "7d02c9f48e14dcf6177d46f3dcadd94436fd658228e7a172e441010d89128e9f"
+          },
+          {
+            "kind": "applicability",
+            "index": 0,
+            "weight": 1,
+            "bytes": 222,
+            "nodes": 9,
+            "sha256": "3ede35bc2c86b45058d9afd408b6c578ed8725a9113c0255574a97c1e35d8bc9"
+          },
+          {
+            "kind": "content",
+            "index": 1,
+            "weight": 1,
+            "bytes": 800,
+            "nodes": 16,
+            "sha256": "3014349b7d10936707a90b9b32c2a5c4972b74f943bb81b053863d0626dccc41"
+          },
+          {
+            "kind": "applicability",
+            "index": 1,
+            "weight": 1,
+            "bytes": 205,
+            "nodes": 7,
+            "sha256": "70231dfa441b06796bf202f25bbd96e11016ab0a4f77523823afd6da48629a03"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -3,7 +3,7 @@
 Date: 2026-10-25
 Repo: yoyoCadence/AlphaFactorForge
 Branch: feat/p13c4b2c2b2-lineage-semantics
-Status: Local implementation and verification complete; exact-head CI/merge delivery pending.
+Status: Resolved: #226 merged and clean-main delivery verified; remaining mode/source gates stay open.
 
 ## Summary
 
@@ -31,3 +31,10 @@ The first default-worker Vitest run overlapped all-target checking and timed out
 ## Remaining obligations
 
 This result proves historical consistency only. It grants no RegisteredSource, live owner/registry/admission, numerical execution, numericCostsHash, warmup/file/market/trial authority or research PASS. Parents remain incomplete. After delivery promote/refine P13c-4b-2c-2b-3 envelope/mode producer controls before further source adapter code; v2/v3 params/mixed-mode families remain unsupported until that extension delivers.
+
+## Resolution: #226 delivery (2026-10-25)
+
+- PR [#226](https://github.com/yoyoCadence/AlphaFactorForge/pull/226), final head `a8f471a74431712bfaa57bafeb933cef955d6019`, base `bca7d5a0d42213806f9d9f85dc03d2d70fc01d64`, merge `e097e4d3924dcf5e4b80592e90a2f64f03680e4d`.
+- CI run40192440944: all six successful; every completed job log contains the exact head/base merge checkout. Windows Rust297/778/2 pass (35.18/384.69/5.60 s; one ignored), default-worker Vitest1242/80, E2E98 without retries, production audit0. Native rendered app/SQLite/metrics/Rust event roundtrip, exact hosted browser policy restoration and owned process/temp cleanup pass.
+- Post-rebase31 lineage cases pass21.73 s. Fresh review/thread lists empty, main unchanged, mergeable true; ready/expected-head merge without bypass. GitHub merged readback verified; local main fast-forwarded cleanly and entire tree equals tested head (`0ead85e74a75508517bc5fadc47a4bd0ed7bf266`). PR body contains the delivery receipt.
+- Promote/refine 2b-3 producer-grounded envelope/mode coverage next. Parent/source/live admission obligations remain incomplete.

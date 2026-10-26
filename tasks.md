@@ -6,6 +6,8 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Current Snapshot
 
+- **P13c-4b-2c-2b-3 mode coverage design locally verified (2026-10-25)** from merged #226 (`e097e4d`): four independently frozen v2/v3 params/mixed families/14 candidates,60 document manifests, exact original producer/history and future semantic output/work controls. Python/Node identities/seeds/DTO/lineage/counts,52 nested JSON and source/links/scope/lifecycle pass. DSL-first config order differs from first history IDs; pretty raw config SHA differs from canonical hash. Design/data only; current runtime remains #226 verified **1077 Rust (one ignored) /1242 Vitest/80 files /98 E2E**. Six-job design delivery precedes 3a actual producer controls and separate 3b per-base support; parent/source/live gates remain incomplete. [Plan](docs/plans/research-original-producer-mode-coverage-v1.md), [handoff](handoffs/2026-10-25-p13c4b2c2b3-mode-coverage-v1.md).
+
 - **P13c-4b-2c-2b-2 original lineage semantics locally verified** (2026-10-25; baseline #225 `bca7d5a`): one sealed preparation/whole-family immutable observation, borrowed ID-reference resolution, original candidate/cost/DSL/input/engine/winning-base/shared-hypothesis agreement and complete W32 MiB/C64 MiB/O4 MiB preflight with unchanged helpers. Six restored assertion mutants and31 lineage cases pass, including four frozen outputs/work, nonmonotonic IDs, real W/C exact/one-over and actual-writer1101-candidate O boundary. Full isolated **1077 Rust (one ignored)**, locked all-target check/Clippy/scoped format, **1242 Vitest/80 files** (four-worker retry after one default-worker timing failure), typecheck/build pass; five old Clippy warnings only. Owned roots cleaned. Local implementation complete; exact-head six CI jobs and verified merge remain delivery gates. Missing envelope/mode coverage and all source/live admission gates remain tracked. [Handoff](handoffs/2026-10-25-p13c4b2c2b2-lineage-semantics-v1.md).
 
 - **P13c-4b-2c-2b-2 original lineage semantic contract refined (2026-10-25)** from merged #224 (`3241451`). One sealed whole-family historical observation, explicit first mode catalog, original cost/type/hash/DSL and exact input/engine/winning-base/shared-hypothesis rules. Whole post-preparation W32 MiB / C64 MiB / O4 MiB preflight, four independent Python/Node result/work controls, an explicit nonmonotonic library-ID/reference control and three feasible real-capture boundary recipes are frozen before code; output uses 44*25+1 candidates within64-per-axis cap. Strict JSON/source/links/scope/lifecycle checks pass. Design/data only; no future semantic test is claimed. Runtime remains #224 verified **1061 Rust (one ignored) / 1242 Vitest / 98 E2E**; exact-head delivery precedes code. Missing mode coverage/source/live gates remain tracked. [Plan](docs/plans/research-original-lineage-semantics-v1.md), [handoff](handoffs/2026-10-25-p13c4b2c2b2-semantic-contract-v1.md).
@@ -284,6 +286,9 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Next
 
+- **P13c-4b-2c-2b-3a - Actual mode-family producer conformance**: Next only after 3-design six-job delivery/merge. Reuse private actual producer/repository/history controls for all four new families/14 literal candidates, complete fresh DTO/input/engine/hypotheses and first-encounter history IDs; four assertion mutants restored exactly. Tests only, no semantic support change. Full isolated locked Rust before Node, all-target/scoped checks and exact-head six-job delivery. [First code](docs/plans/research-original-producer-mode-coverage-v1.md#4-first-code-actual-original-producer-conformance-2b-3a).
+
+
 
 
 
@@ -338,6 +343,8 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## In Progress
 
+- **P13c-4b-2c-2b-3 - Original envelope/mode coverage extension**: In Progress from merged #226 (`e097e4d`). Design/data locally frozen: four v2/v3 params/mixed families,14 candidates/60 document manifests, explicit first-history vs config-base order and P/E/W/C/O. 3a actual producer conformance follows verified design delivery; 3b per-winning-base semantic extension follows verified 3a delivery. Parent completes only after both code merges. User requested stop after this design PR merges (2026-10-26); leave 3a Next/unstarted until later resume. Runtime still supports #226 first catalog; warmup/market/trial/source/live gates stay open. [Plan](docs/plans/research-original-producer-mode-coverage-v1.md), [handoff](handoffs/2026-10-25-p13c4b2c2b3-mode-coverage-v1.md).
+
 
 
 
@@ -383,7 +390,8 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Backlog
 
-- **P13c-4b-2c-2b-3 - Original envelope/mode coverage extension**: After 2b-2 delivers, promote/refine this support design before warmup/market/trial code. First semantic catalog only covers producer-grounded v1 params / v2-v3 fixed DSL; add independently frozen actual producer/conformance controls before extending to v2/v3 params or mixed-mode families. No fallback or claim that parent source adapters are complete. [Remaining coverage](docs/plans/research-original-lineage-semantics-v1.md#7-remaining-source-obligations).
+- **P13c-4b-2c-2b-3b - Per-base original semantic mode coverage**: After verified 3a producer delivery, promote the minimal v2/v3 params/mixed extension. Resolve candidate/hypothesis mode through each actual winning base, retain original explicit envelope engine catalog and all existing identity/preparation/W/C/O rules. Four literal complete-graph outputs/manifests plus mixed late/failed-member refusals/caller-state and four restored assertion mutants; complete verification/delivery. Parent 3 remains incomplete until this merges. [Second code](docs/plans/research-original-producer-mode-coverage-v1.md#5-second-code-minimal-per-base-semantic-support-2b-3b).
+
 
 - [ ] **TEST-WINDOWS-TEMP-ISOLATION-001 — Investigate PID-reused fixture state and cleanup (P3)** (2026-10-24): three campaign/admission and two alpha-transfer cases failed with old counts/Replayed in default TEMP; unchanged source passed all 1011 Rust tests in a unique TEMP/TMP root. Existing PID+counter helpers and deletion before DB-field drop can leave reusable SQLite state on Windows. Reproduce and scope a test-only identity/handle-close/cleanup fix for the three fixture groups; preserve original receipts and production behavior. Separate from P13; do not reorder the current product work. [Evidence](handoffs/2026-10-24-p13c4b2b2a-root-selection-v1.md#full-verification--windows-temp-evidence).
 
@@ -663,6 +671,8 @@ These were named inside the UI port entry and must not be buried by closing it. 
 - [ ] Full closed-loop AI automation. (Specification: ABC-14.)
 
 ## Done
+
+- [x] **P13c-4b-2c-2b-3-design - Original producer mode coverage refinement** (2026-10-25; baseline #226 `e097e4d`): frozen four original v2/v3 params/mixed families/14 candidates, exact DTO/input/engine/shared hypothesis/fresh-history and future observation references,60 document manifests and complete P/E/W/C/node/O. Independent Python and Node controls,52 strict nested JSON documents, source/count-field/catalog/order/hash/link/scope/lifecycle checks pass; pretty DSL-first v3 control separates config order from history IDs and raw from canonical hash. Design/data only; future conformance/support is not claimed. Six-job design delivery gates 3a, then separate 3b; parent remains In Progress. [Handoff](handoffs/2026-10-25-p13c4b2c2b3-mode-coverage-v1.md).
 
 - [x] **P13c-4b-2c-2b-2 - Original lineage semantic observation** (2026-10-25; baseline #225 `bca7d5a`): one sealed preparation/whole-family immutable observation, borrowed ID-reference resolution, original candidate/cost/DSL/input/engine/winning-base/shared-hypothesis agreement and complete W32 MiB/C64 MiB/O4 MiB preflight with unchanged helpers. Six restored assertion mutants and31 lineage cases pass, including four frozen outputs/work, nonmonotonic IDs, real W/C exact/one-over and actual-writer1101-candidate O boundary. Full isolated **1077 Rust (one ignored)**, locked all-target check/Clippy/scoped format, **1242 Vitest/80 files** (four-worker retry after one default-worker timing failure), typecheck/build pass; five old Clippy warnings only. Owned roots cleaned. Local implementation complete; exact-head six CI jobs and verified merge remain delivery gates. Missing envelope/mode coverage and all source/live admission gates remain tracked. [Handoff](handoffs/2026-10-25-p13c4b2c2b2-lineage-semantics-v1.md).
 

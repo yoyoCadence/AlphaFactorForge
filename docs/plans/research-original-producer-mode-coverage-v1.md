@@ -1,0 +1,198 @@
+# P13c-4b-2c-2b-3 original producer mode coverage v1
+
+Date: 2026-10-25
+Baseline: merged #226 (`e097e4d`). Design/data only.
+
+The [original producer contract](research-original-producer-projections-v1.md),
+[bounded preparation contract](research-original-lineage-consumers-v1.md) and
+[first semantic contract](research-original-lineage-semantics-v1.md) remain
+binding. #226 delivers the first catalog only: v1 params and v2/v3 fixed DSL.
+The unchanged original parser/enumerator/producer also support v2/v3 params and
+mixed params/DSL families. Freeze independent controls, verify the actual producer,
+then extend that private historical consumer in a separate delivery.
+
+## 1. Scope, order and supported catalog
+
+This work does not create another envelope/identity/engine version. The target
+catalog after the consumer extension is:
+
+| Original envelope | Original supported base modes |
+| --- | --- |
+| discovery-config-v1 | params only |
+| discovery-config-v2 | params, fixed DSL, and mixtures of those bases |
+| discovery-config-v3 | params, fixed DSL, and mixtures; original walk-forward contracts retained |
+
+Every base must have its allowed original mode. No manual/AI/code/blocks/marked
+candidate fallback, parented hypothesis support, library-source authority or
+current engine replacement is added. A params-only v2/v3 config still carries
+its complete original enumeration-v2/strategyDsl catalog; v3 retains both
+walk-forward contract keys. Do not infer contracts from the candidate mode.
+
+Delivery order is mandatory:
+
+1. **2b-3-design**: this plan/new literal fixture, independent checks and verified
+   six-job PR delivery. Runtime support is still #226 throughout this phase.
+2. **2b-3a**: actual original producer/repository/history conformance against all
+   fourteen new candidates. Tests only; complete six-job delivery before step3.
+3. **2b-3b**: minimal private per-base semantic catalog extension and controls.
+   Only its verified merge completes this mode-coverage parent.
+
+No source warmup/market/trial code may skip this sequence. Parents 4b-2c/4b-2/
+4b/P13c-4 and every remaining source/live admission gate stay incomplete.
+
+## 2. Independent new literals
+
+The [fixture](../../alpha-factor-forge/fixtures/research/original-producer-mode-coverage-v1.json)
+contains four complete families/fourteen candidates derived from unchanged
+independently authored original projection literals:
+
+- `v2-params`: v2 envelope/contracts with the v1 ordered fastMA/constant slowMA
+  params base; three candidates and one shared hypothesis.
+- `v3-params`: the same params base under the original v3 walk-forward envelope;
+  three candidates and one shared hypothesis.
+- `v2-mixed-params-first`: params base then fixed DSL base; four globally
+  hash-sorted candidates and two complete shared hypotheses.
+- `v3-mixed-dsl-first`: DSL base then params base, with deliberately pretty raw
+  config JSON; four candidates and two hypotheses. Config base order is
+  `[dsl-cross, ma-cross]`, but first candidate/history order is
+  `[ma-cross, dsl-cross]`. Raw config SHA differs from its canonical config hash.
+
+Each case freezes exact original config, explicit engine/catalog, all eleven
+fresh StrategyDef fields (including optional DSL/param schema), strategy-v2
+identities, applied axes, seed-v1 values, candidate indexes/strategy IDs,
+12-key input fingerprints/attempt keys, complete hypothesis content/applicability
+and base strategy-doc-v1 identities. Enumeration counts use the actual serialized
+keys raw/prunedInvalid/duplicates/finalUnique, not renamed diagnostic counters.
+
+The dataset7/hash/interval1h/run1/parserCores64 values are controlled declarations,
+not authenticated data, historical hardware or a runnable dataset. No candles,
+backtests, reserved seeds, calibration, registry/provider calls or execution are
+used to author the fixture. The v3 minimumTrainBars20 declaration is retained
+from the original envelope; mode conformance does not establish strategy warmup,
+fold viability or any successful walk-forward execution. Those remain source/
+execution obligations, including for failed original family members.
+
+Two distinct ID models are explicit. `freshHypothesisId` and
+`expectedFreshHistoryReferences` describe a fresh original history DB allocating
+IDs on first candidate encounter. `hypotheses[].observationId=200+i` and
+`expectedObservation` describe the separately seeded guarded SQL graph used for
+consumer controls. Never confuse either with config base order or infer an ID
+from a content hash. Fresh strategy IDs remain candidate index+1 in these new
+controls; #226's nonmonotonic library-reference test remains mandatory.
+
+All new ordinary identities/seeds/hypothesis content agree with the earlier
+frozen literals. New envelope/base composition changes config/input/engine
+lineage, and global indexes determine original params DTO names. Expectations
+are never generated by importing/executing project code or the future consumer.
+
+## 3. Exact preparation and semantic work
+
+The same existing P/E/W/C/O definitions and inclusive ceilings from the two
+bounded contracts apply unchanged. Sixty original selected-document manifest
+entries freeze exact retained UTF8 byte lengths, node counts, weights and SHA.
+Config P weight remains2; every other selected original is counted once.
+
+| Family | candidates/hypotheses | P bytes/nodes | E bytes/nodes | W bytes | C bytes | cloned nodes | O bytes |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| v2-params | 3/1 | 9864/466 | 1743/120 | 5598 | 11554 | 114 | 508 |
+| v3-params | 3/1 | 10464/484 | 1743/120 | 5763 | 11884 | 114 | 508 |
+| v2-mixed-params-first | 4/2 | 13793/673 | 2203/159 | 7934 | 17274 | 155 | 657 |
+| v3-mixed-dsl-first | 4/2 | 17929/693 | 2203/159 | 8099 | 17604 | 155 | 657 |
+
+Combined P+E values are frozen per case as scratchBytes/scratchNodes. Cloned
+Value nodes must still fit that already reserved node count. Whole W32 MiB /
+C64 MiB / O4 MiB and prior P+E32 MiB/262144-node limits remain complete-operation
+pools before payload work; mixed-mode members never receive fresh allowances.
+#226's real exact/one-over W/C/O controls remain required. No new unreachable
+standalone node boundary or allocator-peak claim is introduced.
+
+## 4. First code: actual original producer conformance (2b-3a)
+
+Extend only the existing private runner projection controls under
+`src-tauri/src/discovery_runner/tests/projection_controls*`. Reuse the owned
+Fixture and actual private candidate_strategy_def / original engine/run_lineage /
+repository/history functions. A narrow test-helper extraction accepting a case
+may preserve the old controls and let the four new cases share their assertions;
+no production factory, start/enqueue path or parser/identity/writer change is
+needed. Keep all existing literal bytes and old test coverage.
+
+For each case, compare exact enumeration counts/order/axes/seeds, all eleven DTO
+fields and saved strategy projection, complete engine/input text, hypothesis
+content/scalars and every actual history reference. Assert the fresh history IDs
+against expectedFreshHistoryReferences, including v3 DSL-first config order.
+Repeated complete-content registration must preserve the same IDs/content.
+Retain original config bytes exactly, including the pretty v3 mixed case;
+compare its canonical hash independently of raw SHA. All job/candle/result/
+artifact/trade tables remain empty in these producer controls. Use actual
+isolated lease/epoch and exclusive new-root allocation/owned cleanup.
+
+Four targeted temporary source mutants must assertion-fail, then restore exact
+bytes: force DSL DTOs down params projection; choose the first config base for
+all lineage; use enumeration-v1 contracts for the v2/v3 engine; reorder returned
+lineage by config base order rather than original candidate order. Preserve
+original failure logs; compile failures are not caught assertions. These cover
+new mode/catalog/attribution/order obligations without rewriting old writers.
+
+Full isolated locked Rust precedes Node-heavy checks. Locked all-target check/
+Clippy/scoped format/typecheck/test/build and all six exact-head/base CI jobs,
+fresh reviews/main, expected-head merge, GitHub merged readback and clean-main
+full-tree equality are required. Do not extend semantic support in this PR.
+
+## 5. Second code: minimal per-base semantic support (2b-3b)
+
+Only after 2b-3a delivery, refine private original_lineage/semantics. Keep the sole
+sealed graph constructor, one preparation, immutable output and all unchanged
+size/identity/canonical helpers. Envelope validation still permits only v1/v2/v3.
+Check every base's supported mode for that envelope; resolve each candidate's
+expected mode through its actual winning base ID/reference. Compare original
+stored type/mode, costs/markers/parents/DSL by that per-base mode. For each shared
+hypothesis use its actual winning base mode to choose original mechanism/failure/
+variation rules; the existing base_document helper already chooses full params
+base vs nested DSL. Do not use a family-wide first-base mode or any equal-hash base.
+
+The original explicit engine catalog still follows the envelope, not mode.
+Input/reference/key/type/seed/axis bits, complete shared hypotheses, NULL IDs,
+original declared cost bits, raw-vs-canonical config hash and whole-family
+all-or-refuse behavior remain unchanged. No new authority or public catalog arg.
+
+Add captured complete-graph controls for all four expected observations and all
+sixty document manifests/P/E/W/C/node/O counts. Preserve borrowed rows/caller
+transaction/owner/mutation on success/refusal. For mixed families include a late
+DSL saved-projection contradiction, params unexpected DSL, wrong original type/
+marker/parent/cost, wrong base/hypothesis references and a late changed engine
+contract. Keep failed params and DSL members in complete observation/refusal.
+Existing single-mode negatives, byte-format/numeric legacy tests, nonmonotonic
+references and real capacities remain active. Replace only the old v2/v3 params/
+mixed unsupported assertions with grounded positives; unsupported code/blocks/
+marked/parented branches still refuse through the same sealed path.
+
+Four targeted temporary consumer mutants must assertion-fail and restore exact
+bytes: reinstate the old v2/v3 DSL-only gate; derive every member's mode from the
+first base; hash the DSL wrapper as a base instead of nested DSL; ignore a late
+mixed member's changed saved engine. Existing whole-operation budget and DSL
+contradiction mutation evidence remains #226; no budget implementation changes
+are authorized. Apply the same complete verification/delivery gates as 2b-3a.
+
+## 6. Design validation and remaining obligations
+
+Standalone Python json/hashlib/struct authoring independently verifies the old
+literals before deriving these four families. A separate Node built-in-only
+JSON tokenizer retains ordinary integer/float spelling and independently checks
+Cartesian enumeration, binary64 tagged identities, seeds, complete DTO/input/
+history/result references and every manifest/work count. The small tokenizer
+is scoped to these finite safe ordinary numeric controls; it claims no new JSON
+numeric policy and is not shipped as a project parser/encoder/generator.
+
+This design PR validates strict outer/nested JSON, source/contract field names,
+all SHA/length/node/reference/work values, catalog/order/canonical-hash controls,
+links/scope/task lifecycle and six-job delivery. It does not claim the future
+producer/consumer tests already ran; no local runtime suite is rerun only for
+new data/docs. The current runtime stays #226 verified1077 Rust (one ignored),
+1242 Vitest/80 files and98 E2E, until each dependent code delivery passes.
+
+Even after mode extension, historical lineage consistency does not authenticate
+original costs/actions/candles/files, warmup/market/trial eligibility, numerical
+execution, source ownership, a registry head or live IMMEDIATE admission.
+RegisteredSource and numericCostsHash remain unavailable. Follow the remaining
+original-source adapter work order only after this parent is delivered; final
+policy mediation and research PASS remain blocked by those separate obligations.

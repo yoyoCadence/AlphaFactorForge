@@ -328,3 +328,9 @@ is still unavailable. Parents 4b-2c/4b-2/4b/P13c-4 remain incomplete. After this
 semantic slice, promote/refine the missing envelope/mode coverage extension
 before warmup/market/trial adapter code;
 never treat a lineage consistency result as final admission or research PASS.
+
+
+The next [producer mode-coverage refinement](research-original-producer-mode-coverage-v1.md)
+freezes v2/v3 params/mixed controls and separate producer/consumer deliveries.
+It does not change this first catalog or claim broader runtime support before
+those dependent code PRs deliver.
