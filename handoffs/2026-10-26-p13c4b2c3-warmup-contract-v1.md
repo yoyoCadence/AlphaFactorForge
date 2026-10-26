@@ -3,7 +3,7 @@
 Date: 2026-10-26
 Repo: yoyoCadence/AlphaFactorForge
 Branch: docs/original-warmup-producer-contract
-Status: Design/data verification complete; exact-head CI/merge delivery pending.
+Status: Resolved; delivered by #230. User resumed2026-10-27 for3a executor conformance.
 
 ## Summary
 
@@ -28,3 +28,7 @@ Warmup parent3 remains incomplete; all market/trial/file/action/cost/registry/ow
 ## Local completion
 
 Python strict duplicate-key/nonfinite/outer+47 nested JSON, all checksums/safe triples/phases, exact eight-family membership/23 references, old Git-blob equality and changed documentation links pass. Independent Node phase/triple checks pass all47/23 and supported signal/indicator/operator coverage. Physical LF packaging is pinned explicitly so Windows core.autocrlf does not alter the metadata definition; no decoded original string is normalized. Scoped diff/lifecycle checks pass. This session starts no dev/service process and creates no test workspace. Only exact-head CI and merge delivery remain.
+
+## Resolution: #230 delivery and resume (2026-10-27)
+
+[PR #230](https://github.com/yoyoCadence/AlphaFactorForge/pull/230) merged2026-10-26 as `5745c355994952fddb0bdc30c2e5617aa7fae05b`. Head `0d4a351555d5011e7cf57f536a8f56067a015cda`, base `5de768537ada8addf81ee867f71e996da202d6a0`, workflow40329392356: all six completed logs confirm that exact pair. Existing runtime Rust1090/one ignored (297/791/2;16.75/325.74/5.61 s), Vitest1242/80, E2E98/no retries, production audit0 and native rendered/SQLite/metrics/event roundtrip plus exact browser policy restoration/owned cleanup pass. Fresh reviews/threads empty, main unchanged/mergeable; expected-head merge without bypass, GitHub merged readback and clean local main/full-tree equality (`51136dc6e398fc5438d3fe4ddf0d9cf24face8ce`) verified. Final PR body receipt verified; stopped at that boundary. User resumed2026-10-27 for actual private executor conformance3a only. Bounded consumer design3b/code3c and all parent/source/admission gates remain incomplete.
