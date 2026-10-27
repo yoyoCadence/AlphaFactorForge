@@ -27,7 +27,7 @@ fn selected_documents(t: &mut Value, mut edit: impl FnMut(&mut Value)) {
         }
     }
 }
-fn byte_tables(target: usize) -> Value {
+pub(super) fn byte_tables(target: usize) -> Value {
     let mut t = tables("v1-ordered-axes");
     let config = &mut table(&mut t, "discovery_runs")["rows"][0][2];
     let mut raw = config.as_str().unwrap().to_string();
@@ -49,7 +49,7 @@ fn byte_tables(target: usize) -> Value {
 // Original entryRules has 5 nodes (array, object, three strings); new has 4097.
 const RULE_NODE_DELTA: usize = 4092;
 
-fn node_tables(target: usize) -> Value {
+pub(super) fn node_tables(target: usize) -> Value {
     let mut t = tables("v1-ordered-axes");
     let config = &mut table(&mut t, "discovery_runs")["rows"][0][2];
     let mut raw: Value = serde_json::from_str(config.as_str().unwrap()).unwrap();

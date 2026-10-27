@@ -12,6 +12,9 @@ use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::{self, Write as _};
 mod measure;
+pub(super) fn json_len(v: &Value) -> AppResult<usize> {
+    measure::json(v)
+}
 const MAX_HASH_BYTES: usize = 33_554_432;
 const MAX_COPY_BYTES: usize = 67_108_864;
 const MAX_OUTPUT_BYTES: usize = 4_194_304;
@@ -544,8 +547,57 @@ fn document_hash(v: &Value) -> AppResult<String> {
     Ok(sha256_hex(&canonical_json(v).map_err(|_| invalid())?))
 }
 pub(super) fn observe(p: &PreparedOriginalLineage<'_>) -> AppResult<OriginalLineageObservation> {
+    reserve(p)?.verify().map(VerifiedLineage::finish)
+}
+
+/// Fixed stages share one borrowed context; no payload work happens at reserve.
+pub(super) struct ReservedLineage<'p, 'g> {
+    ctx: Context<'p, 'g>,
+    work: Work,
+}
+pub(super) struct VerifiedLineage<'p, 'g> {
+    ctx: Context<'p, 'g>,
+    config_hash: String,
+}
+pub(super) fn reserve<'p, 'g>(
+    p: &'p PreparedOriginalLineage<'g>,
+) -> AppResult<ReservedLineage<'p, 'g>> {
     let ctx = Context::new(p)?;
-    ctx.reserve()?;
+    let work = ctx.reserve()?;
+    Ok(ReservedLineage { ctx, work })
+}
+impl<'p, 'g> ReservedLineage<'p, 'g> {
+    pub(super) fn work(&self) -> (usize, usize, usize, usize) {
+        let w = self.work;
+        (w.hash, w.copy, w.nodes, w.output)
+    }
+    pub(super) fn definitions(&self) -> impl ExactSizeIterator<Item = &Value> {
+        self.ctx
+            .references
+            .iter()
+            .map(|r| self.ctx.p.strategies()[r.strategy].definition())
+    }
+    pub(super) fn verify(self) -> AppResult<VerifiedLineage<'p, 'g>> {
+        let config_hash = verify(&self.ctx)?;
+        Ok(VerifiedLineage {
+            ctx: self.ctx,
+            config_hash,
+        })
+    }
+}
+impl VerifiedLineage<'_, '_> {
+    pub(super) fn definitions(&self) -> impl ExactSizeIterator<Item = &Value> {
+        self.ctx
+            .references
+            .iter()
+            .map(|r| self.ctx.p.strategies()[r.strategy].definition())
+    }
+    pub(super) fn finish(self) -> OriginalLineageObservation {
+        self.ctx.output(self.config_hash)
+    }
+}
+fn verify(ctx: &Context<'_, '_>) -> AppResult<String> {
+    let p = ctx.p;
     let config_hash = document_hash(p.raw_config())?;
     for (i, r) in ctx.references.iter().enumerate() {
         let docs = &p.strategies()[r.strategy];
@@ -578,7 +630,7 @@ pub(super) fn observe(p: &PreparedOriginalLineage<'_>) -> AppResult<OriginalLine
     for (row, docs) in p.rows().hypotheses.iter().zip(p.hypotheses()) {
         require(document_hash(docs.content())? == row.hypothesis_hash)?;
     }
-    Ok(ctx.output(config_hash))
+    Ok(config_hash)
 }
 #[cfg(test)]
 pub(super) fn planned_work(

@@ -16,6 +16,8 @@ use std::{
 mod semantic_boundaries;
 mod semantic_controls;
 mod semantic_modes;
+mod warmup_boundaries;
+mod warmup_controls;
 
 #[path = "boundaries.rs"]
 mod boundaries;
