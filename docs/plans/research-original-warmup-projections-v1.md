@@ -144,6 +144,11 @@ GitHub merged readback and clean-main/full-tree equality precede 3b-design.
 
 ## 5. Mandatory bounded consumer refinement after 3a
 
+Refinement is now frozen in the separate [3b consumer contract](research-original-warmup-consumer-v1.md)
+and [graph/work fixture](../../alpha-factor-forge/fixtures/research/original-warmup-consumer-v1.json).
+It follows verified #231 actual producer delivery. Its own verified design
+delivery is required before3c code; the obligations below remain binding.
+
 Do not infer a public warmup API, output layout or fresh per-item allowance from
 this scalar fixture. Refine the sole sealed graph constructor only after actual
 producer delivery. It must verify the complete original lineage and actual

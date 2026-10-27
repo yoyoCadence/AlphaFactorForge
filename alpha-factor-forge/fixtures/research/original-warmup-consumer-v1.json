@@ -1,0 +1,2165 @@
+{
+  "version": "original-warmup-consumer-v1",
+  "note": "Independent Python json/hashlib/struct authoring before consumer code. Future actual captures/conformance are obligations, not claimed results. Only outer fixture packaging follows checkout LF policy; nested original strings remain exact.",
+  "sourceFixtures": [
+    {
+      "path": "original-producer-projections-v1.json",
+      "lfPackagingSha256": "62477d35d2f4db70e682cdf230b44788a0319024b493ef6765bb6881ebe8d6d9"
+    },
+    {
+      "path": "original-producer-mode-coverage-v1.json",
+      "lfPackagingSha256": "f61dbea3c78265d2758beaeff1ce41eda41e6530008655484cf84cfd60ca474e"
+    },
+    {
+      "path": "original-warmup-producer-projections-v1.json",
+      "lfPackagingSha256": "b67268643162eca6da5c97b056b61d5461c1a31ae0ea02372d8b395a8f31ee06"
+    },
+    {
+      "path": "original-lineage-semantics-v1.json",
+      "lfPackagingSha256": "f6c2cdfd9ae806aebc7d4d657a3e43990bb64fefd1f7d085e0aae81d166f22e0"
+    }
+  ],
+  "limits": {
+    "hashBytes": 33554432,
+    "copyBytes": 67108864,
+    "analysisUnits": 268435456,
+    "outputBytes": 4194304,
+    "preparedBytes": 33554432,
+    "preparedNodes": 262144
+  },
+  "cases": [
+    {
+      "id": "v1-varied-slow",
+      "parserCores": 64,
+      "runId": 1,
+      "interval": "1h",
+      "configJson": "{\"bases\":[{\"axes\":[{\"key\":\"slowMA\",\"max\":33,\"min\":9,\"step\":12}],\"id\":\"varied-slow\",\"presetVersion\":\"discovery-preset-v1\",\"strategy\":{\"bbMult\":2,\"bbPeriod\":20,\"direction\":\"long\",\"emaPeriod\":50,\"entryCode\":\"crossUp(macd, macdSignal)\",\"entryRules\":[{\"l\":\"maFast\",\"op\":\"crossUp\",\"r\":\"maSlow\"}],\"entrySig\":\"maCrossUp\",\"exitCode\":\"crossDown(macd, macdSignal)\",\"exitRules\":[{\"l\":\"maFast\",\"op\":\"crossDown\",\"r\":\"maSlow\"}],\"exitSig\":\"maCrossDown\",\"fastMA\":5,\"feePct\":0.05,\"fillMode\":\"close\",\"macdFast\":12,\"macdSignal\":9,\"macdSlow\":26,\"mode\":\"params\",\"rsiBuy\":30,\"rsiPeriod\":14,\"rsiSell\":70,\"sizePct\":100,\"slPct\":0,\"slipPct\":0.02,\"slowMA\":21,\"tpPct\":0}}],\"benchmarkCosts\":{\"feePct\":0.05,\"slipPct\":0.02},\"caps\":{\"candidates\":256},\"contracts\":{\"backtest\":\"backtest-execution-v1\",\"benchmarks\":\"benchmark-suite-v1\",\"datasetHash\":\"dataset-content-v2\",\"embargo\":\"embargo-derivation-v1\",\"enumeration\":\"discovery-enumeration-v1\",\"gate\":\"gate-v1\",\"metrics\":\"metrics-v2\",\"randomEntry\":\"random-entry-v1\",\"score\":\"score-v1\",\"seed\":\"seed-v1\",\"split\":\"validation-split-v1\",\"strategyHash\":\"strategy-v2\"},\"dataset\":{\"contentHash\":\"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"id\":7},\"embargo\":{\"holdingAllowanceBars\":7},\"envelopeVersion\":\"discovery-config-v1\",\"execution\":{\"startEquity\":10000},\"gateConfig\":{\"maxDrawdown\":0.35,\"maxMonthlyContribution\":0.4,\"maxSingleTradeContribution\":0.25,\"minAvgTradeReturn\":0,\"minRandomEntryPercentile\":95,\"minRollingPositiveRatio\":0.55,\"minTrades\":30,\"rollingWindowBars\":30},\"maxConcurrency\":null,\"randomEntry\":{\"runs\":200},\"rootSeed\":20260726,\"scoreConfig\":{\"caps\":{\"cagr\":1,\"calmar\":5,\"complexityUnits\":40,\"consistencySigmaScale\":10,\"dataMiningLog10\":4,\"profitFactor\":3,\"sortino\":5,\"turnover\":0.1},\"weights\":{\"cagr\":1,\"calmar\":1,\"complexity\":0.5,\"consistency\":1,\"dataMining\":1,\"profitFactor\":1,\"regime\":0,\"sortino\":1,\"turnover\":0.5}}}",
+      "configHash": "f3261686a6a46c9d39b88b60f69d03049a5a8390bd20d1b7f107cd64d7bd3825",
+      "configBaseIds": [
+        "varied-slow"
+      ],
+      "envelopeVersion": "discovery-config-v1",
+      "counts": {
+        "raw": 3,
+        "prunedInvalid": 0,
+        "duplicates": 0,
+        "finalUnique": 3
+      },
+      "configRawSha256": "f3261686a6a46c9d39b88b60f69d03049a5a8390bd20d1b7f107cd64d7bd3825",
+      "engineFingerprintJson": "{\"benchmarkRecord\":\"bench-record-v1\",\"benchmarks\":\"benchmark-suite-v1\",\"configContracts\":{\"backtest\":\"backtest-execution-v1\",\"benchmarks\":\"benchmark-suite-v1\",\"datasetHash\":\"dataset-content-v2\",\"embargo\":\"embargo-derivation-v1\",\"enumeration\":\"discovery-enumeration-v1\",\"gate\":\"gate-v1\",\"metrics\":\"metrics-v2\",\"randomEntry\":\"random-entry-v1\",\"score\":\"score-v1\",\"seed\":\"seed-v1\",\"split\":\"validation-split-v1\",\"strategyHash\":\"strategy-v2\"},\"execution\":\"backtest-execution-v1\",\"gate\":\"gate-v1\",\"metrics\":\"metrics-v2\",\"package\":\"0.1.0\",\"score\":\"score-v1\",\"validationRecord\":\"validation-record-v2\"}",
+      "engineJsonSha256": "3eac6bb5e63bd0444ac385dda23c0cdf3b25f53222e00c3ab97f17f1969dfd1f",
+      "hypotheses": [
+        {
+          "baseId": "varied-slow",
+          "hash": "7c56bf4db626b37cdd7a323b93093d0f1d8c05a0818bbb7207c3be46b55d1342",
+          "documentJson": "{\"applicability\":{\"axes\":[\"slowMA\"],\"datasetHash\":\"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"datasetId\":7,\"embargo\":\"embargo-derivation-v1\",\"interval\":\"1h\",\"split\":\"validation-split-v1\"},\"failureModes\":\"Not stated: a mechanical parameter sweep of a preset strategy. Treated as unexplained until a hypothesis with stated failure modes replaces it (P15).\",\"mechanism\":\"preset discovery-preset-v1 base varied-slow: entry on maCrossUp, exit on maCrossDown; the parameter sweep asks whether the mechanism survives neighbouring slowMA\",\"parentStrategyId\":null,\"source\":\"discovery\",\"strategyHash\":\"strategy-doc-v1:aeb2fe6e9375d64806ec08d335cf7a75b7c774c65e358560f07377d9f803cf39\",\"strategyId\":null,\"variationKind\":\"param-sweep:slowMA\",\"version\":\"hypothesis-v1\"}",
+          "applicabilityJson": "{\"axes\":[\"slowMA\"],\"datasetHash\":\"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"datasetId\":7,\"embargo\":\"embargo-derivation-v1\",\"interval\":\"1h\",\"split\":\"validation-split-v1\"}",
+          "freshHistoryId": 1,
+          "observationId": 200
+        }
+      ],
+      "candidates": [
+        {
+          "strategyId": 1,
+          "index": 0,
+          "baseId": "varied-slow",
+          "strategyHash": "strategy-v2:3674c76f1087df677d1c3d7ea58ee2b1b2981557f01ea38edfc830cd3740ae30",
+          "appliedAxes": {
+            "slowMA": 21.0
+          },
+          "seeds": {
+            "randomEntry": 3949539066
+          },
+          "freshStrategy": {
+            "id": null,
+            "name": "Discovery varied-slow #0001",
+            "type": "params",
+            "dsl_json": null,
+            "original_definition_json": "{\"bbMult\":2,\"bbPeriod\":20,\"direction\":\"long\",\"emaPeriod\":50,\"entryCode\":\"crossUp(macd, macdSignal)\",\"entryRules\":[{\"l\":\"maFast\",\"op\":\"crossUp\",\"r\":\"maSlow\"}],\"entrySig\":\"maCrossUp\",\"exitCode\":\"crossDown(macd, macdSignal)\",\"exitRules\":[{\"l\":\"maFast\",\"op\":\"crossDown\",\"r\":\"maSlow\"}],\"exitSig\":\"maCrossDown\",\"fastMA\":5,\"feePct\":0.05,\"fillMode\":\"close\",\"macdFast\":12,\"macdSignal\":9,\"macdSlow\":26,\"mode\":\"params\",\"rsiBuy\":30,\"rsiPeriod\":14,\"rsiSell\":70,\"sizePct\":100,\"slPct\":0,\"slipPct\":0.02,\"slowMA\":21.0,\"tpPct\":0}",
+            "param_schema_json": null,
+            "source": "sweep",
+            "ai_prompt_hash": null,
+            "strategy_hash": "strategy-v2:3674c76f1087df677d1c3d7ea58ee2b1b2981557f01ea38edfc830cd3740ae30",
+            "lifecycle": "candidate",
+            "parent_strategy_id": null
+          },
+          "attemptKey": "run:1:candidate:0",
+          "inputFingerprintJson": "{\"appliedAxes\":{\"slowMA\":21.0},\"baseId\":\"varied-slow\",\"candidateIndex\":0,\"configHash\":\"f3261686a6a46c9d39b88b60f69d03049a5a8390bd20d1b7f107cd64d7bd3825\",\"datasetHash\":\"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"datasetId\":7,\"envelopeVersion\":\"discovery-config-v1\",\"interval\":\"1h\",\"rootSeed\":20260726,\"seeds\":{\"randomEntry\":3949539066},\"strategyHash\":\"strategy-v2:3674c76f1087df677d1c3d7ea58ee2b1b2981557f01ea38edfc830cd3740ae30\",\"strategyId\":1}",
+          "hypothesisHash": "7c56bf4db626b37cdd7a323b93093d0f1d8c05a0818bbb7207c3be46b55d1342",
+          "freshHypothesisId": 1
+        },
+        {
+          "strategyId": 2,
+          "index": 1,
+          "baseId": "varied-slow",
+          "strategyHash": "strategy-v2:4f8f5f2ec809a667c587dd067da34c90241bd496e6187bd915600b02a4045cfc",
+          "appliedAxes": {
+            "slowMA": 9.0
+          },
+          "seeds": {
+            "randomEntry": 2832830112
+          },
+          "freshStrategy": {
+            "id": null,
+            "name": "Discovery varied-slow #0002",
+            "type": "params",
+            "dsl_json": null,
+            "original_definition_json": "{\"bbMult\":2,\"bbPeriod\":20,\"direction\":\"long\",\"emaPeriod\":50,\"entryCode\":\"crossUp(macd, macdSignal)\",\"entryRules\":[{\"l\":\"maFast\",\"op\":\"crossUp\",\"r\":\"maSlow\"}],\"entrySig\":\"maCrossUp\",\"exitCode\":\"crossDown(macd, macdSignal)\",\"exitRules\":[{\"l\":\"maFast\",\"op\":\"crossDown\",\"r\":\"maSlow\"}],\"exitSig\":\"maCrossDown\",\"fastMA\":5,\"feePct\":0.05,\"fillMode\":\"close\",\"macdFast\":12,\"macdSignal\":9,\"macdSlow\":26,\"mode\":\"params\",\"rsiBuy\":30,\"rsiPeriod\":14,\"rsiSell\":70,\"sizePct\":100,\"slPct\":0,\"slipPct\":0.02,\"slowMA\":9.0,\"tpPct\":0}",
+            "param_schema_json": null,
+            "source": "sweep",
+            "ai_prompt_hash": null,
+            "strategy_hash": "strategy-v2:4f8f5f2ec809a667c587dd067da34c90241bd496e6187bd915600b02a4045cfc",
+            "lifecycle": "candidate",
+            "parent_strategy_id": null
+          },
+          "attemptKey": "run:1:candidate:1",
+          "inputFingerprintJson": "{\"appliedAxes\":{\"slowMA\":9.0},\"baseId\":\"varied-slow\",\"candidateIndex\":1,\"configHash\":\"f3261686a6a46c9d39b88b60f69d03049a5a8390bd20d1b7f107cd64d7bd3825\",\"datasetHash\":\"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"datasetId\":7,\"envelopeVersion\":\"discovery-config-v1\",\"interval\":\"1h\",\"rootSeed\":20260726,\"seeds\":{\"randomEntry\":2832830112},\"strategyHash\":\"strategy-v2:4f8f5f2ec809a667c587dd067da34c90241bd496e6187bd915600b02a4045cfc\",\"strategyId\":2}",
+          "hypothesisHash": "7c56bf4db626b37cdd7a323b93093d0f1d8c05a0818bbb7207c3be46b55d1342",
+          "freshHypothesisId": 1
+        },
+        {
+          "strategyId": 3,
+          "index": 2,
+          "baseId": "varied-slow",
+          "strategyHash": "strategy-v2:c5401ac5a109af09d63ea17f076e15c1f5d3976b5f0b482bdcda4ab0fcd2f181",
+          "appliedAxes": {
+            "slowMA": 33.0
+          },
+          "seeds": {
+            "randomEntry": 3045552191
+          },
+          "freshStrategy": {
+            "id": null,
+            "name": "Discovery varied-slow #0003",
+            "type": "params",
+            "dsl_json": null,
+            "original_definition_json": "{\"bbMult\":2,\"bbPeriod\":20,\"direction\":\"long\",\"emaPeriod\":50,\"entryCode\":\"crossUp(macd, macdSignal)\",\"entryRules\":[{\"l\":\"maFast\",\"op\":\"crossUp\",\"r\":\"maSlow\"}],\"entrySig\":\"maCrossUp\",\"exitCode\":\"crossDown(macd, macdSignal)\",\"exitRules\":[{\"l\":\"maFast\",\"op\":\"crossDown\",\"r\":\"maSlow\"}],\"exitSig\":\"maCrossDown\",\"fastMA\":5,\"feePct\":0.05,\"fillMode\":\"close\",\"macdFast\":12,\"macdSignal\":9,\"macdSlow\":26,\"mode\":\"params\",\"rsiBuy\":30,\"rsiPeriod\":14,\"rsiSell\":70,\"sizePct\":100,\"slPct\":0,\"slipPct\":0.02,\"slowMA\":33.0,\"tpPct\":0}",
+            "param_schema_json": null,
+            "source": "sweep",
+            "ai_prompt_hash": null,
+            "strategy_hash": "strategy-v2:c5401ac5a109af09d63ea17f076e15c1f5d3976b5f0b482bdcda4ab0fcd2f181",
+            "lifecycle": "candidate",
+            "parent_strategy_id": null
+          },
+          "attemptKey": "run:1:candidate:2",
+          "inputFingerprintJson": "{\"appliedAxes\":{\"slowMA\":33.0},\"baseId\":\"varied-slow\",\"candidateIndex\":2,\"configHash\":\"f3261686a6a46c9d39b88b60f69d03049a5a8390bd20d1b7f107cd64d7bd3825\",\"datasetHash\":\"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"datasetId\":7,\"envelopeVersion\":\"discovery-config-v1\",\"interval\":\"1h\",\"rootSeed\":20260726,\"seeds\":{\"randomEntry\":3045552191},\"strategyHash\":\"strategy-v2:c5401ac5a109af09d63ea17f076e15c1f5d3976b5f0b482bdcda4ab0fcd2f181\",\"strategyId\":3}",
+          "hypothesisHash": "7c56bf4db626b37cdd7a323b93093d0f1d8c05a0818bbb7207c3be46b55d1342",
+          "freshHypothesisId": 1
+        }
+      ],
+      "expectedObservation": {
+        "configHash": "f3261686a6a46c9d39b88b60f69d03049a5a8390bd20d1b7f107cd64d7bd3825",
+        "candidates": [
+          {
+            "index": 0,
+            "strategyId": 1,
+            "strategyHash": "strategy-v2:3674c76f1087df677d1c3d7ea58ee2b1b2981557f01ea38edfc830cd3740ae30",
+            "hypothesisId": 200,
+            "hypothesisHash": "7c56bf4db626b37cdd7a323b93093d0f1d8c05a0818bbb7207c3be46b55d1342",
+            "baseId": "varied-slow"
+          },
+          {
+            "index": 1,
+            "strategyId": 2,
+            "strategyHash": "strategy-v2:4f8f5f2ec809a667c587dd067da34c90241bd496e6187bd915600b02a4045cfc",
+            "hypothesisId": 200,
+            "hypothesisHash": "7c56bf4db626b37cdd7a323b93093d0f1d8c05a0818bbb7207c3be46b55d1342",
+            "baseId": "varied-slow"
+          },
+          {
+            "index": 2,
+            "strategyId": 3,
+            "strategyHash": "strategy-v2:c5401ac5a109af09d63ea17f076e15c1f5d3976b5f0b482bdcda4ab0fcd2f181",
+            "hypothesisId": 200,
+            "hypothesisHash": "7c56bf4db626b37cdd7a323b93093d0f1d8c05a0818bbb7207c3be46b55d1342",
+            "baseId": "varied-slow"
+          }
+        ]
+      },
+      "expectedFreshHistoryReferences": [
+        {
+          "index": 0,
+          "strategyId": 1,
+          "hypothesisId": 1
+        },
+        {
+          "index": 1,
+          "strategyId": 2,
+          "hypothesisId": 1
+        },
+        {
+          "index": 2,
+          "strategyId": 3,
+          "hypothesisId": 1
+        }
+      ],
+      "work": {
+        "hashBytes": 5504,
+        "copyBytes": 11367,
+        "cloneNodes": 114,
+        "outputBytes": 517,
+        "parseBytes": 9553,
+        "parseNodes": 446,
+        "expansionBytes": 1662,
+        "expansionNodes": 114,
+        "scratchBytes": 11215,
+        "scratchNodes": 560,
+        "manifest": [
+          {
+            "kind": "config",
+            "index": null,
+            "weight": 2,
+            "bytes": 1887,
+            "nodes": 104,
+            "sha256": "f3261686a6a46c9d39b88b60f69d03049a5a8390bd20d1b7f107cd64d7bd3825"
+          },
+          {
+            "kind": "definition",
+            "index": 0,
+            "weight": 1,
+            "bytes": 511,
+            "nodes": 34,
+            "sha256": "f200d6fde98a1f5c4580c60b8167f33632ef0d03278cb2fdb0326ba618e80ff5"
+          },
+          {
+            "kind": "input",
+            "index": 0,
+            "weight": 1,
+            "bytes": 487,
+            "nodes": 15,
+            "sha256": "04b4188e930065c426c8673ad53681b491a18c27f03a33602d29b36a88c8aa72"
+          },
+          {
+            "kind": "engine",
+            "index": 0,
+            "weight": 1,
+            "bytes": 592,
+            "nodes": 22,
+            "sha256": "3eac6bb5e63bd0444ac385dda23c0cdf3b25f53222e00c3ab97f17f1969dfd1f"
+          },
+          {
+            "kind": "definition",
+            "index": 1,
+            "weight": 1,
+            "bytes": 510,
+            "nodes": 34,
+            "sha256": "60a249d10c67e9894dec0e8fbf1549becb2341dd19fca958d1d7a59a3c1fca14"
+          },
+          {
+            "kind": "input",
+            "index": 1,
+            "weight": 1,
+            "bytes": 486,
+            "nodes": 15,
+            "sha256": "bd99cd93d8ea18b01d84cb9fd0efe98425e707cfc6189eefd28c1f2746b5ec85"
+          },
+          {
+            "kind": "engine",
+            "index": 1,
+            "weight": 1,
+            "bytes": 592,
+            "nodes": 22,
+            "sha256": "3eac6bb5e63bd0444ac385dda23c0cdf3b25f53222e00c3ab97f17f1969dfd1f"
+          },
+          {
+            "kind": "definition",
+            "index": 2,
+            "weight": 1,
+            "bytes": 511,
+            "nodes": 34,
+            "sha256": "0ad7c1338b5ceb516917c8c0eae0341cf1d45f519d578d34cd475997fd6ad5f9"
+          },
+          {
+            "kind": "input",
+            "index": 2,
+            "weight": 1,
+            "bytes": 487,
+            "nodes": 15,
+            "sha256": "6b327afb52865a96e3de9a3309f7a6916e9c7fa885e6268d080cef5aef97684e"
+          },
+          {
+            "kind": "engine",
+            "index": 2,
+            "weight": 1,
+            "bytes": 592,
+            "nodes": 22,
+            "sha256": "3eac6bb5e63bd0444ac385dda23c0cdf3b25f53222e00c3ab97f17f1969dfd1f"
+          },
+          {
+            "kind": "content",
+            "index": 0,
+            "weight": 1,
+            "bytes": 798,
+            "nodes": 17,
+            "sha256": "7c56bf4db626b37cdd7a323b93093d0f1d8c05a0818bbb7207c3be46b55d1342"
+          },
+          {
+            "kind": "applicability",
+            "index": 0,
+            "weight": 1,
+            "bytes": 213,
+            "nodes": 8,
+            "sha256": "52573f208b3b884b35f8adfa861f35e610b418fd0d64645a1c8a7309ff8ea073"
+          }
+        ]
+      },
+      "warmupWork": {
+        "hashBytes": 5504,
+        "copyBytes": 14859,
+        "analysisUnits": 855,
+        "cloneNodes": 114,
+        "outputBytes": 589,
+        "additionalCopyBytes": 3420,
+        "additionalCloneNodes": 0,
+        "components": [
+          {
+            "index": 0,
+            "mode": "params",
+            "wrapperTextBytes": 29,
+            "copyBytes": 1140,
+            "analysisUnits": 285,
+            "cloneNodes": 0
+          },
+          {
+            "index": 1,
+            "mode": "params",
+            "wrapperTextBytes": 29,
+            "copyBytes": 1140,
+            "analysisUnits": 285,
+            "cloneNodes": 0
+          },
+          {
+            "index": 2,
+            "mode": "params",
+            "wrapperTextBytes": 29,
+            "copyBytes": 1140,
+            "analysisUnits": 285,
+            "cloneNodes": 0
+          }
+        ]
+      },
+      "expectedWarmup": [
+        {
+          "maxSignalLookbackBars": 22,
+          "holdingAllowanceBars": 7,
+          "embargoBars": 29
+        },
+        {
+          "maxSignalLookbackBars": 10,
+          "holdingAllowanceBars": 7,
+          "embargoBars": 17
+        },
+        {
+          "maxSignalLookbackBars": 34,
+          "holdingAllowanceBars": 7,
+          "embargoBars": 41
+        }
+      ],
+      "baseLookbacks": {
+        "varied-slow": 22
+      }
+    },
+    {
+      "id": "v3-mixed-varied-dsl-first",
+      "parserCores": 64,
+      "runId": 1,
+      "interval": "1h",
+      "configJson": "{\n  \"bases\": [\n    {\n      \"axes\": [],\n      \"id\": \"dsl-cross\",\n      \"presetVersion\": \"discovery-dsl-preset-v1\",\n      \"strategy\": {\n        \"direction\": \"long\",\n        \"dsl\": {\n          \"entry\": {\n            \"args\": [\n              {\n                \"ind\": \"SMA\",\n                \"len\": \"$fast\",\n                \"src\": \"CLOSE\"\n              },\n              {\n                \"ind\": \"SMA\",\n                \"len\": \"$slow\",\n                \"src\": \"CLOSE\"\n              }\n            ],\n            \"op\": \"CROSS_UP\"\n          },\n          \"exit\": {\n            \"args\": [\n              {\n                \"ind\": \"SMA\",\n                \"len\": \"$fast\",\n                \"src\": \"CLOSE\"\n              },\n              {\n                \"ind\": \"SMA\",\n                \"len\": \"$slow\",\n                \"src\": \"CLOSE\"\n              }\n            ],\n            \"op\": \"CROSS_DOWN\"\n          },\n          \"name\": \"Fixed SMA cross\",\n          \"params\": {\n            \"fast\": 2,\n            \"slow\": 3\n          },\n          \"version\": \"strategy-dsl-v1\"\n        },\n        \"feePct\": 0.05,\n        \"fillMode\": \"nextOpen\",\n        \"mode\": \"dsl\",\n        \"sizePct\": 100,\n        \"slPct\": 2,\n        \"slipPct\": 0.02,\n        \"tpPct\": 4\n      }\n    },\n    {\n      \"axes\": [\n        {\n          \"key\": \"slowMA\",\n          \"min\": 9,\n          \"max\": 33,\n          \"step\": 12\n        }\n      ],\n      \"id\": \"varied-slow\",\n      \"presetVersion\": \"discovery-preset-v1\",\n      \"strategy\": {\n        \"bbMult\": 2,\n        \"bbPeriod\": 20,\n        \"direction\": \"long\",\n        \"emaPeriod\": 50,\n        \"entryCode\": \"crossUp(macd, macdSignal)\",\n        \"entryRules\": [\n          {\n            \"l\": \"maFast\",\n            \"op\": \"crossUp\",\n            \"r\": \"maSlow\"\n          }\n        ],\n        \"entrySig\": \"maCrossUp\",\n        \"exitCode\": \"crossDown(macd, macdSignal)\",\n        \"exitRules\": [\n          {\n            \"l\": \"maFast\",\n            \"op\": \"crossDown\",\n            \"r\": \"maSlow\"\n          }\n        ],\n        \"exitSig\": \"maCrossDown\",\n        \"fastMA\": 5,\n        \"feePct\": 0.05,\n        \"fillMode\": \"close\",\n        \"macdFast\": 12,\n        \"macdSignal\": 9,\n        \"macdSlow\": 26,\n        \"mode\": \"params\",\n        \"rsiBuy\": 30,\n        \"rsiPeriod\": 14,\n        \"rsiSell\": 70,\n        \"sizePct\": 100,\n        \"slPct\": 0,\n        \"slipPct\": 0.02,\n        \"slowMA\": 21,\n        \"tpPct\": 0\n      }\n    }\n  ],\n  \"benchmarkCosts\": {\n    \"feePct\": 0.05,\n    \"slipPct\": 0.02\n  },\n  \"caps\": {\n    \"candidates\": 256\n  },\n  \"contracts\": {\n    \"backtest\": \"backtest-execution-v1\",\n    \"benchmarks\": \"benchmark-suite-v1\",\n    \"datasetHash\": \"dataset-content-v2\",\n    \"embargo\": \"embargo-derivation-v1\",\n    \"enumeration\": \"discovery-enumeration-v2\",\n    \"gate\": \"gate-v1\",\n    \"metrics\": \"metrics-v2\",\n    \"randomEntry\": \"random-entry-v1\",\n    \"score\": \"score-v1\",\n    \"seed\": \"seed-v1\",\n    \"split\": \"validation-split-v1\",\n    \"strategyDsl\": \"strategy-dsl-v1\",\n    \"strategyHash\": \"strategy-v2\",\n    \"walkForward\": \"research-walk-forward-v1\",\n    \"walkForwardEvidence\": \"walk-forward-evidence-v1\"\n  },\n  \"dataset\": {\n    \"contentHash\": \"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\n    \"id\": 7\n  },\n  \"embargo\": {\n    \"holdingAllowanceBars\": 7\n  },\n  \"envelopeVersion\": \"discovery-config-v3\",\n  \"execution\": {\n    \"startEquity\": 10000\n  },\n  \"gateConfig\": {\n    \"maxDrawdown\": 0.35,\n    \"maxMonthlyContribution\": 0.4,\n    \"maxSingleTradeContribution\": 0.25,\n    \"minAvgTradeReturn\": 0,\n    \"minRandomEntryPercentile\": 95,\n    \"minRollingPositiveRatio\": 0.55,\n    \"minTrades\": 30,\n    \"rollingWindowBars\": 30\n  },\n  \"maxConcurrency\": null,\n  \"randomEntry\": {\n    \"runs\": 200\n  },\n  \"rootSeed\": 20260726,\n  \"scoreConfig\": {\n    \"caps\": {\n      \"cagr\": 1,\n      \"calmar\": 5,\n      \"complexityUnits\": 40,\n      \"consistencySigmaScale\": 10,\n      \"dataMiningLog10\": 4,\n      \"profitFactor\": 3,\n      \"sortino\": 5,\n      \"turnover\": 0.1\n    },\n    \"weights\": {\n      \"cagr\": 1,\n      \"calmar\": 1,\n      \"complexity\": 0.5,\n      \"consistency\": 1,\n      \"dataMining\": 1,\n      \"profitFactor\": 1,\n      \"regime\": 0,\n      \"sortino\": 1,\n      \"turnover\": 0.5\n    }\n  },\n  \"walkForward\": {\n    \"foldCount\": 3,\n    \"foldValidationBars\": 8,\n    \"minimumTrainBars\": 20\n  }\n}",
+      "configHash": "d8380a314b75c8d7d5ea512dfa8c248760fba194c6829464b5ca234a1c8939b6",
+      "configBaseIds": [
+        "dsl-cross",
+        "varied-slow"
+      ],
+      "envelopeVersion": "discovery-config-v3",
+      "counts": {
+        "raw": 4,
+        "prunedInvalid": 0,
+        "duplicates": 0,
+        "finalUnique": 4
+      },
+      "configRawSha256": "f38301530b91347bb29a4ba7240fb651178a660ec25590d2699a8daf1b4fb67c",
+      "engineFingerprintJson": "{\"benchmarkRecord\":\"bench-record-v1\",\"benchmarks\":\"benchmark-suite-v1\",\"configContracts\":{\"backtest\":\"backtest-execution-v1\",\"benchmarks\":\"benchmark-suite-v1\",\"datasetHash\":\"dataset-content-v2\",\"embargo\":\"embargo-derivation-v1\",\"enumeration\":\"discovery-enumeration-v2\",\"gate\":\"gate-v1\",\"metrics\":\"metrics-v2\",\"randomEntry\":\"random-entry-v1\",\"score\":\"score-v1\",\"seed\":\"seed-v1\",\"split\":\"validation-split-v1\",\"strategyDsl\":\"strategy-dsl-v1\",\"strategyHash\":\"strategy-v2\",\"walkForward\":\"research-walk-forward-v1\",\"walkForwardEvidence\":\"walk-forward-evidence-v1\"},\"execution\":\"backtest-execution-v1\",\"gate\":\"gate-v1\",\"metrics\":\"metrics-v2\",\"package\":\"0.1.0\",\"score\":\"score-v1\",\"validationRecord\":\"validation-record-v2\"}",
+      "engineJsonSha256": "4b50f9a7b5fa087807c562cd104be9e0218ce502b209eda6626f709fb05f6c8b",
+      "hypotheses": [
+        {
+          "baseId": "varied-slow",
+          "hash": "7c56bf4db626b37cdd7a323b93093d0f1d8c05a0818bbb7207c3be46b55d1342",
+          "documentJson": "{\"applicability\":{\"axes\":[\"slowMA\"],\"datasetHash\":\"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"datasetId\":7,\"embargo\":\"embargo-derivation-v1\",\"interval\":\"1h\",\"split\":\"validation-split-v1\"},\"failureModes\":\"Not stated: a mechanical parameter sweep of a preset strategy. Treated as unexplained until a hypothesis with stated failure modes replaces it (P15).\",\"mechanism\":\"preset discovery-preset-v1 base varied-slow: entry on maCrossUp, exit on maCrossDown; the parameter sweep asks whether the mechanism survives neighbouring slowMA\",\"parentStrategyId\":null,\"source\":\"discovery\",\"strategyHash\":\"strategy-doc-v1:aeb2fe6e9375d64806ec08d335cf7a75b7c774c65e358560f07377d9f803cf39\",\"strategyId\":null,\"variationKind\":\"param-sweep:slowMA\",\"version\":\"hypothesis-v1\"}",
+          "applicabilityJson": "{\"axes\":[\"slowMA\"],\"datasetHash\":\"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"datasetId\":7,\"embargo\":\"embargo-derivation-v1\",\"interval\":\"1h\",\"split\":\"validation-split-v1\"}",
+          "freshHistoryId": 1,
+          "observationId": 200
+        },
+        {
+          "baseId": "dsl-cross",
+          "hash": "3014349b7d10936707a90b9b32c2a5c4972b74f943bb81b053863d0626dccc41",
+          "documentJson": "{\"applicability\":{\"axes\":[],\"datasetHash\":\"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"datasetId\":7,\"embargo\":\"embargo-derivation-v1\",\"interval\":\"1h\",\"split\":\"validation-split-v1\"},\"failureModes\":\"Authored DSL candidate: fails if the frozen expression has no trades, loses after costs, or does not pass the existing validation gates. AI rationale/failure-mode generation remains P15.\",\"mechanism\":\"discovery-dsl-preset-v1 base dsl-cross: fixed executable DSL \\\"Fixed SMA cross\\\"; entry/exit expression trees are frozen before queue admission\",\"parentStrategyId\":null,\"source\":\"discovery\",\"strategyHash\":\"strategy-doc-v1:20b89bdf54340db55580538ffec5ffe25dbf2ca59e0914427c617914aa9265a2\",\"strategyId\":null,\"variationKind\":\"dsl-fixed\",\"version\":\"hypothesis-v1\"}",
+          "applicabilityJson": "{\"axes\":[],\"datasetHash\":\"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"datasetId\":7,\"embargo\":\"embargo-derivation-v1\",\"interval\":\"1h\",\"split\":\"validation-split-v1\"}",
+          "freshHistoryId": 2,
+          "observationId": 201
+        }
+      ],
+      "candidates": [
+        {
+          "strategyId": 1,
+          "index": 0,
+          "baseId": "varied-slow",
+          "strategyHash": "strategy-v2:3674c76f1087df677d1c3d7ea58ee2b1b2981557f01ea38edfc830cd3740ae30",
+          "appliedAxes": {
+            "slowMA": 21.0
+          },
+          "seeds": {
+            "randomEntry": 3949539066
+          },
+          "freshStrategy": {
+            "id": null,
+            "name": "Discovery varied-slow #0001",
+            "type": "params",
+            "dsl_json": null,
+            "original_definition_json": "{\"bbMult\":2,\"bbPeriod\":20,\"direction\":\"long\",\"emaPeriod\":50,\"entryCode\":\"crossUp(macd, macdSignal)\",\"entryRules\":[{\"l\":\"maFast\",\"op\":\"crossUp\",\"r\":\"maSlow\"}],\"entrySig\":\"maCrossUp\",\"exitCode\":\"crossDown(macd, macdSignal)\",\"exitRules\":[{\"l\":\"maFast\",\"op\":\"crossDown\",\"r\":\"maSlow\"}],\"exitSig\":\"maCrossDown\",\"fastMA\":5,\"feePct\":0.05,\"fillMode\":\"close\",\"macdFast\":12,\"macdSignal\":9,\"macdSlow\":26,\"mode\":\"params\",\"rsiBuy\":30,\"rsiPeriod\":14,\"rsiSell\":70,\"sizePct\":100,\"slPct\":0,\"slipPct\":0.02,\"slowMA\":21.0,\"tpPct\":0}",
+            "param_schema_json": null,
+            "source": "sweep",
+            "ai_prompt_hash": null,
+            "strategy_hash": "strategy-v2:3674c76f1087df677d1c3d7ea58ee2b1b2981557f01ea38edfc830cd3740ae30",
+            "lifecycle": "candidate",
+            "parent_strategy_id": null
+          },
+          "attemptKey": "run:1:candidate:0",
+          "inputFingerprintJson": "{\"appliedAxes\":{\"slowMA\":21.0},\"baseId\":\"varied-slow\",\"candidateIndex\":0,\"configHash\":\"d8380a314b75c8d7d5ea512dfa8c248760fba194c6829464b5ca234a1c8939b6\",\"datasetHash\":\"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"datasetId\":7,\"envelopeVersion\":\"discovery-config-v3\",\"interval\":\"1h\",\"rootSeed\":20260726,\"seeds\":{\"randomEntry\":3949539066},\"strategyHash\":\"strategy-v2:3674c76f1087df677d1c3d7ea58ee2b1b2981557f01ea38edfc830cd3740ae30\",\"strategyId\":1}",
+          "hypothesisHash": "7c56bf4db626b37cdd7a323b93093d0f1d8c05a0818bbb7207c3be46b55d1342",
+          "freshHypothesisId": 1
+        },
+        {
+          "strategyId": 2,
+          "index": 1,
+          "baseId": "varied-slow",
+          "strategyHash": "strategy-v2:4f8f5f2ec809a667c587dd067da34c90241bd496e6187bd915600b02a4045cfc",
+          "appliedAxes": {
+            "slowMA": 9.0
+          },
+          "seeds": {
+            "randomEntry": 2832830112
+          },
+          "freshStrategy": {
+            "id": null,
+            "name": "Discovery varied-slow #0002",
+            "type": "params",
+            "dsl_json": null,
+            "original_definition_json": "{\"bbMult\":2,\"bbPeriod\":20,\"direction\":\"long\",\"emaPeriod\":50,\"entryCode\":\"crossUp(macd, macdSignal)\",\"entryRules\":[{\"l\":\"maFast\",\"op\":\"crossUp\",\"r\":\"maSlow\"}],\"entrySig\":\"maCrossUp\",\"exitCode\":\"crossDown(macd, macdSignal)\",\"exitRules\":[{\"l\":\"maFast\",\"op\":\"crossDown\",\"r\":\"maSlow\"}],\"exitSig\":\"maCrossDown\",\"fastMA\":5,\"feePct\":0.05,\"fillMode\":\"close\",\"macdFast\":12,\"macdSignal\":9,\"macdSlow\":26,\"mode\":\"params\",\"rsiBuy\":30,\"rsiPeriod\":14,\"rsiSell\":70,\"sizePct\":100,\"slPct\":0,\"slipPct\":0.02,\"slowMA\":9.0,\"tpPct\":0}",
+            "param_schema_json": null,
+            "source": "sweep",
+            "ai_prompt_hash": null,
+            "strategy_hash": "strategy-v2:4f8f5f2ec809a667c587dd067da34c90241bd496e6187bd915600b02a4045cfc",
+            "lifecycle": "candidate",
+            "parent_strategy_id": null
+          },
+          "attemptKey": "run:1:candidate:1",
+          "inputFingerprintJson": "{\"appliedAxes\":{\"slowMA\":9.0},\"baseId\":\"varied-slow\",\"candidateIndex\":1,\"configHash\":\"d8380a314b75c8d7d5ea512dfa8c248760fba194c6829464b5ca234a1c8939b6\",\"datasetHash\":\"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"datasetId\":7,\"envelopeVersion\":\"discovery-config-v3\",\"interval\":\"1h\",\"rootSeed\":20260726,\"seeds\":{\"randomEntry\":2832830112},\"strategyHash\":\"strategy-v2:4f8f5f2ec809a667c587dd067da34c90241bd496e6187bd915600b02a4045cfc\",\"strategyId\":2}",
+          "hypothesisHash": "7c56bf4db626b37cdd7a323b93093d0f1d8c05a0818bbb7207c3be46b55d1342",
+          "freshHypothesisId": 1
+        },
+        {
+          "strategyId": 3,
+          "index": 2,
+          "baseId": "varied-slow",
+          "strategyHash": "strategy-v2:c5401ac5a109af09d63ea17f076e15c1f5d3976b5f0b482bdcda4ab0fcd2f181",
+          "appliedAxes": {
+            "slowMA": 33.0
+          },
+          "seeds": {
+            "randomEntry": 3045552191
+          },
+          "freshStrategy": {
+            "id": null,
+            "name": "Discovery varied-slow #0003",
+            "type": "params",
+            "dsl_json": null,
+            "original_definition_json": "{\"bbMult\":2,\"bbPeriod\":20,\"direction\":\"long\",\"emaPeriod\":50,\"entryCode\":\"crossUp(macd, macdSignal)\",\"entryRules\":[{\"l\":\"maFast\",\"op\":\"crossUp\",\"r\":\"maSlow\"}],\"entrySig\":\"maCrossUp\",\"exitCode\":\"crossDown(macd, macdSignal)\",\"exitRules\":[{\"l\":\"maFast\",\"op\":\"crossDown\",\"r\":\"maSlow\"}],\"exitSig\":\"maCrossDown\",\"fastMA\":5,\"feePct\":0.05,\"fillMode\":\"close\",\"macdFast\":12,\"macdSignal\":9,\"macdSlow\":26,\"mode\":\"params\",\"rsiBuy\":30,\"rsiPeriod\":14,\"rsiSell\":70,\"sizePct\":100,\"slPct\":0,\"slipPct\":0.02,\"slowMA\":33.0,\"tpPct\":0}",
+            "param_schema_json": null,
+            "source": "sweep",
+            "ai_prompt_hash": null,
+            "strategy_hash": "strategy-v2:c5401ac5a109af09d63ea17f076e15c1f5d3976b5f0b482bdcda4ab0fcd2f181",
+            "lifecycle": "candidate",
+            "parent_strategy_id": null
+          },
+          "attemptKey": "run:1:candidate:2",
+          "inputFingerprintJson": "{\"appliedAxes\":{\"slowMA\":33.0},\"baseId\":\"varied-slow\",\"candidateIndex\":2,\"configHash\":\"d8380a314b75c8d7d5ea512dfa8c248760fba194c6829464b5ca234a1c8939b6\",\"datasetHash\":\"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"datasetId\":7,\"envelopeVersion\":\"discovery-config-v3\",\"interval\":\"1h\",\"rootSeed\":20260726,\"seeds\":{\"randomEntry\":3045552191},\"strategyHash\":\"strategy-v2:c5401ac5a109af09d63ea17f076e15c1f5d3976b5f0b482bdcda4ab0fcd2f181\",\"strategyId\":3}",
+          "hypothesisHash": "7c56bf4db626b37cdd7a323b93093d0f1d8c05a0818bbb7207c3be46b55d1342",
+          "freshHypothesisId": 1
+        },
+        {
+          "strategyId": 4,
+          "index": 3,
+          "baseId": "dsl-cross",
+          "strategyHash": "strategy-v2:ec7a4e080eeda603a343839e085e2ef997721906d70f8ce8e6aff6b6d31a9a40",
+          "appliedAxes": {},
+          "seeds": {
+            "randomEntry": 256232906
+          },
+          "freshStrategy": {
+            "id": null,
+            "name": "Fixed SMA cross",
+            "type": "dsl",
+            "dsl_json": "{\"entry\":{\"args\":[{\"ind\":\"SMA\",\"len\":\"$fast\",\"src\":\"CLOSE\"},{\"ind\":\"SMA\",\"len\":\"$slow\",\"src\":\"CLOSE\"}],\"op\":\"CROSS_UP\"},\"exit\":{\"args\":[{\"ind\":\"SMA\",\"len\":\"$fast\",\"src\":\"CLOSE\"},{\"ind\":\"SMA\",\"len\":\"$slow\",\"src\":\"CLOSE\"}],\"op\":\"CROSS_DOWN\"},\"name\":\"Fixed SMA cross\",\"params\":{\"fast\":2,\"slow\":3},\"version\":\"strategy-dsl-v1\"}",
+            "original_definition_json": "{\"direction\":\"long\",\"dsl\":{\"entry\":{\"args\":[{\"ind\":\"SMA\",\"len\":\"$fast\",\"src\":\"CLOSE\"},{\"ind\":\"SMA\",\"len\":\"$slow\",\"src\":\"CLOSE\"}],\"op\":\"CROSS_UP\"},\"exit\":{\"args\":[{\"ind\":\"SMA\",\"len\":\"$fast\",\"src\":\"CLOSE\"},{\"ind\":\"SMA\",\"len\":\"$slow\",\"src\":\"CLOSE\"}],\"op\":\"CROSS_DOWN\"},\"name\":\"Fixed SMA cross\",\"params\":{\"fast\":2,\"slow\":3},\"version\":\"strategy-dsl-v1\"},\"feePct\":0.05,\"fillMode\":\"nextOpen\",\"mode\":\"dsl\",\"sizePct\":100,\"slPct\":2,\"slipPct\":0.02,\"tpPct\":4}",
+            "param_schema_json": "{\"fast\":2,\"slow\":3}",
+            "source": "traditional",
+            "ai_prompt_hash": null,
+            "strategy_hash": "strategy-v2:ec7a4e080eeda603a343839e085e2ef997721906d70f8ce8e6aff6b6d31a9a40",
+            "lifecycle": "candidate",
+            "parent_strategy_id": null
+          },
+          "attemptKey": "run:1:candidate:3",
+          "inputFingerprintJson": "{\"appliedAxes\":{},\"baseId\":\"dsl-cross\",\"candidateIndex\":3,\"configHash\":\"d8380a314b75c8d7d5ea512dfa8c248760fba194c6829464b5ca234a1c8939b6\",\"datasetHash\":\"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"datasetId\":7,\"envelopeVersion\":\"discovery-config-v3\",\"interval\":\"1h\",\"rootSeed\":20260726,\"seeds\":{\"randomEntry\":256232906},\"strategyHash\":\"strategy-v2:ec7a4e080eeda603a343839e085e2ef997721906d70f8ce8e6aff6b6d31a9a40\",\"strategyId\":4}",
+          "hypothesisHash": "3014349b7d10936707a90b9b32c2a5c4972b74f943bb81b053863d0626dccc41",
+          "freshHypothesisId": 2
+        }
+      ],
+      "expectedObservation": {
+        "configHash": "d8380a314b75c8d7d5ea512dfa8c248760fba194c6829464b5ca234a1c8939b6",
+        "candidates": [
+          {
+            "index": 0,
+            "strategyId": 1,
+            "strategyHash": "strategy-v2:3674c76f1087df677d1c3d7ea58ee2b1b2981557f01ea38edfc830cd3740ae30",
+            "hypothesisId": 200,
+            "hypothesisHash": "7c56bf4db626b37cdd7a323b93093d0f1d8c05a0818bbb7207c3be46b55d1342",
+            "baseId": "varied-slow"
+          },
+          {
+            "index": 1,
+            "strategyId": 2,
+            "strategyHash": "strategy-v2:4f8f5f2ec809a667c587dd067da34c90241bd496e6187bd915600b02a4045cfc",
+            "hypothesisId": 200,
+            "hypothesisHash": "7c56bf4db626b37cdd7a323b93093d0f1d8c05a0818bbb7207c3be46b55d1342",
+            "baseId": "varied-slow"
+          },
+          {
+            "index": 2,
+            "strategyId": 3,
+            "strategyHash": "strategy-v2:c5401ac5a109af09d63ea17f076e15c1f5d3976b5f0b482bdcda4ab0fcd2f181",
+            "hypothesisId": 200,
+            "hypothesisHash": "7c56bf4db626b37cdd7a323b93093d0f1d8c05a0818bbb7207c3be46b55d1342",
+            "baseId": "varied-slow"
+          },
+          {
+            "index": 3,
+            "strategyId": 4,
+            "strategyHash": "strategy-v2:ec7a4e080eeda603a343839e085e2ef997721906d70f8ce8e6aff6b6d31a9a40",
+            "hypothesisId": 201,
+            "hypothesisHash": "3014349b7d10936707a90b9b32c2a5c4972b74f943bb81b053863d0626dccc41",
+            "baseId": "dsl-cross"
+          }
+        ]
+      },
+      "expectedFreshHistoryReferences": [
+        {
+          "index": 0,
+          "strategyId": 1,
+          "hypothesisId": 1
+        },
+        {
+          "index": 1,
+          "strategyId": 2,
+          "hypothesisId": 1
+        },
+        {
+          "index": 2,
+          "strategyId": 3,
+          "hypothesisId": 1
+        },
+        {
+          "index": 3,
+          "strategyId": 4,
+          "hypothesisId": 2
+        }
+      ],
+      "work": {
+        "hashBytes": 8037,
+        "copyBytes": 17481,
+        "cloneNodes": 155,
+        "outputBytes": 666,
+        "parseBytes": 17646,
+        "parseNodes": 678,
+        "expansionBytes": 2122,
+        "expansionNodes": 153,
+        "scratchBytes": 19768,
+        "scratchNodes": 831,
+        "manifest": [
+          {
+            "kind": "config",
+            "index": null,
+            "weight": 2,
+            "bytes": 4271,
+            "nodes": 152,
+            "sha256": "f38301530b91347bb29a4ba7240fb651178a660ec25590d2699a8daf1b4fb67c"
+          },
+          {
+            "kind": "definition",
+            "index": 0,
+            "weight": 1,
+            "bytes": 511,
+            "nodes": 34,
+            "sha256": "f200d6fde98a1f5c4580c60b8167f33632ef0d03278cb2fdb0326ba618e80ff5"
+          },
+          {
+            "kind": "input",
+            "index": 0,
+            "weight": 1,
+            "bytes": 487,
+            "nodes": 15,
+            "sha256": "7f4f29689285f4bd33e4185dabc60b3e722c3383df15b07ecf523f22ef2bcd92"
+          },
+          {
+            "kind": "engine",
+            "index": 0,
+            "weight": 1,
+            "bytes": 714,
+            "nodes": 25,
+            "sha256": "4b50f9a7b5fa087807c562cd104be9e0218ce502b209eda6626f709fb05f6c8b"
+          },
+          {
+            "kind": "definition",
+            "index": 1,
+            "weight": 1,
+            "bytes": 510,
+            "nodes": 34,
+            "sha256": "60a249d10c67e9894dec0e8fbf1549becb2341dd19fca958d1d7a59a3c1fca14"
+          },
+          {
+            "kind": "input",
+            "index": 1,
+            "weight": 1,
+            "bytes": 486,
+            "nodes": 15,
+            "sha256": "804c0be06e2feac890a07c11dd986bbb216af159f8a49f2010d2d9b1e1bd9361"
+          },
+          {
+            "kind": "engine",
+            "index": 1,
+            "weight": 1,
+            "bytes": 714,
+            "nodes": 25,
+            "sha256": "4b50f9a7b5fa087807c562cd104be9e0218ce502b209eda6626f709fb05f6c8b"
+          },
+          {
+            "kind": "definition",
+            "index": 2,
+            "weight": 1,
+            "bytes": 511,
+            "nodes": 34,
+            "sha256": "0ad7c1338b5ceb516917c8c0eae0341cf1d45f519d578d34cd475997fd6ad5f9"
+          },
+          {
+            "kind": "input",
+            "index": 2,
+            "weight": 1,
+            "bytes": 487,
+            "nodes": 15,
+            "sha256": "adabc247bfb76c7e615be32de23175a4bb9faaaeaf83e17c30a402c8882b305d"
+          },
+          {
+            "kind": "engine",
+            "index": 2,
+            "weight": 1,
+            "bytes": 714,
+            "nodes": 25,
+            "sha256": "4b50f9a7b5fa087807c562cd104be9e0218ce502b209eda6626f709fb05f6c8b"
+          },
+          {
+            "kind": "definition",
+            "index": 3,
+            "weight": 1,
+            "bytes": 447,
+            "nodes": 37,
+            "sha256": "7d1dfcb396cb67f23787f9f9ff482af4dfdcab7ea22ff4bbc4ea70ac6e522b14"
+          },
+          {
+            "kind": "dsl",
+            "index": 3,
+            "weight": 1,
+            "bytes": 322,
+            "nodes": 28,
+            "sha256": "20b89bdf54340db55580538ffec5ffe25dbf2ca59e0914427c617914aa9265a2"
+          },
+          {
+            "kind": "input",
+            "index": 3,
+            "weight": 1,
+            "bytes": 471,
+            "nodes": 14,
+            "sha256": "48a93e467d62968e775465ebc4acb1c185cb41d6ac4cca45f43aa092aa1fb38c"
+          },
+          {
+            "kind": "engine",
+            "index": 3,
+            "weight": 1,
+            "bytes": 714,
+            "nodes": 25,
+            "sha256": "4b50f9a7b5fa087807c562cd104be9e0218ce502b209eda6626f709fb05f6c8b"
+          },
+          {
+            "kind": "content",
+            "index": 0,
+            "weight": 1,
+            "bytes": 798,
+            "nodes": 17,
+            "sha256": "7c56bf4db626b37cdd7a323b93093d0f1d8c05a0818bbb7207c3be46b55d1342"
+          },
+          {
+            "kind": "applicability",
+            "index": 0,
+            "weight": 1,
+            "bytes": 213,
+            "nodes": 8,
+            "sha256": "52573f208b3b884b35f8adfa861f35e610b418fd0d64645a1c8a7309ff8ea073"
+          },
+          {
+            "kind": "content",
+            "index": 1,
+            "weight": 1,
+            "bytes": 800,
+            "nodes": 16,
+            "sha256": "3014349b7d10936707a90b9b32c2a5c4972b74f943bb81b053863d0626dccc41"
+          },
+          {
+            "kind": "applicability",
+            "index": 1,
+            "weight": 1,
+            "bytes": 205,
+            "nodes": 7,
+            "sha256": "70231dfa441b06796bf202f25bbd96e11016ab0a4f77523823afd6da48629a03"
+          }
+        ]
+      },
+      "warmupWork": {
+        "hashBytes": 8037,
+        "copyBytes": 149077,
+        "analysisUnits": 164951,
+        "cloneNodes": 183,
+        "outputBytes": 762,
+        "additionalCopyBytes": 131500,
+        "additionalCloneNodes": 28,
+        "components": [
+          {
+            "index": 0,
+            "mode": "params",
+            "wrapperTextBytes": 29,
+            "copyBytes": 1140,
+            "analysisUnits": 285,
+            "cloneNodes": 0
+          },
+          {
+            "index": 1,
+            "mode": "params",
+            "wrapperTextBytes": 29,
+            "copyBytes": 1140,
+            "analysisUnits": 285,
+            "cloneNodes": 0
+          },
+          {
+            "index": 2,
+            "mode": "params",
+            "wrapperTextBytes": 29,
+            "copyBytes": 1140,
+            "analysisUnits": 285,
+            "cloneNodes": 0
+          },
+          {
+            "index": 3,
+            "mode": "dsl",
+            "jsonBytes": 322,
+            "valueNodes": 28,
+            "wrapperTextBytes": 12,
+            "copyBytes": 128080,
+            "analysisUnits": 164096,
+            "cloneNodes": 28
+          }
+        ]
+      },
+      "expectedWarmup": [
+        {
+          "maxSignalLookbackBars": 22,
+          "holdingAllowanceBars": 7,
+          "embargoBars": 29
+        },
+        {
+          "maxSignalLookbackBars": 10,
+          "holdingAllowanceBars": 7,
+          "embargoBars": 17
+        },
+        {
+          "maxSignalLookbackBars": 34,
+          "holdingAllowanceBars": 7,
+          "embargoBars": 41
+        },
+        {
+          "maxSignalLookbackBars": 4,
+          "holdingAllowanceBars": 7,
+          "embargoBars": 11
+        }
+      ],
+      "baseLookbacks": {
+        "dsl-cross": 4,
+        "varied-slow": 22
+      }
+    }
+  ],
+  "existingFamilies": [
+    {
+      "sourceFixture": "original-producer-projections-v1.json",
+      "caseId": "v1-ordered-axes",
+      "warmupWork": {
+        "hashBytes": 5566,
+        "copyBytes": 14982,
+        "analysisUnits": 855,
+        "cloneNodes": 114,
+        "outputBytes": 580,
+        "additionalCopyBytes": 3420,
+        "additionalCloneNodes": 0,
+        "components": [
+          {
+            "index": 0,
+            "mode": "params",
+            "wrapperTextBytes": 29,
+            "copyBytes": 1140,
+            "analysisUnits": 285,
+            "cloneNodes": 0
+          },
+          {
+            "index": 1,
+            "mode": "params",
+            "wrapperTextBytes": 29,
+            "copyBytes": 1140,
+            "analysisUnits": 285,
+            "cloneNodes": 0
+          },
+          {
+            "index": 2,
+            "mode": "params",
+            "wrapperTextBytes": 29,
+            "copyBytes": 1140,
+            "analysisUnits": 285,
+            "cloneNodes": 0
+          }
+        ]
+      },
+      "expectedWarmup": [
+        {
+          "maxSignalLookbackBars": 22,
+          "holdingAllowanceBars": 10,
+          "embargoBars": 32
+        },
+        {
+          "maxSignalLookbackBars": 22,
+          "holdingAllowanceBars": 10,
+          "embargoBars": 32
+        },
+        {
+          "maxSignalLookbackBars": 22,
+          "holdingAllowanceBars": 10,
+          "embargoBars": 32
+        }
+      ]
+    },
+    {
+      "sourceFixture": "original-producer-projections-v1.json",
+      "caseId": "v1-shared-dedup",
+      "warmupWork": {
+        "hashBytes": 8203,
+        "copyBytes": 21597,
+        "analysisUnits": 1140,
+        "cloneNodes": 152,
+        "outputBytes": 753,
+        "additionalCopyBytes": 4560,
+        "additionalCloneNodes": 0,
+        "components": [
+          {
+            "index": 0,
+            "mode": "params",
+            "wrapperTextBytes": 29,
+            "copyBytes": 1140,
+            "analysisUnits": 285,
+            "cloneNodes": 0
+          },
+          {
+            "index": 1,
+            "mode": "params",
+            "wrapperTextBytes": 29,
+            "copyBytes": 1140,
+            "analysisUnits": 285,
+            "cloneNodes": 0
+          },
+          {
+            "index": 2,
+            "mode": "params",
+            "wrapperTextBytes": 29,
+            "copyBytes": 1140,
+            "analysisUnits": 285,
+            "cloneNodes": 0
+          },
+          {
+            "index": 3,
+            "mode": "params",
+            "wrapperTextBytes": 29,
+            "copyBytes": 1140,
+            "analysisUnits": 285,
+            "cloneNodes": 0
+          }
+        ]
+      },
+      "expectedWarmup": [
+        {
+          "maxSignalLookbackBars": 22,
+          "holdingAllowanceBars": 10,
+          "embargoBars": 32
+        },
+        {
+          "maxSignalLookbackBars": 22,
+          "holdingAllowanceBars": 10,
+          "embargoBars": 32
+        },
+        {
+          "maxSignalLookbackBars": 22,
+          "holdingAllowanceBars": 10,
+          "embargoBars": 32
+        },
+        {
+          "maxSignalLookbackBars": 22,
+          "holdingAllowanceBars": 10,
+          "embargoBars": 32
+        }
+      ]
+    },
+    {
+      "sourceFixture": "original-producer-projections-v1.json",
+      "caseId": "v2-fixed-dsl",
+      "warmupWork": {
+        "hashBytes": 3623,
+        "copyBytes": 136462,
+        "analysisUnits": 164096,
+        "cloneNodes": 69,
+        "outputBytes": 237,
+        "additionalCopyBytes": 128080,
+        "additionalCloneNodes": 28,
+        "components": [
+          {
+            "index": 0,
+            "mode": "dsl",
+            "jsonBytes": 322,
+            "valueNodes": 28,
+            "wrapperTextBytes": 12,
+            "copyBytes": 128080,
+            "analysisUnits": 164096,
+            "cloneNodes": 28
+          }
+        ]
+      },
+      "expectedWarmup": [
+        {
+          "maxSignalLookbackBars": 4,
+          "holdingAllowanceBars": 10,
+          "embargoBars": 14
+        }
+      ]
+    },
+    {
+      "sourceFixture": "original-producer-projections-v1.json",
+      "caseId": "v3-walk-forward",
+      "warmupWork": {
+        "hashBytes": 3788,
+        "copyBytes": 136792,
+        "analysisUnits": 164096,
+        "cloneNodes": 69,
+        "outputBytes": 237,
+        "additionalCopyBytes": 128080,
+        "additionalCloneNodes": 28,
+        "components": [
+          {
+            "index": 0,
+            "mode": "dsl",
+            "jsonBytes": 322,
+            "valueNodes": 28,
+            "wrapperTextBytes": 12,
+            "copyBytes": 128080,
+            "analysisUnits": 164096,
+            "cloneNodes": 28
+          }
+        ]
+      },
+      "expectedWarmup": [
+        {
+          "maxSignalLookbackBars": 4,
+          "holdingAllowanceBars": 10,
+          "embargoBars": 14
+        }
+      ]
+    },
+    {
+      "sourceFixture": "original-producer-mode-coverage-v1.json",
+      "caseId": "v2-params",
+      "warmupWork": {
+        "hashBytes": 5598,
+        "copyBytes": 15046,
+        "analysisUnits": 855,
+        "cloneNodes": 114,
+        "outputBytes": 580,
+        "additionalCopyBytes": 3420,
+        "additionalCloneNodes": 0,
+        "components": [
+          {
+            "index": 0,
+            "mode": "params",
+            "wrapperTextBytes": 29,
+            "copyBytes": 1140,
+            "analysisUnits": 285,
+            "cloneNodes": 0
+          },
+          {
+            "index": 1,
+            "mode": "params",
+            "wrapperTextBytes": 29,
+            "copyBytes": 1140,
+            "analysisUnits": 285,
+            "cloneNodes": 0
+          },
+          {
+            "index": 2,
+            "mode": "params",
+            "wrapperTextBytes": 29,
+            "copyBytes": 1140,
+            "analysisUnits": 285,
+            "cloneNodes": 0
+          }
+        ]
+      },
+      "expectedWarmup": [
+        {
+          "maxSignalLookbackBars": 22,
+          "holdingAllowanceBars": 10,
+          "embargoBars": 32
+        },
+        {
+          "maxSignalLookbackBars": 22,
+          "holdingAllowanceBars": 10,
+          "embargoBars": 32
+        },
+        {
+          "maxSignalLookbackBars": 22,
+          "holdingAllowanceBars": 10,
+          "embargoBars": 32
+        }
+      ]
+    },
+    {
+      "sourceFixture": "original-producer-mode-coverage-v1.json",
+      "caseId": "v3-params",
+      "warmupWork": {
+        "hashBytes": 5763,
+        "copyBytes": 15376,
+        "analysisUnits": 855,
+        "cloneNodes": 114,
+        "outputBytes": 580,
+        "additionalCopyBytes": 3420,
+        "additionalCloneNodes": 0,
+        "components": [
+          {
+            "index": 0,
+            "mode": "params",
+            "wrapperTextBytes": 29,
+            "copyBytes": 1140,
+            "analysisUnits": 285,
+            "cloneNodes": 0
+          },
+          {
+            "index": 1,
+            "mode": "params",
+            "wrapperTextBytes": 29,
+            "copyBytes": 1140,
+            "analysisUnits": 285,
+            "cloneNodes": 0
+          },
+          {
+            "index": 2,
+            "mode": "params",
+            "wrapperTextBytes": 29,
+            "copyBytes": 1140,
+            "analysisUnits": 285,
+            "cloneNodes": 0
+          }
+        ]
+      },
+      "expectedWarmup": [
+        {
+          "maxSignalLookbackBars": 22,
+          "holdingAllowanceBars": 10,
+          "embargoBars": 32
+        },
+        {
+          "maxSignalLookbackBars": 22,
+          "holdingAllowanceBars": 10,
+          "embargoBars": 32
+        },
+        {
+          "maxSignalLookbackBars": 22,
+          "holdingAllowanceBars": 10,
+          "embargoBars": 32
+        }
+      ]
+    },
+    {
+      "sourceFixture": "original-producer-mode-coverage-v1.json",
+      "caseId": "v2-mixed-params-first",
+      "warmupWork": {
+        "hashBytes": 7934,
+        "copyBytes": 148870,
+        "analysisUnits": 164951,
+        "cloneNodes": 183,
+        "outputBytes": 753,
+        "additionalCopyBytes": 131500,
+        "additionalCloneNodes": 28,
+        "components": [
+          {
+            "index": 0,
+            "mode": "params",
+            "wrapperTextBytes": 29,
+            "copyBytes": 1140,
+            "analysisUnits": 285,
+            "cloneNodes": 0
+          },
+          {
+            "index": 1,
+            "mode": "params",
+            "wrapperTextBytes": 29,
+            "copyBytes": 1140,
+            "analysisUnits": 285,
+            "cloneNodes": 0
+          },
+          {
+            "index": 2,
+            "mode": "params",
+            "wrapperTextBytes": 29,
+            "copyBytes": 1140,
+            "analysisUnits": 285,
+            "cloneNodes": 0
+          },
+          {
+            "index": 3,
+            "mode": "dsl",
+            "jsonBytes": 322,
+            "valueNodes": 28,
+            "wrapperTextBytes": 12,
+            "copyBytes": 128080,
+            "analysisUnits": 164096,
+            "cloneNodes": 28
+          }
+        ]
+      },
+      "expectedWarmup": [
+        {
+          "maxSignalLookbackBars": 22,
+          "holdingAllowanceBars": 10,
+          "embargoBars": 32
+        },
+        {
+          "maxSignalLookbackBars": 22,
+          "holdingAllowanceBars": 10,
+          "embargoBars": 32
+        },
+        {
+          "maxSignalLookbackBars": 22,
+          "holdingAllowanceBars": 10,
+          "embargoBars": 32
+        },
+        {
+          "maxSignalLookbackBars": 4,
+          "holdingAllowanceBars": 10,
+          "embargoBars": 14
+        }
+      ]
+    },
+    {
+      "sourceFixture": "original-producer-mode-coverage-v1.json",
+      "caseId": "v3-mixed-dsl-first",
+      "warmupWork": {
+        "hashBytes": 8099,
+        "copyBytes": 149200,
+        "analysisUnits": 164951,
+        "cloneNodes": 183,
+        "outputBytes": 753,
+        "additionalCopyBytes": 131500,
+        "additionalCloneNodes": 28,
+        "components": [
+          {
+            "index": 0,
+            "mode": "params",
+            "wrapperTextBytes": 29,
+            "copyBytes": 1140,
+            "analysisUnits": 285,
+            "cloneNodes": 0
+          },
+          {
+            "index": 1,
+            "mode": "params",
+            "wrapperTextBytes": 29,
+            "copyBytes": 1140,
+            "analysisUnits": 285,
+            "cloneNodes": 0
+          },
+          {
+            "index": 2,
+            "mode": "params",
+            "wrapperTextBytes": 29,
+            "copyBytes": 1140,
+            "analysisUnits": 285,
+            "cloneNodes": 0
+          },
+          {
+            "index": 3,
+            "mode": "dsl",
+            "jsonBytes": 322,
+            "valueNodes": 28,
+            "wrapperTextBytes": 12,
+            "copyBytes": 128080,
+            "analysisUnits": 164096,
+            "cloneNodes": 28
+          }
+        ]
+      },
+      "expectedWarmup": [
+        {
+          "maxSignalLookbackBars": 22,
+          "holdingAllowanceBars": 10,
+          "embargoBars": 32
+        },
+        {
+          "maxSignalLookbackBars": 22,
+          "holdingAllowanceBars": 10,
+          "embargoBars": 32
+        },
+        {
+          "maxSignalLookbackBars": 22,
+          "holdingAllowanceBars": 10,
+          "embargoBars": 32
+        },
+        {
+          "maxSignalLookbackBars": 4,
+          "holdingAllowanceBars": 10,
+          "embargoBars": 14
+        }
+      ]
+    }
+  ],
+  "idOrderControl": {
+    "caseId": "v3-mixed-varied-dsl-first",
+    "strategyIdsByCandidateIndex": [
+      41,
+      11,
+      31,
+      21
+    ],
+    "hypothesisIdsByOriginalEncounter": [
+      91,
+      51
+    ],
+    "candidates": [
+      {
+        "index": 0,
+        "inputFingerprintJson": "{\"appliedAxes\":{\"slowMA\":21.0},\"baseId\":\"varied-slow\",\"candidateIndex\":0,\"configHash\":\"d8380a314b75c8d7d5ea512dfa8c248760fba194c6829464b5ca234a1c8939b6\",\"datasetHash\":\"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"datasetId\":7,\"envelopeVersion\":\"discovery-config-v3\",\"interval\":\"1h\",\"rootSeed\":20260726,\"seeds\":{\"randomEntry\":3949539066},\"strategyHash\":\"strategy-v2:3674c76f1087df677d1c3d7ea58ee2b1b2981557f01ea38edfc830cd3740ae30\",\"strategyId\":41}",
+        "inputSha256": "1d7611ea8e780f26917cd39abdb0ed9d13f1e30d2d25842847a1c14dd4293b0d",
+        "expectedLineage": {
+          "index": 0,
+          "strategyId": 41,
+          "strategyHash": "strategy-v2:3674c76f1087df677d1c3d7ea58ee2b1b2981557f01ea38edfc830cd3740ae30",
+          "hypothesisId": 91,
+          "hypothesisHash": "7c56bf4db626b37cdd7a323b93093d0f1d8c05a0818bbb7207c3be46b55d1342",
+          "baseId": "varied-slow"
+        },
+        "expectedWarmup": {
+          "maxSignalLookbackBars": 22,
+          "holdingAllowanceBars": 7,
+          "embargoBars": 29
+        }
+      },
+      {
+        "index": 1,
+        "inputFingerprintJson": "{\"appliedAxes\":{\"slowMA\":9.0},\"baseId\":\"varied-slow\",\"candidateIndex\":1,\"configHash\":\"d8380a314b75c8d7d5ea512dfa8c248760fba194c6829464b5ca234a1c8939b6\",\"datasetHash\":\"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"datasetId\":7,\"envelopeVersion\":\"discovery-config-v3\",\"interval\":\"1h\",\"rootSeed\":20260726,\"seeds\":{\"randomEntry\":2832830112},\"strategyHash\":\"strategy-v2:4f8f5f2ec809a667c587dd067da34c90241bd496e6187bd915600b02a4045cfc\",\"strategyId\":11}",
+        "inputSha256": "db688294758ed1240249695c24ea3efb7a4361cb77a093214cf280998d7472f1",
+        "expectedLineage": {
+          "index": 1,
+          "strategyId": 11,
+          "strategyHash": "strategy-v2:4f8f5f2ec809a667c587dd067da34c90241bd496e6187bd915600b02a4045cfc",
+          "hypothesisId": 91,
+          "hypothesisHash": "7c56bf4db626b37cdd7a323b93093d0f1d8c05a0818bbb7207c3be46b55d1342",
+          "baseId": "varied-slow"
+        },
+        "expectedWarmup": {
+          "maxSignalLookbackBars": 10,
+          "holdingAllowanceBars": 7,
+          "embargoBars": 17
+        }
+      },
+      {
+        "index": 2,
+        "inputFingerprintJson": "{\"appliedAxes\":{\"slowMA\":33.0},\"baseId\":\"varied-slow\",\"candidateIndex\":2,\"configHash\":\"d8380a314b75c8d7d5ea512dfa8c248760fba194c6829464b5ca234a1c8939b6\",\"datasetHash\":\"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"datasetId\":7,\"envelopeVersion\":\"discovery-config-v3\",\"interval\":\"1h\",\"rootSeed\":20260726,\"seeds\":{\"randomEntry\":3045552191},\"strategyHash\":\"strategy-v2:c5401ac5a109af09d63ea17f076e15c1f5d3976b5f0b482bdcda4ab0fcd2f181\",\"strategyId\":31}",
+        "inputSha256": "ee52c71b6cb12eb94a132e7e74a37dccbbf7b36ec3da59189442cd9f33ee8a3c",
+        "expectedLineage": {
+          "index": 2,
+          "strategyId": 31,
+          "strategyHash": "strategy-v2:c5401ac5a109af09d63ea17f076e15c1f5d3976b5f0b482bdcda4ab0fcd2f181",
+          "hypothesisId": 91,
+          "hypothesisHash": "7c56bf4db626b37cdd7a323b93093d0f1d8c05a0818bbb7207c3be46b55d1342",
+          "baseId": "varied-slow"
+        },
+        "expectedWarmup": {
+          "maxSignalLookbackBars": 34,
+          "holdingAllowanceBars": 7,
+          "embargoBars": 41
+        }
+      },
+      {
+        "index": 3,
+        "inputFingerprintJson": "{\"appliedAxes\":{},\"baseId\":\"dsl-cross\",\"candidateIndex\":3,\"configHash\":\"d8380a314b75c8d7d5ea512dfa8c248760fba194c6829464b5ca234a1c8939b6\",\"datasetHash\":\"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"datasetId\":7,\"envelopeVersion\":\"discovery-config-v3\",\"interval\":\"1h\",\"rootSeed\":20260726,\"seeds\":{\"randomEntry\":256232906},\"strategyHash\":\"strategy-v2:ec7a4e080eeda603a343839e085e2ef997721906d70f8ce8e6aff6b6d31a9a40\",\"strategyId\":21}",
+        "inputSha256": "69ebec0030dadc60b8288dfdddb594bbcdcf295a0f5a204328d6e0ced307748c",
+        "expectedLineage": {
+          "index": 3,
+          "strategyId": 21,
+          "strategyHash": "strategy-v2:ec7a4e080eeda603a343839e085e2ef997721906d70f8ce8e6aff6b6d31a9a40",
+          "hypothesisId": 51,
+          "hypothesisHash": "3014349b7d10936707a90b9b32c2a5c4972b74f943bb81b053863d0626dccc41",
+          "baseId": "dsl-cross"
+        },
+        "expectedWarmup": {
+          "maxSignalLookbackBars": 4,
+          "holdingAllowanceBars": 7,
+          "embargoBars": 11
+        }
+      }
+    ]
+  },
+  "failedMemberControl": {
+    "caseId": "v3-mixed-varied-dsl-first",
+    "failedCandidateIndexes": [
+      2,
+      3
+    ],
+    "attemptStatus": "failed",
+    "jobStatus": "failed",
+    "expectedCandidateCount": 4,
+    "expectedWarmup": [
+      {
+        "maxSignalLookbackBars": 22,
+        "holdingAllowanceBars": 7,
+        "embargoBars": 29
+      },
+      {
+        "maxSignalLookbackBars": 10,
+        "holdingAllowanceBars": 7,
+        "embargoBars": 17
+      },
+      {
+        "maxSignalLookbackBars": 34,
+        "holdingAllowanceBars": 7,
+        "embargoBars": 41
+      },
+      {
+        "maxSignalLookbackBars": 4,
+        "holdingAllowanceBars": 7,
+        "embargoBars": 11
+      }
+    ],
+    "note": "Only seeded status fields change. Both params and final DSL members remain present and analyzed; no result artifact/candles are introduced."
+  },
+  "derivationRefusalCases": [
+    {
+      "id": "v3-mixed-failed-embargo-overflow",
+      "parserCores": 64,
+      "runId": 1,
+      "interval": "1h",
+      "configJson": "{\"bases\":[{\"axes\":[],\"id\":\"dsl-cross\",\"presetVersion\":\"discovery-dsl-preset-v1\",\"strategy\":{\"direction\":\"long\",\"dsl\":{\"entry\":{\"args\":[{\"ind\":\"SMA\",\"len\":\"$fast\",\"src\":\"CLOSE\"},{\"ind\":\"SMA\",\"len\":\"$slow\",\"src\":\"CLOSE\"}],\"op\":\"CROSS_UP\"},\"exit\":{\"args\":[{\"ind\":\"SMA\",\"len\":\"$fast\",\"src\":\"CLOSE\"},{\"ind\":\"SMA\",\"len\":\"$slow\",\"src\":\"CLOSE\"}],\"op\":\"CROSS_DOWN\"},\"name\":\"Fixed SMA cross\",\"params\":{\"fast\":2,\"slow\":3},\"version\":\"strategy-dsl-v1\"},\"feePct\":0.05,\"fillMode\":\"nextOpen\",\"mode\":\"dsl\",\"sizePct\":100,\"slPct\":2,\"slipPct\":0.02,\"tpPct\":4}},{\"axes\":[{\"key\":\"slowMA\",\"max\":33,\"min\":9,\"step\":12}],\"id\":\"varied-slow\",\"presetVersion\":\"discovery-preset-v1\",\"strategy\":{\"bbMult\":2,\"bbPeriod\":20,\"direction\":\"long\",\"emaPeriod\":50,\"entryCode\":\"crossUp(macd, macdSignal)\",\"entryRules\":[{\"l\":\"maFast\",\"op\":\"crossUp\",\"r\":\"maSlow\"}],\"entrySig\":\"maCrossUp\",\"exitCode\":\"crossDown(macd, macdSignal)\",\"exitRules\":[{\"l\":\"maFast\",\"op\":\"crossDown\",\"r\":\"maSlow\"}],\"exitSig\":\"maCrossDown\",\"fastMA\":5,\"feePct\":0.05,\"fillMode\":\"close\",\"macdFast\":12,\"macdSignal\":9,\"macdSlow\":26,\"mode\":\"params\",\"rsiBuy\":30,\"rsiPeriod\":14,\"rsiSell\":70,\"sizePct\":100,\"slPct\":0,\"slipPct\":0.02,\"slowMA\":21,\"tpPct\":0}}],\"benchmarkCosts\":{\"feePct\":0.05,\"slipPct\":0.02},\"caps\":{\"candidates\":256},\"contracts\":{\"backtest\":\"backtest-execution-v1\",\"benchmarks\":\"benchmark-suite-v1\",\"datasetHash\":\"dataset-content-v2\",\"embargo\":\"embargo-derivation-v1\",\"enumeration\":\"discovery-enumeration-v2\",\"gate\":\"gate-v1\",\"metrics\":\"metrics-v2\",\"randomEntry\":\"random-entry-v1\",\"score\":\"score-v1\",\"seed\":\"seed-v1\",\"split\":\"validation-split-v1\",\"strategyDsl\":\"strategy-dsl-v1\",\"strategyHash\":\"strategy-v2\",\"walkForward\":\"research-walk-forward-v1\",\"walkForwardEvidence\":\"walk-forward-evidence-v1\"},\"dataset\":{\"contentHash\":\"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"id\":7},\"embargo\":{\"holdingAllowanceBars\":9007199254740969},\"envelopeVersion\":\"discovery-config-v3\",\"execution\":{\"startEquity\":10000},\"gateConfig\":{\"maxDrawdown\":0.35,\"maxMonthlyContribution\":0.4,\"maxSingleTradeContribution\":0.25,\"minAvgTradeReturn\":0,\"minRandomEntryPercentile\":95,\"minRollingPositiveRatio\":0.55,\"minTrades\":30,\"rollingWindowBars\":30},\"maxConcurrency\":null,\"randomEntry\":{\"runs\":200},\"rootSeed\":20260726,\"scoreConfig\":{\"caps\":{\"cagr\":1,\"calmar\":5,\"complexityUnits\":40,\"consistencySigmaScale\":10,\"dataMiningLog10\":4,\"profitFactor\":3,\"sortino\":5,\"turnover\":0.1},\"weights\":{\"cagr\":1,\"calmar\":1,\"complexity\":0.5,\"consistency\":1,\"dataMining\":1,\"profitFactor\":1,\"regime\":0,\"sortino\":1,\"turnover\":0.5}},\"walkForward\":{\"foldCount\":3,\"foldValidationBars\":8,\"minimumTrainBars\":20}}",
+      "configHash": "0ec10c73c82bed05207e155faf40ac83a770ac8512acc7782be3bb5b52aa4c6f",
+      "configBaseIds": [
+        "dsl-cross",
+        "varied-slow"
+      ],
+      "envelopeVersion": "discovery-config-v3",
+      "counts": {
+        "raw": 4,
+        "prunedInvalid": 0,
+        "duplicates": 0,
+        "finalUnique": 4
+      },
+      "configRawSha256": "0ec10c73c82bed05207e155faf40ac83a770ac8512acc7782be3bb5b52aa4c6f",
+      "engineFingerprintJson": "{\"benchmarkRecord\":\"bench-record-v1\",\"benchmarks\":\"benchmark-suite-v1\",\"configContracts\":{\"backtest\":\"backtest-execution-v1\",\"benchmarks\":\"benchmark-suite-v1\",\"datasetHash\":\"dataset-content-v2\",\"embargo\":\"embargo-derivation-v1\",\"enumeration\":\"discovery-enumeration-v2\",\"gate\":\"gate-v1\",\"metrics\":\"metrics-v2\",\"randomEntry\":\"random-entry-v1\",\"score\":\"score-v1\",\"seed\":\"seed-v1\",\"split\":\"validation-split-v1\",\"strategyDsl\":\"strategy-dsl-v1\",\"strategyHash\":\"strategy-v2\",\"walkForward\":\"research-walk-forward-v1\",\"walkForwardEvidence\":\"walk-forward-evidence-v1\"},\"execution\":\"backtest-execution-v1\",\"gate\":\"gate-v1\",\"metrics\":\"metrics-v2\",\"package\":\"0.1.0\",\"score\":\"score-v1\",\"validationRecord\":\"validation-record-v2\"}",
+      "engineJsonSha256": "4b50f9a7b5fa087807c562cd104be9e0218ce502b209eda6626f709fb05f6c8b",
+      "hypotheses": [
+        {
+          "baseId": "varied-slow",
+          "hash": "7c56bf4db626b37cdd7a323b93093d0f1d8c05a0818bbb7207c3be46b55d1342",
+          "documentJson": "{\"applicability\":{\"axes\":[\"slowMA\"],\"datasetHash\":\"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"datasetId\":7,\"embargo\":\"embargo-derivation-v1\",\"interval\":\"1h\",\"split\":\"validation-split-v1\"},\"failureModes\":\"Not stated: a mechanical parameter sweep of a preset strategy. Treated as unexplained until a hypothesis with stated failure modes replaces it (P15).\",\"mechanism\":\"preset discovery-preset-v1 base varied-slow: entry on maCrossUp, exit on maCrossDown; the parameter sweep asks whether the mechanism survives neighbouring slowMA\",\"parentStrategyId\":null,\"source\":\"discovery\",\"strategyHash\":\"strategy-doc-v1:aeb2fe6e9375d64806ec08d335cf7a75b7c774c65e358560f07377d9f803cf39\",\"strategyId\":null,\"variationKind\":\"param-sweep:slowMA\",\"version\":\"hypothesis-v1\"}",
+          "applicabilityJson": "{\"axes\":[\"slowMA\"],\"datasetHash\":\"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"datasetId\":7,\"embargo\":\"embargo-derivation-v1\",\"interval\":\"1h\",\"split\":\"validation-split-v1\"}",
+          "freshHistoryId": 1,
+          "observationId": 200
+        },
+        {
+          "baseId": "dsl-cross",
+          "hash": "3014349b7d10936707a90b9b32c2a5c4972b74f943bb81b053863d0626dccc41",
+          "documentJson": "{\"applicability\":{\"axes\":[],\"datasetHash\":\"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"datasetId\":7,\"embargo\":\"embargo-derivation-v1\",\"interval\":\"1h\",\"split\":\"validation-split-v1\"},\"failureModes\":\"Authored DSL candidate: fails if the frozen expression has no trades, loses after costs, or does not pass the existing validation gates. AI rationale/failure-mode generation remains P15.\",\"mechanism\":\"discovery-dsl-preset-v1 base dsl-cross: fixed executable DSL \\\"Fixed SMA cross\\\"; entry/exit expression trees are frozen before queue admission\",\"parentStrategyId\":null,\"source\":\"discovery\",\"strategyHash\":\"strategy-doc-v1:20b89bdf54340db55580538ffec5ffe25dbf2ca59e0914427c617914aa9265a2\",\"strategyId\":null,\"variationKind\":\"dsl-fixed\",\"version\":\"hypothesis-v1\"}",
+          "applicabilityJson": "{\"axes\":[],\"datasetHash\":\"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"datasetId\":7,\"embargo\":\"embargo-derivation-v1\",\"interval\":\"1h\",\"split\":\"validation-split-v1\"}",
+          "freshHistoryId": 2,
+          "observationId": 201
+        }
+      ],
+      "candidates": [
+        {
+          "strategyId": 1,
+          "index": 0,
+          "baseId": "varied-slow",
+          "strategyHash": "strategy-v2:3674c76f1087df677d1c3d7ea58ee2b1b2981557f01ea38edfc830cd3740ae30",
+          "appliedAxes": {
+            "slowMA": 21.0
+          },
+          "seeds": {
+            "randomEntry": 3949539066
+          },
+          "freshStrategy": {
+            "id": null,
+            "name": "Discovery varied-slow #0001",
+            "type": "params",
+            "dsl_json": null,
+            "original_definition_json": "{\"bbMult\":2,\"bbPeriod\":20,\"direction\":\"long\",\"emaPeriod\":50,\"entryCode\":\"crossUp(macd, macdSignal)\",\"entryRules\":[{\"l\":\"maFast\",\"op\":\"crossUp\",\"r\":\"maSlow\"}],\"entrySig\":\"maCrossUp\",\"exitCode\":\"crossDown(macd, macdSignal)\",\"exitRules\":[{\"l\":\"maFast\",\"op\":\"crossDown\",\"r\":\"maSlow\"}],\"exitSig\":\"maCrossDown\",\"fastMA\":5,\"feePct\":0.05,\"fillMode\":\"close\",\"macdFast\":12,\"macdSignal\":9,\"macdSlow\":26,\"mode\":\"params\",\"rsiBuy\":30,\"rsiPeriod\":14,\"rsiSell\":70,\"sizePct\":100,\"slPct\":0,\"slipPct\":0.02,\"slowMA\":21.0,\"tpPct\":0}",
+            "param_schema_json": null,
+            "source": "sweep",
+            "ai_prompt_hash": null,
+            "strategy_hash": "strategy-v2:3674c76f1087df677d1c3d7ea58ee2b1b2981557f01ea38edfc830cd3740ae30",
+            "lifecycle": "candidate",
+            "parent_strategy_id": null
+          },
+          "attemptKey": "run:1:candidate:0",
+          "inputFingerprintJson": "{\"appliedAxes\":{\"slowMA\":21.0},\"baseId\":\"varied-slow\",\"candidateIndex\":0,\"configHash\":\"0ec10c73c82bed05207e155faf40ac83a770ac8512acc7782be3bb5b52aa4c6f\",\"datasetHash\":\"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"datasetId\":7,\"envelopeVersion\":\"discovery-config-v3\",\"interval\":\"1h\",\"rootSeed\":20260726,\"seeds\":{\"randomEntry\":3949539066},\"strategyHash\":\"strategy-v2:3674c76f1087df677d1c3d7ea58ee2b1b2981557f01ea38edfc830cd3740ae30\",\"strategyId\":1}",
+          "hypothesisHash": "7c56bf4db626b37cdd7a323b93093d0f1d8c05a0818bbb7207c3be46b55d1342",
+          "freshHypothesisId": 1
+        },
+        {
+          "strategyId": 2,
+          "index": 1,
+          "baseId": "varied-slow",
+          "strategyHash": "strategy-v2:4f8f5f2ec809a667c587dd067da34c90241bd496e6187bd915600b02a4045cfc",
+          "appliedAxes": {
+            "slowMA": 9.0
+          },
+          "seeds": {
+            "randomEntry": 2832830112
+          },
+          "freshStrategy": {
+            "id": null,
+            "name": "Discovery varied-slow #0002",
+            "type": "params",
+            "dsl_json": null,
+            "original_definition_json": "{\"bbMult\":2,\"bbPeriod\":20,\"direction\":\"long\",\"emaPeriod\":50,\"entryCode\":\"crossUp(macd, macdSignal)\",\"entryRules\":[{\"l\":\"maFast\",\"op\":\"crossUp\",\"r\":\"maSlow\"}],\"entrySig\":\"maCrossUp\",\"exitCode\":\"crossDown(macd, macdSignal)\",\"exitRules\":[{\"l\":\"maFast\",\"op\":\"crossDown\",\"r\":\"maSlow\"}],\"exitSig\":\"maCrossDown\",\"fastMA\":5,\"feePct\":0.05,\"fillMode\":\"close\",\"macdFast\":12,\"macdSignal\":9,\"macdSlow\":26,\"mode\":\"params\",\"rsiBuy\":30,\"rsiPeriod\":14,\"rsiSell\":70,\"sizePct\":100,\"slPct\":0,\"slipPct\":0.02,\"slowMA\":9.0,\"tpPct\":0}",
+            "param_schema_json": null,
+            "source": "sweep",
+            "ai_prompt_hash": null,
+            "strategy_hash": "strategy-v2:4f8f5f2ec809a667c587dd067da34c90241bd496e6187bd915600b02a4045cfc",
+            "lifecycle": "candidate",
+            "parent_strategy_id": null
+          },
+          "attemptKey": "run:1:candidate:1",
+          "inputFingerprintJson": "{\"appliedAxes\":{\"slowMA\":9.0},\"baseId\":\"varied-slow\",\"candidateIndex\":1,\"configHash\":\"0ec10c73c82bed05207e155faf40ac83a770ac8512acc7782be3bb5b52aa4c6f\",\"datasetHash\":\"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"datasetId\":7,\"envelopeVersion\":\"discovery-config-v3\",\"interval\":\"1h\",\"rootSeed\":20260726,\"seeds\":{\"randomEntry\":2832830112},\"strategyHash\":\"strategy-v2:4f8f5f2ec809a667c587dd067da34c90241bd496e6187bd915600b02a4045cfc\",\"strategyId\":2}",
+          "hypothesisHash": "7c56bf4db626b37cdd7a323b93093d0f1d8c05a0818bbb7207c3be46b55d1342",
+          "freshHypothesisId": 1
+        },
+        {
+          "strategyId": 3,
+          "index": 2,
+          "baseId": "varied-slow",
+          "strategyHash": "strategy-v2:c5401ac5a109af09d63ea17f076e15c1f5d3976b5f0b482bdcda4ab0fcd2f181",
+          "appliedAxes": {
+            "slowMA": 33.0
+          },
+          "seeds": {
+            "randomEntry": 3045552191
+          },
+          "freshStrategy": {
+            "id": null,
+            "name": "Discovery varied-slow #0003",
+            "type": "params",
+            "dsl_json": null,
+            "original_definition_json": "{\"bbMult\":2,\"bbPeriod\":20,\"direction\":\"long\",\"emaPeriod\":50,\"entryCode\":\"crossUp(macd, macdSignal)\",\"entryRules\":[{\"l\":\"maFast\",\"op\":\"crossUp\",\"r\":\"maSlow\"}],\"entrySig\":\"maCrossUp\",\"exitCode\":\"crossDown(macd, macdSignal)\",\"exitRules\":[{\"l\":\"maFast\",\"op\":\"crossDown\",\"r\":\"maSlow\"}],\"exitSig\":\"maCrossDown\",\"fastMA\":5,\"feePct\":0.05,\"fillMode\":\"close\",\"macdFast\":12,\"macdSignal\":9,\"macdSlow\":26,\"mode\":\"params\",\"rsiBuy\":30,\"rsiPeriod\":14,\"rsiSell\":70,\"sizePct\":100,\"slPct\":0,\"slipPct\":0.02,\"slowMA\":33.0,\"tpPct\":0}",
+            "param_schema_json": null,
+            "source": "sweep",
+            "ai_prompt_hash": null,
+            "strategy_hash": "strategy-v2:c5401ac5a109af09d63ea17f076e15c1f5d3976b5f0b482bdcda4ab0fcd2f181",
+            "lifecycle": "candidate",
+            "parent_strategy_id": null
+          },
+          "attemptKey": "run:1:candidate:2",
+          "inputFingerprintJson": "{\"appliedAxes\":{\"slowMA\":33.0},\"baseId\":\"varied-slow\",\"candidateIndex\":2,\"configHash\":\"0ec10c73c82bed05207e155faf40ac83a770ac8512acc7782be3bb5b52aa4c6f\",\"datasetHash\":\"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"datasetId\":7,\"envelopeVersion\":\"discovery-config-v3\",\"interval\":\"1h\",\"rootSeed\":20260726,\"seeds\":{\"randomEntry\":3045552191},\"strategyHash\":\"strategy-v2:c5401ac5a109af09d63ea17f076e15c1f5d3976b5f0b482bdcda4ab0fcd2f181\",\"strategyId\":3}",
+          "hypothesisHash": "7c56bf4db626b37cdd7a323b93093d0f1d8c05a0818bbb7207c3be46b55d1342",
+          "freshHypothesisId": 1
+        },
+        {
+          "strategyId": 4,
+          "index": 3,
+          "baseId": "dsl-cross",
+          "strategyHash": "strategy-v2:ec7a4e080eeda603a343839e085e2ef997721906d70f8ce8e6aff6b6d31a9a40",
+          "appliedAxes": {},
+          "seeds": {
+            "randomEntry": 256232906
+          },
+          "freshStrategy": {
+            "id": null,
+            "name": "Fixed SMA cross",
+            "type": "dsl",
+            "dsl_json": "{\"entry\":{\"args\":[{\"ind\":\"SMA\",\"len\":\"$fast\",\"src\":\"CLOSE\"},{\"ind\":\"SMA\",\"len\":\"$slow\",\"src\":\"CLOSE\"}],\"op\":\"CROSS_UP\"},\"exit\":{\"args\":[{\"ind\":\"SMA\",\"len\":\"$fast\",\"src\":\"CLOSE\"},{\"ind\":\"SMA\",\"len\":\"$slow\",\"src\":\"CLOSE\"}],\"op\":\"CROSS_DOWN\"},\"name\":\"Fixed SMA cross\",\"params\":{\"fast\":2,\"slow\":3},\"version\":\"strategy-dsl-v1\"}",
+            "original_definition_json": "{\"direction\":\"long\",\"dsl\":{\"entry\":{\"args\":[{\"ind\":\"SMA\",\"len\":\"$fast\",\"src\":\"CLOSE\"},{\"ind\":\"SMA\",\"len\":\"$slow\",\"src\":\"CLOSE\"}],\"op\":\"CROSS_UP\"},\"exit\":{\"args\":[{\"ind\":\"SMA\",\"len\":\"$fast\",\"src\":\"CLOSE\"},{\"ind\":\"SMA\",\"len\":\"$slow\",\"src\":\"CLOSE\"}],\"op\":\"CROSS_DOWN\"},\"name\":\"Fixed SMA cross\",\"params\":{\"fast\":2,\"slow\":3},\"version\":\"strategy-dsl-v1\"},\"feePct\":0.05,\"fillMode\":\"nextOpen\",\"mode\":\"dsl\",\"sizePct\":100,\"slPct\":2,\"slipPct\":0.02,\"tpPct\":4}",
+            "param_schema_json": "{\"fast\":2,\"slow\":3}",
+            "source": "traditional",
+            "ai_prompt_hash": null,
+            "strategy_hash": "strategy-v2:ec7a4e080eeda603a343839e085e2ef997721906d70f8ce8e6aff6b6d31a9a40",
+            "lifecycle": "candidate",
+            "parent_strategy_id": null
+          },
+          "attemptKey": "run:1:candidate:3",
+          "inputFingerprintJson": "{\"appliedAxes\":{},\"baseId\":\"dsl-cross\",\"candidateIndex\":3,\"configHash\":\"0ec10c73c82bed05207e155faf40ac83a770ac8512acc7782be3bb5b52aa4c6f\",\"datasetHash\":\"dataset-content-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"datasetId\":7,\"envelopeVersion\":\"discovery-config-v3\",\"interval\":\"1h\",\"rootSeed\":20260726,\"seeds\":{\"randomEntry\":256232906},\"strategyHash\":\"strategy-v2:ec7a4e080eeda603a343839e085e2ef997721906d70f8ce8e6aff6b6d31a9a40\",\"strategyId\":4}",
+          "hypothesisHash": "3014349b7d10936707a90b9b32c2a5c4972b74f943bb81b053863d0626dccc41",
+          "freshHypothesisId": 2
+        }
+      ],
+      "expectedObservation": {
+        "configHash": "0ec10c73c82bed05207e155faf40ac83a770ac8512acc7782be3bb5b52aa4c6f",
+        "candidates": [
+          {
+            "index": 0,
+            "strategyId": 1,
+            "strategyHash": "strategy-v2:3674c76f1087df677d1c3d7ea58ee2b1b2981557f01ea38edfc830cd3740ae30",
+            "hypothesisId": 200,
+            "hypothesisHash": "7c56bf4db626b37cdd7a323b93093d0f1d8c05a0818bbb7207c3be46b55d1342",
+            "baseId": "varied-slow"
+          },
+          {
+            "index": 1,
+            "strategyId": 2,
+            "strategyHash": "strategy-v2:4f8f5f2ec809a667c587dd067da34c90241bd496e6187bd915600b02a4045cfc",
+            "hypothesisId": 200,
+            "hypothesisHash": "7c56bf4db626b37cdd7a323b93093d0f1d8c05a0818bbb7207c3be46b55d1342",
+            "baseId": "varied-slow"
+          },
+          {
+            "index": 2,
+            "strategyId": 3,
+            "strategyHash": "strategy-v2:c5401ac5a109af09d63ea17f076e15c1f5d3976b5f0b482bdcda4ab0fcd2f181",
+            "hypothesisId": 200,
+            "hypothesisHash": "7c56bf4db626b37cdd7a323b93093d0f1d8c05a0818bbb7207c3be46b55d1342",
+            "baseId": "varied-slow"
+          },
+          {
+            "index": 3,
+            "strategyId": 4,
+            "strategyHash": "strategy-v2:ec7a4e080eeda603a343839e085e2ef997721906d70f8ce8e6aff6b6d31a9a40",
+            "hypothesisId": 201,
+            "hypothesisHash": "3014349b7d10936707a90b9b32c2a5c4972b74f943bb81b053863d0626dccc41",
+            "baseId": "dsl-cross"
+          }
+        ]
+      },
+      "expectedFreshHistoryReferences": [
+        {
+          "index": 0,
+          "strategyId": 1,
+          "hypothesisId": 1
+        },
+        {
+          "index": 1,
+          "strategyId": 2,
+          "hypothesisId": 1
+        },
+        {
+          "index": 2,
+          "strategyId": 3,
+          "hypothesisId": 1
+        },
+        {
+          "index": 3,
+          "strategyId": 4,
+          "hypothesisId": 2
+        }
+      ],
+      "work": {
+        "hashBytes": 8052,
+        "copyBytes": 17511,
+        "cloneNodes": 155,
+        "outputBytes": 666,
+        "parseBytes": 14362,
+        "parseNodes": 678,
+        "expansionBytes": 2122,
+        "expansionNodes": 153,
+        "scratchBytes": 16484,
+        "scratchNodes": 831,
+        "manifest": [
+          {
+            "kind": "config",
+            "index": null,
+            "weight": 2,
+            "bytes": 2629,
+            "nodes": 152,
+            "sha256": "0ec10c73c82bed05207e155faf40ac83a770ac8512acc7782be3bb5b52aa4c6f"
+          },
+          {
+            "kind": "definition",
+            "index": 0,
+            "weight": 1,
+            "bytes": 511,
+            "nodes": 34,
+            "sha256": "f200d6fde98a1f5c4580c60b8167f33632ef0d03278cb2fdb0326ba618e80ff5"
+          },
+          {
+            "kind": "input",
+            "index": 0,
+            "weight": 1,
+            "bytes": 487,
+            "nodes": 15,
+            "sha256": "9e318270ea4a5782ecbddcb552449bd0294ae76405454dba9534a257d2328229"
+          },
+          {
+            "kind": "engine",
+            "index": 0,
+            "weight": 1,
+            "bytes": 714,
+            "nodes": 25,
+            "sha256": "4b50f9a7b5fa087807c562cd104be9e0218ce502b209eda6626f709fb05f6c8b"
+          },
+          {
+            "kind": "definition",
+            "index": 1,
+            "weight": 1,
+            "bytes": 510,
+            "nodes": 34,
+            "sha256": "60a249d10c67e9894dec0e8fbf1549becb2341dd19fca958d1d7a59a3c1fca14"
+          },
+          {
+            "kind": "input",
+            "index": 1,
+            "weight": 1,
+            "bytes": 486,
+            "nodes": 15,
+            "sha256": "44da6d86ffeb0181886623c9b23aaa5247a157ff510cdfd9d462cba6ece7f853"
+          },
+          {
+            "kind": "engine",
+            "index": 1,
+            "weight": 1,
+            "bytes": 714,
+            "nodes": 25,
+            "sha256": "4b50f9a7b5fa087807c562cd104be9e0218ce502b209eda6626f709fb05f6c8b"
+          },
+          {
+            "kind": "definition",
+            "index": 2,
+            "weight": 1,
+            "bytes": 511,
+            "nodes": 34,
+            "sha256": "0ad7c1338b5ceb516917c8c0eae0341cf1d45f519d578d34cd475997fd6ad5f9"
+          },
+          {
+            "kind": "input",
+            "index": 2,
+            "weight": 1,
+            "bytes": 487,
+            "nodes": 15,
+            "sha256": "638aa623d37338e87d27e1258551caeb4a1caacd547db66331e0e54feb72a5f8"
+          },
+          {
+            "kind": "engine",
+            "index": 2,
+            "weight": 1,
+            "bytes": 714,
+            "nodes": 25,
+            "sha256": "4b50f9a7b5fa087807c562cd104be9e0218ce502b209eda6626f709fb05f6c8b"
+          },
+          {
+            "kind": "definition",
+            "index": 3,
+            "weight": 1,
+            "bytes": 447,
+            "nodes": 37,
+            "sha256": "7d1dfcb396cb67f23787f9f9ff482af4dfdcab7ea22ff4bbc4ea70ac6e522b14"
+          },
+          {
+            "kind": "dsl",
+            "index": 3,
+            "weight": 1,
+            "bytes": 322,
+            "nodes": 28,
+            "sha256": "20b89bdf54340db55580538ffec5ffe25dbf2ca59e0914427c617914aa9265a2"
+          },
+          {
+            "kind": "input",
+            "index": 3,
+            "weight": 1,
+            "bytes": 471,
+            "nodes": 14,
+            "sha256": "c3020c2396914e4371ea990678cb918e88da26998c311f4a9a9dbd41d549f535"
+          },
+          {
+            "kind": "engine",
+            "index": 3,
+            "weight": 1,
+            "bytes": 714,
+            "nodes": 25,
+            "sha256": "4b50f9a7b5fa087807c562cd104be9e0218ce502b209eda6626f709fb05f6c8b"
+          },
+          {
+            "kind": "content",
+            "index": 0,
+            "weight": 1,
+            "bytes": 798,
+            "nodes": 17,
+            "sha256": "7c56bf4db626b37cdd7a323b93093d0f1d8c05a0818bbb7207c3be46b55d1342"
+          },
+          {
+            "kind": "applicability",
+            "index": 0,
+            "weight": 1,
+            "bytes": 213,
+            "nodes": 8,
+            "sha256": "52573f208b3b884b35f8adfa861f35e610b418fd0d64645a1c8a7309ff8ea073"
+          },
+          {
+            "kind": "content",
+            "index": 1,
+            "weight": 1,
+            "bytes": 800,
+            "nodes": 16,
+            "sha256": "3014349b7d10936707a90b9b32c2a5c4972b74f943bb81b053863d0626dccc41"
+          },
+          {
+            "kind": "applicability",
+            "index": 1,
+            "weight": 1,
+            "bytes": 205,
+            "nodes": 7,
+            "sha256": "70231dfa441b06796bf202f25bbd96e11016ab0a4f77523823afd6da48629a03"
+          }
+        ]
+      },
+      "warmupWork": {
+        "hashBytes": 8052,
+        "copyBytes": 149107,
+        "analysisUnits": 164951,
+        "cloneNodes": 183,
+        "outputBytes": 762,
+        "additionalCopyBytes": 131500,
+        "additionalCloneNodes": 28,
+        "components": [
+          {
+            "index": 0,
+            "mode": "params",
+            "wrapperTextBytes": 29,
+            "copyBytes": 1140,
+            "analysisUnits": 285,
+            "cloneNodes": 0
+          },
+          {
+            "index": 1,
+            "mode": "params",
+            "wrapperTextBytes": 29,
+            "copyBytes": 1140,
+            "analysisUnits": 285,
+            "cloneNodes": 0
+          },
+          {
+            "index": 2,
+            "mode": "params",
+            "wrapperTextBytes": 29,
+            "copyBytes": 1140,
+            "analysisUnits": 285,
+            "cloneNodes": 0
+          },
+          {
+            "index": 3,
+            "mode": "dsl",
+            "jsonBytes": 322,
+            "valueNodes": 28,
+            "wrapperTextBytes": 12,
+            "copyBytes": 128080,
+            "analysisUnits": 164096,
+            "cloneNodes": 28
+          }
+        ]
+      },
+      "captureFailedCandidateIndexes": [
+        2
+      ],
+      "expectedStatus": "refused",
+      "expectedFirstDerivationRefusalIndex": 2,
+      "expectedPerCandidate": [
+        {
+          "status": "ok",
+          "derivation": {
+            "maxSignalLookbackBars": 22,
+            "holdingAllowanceBars": 9007199254740969,
+            "embargoBars": 9007199254740991
+          }
+        },
+        {
+          "status": "ok",
+          "derivation": {
+            "maxSignalLookbackBars": 10,
+            "holdingAllowanceBars": 9007199254740969,
+            "embargoBars": 9007199254740979
+          }
+        },
+        {
+          "status": "refused",
+          "phase": "embargo"
+        },
+        {
+          "status": "ok",
+          "derivation": {
+            "maxSignalLookbackBars": 4,
+            "holdingAllowanceBars": 9007199254740969,
+            "embargoBars": 9007199254740973
+          }
+        }
+      ]
+    }
+  ],
+  "negativeControls": [
+    {
+      "caseId": "v3-mixed-varied-dsl-first",
+      "id": "late-dsl-identity",
+      "edit": "last candidate stored nested and saved DSL entry ind CLOSE instead of original tree; keep original plan/hash/input",
+      "phase": "lineage",
+      "expectedWarmupEntries": 0
+    },
+    {
+      "caseId": "v3-mixed-varied-dsl-first",
+      "id": "failed-member-cost",
+      "edit": "mark candidate2 failed in attempts and both jobs; alter its stored feePct only",
+      "phase": "lineage",
+      "expectedWarmupEntries": 0
+    },
+    {
+      "caseId": "v3-mixed-varied-dsl-first",
+      "id": "late-engine-catalog",
+      "edit": "last candidate engine configContracts.strategyDsl -> unsupported-v9",
+      "phase": "lineage",
+      "expectedWarmupEntries": 0
+    },
+    {
+      "caseId": "v3-mixed-varied-dsl-first",
+      "id": "late-reference",
+      "edit": "last inputFingerprintJson strategyId points at candidate0 while scalar attempt/job references and all hashes stay unchanged",
+      "phase": "lineage",
+      "expectedWarmupEntries": 0
+    },
+    {
+      "caseId": "v3-mixed-varied-dsl-first",
+      "id": "dsl-param-name-resource",
+      "edit": "last stored nested and saved DSL params has one key of65 ASCII x bytes; original identities remain unchanged",
+      "phase": "preflight",
+      "expectedPayloadEntries": 0,
+      "expectedWarmupEntries": 0
+    },
+    {
+      "caseId": "v3-mixed-failed-embargo-overflow",
+      "id": "failed-embargo-overflow",
+      "edit": "only seed candidate2 failed status as declared; whole original lineage otherwise coherent",
+      "phase": "warmup",
+      "expectedOutput": "none",
+      "expectedFirstDerivationRefusalIndex": 2
+    }
+  ],
+  "resourceBoundaryRecipes": [
+    {
+      "kind": "analysis",
+      "producerTemplate": "v2-fixed-dsl",
+      "baseId": "warmup-resource",
+      "baseDslName": "Resource",
+      "capsCandidates": 4096,
+      "familyCandidates": 2,
+      "paramsSidecar": {
+        "source": "v1-varied-slow base",
+        "id": "warmup-params",
+        "axes": []
+      },
+      "asciiStoredDslNameBytes": 2095882,
+      "paramsStoredEntrySigSuffixBytes": 99,
+      "oneOverEdit": "append one additional ASCII x to sidecar stored params entrySig; all original config/identity/input claims stay unchanged",
+      "exact": {
+        "preparation": {
+          "hashBytes": 2102260,
+          "copyBytes": 8397556,
+          "cloneNodes": 79,
+          "outputBytes": 372,
+          "parseBytes": 4202148,
+          "parseNodes": 501,
+          "expansionBytes": 985,
+          "expansionNodes": 75,
+          "scratchBytes": 4203133,
+          "scratchNodes": 576
+        },
+        "warmup": {
+          "hashBytes": 2102260,
+          "copyBytes": 42061092,
+          "analysisUnits": 268435456,
+          "cloneNodes": 107,
+          "outputBytes": 420,
+          "additionalCopyBytes": 33663488,
+          "additionalCloneNodes": 28,
+          "components": [
+            {
+              "index": 0,
+              "mode": "params",
+              "wrapperTextBytes": 128,
+              "copyBytes": 1536,
+              "analysisUnits": 384,
+              "cloneNodes": 0
+            },
+            {
+              "index": 1,
+              "mode": "dsl",
+              "jsonBytes": 2096189,
+              "valueNodes": 28,
+              "wrapperTextBytes": 12,
+              "copyBytes": 33661952,
+              "analysisUnits": 268435072,
+              "cloneNodes": 28
+            }
+          ]
+        }
+      },
+      "over": {
+        "preparation": {
+          "hashBytes": 2102261,
+          "copyBytes": 8397558,
+          "cloneNodes": 79,
+          "outputBytes": 372,
+          "parseBytes": 4202149,
+          "parseNodes": 501,
+          "expansionBytes": 985,
+          "expansionNodes": 75,
+          "scratchBytes": 4203134,
+          "scratchNodes": 576
+        },
+        "warmup": {
+          "hashBytes": 2102261,
+          "copyBytes": 42061098,
+          "analysisUnits": 268435457,
+          "cloneNodes": 107,
+          "outputBytes": 420,
+          "additionalCopyBytes": 33663492,
+          "additionalCloneNodes": 28,
+          "components": [
+            {
+              "index": 0,
+              "mode": "params",
+              "wrapperTextBytes": 129,
+              "copyBytes": 1540,
+              "analysisUnits": 385,
+              "cloneNodes": 0
+            },
+            {
+              "index": 1,
+              "mode": "dsl",
+              "jsonBytes": 2096189,
+              "valueNodes": 28,
+              "wrapperTextBytes": 12,
+              "copyBytes": 33661952,
+              "analysisUnits": 268435072,
+              "cloneNodes": 28
+            }
+          ]
+        }
+      },
+      "overageUnits": 1,
+      "note": "Both stored claims are later identity-invalid; exact preflight only, never semantic success. Sidecar makes exact+1 analysis reachable."
+    },
+    {
+      "kind": "copy",
+      "producerTemplate": "v2-fixed-dsl",
+      "baseId": "warmup-resource",
+      "baseDslName": "Resource",
+      "capsCandidates": 4096,
+      "familyCandidates": 1,
+      "numericParams": 12000,
+      "paramKeyFormat": "p00000 through p11999; integer0 except first tenReplacements integer10",
+      "asciiStoredDslNameBytes": 744623,
+      "tenReplacements": 12,
+      "dormantWrapperCounter": 0,
+      "oneOverEdit": "resourceCounter integer0 to10; only stored definition",
+      "exact": {
+        "preparation": {
+          "hashBytes": 976251,
+          "copyBytes": 3802840,
+          "cloneNodes": 12042,
+          "outputBytes": 219,
+          "parseBytes": 1759769,
+          "parseNodes": 24332,
+          "expansionBytes": 459,
+          "expansionNodes": 39,
+          "scratchBytes": 1760228,
+          "scratchNodes": 24371
+        },
+        "warmup": {
+          "hashBytes": 976251,
+          "copyBytes": 67108864,
+          "analysisUnits": 161523456,
+          "cloneNodes": 24070,
+          "outputBytes": 243,
+          "additionalCopyBytes": 63306000,
+          "additionalCloneNodes": 12028,
+          "components": [
+            {
+              "index": 0,
+              "mode": "dsl",
+              "jsonBytes": 876942,
+              "valueNodes": 12028,
+              "wrapperTextBytes": 12,
+              "copyBytes": 63306000,
+              "analysisUnits": 161523456,
+              "cloneNodes": 12028
+            }
+          ]
+        }
+      },
+      "over": {
+        "preparation": {
+          "hashBytes": 976251,
+          "copyBytes": 3802841,
+          "cloneNodes": 12042,
+          "outputBytes": 219,
+          "parseBytes": 1759770,
+          "parseNodes": 24332,
+          "expansionBytes": 459,
+          "expansionNodes": 39,
+          "scratchBytes": 1760229,
+          "scratchNodes": 24371
+        },
+        "warmup": {
+          "hashBytes": 976251,
+          "copyBytes": 67108865,
+          "analysisUnits": 161523456,
+          "cloneNodes": 24070,
+          "outputBytes": 243,
+          "additionalCopyBytes": 63306000,
+          "additionalCloneNodes": 12028,
+          "components": [
+            {
+              "index": 0,
+              "mode": "dsl",
+              "jsonBytes": 876942,
+              "valueNodes": 12028,
+              "wrapperTextBytes": 12,
+              "copyBytes": 63306000,
+              "analysisUnits": 161523456,
+              "cloneNodes": 12028
+            }
+          ]
+        }
+      },
+      "overageUnits": 1,
+      "note": "Stored claim differs from original candidate identity; exact preflight only, then whole semantic refusal. No claim of successful resource semantic observation."
+    }
+  ],
+  "hashBoundaryReference": {
+    "sourceFixture": "original-lineage-semantics-v1.json",
+    "resourceKind": "hash",
+    "note": "Reuse entire unchanged original8-candidate hash recipe. Params wrapper text29 per candidate; complete warmup reserve is composed, never a second allowance.",
+    "exact": {
+      "hashBytes": 33554432,
+      "copyBytes": 65326944,
+      "analysisUnits": 2280,
+      "outputBytes": 1480,
+      "additionalCopyBytes": 9120,
+      "additionalCloneNodes": 0
+    },
+    "oneOver": {
+      "hashBytes": 33554433,
+      "copyBytes": 65326946,
+      "analysisUnits": 2280,
+      "outputBytes": 1480,
+      "additionalCopyBytes": 9120,
+      "additionalCloneNodes": 0
+    }
+  },
+  "outputBoundaryRecipe": {
+    "producerTemplate": "v1-ordered-axes",
+    "capsCandidates": 4096,
+    "mainIdAscii": "m",
+    "mainIdBytes": 3648,
+    "mainSlowMA": 2000,
+    "mainAxes": [
+      {
+        "key": "fastMA",
+        "min": 1,
+        "max": 44,
+        "step": 1
+      },
+      {
+        "key": "emaPeriod",
+        "min": 1,
+        "max": 25,
+        "step": 1
+      }
+    ],
+    "otherIdAscii": "o",
+    "otherIdBytes": 876,
+    "otherEmaPeriod": 51,
+    "otherAxes": [],
+    "familyCandidates": 1101,
+    "expectedEveryDerivation": {
+      "maxSignalLookbackBars": 2001,
+      "holdingAllowanceBars": 10,
+      "embargoBars": 2011
+    },
+    "exact": {
+      "preparation": {
+        "hashBytes": 861961,
+        "copyBytes": 5792342,
+        "cloneNodes": 41838,
+        "outputBytes": 4167880,
+        "parseBytes": 5799833,
+        "parseNodes": 79614,
+        "expansionBytes": 4653291,
+        "expansionNodes": 44036,
+        "scratchBytes": 10453124,
+        "scratchNodes": 123650
+      },
+      "warmup": {
+        "hashBytes": 861961,
+        "copyBytes": 7073906,
+        "analysisUnits": 313785,
+        "cloneNodes": 41838,
+        "outputBytes": 4194304,
+        "additionalCopyBytes": 1255140,
+        "additionalCloneNodes": 0
+      }
+    },
+    "oneOver": {
+      "preparation": {
+        "hashBytes": 861963,
+        "copyBytes": 5792347,
+        "cloneNodes": 41838,
+        "outputBytes": 4167881,
+        "parseBytes": 5799837,
+        "parseNodes": 79614,
+        "expansionBytes": 4653292,
+        "expansionNodes": 44036,
+        "scratchBytes": 10453129,
+        "scratchNodes": 123650
+      },
+      "warmup": {
+        "hashBytes": 861963,
+        "copyBytes": 7073911,
+        "analysisUnits": 313785,
+        "cloneNodes": 41838,
+        "outputBytes": 4194305,
+        "additionalCopyBytes": 1255140,
+        "additionalCloneNodes": 0
+      }
+    },
+    "oneOverEdit": "append one ASCII o to other base ID before actual original production",
+    "note": "Actual original producer/repository/history setup required in3c; exact whole observation succeeds, one-over refuses before payload/analysis."
+  }
+}
