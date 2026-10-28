@@ -3,7 +3,7 @@
 Date: 2026-10-28 (UTC+8)
 Repo: yoyoCadence/AlphaFactorForge
 Branch: docs/original-market-producer-contract
-Status: Design/data locally verified; exact-head CI/merge delivery pending.
+Status: Resolved — #234 verified design delivery; actual4a controls start on the next explicit resume.
 
 ## Summary
 
@@ -24,3 +24,9 @@ No local runtime suite is rerun solely for these docs/data. All six completed ex
 Local artifact checks pass. Frozen outer LF packaging SHA256 is `ea6ce3df35814450641d1e41e1997f039322a6c86464660a525fbd2532b90c92`; decoded original JSON bytes never undergo newline normalization. Python verifier compares all older fixtures/runtime to the exact baseline, all33 source rule/message projections, six-file scope, links and append-only #233 receipt. Node's source-pin git read initially hit sandbox EPERM; the exact read-only checker succeeded with escalation. No product code changed to work around sandbox restrictions.
 
 After verified design delivery, a later explicit resume may start4a actual producer controls exactly as §4 specifies. The six proposed source mutants are future required checks, not evidence run in this design. Provenance/snapshot require independent projections and actual controls before any bounded market consumer refinement/code. Missing file/candle/availability/action/cost evidence, numerical policy and current actual-owner/registry admission remain separate gates. RegisteredSource/numericCostsHash remain unavailable.
+
+## Resolution — #234 verified delivery
+
+Recorded2026-10-28 (UTC+8) after the next explicit resume. [PR #234](https://github.com/yoyoCadence/AlphaFactorForge/pull/234) delivered head `5cceeda3892d49ca31a275f95ea70c5ff8c4e574` against base `841e5dde467dcb1eae7454dbdb3c8da43ee15630`; workflow40678174507 completed all six jobs successfully, each completed log pinning that exact merge. Rust1114/one existing ignored (297/815/2;20.29/400.31/5.65s), Vitest1242/80 files, E2E98/no retries, production audit0 and native rendered/SQLite/metrics/event-plugin roundtrip plus exact policy/process/temp restoration pass. This remains unchanged runtime regression, not actual4a controls or mutant evidence.
+
+Fresh reviews/threads were empty, tested main unchanged and PR mergeable. Expected-head normal merge without bypass produced `29952a80a8fca5c34c81a6fcf327681c298cecdb`. GitHub closed/merged readback, fast-forwarded clean main and complete tree `28ca873804b21a77ca91dc1dd8e2b4f95a11418d` equality passed. Final PR receipt readback was verified; this resume re-read it and clean main before branching. Design4a is delivered. No next task started before the requested stop; this new explicit resume activates actual4a controls via Next → In Progress. All other market/source/live parents stay incomplete.
