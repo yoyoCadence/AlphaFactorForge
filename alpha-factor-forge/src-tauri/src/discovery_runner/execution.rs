@@ -1260,6 +1260,32 @@ pub fn trial_split_identity(
 mod warmup_controls;
 
 #[cfg(test)]
+thread_local! {
+    pub(crate) static ORIGINAL_WARMUP_ENTRIES: std::cell::Cell<(usize, usize)> = const { std::cell::Cell::new((0, 0)) };
+    pub(crate) static DENY_ORIGINAL_WARMUP: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Fixed internal reuse of execution's original parse/embargo boundary.
+/// It does not accept candles or confer any historical source authority.
+pub(crate) fn original_candidate_embargo(
+    definition: &Value,
+    holding_allowance_bars: i64,
+) -> Result<EmbargoDerivation, CandidateExecutionError> {
+    #[cfg(test)]
+    {
+        ORIGINAL_WARMUP_ENTRIES.with(|v| {
+            let (all, dsl) = v.get();
+            v.set((all + 1, dsl + usize::from(definition["mode"] == "dsl")));
+        });
+        assert!(
+            !DENY_ORIGINAL_WARMUP.with(std::cell::Cell::get),
+            "warmup analysis must follow complete preflight and lineage agreement"
+        );
+    }
+    CandidateStrategy::parse(definition)?.embargo(holding_allowance_bars)
+}
+
+#[cfg(test)]
 pub(crate) mod tests {
     use super::*;
     use crate::db::repositories::validate_validation_bundle;

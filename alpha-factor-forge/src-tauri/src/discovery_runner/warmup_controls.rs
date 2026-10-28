@@ -89,6 +89,30 @@ fn cohort(mode: &str, status: &str, phase: Option<&str>, expected_count: usize) 
 }
 
 #[test]
+fn warmup_internal_bridge_matches_all_47_original_executor_controls() {
+    let v = oracle();
+    for c in v["cases"].as_array().unwrap() {
+        let text = c["strategyJson"].as_str().unwrap();
+        assert_eq!(sha256_hex(text.as_bytes()), c["strategySha256"]);
+        let d: Value = serde_json::from_str(text).unwrap();
+        let saved = d.clone();
+        let holding = c["holdingAllowanceBars"].as_i64().unwrap();
+        let actual = original_candidate_embargo(&d, holding);
+        let direct = CandidateStrategy::parse(&d).and_then(|p| p.embargo(holding));
+        assert_eq!(actual, direct, "{}", c["id"]);
+        if c["expected"]["status"] == "ok" {
+            assert_eq!(
+                serde_json::to_value(actual.unwrap()).unwrap(),
+                c["expected"]["derivation"]
+            );
+        } else {
+            assert!(actual.is_err());
+        }
+        assert_eq!(d, saved);
+    }
+}
+
+#[test]
 fn warmup_params_successes_pin_usage_cross_exit_and_safe_boundaries() {
     cohort("params", "ok", None, 12);
 }

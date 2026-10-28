@@ -2,7 +2,7 @@
 //! The graph stays borrowed; only the declared JSON and one run plan materialize.
 
 use alpha_factor_forge::discovery_core::{
-    config::ResolvedDiscoveryConfig, enumerate::CandidatePlan,
+    config::ResolvedDiscoveryConfig, embargo::EmbargoDerivation, enumerate::CandidatePlan,
 };
 use serde_json::Value;
 
@@ -11,6 +11,7 @@ use super::{OriginalJson, SourceRowsObservation, MAX_TOTAL_JSON_NODES, MAX_TOTAL
 use crate::error::{AppError, AppResult};
 
 mod semantics;
+mod warmup;
 
 fn invalid() -> AppError {
     AppError::Other("original_lineage_invalid".into())
@@ -265,6 +266,26 @@ pub(in crate::research::confirmation_inputs) fn observe_original_lineage(
 ) -> AppResult<OriginalLineageObservation> {
     let prepared = prepare_original_lineage(rows)?;
     semantics::observe(&prepared)
+}
+
+/// Whole historical warmup, with no source/admission capability.
+#[derive(Clone, Eq, PartialEq)]
+pub(in crate::research::confirmation_inputs) struct OriginalWarmupObservation {
+    lineage: OriginalLineageObservation,
+    derivations: Vec<EmbargoDerivation>,
+}
+impl OriginalWarmupObservation {
+    pub(in crate::research::confirmation_inputs) fn lineage(&self) -> &OriginalLineageObservation {
+        &self.lineage
+    }
+    pub(in crate::research::confirmation_inputs) fn derivations(&self) -> &[EmbargoDerivation] {
+        &self.derivations
+    }
+}
+pub(in crate::research::confirmation_inputs) fn observe_original_warmup(
+    rows: &SourceRowsObservation,
+) -> AppResult<OriginalWarmupObservation> {
+    warmup::observe(rows)
 }
 
 #[cfg(test)]

@@ -71,7 +71,7 @@ fn prior(p: &PreparedOriginalLineage<'_>, v: &Value) {
     );
     assert_eq!(p.combined_work(), (n("scratchBytes"), n("scratchNodes")));
 }
-fn resource(kind: &str, over: bool) -> (Fixture, Value) {
+pub(super) fn resource(kind: &str, over: bool) -> (Fixture, Value) {
     let r = oracle()["resourceBoundaryRecipes"]
         .as_array()
         .unwrap()
