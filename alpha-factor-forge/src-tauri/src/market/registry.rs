@@ -468,6 +468,10 @@ pub fn default_crypto_instruments() -> Vec<InstrumentDraft> {
 }
 
 #[cfg(test)]
+#[path = "registry_projection_controls.rs"]
+mod projection_controls;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::db;
