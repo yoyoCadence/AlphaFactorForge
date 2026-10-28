@@ -60,6 +60,12 @@ input, statistical calibration or reserved-seed activity follows from these rows
    registry/IMMEDIATE final admission remains 4d. Missing action/cost originals
    must be resolved with a separately scoped supported storage/input design.
 
+   After verified warmup3 delivery (#233), the [market registry producer
+   refinement](research-original-market-registry-projections-v1.md) starts market4
+   with independent calendar/instrument projections and actual producer controls.
+   Provenance/snapshot evidence and bounded market consumer refinement follow;
+   trial remains after market. This adds no current source admission authority.
+
 Only 4b-2c-1 enters Next after this verified design delivery. Parent 4b-2c/4b-2/
 4b/P13c-4 remain incomplete. No RegisteredSource construction or runtime activation
 ships until every mandatory original semantic input and digest is authenticated.

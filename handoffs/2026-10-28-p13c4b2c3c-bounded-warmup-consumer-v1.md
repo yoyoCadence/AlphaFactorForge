@@ -3,7 +3,7 @@
 Date: 2026-10-28
 Repo: yoyoCadence/AlphaFactorForge
 Branch: feat/original-warmup-consumer
-Status: Local implementation/verification complete; exact-head CI/merge delivery pending.
+Status: Resolved — #233 verified delivery; warmup3 complete, other source/live gates remain open.
 
 ## Summary
 
@@ -32,3 +32,11 @@ The standalone source audit verifies every frozen fixture/source package, unchan
 After all eight mutants restored exact bytes, full isolated `cargo test --locked` passes1114 tests/one existing ignored (297/815/2;10.62/103.54/1.48 s; compile26.31 s). This completes before Node-heavy checks. Locked all-target check14.41 s and Clippy22.69 s/scoped format pass with only the five pre-existing warnings. `npm test -- --maxWorkers=4` passes1242/80 files (5.66 s); typecheck and production build pass. The current Vitest CLI supports maxWorkers without minWorkers; an initial unsupported CLI option refused before running any test and needed no source change.
 
 Full-suite root `aff-p13c4b2c3c-full-b6650619e03f4158a604e4322efb3806` was removed only after suite exit0 and verification of the exact resolved TEMP parent/GUID leaf and every traversed entry, with no reparse points (43 files/63 directories). No stale root was reused/deleted. Driver/logs/backups/results remain in normal TEMP outside that removed root. No manual server started; existing service tests own/stop their helpers. All fixtures/producer/parser/identity policies remain unchanged. Local implementation is complete; six completed exact-head/base jobs plus verified merge/readback/clean-main delivery remain gates. Parent warmup and other source/live gates are not silently closed before their required receipts.
+
+## Resolution — #233 verified delivery
+
+Recorded2026-10-28 (UTC+8) on the next explicit resume; original notes above preserve commit-time status. [PR #233](https://github.com/yoyoCadence/AlphaFactorForge/pull/233) delivered head `503ee5dc7f775e76c00fe880fdedb6ea6139fc43` against base `057d95bc72927ef04312478c3255ec401f2c544d`. Workflow40605639152 completed all six jobs successfully; each completed log pins that exact head/base merge. Rust1114/one existing ignored (297/815/2), all24 warmup controls, Vitest1242/80 files, E2E98/no retries, production audit0 and native rendered/SQLite/metrics/event-plugin roundtrip plus policy/process/temp restoration pass.
+
+Fresh reviews/threads were empty, main unchanged and PR mergeable. Expected-head normal merge without bypass produced `841e5dde467dcb1eae7454dbdb3c8da43ee15630`; GitHub closed/merged readback, fast-forwarded clean local main and complete tested tree `bbfd0271e2758e498301d563f409d578035bf5e5` equality passed. Final PR receipt readback passed then; this resume re-read that same merged receipt and clean main. Consumer3c and warmup3 are Done. No next task started before the prior requested stop.
+
+The new explicit resume refines the next ordered market scope into [registry producer design4a](../docs/plans/research-original-market-registry-projections-v1.md), then actual controls, provenance/snapshot evidence and bounded market consumer refinement before trial. Other original market/trial/file/action/cost/registry/owner/source/live parents remain incomplete; RegisteredSource/numericCostsHash remain unavailable.

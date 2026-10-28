@@ -1,0 +1,512 @@
+{
+  "version": "original-market-registry-projections-v1",
+  "baseline": "841e5dde467dcb1eae7454dbdb3c8da43ee15630",
+  "scope": "independent design literals; no actual producer or admitted market/source evidence",
+  "calendars": [
+    {
+      "id": "calendar-0",
+      "inputJson": "{\"calendarId\":\"crypto-24x7-v1\",\"earlyCloses\":[],\"holidays\":[],\"kind\":\"continuous\",\"timezone\":\"UTC\",\"tradingWeekdays\":[]}",
+      "expected": {
+        "definitionJson": "{\"calendarId\":\"crypto-24x7-v1\",\"earlyCloses\":[],\"holidays\":[],\"kind\":\"continuous\",\"timezone\":\"UTC\",\"tradingWeekdays\":[],\"version\":\"session-calendar-v1\"}",
+        "contentHash": "4b5a8d5cd7b7c9065615308e030c8598602a1a2831d809015ae97ca52c7cc117",
+        "scalars": {
+          "calendar_id": "crypto-24x7-v1",
+          "version": "session-calendar-v1",
+          "kind": "continuous",
+          "timezone": "UTC"
+        }
+      }
+    },
+    {
+      "id": "calendar-1",
+      "inputJson": "{\"calendarId\":\"fixture-us-v1\",\"earlyCloses\":[\"2024-07-03\"],\"holidays\":[\"2024-01-01\",\"2024-07-04\"],\"kind\":\"trading-days\",\"timezone\":\"America/New_York\",\"tradingWeekdays\":[1,2,3,4,5]}",
+      "expected": {
+        "definitionJson": "{\"calendarId\":\"fixture-us-v1\",\"earlyCloses\":[\"2024-07-03\"],\"holidays\":[\"2024-01-01\",\"2024-07-04\"],\"kind\":\"trading-days\",\"timezone\":\"America/New_York\",\"tradingWeekdays\":[1,2,3,4,5],\"version\":\"session-calendar-v1\"}",
+        "contentHash": "7dcf2d69a0a39c984dd10b3e7de51694be2b80d0f094a8547ac96dcd8cde6b94",
+        "scalars": {
+          "calendar_id": "fixture-us-v1",
+          "version": "session-calendar-v1",
+          "kind": "trading-days",
+          "timezone": "America/New_York"
+        }
+      }
+    },
+    {
+      "id": "calendar-2",
+      "inputJson": "{\"calendarId\":\"fixture-tw-v1\",\"earlyCloses\":[],\"holidays\":[\"2024-02-08\",\"2024-02-09\"],\"kind\":\"trading-days\",\"timezone\":\"Asia/Taipei\",\"tradingWeekdays\":[1,2,3,4,5]}",
+      "expected": {
+        "definitionJson": "{\"calendarId\":\"fixture-tw-v1\",\"earlyCloses\":[],\"holidays\":[\"2024-02-08\",\"2024-02-09\"],\"kind\":\"trading-days\",\"timezone\":\"Asia/Taipei\",\"tradingWeekdays\":[1,2,3,4,5],\"version\":\"session-calendar-v1\"}",
+        "contentHash": "4417dfbb129a0196fc3e512332692706994e1348a76fe48c159e395411e604f7",
+        "scalars": {
+          "calendar_id": "fixture-tw-v1",
+          "version": "session-calendar-v1",
+          "kind": "trading-days",
+          "timezone": "Asia/Taipei"
+        }
+      }
+    },
+    {
+      "id": "calendar-3",
+      "inputJson": "{\"calendarId\":\"fixture-continuous-v01\",\"earlyCloses\":[\"2024-02-29\"],\"holidays\":[],\"kind\":\"continuous\",\"timezone\":\" UTC \",\"tradingWeekdays\":[]}",
+      "expected": {
+        "definitionJson": "{\"calendarId\":\"fixture-continuous-v01\",\"earlyCloses\":[\"2024-02-29\"],\"holidays\":[],\"kind\":\"continuous\",\"timezone\":\" UTC \",\"tradingWeekdays\":[],\"version\":\"session-calendar-v1\"}",
+        "contentHash": "6e791707b75f1ed94e9b07e5e8426af072cb9fbf22f3353ef2aceb4427d1622a",
+        "scalars": {
+          "calendar_id": "fixture-continuous-v01",
+          "version": "session-calendar-v1",
+          "kind": "continuous",
+          "timezone": " UTC "
+        }
+      }
+    }
+  ],
+  "instruments": [
+    {
+      "id": "instrument-0",
+      "inputJson": "{\"assetType\":\"spot-crypto\",\"base\":\"BTC\",\"delistedAt\":null,\"instrumentId\":\"crypto:binance:BTCUSDT\",\"listedFrom\":null,\"lotSize\":null,\"minNotional\":null,\"priceStep\":null,\"quote\":\"USDT\",\"sessionCalendarId\":\"crypto-24x7-v1\",\"sourceCapabilities\":{},\"suspensions\":[],\"timezone\":\"UTC\"}",
+      "expected": {
+        "contentJson": "{\"assetType\":\"spot-crypto\",\"base\":\"BTC\",\"delistedAt\":null,\"instrumentId\":\"crypto:binance:BTCUSDT\",\"listedFrom\":null,\"lotSize\":null,\"minNotional\":null,\"priceStep\":null,\"quote\":\"USDT\",\"sessionCalendarId\":\"crypto-24x7-v1\",\"sourceCapabilities\":{},\"suspensions\":[],\"timezone\":\"UTC\",\"version\":\"market-instrument-v1\"}",
+        "contentHash": "71177242f499d82c36d2408ee1548f2d1dc35095dd9a8b25c9e0e4680b743a46",
+        "scalars": {
+          "instrument_id": "crypto:binance:BTCUSDT",
+          "version": "market-instrument-v1",
+          "market": "crypto",
+          "venue": "binance",
+          "symbol": "BTCUSDT",
+          "base": "BTC",
+          "quote": "USDT",
+          "asset_type": "spot-crypto",
+          "session_calendar_id": "crypto-24x7-v1",
+          "timezone": "UTC",
+          "listed_from": null,
+          "delisted_at": null,
+          "suspensions_json": "[]",
+          "source_capabilities_json": "{}"
+        },
+        "realBits": {
+          "lotSize": null,
+          "priceStep": null,
+          "minNotional": null
+        }
+      }
+    },
+    {
+      "id": "instrument-1",
+      "inputJson": "{\"assetType\":\"spot-crypto\",\"base\":\"BTC\",\"delistedAt\":null,\"instrumentId\":\"crypto:binance:BTCUSDT\",\"listedFrom\":null,\"lotSize\":0.5,\"minNotional\":1.5,\"priceStep\":0.25,\"quote\":\"USDT\",\"sessionCalendarId\":\"crypto-24x7-v1\",\"sourceCapabilities\":{\"fixture\":{\"adjusted\":false,\"raw\":true}},\"suspensions\":[],\"timezone\":\"UTC\"}",
+      "expected": {
+        "contentJson": "{\"assetType\":\"spot-crypto\",\"base\":\"BTC\",\"delistedAt\":null,\"instrumentId\":\"crypto:binance:BTCUSDT\",\"listedFrom\":null,\"lotSize\":0.5,\"minNotional\":1.5,\"priceStep\":0.25,\"quote\":\"USDT\",\"sessionCalendarId\":\"crypto-24x7-v1\",\"sourceCapabilities\":{\"fixture\":{\"adjusted\":false,\"raw\":true}},\"suspensions\":[],\"timezone\":\"UTC\",\"version\":\"market-instrument-v1\"}",
+        "contentHash": "17d9d72d2bd217a790a1026e4cafadf6b955eb15229d364c9f81256b9679f160",
+        "scalars": {
+          "instrument_id": "crypto:binance:BTCUSDT",
+          "version": "market-instrument-v1",
+          "market": "crypto",
+          "venue": "binance",
+          "symbol": "BTCUSDT",
+          "base": "BTC",
+          "quote": "USDT",
+          "asset_type": "spot-crypto",
+          "session_calendar_id": "crypto-24x7-v1",
+          "timezone": "UTC",
+          "listed_from": null,
+          "delisted_at": null,
+          "suspensions_json": "[]",
+          "source_capabilities_json": "{\"fixture\":{\"adjusted\":false,\"raw\":true}}"
+        },
+        "realBits": {
+          "lotSize": "3fe0000000000000",
+          "priceStep": "3fd0000000000000",
+          "minNotional": "3ff8000000000000"
+        }
+      }
+    },
+    {
+      "id": "instrument-2",
+      "inputJson": "{\"assetType\":\"etf\",\"base\":\"SPY\",\"delistedAt\":1735689600000,\"instrumentId\":\"us-etf:nyse-arca:SPY\",\"listedFrom\":1704067200000,\"lotSize\":null,\"minNotional\":null,\"priceStep\":null,\"quote\":\"USD\",\"sessionCalendarId\":\"fixture-us-v1\",\"sourceCapabilities\":{},\"suspensions\":[{\"fromMs\":1704153600000,\"toMsExclusive\":1704240000000}],\"timezone\":\"America/New_York\"}",
+      "expected": {
+        "contentJson": "{\"assetType\":\"etf\",\"base\":\"SPY\",\"delistedAt\":1735689600000,\"instrumentId\":\"us-etf:nyse-arca:SPY\",\"listedFrom\":1704067200000,\"lotSize\":null,\"minNotional\":null,\"priceStep\":null,\"quote\":\"USD\",\"sessionCalendarId\":\"fixture-us-v1\",\"sourceCapabilities\":{},\"suspensions\":[{\"fromMs\":1704153600000,\"toMsExclusive\":1704240000000}],\"timezone\":\"America/New_York\",\"version\":\"market-instrument-v1\"}",
+        "contentHash": "4ad0b26479f701cba0f2dd30cfb8eaa878c11fe8759b3fd51de3273e106ba627",
+        "scalars": {
+          "instrument_id": "us-etf:nyse-arca:SPY",
+          "version": "market-instrument-v1",
+          "market": "us-etf",
+          "venue": "nyse-arca",
+          "symbol": "SPY",
+          "base": "SPY",
+          "quote": "USD",
+          "asset_type": "etf",
+          "session_calendar_id": "fixture-us-v1",
+          "timezone": "America/New_York",
+          "listed_from": 1704067200000,
+          "delisted_at": 1735689600000,
+          "suspensions_json": "[{\"fromMs\":1704153600000,\"toMsExclusive\":1704240000000}]",
+          "source_capabilities_json": "{}"
+        },
+        "realBits": {
+          "lotSize": null,
+          "priceStep": null,
+          "minNotional": null
+        }
+      }
+    },
+    {
+      "id": "instrument-3",
+      "inputJson": "{\"assetType\":\"etf\",\"base\":\"0050\",\"delistedAt\":null,\"instrumentId\":\"tw-etf:twse:0050\",\"listedFrom\":null,\"lotSize\":null,\"minNotional\":null,\"priceStep\":null,\"quote\":\"TWD\",\"sessionCalendarId\":\"fixture-tw-v1\",\"sourceCapabilities\":{\"fixture\":{\"notes\":\"synthetic only\",\"raw\":true}},\"suspensions\":[],\"timezone\":\"Asia/Taipei\"}",
+      "expected": {
+        "contentJson": "{\"assetType\":\"etf\",\"base\":\"0050\",\"delistedAt\":null,\"instrumentId\":\"tw-etf:twse:0050\",\"listedFrom\":null,\"lotSize\":null,\"minNotional\":null,\"priceStep\":null,\"quote\":\"TWD\",\"sessionCalendarId\":\"fixture-tw-v1\",\"sourceCapabilities\":{\"fixture\":{\"notes\":\"synthetic only\",\"raw\":true}},\"suspensions\":[],\"timezone\":\"Asia/Taipei\",\"version\":\"market-instrument-v1\"}",
+        "contentHash": "b32bbac6318243bb7d361db1bf41251e2dc73198f5b79a3084766259ade2cc5c",
+        "scalars": {
+          "instrument_id": "tw-etf:twse:0050",
+          "version": "market-instrument-v1",
+          "market": "tw-etf",
+          "venue": "twse",
+          "symbol": "0050",
+          "base": "0050",
+          "quote": "TWD",
+          "asset_type": "etf",
+          "session_calendar_id": "fixture-tw-v1",
+          "timezone": "Asia/Taipei",
+          "listed_from": null,
+          "delisted_at": null,
+          "suspensions_json": "[]",
+          "source_capabilities_json": "{\"fixture\":{\"notes\":\"synthetic only\",\"raw\":true}}"
+        },
+        "realBits": {
+          "lotSize": null,
+          "priceStep": null,
+          "minNotional": null
+        }
+      }
+    },
+    {
+      "id": "instrument-4",
+      "inputJson": "{\"assetType\":\"spot-crypto\",\"base\":\"不同\",\"delistedAt\":2,\"instrumentId\":\"crypto:fixture:a-b.X\",\"listedFrom\":-2,\"lotSize\":null,\"minNotional\":null,\"priceStep\":null,\"quote\":\"USDT\",\"sessionCalendarId\":\"fixture-continuous-v01\",\"sourceCapabilities\":{\"arbitrary\":{\"nested\":[1,null,false]}},\"suspensions\":[{\"fromMs\":-2,\"toMsExclusive\":-1},{\"fromMs\":-1,\"toMsExclusive\":0}],\"timezone\":\"Etc/UTC\"}",
+      "expected": {
+        "contentJson": "{\"assetType\":\"spot-crypto\",\"base\":\"不同\",\"delistedAt\":2,\"instrumentId\":\"crypto:fixture:a-b.X\",\"listedFrom\":-2,\"lotSize\":null,\"minNotional\":null,\"priceStep\":null,\"quote\":\"USDT\",\"sessionCalendarId\":\"fixture-continuous-v01\",\"sourceCapabilities\":{\"arbitrary\":{\"nested\":[1,null,false]}},\"suspensions\":[{\"fromMs\":-2,\"toMsExclusive\":-1},{\"fromMs\":-1,\"toMsExclusive\":0}],\"timezone\":\"Etc/UTC\",\"version\":\"market-instrument-v1\"}",
+        "contentHash": "0648c420d4fb5df569fd6d9167aca64c5d986dba2dfe54eaf3cdb38585330462",
+        "scalars": {
+          "instrument_id": "crypto:fixture:a-b.X",
+          "version": "market-instrument-v1",
+          "market": "crypto",
+          "venue": "fixture",
+          "symbol": "a-b.X",
+          "base": "不同",
+          "quote": "USDT",
+          "asset_type": "spot-crypto",
+          "session_calendar_id": "fixture-continuous-v01",
+          "timezone": "Etc/UTC",
+          "listed_from": -2,
+          "delisted_at": 2,
+          "suspensions_json": "[{\"fromMs\":-2,\"toMsExclusive\":-1},{\"fromMs\":-1,\"toMsExclusive\":0}]",
+          "source_capabilities_json": "{\"arbitrary\":{\"nested\":[1,null,false]}}"
+        },
+        "realBits": {
+          "lotSize": null,
+          "priceStep": null,
+          "minNotional": null
+        }
+      }
+    }
+  ],
+  "calendarRefusals": [
+    {
+      "id": "calendar-id",
+      "inputJson": "{\"calendarId\":\"Bad-v1\",\"earlyCloses\":[],\"holidays\":[],\"kind\":\"continuous\",\"timezone\":\"UTC\",\"tradingWeekdays\":[]}",
+      "phase": "validate",
+      "errorContains": "calendar_id_shape"
+    },
+    {
+      "id": "empty-timezone",
+      "inputJson": "{\"calendarId\":\"crypto-24x7-v1\",\"earlyCloses\":[],\"holidays\":[],\"kind\":\"continuous\",\"timezone\":\" \",\"tradingWeekdays\":[]}",
+      "phase": "validate",
+      "errorContains": "empty_timezone"
+    },
+    {
+      "id": "continuous-weekdays",
+      "inputJson": "{\"calendarId\":\"crypto-24x7-v1\",\"earlyCloses\":[],\"holidays\":[],\"kind\":\"continuous\",\"timezone\":\"UTC\",\"tradingWeekdays\":[1]}",
+      "phase": "validate",
+      "errorContains": "continuous_carries_trading_days"
+    },
+    {
+      "id": "continuous-holidays",
+      "inputJson": "{\"calendarId\":\"crypto-24x7-v1\",\"earlyCloses\":[],\"holidays\":[\"2024-01-01\"],\"kind\":\"continuous\",\"timezone\":\"UTC\",\"tradingWeekdays\":[]}",
+      "phase": "validate",
+      "errorContains": "continuous_carries_trading_days"
+    },
+    {
+      "id": "empty-weekdays",
+      "inputJson": "{\"calendarId\":\"fixture-us-v1\",\"earlyCloses\":[\"2024-07-03\"],\"holidays\":[\"2024-01-01\",\"2024-07-04\"],\"kind\":\"trading-days\",\"timezone\":\"America/New_York\",\"tradingWeekdays\":[]}",
+      "phase": "validate",
+      "errorContains": "trading_days_without_weekdays"
+    },
+    {
+      "id": "weekday-zero",
+      "inputJson": "{\"calendarId\":\"fixture-us-v1\",\"earlyCloses\":[\"2024-07-03\"],\"holidays\":[\"2024-01-01\",\"2024-07-04\"],\"kind\":\"trading-days\",\"timezone\":\"America/New_York\",\"tradingWeekdays\":[0]}",
+      "phase": "validate",
+      "errorContains": "weekday_out_of_range"
+    },
+    {
+      "id": "weekday-eight",
+      "inputJson": "{\"calendarId\":\"fixture-us-v1\",\"earlyCloses\":[\"2024-07-03\"],\"holidays\":[\"2024-01-01\",\"2024-07-04\"],\"kind\":\"trading-days\",\"timezone\":\"America/New_York\",\"tradingWeekdays\":[8]}",
+      "phase": "validate",
+      "errorContains": "weekday_out_of_range"
+    },
+    {
+      "id": "weekday-duplicate",
+      "inputJson": "{\"calendarId\":\"fixture-us-v1\",\"earlyCloses\":[\"2024-07-03\"],\"holidays\":[\"2024-01-01\",\"2024-07-04\"],\"kind\":\"trading-days\",\"timezone\":\"America/New_York\",\"tradingWeekdays\":[1,1]}",
+      "phase": "validate",
+      "errorContains": "weekdays_not_sorted"
+    },
+    {
+      "id": "weekday-decreasing",
+      "inputJson": "{\"calendarId\":\"fixture-us-v1\",\"earlyCloses\":[\"2024-07-03\"],\"holidays\":[\"2024-01-01\",\"2024-07-04\"],\"kind\":\"trading-days\",\"timezone\":\"America/New_York\",\"tradingWeekdays\":[2,1]}",
+      "phase": "validate",
+      "errorContains": "weekdays_not_sorted"
+    },
+    {
+      "id": "invalid-holiday",
+      "inputJson": "{\"calendarId\":\"fixture-us-v1\",\"earlyCloses\":[\"2024-07-03\"],\"holidays\":[\"2023-02-29\"],\"kind\":\"trading-days\",\"timezone\":\"America/New_York\",\"tradingWeekdays\":[1,2,3,4,5]}",
+      "phase": "validate",
+      "errorContains": "invalid_date"
+    },
+    {
+      "id": "invalid-early-close",
+      "inputJson": "{\"calendarId\":\"crypto-24x7-v1\",\"earlyCloses\":[\"2024-02-30\"],\"holidays\":[],\"kind\":\"continuous\",\"timezone\":\"UTC\",\"tradingWeekdays\":[]}",
+      "phase": "validate",
+      "errorContains": "invalid_date"
+    },
+    {
+      "id": "holiday-duplicate",
+      "inputJson": "{\"calendarId\":\"fixture-us-v1\",\"earlyCloses\":[\"2024-07-03\"],\"holidays\":[\"2024-01-01\",\"2024-01-01\"],\"kind\":\"trading-days\",\"timezone\":\"America/New_York\",\"tradingWeekdays\":[1,2,3,4,5]}",
+      "phase": "validate",
+      "errorContains": "dates_not_sorted"
+    },
+    {
+      "id": "early-close-decreasing",
+      "inputJson": "{\"calendarId\":\"fixture-us-v1\",\"earlyCloses\":[\"2024-07-03\",\"2024-01-01\"],\"holidays\":[\"2024-01-01\",\"2024-07-04\"],\"kind\":\"trading-days\",\"timezone\":\"America/New_York\",\"tradingWeekdays\":[1,2,3,4,5]}",
+      "phase": "validate",
+      "errorContains": "dates_not_sorted"
+    },
+    {
+      "id": "unknown-kind",
+      "inputJson": "{\"calendarId\":\"crypto-24x7-v1\",\"earlyCloses\":[],\"holidays\":[],\"kind\":\"weekends\",\"timezone\":\"UTC\",\"tradingWeekdays\":[]}",
+      "phase": "decode",
+      "errorContains": "unknown variant"
+    }
+  ],
+  "instrumentRefusals": [
+    {
+      "id": "instrument-id-shape",
+      "inputJson": "{\"assetType\":\"spot-crypto\",\"base\":\"BTC\",\"delistedAt\":null,\"instrumentId\":\"binance:BTCUSDT\",\"listedFrom\":null,\"lotSize\":null,\"minNotional\":null,\"priceStep\":null,\"quote\":\"USDT\",\"sessionCalendarId\":\"crypto-24x7-v1\",\"sourceCapabilities\":{},\"suspensions\":[],\"timezone\":\"UTC\"}",
+      "phase": "register",
+      "errorContains": "instrument_id_shape"
+    },
+    {
+      "id": "unknown-market",
+      "inputJson": "{\"assetType\":\"spot-crypto\",\"base\":\"BTC\",\"delistedAt\":null,\"instrumentId\":\"fx:binance:BTCUSDT\",\"listedFrom\":null,\"lotSize\":null,\"minNotional\":null,\"priceStep\":null,\"quote\":\"USDT\",\"sessionCalendarId\":\"crypto-24x7-v1\",\"sourceCapabilities\":{},\"suspensions\":[],\"timezone\":\"UTC\"}",
+      "phase": "register",
+      "errorContains": "unknown_market"
+    },
+    {
+      "id": "venue-uppercase",
+      "inputJson": "{\"assetType\":\"spot-crypto\",\"base\":\"BTC\",\"delistedAt\":null,\"instrumentId\":\"crypto:Binance:BTCUSDT\",\"listedFrom\":null,\"lotSize\":null,\"minNotional\":null,\"priceStep\":null,\"quote\":\"USDT\",\"sessionCalendarId\":\"crypto-24x7-v1\",\"sourceCapabilities\":{},\"suspensions\":[],\"timezone\":\"UTC\"}",
+      "phase": "register",
+      "errorContains": "venue_not_normalized"
+    },
+    {
+      "id": "symbol-space",
+      "inputJson": "{\"assetType\":\"spot-crypto\",\"base\":\"BTC\",\"delistedAt\":null,\"instrumentId\":\"crypto:binance:BTC USDT\",\"listedFrom\":null,\"lotSize\":null,\"minNotional\":null,\"priceStep\":null,\"quote\":\"USDT\",\"sessionCalendarId\":\"crypto-24x7-v1\",\"sourceCapabilities\":{},\"suspensions\":[],\"timezone\":\"UTC\"}",
+      "phase": "register",
+      "errorContains": "symbol_not_supported"
+    },
+    {
+      "id": "wrong-asset",
+      "inputJson": "{\"assetType\":\"etf\",\"base\":\"BTC\",\"delistedAt\":null,\"instrumentId\":\"crypto:binance:BTCUSDT\",\"listedFrom\":null,\"lotSize\":null,\"minNotional\":null,\"priceStep\":null,\"quote\":\"USDT\",\"sessionCalendarId\":\"crypto-24x7-v1\",\"sourceCapabilities\":{},\"suspensions\":[],\"timezone\":\"UTC\"}",
+      "phase": "register",
+      "errorContains": "holds spot-crypto instruments"
+    },
+    {
+      "id": "base-empty",
+      "inputJson": "{\"assetType\":\"spot-crypto\",\"base\":\"\",\"delistedAt\":null,\"instrumentId\":\"crypto:binance:BTCUSDT\",\"listedFrom\":null,\"lotSize\":null,\"minNotional\":null,\"priceStep\":null,\"quote\":\"USDT\",\"sessionCalendarId\":\"crypto-24x7-v1\",\"sourceCapabilities\":{},\"suspensions\":[],\"timezone\":\"UTC\"}",
+      "phase": "register",
+      "errorContains": "instrument base must be a non-empty"
+    },
+    {
+      "id": "quote-space",
+      "inputJson": "{\"assetType\":\"spot-crypto\",\"base\":\"BTC\",\"delistedAt\":null,\"instrumentId\":\"crypto:binance:BTCUSDT\",\"listedFrom\":null,\"lotSize\":null,\"minNotional\":null,\"priceStep\":null,\"quote\":\"USDT \",\"sessionCalendarId\":\"crypto-24x7-v1\",\"sourceCapabilities\":{},\"suspensions\":[],\"timezone\":\"UTC\"}",
+      "phase": "register",
+      "errorContains": "instrument quote must be a non-empty"
+    },
+    {
+      "id": "timezone-space",
+      "inputJson": "{\"assetType\":\"spot-crypto\",\"base\":\"BTC\",\"delistedAt\":null,\"instrumentId\":\"crypto:binance:BTCUSDT\",\"listedFrom\":null,\"lotSize\":null,\"minNotional\":null,\"priceStep\":null,\"quote\":\"USDT\",\"sessionCalendarId\":\"crypto-24x7-v1\",\"sourceCapabilities\":{},\"suspensions\":[],\"timezone\":\" UTC\"}",
+      "phase": "register",
+      "errorContains": "instrument timezone must be a non-empty"
+    },
+    {
+      "id": "lot-zero",
+      "inputJson": "{\"assetType\":\"spot-crypto\",\"base\":\"BTC\",\"delistedAt\":null,\"instrumentId\":\"crypto:binance:BTCUSDT\",\"listedFrom\":null,\"lotSize\":0.0,\"minNotional\":null,\"priceStep\":null,\"quote\":\"USDT\",\"sessionCalendarId\":\"crypto-24x7-v1\",\"sourceCapabilities\":{},\"suspensions\":[],\"timezone\":\"UTC\"}",
+      "phase": "register",
+      "errorContains": "instrument lotSize must be a finite positive"
+    },
+    {
+      "id": "step-negative",
+      "inputJson": "{\"assetType\":\"spot-crypto\",\"base\":\"BTC\",\"delistedAt\":null,\"instrumentId\":\"crypto:binance:BTCUSDT\",\"listedFrom\":null,\"lotSize\":null,\"minNotional\":null,\"priceStep\":-0.25,\"quote\":\"USDT\",\"sessionCalendarId\":\"crypto-24x7-v1\",\"sourceCapabilities\":{},\"suspensions\":[],\"timezone\":\"UTC\"}",
+      "phase": "register",
+      "errorContains": "instrument priceStep must be a finite positive"
+    },
+    {
+      "id": "notional-zero",
+      "inputJson": "{\"assetType\":\"spot-crypto\",\"base\":\"BTC\",\"delistedAt\":null,\"instrumentId\":\"crypto:binance:BTCUSDT\",\"listedFrom\":null,\"lotSize\":null,\"minNotional\":0.0,\"priceStep\":null,\"quote\":\"USDT\",\"sessionCalendarId\":\"crypto-24x7-v1\",\"sourceCapabilities\":{},\"suspensions\":[],\"timezone\":\"UTC\"}",
+      "phase": "register",
+      "errorContains": "instrument minNotional must be a finite positive"
+    },
+    {
+      "id": "delisting-equal",
+      "inputJson": "{\"assetType\":\"spot-crypto\",\"base\":\"BTC\",\"delistedAt\":2,\"instrumentId\":\"crypto:binance:BTCUSDT\",\"listedFrom\":2,\"lotSize\":null,\"minNotional\":null,\"priceStep\":null,\"quote\":\"USDT\",\"sessionCalendarId\":\"crypto-24x7-v1\",\"sourceCapabilities\":{},\"suspensions\":[],\"timezone\":\"UTC\"}",
+      "phase": "register",
+      "errorContains": "delisting must come after"
+    },
+    {
+      "id": "suspension-empty",
+      "inputJson": "{\"assetType\":\"spot-crypto\",\"base\":\"BTC\",\"delistedAt\":null,\"instrumentId\":\"crypto:binance:BTCUSDT\",\"listedFrom\":null,\"lotSize\":null,\"minNotional\":null,\"priceStep\":null,\"quote\":\"USDT\",\"sessionCalendarId\":\"crypto-24x7-v1\",\"sourceCapabilities\":{},\"suspensions\":[{\"fromMs\":1,\"toMsExclusive\":1}],\"timezone\":\"UTC\"}",
+      "phase": "register",
+      "errorContains": "a suspension ends after it starts"
+    },
+    {
+      "id": "suspension-overlap",
+      "inputJson": "{\"assetType\":\"spot-crypto\",\"base\":\"BTC\",\"delistedAt\":null,\"instrumentId\":\"crypto:binance:BTCUSDT\",\"listedFrom\":null,\"lotSize\":null,\"minNotional\":null,\"priceStep\":null,\"quote\":\"USDT\",\"sessionCalendarId\":\"crypto-24x7-v1\",\"sourceCapabilities\":{},\"suspensions\":[{\"fromMs\":1,\"toMsExclusive\":3},{\"fromMs\":2,\"toMsExclusive\":4}],\"timezone\":\"UTC\"}",
+      "phase": "register",
+      "errorContains": "must not overlap"
+    },
+    {
+      "id": "suspension-unsorted",
+      "inputJson": "{\"assetType\":\"spot-crypto\",\"base\":\"BTC\",\"delistedAt\":null,\"instrumentId\":\"crypto:binance:BTCUSDT\",\"listedFrom\":null,\"lotSize\":null,\"minNotional\":null,\"priceStep\":null,\"quote\":\"USDT\",\"sessionCalendarId\":\"crypto-24x7-v1\",\"sourceCapabilities\":{},\"suspensions\":[{\"fromMs\":3,\"toMsExclusive\":4},{\"fromMs\":1,\"toMsExclusive\":2}],\"timezone\":\"UTC\"}",
+      "phase": "register",
+      "errorContains": "must not overlap"
+    },
+    {
+      "id": "capabilities-array",
+      "inputJson": "{\"assetType\":\"spot-crypto\",\"base\":\"BTC\",\"delistedAt\":null,\"instrumentId\":\"crypto:binance:BTCUSDT\",\"listedFrom\":null,\"lotSize\":null,\"minNotional\":null,\"priceStep\":null,\"quote\":\"USDT\",\"sessionCalendarId\":\"crypto-24x7-v1\",\"sourceCapabilities\":[],\"suspensions\":[],\"timezone\":\"UTC\"}",
+      "phase": "register",
+      "errorContains": "sourceCapabilities is an object"
+    },
+    {
+      "id": "calendar-missing",
+      "inputJson": "{\"assetType\":\"spot-crypto\",\"base\":\"BTC\",\"delistedAt\":null,\"instrumentId\":\"crypto:binance:BTCUSDT\",\"listedFrom\":null,\"lotSize\":null,\"minNotional\":null,\"priceStep\":null,\"quote\":\"USDT\",\"sessionCalendarId\":\"absent-v1\",\"sourceCapabilities\":{},\"suspensions\":[],\"timezone\":\"UTC\"}",
+      "phase": "register",
+      "errorContains": "is not registered"
+    },
+    {
+      "id": "calendar-kind",
+      "inputJson": "{\"assetType\":\"spot-crypto\",\"base\":\"BTC\",\"delistedAt\":null,\"instrumentId\":\"crypto:binance:BTCUSDT\",\"listedFrom\":null,\"lotSize\":null,\"minNotional\":null,\"priceStep\":null,\"quote\":\"USDT\",\"sessionCalendarId\":\"fixture-us-v1\",\"sourceCapabilities\":{},\"suspensions\":[],\"timezone\":\"UTC\"}",
+      "phase": "register",
+      "errorContains": "need a continuous calendar"
+    },
+    {
+      "id": "unknown-asset",
+      "inputJson": "{\"assetType\":\"future\",\"base\":\"BTC\",\"delistedAt\":null,\"instrumentId\":\"crypto:binance:BTCUSDT\",\"listedFrom\":null,\"lotSize\":null,\"minNotional\":null,\"priceStep\":null,\"quote\":\"USDT\",\"sessionCalendarId\":\"crypto-24x7-v1\",\"sourceCapabilities\":{},\"suspensions\":[],\"timezone\":\"UTC\"}",
+      "phase": "decode",
+      "errorContains": "unknown variant"
+    }
+  ],
+  "originalSourcePins": {
+    "alpha-factor-forge/src-tauri/src/market/registry.rs": "407dc41449c2c29eb30fc33e170a6d7d0bc734075a7786fea4082adb37b8d22b",
+    "alpha-factor-forge/src-tauri/src/discovery_core/market_foundation.rs": "aa87ea942af8327915cc07a46a9cdbc50e988871d0205436922aa7aaa5fc8ab5",
+    "alpha-factor-forge/src-tauri/src/research/mod.rs": "95d82f98f7085c1fbdaafa699814a84e287627d803be197071b2cc71e0e63b11",
+    "alpha-factor-forge/src-tauri/migrations/0008_market_foundation.sql": "33667b21349a77863972fae53918b53bae16c82d45d768a509b0768fefb72c1a"
+  },
+  "calendarSequence": [
+    {
+      "input": "calendar-0",
+      "expectedRow": 1,
+      "created": true
+    },
+    {
+      "input": "calendar-0",
+      "expectedRow": 1,
+      "created": false
+    },
+    {
+      "input": "calendar-1",
+      "expectedRow": 2,
+      "created": true
+    },
+    {
+      "input": "calendar-2",
+      "expectedRow": 3,
+      "created": true
+    },
+    {
+      "input": "calendar-3",
+      "expectedRow": 4,
+      "created": true
+    },
+    {
+      "input": "calendar-1",
+      "expectedRow": 2,
+      "created": false
+    }
+  ],
+  "calendarConflict": {
+    "inputJson": "{\"calendarId\":\"crypto-24x7-v1\",\"earlyCloses\":[],\"holidays\":[],\"kind\":\"continuous\",\"timezone\":\"Etc/UTC\",\"tradingWeekdays\":[]}",
+    "errorContains": "already exists with different content",
+    "expectedRows": 4
+  },
+  "instrumentSequence": [
+    {
+      "input": "instrument-0",
+      "expectedRow": 1,
+      "created": true,
+      "revision": 1
+    },
+    {
+      "input": "instrument-0",
+      "expectedRow": 1,
+      "created": false,
+      "revision": 1
+    },
+    {
+      "input": "instrument-1",
+      "expectedRow": 2,
+      "created": true,
+      "revision": 2
+    },
+    {
+      "input": "instrument-0",
+      "expectedRow": 1,
+      "created": false,
+      "revision": 1
+    },
+    {
+      "input": "instrument-1",
+      "expectedRow": 2,
+      "created": false,
+      "revision": 2
+    },
+    {
+      "input": "instrument-2",
+      "expectedRow": 3,
+      "created": true,
+      "revision": 1
+    },
+    {
+      "input": "instrument-3",
+      "expectedRow": 4,
+      "created": true,
+      "revision": 1
+    },
+    {
+      "input": "instrument-4",
+      "expectedRow": 5,
+      "created": true,
+      "revision": 1
+    }
+  ],
+  "finalInstrumentRows": 5,
+  "numericBoundary": {
+    "originalToken": "0.0036944444444444438",
+    "correctlyRoundedBits": "3f6e43cfc21ad9fe",
+    "legacyParsedBits": "3f6e43cfc21ad9ff",
+    "policy": "retain audit; no producer refusal claimed; future original consumer refuses non-reconstructible claims without repair"
+  }
+}
