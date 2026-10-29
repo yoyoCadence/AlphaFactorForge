@@ -1,0 +1,1105 @@
+{
+  "version": "original-market-source-projections-v1",
+  "baseline": "fd1660fc49e00b6935bec9a9e5168df628980295",
+  "scope": "independent mechanical producer controls; synthetic bytes/calendars/specs, no authenticated source or numerical execution",
+  "registryFixture": {
+    "path": "alpha-factor-forge/fixtures/research/original-market-registry-projections-v1.json",
+    "lfSha256": "ea6ce3df35814450641d1e41e1997f039322a6c86464660a525fbd2532b90c92"
+  },
+  "provenance": [
+    {
+      "id": "root",
+      "expectedRow": 1,
+      "inputJson": "{\"accepted\":true,\"availableAt\":\"2024-07-15T04:00:00Z\",\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"mediaType\":\"application/json\",\"rejectionReason\":null,\"requestScope\":{\"fixture\":\"identity only\"},\"retrievedAt\":\"2024-07-15T04:00:00Z\",\"revisionOf\":null,\"role\":\"primary\",\"source\":\"binance-rest\"}",
+      "rawHex": "7b2266697874757265223a2261227d0a",
+      "expected": {
+        "identityJson": "{\"accepted\":true,\"availableAt\":\"2024-07-15T04:00:00Z\",\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"mediaType\":\"application/json\",\"rawByteLen\":16,\"rawSha256\":\"75f3216a3bb6f406d9b29a8e69c809635e69c9374f1d4cf4716dac8e4e6d1e0f\",\"rejectionReason\":null,\"requestScope\":{\"fixture\":\"identity only\"},\"retrievedAt\":\"2024-07-15T04:00:00Z\",\"revisionOf\":null,\"role\":\"primary\",\"source\":\"binance-rest\",\"version\":\"market-provenance-v1\"}",
+        "recordHash": "b3c92422e0bbe4a081c965aa315452f5284f04a8382c0aa2db7ae025f0b23c11",
+        "scalars": {
+          "instrument_id": "crypto:binance:BTCUSDT",
+          "interval": "1h",
+          "source": "binance-rest",
+          "role": "primary",
+          "raw_media_type": "application/json",
+          "retrieved_at": "2024-07-15T04:00:00Z",
+          "available_at": "2024-07-15T04:00:00Z",
+          "rejection_reason": null,
+          "revision_of": null,
+          "version": "market-provenance-v1",
+          "request_scope_json": "{\"fixture\":\"identity only\"}",
+          "raw_sha256": "75f3216a3bb6f406d9b29a8e69c809635e69c9374f1d4cf4716dac8e4e6d1e0f",
+          "raw_byte_len": 16,
+          "raw_artifact_path": "75/75f3216a3bb6f406d9b29a8e69c809635e69c9374f1d4cf4716dac8e4e6d1e0f.json",
+          "accepted": 1
+        },
+        "artifactKind": "market-raw-v1"
+      }
+    },
+    {
+      "id": "archive-observed",
+      "expectedRow": 2,
+      "inputJson": "{\"accepted\":true,\"availableAt\":\"2024-07-15T04:00:00Z\",\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"mediaType\":\"text/csv\",\"rejectionReason\":null,\"requestScope\":{\"availabilityBasis\":\"observed-at-retrieval\",\"fixture\":\"not exchange evidence\"},\"retrievedAt\":\"2024-07-15T12:00:00+08:00\",\"revisionOf\":null,\"role\":\"primary\",\"source\":\"binance-archive\"}",
+      "rawHex": "313732313030313630303030302c3130302c3130312c39392c3130302e352c31300d0a",
+      "expected": {
+        "identityJson": "{\"accepted\":true,\"availableAt\":\"2024-07-15T04:00:00Z\",\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"mediaType\":\"text/csv\",\"rawByteLen\":35,\"rawSha256\":\"87dd2efcdf964c70248aa03c62a723f582b7416b0fabfe918bd24d66770768a5\",\"rejectionReason\":null,\"requestScope\":{\"availabilityBasis\":\"observed-at-retrieval\",\"fixture\":\"not exchange evidence\"},\"retrievedAt\":\"2024-07-15T12:00:00+08:00\",\"revisionOf\":null,\"role\":\"primary\",\"source\":\"binance-archive\",\"version\":\"market-provenance-v1\"}",
+        "recordHash": "88a1183eba2ca83bea75c8db9fcd9c21162c20e1ca73d72c77736438eca0ddd3",
+        "scalars": {
+          "instrument_id": "crypto:binance:BTCUSDT",
+          "interval": "1h",
+          "source": "binance-archive",
+          "role": "primary",
+          "raw_media_type": "text/csv",
+          "retrieved_at": "2024-07-15T12:00:00+08:00",
+          "available_at": "2024-07-15T04:00:00Z",
+          "rejection_reason": null,
+          "revision_of": null,
+          "version": "market-provenance-v1",
+          "request_scope_json": "{\"availabilityBasis\":\"observed-at-retrieval\",\"fixture\":\"not exchange evidence\"}",
+          "raw_sha256": "87dd2efcdf964c70248aa03c62a723f582b7416b0fabfe918bd24d66770768a5",
+          "raw_byte_len": 35,
+          "raw_artifact_path": "87/87dd2efcdf964c70248aa03c62a723f582b7416b0fabfe918bd24d66770768a5.csv",
+          "accepted": 1
+        },
+        "artifactKind": "market-raw-v1"
+      }
+    },
+    {
+      "id": "comparison",
+      "expectedRow": 3,
+      "inputJson": "{\"accepted\":true,\"availableAt\":null,\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"mediaType\":\"text/plain\",\"rejectionReason\":null,\"requestScope\":{\"fixture\":\"identity only\"},\"retrievedAt\":\"2024-07-15T04:00:00Z\",\"revisionOf\":null,\"role\":\"comparison\",\"source\":\"coinbase-rest\"}",
+      "rawHex": "e6af94e8bc830a",
+      "expected": {
+        "identityJson": "{\"accepted\":true,\"availableAt\":null,\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"mediaType\":\"text/plain\",\"rawByteLen\":7,\"rawSha256\":\"985b6ef807dc8baef9dfb465d21792e312483253a95836d7a012d77e6efaacb9\",\"rejectionReason\":null,\"requestScope\":{\"fixture\":\"identity only\"},\"retrievedAt\":\"2024-07-15T04:00:00Z\",\"revisionOf\":null,\"role\":\"comparison\",\"source\":\"coinbase-rest\",\"version\":\"market-provenance-v1\"}",
+        "recordHash": "96cb8dac25bda710ba8d6e07c37c5d61986098d3965f02770db9511f84f40986",
+        "scalars": {
+          "instrument_id": "crypto:binance:BTCUSDT",
+          "interval": "1h",
+          "source": "coinbase-rest",
+          "role": "comparison",
+          "raw_media_type": "text/plain",
+          "retrieved_at": "2024-07-15T04:00:00Z",
+          "available_at": null,
+          "rejection_reason": null,
+          "revision_of": null,
+          "version": "market-provenance-v1",
+          "request_scope_json": "{\"fixture\":\"identity only\"}",
+          "raw_sha256": "985b6ef807dc8baef9dfb465d21792e312483253a95836d7a012d77e6efaacb9",
+          "raw_byte_len": 7,
+          "raw_artifact_path": "98/985b6ef807dc8baef9dfb465d21792e312483253a95836d7a012d77e6efaacb9.txt",
+          "accepted": 1
+        },
+        "artifactKind": "market-raw-v1"
+      }
+    },
+    {
+      "id": "rejected",
+      "expectedRow": 4,
+      "inputJson": "{\"accepted\":false,\"availableAt\":\"2024-07-15T04:00:00Z\",\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"mediaType\":\"application/zip\",\"rejectionReason\":\"fixture rejection\",\"requestScope\":{\"fixture\":\"identity only\"},\"retrievedAt\":\"2024-07-15T04:00:00Z\",\"revisionOf\":null,\"role\":\"primary\",\"source\":\"binance-rest\"}",
+      "rawHex": "504b000102",
+      "expected": {
+        "identityJson": "{\"accepted\":false,\"availableAt\":\"2024-07-15T04:00:00Z\",\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"mediaType\":\"application/zip\",\"rawByteLen\":5,\"rawSha256\":\"10804864bf4736cacd73b22c5af867b6a92ef26bed85374bdcaab7ea38a0c142\",\"rejectionReason\":\"fixture rejection\",\"requestScope\":{\"fixture\":\"identity only\"},\"retrievedAt\":\"2024-07-15T04:00:00Z\",\"revisionOf\":null,\"role\":\"primary\",\"source\":\"binance-rest\",\"version\":\"market-provenance-v1\"}",
+        "recordHash": "6100991a73ea25acfda49dfafc74bcd3e6bd05f4710efc8e7f4a694a82e918fe",
+        "scalars": {
+          "instrument_id": "crypto:binance:BTCUSDT",
+          "interval": "1h",
+          "source": "binance-rest",
+          "role": "primary",
+          "raw_media_type": "application/zip",
+          "retrieved_at": "2024-07-15T04:00:00Z",
+          "available_at": "2024-07-15T04:00:00Z",
+          "rejection_reason": "fixture rejection",
+          "revision_of": null,
+          "version": "market-provenance-v1",
+          "request_scope_json": "{\"fixture\":\"identity only\"}",
+          "raw_sha256": "10804864bf4736cacd73b22c5af867b6a92ef26bed85374bdcaab7ea38a0c142",
+          "raw_byte_len": 5,
+          "raw_artifact_path": "10/10804864bf4736cacd73b22c5af867b6a92ef26bed85374bdcaab7ea38a0c142.zip",
+          "accepted": 0
+        },
+        "artifactKind": "market-raw-v1"
+      }
+    },
+    {
+      "id": "revision",
+      "expectedRow": 5,
+      "inputJson": "{\"accepted\":true,\"availableAt\":\"2024-07-15T05:00:00Z\",\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"mediaType\":\"application/json\",\"rejectionReason\":null,\"requestScope\":{\"fixture\":\"identity only\"},\"retrievedAt\":\"2024-07-15T05:00:00Z\",\"revisionOf\":1,\"role\":\"primary\",\"source\":\"binance-rest\"}",
+      "rawHex": "7b2266697874757265223a227265766973696f6e227d0a",
+      "expected": {
+        "identityJson": "{\"accepted\":true,\"availableAt\":\"2024-07-15T05:00:00Z\",\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"mediaType\":\"application/json\",\"rawByteLen\":23,\"rawSha256\":\"0cb3f3e85d8d21dfb926f780cc3472a8fb63fed8ce5457a99aaf2053fbb4ec9f\",\"rejectionReason\":null,\"requestScope\":{\"fixture\":\"identity only\"},\"retrievedAt\":\"2024-07-15T05:00:00Z\",\"revisionOf\":1,\"role\":\"primary\",\"source\":\"binance-rest\",\"version\":\"market-provenance-v1\"}",
+        "recordHash": "4b967e56970eee9b099660fc27a7c031e5aa74205978cf0437dcaf6763d472da",
+        "scalars": {
+          "instrument_id": "crypto:binance:BTCUSDT",
+          "interval": "1h",
+          "source": "binance-rest",
+          "role": "primary",
+          "raw_media_type": "application/json",
+          "retrieved_at": "2024-07-15T05:00:00Z",
+          "available_at": "2024-07-15T05:00:00Z",
+          "rejection_reason": null,
+          "revision_of": 1,
+          "version": "market-provenance-v1",
+          "request_scope_json": "{\"fixture\":\"identity only\"}",
+          "raw_sha256": "0cb3f3e85d8d21dfb926f780cc3472a8fb63fed8ce5457a99aaf2053fbb4ec9f",
+          "raw_byte_len": 23,
+          "raw_artifact_path": "0c/0cb3f3e85d8d21dfb926f780cc3472a8fb63fed8ce5457a99aaf2053fbb4ec9f.json",
+          "accepted": 1
+        },
+        "artifactKind": "market-raw-v1"
+      }
+    },
+    {
+      "id": "archive-legacy",
+      "expectedRow": 6,
+      "inputJson": "{\"accepted\":true,\"availableAt\":\"2024-07-15T03:00:00Z\",\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"mediaType\":\"text/csv\",\"rejectionReason\":null,\"requestScope\":{\"month\":\"2024-07\"},\"retrievedAt\":\"2024-07-15T04:00:00Z\",\"revisionOf\":null,\"role\":\"primary\",\"source\":\"binance-archive\"}",
+      "rawHex": "6c65676163792067756573730a",
+      "expected": {
+        "identityJson": "{\"accepted\":true,\"availableAt\":\"2024-07-15T03:00:00Z\",\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"mediaType\":\"text/csv\",\"rawByteLen\":13,\"rawSha256\":\"544dddb77594f09cb2f84e63861e9c94d9bb0c1639db8fc2da3ee8c55e852cff\",\"rejectionReason\":null,\"requestScope\":{\"month\":\"2024-07\"},\"retrievedAt\":\"2024-07-15T04:00:00Z\",\"revisionOf\":null,\"role\":\"primary\",\"source\":\"binance-archive\",\"version\":\"market-provenance-v1\"}",
+        "recordHash": "13cf2865629eccfc5fe5d03b973605de56f69b86324e8fbbede96a04ac14b76a",
+        "scalars": {
+          "instrument_id": "crypto:binance:BTCUSDT",
+          "interval": "1h",
+          "source": "binance-archive",
+          "role": "primary",
+          "raw_media_type": "text/csv",
+          "retrieved_at": "2024-07-15T04:00:00Z",
+          "available_at": "2024-07-15T03:00:00Z",
+          "rejection_reason": null,
+          "revision_of": null,
+          "version": "market-provenance-v1",
+          "request_scope_json": "{\"month\":\"2024-07\"}",
+          "raw_sha256": "544dddb77594f09cb2f84e63861e9c94d9bb0c1639db8fc2da3ee8c55e852cff",
+          "raw_byte_len": 13,
+          "raw_artifact_path": "54/544dddb77594f09cb2f84e63861e9c94d9bb0c1639db8fc2da3ee8c55e852cff.csv",
+          "accepted": 1
+        },
+        "artifactKind": "market-raw-v1"
+      }
+    },
+    {
+      "id": "revision-head",
+      "expectedRow": 7,
+      "inputJson": "{\"accepted\":true,\"availableAt\":\"2024-07-15T06:00:00Z\",\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"mediaType\":\"text/plain\",\"rejectionReason\":null,\"requestScope\":[\"fixture\",0,null],\"retrievedAt\":\"2024-07-15T06:00:00Z\",\"revisionOf\":5,\"role\":\"primary\",\"source\":\"binance-rest\"}",
+      "rawHex": "686561640a",
+      "expected": {
+        "identityJson": "{\"accepted\":true,\"availableAt\":\"2024-07-15T06:00:00Z\",\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"mediaType\":\"text/plain\",\"rawByteLen\":5,\"rawSha256\":\"8944e854e3f4447241f05a4624cc41c6f9872232251870fc8183743f05d49a2e\",\"rejectionReason\":null,\"requestScope\":[\"fixture\",0,null],\"retrievedAt\":\"2024-07-15T06:00:00Z\",\"revisionOf\":5,\"role\":\"primary\",\"source\":\"binance-rest\",\"version\":\"market-provenance-v1\"}",
+        "recordHash": "72ec5994863fb2a289f5ccc766580e98e2bee6c94c6fbc2bbf0b040f9bc83c17",
+        "scalars": {
+          "instrument_id": "crypto:binance:BTCUSDT",
+          "interval": "1h",
+          "source": "binance-rest",
+          "role": "primary",
+          "raw_media_type": "text/plain",
+          "retrieved_at": "2024-07-15T06:00:00Z",
+          "available_at": "2024-07-15T06:00:00Z",
+          "rejection_reason": null,
+          "revision_of": 5,
+          "version": "market-provenance-v1",
+          "request_scope_json": "[\"fixture\",0,null]",
+          "raw_sha256": "8944e854e3f4447241f05a4624cc41c6f9872232251870fc8183743f05d49a2e",
+          "raw_byte_len": 5,
+          "raw_artifact_path": "89/8944e854e3f4447241f05a4624cc41c6f9872232251870fc8183743f05d49a2e.txt",
+          "accepted": 1
+        },
+        "artifactKind": "market-raw-v1"
+      }
+    },
+    {
+      "id": "etf-primary",
+      "expectedRow": 8,
+      "inputJson": "{\"accepted\":true,\"availableAt\":null,\"instrumentId\":\"us-etf:nyse-arca:SPY\",\"interval\":\"1d\",\"mediaType\":\"application/json\",\"rejectionReason\":null,\"requestScope\":{\"fixture\":\"identity only\"},\"retrievedAt\":\"2024-07-17T00:00:00Z\",\"revisionOf\":null,\"role\":\"primary\",\"source\":\"fixture-etf\"}",
+      "rawHex": "66697874757265206461696c790a",
+      "expected": {
+        "identityJson": "{\"accepted\":true,\"availableAt\":null,\"instrumentId\":\"us-etf:nyse-arca:SPY\",\"interval\":\"1d\",\"mediaType\":\"application/json\",\"rawByteLen\":14,\"rawSha256\":\"b4eca5043093d835a20ffd997afdd2234a9d97f6bde92ba9ad1e2ea3f00d32bf\",\"rejectionReason\":null,\"requestScope\":{\"fixture\":\"identity only\"},\"retrievedAt\":\"2024-07-17T00:00:00Z\",\"revisionOf\":null,\"role\":\"primary\",\"source\":\"fixture-etf\",\"version\":\"market-provenance-v1\"}",
+        "recordHash": "9928b764f76df1baf4cc5ceec2c1f33b7b940c81f8661f1f5d2ff8c9505a8e16",
+        "scalars": {
+          "instrument_id": "us-etf:nyse-arca:SPY",
+          "interval": "1d",
+          "source": "fixture-etf",
+          "role": "primary",
+          "raw_media_type": "application/json",
+          "retrieved_at": "2024-07-17T00:00:00Z",
+          "available_at": null,
+          "rejection_reason": null,
+          "revision_of": null,
+          "version": "market-provenance-v1",
+          "request_scope_json": "{\"fixture\":\"identity only\"}",
+          "raw_sha256": "b4eca5043093d835a20ffd997afdd2234a9d97f6bde92ba9ad1e2ea3f00d32bf",
+          "raw_byte_len": 14,
+          "raw_artifact_path": "b4/b4eca5043093d835a20ffd997afdd2234a9d97f6bde92ba9ad1e2ea3f00d32bf.json",
+          "accepted": 1
+        },
+        "artifactKind": "market-raw-v1"
+      }
+    },
+    {
+      "id": "other-primary",
+      "expectedRow": 9,
+      "inputJson": "{\"accepted\":true,\"availableAt\":\"2024-07-15T04:00:00Z\",\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"mediaType\":\"text/plain\",\"rejectionReason\":null,\"requestScope\":{\"fixture\":\"identity only\"},\"retrievedAt\":\"2024-07-15T04:00:00Z\",\"revisionOf\":null,\"role\":\"primary\",\"source\":\"coinbase-rest\"}",
+      "rawHex": "6f74686572207075626c69736865720a",
+      "expected": {
+        "identityJson": "{\"accepted\":true,\"availableAt\":\"2024-07-15T04:00:00Z\",\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"mediaType\":\"text/plain\",\"rawByteLen\":16,\"rawSha256\":\"529faf96d5bb7b478130f36d64f4e7a6c6e4b70d904f6dbbe0249f6b72c04130\",\"rejectionReason\":null,\"requestScope\":{\"fixture\":\"identity only\"},\"retrievedAt\":\"2024-07-15T04:00:00Z\",\"revisionOf\":null,\"role\":\"primary\",\"source\":\"coinbase-rest\",\"version\":\"market-provenance-v1\"}",
+        "recordHash": "12bb82b65de26bac58cc200ebca95784de0574498bb0d808f166b7d44cd2bdef",
+        "scalars": {
+          "instrument_id": "crypto:binance:BTCUSDT",
+          "interval": "1h",
+          "source": "coinbase-rest",
+          "role": "primary",
+          "raw_media_type": "text/plain",
+          "retrieved_at": "2024-07-15T04:00:00Z",
+          "available_at": "2024-07-15T04:00:00Z",
+          "rejection_reason": null,
+          "revision_of": null,
+          "version": "market-provenance-v1",
+          "request_scope_json": "{\"fixture\":\"identity only\"}",
+          "raw_sha256": "529faf96d5bb7b478130f36d64f4e7a6c6e4b70d904f6dbbe0249f6b72c04130",
+          "raw_byte_len": 16,
+          "raw_artifact_path": "52/529faf96d5bb7b478130f36d64f4e7a6c6e4b70d904f6dbbe0249f6b72c04130.txt",
+          "accepted": 1
+        },
+        "artifactKind": "market-raw-v1"
+      }
+    }
+  ],
+  "provenanceSequence": [
+    {
+      "input": "root",
+      "expectedRow": 1,
+      "created": true
+    },
+    {
+      "input": "archive-observed",
+      "expectedRow": 2,
+      "created": true
+    },
+    {
+      "input": "comparison",
+      "expectedRow": 3,
+      "created": true
+    },
+    {
+      "input": "rejected",
+      "expectedRow": 4,
+      "created": true
+    },
+    {
+      "input": "revision",
+      "expectedRow": 5,
+      "created": true
+    },
+    {
+      "input": "root",
+      "expectedRow": 1,
+      "created": false
+    },
+    {
+      "input": "revision",
+      "expectedRow": 5,
+      "created": false
+    },
+    {
+      "input": "archive-legacy",
+      "expectedRow": 6,
+      "created": true
+    },
+    {
+      "input": "revision-head",
+      "expectedRow": 7,
+      "created": true
+    },
+    {
+      "input": "revision",
+      "expectedRow": 5,
+      "created": false
+    },
+    {
+      "input": "etf-primary",
+      "expectedRow": 8,
+      "created": true
+    },
+    {
+      "input": "other-primary",
+      "expectedRow": 9,
+      "created": true
+    }
+  ],
+  "provenanceRefusals": [
+    {
+      "id": "bad-id",
+      "inputJson": "{\"accepted\":true,\"availableAt\":\"2024-07-15T04:00:00Z\",\"instrumentId\":\"binance:BTCUSDT\",\"interval\":\"1h\",\"mediaType\":\"application/json\",\"rejectionReason\":null,\"requestScope\":{\"fixture\":\"identity only\"},\"retrievedAt\":\"2024-07-15T04:00:00Z\",\"revisionOf\":null,\"role\":\"primary\",\"source\":\"binance-rest\"}",
+      "rawHex": "6e6577207265667573616c207061796c6f61640a",
+      "phase": "record",
+      "errorContains": "instrument_id_shape"
+    },
+    {
+      "id": "unknown-interval",
+      "inputJson": "{\"accepted\":true,\"availableAt\":\"2024-07-15T04:00:00Z\",\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"2h\",\"mediaType\":\"application/json\",\"rejectionReason\":null,\"requestScope\":{\"fixture\":\"identity only\"},\"retrievedAt\":\"2024-07-15T04:00:00Z\",\"revisionOf\":null,\"role\":\"primary\",\"source\":\"binance-rest\"}",
+      "rawHex": "6e6577207265667573616c207061796c6f61640a",
+      "phase": "record",
+      "errorContains": "not one this contract knows"
+    },
+    {
+      "id": "blank-source",
+      "inputJson": "{\"accepted\":true,\"availableAt\":\"2024-07-15T04:00:00Z\",\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"mediaType\":\"application/json\",\"rejectionReason\":null,\"requestScope\":{\"fixture\":\"identity only\"},\"retrievedAt\":\"2024-07-15T04:00:00Z\",\"revisionOf\":null,\"role\":\"primary\",\"source\":\" \"}",
+      "rawHex": "6e6577207265667573616c207061796c6f61640a",
+      "phase": "record",
+      "errorContains": "a retrieval names its source"
+    },
+    {
+      "id": "rejected-no-reason",
+      "inputJson": "{\"accepted\":false,\"availableAt\":\"2024-07-15T04:00:00Z\",\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"mediaType\":\"application/json\",\"rejectionReason\":null,\"requestScope\":{\"fixture\":\"identity only\"},\"retrievedAt\":\"2024-07-15T04:00:00Z\",\"revisionOf\":null,\"role\":\"primary\",\"source\":\"binance-rest\"}",
+      "rawHex": "6e6577207265667573616c207061796c6f61640a",
+      "phase": "record",
+      "errorContains": "a rejected retrieval states its reason"
+    },
+    {
+      "id": "accepted-with-reason",
+      "inputJson": "{\"accepted\":true,\"availableAt\":\"2024-07-15T04:00:00Z\",\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"mediaType\":\"application/json\",\"rejectionReason\":\"unexpected\",\"requestScope\":{\"fixture\":\"identity only\"},\"retrievedAt\":\"2024-07-15T04:00:00Z\",\"revisionOf\":null,\"role\":\"primary\",\"source\":\"binance-rest\"}",
+      "rawHex": "6e6577207265667573616c207061796c6f61640a",
+      "phase": "record",
+      "errorContains": "a rejected retrieval states its reason"
+    },
+    {
+      "id": "bad-retrieved",
+      "inputJson": "{\"accepted\":true,\"availableAt\":\"2024-07-15T04:00:00Z\",\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"mediaType\":\"application/json\",\"rejectionReason\":null,\"requestScope\":{\"fixture\":\"identity only\"},\"retrievedAt\":\"yesterday\",\"revisionOf\":null,\"role\":\"primary\",\"source\":\"binance-rest\"}",
+      "rawHex": "6e6577207265667573616c207061796c6f61640a",
+      "phase": "record",
+      "errorContains": "retrievedAt is not an RFC 3339 instant"
+    },
+    {
+      "id": "bad-available",
+      "inputJson": "{\"accepted\":true,\"availableAt\":\"yesterday\",\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"mediaType\":\"application/json\",\"rejectionReason\":null,\"requestScope\":{\"fixture\":\"identity only\"},\"retrievedAt\":\"2024-07-15T04:00:00Z\",\"revisionOf\":null,\"role\":\"primary\",\"source\":\"binance-rest\"}",
+      "rawHex": "6e6577207265667573616c207061796c6f61640a",
+      "phase": "record",
+      "errorContains": "availableAt is not an RFC 3339 instant"
+    },
+    {
+      "id": "available-after-retrieved",
+      "inputJson": "{\"accepted\":true,\"availableAt\":\"2024-07-15T05:00:00Z\",\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"mediaType\":\"application/json\",\"rejectionReason\":null,\"requestScope\":{\"fixture\":\"identity only\"},\"retrievedAt\":\"2024-07-15T04:00:00Z\",\"revisionOf\":null,\"role\":\"primary\",\"source\":\"binance-rest\"}",
+      "rawHex": "6e6577207265667573616c207061796c6f61640a",
+      "phase": "record",
+      "errorContains": "cannot be retrieved before it was available"
+    },
+    {
+      "id": "unknown-media",
+      "inputJson": "{\"accepted\":true,\"availableAt\":\"2024-07-15T04:00:00Z\",\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"mediaType\":\"application/x-parquet\",\"rejectionReason\":null,\"requestScope\":{\"fixture\":\"identity only\"},\"retrievedAt\":\"2024-07-15T04:00:00Z\",\"revisionOf\":null,\"role\":\"primary\",\"source\":\"binance-rest\"}",
+      "rawHex": "6e6577207265667573616c207061796c6f61640a",
+      "phase": "record",
+      "errorContains": "not one this contract stores raw responses as"
+    },
+    {
+      "id": "missing-revision",
+      "inputJson": "{\"accepted\":true,\"availableAt\":\"2024-07-15T04:00:00Z\",\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"mediaType\":\"application/json\",\"rejectionReason\":null,\"requestScope\":{\"fixture\":\"identity only\"},\"retrievedAt\":\"2024-07-15T04:00:00Z\",\"revisionOf\":999,\"role\":\"primary\",\"source\":\"binance-rest\"}",
+      "rawHex": "6e6577207265667573616c207061796c6f61640a",
+      "phase": "record",
+      "errorContains": "does not exist"
+    },
+    {
+      "id": "cross-series-revision",
+      "inputJson": "{\"accepted\":true,\"availableAt\":\"2024-07-15T04:00:00Z\",\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"mediaType\":\"application/json\",\"rejectionReason\":null,\"requestScope\":{\"fixture\":\"identity only\"},\"retrievedAt\":\"2024-07-15T04:00:00Z\",\"revisionOf\":7,\"role\":\"primary\",\"source\":\"coinbase-rest\"}",
+      "rawHex": "6e6577207265667573616c207061796c6f61640a",
+      "phase": "record",
+      "errorContains": "different series"
+    },
+    {
+      "id": "fork-revision",
+      "inputJson": "{\"accepted\":true,\"availableAt\":\"2024-07-15T04:00:00Z\",\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"mediaType\":\"application/json\",\"rejectionReason\":null,\"requestScope\":{\"fixture\":\"identity only\"},\"retrievedAt\":\"2024-07-15T04:00:00Z\",\"revisionOf\":1,\"role\":\"primary\",\"source\":\"binance-rest\"}",
+      "rawHex": "6e6577207265667573616c207061796c6f61640a",
+      "phase": "record",
+      "errorContains": "already revised"
+    },
+    {
+      "id": "unknown-role",
+      "inputJson": "{\"accepted\":true,\"availableAt\":\"2024-07-15T04:00:00Z\",\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"mediaType\":\"application/json\",\"rejectionReason\":null,\"requestScope\":{\"fixture\":\"identity only\"},\"retrievedAt\":\"2024-07-15T04:00:00Z\",\"revisionOf\":null,\"role\":\"derived\",\"source\":\"binance-rest\"}",
+      "rawHex": "6e6577207265667573616c207061796c6f61640a",
+      "phase": "decode",
+      "errorContains": "unknown variant"
+    }
+  ],
+  "datasets": [
+    {
+      "id": "crypto",
+      "rowId": 1,
+      "metadata": {
+        "exchange": "binance",
+        "symbol": "BTCUSDT",
+        "interval": "1h",
+        "startTime": 1721001600000,
+        "endTime": 1721012400000,
+        "candleCount": 4,
+        "source": "fixture",
+        "datasetHash": "dataset-content-v2:9e40fd70a8497470af783f2d4616fa498c43e80b6afd5ce02f5bf4f7842ae6dd"
+      },
+      "candles": [
+        {
+          "timestamp": 1721001600000,
+          "open": 100,
+          "high": 101,
+          "low": 99,
+          "close": 100.5,
+          "volume": 10
+        },
+        {
+          "timestamp": 1721005200000,
+          "open": 100,
+          "high": 101,
+          "low": 99,
+          "close": 100.5,
+          "volume": 10
+        },
+        {
+          "timestamp": 1721008800000,
+          "open": 100,
+          "high": 101,
+          "low": 99,
+          "close": 100.5,
+          "volume": 10
+        },
+        {
+          "timestamp": 1721012400000,
+          "open": 100,
+          "high": 101,
+          "low": 99,
+          "close": 100.5,
+          "volume": 10
+        }
+      ],
+      "identityPayloadHex": "000000496f686c63762874696d657374616d703a6936342d6d732c6f70656e3a6636342c686967683a6636342c6c6f773a6636342c636c6f73653a6636342c766f6c756d653a663634292d76310000000762696e616e6365000000074254435553445400000002316800000190b3b0640000000190b4552f800000000400000190b3b06400405900000000000040594000000000004058c000000000004059200000000000402400000000000000000190b3e75280405900000000000040594000000000004058c000000000004059200000000000402400000000000000000190b41e4100405900000000000040594000000000004058c000000000004059200000000000402400000000000000000190b4552f80405900000000000040594000000000004058c0000000000040592000000000004024000000000000"
+    },
+    {
+      "id": "etf",
+      "rowId": 2,
+      "metadata": {
+        "exchange": "nyse-arca",
+        "symbol": "SPY",
+        "interval": "1d",
+        "startTime": 1721001600000,
+        "endTime": 1721088000000,
+        "candleCount": 2,
+        "source": "fixture",
+        "datasetHash": "dataset-content-v2:699f75126da2cabe5f53a7db9dd662e6bdedf6ff91726261b356598520da56e3"
+      },
+      "candles": [
+        {
+          "timestamp": 1721001600000,
+          "open": 100,
+          "high": 101,
+          "low": 99,
+          "close": 100.5,
+          "volume": 10
+        },
+        {
+          "timestamp": 1721088000000,
+          "open": 100,
+          "high": 101,
+          "low": 99,
+          "close": 100.5,
+          "volume": 10
+        }
+      ],
+      "identityPayloadHex": "000000496f686c63762874696d657374616d703a6936342d6d732c6f70656e3a6636342c686967683a6636342c6c6f773a6636342c636c6f73653a6636342c766f6c756d653a663634292d7631000000096e7973652d617263610000000353505900000002316400000190b3b0640000000190b8d6c0000000000200000190b3b06400405900000000000040594000000000004058c000000000004059200000000000402400000000000000000190b8d6c000405900000000000040594000000000004058c0000000000040592000000000004024000000000000"
+    }
+  ],
+  "snapshots": [
+    {
+      "id": "historical-created",
+      "requestJson": "{\"asOfMs\":1721023200000,\"corporateActionVersion\":null,\"costProfileVersion\":\"fixture-cost-v1\",\"datasetId\":1,\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"kind\":\"historical\",\"priceBasis\":\"raw\",\"provenanceIds\":[7,2]}",
+      "registryInstrument": "instrument-0",
+      "expected": {
+        "rowId": 1,
+        "outcome": "created",
+        "contentJson": "{\"calendarId\":\"crypto-24x7-v1\",\"corporateActionVersion\":null,\"costProfileVersion\":\"fixture-cost-v1\",\"datasetHash\":\"dataset-content-v2:9e40fd70a8497470af783f2d4616fa498c43e80b6afd5ce02f5bf4f7842ae6dd\",\"instrumentContentHash\":\"71177242f499d82c36d2408ee1548f2d1dc35095dd9a8b25c9e0e4680b743a46\",\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"kind\":\"historical\",\"priceBasis\":\"raw\",\"sourceRecordHashes\":[\"72ec5994863fb2a289f5ccc766580e98e2bee6c94c6fbc2bbf0b040f9bc83c17\",\"88a1183eba2ca83bea75c8db9fcd9c21162c20e1ca73d72c77736438eca0ddd3\"],\"version\":\"market-snapshot-v1\"}",
+        "snapshotId": "dba0d7b03763f67bdfb17fd4625b5c444d1a15f7c9ee2a98c4eedfd3ec8508cd",
+        "scalars": {
+          "snapshot_id": "dba0d7b03763f67bdfb17fd4625b5c444d1a15f7c9ee2a98c4eedfd3ec8508cd",
+          "version": "market-snapshot-v1",
+          "instrument_row_id": 1,
+          "instrument_id": "crypto:binance:BTCUSDT",
+          "interval": "1h",
+          "dataset_id": 1,
+          "dataset_hash": "dataset-content-v2:9e40fd70a8497470af783f2d4616fa498c43e80b6afd5ce02f5bf4f7842ae6dd",
+          "price_basis": "raw",
+          "calendar_id": "crypto-24x7-v1",
+          "corporate_action_version": null,
+          "cost_profile_version": "fixture-cost-v1",
+          "kind": "historical",
+          "status": "ok",
+          "as_of": 1721023200000,
+          "coverage_json": "{\"blocking\":false,\"events\":[],\"expectedCount\":4,\"issue\":null,\"matchedCount\":4,\"notDueCount\":0,\"observedCount\":4,\"version\":\"market-foundation-v1\"}"
+        },
+        "coverage": {
+          "version": "market-foundation-v1",
+          "events": [],
+          "blocking": false,
+          "expectedCount": 4,
+          "notDueCount": 0,
+          "observedCount": 4,
+          "matchedCount": 4,
+          "issue": null
+        },
+        "sourceRows": [
+          2,
+          7
+        ],
+        "eventCodes": [],
+        "qualificationEligible": true
+      }
+    },
+    {
+      "id": "historical-reordered-later-cut",
+      "requestJson": "{\"asOfMs\":1721026800000,\"corporateActionVersion\":null,\"costProfileVersion\":\"fixture-cost-v1\",\"datasetId\":1,\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"kind\":\"historical\",\"priceBasis\":\"raw\",\"provenanceIds\":[2,7]}",
+      "registryInstrument": "instrument-0",
+      "expected": {
+        "rowId": 1,
+        "outcome": "existing",
+        "contentJson": "{\"calendarId\":\"crypto-24x7-v1\",\"corporateActionVersion\":null,\"costProfileVersion\":\"fixture-cost-v1\",\"datasetHash\":\"dataset-content-v2:9e40fd70a8497470af783f2d4616fa498c43e80b6afd5ce02f5bf4f7842ae6dd\",\"instrumentContentHash\":\"71177242f499d82c36d2408ee1548f2d1dc35095dd9a8b25c9e0e4680b743a46\",\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"kind\":\"historical\",\"priceBasis\":\"raw\",\"sourceRecordHashes\":[\"72ec5994863fb2a289f5ccc766580e98e2bee6c94c6fbc2bbf0b040f9bc83c17\",\"88a1183eba2ca83bea75c8db9fcd9c21162c20e1ca73d72c77736438eca0ddd3\"],\"version\":\"market-snapshot-v1\"}",
+        "snapshotId": "dba0d7b03763f67bdfb17fd4625b5c444d1a15f7c9ee2a98c4eedfd3ec8508cd",
+        "scalars": {
+          "snapshot_id": "dba0d7b03763f67bdfb17fd4625b5c444d1a15f7c9ee2a98c4eedfd3ec8508cd",
+          "version": "market-snapshot-v1",
+          "instrument_row_id": 1,
+          "instrument_id": "crypto:binance:BTCUSDT",
+          "interval": "1h",
+          "dataset_id": 1,
+          "dataset_hash": "dataset-content-v2:9e40fd70a8497470af783f2d4616fa498c43e80b6afd5ce02f5bf4f7842ae6dd",
+          "price_basis": "raw",
+          "calendar_id": "crypto-24x7-v1",
+          "corporate_action_version": null,
+          "cost_profile_version": "fixture-cost-v1",
+          "kind": "historical",
+          "status": "ok",
+          "as_of": 1721023200000,
+          "coverage_json": "{\"blocking\":false,\"events\":[],\"expectedCount\":4,\"issue\":null,\"matchedCount\":4,\"notDueCount\":0,\"observedCount\":4,\"version\":\"market-foundation-v1\"}"
+        },
+        "coverage": {
+          "version": "market-foundation-v1",
+          "events": [],
+          "blocking": false,
+          "expectedCount": 4,
+          "notDueCount": 0,
+          "observedCount": 4,
+          "matchedCount": 4,
+          "issue": null
+        },
+        "sourceRows": [
+          2,
+          7
+        ],
+        "eventCodes": [],
+        "qualificationEligible": true
+      }
+    },
+    {
+      "id": "historical-new-instrument-revision",
+      "requestJson": "{\"asOfMs\":1721023200000,\"corporateActionVersion\":null,\"costProfileVersion\":\"fixture-cost-v1\",\"datasetId\":1,\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"kind\":\"historical\",\"priceBasis\":\"raw\",\"provenanceIds\":[7,2]}",
+      "registryInstrument": "instrument-1",
+      "expected": {
+        "rowId": 2,
+        "outcome": "created",
+        "contentJson": "{\"calendarId\":\"crypto-24x7-v1\",\"corporateActionVersion\":null,\"costProfileVersion\":\"fixture-cost-v1\",\"datasetHash\":\"dataset-content-v2:9e40fd70a8497470af783f2d4616fa498c43e80b6afd5ce02f5bf4f7842ae6dd\",\"instrumentContentHash\":\"17d9d72d2bd217a790a1026e4cafadf6b955eb15229d364c9f81256b9679f160\",\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"kind\":\"historical\",\"priceBasis\":\"raw\",\"sourceRecordHashes\":[\"72ec5994863fb2a289f5ccc766580e98e2bee6c94c6fbc2bbf0b040f9bc83c17\",\"88a1183eba2ca83bea75c8db9fcd9c21162c20e1ca73d72c77736438eca0ddd3\"],\"version\":\"market-snapshot-v1\"}",
+        "snapshotId": "4f728dc603ab721f81080864a4ba0ffeffd92457ac9b7789ed453f69e58e9b8a",
+        "scalars": {
+          "snapshot_id": "4f728dc603ab721f81080864a4ba0ffeffd92457ac9b7789ed453f69e58e9b8a",
+          "version": "market-snapshot-v1",
+          "instrument_row_id": 2,
+          "instrument_id": "crypto:binance:BTCUSDT",
+          "interval": "1h",
+          "dataset_id": 1,
+          "dataset_hash": "dataset-content-v2:9e40fd70a8497470af783f2d4616fa498c43e80b6afd5ce02f5bf4f7842ae6dd",
+          "price_basis": "raw",
+          "calendar_id": "crypto-24x7-v1",
+          "corporate_action_version": null,
+          "cost_profile_version": "fixture-cost-v1",
+          "kind": "historical",
+          "status": "ok",
+          "as_of": 1721023200000,
+          "coverage_json": "{\"blocking\":false,\"events\":[],\"expectedCount\":4,\"issue\":null,\"matchedCount\":4,\"notDueCount\":0,\"observedCount\":4,\"version\":\"market-foundation-v1\"}"
+        },
+        "coverage": {
+          "version": "market-foundation-v1",
+          "events": [],
+          "blocking": false,
+          "expectedCount": 4,
+          "notDueCount": 0,
+          "observedCount": 4,
+          "matchedCount": 4,
+          "issue": null
+        },
+        "sourceRows": [
+          2,
+          7
+        ],
+        "eventCodes": [],
+        "qualificationEligible": true
+      }
+    },
+    {
+      "id": "forward-observed",
+      "requestJson": "{\"asOfMs\":1721023200000,\"corporateActionVersion\":null,\"costProfileVersion\":\"fixture-cost-v1\",\"datasetId\":1,\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"kind\":\"forward-observed\",\"priceBasis\":\"raw\",\"provenanceIds\":[7,2]}",
+      "registryInstrument": "instrument-1",
+      "expected": {
+        "rowId": 3,
+        "outcome": "created",
+        "contentJson": "{\"calendarId\":\"crypto-24x7-v1\",\"corporateActionVersion\":null,\"costProfileVersion\":\"fixture-cost-v1\",\"datasetHash\":\"dataset-content-v2:9e40fd70a8497470af783f2d4616fa498c43e80b6afd5ce02f5bf4f7842ae6dd\",\"instrumentContentHash\":\"17d9d72d2bd217a790a1026e4cafadf6b955eb15229d364c9f81256b9679f160\",\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"kind\":\"forward-observed\",\"priceBasis\":\"raw\",\"sourceRecordHashes\":[\"72ec5994863fb2a289f5ccc766580e98e2bee6c94c6fbc2bbf0b040f9bc83c17\",\"88a1183eba2ca83bea75c8db9fcd9c21162c20e1ca73d72c77736438eca0ddd3\"],\"version\":\"market-snapshot-v1\"}",
+        "snapshotId": "ab10f4fc11c3e89f1676bb38641a85d628cde29c4b49e04aebf0418128bb55e8",
+        "scalars": {
+          "snapshot_id": "ab10f4fc11c3e89f1676bb38641a85d628cde29c4b49e04aebf0418128bb55e8",
+          "version": "market-snapshot-v1",
+          "instrument_row_id": 2,
+          "instrument_id": "crypto:binance:BTCUSDT",
+          "interval": "1h",
+          "dataset_id": 1,
+          "dataset_hash": "dataset-content-v2:9e40fd70a8497470af783f2d4616fa498c43e80b6afd5ce02f5bf4f7842ae6dd",
+          "price_basis": "raw",
+          "calendar_id": "crypto-24x7-v1",
+          "corporate_action_version": null,
+          "cost_profile_version": "fixture-cost-v1",
+          "kind": "forward-observed",
+          "status": "ok",
+          "as_of": 1721023200000,
+          "coverage_json": "{\"blocking\":false,\"events\":[],\"expectedCount\":4,\"issue\":null,\"matchedCount\":4,\"notDueCount\":0,\"observedCount\":4,\"version\":\"market-foundation-v1\"}"
+        },
+        "coverage": {
+          "version": "market-foundation-v1",
+          "events": [],
+          "blocking": false,
+          "expectedCount": 4,
+          "notDueCount": 0,
+          "observedCount": 4,
+          "matchedCount": 4,
+          "issue": null
+        },
+        "sourceRows": [
+          2,
+          7
+        ],
+        "eventCodes": [],
+        "qualificationEligible": true
+      }
+    },
+    {
+      "id": "cost-unconfirmed",
+      "requestJson": "{\"asOfMs\":1721023200000,\"corporateActionVersion\":null,\"costProfileVersion\":null,\"datasetId\":1,\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"kind\":\"historical\",\"priceBasis\":\"raw\",\"provenanceIds\":[7,2]}",
+      "registryInstrument": "instrument-1",
+      "expected": {
+        "rowId": 4,
+        "outcome": "created",
+        "contentJson": "{\"calendarId\":\"crypto-24x7-v1\",\"corporateActionVersion\":null,\"costProfileVersion\":null,\"datasetHash\":\"dataset-content-v2:9e40fd70a8497470af783f2d4616fa498c43e80b6afd5ce02f5bf4f7842ae6dd\",\"instrumentContentHash\":\"17d9d72d2bd217a790a1026e4cafadf6b955eb15229d364c9f81256b9679f160\",\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"kind\":\"historical\",\"priceBasis\":\"raw\",\"sourceRecordHashes\":[\"72ec5994863fb2a289f5ccc766580e98e2bee6c94c6fbc2bbf0b040f9bc83c17\",\"88a1183eba2ca83bea75c8db9fcd9c21162c20e1ca73d72c77736438eca0ddd3\"],\"version\":\"market-snapshot-v1\"}",
+        "snapshotId": "9a2b54e3636b794bf4e900ac78368c509af8bcb9ff5e960e555c8a838e30d24d",
+        "scalars": {
+          "snapshot_id": "9a2b54e3636b794bf4e900ac78368c509af8bcb9ff5e960e555c8a838e30d24d",
+          "version": "market-snapshot-v1",
+          "instrument_row_id": 2,
+          "instrument_id": "crypto:binance:BTCUSDT",
+          "interval": "1h",
+          "dataset_id": 1,
+          "dataset_hash": "dataset-content-v2:9e40fd70a8497470af783f2d4616fa498c43e80b6afd5ce02f5bf4f7842ae6dd",
+          "price_basis": "raw",
+          "calendar_id": "crypto-24x7-v1",
+          "corporate_action_version": null,
+          "cost_profile_version": null,
+          "kind": "historical",
+          "status": "degraded",
+          "as_of": 1721023200000,
+          "coverage_json": "{\"blocking\":false,\"events\":[],\"expectedCount\":4,\"issue\":null,\"matchedCount\":4,\"notDueCount\":0,\"observedCount\":4,\"version\":\"market-foundation-v1\"}"
+        },
+        "coverage": {
+          "version": "market-foundation-v1",
+          "events": [],
+          "blocking": false,
+          "expectedCount": 4,
+          "notDueCount": 0,
+          "observedCount": 4,
+          "matchedCount": 4,
+          "issue": null
+        },
+        "sourceRows": [
+          2,
+          7
+        ],
+        "eventCodes": [
+          "cost_profile_unconfirmed"
+        ],
+        "qualificationEligible": false
+      }
+    },
+    {
+      "id": "demo",
+      "requestJson": "{\"asOfMs\":1721023200000,\"corporateActionVersion\":null,\"costProfileVersion\":\"fixture-cost-v1\",\"datasetId\":1,\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"kind\":\"demo\",\"priceBasis\":\"raw\",\"provenanceIds\":[7,2]}",
+      "registryInstrument": "instrument-1",
+      "expected": {
+        "rowId": 5,
+        "outcome": "created",
+        "contentJson": "{\"calendarId\":\"crypto-24x7-v1\",\"corporateActionVersion\":null,\"costProfileVersion\":\"fixture-cost-v1\",\"datasetHash\":\"dataset-content-v2:9e40fd70a8497470af783f2d4616fa498c43e80b6afd5ce02f5bf4f7842ae6dd\",\"instrumentContentHash\":\"17d9d72d2bd217a790a1026e4cafadf6b955eb15229d364c9f81256b9679f160\",\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"kind\":\"demo\",\"priceBasis\":\"raw\",\"sourceRecordHashes\":[\"72ec5994863fb2a289f5ccc766580e98e2bee6c94c6fbc2bbf0b040f9bc83c17\",\"88a1183eba2ca83bea75c8db9fcd9c21162c20e1ca73d72c77736438eca0ddd3\"],\"version\":\"market-snapshot-v1\"}",
+        "snapshotId": "29493c49498199a6f262988b40ae1c126a8cab1f67e1387791b0790c5a0abc14",
+        "scalars": {
+          "snapshot_id": "29493c49498199a6f262988b40ae1c126a8cab1f67e1387791b0790c5a0abc14",
+          "version": "market-snapshot-v1",
+          "instrument_row_id": 2,
+          "instrument_id": "crypto:binance:BTCUSDT",
+          "interval": "1h",
+          "dataset_id": 1,
+          "dataset_hash": "dataset-content-v2:9e40fd70a8497470af783f2d4616fa498c43e80b6afd5ce02f5bf4f7842ae6dd",
+          "price_basis": "raw",
+          "calendar_id": "crypto-24x7-v1",
+          "corporate_action_version": null,
+          "cost_profile_version": "fixture-cost-v1",
+          "kind": "demo",
+          "status": "ok",
+          "as_of": 1721023200000,
+          "coverage_json": "{\"blocking\":false,\"events\":[],\"expectedCount\":4,\"issue\":null,\"matchedCount\":4,\"notDueCount\":0,\"observedCount\":4,\"version\":\"market-foundation-v1\"}"
+        },
+        "coverage": {
+          "version": "market-foundation-v1",
+          "events": [],
+          "blocking": false,
+          "expectedCount": 4,
+          "notDueCount": 0,
+          "observedCount": 4,
+          "matchedCount": 4,
+          "issue": null
+        },
+        "sourceRows": [
+          2,
+          7
+        ],
+        "eventCodes": [],
+        "qualificationEligible": false
+      }
+    },
+    {
+      "id": "etf-actions-unverified",
+      "requestJson": "{\"asOfMs\":1721174400000,\"corporateActionVersion\":null,\"costProfileVersion\":\"fixture-cost-v1\",\"datasetId\":2,\"instrumentId\":\"us-etf:nyse-arca:SPY\",\"interval\":\"1d\",\"kind\":\"historical\",\"priceBasis\":\"raw\",\"provenanceIds\":[8]}",
+      "registryInstrument": "instrument-2",
+      "expected": {
+        "rowId": 6,
+        "outcome": "created",
+        "contentJson": "{\"calendarId\":\"fixture-us-v1\",\"corporateActionVersion\":null,\"costProfileVersion\":\"fixture-cost-v1\",\"datasetHash\":\"dataset-content-v2:699f75126da2cabe5f53a7db9dd662e6bdedf6ff91726261b356598520da56e3\",\"instrumentContentHash\":\"4ad0b26479f701cba0f2dd30cfb8eaa878c11fe8759b3fd51de3273e106ba627\",\"instrumentId\":\"us-etf:nyse-arca:SPY\",\"interval\":\"1d\",\"kind\":\"historical\",\"priceBasis\":\"raw\",\"sourceRecordHashes\":[\"9928b764f76df1baf4cc5ceec2c1f33b7b940c81f8661f1f5d2ff8c9505a8e16\"],\"version\":\"market-snapshot-v1\"}",
+        "snapshotId": "c710c8a88647041cfc6ab500fd37bb7dab4a812b11188a9811f35ab216f2e7a6",
+        "scalars": {
+          "snapshot_id": "c710c8a88647041cfc6ab500fd37bb7dab4a812b11188a9811f35ab216f2e7a6",
+          "version": "market-snapshot-v1",
+          "instrument_row_id": 3,
+          "instrument_id": "us-etf:nyse-arca:SPY",
+          "interval": "1d",
+          "dataset_id": 2,
+          "dataset_hash": "dataset-content-v2:699f75126da2cabe5f53a7db9dd662e6bdedf6ff91726261b356598520da56e3",
+          "price_basis": "raw",
+          "calendar_id": "fixture-us-v1",
+          "corporate_action_version": null,
+          "cost_profile_version": "fixture-cost-v1",
+          "kind": "historical",
+          "status": "degraded",
+          "as_of": 1721174400000,
+          "coverage_json": "{\"blocking\":false,\"events\":[],\"expectedCount\":2,\"issue\":null,\"matchedCount\":2,\"notDueCount\":0,\"observedCount\":2,\"version\":\"market-foundation-v1\"}"
+        },
+        "coverage": {
+          "version": "market-foundation-v1",
+          "events": [],
+          "blocking": false,
+          "expectedCount": 2,
+          "notDueCount": 0,
+          "observedCount": 2,
+          "matchedCount": 2,
+          "issue": null
+        },
+        "sourceRows": [
+          8
+        ],
+        "eventCodes": [
+          "corporate_actions_unverified"
+        ],
+        "qualificationEligible": false
+      }
+    },
+    {
+      "id": "etf-versions-declared",
+      "requestJson": "{\"asOfMs\":1721174400000,\"corporateActionVersion\":\"fixture-actions-v1\",\"costProfileVersion\":\"fixture-cost-v1\",\"datasetId\":2,\"instrumentId\":\"us-etf:nyse-arca:SPY\",\"interval\":\"1d\",\"kind\":\"historical\",\"priceBasis\":\"raw\",\"provenanceIds\":[8]}",
+      "registryInstrument": "instrument-2",
+      "expected": {
+        "rowId": 7,
+        "outcome": "created",
+        "contentJson": "{\"calendarId\":\"fixture-us-v1\",\"corporateActionVersion\":\"fixture-actions-v1\",\"costProfileVersion\":\"fixture-cost-v1\",\"datasetHash\":\"dataset-content-v2:699f75126da2cabe5f53a7db9dd662e6bdedf6ff91726261b356598520da56e3\",\"instrumentContentHash\":\"4ad0b26479f701cba0f2dd30cfb8eaa878c11fe8759b3fd51de3273e106ba627\",\"instrumentId\":\"us-etf:nyse-arca:SPY\",\"interval\":\"1d\",\"kind\":\"historical\",\"priceBasis\":\"raw\",\"sourceRecordHashes\":[\"9928b764f76df1baf4cc5ceec2c1f33b7b940c81f8661f1f5d2ff8c9505a8e16\"],\"version\":\"market-snapshot-v1\"}",
+        "snapshotId": "369d1eb021a64f68669c13bc5bb34abf495ef13adf4b362b98238ee8a2ef3654",
+        "scalars": {
+          "snapshot_id": "369d1eb021a64f68669c13bc5bb34abf495ef13adf4b362b98238ee8a2ef3654",
+          "version": "market-snapshot-v1",
+          "instrument_row_id": 3,
+          "instrument_id": "us-etf:nyse-arca:SPY",
+          "interval": "1d",
+          "dataset_id": 2,
+          "dataset_hash": "dataset-content-v2:699f75126da2cabe5f53a7db9dd662e6bdedf6ff91726261b356598520da56e3",
+          "price_basis": "raw",
+          "calendar_id": "fixture-us-v1",
+          "corporate_action_version": "fixture-actions-v1",
+          "cost_profile_version": "fixture-cost-v1",
+          "kind": "historical",
+          "status": "ok",
+          "as_of": 1721174400000,
+          "coverage_json": "{\"blocking\":false,\"events\":[],\"expectedCount\":2,\"issue\":null,\"matchedCount\":2,\"notDueCount\":0,\"observedCount\":2,\"version\":\"market-foundation-v1\"}"
+        },
+        "coverage": {
+          "version": "market-foundation-v1",
+          "events": [],
+          "blocking": false,
+          "expectedCount": 2,
+          "notDueCount": 0,
+          "observedCount": 2,
+          "matchedCount": 2,
+          "issue": null
+        },
+        "sourceRows": [
+          8
+        ],
+        "eventCodes": [],
+        "qualificationEligible": true
+      }
+    }
+  ],
+  "snapshotRefusals": [
+    {
+      "id": "no-components",
+      "requestJson": "{\"asOfMs\":1721023200000,\"corporateActionVersion\":null,\"costProfileVersion\":\"fixture-cost-v1\",\"datasetId\":1,\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"kind\":\"historical\",\"priceBasis\":\"raw\",\"provenanceIds\":[]}",
+      "phase": "blocked",
+      "eventCodes": [
+        "missing_source"
+      ],
+      "errorContains": null,
+      "beforeCounts": {
+        "snapshots": 7,
+        "sources": 12,
+        "qualityEvents": 2
+      },
+      "afterCounts": {
+        "snapshots": 7,
+        "sources": 12,
+        "qualityEvents": 3
+      }
+    },
+    {
+      "id": "comparison-component",
+      "requestJson": "{\"asOfMs\":1721023200000,\"corporateActionVersion\":null,\"costProfileVersion\":\"fixture-cost-v1\",\"datasetId\":1,\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"kind\":\"historical\",\"priceBasis\":\"raw\",\"provenanceIds\":[3]}",
+      "phase": "blocked",
+      "eventCodes": [
+        "source_conflict"
+      ],
+      "errorContains": null,
+      "beforeCounts": {
+        "snapshots": 7,
+        "sources": 12,
+        "qualityEvents": 3
+      },
+      "afterCounts": {
+        "snapshots": 7,
+        "sources": 12,
+        "qualityEvents": 4
+      }
+    },
+    {
+      "id": "rejected-component",
+      "requestJson": "{\"asOfMs\":1721023200000,\"corporateActionVersion\":null,\"costProfileVersion\":\"fixture-cost-v1\",\"datasetId\":1,\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"kind\":\"historical\",\"priceBasis\":\"raw\",\"provenanceIds\":[4]}",
+      "phase": "blocked",
+      "eventCodes": [
+        "source_conflict"
+      ],
+      "errorContains": null,
+      "beforeCounts": {
+        "snapshots": 7,
+        "sources": 12,
+        "qualityEvents": 4
+      },
+      "afterCounts": {
+        "snapshots": 7,
+        "sources": 12,
+        "qualityEvents": 5
+      }
+    },
+    {
+      "id": "late-rejected-component",
+      "requestJson": "{\"asOfMs\":1721023200000,\"corporateActionVersion\":null,\"costProfileVersion\":\"fixture-cost-v1\",\"datasetId\":1,\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"kind\":\"historical\",\"priceBasis\":\"raw\",\"provenanceIds\":[7,4]}",
+      "phase": "blocked",
+      "eventCodes": [
+        "source_conflict"
+      ],
+      "errorContains": null,
+      "beforeCounts": {
+        "snapshots": 7,
+        "sources": 12,
+        "qualityEvents": 5
+      },
+      "afterCounts": {
+        "snapshots": 7,
+        "sources": 12,
+        "qualityEvents": 6
+      }
+    },
+    {
+      "id": "superseded-component",
+      "requestJson": "{\"asOfMs\":1721023200000,\"corporateActionVersion\":null,\"costProfileVersion\":\"fixture-cost-v1\",\"datasetId\":1,\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"kind\":\"historical\",\"priceBasis\":\"raw\",\"provenanceIds\":[1]}",
+      "phase": "blocked",
+      "eventCodes": [
+        "superseded_source"
+      ],
+      "errorContains": null,
+      "beforeCounts": {
+        "snapshots": 7,
+        "sources": 12,
+        "qualityEvents": 6
+      },
+      "afterCounts": {
+        "snapshots": 7,
+        "sources": 12,
+        "qualityEvents": 7
+      }
+    },
+    {
+      "id": "other-publisher",
+      "requestJson": "{\"asOfMs\":1721023200000,\"corporateActionVersion\":null,\"costProfileVersion\":\"fixture-cost-v1\",\"datasetId\":1,\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"kind\":\"historical\",\"priceBasis\":\"raw\",\"provenanceIds\":[7,9]}",
+      "phase": "blocked",
+      "eventCodes": [
+        "source_conflict"
+      ],
+      "errorContains": null,
+      "beforeCounts": {
+        "snapshots": 7,
+        "sources": 12,
+        "qualityEvents": 7
+      },
+      "afterCounts": {
+        "snapshots": 7,
+        "sources": 12,
+        "qualityEvents": 8
+      }
+    },
+    {
+      "id": "unknown-forward-availability",
+      "requestJson": "{\"asOfMs\":1721023200000,\"corporateActionVersion\":null,\"costProfileVersion\":\"fixture-cost-v1\",\"datasetId\":1,\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"kind\":\"forward-observed\",\"priceBasis\":\"raw\",\"provenanceIds\":[6]}",
+      "phase": "blocked",
+      "eventCodes": [
+        "availability_unknown"
+      ],
+      "errorContains": null,
+      "beforeCounts": {
+        "snapshots": 7,
+        "sources": 12,
+        "qualityEvents": 8
+      },
+      "afterCounts": {
+        "snapshots": 7,
+        "sources": 12,
+        "qualityEvents": 9
+      }
+    },
+    {
+      "id": "late-forward-availability",
+      "requestJson": "{\"asOfMs\":1721019600000,\"corporateActionVersion\":null,\"costProfileVersion\":\"fixture-cost-v1\",\"datasetId\":1,\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"kind\":\"forward-observed\",\"priceBasis\":\"raw\",\"provenanceIds\":[7]}",
+      "phase": "blocked",
+      "eventCodes": [
+        "availability_after_cut"
+      ],
+      "errorContains": null,
+      "beforeCounts": {
+        "snapshots": 7,
+        "sources": 12,
+        "qualityEvents": 9
+      },
+      "afterCounts": {
+        "snapshots": 7,
+        "sources": 12,
+        "qualityEvents": 10
+      }
+    },
+    {
+      "id": "unclosed-candle",
+      "requestJson": "{\"asOfMs\":1721012400000,\"corporateActionVersion\":null,\"costProfileVersion\":\"fixture-cost-v1\",\"datasetId\":1,\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"kind\":\"historical\",\"priceBasis\":\"raw\",\"provenanceIds\":[7,2]}",
+      "phase": "blocked",
+      "eventCodes": [
+        "unclosed_bar"
+      ],
+      "errorContains": null,
+      "beforeCounts": {
+        "snapshots": 7,
+        "sources": 12,
+        "qualityEvents": 10
+      },
+      "afterCounts": {
+        "snapshots": 7,
+        "sources": 12,
+        "qualityEvents": 11
+      }
+    },
+    {
+      "id": "missing-component-row",
+      "requestJson": "{\"asOfMs\":1721023200000,\"corporateActionVersion\":null,\"costProfileVersion\":\"fixture-cost-v1\",\"datasetId\":1,\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"kind\":\"historical\",\"priceBasis\":\"raw\",\"provenanceIds\":[999]}",
+      "phase": "error",
+      "eventCodes": null,
+      "errorContains": "does not exist",
+      "beforeCounts": {
+        "snapshots": 7,
+        "sources": 12,
+        "qualityEvents": 11
+      },
+      "afterCounts": {
+        "snapshots": 7,
+        "sources": 12,
+        "qualityEvents": 11
+      }
+    },
+    {
+      "id": "duplicate-component-row",
+      "requestJson": "{\"asOfMs\":1721023200000,\"corporateActionVersion\":null,\"costProfileVersion\":\"fixture-cost-v1\",\"datasetId\":1,\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"kind\":\"historical\",\"priceBasis\":\"raw\",\"provenanceIds\":[7,7]}",
+      "phase": "error",
+      "eventCodes": null,
+      "errorContains": "UNIQUE constraint failed",
+      "beforeCounts": {
+        "snapshots": 7,
+        "sources": 12,
+        "qualityEvents": 11
+      },
+      "afterCounts": {
+        "snapshots": 7,
+        "sources": 12,
+        "qualityEvents": 11
+      }
+    }
+  ],
+  "revisionChain": [
+    1,
+    5,
+    7
+  ],
+  "setup": {
+    "calendarInputs": [
+      "calendar-0",
+      "calendar-1"
+    ],
+    "instrumentOrder": [
+      "instrument-0",
+      "instrument-1",
+      "instrument-2"
+    ],
+    "instrumentRows": [
+      1,
+      2,
+      3
+    ],
+    "beforeSnapshot3": "register instrument-1 only after first two snapshot calls; old row1 remains bound to instrument row1",
+    "beforeSnapshot7": "register instrument-2 after demo and before the two ETF snapshot calls; its row is3",
+    "datasetImports": [
+      "crypto",
+      "etf"
+    ],
+    "provenanceBeforeSnapshots": "complete provenanceSequence, then build snapshot calls in listed order",
+    "snapshotRefusals": "after all positive calls; crypto latest instrument row2; isolated unchanged input originals",
+    "meaning": "synthetic raw bodies are identity controls, not parsed candle lineage or exchange facts"
+  },
+  "originalSourcePins": {
+    "alpha-factor-forge/src-tauri/src/market/provenance.rs": "86577b84eb752396e48b61c69a7745e612e657dd2d88e945ca59b062f6d6049b",
+    "alpha-factor-forge/src-tauri/src/market/snapshot.rs": "9d6b49e7b4dfd62e6651b156ea54616ec80f5dfa778395ad994f0c2a373694f9",
+    "alpha-factor-forge/src-tauri/src/research/artifacts.rs": "720294cc2e29e0508bbbea3750d2e905e158771297ae1165d2e33d9dc445fdbb",
+    "alpha-factor-forge/src-tauri/src/identity.rs": "06a91eb2f046216932373c96757eb977ccc9503f047a359a9ae7fd6b1f8787a8",
+    "alpha-factor-forge/src-tauri/src/discovery_core/market_foundation.rs": "aa87ea942af8327915cc07a46a9cdbc50e988871d0205436922aa7aaa5fc8ab5",
+    "alpha-factor-forge/src-tauri/src/research/mod.rs": "95d82f98f7085c1fbdaafa699814a84e287627d803be197071b2cc71e0e63b11",
+    "alpha-factor-forge/src-tauri/src/market/registry.rs": "bf8cbf035e7b9a763b9bf4f80d3fcc9e60f60533fa5a21cdb5e0aa963fc437e4",
+    "alpha-factor-forge/src-tauri/src/market/sources/binance.rs": "ef87959ff54d5b8e6ad0a0e1ba059a88b99c31b19013682eabfcf541b3ad6a42"
+  }
+}
