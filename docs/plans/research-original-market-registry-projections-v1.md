@@ -152,6 +152,12 @@ graph cannot establish compatibility. Freeze their bounded consumer composition
 and real complete-operation resource boundaries before implementation. This
 document specifies no unchecked public constructor or per-row budget reset.
 
+After verified actual registry controls (#235), the separate [provenance/snapshot
+producer refinement](research-original-market-source-projections-v1.md) freezes
+their independent originals and separate actual producer code slices before
+bounded whole-market consumer refinement. This does not change the earlier
+contract's historical verification claims or grant source authority.
+
 This PR changes only design/data and lifecycle receipts. Locally verify strict
 outer/nested JSON, all independent projections/rules/sequences, source catalogs,
 links, append-only receipts, unchanged runtime/older fixtures and git diff --check.

@@ -3,7 +3,7 @@
 Date: 2026-10-28 (UTC+8)
 Repo: yoyoCadence/AlphaFactorForge
 Branch: test/original-market-registry-producers
-Status: Local implementation/verification complete; exact-head CI/merge delivery pending.
+Status: Resolved — #235 verified delivery; actual registry producer4a complete.
 
 ## Summary
 
@@ -32,3 +32,9 @@ The owned full-suite root above was removed only after exit0 and exact resolved 
 All six completed exact-head/base CI jobs, fresh reviews/main, expected-head normal merge, GitHub merged readback, clean-main/full-tree equality and final PR receipt complete this slice. Stop after that verified merge. No manual user test is needed. The previous design handoff receives append-only #234 Resolution; its original notes remain historical.
 
 This proves only original registry writer conformance, with synthetic calendar/spec controls. Provenance/snapshot independent producer evidence is next for a later explicit resume; bounded whole-market consumer design/code and trial follow. Missing files/candles/availability/action/cost originals, numeric compatibility and final current actual-owner/registry admission retain their gates. Market4 and source/live parents remain incomplete; RegisteredSource/numericCostsHash remain unavailable.
+
+## Resolution — #235 verified delivery
+
+Recorded2026-10-29 (UTC+8) on the next explicit resume; original notes above preserve commit-time status. [PR #235](https://github.com/yoyoCadence/AlphaFactorForge/pull/235) delivered head `afb5e123c488ada7672bac31ecfb62af3f20fa09` against base `29952a80a8fca5c34c81a6fcf327681c298cecdb`; workflow40691644137 completed all six jobs successfully, every completed log pinning that exact merge. Rust1121/one existing ignored (297/822/2;16.45/428.24/5.69s) includes all7 new registry controls; Vitest1242/80 files, E2E98/no retries, production audit0 and native rendered/SQLite/metrics/event-plugin roundtrip plus exact policy/process/temp restoration pass. All6 local behavioral mutants were caught without source-pin substitution and restored exactly.
+
+Fresh reviews/threads were empty, tested main unchanged and PR mergeable. Expected-head normal merge without bypass produced `fd1660fc49e00b6935bec9a9e5168df628980295`. GitHub closed/merged readback, fast-forwarded clean main and complete tested tree `aeab9e81c761cccff8477780f4fe3ceac912740f` equality passed. Final PR receipt readback was verified; this new resume re-read it and clean main before branching. Actual registry4a is delivered; no next task started before the requested stop. This resume activates [provenance/snapshot design4b](../docs/plans/research-original-market-source-projections-v1.md) via Next → In Progress. Market4 and other source/live parents remain incomplete.
