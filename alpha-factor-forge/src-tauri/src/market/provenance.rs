@@ -449,6 +449,10 @@ pub fn dataset_quality_events(conn: &Connection, dataset_id: i64) -> AppResult<V
 }
 
 #[cfg(test)]
+#[path = "provenance_projection_controls.rs"]
+mod projection_controls;
+
+#[cfg(test)]
 mod tests {
     use std::path::PathBuf;
     use std::sync::atomic::{AtomicU64, Ordering};

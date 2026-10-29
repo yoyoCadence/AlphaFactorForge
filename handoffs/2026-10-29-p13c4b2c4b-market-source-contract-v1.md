@@ -3,7 +3,7 @@
 Date: 2026-10-29 (UTC+8)
 Repo: yoyoCadence/AlphaFactorForge
 Branch: docs/original-market-source-projections
-Status: Design/data locally verified; exact-head CI/merge delivery pending.
+Status: Resolved — #236 verified design delivery; actual provenance4b starts on explicit resume.
 
 ## Summary
 
@@ -26,3 +26,9 @@ Local artifact checks pass: independent Node projections/frames/sequences, stric
 ## Remaining work
 
 On the next explicit resume after verified delivery, implement actual provenance4b controls only, including controlled owned-file recovery/corruption and exact DB/artifact/input preservation. Snapshot producer controls are a separate later PR using the real repository import and actual build_snapshot. Each requires restored behavioral mutants and full isolated locked Rust before Node-heavy checks, all-target check/Clippy/scoped format/frontend and six-job verified delivery. Bounded whole-market consumer resource/API refinement remains mandatory afterward. Missing file/candle/availability/action/cost originals, numerical compatibility and final actual-owner/registry admission retain their own gates. Market4/trial/source/live parents remain incomplete; RegisteredSource/numericCostsHash remain unavailable.
+
+## Resolution — #236 verified delivery
+
+Recorded2026-10-29 (UTC+8) on the next explicit resume; original notes above preserve commit-time status. [PR #236](https://github.com/yoyoCadence/AlphaFactorForge/pull/236) delivered head `388c7da627aeb206d61e1e6f91ef7eeb8ffe16d6` against base `fd1660fc49e00b6935bec9a9e5168df628980295`; workflow40794998190 completed all six jobs successfully, each completed log pinning that exact merge. Rust1121/one existing ignored (297/822/2;49.48/406.92/5.75s), Vitest1242/80 files, E2E98/no retries, production audit0 and native rendered/SQLite/metrics/event-plugin roundtrip plus exact policy/process/temp restoration pass. This remains unchanged runtime regression, not future provenance/snapshot producer controls or mutants.
+
+Fresh reviews/threads were empty, tested main unchanged and PR mergeable. Expected-head normal merge without bypass produced `78c8ae332111c6fd7c4cf3bd2c079fe3361441ab`. GitHub closed/merged readback, fast-forwarded clean main and complete tested tree `69e77a78f66a507d74dfbffccf693acdd5d76f6a` equality passed. Final PR receipt readback was verified; this resume re-read it and clean main before branching. Design4b is delivered; no next task started before the requested stop. This new resume activates actual provenance4b via Next → In Progress. Snapshot controls remain a separate later PR; market4/source/live parents remain incomplete.
