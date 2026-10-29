@@ -3,7 +3,7 @@
 Date: 2026-10-29 (UTC+8)
 Repo: yoyoCadence/AlphaFactorForge
 Branch: test/original-provenance-producers
-Status: Local implementation/verification complete; exact-head CI/merge delivery pending.
+Status: Resolved; #237 verified delivery.
 
 ## Summary
 
@@ -34,3 +34,9 @@ After exact mutant restoration, fresh isolated `cargo test --locked` passes1127 
 Full-suite root above was removed only after exit0 and exact resolved TEMP parent/GUID verification plus breadth-first per-entry containment/no-reparse checks:42 files/63 directories including the root. New test-owned artifact roots clean themselves only after complete safety checks and SQLite handle drop, including mutant panic paths. No stale root was reused/deleted; normal TEMP retains driver/backup/logs/results outside the removed root. No manual server started; existing service tests own/stop helpers. Local implementation is complete; six exact-head/base CI and verified merge/readback/clean-main delivery remain gates. Only actual provenance4b may close after delivery; snapshot and other market/source/live parents stay incomplete.
 
 This is original writer conformance with synthetic bytes, not raw-to-candle/market fact authentication. Snapshot producer controls are next after verified4b delivery on a later explicit resume; bounded whole-market consumer and trial follow. File/candle/availability/action/cost originals, numeric compatibility and final actual-owner/registry admission retain their own gates. Market4/source/live parents remain incomplete; RegisteredSource/numericCostsHash remain unavailable.
+
+## Resolution — PR #237 delivery
+
+Verified [#237](https://github.com/yoyoCadence/AlphaFactorForge/pull/237): head `6463a218327f7d821bcfc761c6a9bf7f5f63af28`, base `78c8ae332111c6fd7c4cf3bd2c079fe3361441ab`, merge `426611cd061349cbfb3ad2624a3858c05a544506`, full tree `ee9e4ba123ef96ca6fe7c5f832b4578474966df5`. Workflow40859838951 completed all six jobs; all completed logs match exact head/base. Rust1127/one existing ignored includes all6 new controls; Vitest1242/80 files,E2E98/no retries,production audit0,native rendered/SQLite/metrics/Rust event-plugin with exact policy restoration and owned cleanup pass. Fresh reviews/threads empty, unchanged main, normal expected-head merge without bypass, GitHub merged/body readback and clean local main/full-tree equality were verified.
+
+User resumed2026-10-29 for separate snapshot controls, then supplemented authorization to continue development/PR/merge cycles without stopping after each merge. This supersedes historical stop-after-merge instructions; scope/order and all six CI/readback gates remain. Snapshot/whole-market consumer/trial/source/live parents are not closed by provenance delivery.

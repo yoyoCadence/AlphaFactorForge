@@ -768,6 +768,10 @@ pub fn dataset_market_status(conn: &Connection, dataset_id: i64) -> AppResult<Da
 }
 
 #[cfg(test)]
+#[path = "snapshot_projection_controls.rs"]
+mod projection_controls;
+
+#[cfg(test)]
 mod tests {
     use std::path::PathBuf;
     use std::sync::atomic::{AtomicU64, Ordering};
