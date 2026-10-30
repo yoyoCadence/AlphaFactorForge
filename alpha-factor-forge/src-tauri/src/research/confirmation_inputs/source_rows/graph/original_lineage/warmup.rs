@@ -138,6 +138,21 @@ fn observe_inner(rows: &SourceRowsObservation) -> AppResult<OriginalWarmupObserv
     let lineage = semantics::reserve(&p)?;
     reserve(&p, &lineage)?;
     let verified = lineage.verify()?;
+    finish(&p, verified)
+}
+
+pub(super) fn reserved_work(
+    p: &PreparedOriginalLineage<'_>,
+    lineage: &semantics::ReservedLineage<'_, '_>,
+) -> AppResult<(usize, usize, usize, usize, usize)> {
+    let w = reserve(p, lineage)?;
+    Ok((w.hash, w.copy, w.analysis, w.clones, w.output))
+}
+
+pub(super) fn finish(
+    p: &PreparedOriginalLineage<'_>,
+    verified: semantics::VerifiedLineage<'_, '_>,
+) -> AppResult<OriginalWarmupObservation> {
     let mut derivations = Vec::with_capacity(verified.definitions().len());
     for definition in verified.definitions() {
         derivations.push(

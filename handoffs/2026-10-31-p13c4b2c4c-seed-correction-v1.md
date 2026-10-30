@@ -3,7 +3,7 @@
 Date: 2026-10-31 (UTC+8)
 Repo: yoyoCadence/AlphaFactorForge
 Branch: docs/original-market-consumer-seed-correction
-Status: Independent review approves; exact-head CI/normal merge pending.
+Status: Resolved; #241 verified delivery.
 
 ## Scope and original contradiction
 
@@ -64,3 +64,9 @@ normalizing the complete v2 back to v1 and checking all14/1112 original identiti
 seed vectors and byte deltas. It reproduced exact tracked Node validation and
 confirmed all3 current and6 historical source pins. A nonblocking literal-question-
 mark separator issue in new task/receipt headings was corrected before commit.
+
+## Resolution - PR #241 delivery
+
+Verified [#241](https://github.com/yoyoCadence/AlphaFactorForge/pull/241): head `89d178318a9e7ccc0bfd03c900ef4ac41c5c05aa`, base `8d12f6ac7274328f45468b6a7ed2b75807f25426`, merge `052f8bf880f1a5f20929f28668f618de15cb8a49`, tree `43cfa20357b7f794c4903e1f11b35be896ae4578`. Workflow41138948087 passes all six exact-head/base jobs once:1135 Rust/one existing ignored (297/836/2),1242 Vitest/80files,98 E2E/no retries,audit0,native smoke with exact policy restoration/owned cleanup. Automatic code review reports no findings; inline comments/reviews empty. Normal expected-head merge, GitHub merged/final-body readback and clean-main/full-tree equality verified.
+
+Consumer checkpoint d682a8d rebased onto verified main as6a6631e. Expected conflicts in tasks/#240 receipt resolved by preserving the already-merged upstream files; no historical body discarded. Actual4c-2 resumes separately with v2 and remaining code/test gates; source/live parents remain incomplete.

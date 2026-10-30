@@ -10,6 +10,7 @@ use super::super::selection::{materialize, prepare_run_plan, PreparedRunPlan};
 use super::{OriginalJson, SourceRowsObservation, MAX_TOTAL_JSON_NODES, MAX_TOTAL_TEXT_BYTES};
 use crate::error::{AppError, AppResult};
 
+mod market;
 mod semantics;
 mod warmup;
 
@@ -165,11 +166,21 @@ pub(in crate::research::confirmation_inputs) fn prepare_original_lineage(
     rows: &SourceRowsObservation,
 ) -> AppResult<PreparedOriginalLineage<'_>> {
     let parse = parse_work(rows)?;
+    prepare_with_joint_parse(rows, parse, parse)
+}
+
+// Fixed internal composition only: market adds its original documents to the
+// preparation gate, while the old P/P+E components remain the old Q ceiling.
+fn prepare_with_joint_parse(
+    rows: &SourceRowsObservation,
+    parse: Work,
+    joint: Work,
+) -> AppResult<PreparedOriginalLineage<'_>> {
     let run = prepare_run_plan(
         &rows.roots.run.config_json,
         &rows.dataset.dataset_hash,
-        parse.bytes,
-        parse.nodes,
+        joint.bytes,
+        joint.nodes,
     )
     .map_err(|_| invalid())?;
     let (bytes, nodes) = run.expansion();
@@ -286,6 +297,55 @@ pub(in crate::research::confirmation_inputs) fn observe_original_warmup(
     rows: &SourceRowsObservation,
 ) -> AppResult<OriginalWarmupObservation> {
     warmup::observe(rows)
+}
+
+/// Complete historical market consistency, without source/admission authority.
+#[derive(Clone, Eq, PartialEq)]
+pub(in crate::research::confirmation_inputs) struct OriginalMarketProjectionObservation {
+    warmup: OriginalWarmupObservation,
+    snapshot_id: String,
+    instrument_revision_hash: String,
+    calendar_hash: String,
+    sources: Vec<OriginalMarketSourceBinding>,
+}
+
+#[derive(Clone, Eq, PartialEq)]
+pub(in crate::research::confirmation_inputs) struct OriginalMarketSourceBinding {
+    provenance_id: i64,
+    record_hash: String,
+}
+
+impl OriginalMarketProjectionObservation {
+    pub(in crate::research::confirmation_inputs) fn warmup(&self) -> &OriginalWarmupObservation {
+        &self.warmup
+    }
+    pub(in crate::research::confirmation_inputs) fn snapshot_id(&self) -> &str {
+        &self.snapshot_id
+    }
+    pub(in crate::research::confirmation_inputs) fn instrument_revision_hash(&self) -> &str {
+        &self.instrument_revision_hash
+    }
+    pub(in crate::research::confirmation_inputs) fn calendar_hash(&self) -> &str {
+        &self.calendar_hash
+    }
+    pub(in crate::research::confirmation_inputs) fn sources(
+        &self,
+    ) -> &[OriginalMarketSourceBinding] {
+        &self.sources
+    }
+}
+impl OriginalMarketSourceBinding {
+    pub(in crate::research::confirmation_inputs) fn provenance_id(&self) -> i64 {
+        self.provenance_id
+    }
+    pub(in crate::research::confirmation_inputs) fn record_hash(&self) -> &str {
+        &self.record_hash
+    }
+}
+pub(in crate::research::confirmation_inputs) fn observe_original_market(
+    rows: &SourceRowsObservation,
+) -> AppResult<OriginalMarketProjectionObservation> {
+    market::observe(rows)
 }
 
 #[cfg(test)]

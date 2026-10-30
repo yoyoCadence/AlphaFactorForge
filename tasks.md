@@ -6,7 +6,9 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Current Snapshot
 
-- **P13c-4b-2c-4c-seed additive correction locally verified** (2026-10-31; #240 `8d12f6a`): unchanged original-writer setup exposed stale v1 seeds before reader invocation. V1 preserved; additive v2 fixes14 family inputs and pins1112 original pre-poison resource candidates/195-byte frames/digests. Python/Node independently agree; exact reproducibility and six assertion-caught invalid artifact controls pass. Mixed family P/scratch each+1, hash+1/output+13; nodes/E/W/C/A/Q/O and all other identities unchanged. Scripts/erratum tracked; runtime/producers/older fixtures unchanged. Independent review approves; six exact-head CI/normal merge/readback precede resumed unpublished consumer checkpoint `d682a8d`; actual4c/source/live remain open. [Handoff](handoffs/2026-10-31-p13c4b2c4c-seed-correction-v1.md).
+- **P13c-4b-2c-4c-2 whole market consumer locally verified** (2026-10-31; #241 `052f8bf`): one private sealed-graph observer composes original P/P+E and whole W/C/A/Q/O before payload/hash/typed/date/sort/output, retains every original warmup/failed member and exact captured range. Four actual families/five coherent refusals/coherent typed controls, SQL-recaptured P/P+E/W/C/A/Q/O boundaries and nine assertion-caught exact-restored mutants pass. Final fresh **1158 Rust/one ignored**,all-target check/Clippy (only five old warnings),**1242 Vitest/80 files**,typecheck/build and **98 E2E/no retries** pass. All32 owned roots safely removed, logs retained; test servers released. Independent final review approves; six exact-head CI/normal merge/readback remain pending; actual4c/source/live parents stay open. [Handoff](handoffs/2026-10-30-p13c4b2c4c2-market-consumer-v1.md).
+
+- **P13c-4b-2c-4c-seed additive correction locally verified** (2026-10-31; #240 `8d12f6a`): unchanged original-writer setup exposed stale v1 seeds before reader invocation. V1 preserved; additive v2 fixes14 family inputs and pins1112 original pre-poison resource candidates/195-byte frames/digests. Python/Node independently agree; exact reproducibility and six assertion-caught invalid artifact controls pass. Mixed family P/scratch each+1, hash+1/output+13; nodes/E/W/C/A/Q/O and all other identities unchanged. Scripts/erratum tracked; runtime/producers/older fixtures unchanged. Delivered #241 (`052f8bf`): workflow41138948087 six exact-head/base jobs pass once; normal merge/GitHub receipt/clean-main/full-tree equality verified. Consumer4c-2 resumes from corrected v2; actual4c/source/live remain open. [Handoff](handoffs/2026-10-31-p13c4b2c4c-seed-correction-v1.md).
 
 - **P13c-4b-2c-4c-1 captured campaign range locally verified** (2026-10-30; baseline #239 `affce56`): exact selected original fromMs/toMs retained as two private i64s; existing capture/work/lineage/warmup acceptance preserved. 135-field equality, safe-integer/non-first binding, coherent range/raw bytes and caller state controls pass. **118 focused/1135 Rust/one existing ignored**, locked all-target check/Clippy/scoped checks, **1242 Vitest/80 files**,typecheck/build and final **98 local E2E/no retries** pass; only five old warnings. First local E2E navigation timeout and unchanged passing trace/full rerun retained. Owned full roots safely cleaned42files/63directories, test servers released. Independent review approves. Delivered by #240 (`8d12f6a`), workflow41068450301 six exact-head/base jobs; normal expected-head merge/readback and clean-main/full-tree equality pass. Whole consumer4c-2 remains open; additive seed correction precedes its continuation. [Handoff](handoffs/2026-10-30-p13c4b2c4c1-captured-range-v1.md).
 
@@ -312,8 +314,9 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## Next
 
+- [ ] **P13c-4b-2c-5-design - Original trial/split producer evidence contract**: after verified whole-market4c-2 delivery, freeze original trial_split_identity/candidate_split_hashes, embargo/walk-forward and complete original event membership formats with independently derived producer vectors and explicit missing authenticated-count/current-registry boundaries. Documentation/data only, before consumer code; no protected execution, source constructor or registry/candle/runtime writes. Preserve the original formats and locked numeric policy. [Ordered semantic plan](docs/plans/research-original-semantic-adapters-v1.md#1-actual-original-formats-and-semantic-obligations).
 
-- [ ] **P13c-4b-2c-4c-2 — Bounded original market projection consumer**: after captured-range4c-1 (#240) and additive seed-correction delivery, implement the single sealed-graph observer, joint preparation/reservation, complete original market consistency and actual-producer controls defined by [the frozen contract](docs/plans/research-original-market-consumer-v1.md). Preserve original lineage/warmup behavior and all later file/candle/availability/action/cost/current-owner gates; trial follows actual4c.
+
 
 
 
@@ -382,7 +385,8 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 
 ## In Progress
 
-- [ ] **P13c-4b-2c-4c-seed — Original market fixture seed-v1 correction** (2026-10-31): original-writer setup found stale dataset-dependent seeds in frozen v1 before observer invocation. Preserve v1/producers/runtime and unpublished4c-2 checkpoint `d682a8d`; add v2 original seed frames/digests/resource manifests, independently author/verify all14 family inputs and1112 resource candidates plus exact byte deltas. Separate review/CI/PR/merge precedes resumed consumer. [Handoff](handoffs/2026-10-31-p13c4b2c4c-seed-correction-v1.md).
+- [ ] **P13c-4b-2c-4c-2 — Bounded original market projection consumer**: after verified #240 and #241, implement the single sealed-graph observer, joint preparation/reservation, complete original market consistency and actual-producer controls defined by [the frozen contract](docs/plans/research-original-market-consumer-v1.md). Preserve original lineage/warmup behavior and all later file/candle/availability/action/cost/current-owner gates; trial follows actual4c. Resumed2026-10-31 on corrected v2; unpublished original checkpoint d682a8d rebased as6a6631e. [Handoff](handoffs/2026-10-30-p13c4b2c4c2-market-consumer-v1.md).
+
 
 - [ ] **P13c-4b-2c-4c — Bounded original market consumer**: design delivered by #239; actual implementation remains incomplete until captured-range4c-1 and whole-consumer4c-2 pass their own delivery gates. [Contract](docs/plans/research-original-market-consumer-v1.md).
 
@@ -444,6 +448,7 @@ Task lifecycle: **Backlog -> Next -> In Progress -> Done**.
 - **P09 authenticated external acceptance** (2026-09-21): implementation/local verification Done (below), but live Tiingo download, free entitlement and payment coverage still require the operator's token in Windows Credential Manager. User intends to register; native status currently `credential_missing`. Re-run the documented bounded range after setup and append evidence to the P09 handoff.
 
 ## Backlog
+
 
 
 - [ ] **E2E-COLD-NAVIGATION-001 — Diagnose first mock-page navigation near the test deadline (P3)** (2026-10-30): local captured-range verification first annualization case times out at30s, other97 pass; unchanged exact-case trace passes with22.99s navigation/61.97ms fill/no page errors, then unchanged full98 passes/no retries. Frontend/E2E/config blobs are unchanged. Collect Vite readiness/navigation timing evidence in a separate bounded task before choosing a test-harness fix; preserve original deadline/assertions and do not reorder current product work. [Evidence](handoffs/2026-10-30-p13c4b2c4c1-captured-range-v1.md#local-verification).
@@ -736,6 +741,8 @@ These were named inside the UI port entry and must not be buried by closing it. 
 - [ ] Full closed-loop AI automation. (Specification: ABC-14.)
 
 ## Done
+
+- [x] **P13c-4b-2c-4c-seed - Original market seed-v1 correction** (2026-10-31): delivered [#241](https://github.com/yoyoCadence/AlphaFactorForge/pull/241), head89d1783/base8d12f6a/merge052f8bf/tree43cfa20. V2 LF SHA a12f373f2a13580263ccb752bf6be773b812e457baa259b2646810a501aabf01; independently derived14/1112 seeds, exact repeatability/six assertion controls and separate reviewer pass. Workflow41138948087 six exact-head/base jobs pass once;1135 Rust/one ignored,1242 Vitest/80files,98 E2E/no retries,audit0/native smoke/policy restoration/owned cleanup. Auto code review no findings; normal expected-head merge, GitHub final receipt and clean-main/full-tree equality verified. [Handoff](handoffs/2026-10-31-p13c4b2c4c-seed-correction-v1.md).
 
 - [x] **P13c-4b-2c-4c-1 — Capture selected campaign range** (2026-10-31): delivered [#240](https://github.com/yoyoCadence/AlphaFactorForge/pull/240), head `914a227`, merge `8d12f6a`, tree `98340cf`. Workflow41068450301 passes six exact-head/base jobs;1135 Rust/one ignored,1242 Vitest/80 files,98 E2E/no retries,audit0/native smoke. Independent review, normal expected-head merge/readback and clean-main/full-tree equality pass. [Handoff](handoffs/2026-10-30-p13c4b2c4c1-captured-range-v1.md).
 
