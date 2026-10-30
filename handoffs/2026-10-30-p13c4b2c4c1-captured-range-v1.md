@@ -3,7 +3,7 @@
 Date: 2026-10-30 (UTC+8)
 Repo: yoyoCadence/AlphaFactorForge
 Branch: feat/captured-campaign-range
-Status: Local implementation/verification complete; delivery CI pending.
+Status: Resolved; #240 verified delivery.
 
 ## Scope and order
 
@@ -84,3 +84,9 @@ and checks were repeated after this naming refinement.
 
 All local gates pass. Six exact-head/base jobs and normal merge/readback remain
 delivery gates; metadata preparation alone does not complete actual4c.
+
+## Resolution — PR #240 delivery (2026-10-31)
+
+Verified [#240](https://github.com/yoyoCadence/AlphaFactorForge/pull/240): head `914a22725253de04a236255f329dff1402da3d92`, base `affce56aba95c41f0990b291705bf8f383fd7d3a`, merge `8d12f6ac7274328f45468b6a7ed2b75807f25426`, tree `98340cf104d4b9d7fe1e422f662b860cda009db1`. Workflow41068450301 passes all six exact-head/base jobs once:1135 Rust/one existing ignored,1242 Vitest/80 files,98 E2E/no retries,audit0,native smoke and policy restoration/owned cleanup. Normal expected-head merge returned HTTP502; subsequent read-only PR lookup confirmed MERGED and exact identities before any further mutation. GitHub final receipt and clean-main/full-tree equality verified.
+
+Whole-consumer4c-2 then began locally. Original-writer setup independently exposed v1 stale seed claims before the new observer ran; unpublished checkpoint `d682a8d` preserves that work. An additive design/data correction now precedes its continuation; this metadata delivery never closes actual4c or source/live parents.

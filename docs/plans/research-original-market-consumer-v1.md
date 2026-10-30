@@ -3,6 +3,12 @@
 Date: 2026-10-29 (UTC+8). Baseline: verified #238 (`8e99fcf`).
 Design/data only; implementation follows verified delivery.
 
+Seed erratum (2026-10-31): the additive
+[v2 correction](research-original-market-consumer-seed-correction-v2.md) supersedes
+the v1 dataset-rebound input fingerprints and affected preparation byte counts.
+The v1 artifact remains immutable historical evidence; all other rules below
+remain binding. New market controls must use the corrected v2 vectors.
+
 The [original registry](research-original-market-registry-projections-v1.md),
 [provenance/snapshot](research-original-market-source-projections-v1.md),
 [lineage](research-original-lineage-semantics-v1.md) and
