@@ -41,6 +41,8 @@ pub(super) struct SourceSelection {
     dataset_id: i64,
     dataset_hash: String,
     interval: String,
+    from_ms: i64,
+    to_ms: i64,
     candidates: Vec<CandidateKey>,
 }
 
@@ -56,6 +58,12 @@ impl SourceSelection {
     }
     pub(super) fn interval(&self) -> &str {
         &self.interval
+    }
+    pub(super) fn campaign_from_ms(&self) -> i64 {
+        self.from_ms
+    }
+    pub(super) fn campaign_to_ms(&self) -> i64 {
+        self.to_ms
     }
     pub(super) fn candidates(&self) -> &[CandidateKey] {
         &self.candidates
@@ -378,6 +386,17 @@ pub(super) fn derive_selection(roots: &RootRowsObservation) -> AppResult<SourceS
         dataset_id: config.dataset.id,
         dataset_hash: config.dataset.content_hash,
         interval: interval.into(),
+        // The frozen selected binding already validated safe integer bounds.
+        // Retain the exact scalars for later market verification without IO
+        // or another campaign parse; capture adds no dataset-range admission.
+        from_ms: binding
+            .get("fromMs")
+            .and_then(Value::as_i64)
+            .ok_or_else(invalid)?,
+        to_ms: binding
+            .get("toMs")
+            .and_then(Value::as_i64)
+            .ok_or_else(invalid)?,
         candidates,
     })
 }

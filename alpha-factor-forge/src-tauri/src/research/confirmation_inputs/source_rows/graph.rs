@@ -23,6 +23,10 @@ pub(in crate::research::confirmation_inputs) struct SourceRowsObservation {
     instrument: InstrumentRow,
     calendar: CalendarRow,
     dataset: DatasetRow,
+    // Derived only from the original campaign's already validated selected binding.
+    // Dataset/range agreement belongs to the later market observer, not capture.
+    campaign_from_ms: i64,
+    campaign_to_ms: i64,
     sources: Vec<SnapshotSourceRow>,
     provenance: Vec<ProvenanceRow>,
     usage: ResourceUsage,
@@ -304,6 +308,8 @@ pub(in crate::research::confirmation_inputs) fn capture_source_rows_in(
         instrument,
         calendar,
         dataset,
+        campaign_from_ms: selection.campaign_from_ms(),
+        campaign_to_ms: selection.campaign_to_ms(),
         sources,
         provenance,
         usage: budget.used,
