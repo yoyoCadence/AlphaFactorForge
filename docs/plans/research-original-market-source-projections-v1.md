@@ -178,3 +178,13 @@ unchecked public constructor follows from this fixture. Trial, file/candle/
 availability4b-3, separately supported action/cost originals and final actual-owner/
 registry4d admission stay open. Market4 and all source/live parents remain incomplete;
 RegisteredSource/numericCostsHash remain unavailable. No manual user test needed.
+
+## 7. Bounded consumer refinement after producer delivery
+
+Verified #237 provenance and #238 snapshot producer controls precede the
+[whole-market projection consumer contract](research-original-market-consumer-v1.md).
+It freezes one sealed-graph entry, joint preparation and warmup/market work,
+independent coherent families and whole-operation boundaries before code.
+Its row-only observation supplies no current-successor/file/candle/action/cost
+authority. The user's updated continuous-cycle instruction supersedes the
+historical stop-after-merge clauses; preserve PR/CI/readback gates and task order.

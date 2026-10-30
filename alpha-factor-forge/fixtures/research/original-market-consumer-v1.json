@@ -1,0 +1,2527 @@
+{
+  "version": "original-market-consumer-v1",
+  "baseline": "8e99fcfd364818148b1cb8cc495db4d1fb6ee5fd",
+  "scope": "independent row-original consistency/preflight vectors; unavailable files/candles/current successors/action/cost authority are not supplied",
+  "sourceFixtures": [
+    {
+      "path": "original-market-source-projections-v1.json",
+      "lfSha256": "7e762b0c2493fc4a78b6608cb04a78af6ef668c4b28b9e83341056e1927bc0ef"
+    },
+    {
+      "path": "original-market-registry-projections-v1.json",
+      "lfSha256": "ea6ce3df35814450641d1e41e1997f039322a6c86464660a525fbd2532b90c92"
+    },
+    {
+      "path": "original-warmup-consumer-v1.json",
+      "lfSha256": "b0da3af1b12fe35dcb58c3622f1abf5dff45211eac8c9489ce7ccfa550307578"
+    },
+    {
+      "path": "source-row-graph-v1.json",
+      "lfSha256": "470224069583c6a1e1347724d8a05f33a68595b88d1ef0eaff5c818d13046fa2"
+    },
+    {
+      "path": "original-lineage-semantics-v1.json",
+      "lfSha256": "f6c2cdfd9ae806aebc7d4d657a3e43990bb64fefd1f7d085e0aae81d166f22e0"
+    },
+    {
+      "path": "original-producer-projections-v1.json",
+      "lfSha256": "62477d35d2f4db70e682cdf230b44788a0319024b493ef6765bb6881ebe8d6d9"
+    }
+  ],
+  "limits": {
+    "hashBytes": 33554432,
+    "copyBytes": 67108864,
+    "analysisUnits": 268435456,
+    "outputBytes": 4194304,
+    "preparedBytes": 33554432,
+    "preparedNodes": 262144,
+    "cloneNodes": 262144
+  },
+  "cases": [
+    {
+      "snapshotCase": "historical-created",
+      "instrumentCase": "instrument-0",
+      "calendarCase": "calendar-0",
+      "datasetCase": "crypto",
+      "originalDocuments": [
+        {
+          "field": "snapshot.coverage_json",
+          "utf8Bytes": 145,
+          "nodes": 9,
+          "compactBytes": 145,
+          "sha256": "737a4f0253f29a402eb7535f55b485ffa9b47fc000974798a3a66da27add00f5"
+        },
+        {
+          "field": "snapshot.content_json",
+          "utf8Bytes": 574,
+          "nodes": 14,
+          "compactBytes": 574,
+          "sha256": "dba0d7b03763f67bdfb17fd4625b5c444d1a15f7c9ee2a98c4eedfd3ec8508cd"
+        },
+        {
+          "field": "instrument.suspensions_json",
+          "utf8Bytes": 2,
+          "nodes": 1,
+          "compactBytes": 2,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        {
+          "field": "instrument.source_capabilities_json",
+          "utf8Bytes": 2,
+          "nodes": 1,
+          "compactBytes": 2,
+          "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+        },
+        {
+          "field": "instrument.content_json",
+          "utf8Bytes": 310,
+          "nodes": 15,
+          "compactBytes": 310,
+          "sha256": "71177242f499d82c36d2408ee1548f2d1dc35095dd9a8b25c9e0e4680b743a46"
+        },
+        {
+          "field": "calendar.definition_json",
+          "utf8Bytes": 152,
+          "nodes": 8,
+          "compactBytes": 152,
+          "sha256": "4b5a8d5cd7b7c9065615308e030c8598602a1a2831d809015ae97ca52c7cc117"
+        },
+        {
+          "field": "provenance[2].request_scope_json",
+          "utf8Bytes": 79,
+          "nodes": 3,
+          "compactBytes": 79,
+          "sha256": "a5ea0a91372762d6df5656e8bffceb129ad97b8d8f7c16b2177951044aaca046"
+        },
+        {
+          "field": "provenance[7].request_scope_json",
+          "utf8Bytes": 18,
+          "nodes": 4,
+          "compactBytes": 18,
+          "sha256": "6dd294d4b48c8d8668aedcbdb44761cbbb6a57ef54ca31358b5fca3abadd20de"
+        }
+      ],
+      "identityDocuments": [
+        {
+          "field": "calendar",
+          "canonicalJson": "{\"calendarId\":\"crypto-24x7-v1\",\"earlyCloses\":[],\"holidays\":[],\"kind\":\"continuous\",\"timezone\":\"UTC\",\"tradingWeekdays\":[],\"version\":\"session-calendar-v1\"}",
+          "utf8Bytes": 152,
+          "nodes": 8,
+          "sha256": "4b5a8d5cd7b7c9065615308e030c8598602a1a2831d809015ae97ca52c7cc117"
+        },
+        {
+          "field": "instrument",
+          "canonicalJson": "{\"assetType\":\"spot-crypto\",\"base\":\"BTC\",\"delistedAt\":null,\"instrumentId\":\"crypto:binance:BTCUSDT\",\"listedFrom\":null,\"lotSize\":null,\"minNotional\":null,\"priceStep\":null,\"quote\":\"USDT\",\"sessionCalendarId\":\"crypto-24x7-v1\",\"sourceCapabilities\":{},\"suspensions\":[],\"timezone\":\"UTC\",\"version\":\"market-instrument-v1\"}",
+          "utf8Bytes": 310,
+          "nodes": 15,
+          "sha256": "71177242f499d82c36d2408ee1548f2d1dc35095dd9a8b25c9e0e4680b743a46"
+        },
+        {
+          "field": "snapshot",
+          "canonicalJson": "{\"calendarId\":\"crypto-24x7-v1\",\"corporateActionVersion\":null,\"costProfileVersion\":\"fixture-cost-v1\",\"datasetHash\":\"dataset-content-v2:9e40fd70a8497470af783f2d4616fa498c43e80b6afd5ce02f5bf4f7842ae6dd\",\"instrumentContentHash\":\"71177242f499d82c36d2408ee1548f2d1dc35095dd9a8b25c9e0e4680b743a46\",\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"kind\":\"historical\",\"priceBasis\":\"raw\",\"sourceRecordHashes\":[\"72ec5994863fb2a289f5ccc766580e98e2bee6c94c6fbc2bbf0b040f9bc83c17\",\"88a1183eba2ca83bea75c8db9fcd9c21162c20e1ca73d72c77736438eca0ddd3\"],\"version\":\"market-snapshot-v1\"}",
+          "utf8Bytes": 574,
+          "nodes": 14,
+          "sha256": "dba0d7b03763f67bdfb17fd4625b5c444d1a15f7c9ee2a98c4eedfd3ec8508cd"
+        },
+        {
+          "field": "provenance[2]",
+          "canonicalJson": "{\"accepted\":true,\"availableAt\":\"2024-07-15T04:00:00Z\",\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"mediaType\":\"text/csv\",\"rawByteLen\":35,\"rawSha256\":\"87dd2efcdf964c70248aa03c62a723f582b7416b0fabfe918bd24d66770768a5\",\"rejectionReason\":null,\"requestScope\":{\"availabilityBasis\":\"observed-at-retrieval\",\"fixture\":\"not exchange evidence\"},\"retrievedAt\":\"2024-07-15T12:00:00+08:00\",\"revisionOf\":null,\"role\":\"primary\",\"source\":\"binance-archive\",\"version\":\"market-provenance-v1\"}",
+          "utf8Bytes": 483,
+          "nodes": 17,
+          "sha256": "88a1183eba2ca83bea75c8db9fcd9c21162c20e1ca73d72c77736438eca0ddd3"
+        },
+        {
+          "field": "provenance[7]",
+          "canonicalJson": "{\"accepted\":true,\"availableAt\":\"2024-07-15T06:00:00Z\",\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"mediaType\":\"text/plain\",\"rawByteLen\":5,\"rawSha256\":\"8944e854e3f4447241f05a4624cc41c6f9872232251870fc8183743f05d49a2e\",\"rejectionReason\":null,\"requestScope\":[\"fixture\",0,null],\"retrievedAt\":\"2024-07-15T06:00:00Z\",\"revisionOf\":5,\"role\":\"primary\",\"source\":\"binance-rest\",\"version\":\"market-provenance-v1\"}",
+          "utf8Bytes": 412,
+          "nodes": 18,
+          "sha256": "72ec5994863fb2a289f5ccc766580e98e2bee6c94c6fbc2bbf0b040f9bc83c17"
+        }
+      ],
+      "retainedStringManifest": [
+        [
+          "0",
+          "snapshot_id",
+          64
+        ],
+        [
+          "0",
+          "version",
+          18
+        ],
+        [
+          "0",
+          "instrument_id",
+          22
+        ],
+        [
+          "0",
+          "interval",
+          2
+        ],
+        [
+          "0",
+          "dataset_hash",
+          83
+        ],
+        [
+          "0",
+          "price_basis",
+          3
+        ],
+        [
+          "0",
+          "calendar_id",
+          14
+        ],
+        [
+          "0",
+          "cost_profile_version",
+          15
+        ],
+        [
+          "0",
+          "kind",
+          10
+        ],
+        [
+          "0",
+          "status",
+          2
+        ],
+        [
+          "0",
+          "coverage_json",
+          145
+        ],
+        [
+          "0",
+          "content_json",
+          574
+        ],
+        [
+          "1",
+          "instrument_id",
+          22
+        ],
+        [
+          "1",
+          "version",
+          20
+        ],
+        [
+          "1",
+          "market",
+          6
+        ],
+        [
+          "1",
+          "venue",
+          7
+        ],
+        [
+          "1",
+          "symbol",
+          7
+        ],
+        [
+          "1",
+          "base",
+          3
+        ],
+        [
+          "1",
+          "quote",
+          4
+        ],
+        [
+          "1",
+          "asset_type",
+          11
+        ],
+        [
+          "1",
+          "session_calendar_id",
+          14
+        ],
+        [
+          "1",
+          "timezone",
+          3
+        ],
+        [
+          "1",
+          "suspensions_json",
+          2
+        ],
+        [
+          "1",
+          "source_capabilities_json",
+          2
+        ],
+        [
+          "1",
+          "content_json",
+          310
+        ],
+        [
+          "1",
+          "content_hash",
+          64
+        ],
+        [
+          "2",
+          "calendar_id",
+          14
+        ],
+        [
+          "2",
+          "version",
+          19
+        ],
+        [
+          "2",
+          "kind",
+          10
+        ],
+        [
+          "2",
+          "timezone",
+          3
+        ],
+        [
+          "2",
+          "content_hash",
+          64
+        ],
+        [
+          "2",
+          "definition_json",
+          152
+        ],
+        [
+          "3",
+          "exchange",
+          7
+        ],
+        [
+          "3",
+          "symbol",
+          7
+        ],
+        [
+          "3",
+          "interval",
+          2
+        ],
+        [
+          "3",
+          "source",
+          7
+        ],
+        [
+          "3",
+          "datasetHash",
+          83
+        ],
+        [
+          "4",
+          "instrument_id",
+          22
+        ],
+        [
+          "4",
+          "interval",
+          2
+        ],
+        [
+          "4",
+          "source",
+          15
+        ],
+        [
+          "4",
+          "role",
+          7
+        ],
+        [
+          "4",
+          "raw_media_type",
+          8
+        ],
+        [
+          "4",
+          "retrieved_at",
+          25
+        ],
+        [
+          "4",
+          "available_at",
+          20
+        ],
+        [
+          "4",
+          "version",
+          20
+        ],
+        [
+          "4",
+          "request_scope_json",
+          79
+        ],
+        [
+          "4",
+          "raw_sha256",
+          64
+        ],
+        [
+          "4",
+          "raw_artifact_path",
+          71
+        ],
+        [
+          "4",
+          "record_hash",
+          64
+        ],
+        [
+          "5",
+          "instrument_id",
+          22
+        ],
+        [
+          "5",
+          "interval",
+          2
+        ],
+        [
+          "5",
+          "source",
+          12
+        ],
+        [
+          "5",
+          "role",
+          7
+        ],
+        [
+          "5",
+          "raw_media_type",
+          10
+        ],
+        [
+          "5",
+          "retrieved_at",
+          20
+        ],
+        [
+          "5",
+          "available_at",
+          20
+        ],
+        [
+          "5",
+          "version",
+          20
+        ],
+        [
+          "5",
+          "request_scope_json",
+          18
+        ],
+        [
+          "5",
+          "raw_sha256",
+          64
+        ],
+        [
+          "5",
+          "raw_artifact_path",
+          71
+        ],
+        [
+          "5",
+          "record_hash",
+          64
+        ]
+      ],
+      "marketWork": {
+        "originalBytes": 1282,
+        "originalNodes": 55,
+        "retainedTextBytes": 2522,
+        "documentCompactBytes": 1282,
+        "identityCompactBytes": 1931,
+        "identityNodes": 72,
+        "sourceCount": 2,
+        "hashBytes": 1931,
+        "copyBytes": 753200,
+        "analysisUnits": 1303424,
+        "cloneNodes": 364,
+        "outputBytes": 336
+      },
+      "expectedMarket": {
+        "snapshotId": "dba0d7b03763f67bdfb17fd4625b5c444d1a15f7c9ee2a98c4eedfd3ec8508cd",
+        "instrumentRevisionHash": "71177242f499d82c36d2408ee1548f2d1dc35095dd9a8b25c9e0e4680b743a46",
+        "calendarHash": "4b5a8d5cd7b7c9065615308e030c8598602a1a2831d809015ae97ca52c7cc117",
+        "sources": [
+          {
+            "provenanceId": 2,
+            "recordHash": "88a1183eba2ca83bea75c8db9fcd9c21162c20e1ca73d72c77736438eca0ddd3"
+          },
+          {
+            "provenanceId": 7,
+            "recordHash": "72ec5994863fb2a289f5ccc766580e98e2bee6c94c6fbc2bbf0b040f9bc83c17"
+          }
+        ]
+      },
+      "id": "captured-old-revision",
+      "family": {
+        "sourceCase": "v1-varied-slow",
+        "datasetRowId": 1,
+        "datasetHash": "dataset-content-v2:9e40fd70a8497470af783f2d4616fa498c43e80b6afd5ce02f5bf4f7842ae6dd",
+        "interval": "1h",
+        "configJson": "{\"bases\":[{\"axes\":[{\"key\":\"slowMA\",\"max\":33,\"min\":9,\"step\":12}],\"id\":\"varied-slow\",\"presetVersion\":\"discovery-preset-v1\",\"strategy\":{\"bbMult\":2,\"bbPeriod\":20,\"direction\":\"long\",\"emaPeriod\":50,\"entryCode\":\"crossUp(macd, macdSignal)\",\"entryRules\":[{\"l\":\"maFast\",\"op\":\"crossUp\",\"r\":\"maSlow\"}],\"entrySig\":\"maCrossUp\",\"exitCode\":\"crossDown(macd, macdSignal)\",\"exitRules\":[{\"l\":\"maFast\",\"op\":\"crossDown\",\"r\":\"maSlow\"}],\"exitSig\":\"maCrossDown\",\"fastMA\":5,\"feePct\":0.05,\"fillMode\":\"close\",\"macdFast\":12,\"macdSignal\":9,\"macdSlow\":26,\"mode\":\"params\",\"rsiBuy\":30,\"rsiPeriod\":14,\"rsiSell\":70,\"sizePct\":100,\"slPct\":0,\"slipPct\":0.02,\"slowMA\":21,\"tpPct\":0}}],\"benchmarkCosts\":{\"feePct\":0.05,\"slipPct\":0.02},\"caps\":{\"candidates\":256},\"contracts\":{\"backtest\":\"backtest-execution-v1\",\"benchmarks\":\"benchmark-suite-v1\",\"datasetHash\":\"dataset-content-v2\",\"embargo\":\"embargo-derivation-v1\",\"enumeration\":\"discovery-enumeration-v1\",\"gate\":\"gate-v1\",\"metrics\":\"metrics-v2\",\"randomEntry\":\"random-entry-v1\",\"score\":\"score-v1\",\"seed\":\"seed-v1\",\"split\":\"validation-split-v1\",\"strategyHash\":\"strategy-v2\"},\"dataset\":{\"contentHash\":\"dataset-content-v2:9e40fd70a8497470af783f2d4616fa498c43e80b6afd5ce02f5bf4f7842ae6dd\",\"id\":1},\"embargo\":{\"holdingAllowanceBars\":7},\"envelopeVersion\":\"discovery-config-v1\",\"execution\":{\"startEquity\":10000},\"gateConfig\":{\"maxDrawdown\":0.35,\"maxMonthlyContribution\":0.4,\"maxSingleTradeContribution\":0.25,\"minAvgTradeReturn\":0,\"minRandomEntryPercentile\":95,\"minRollingPositiveRatio\":0.55,\"minTrades\":30,\"rollingWindowBars\":30},\"maxConcurrency\":null,\"randomEntry\":{\"runs\":200},\"rootSeed\":20260726,\"scoreConfig\":{\"caps\":{\"cagr\":1,\"calmar\":5,\"complexityUnits\":40,\"consistencySigmaScale\":10,\"dataMiningLog10\":4,\"profitFactor\":3,\"sortino\":5,\"turnover\":0.1},\"weights\":{\"cagr\":1,\"calmar\":1,\"complexity\":0.5,\"consistency\":1,\"dataMining\":1,\"profitFactor\":1,\"regime\":0,\"sortino\":1,\"turnover\":0.5}}}",
+        "configHash": "a5a4ad4e4b64fec275723c673fb6119ca2374a848874c43799e126d98f87ff97",
+        "configRawSha256": "a5a4ad4e4b64fec275723c673fb6119ca2374a848874c43799e126d98f87ff97",
+        "hypotheses": [
+          {
+            "baseId": "varied-slow",
+            "contentJson": "{\"applicability\":{\"axes\":[\"slowMA\"],\"datasetHash\":\"dataset-content-v2:9e40fd70a8497470af783f2d4616fa498c43e80b6afd5ce02f5bf4f7842ae6dd\",\"datasetId\":1,\"embargo\":\"embargo-derivation-v1\",\"interval\":\"1h\",\"split\":\"validation-split-v1\"},\"failureModes\":\"Not stated: a mechanical parameter sweep of a preset strategy. Treated as unexplained until a hypothesis with stated failure modes replaces it (P15).\",\"mechanism\":\"preset discovery-preset-v1 base varied-slow: entry on maCrossUp, exit on maCrossDown; the parameter sweep asks whether the mechanism survives neighbouring slowMA\",\"parentStrategyId\":null,\"source\":\"discovery\",\"strategyHash\":\"strategy-doc-v1:aeb2fe6e9375d64806ec08d335cf7a75b7c774c65e358560f07377d9f803cf39\",\"strategyId\":null,\"variationKind\":\"param-sweep:slowMA\",\"version\":\"hypothesis-v1\"}",
+            "contentHash": "7112ec308450f50c701ec5a94e17409ea71d713d0c42f1857a5445f6048e1391",
+            "applicabilityJson": "{\"axes\":[\"slowMA\"],\"datasetHash\":\"dataset-content-v2:9e40fd70a8497470af783f2d4616fa498c43e80b6afd5ce02f5bf4f7842ae6dd\",\"datasetId\":1,\"embargo\":\"embargo-derivation-v1\",\"interval\":\"1h\",\"split\":\"validation-split-v1\"}"
+          }
+        ],
+        "inputs": [
+          {
+            "index": 0,
+            "inputFingerprintJson": "{\"appliedAxes\":{\"slowMA\":21.0},\"baseId\":\"varied-slow\",\"candidateIndex\":0,\"configHash\":\"a5a4ad4e4b64fec275723c673fb6119ca2374a848874c43799e126d98f87ff97\",\"datasetHash\":\"dataset-content-v2:9e40fd70a8497470af783f2d4616fa498c43e80b6afd5ce02f5bf4f7842ae6dd\",\"datasetId\":1,\"envelopeVersion\":\"discovery-config-v1\",\"interval\":\"1h\",\"rootSeed\":20260726,\"seeds\":{\"randomEntry\":3949539066},\"strategyHash\":\"strategy-v2:3674c76f1087df677d1c3d7ea58ee2b1b2981557f01ea38edfc830cd3740ae30\",\"strategyId\":1}",
+            "sha256": "b28575a8b7cb9789feaa641b6e171cd2bd70fb97c65eba8c6bce7b462e6c56d6"
+          },
+          {
+            "index": 1,
+            "inputFingerprintJson": "{\"appliedAxes\":{\"slowMA\":9.0},\"baseId\":\"varied-slow\",\"candidateIndex\":1,\"configHash\":\"a5a4ad4e4b64fec275723c673fb6119ca2374a848874c43799e126d98f87ff97\",\"datasetHash\":\"dataset-content-v2:9e40fd70a8497470af783f2d4616fa498c43e80b6afd5ce02f5bf4f7842ae6dd\",\"datasetId\":1,\"envelopeVersion\":\"discovery-config-v1\",\"interval\":\"1h\",\"rootSeed\":20260726,\"seeds\":{\"randomEntry\":2832830112},\"strategyHash\":\"strategy-v2:4f8f5f2ec809a667c587dd067da34c90241bd496e6187bd915600b02a4045cfc\",\"strategyId\":2}",
+            "sha256": "4c6d735eaaefcc256b7ddab465efee9b9dc90a621e260dd56896007a383e84f2"
+          },
+          {
+            "index": 2,
+            "inputFingerprintJson": "{\"appliedAxes\":{\"slowMA\":33.0},\"baseId\":\"varied-slow\",\"candidateIndex\":2,\"configHash\":\"a5a4ad4e4b64fec275723c673fb6119ca2374a848874c43799e126d98f87ff97\",\"datasetHash\":\"dataset-content-v2:9e40fd70a8497470af783f2d4616fa498c43e80b6afd5ce02f5bf4f7842ae6dd\",\"datasetId\":1,\"envelopeVersion\":\"discovery-config-v1\",\"interval\":\"1h\",\"rootSeed\":20260726,\"seeds\":{\"randomEntry\":3045552191},\"strategyHash\":\"strategy-v2:c5401ac5a109af09d63ea17f076e15c1f5d3976b5f0b482bdcda4ab0fcd2f181\",\"strategyId\":3}",
+            "sha256": "09ea20a69c4437eb56914489d85e235416da74ef43208abfc15b22bbd061a7eb"
+          }
+        ],
+        "expectedLineage": {
+          "configHash": "a5a4ad4e4b64fec275723c673fb6119ca2374a848874c43799e126d98f87ff97",
+          "candidates": [
+            {
+              "index": 0,
+              "strategyId": 1,
+              "strategyHash": "strategy-v2:3674c76f1087df677d1c3d7ea58ee2b1b2981557f01ea38edfc830cd3740ae30",
+              "hypothesisId": 1,
+              "hypothesisHash": "7112ec308450f50c701ec5a94e17409ea71d713d0c42f1857a5445f6048e1391",
+              "baseId": "varied-slow"
+            },
+            {
+              "index": 1,
+              "strategyId": 2,
+              "strategyHash": "strategy-v2:4f8f5f2ec809a667c587dd067da34c90241bd496e6187bd915600b02a4045cfc",
+              "hypothesisId": 1,
+              "hypothesisHash": "7112ec308450f50c701ec5a94e17409ea71d713d0c42f1857a5445f6048e1391",
+              "baseId": "varied-slow"
+            },
+            {
+              "index": 2,
+              "strategyId": 3,
+              "strategyHash": "strategy-v2:c5401ac5a109af09d63ea17f076e15c1f5d3976b5f0b482bdcda4ab0fcd2f181",
+              "hypothesisId": 1,
+              "hypothesisHash": "7112ec308450f50c701ec5a94e17409ea71d713d0c42f1857a5445f6048e1391",
+              "baseId": "varied-slow"
+            }
+          ]
+        },
+        "expectedWarmup": [
+          {
+            "maxSignalLookbackBars": 22,
+            "holdingAllowanceBars": 7,
+            "embargoBars": 29
+          },
+          {
+            "maxSignalLookbackBars": 10,
+            "holdingAllowanceBars": 7,
+            "embargoBars": 17
+          },
+          {
+            "maxSignalLookbackBars": 34,
+            "holdingAllowanceBars": 7,
+            "embargoBars": 41
+          }
+        ],
+        "priorPreparation": {
+          "parseBytes": 9553,
+          "parseNodes": 446,
+          "expansionBytes": 1662,
+          "expansionNodes": 114,
+          "scratchBytes": 11215,
+          "scratchNodes": 560
+        },
+        "priorWarmupWork": {
+          "hashBytes": 5504,
+          "copyBytes": 14859,
+          "analysisUnits": 855,
+          "cloneNodes": 114,
+          "outputBytes": 589
+        },
+        "campaignDocumentJson": "{\"contractVersion\":\"research-campaign-declaration-v1\",\"contracts\":{\"datasetIdentity\":\"dataset-content-v2\",\"execution\":\"backtest-execution-v1\",\"marketSnapshot\":\"market-snapshot-v1\",\"metrics\":\"metrics-v2\",\"precision\":\"research-precision-v1\",\"split\":\"validation-split-v1\",\"trialLedger\":\"trial-ledger-v1\",\"walkForward\":\"research-walk-forward-v1\",\"walkForwardEvidence\":\"walk-forward-evidence-v1\"},\"instruments\":[{\"datasetHash\":\"dataset-content-v2:9e40fd70a8497470af783f2d4616fa498c43e80b6afd5ce02f5bf4f7842ae6dd\",\"delistedAtMs\":null,\"fromMs\":1721001600000,\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"listedAtMs\":0,\"samplePolicy\":{\"foldCount\":2,\"foldValidationBars\":1,\"minimumTotalBars\":4,\"minimumTrainBars\":1,\"rationale\":\"Synthetic original-row consistency only; not numerical execution, sample sufficiency or source admission.\"},\"snapshotId\":\"dba0d7b03763f67bdfb17fd4625b5c444d1a15f7c9ee2a98c4eedfd3ec8508cd\",\"toMs\":1721012400000}],\"sampling\":{\"alphaPpm\":50000,\"bootstrapSamples\":100000,\"maxBootstrapSamples\":200000,\"maxRelativeStandardErrorPpm\":200000}}",
+        "campaignIdentityPayloadHex": "06000000040000000f636f6e747261637456657273696f6e040000002072657365617263682d63616d706169676e2d6465636c61726174696f6e2d763100000009636f6e74726163747306000000090000000f646174617365744964656e746974790400000012646174617365742d636f6e74656e742d763200000009657865637574696f6e04000000156261636b746573742d657865637574696f6e2d76310000000e6d61726b6574536e617073686f7404000000126d61726b65742d736e617073686f742d7631000000076d657472696373040000000a6d6574726963732d763200000009707265636973696f6e040000001572657365617263682d707265636973696f6e2d76310000000573706c6974040000001376616c69646174696f6e2d73706c69742d76310000000b747269616c4c6564676572040000000f747269616c2d6c65646765722d76310000000b77616c6b466f7277617264040000001872657365617263682d77616c6b2d666f72776172642d76310000001377616c6b466f727761726445766964656e6365040000001877616c6b2d666f72776172642d65766964656e63652d76310000000b696e737472756d656e7473050000000106000000090000000b64617461736574486173680400000053646174617365742d636f6e74656e742d76323a396534306664373061383439373437306166373833663264343631366661343938633433653830623661666435636530326635626634663738343261653664640000000c64656c697374656441744d73000000000666726f6d4d730342790b3b064000000000000c696e737472756d656e744964040000001663727970746f3a62696e616e63653a4254435553445400000008696e74657276616c040000000231680000000a6c697374656441744d730300000000000000000000000c73616d706c65506f6c696379060000000500000009666f6c64436f756e7403400000000000000000000012666f6c6456616c69646174696f6e42617273033ff0000000000000000000106d696e696d756d546f74616c42617273034010000000000000000000106d696e696d756d547261696e42617273033ff000000000000000000009726174696f6e616c65040000006953796e746865746963206f726967696e616c2d726f7720636f6e73697374656e6379206f6e6c793b206e6f74206e756d65726963616c20657865637574696f6e2c2073616d706c652073756666696369656e6379206f7220736f757263652061646d697373696f6e2e0000000a736e617073686f74496404000000406462613064376230333736336636376264666231376664343632356235633434346431613135663763396565326139386334656564666433656338353038636400000004746f4d730342790b4552f800000000000873616d706c696e67060000000400000008616c70686150706d0340e86a000000000000000010626f6f74737472617053616d706c65730340f86a0000000000000000136d6178426f6f74737472617053616d706c65730341086a00000000000000001b6d617852656c61746976655374616e646172644572726f7250706d0341086a0000000000",
+        "campaignId": "e20c8d86a677167fdf3afa42f435196dea7e83f8fec5750fc26e2ebabe8a4c0a"
+      },
+      "jointPreparation": {
+        "parseBytes": 10835,
+        "parseNodes": 501,
+        "expansionBytes": 1662,
+        "expansionNodes": 114,
+        "scratchBytes": 12497,
+        "scratchNodes": 615
+      },
+      "jointWork": {
+        "hashBytes": 7435,
+        "copyBytes": 768059,
+        "analysisUnits": 1304279,
+        "cloneNodes": 478,
+        "outputBytes": 925
+      }
+    },
+    {
+      "snapshotCase": "historical-new-instrument-revision",
+      "instrumentCase": "instrument-1",
+      "calendarCase": "calendar-0",
+      "datasetCase": "crypto",
+      "originalDocuments": [
+        {
+          "field": "snapshot.coverage_json",
+          "utf8Bytes": 145,
+          "nodes": 9,
+          "compactBytes": 145,
+          "sha256": "737a4f0253f29a402eb7535f55b485ffa9b47fc000974798a3a66da27add00f5"
+        },
+        {
+          "field": "snapshot.content_json",
+          "utf8Bytes": 574,
+          "nodes": 14,
+          "compactBytes": 574,
+          "sha256": "4f728dc603ab721f81080864a4ba0ffeffd92457ac9b7789ed453f69e58e9b8a"
+        },
+        {
+          "field": "instrument.suspensions_json",
+          "utf8Bytes": 2,
+          "nodes": 1,
+          "compactBytes": 2,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        {
+          "field": "instrument.source_capabilities_json",
+          "utf8Bytes": 41,
+          "nodes": 4,
+          "compactBytes": 41,
+          "sha256": "e2f00e18ed6ec43e5d43a00f0c55f4c31bae0683b5d406351c9472d9fbd9ff43"
+        },
+        {
+          "field": "instrument.content_json",
+          "utf8Bytes": 347,
+          "nodes": 18,
+          "compactBytes": 347,
+          "sha256": "17d9d72d2bd217a790a1026e4cafadf6b955eb15229d364c9f81256b9679f160"
+        },
+        {
+          "field": "calendar.definition_json",
+          "utf8Bytes": 152,
+          "nodes": 8,
+          "compactBytes": 152,
+          "sha256": "4b5a8d5cd7b7c9065615308e030c8598602a1a2831d809015ae97ca52c7cc117"
+        },
+        {
+          "field": "provenance[2].request_scope_json",
+          "utf8Bytes": 79,
+          "nodes": 3,
+          "compactBytes": 79,
+          "sha256": "a5ea0a91372762d6df5656e8bffceb129ad97b8d8f7c16b2177951044aaca046"
+        },
+        {
+          "field": "provenance[7].request_scope_json",
+          "utf8Bytes": 18,
+          "nodes": 4,
+          "compactBytes": 18,
+          "sha256": "6dd294d4b48c8d8668aedcbdb44761cbbb6a57ef54ca31358b5fca3abadd20de"
+        }
+      ],
+      "identityDocuments": [
+        {
+          "field": "calendar",
+          "canonicalJson": "{\"calendarId\":\"crypto-24x7-v1\",\"earlyCloses\":[],\"holidays\":[],\"kind\":\"continuous\",\"timezone\":\"UTC\",\"tradingWeekdays\":[],\"version\":\"session-calendar-v1\"}",
+          "utf8Bytes": 152,
+          "nodes": 8,
+          "sha256": "4b5a8d5cd7b7c9065615308e030c8598602a1a2831d809015ae97ca52c7cc117"
+        },
+        {
+          "field": "instrument",
+          "canonicalJson": "{\"assetType\":\"spot-crypto\",\"base\":\"BTC\",\"delistedAt\":null,\"instrumentId\":\"crypto:binance:BTCUSDT\",\"listedFrom\":null,\"lotSize\":0.5,\"minNotional\":1.5,\"priceStep\":0.25,\"quote\":\"USDT\",\"sessionCalendarId\":\"crypto-24x7-v1\",\"sourceCapabilities\":{\"fixture\":{\"adjusted\":false,\"raw\":true}},\"suspensions\":[],\"timezone\":\"UTC\",\"version\":\"market-instrument-v1\"}",
+          "utf8Bytes": 347,
+          "nodes": 18,
+          "sha256": "17d9d72d2bd217a790a1026e4cafadf6b955eb15229d364c9f81256b9679f160"
+        },
+        {
+          "field": "snapshot",
+          "canonicalJson": "{\"calendarId\":\"crypto-24x7-v1\",\"corporateActionVersion\":null,\"costProfileVersion\":\"fixture-cost-v1\",\"datasetHash\":\"dataset-content-v2:9e40fd70a8497470af783f2d4616fa498c43e80b6afd5ce02f5bf4f7842ae6dd\",\"instrumentContentHash\":\"17d9d72d2bd217a790a1026e4cafadf6b955eb15229d364c9f81256b9679f160\",\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"kind\":\"historical\",\"priceBasis\":\"raw\",\"sourceRecordHashes\":[\"72ec5994863fb2a289f5ccc766580e98e2bee6c94c6fbc2bbf0b040f9bc83c17\",\"88a1183eba2ca83bea75c8db9fcd9c21162c20e1ca73d72c77736438eca0ddd3\"],\"version\":\"market-snapshot-v1\"}",
+          "utf8Bytes": 574,
+          "nodes": 14,
+          "sha256": "4f728dc603ab721f81080864a4ba0ffeffd92457ac9b7789ed453f69e58e9b8a"
+        },
+        {
+          "field": "provenance[2]",
+          "canonicalJson": "{\"accepted\":true,\"availableAt\":\"2024-07-15T04:00:00Z\",\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"mediaType\":\"text/csv\",\"rawByteLen\":35,\"rawSha256\":\"87dd2efcdf964c70248aa03c62a723f582b7416b0fabfe918bd24d66770768a5\",\"rejectionReason\":null,\"requestScope\":{\"availabilityBasis\":\"observed-at-retrieval\",\"fixture\":\"not exchange evidence\"},\"retrievedAt\":\"2024-07-15T12:00:00+08:00\",\"revisionOf\":null,\"role\":\"primary\",\"source\":\"binance-archive\",\"version\":\"market-provenance-v1\"}",
+          "utf8Bytes": 483,
+          "nodes": 17,
+          "sha256": "88a1183eba2ca83bea75c8db9fcd9c21162c20e1ca73d72c77736438eca0ddd3"
+        },
+        {
+          "field": "provenance[7]",
+          "canonicalJson": "{\"accepted\":true,\"availableAt\":\"2024-07-15T06:00:00Z\",\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"mediaType\":\"text/plain\",\"rawByteLen\":5,\"rawSha256\":\"8944e854e3f4447241f05a4624cc41c6f9872232251870fc8183743f05d49a2e\",\"rejectionReason\":null,\"requestScope\":[\"fixture\",0,null],\"retrievedAt\":\"2024-07-15T06:00:00Z\",\"revisionOf\":5,\"role\":\"primary\",\"source\":\"binance-rest\",\"version\":\"market-provenance-v1\"}",
+          "utf8Bytes": 412,
+          "nodes": 18,
+          "sha256": "72ec5994863fb2a289f5ccc766580e98e2bee6c94c6fbc2bbf0b040f9bc83c17"
+        }
+      ],
+      "retainedStringManifest": [
+        [
+          "0",
+          "snapshot_id",
+          64
+        ],
+        [
+          "0",
+          "version",
+          18
+        ],
+        [
+          "0",
+          "instrument_id",
+          22
+        ],
+        [
+          "0",
+          "interval",
+          2
+        ],
+        [
+          "0",
+          "dataset_hash",
+          83
+        ],
+        [
+          "0",
+          "price_basis",
+          3
+        ],
+        [
+          "0",
+          "calendar_id",
+          14
+        ],
+        [
+          "0",
+          "cost_profile_version",
+          15
+        ],
+        [
+          "0",
+          "kind",
+          10
+        ],
+        [
+          "0",
+          "status",
+          2
+        ],
+        [
+          "0",
+          "coverage_json",
+          145
+        ],
+        [
+          "0",
+          "content_json",
+          574
+        ],
+        [
+          "1",
+          "instrument_id",
+          22
+        ],
+        [
+          "1",
+          "version",
+          20
+        ],
+        [
+          "1",
+          "market",
+          6
+        ],
+        [
+          "1",
+          "venue",
+          7
+        ],
+        [
+          "1",
+          "symbol",
+          7
+        ],
+        [
+          "1",
+          "base",
+          3
+        ],
+        [
+          "1",
+          "quote",
+          4
+        ],
+        [
+          "1",
+          "asset_type",
+          11
+        ],
+        [
+          "1",
+          "session_calendar_id",
+          14
+        ],
+        [
+          "1",
+          "timezone",
+          3
+        ],
+        [
+          "1",
+          "suspensions_json",
+          2
+        ],
+        [
+          "1",
+          "source_capabilities_json",
+          41
+        ],
+        [
+          "1",
+          "content_json",
+          347
+        ],
+        [
+          "1",
+          "content_hash",
+          64
+        ],
+        [
+          "2",
+          "calendar_id",
+          14
+        ],
+        [
+          "2",
+          "version",
+          19
+        ],
+        [
+          "2",
+          "kind",
+          10
+        ],
+        [
+          "2",
+          "timezone",
+          3
+        ],
+        [
+          "2",
+          "content_hash",
+          64
+        ],
+        [
+          "2",
+          "definition_json",
+          152
+        ],
+        [
+          "3",
+          "exchange",
+          7
+        ],
+        [
+          "3",
+          "symbol",
+          7
+        ],
+        [
+          "3",
+          "interval",
+          2
+        ],
+        [
+          "3",
+          "source",
+          7
+        ],
+        [
+          "3",
+          "datasetHash",
+          83
+        ],
+        [
+          "4",
+          "instrument_id",
+          22
+        ],
+        [
+          "4",
+          "interval",
+          2
+        ],
+        [
+          "4",
+          "source",
+          15
+        ],
+        [
+          "4",
+          "role",
+          7
+        ],
+        [
+          "4",
+          "raw_media_type",
+          8
+        ],
+        [
+          "4",
+          "retrieved_at",
+          25
+        ],
+        [
+          "4",
+          "available_at",
+          20
+        ],
+        [
+          "4",
+          "version",
+          20
+        ],
+        [
+          "4",
+          "request_scope_json",
+          79
+        ],
+        [
+          "4",
+          "raw_sha256",
+          64
+        ],
+        [
+          "4",
+          "raw_artifact_path",
+          71
+        ],
+        [
+          "4",
+          "record_hash",
+          64
+        ],
+        [
+          "5",
+          "instrument_id",
+          22
+        ],
+        [
+          "5",
+          "interval",
+          2
+        ],
+        [
+          "5",
+          "source",
+          12
+        ],
+        [
+          "5",
+          "role",
+          7
+        ],
+        [
+          "5",
+          "raw_media_type",
+          10
+        ],
+        [
+          "5",
+          "retrieved_at",
+          20
+        ],
+        [
+          "5",
+          "available_at",
+          20
+        ],
+        [
+          "5",
+          "version",
+          20
+        ],
+        [
+          "5",
+          "request_scope_json",
+          18
+        ],
+        [
+          "5",
+          "raw_sha256",
+          64
+        ],
+        [
+          "5",
+          "raw_artifact_path",
+          71
+        ],
+        [
+          "5",
+          "record_hash",
+          64
+        ]
+      ],
+      "marketWork": {
+        "originalBytes": 1358,
+        "originalNodes": 61,
+        "retainedTextBytes": 2598,
+        "documentCompactBytes": 1358,
+        "identityCompactBytes": 1968,
+        "identityNodes": 75,
+        "sourceCount": 2,
+        "hashBytes": 1968,
+        "copyBytes": 796112,
+        "analysisUnits": 1364480,
+        "cloneNodes": 394,
+        "outputBytes": 336
+      },
+      "expectedMarket": {
+        "snapshotId": "4f728dc603ab721f81080864a4ba0ffeffd92457ac9b7789ed453f69e58e9b8a",
+        "instrumentRevisionHash": "17d9d72d2bd217a790a1026e4cafadf6b955eb15229d364c9f81256b9679f160",
+        "calendarHash": "4b5a8d5cd7b7c9065615308e030c8598602a1a2831d809015ae97ca52c7cc117",
+        "sources": [
+          {
+            "provenanceId": 2,
+            "recordHash": "88a1183eba2ca83bea75c8db9fcd9c21162c20e1ca73d72c77736438eca0ddd3"
+          },
+          {
+            "provenanceId": 7,
+            "recordHash": "72ec5994863fb2a289f5ccc766580e98e2bee6c94c6fbc2bbf0b040f9bc83c17"
+          }
+        ]
+      },
+      "id": "new-revision-mixed",
+      "family": {
+        "sourceCase": "v3-mixed-varied-dsl-first",
+        "datasetRowId": 1,
+        "datasetHash": "dataset-content-v2:9e40fd70a8497470af783f2d4616fa498c43e80b6afd5ce02f5bf4f7842ae6dd",
+        "interval": "1h",
+        "configJson": "{\n  \"bases\": [\n    {\n      \"axes\": [],\n      \"id\": \"dsl-cross\",\n      \"presetVersion\": \"discovery-dsl-preset-v1\",\n      \"strategy\": {\n        \"direction\": \"long\",\n        \"dsl\": {\n          \"entry\": {\n            \"args\": [\n              {\n                \"ind\": \"SMA\",\n                \"len\": \"$fast\",\n                \"src\": \"CLOSE\"\n              },\n              {\n                \"ind\": \"SMA\",\n                \"len\": \"$slow\",\n                \"src\": \"CLOSE\"\n              }\n            ],\n            \"op\": \"CROSS_UP\"\n          },\n          \"exit\": {\n            \"args\": [\n              {\n                \"ind\": \"SMA\",\n                \"len\": \"$fast\",\n                \"src\": \"CLOSE\"\n              },\n              {\n                \"ind\": \"SMA\",\n                \"len\": \"$slow\",\n                \"src\": \"CLOSE\"\n              }\n            ],\n            \"op\": \"CROSS_DOWN\"\n          },\n          \"name\": \"Fixed SMA cross\",\n          \"params\": {\n            \"fast\": 2,\n            \"slow\": 3\n          },\n          \"version\": \"strategy-dsl-v1\"\n        },\n        \"feePct\": 0.05,\n        \"fillMode\": \"nextOpen\",\n        \"mode\": \"dsl\",\n        \"sizePct\": 100,\n        \"slPct\": 2,\n        \"slipPct\": 0.02,\n        \"tpPct\": 4\n      }\n    },\n    {\n      \"axes\": [\n        {\n          \"key\": \"slowMA\",\n          \"min\": 9,\n          \"max\": 33,\n          \"step\": 12\n        }\n      ],\n      \"id\": \"varied-slow\",\n      \"presetVersion\": \"discovery-preset-v1\",\n      \"strategy\": {\n        \"bbMult\": 2,\n        \"bbPeriod\": 20,\n        \"direction\": \"long\",\n        \"emaPeriod\": 50,\n        \"entryCode\": \"crossUp(macd, macdSignal)\",\n        \"entryRules\": [\n          {\n            \"l\": \"maFast\",\n            \"op\": \"crossUp\",\n            \"r\": \"maSlow\"\n          }\n        ],\n        \"entrySig\": \"maCrossUp\",\n        \"exitCode\": \"crossDown(macd, macdSignal)\",\n        \"exitRules\": [\n          {\n            \"l\": \"maFast\",\n            \"op\": \"crossDown\",\n            \"r\": \"maSlow\"\n          }\n        ],\n        \"exitSig\": \"maCrossDown\",\n        \"fastMA\": 5,\n        \"feePct\": 0.05,\n        \"fillMode\": \"close\",\n        \"macdFast\": 12,\n        \"macdSignal\": 9,\n        \"macdSlow\": 26,\n        \"mode\": \"params\",\n        \"rsiBuy\": 30,\n        \"rsiPeriod\": 14,\n        \"rsiSell\": 70,\n        \"sizePct\": 100,\n        \"slPct\": 0,\n        \"slipPct\": 0.02,\n        \"slowMA\": 21,\n        \"tpPct\": 0\n      }\n    }\n  ],\n  \"benchmarkCosts\": {\n    \"feePct\": 0.05,\n    \"slipPct\": 0.02\n  },\n  \"caps\": {\n    \"candidates\": 256\n  },\n  \"contracts\": {\n    \"backtest\": \"backtest-execution-v1\",\n    \"benchmarks\": \"benchmark-suite-v1\",\n    \"datasetHash\": \"dataset-content-v2\",\n    \"embargo\": \"embargo-derivation-v1\",\n    \"enumeration\": \"discovery-enumeration-v2\",\n    \"gate\": \"gate-v1\",\n    \"metrics\": \"metrics-v2\",\n    \"randomEntry\": \"random-entry-v1\",\n    \"score\": \"score-v1\",\n    \"seed\": \"seed-v1\",\n    \"split\": \"validation-split-v1\",\n    \"strategyDsl\": \"strategy-dsl-v1\",\n    \"strategyHash\": \"strategy-v2\",\n    \"walkForward\": \"research-walk-forward-v1\",\n    \"walkForwardEvidence\": \"walk-forward-evidence-v1\"\n  },\n  \"dataset\": {\n    \"contentHash\": \"dataset-content-v2:9e40fd70a8497470af783f2d4616fa498c43e80b6afd5ce02f5bf4f7842ae6dd\",\n    \"id\": 1\n  },\n  \"embargo\": {\n    \"holdingAllowanceBars\": 7\n  },\n  \"envelopeVersion\": \"discovery-config-v3\",\n  \"execution\": {\n    \"startEquity\": 10000\n  },\n  \"gateConfig\": {\n    \"maxDrawdown\": 0.35,\n    \"maxMonthlyContribution\": 0.4,\n    \"maxSingleTradeContribution\": 0.25,\n    \"minAvgTradeReturn\": 0,\n    \"minRandomEntryPercentile\": 95,\n    \"minRollingPositiveRatio\": 0.55,\n    \"minTrades\": 30,\n    \"rollingWindowBars\": 30\n  },\n  \"maxConcurrency\": null,\n  \"randomEntry\": {\n    \"runs\": 200\n  },\n  \"rootSeed\": 20260726,\n  \"scoreConfig\": {\n    \"caps\": {\n      \"cagr\": 1,\n      \"calmar\": 5,\n      \"complexityUnits\": 40,\n      \"consistencySigmaScale\": 10,\n      \"dataMiningLog10\": 4,\n      \"profitFactor\": 3,\n      \"sortino\": 5,\n      \"turnover\": 0.1\n    },\n    \"weights\": {\n      \"cagr\": 1,\n      \"calmar\": 1,\n      \"complexity\": 0.5,\n      \"consistency\": 1,\n      \"dataMining\": 1,\n      \"profitFactor\": 1,\n      \"regime\": 0,\n      \"sortino\": 1,\n      \"turnover\": 0.5\n    }\n  },\n  \"walkForward\": {\n    \"foldCount\": 3,\n    \"foldValidationBars\": 8,\n    \"minimumTrainBars\": 20\n  }\n}",
+        "configHash": "8f94a488081e5172fa7ac534033b81166c34cd6fd37b7ac56c838cacc621ee3b",
+        "configRawSha256": "c80245457a42e9bc15f0dcd289bd7cbbbe5c25dea9e981a5d7ae7c9cfa2bb4f6",
+        "hypotheses": [
+          {
+            "baseId": "varied-slow",
+            "contentJson": "{\"applicability\":{\"axes\":[\"slowMA\"],\"datasetHash\":\"dataset-content-v2:9e40fd70a8497470af783f2d4616fa498c43e80b6afd5ce02f5bf4f7842ae6dd\",\"datasetId\":1,\"embargo\":\"embargo-derivation-v1\",\"interval\":\"1h\",\"split\":\"validation-split-v1\"},\"failureModes\":\"Not stated: a mechanical parameter sweep of a preset strategy. Treated as unexplained until a hypothesis with stated failure modes replaces it (P15).\",\"mechanism\":\"preset discovery-preset-v1 base varied-slow: entry on maCrossUp, exit on maCrossDown; the parameter sweep asks whether the mechanism survives neighbouring slowMA\",\"parentStrategyId\":null,\"source\":\"discovery\",\"strategyHash\":\"strategy-doc-v1:aeb2fe6e9375d64806ec08d335cf7a75b7c774c65e358560f07377d9f803cf39\",\"strategyId\":null,\"variationKind\":\"param-sweep:slowMA\",\"version\":\"hypothesis-v1\"}",
+            "contentHash": "7112ec308450f50c701ec5a94e17409ea71d713d0c42f1857a5445f6048e1391",
+            "applicabilityJson": "{\"axes\":[\"slowMA\"],\"datasetHash\":\"dataset-content-v2:9e40fd70a8497470af783f2d4616fa498c43e80b6afd5ce02f5bf4f7842ae6dd\",\"datasetId\":1,\"embargo\":\"embargo-derivation-v1\",\"interval\":\"1h\",\"split\":\"validation-split-v1\"}"
+          },
+          {
+            "baseId": "dsl-cross",
+            "contentJson": "{\"applicability\":{\"axes\":[],\"datasetHash\":\"dataset-content-v2:9e40fd70a8497470af783f2d4616fa498c43e80b6afd5ce02f5bf4f7842ae6dd\",\"datasetId\":1,\"embargo\":\"embargo-derivation-v1\",\"interval\":\"1h\",\"split\":\"validation-split-v1\"},\"failureModes\":\"Authored DSL candidate: fails if the frozen expression has no trades, loses after costs, or does not pass the existing validation gates. AI rationale/failure-mode generation remains P15.\",\"mechanism\":\"discovery-dsl-preset-v1 base dsl-cross: fixed executable DSL \\\"Fixed SMA cross\\\"; entry/exit expression trees are frozen before queue admission\",\"parentStrategyId\":null,\"source\":\"discovery\",\"strategyHash\":\"strategy-doc-v1:20b89bdf54340db55580538ffec5ffe25dbf2ca59e0914427c617914aa9265a2\",\"strategyId\":null,\"variationKind\":\"dsl-fixed\",\"version\":\"hypothesis-v1\"}",
+            "contentHash": "9d0b61f04716bda47a3e03c1c5d375f1a7fc24281bdad3583bcf4badd43716f2",
+            "applicabilityJson": "{\"axes\":[],\"datasetHash\":\"dataset-content-v2:9e40fd70a8497470af783f2d4616fa498c43e80b6afd5ce02f5bf4f7842ae6dd\",\"datasetId\":1,\"embargo\":\"embargo-derivation-v1\",\"interval\":\"1h\",\"split\":\"validation-split-v1\"}"
+          }
+        ],
+        "inputs": [
+          {
+            "index": 0,
+            "inputFingerprintJson": "{\"appliedAxes\":{\"slowMA\":21.0},\"baseId\":\"varied-slow\",\"candidateIndex\":0,\"configHash\":\"8f94a488081e5172fa7ac534033b81166c34cd6fd37b7ac56c838cacc621ee3b\",\"datasetHash\":\"dataset-content-v2:9e40fd70a8497470af783f2d4616fa498c43e80b6afd5ce02f5bf4f7842ae6dd\",\"datasetId\":1,\"envelopeVersion\":\"discovery-config-v3\",\"interval\":\"1h\",\"rootSeed\":20260726,\"seeds\":{\"randomEntry\":3949539066},\"strategyHash\":\"strategy-v2:3674c76f1087df677d1c3d7ea58ee2b1b2981557f01ea38edfc830cd3740ae30\",\"strategyId\":1}",
+            "sha256": "8391fbad217d1ac2300d19ddd046752e510e12b3083452485734bcf861ab123d"
+          },
+          {
+            "index": 1,
+            "inputFingerprintJson": "{\"appliedAxes\":{\"slowMA\":9.0},\"baseId\":\"varied-slow\",\"candidateIndex\":1,\"configHash\":\"8f94a488081e5172fa7ac534033b81166c34cd6fd37b7ac56c838cacc621ee3b\",\"datasetHash\":\"dataset-content-v2:9e40fd70a8497470af783f2d4616fa498c43e80b6afd5ce02f5bf4f7842ae6dd\",\"datasetId\":1,\"envelopeVersion\":\"discovery-config-v3\",\"interval\":\"1h\",\"rootSeed\":20260726,\"seeds\":{\"randomEntry\":2832830112},\"strategyHash\":\"strategy-v2:4f8f5f2ec809a667c587dd067da34c90241bd496e6187bd915600b02a4045cfc\",\"strategyId\":2}",
+            "sha256": "f79a16ca61fb972d2aa252a55ce33c0735ac5aa926aad8f98d88a19ceca5663f"
+          },
+          {
+            "index": 2,
+            "inputFingerprintJson": "{\"appliedAxes\":{\"slowMA\":33.0},\"baseId\":\"varied-slow\",\"candidateIndex\":2,\"configHash\":\"8f94a488081e5172fa7ac534033b81166c34cd6fd37b7ac56c838cacc621ee3b\",\"datasetHash\":\"dataset-content-v2:9e40fd70a8497470af783f2d4616fa498c43e80b6afd5ce02f5bf4f7842ae6dd\",\"datasetId\":1,\"envelopeVersion\":\"discovery-config-v3\",\"interval\":\"1h\",\"rootSeed\":20260726,\"seeds\":{\"randomEntry\":3045552191},\"strategyHash\":\"strategy-v2:c5401ac5a109af09d63ea17f076e15c1f5d3976b5f0b482bdcda4ab0fcd2f181\",\"strategyId\":3}",
+            "sha256": "930c707ddb9be1bec507bc5902c64fdbf4e72b84ab7f2b57a328fa4acfa8fa6f"
+          },
+          {
+            "index": 3,
+            "inputFingerprintJson": "{\"appliedAxes\":{},\"baseId\":\"dsl-cross\",\"candidateIndex\":3,\"configHash\":\"8f94a488081e5172fa7ac534033b81166c34cd6fd37b7ac56c838cacc621ee3b\",\"datasetHash\":\"dataset-content-v2:9e40fd70a8497470af783f2d4616fa498c43e80b6afd5ce02f5bf4f7842ae6dd\",\"datasetId\":1,\"envelopeVersion\":\"discovery-config-v3\",\"interval\":\"1h\",\"rootSeed\":20260726,\"seeds\":{\"randomEntry\":256232906},\"strategyHash\":\"strategy-v2:ec7a4e080eeda603a343839e085e2ef997721906d70f8ce8e6aff6b6d31a9a40\",\"strategyId\":4}",
+            "sha256": "7a9eb5bbe6a661b8193d29a8a73bbeb69c528d214274565a75d7a844282771f0"
+          }
+        ],
+        "expectedLineage": {
+          "configHash": "8f94a488081e5172fa7ac534033b81166c34cd6fd37b7ac56c838cacc621ee3b",
+          "candidates": [
+            {
+              "index": 0,
+              "strategyId": 1,
+              "strategyHash": "strategy-v2:3674c76f1087df677d1c3d7ea58ee2b1b2981557f01ea38edfc830cd3740ae30",
+              "hypothesisId": 1,
+              "hypothesisHash": "7112ec308450f50c701ec5a94e17409ea71d713d0c42f1857a5445f6048e1391",
+              "baseId": "varied-slow"
+            },
+            {
+              "index": 1,
+              "strategyId": 2,
+              "strategyHash": "strategy-v2:4f8f5f2ec809a667c587dd067da34c90241bd496e6187bd915600b02a4045cfc",
+              "hypothesisId": 1,
+              "hypothesisHash": "7112ec308450f50c701ec5a94e17409ea71d713d0c42f1857a5445f6048e1391",
+              "baseId": "varied-slow"
+            },
+            {
+              "index": 2,
+              "strategyId": 3,
+              "strategyHash": "strategy-v2:c5401ac5a109af09d63ea17f076e15c1f5d3976b5f0b482bdcda4ab0fcd2f181",
+              "hypothesisId": 1,
+              "hypothesisHash": "7112ec308450f50c701ec5a94e17409ea71d713d0c42f1857a5445f6048e1391",
+              "baseId": "varied-slow"
+            },
+            {
+              "index": 3,
+              "strategyId": 4,
+              "strategyHash": "strategy-v2:ec7a4e080eeda603a343839e085e2ef997721906d70f8ce8e6aff6b6d31a9a40",
+              "hypothesisId": 2,
+              "hypothesisHash": "9d0b61f04716bda47a3e03c1c5d375f1a7fc24281bdad3583bcf4badd43716f2",
+              "baseId": "dsl-cross"
+            }
+          ]
+        },
+        "expectedWarmup": [
+          {
+            "maxSignalLookbackBars": 22,
+            "holdingAllowanceBars": 7,
+            "embargoBars": 29
+          },
+          {
+            "maxSignalLookbackBars": 10,
+            "holdingAllowanceBars": 7,
+            "embargoBars": 17
+          },
+          {
+            "maxSignalLookbackBars": 34,
+            "holdingAllowanceBars": 7,
+            "embargoBars": 41
+          },
+          {
+            "maxSignalLookbackBars": 4,
+            "holdingAllowanceBars": 7,
+            "embargoBars": 11
+          }
+        ],
+        "priorPreparation": {
+          "parseBytes": 17646,
+          "parseNodes": 678,
+          "expansionBytes": 2122,
+          "expansionNodes": 153,
+          "scratchBytes": 19768,
+          "scratchNodes": 831
+        },
+        "priorWarmupWork": {
+          "hashBytes": 8037,
+          "copyBytes": 149077,
+          "analysisUnits": 164951,
+          "cloneNodes": 183,
+          "outputBytes": 762
+        },
+        "campaignDocumentJson": "{\"contractVersion\":\"research-campaign-declaration-v1\",\"contracts\":{\"datasetIdentity\":\"dataset-content-v2\",\"execution\":\"backtest-execution-v1\",\"marketSnapshot\":\"market-snapshot-v1\",\"metrics\":\"metrics-v2\",\"precision\":\"research-precision-v1\",\"split\":\"validation-split-v1\",\"trialLedger\":\"trial-ledger-v1\",\"walkForward\":\"research-walk-forward-v1\",\"walkForwardEvidence\":\"walk-forward-evidence-v1\"},\"instruments\":[{\"datasetHash\":\"dataset-content-v2:9e40fd70a8497470af783f2d4616fa498c43e80b6afd5ce02f5bf4f7842ae6dd\",\"delistedAtMs\":null,\"fromMs\":1721001600000,\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"listedAtMs\":0,\"samplePolicy\":{\"foldCount\":2,\"foldValidationBars\":1,\"minimumTotalBars\":4,\"minimumTrainBars\":1,\"rationale\":\"Synthetic original-row consistency only; not numerical execution, sample sufficiency or source admission.\"},\"snapshotId\":\"4f728dc603ab721f81080864a4ba0ffeffd92457ac9b7789ed453f69e58e9b8a\",\"toMs\":1721012400000}],\"sampling\":{\"alphaPpm\":50000,\"bootstrapSamples\":100000,\"maxBootstrapSamples\":200000,\"maxRelativeStandardErrorPpm\":200000}}",
+        "campaignIdentityPayloadHex": "06000000040000000f636f6e747261637456657273696f6e040000002072657365617263682d63616d706169676e2d6465636c61726174696f6e2d763100000009636f6e74726163747306000000090000000f646174617365744964656e746974790400000012646174617365742d636f6e74656e742d763200000009657865637574696f6e04000000156261636b746573742d657865637574696f6e2d76310000000e6d61726b6574536e617073686f7404000000126d61726b65742d736e617073686f742d7631000000076d657472696373040000000a6d6574726963732d763200000009707265636973696f6e040000001572657365617263682d707265636973696f6e2d76310000000573706c6974040000001376616c69646174696f6e2d73706c69742d76310000000b747269616c4c6564676572040000000f747269616c2d6c65646765722d76310000000b77616c6b466f7277617264040000001872657365617263682d77616c6b2d666f72776172642d76310000001377616c6b466f727761726445766964656e6365040000001877616c6b2d666f72776172642d65766964656e63652d76310000000b696e737472756d656e7473050000000106000000090000000b64617461736574486173680400000053646174617365742d636f6e74656e742d76323a396534306664373061383439373437306166373833663264343631366661343938633433653830623661666435636530326635626634663738343261653664640000000c64656c697374656441744d73000000000666726f6d4d730342790b3b064000000000000c696e737472756d656e744964040000001663727970746f3a62696e616e63653a4254435553445400000008696e74657276616c040000000231680000000a6c697374656441744d730300000000000000000000000c73616d706c65506f6c696379060000000500000009666f6c64436f756e7403400000000000000000000012666f6c6456616c69646174696f6e42617273033ff0000000000000000000106d696e696d756d546f74616c42617273034010000000000000000000106d696e696d756d547261696e42617273033ff000000000000000000009726174696f6e616c65040000006953796e746865746963206f726967696e616c2d726f7720636f6e73697374656e6379206f6e6c793b206e6f74206e756d65726963616c20657865637574696f6e2c2073616d706c652073756666696369656e6379206f7220736f757263652061646d697373696f6e2e0000000a736e617073686f74496404000000403466373238646336303361623732316638313038303836346134626130666665666664393234353761633962373738396564343533663639653538653962386100000004746f4d730342790b4552f800000000000873616d706c696e67060000000400000008616c70686150706d0340e86a000000000000000010626f6f74737472617053616d706c65730340f86a0000000000000000136d6178426f6f74737472617053616d706c65730341086a00000000000000001b6d617852656c61746976655374616e646172644572726f7250706d0341086a0000000000",
+        "campaignId": "2c636ef90b62b27366552b7df4d45f71a9bd2cbb6128dc90f67a2cd6b0e9701e"
+      },
+      "jointPreparation": {
+        "parseBytes": 19004,
+        "parseNodes": 739,
+        "expansionBytes": 2122,
+        "expansionNodes": 153,
+        "scratchBytes": 21126,
+        "scratchNodes": 892
+      },
+      "jointWork": {
+        "hashBytes": 10005,
+        "copyBytes": 945189,
+        "analysisUnits": 1529431,
+        "cloneNodes": 577,
+        "outputBytes": 1098
+      }
+    },
+    {
+      "snapshotCase": "forward-observed",
+      "instrumentCase": "instrument-1",
+      "calendarCase": "calendar-0",
+      "datasetCase": "crypto",
+      "originalDocuments": [
+        {
+          "field": "snapshot.coverage_json",
+          "utf8Bytes": 145,
+          "nodes": 9,
+          "compactBytes": 145,
+          "sha256": "737a4f0253f29a402eb7535f55b485ffa9b47fc000974798a3a66da27add00f5"
+        },
+        {
+          "field": "snapshot.content_json",
+          "utf8Bytes": 580,
+          "nodes": 14,
+          "compactBytes": 580,
+          "sha256": "ab10f4fc11c3e89f1676bb38641a85d628cde29c4b49e04aebf0418128bb55e8"
+        },
+        {
+          "field": "instrument.suspensions_json",
+          "utf8Bytes": 2,
+          "nodes": 1,
+          "compactBytes": 2,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        {
+          "field": "instrument.source_capabilities_json",
+          "utf8Bytes": 41,
+          "nodes": 4,
+          "compactBytes": 41,
+          "sha256": "e2f00e18ed6ec43e5d43a00f0c55f4c31bae0683b5d406351c9472d9fbd9ff43"
+        },
+        {
+          "field": "instrument.content_json",
+          "utf8Bytes": 347,
+          "nodes": 18,
+          "compactBytes": 347,
+          "sha256": "17d9d72d2bd217a790a1026e4cafadf6b955eb15229d364c9f81256b9679f160"
+        },
+        {
+          "field": "calendar.definition_json",
+          "utf8Bytes": 152,
+          "nodes": 8,
+          "compactBytes": 152,
+          "sha256": "4b5a8d5cd7b7c9065615308e030c8598602a1a2831d809015ae97ca52c7cc117"
+        },
+        {
+          "field": "provenance[2].request_scope_json",
+          "utf8Bytes": 79,
+          "nodes": 3,
+          "compactBytes": 79,
+          "sha256": "a5ea0a91372762d6df5656e8bffceb129ad97b8d8f7c16b2177951044aaca046"
+        },
+        {
+          "field": "provenance[7].request_scope_json",
+          "utf8Bytes": 18,
+          "nodes": 4,
+          "compactBytes": 18,
+          "sha256": "6dd294d4b48c8d8668aedcbdb44761cbbb6a57ef54ca31358b5fca3abadd20de"
+        }
+      ],
+      "identityDocuments": [
+        {
+          "field": "calendar",
+          "canonicalJson": "{\"calendarId\":\"crypto-24x7-v1\",\"earlyCloses\":[],\"holidays\":[],\"kind\":\"continuous\",\"timezone\":\"UTC\",\"tradingWeekdays\":[],\"version\":\"session-calendar-v1\"}",
+          "utf8Bytes": 152,
+          "nodes": 8,
+          "sha256": "4b5a8d5cd7b7c9065615308e030c8598602a1a2831d809015ae97ca52c7cc117"
+        },
+        {
+          "field": "instrument",
+          "canonicalJson": "{\"assetType\":\"spot-crypto\",\"base\":\"BTC\",\"delistedAt\":null,\"instrumentId\":\"crypto:binance:BTCUSDT\",\"listedFrom\":null,\"lotSize\":0.5,\"minNotional\":1.5,\"priceStep\":0.25,\"quote\":\"USDT\",\"sessionCalendarId\":\"crypto-24x7-v1\",\"sourceCapabilities\":{\"fixture\":{\"adjusted\":false,\"raw\":true}},\"suspensions\":[],\"timezone\":\"UTC\",\"version\":\"market-instrument-v1\"}",
+          "utf8Bytes": 347,
+          "nodes": 18,
+          "sha256": "17d9d72d2bd217a790a1026e4cafadf6b955eb15229d364c9f81256b9679f160"
+        },
+        {
+          "field": "snapshot",
+          "canonicalJson": "{\"calendarId\":\"crypto-24x7-v1\",\"corporateActionVersion\":null,\"costProfileVersion\":\"fixture-cost-v1\",\"datasetHash\":\"dataset-content-v2:9e40fd70a8497470af783f2d4616fa498c43e80b6afd5ce02f5bf4f7842ae6dd\",\"instrumentContentHash\":\"17d9d72d2bd217a790a1026e4cafadf6b955eb15229d364c9f81256b9679f160\",\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"kind\":\"forward-observed\",\"priceBasis\":\"raw\",\"sourceRecordHashes\":[\"72ec5994863fb2a289f5ccc766580e98e2bee6c94c6fbc2bbf0b040f9bc83c17\",\"88a1183eba2ca83bea75c8db9fcd9c21162c20e1ca73d72c77736438eca0ddd3\"],\"version\":\"market-snapshot-v1\"}",
+          "utf8Bytes": 580,
+          "nodes": 14,
+          "sha256": "ab10f4fc11c3e89f1676bb38641a85d628cde29c4b49e04aebf0418128bb55e8"
+        },
+        {
+          "field": "provenance[2]",
+          "canonicalJson": "{\"accepted\":true,\"availableAt\":\"2024-07-15T04:00:00Z\",\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"mediaType\":\"text/csv\",\"rawByteLen\":35,\"rawSha256\":\"87dd2efcdf964c70248aa03c62a723f582b7416b0fabfe918bd24d66770768a5\",\"rejectionReason\":null,\"requestScope\":{\"availabilityBasis\":\"observed-at-retrieval\",\"fixture\":\"not exchange evidence\"},\"retrievedAt\":\"2024-07-15T12:00:00+08:00\",\"revisionOf\":null,\"role\":\"primary\",\"source\":\"binance-archive\",\"version\":\"market-provenance-v1\"}",
+          "utf8Bytes": 483,
+          "nodes": 17,
+          "sha256": "88a1183eba2ca83bea75c8db9fcd9c21162c20e1ca73d72c77736438eca0ddd3"
+        },
+        {
+          "field": "provenance[7]",
+          "canonicalJson": "{\"accepted\":true,\"availableAt\":\"2024-07-15T06:00:00Z\",\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"mediaType\":\"text/plain\",\"rawByteLen\":5,\"rawSha256\":\"8944e854e3f4447241f05a4624cc41c6f9872232251870fc8183743f05d49a2e\",\"rejectionReason\":null,\"requestScope\":[\"fixture\",0,null],\"retrievedAt\":\"2024-07-15T06:00:00Z\",\"revisionOf\":5,\"role\":\"primary\",\"source\":\"binance-rest\",\"version\":\"market-provenance-v1\"}",
+          "utf8Bytes": 412,
+          "nodes": 18,
+          "sha256": "72ec5994863fb2a289f5ccc766580e98e2bee6c94c6fbc2bbf0b040f9bc83c17"
+        }
+      ],
+      "retainedStringManifest": [
+        [
+          "0",
+          "snapshot_id",
+          64
+        ],
+        [
+          "0",
+          "version",
+          18
+        ],
+        [
+          "0",
+          "instrument_id",
+          22
+        ],
+        [
+          "0",
+          "interval",
+          2
+        ],
+        [
+          "0",
+          "dataset_hash",
+          83
+        ],
+        [
+          "0",
+          "price_basis",
+          3
+        ],
+        [
+          "0",
+          "calendar_id",
+          14
+        ],
+        [
+          "0",
+          "cost_profile_version",
+          15
+        ],
+        [
+          "0",
+          "kind",
+          16
+        ],
+        [
+          "0",
+          "status",
+          2
+        ],
+        [
+          "0",
+          "coverage_json",
+          145
+        ],
+        [
+          "0",
+          "content_json",
+          580
+        ],
+        [
+          "1",
+          "instrument_id",
+          22
+        ],
+        [
+          "1",
+          "version",
+          20
+        ],
+        [
+          "1",
+          "market",
+          6
+        ],
+        [
+          "1",
+          "venue",
+          7
+        ],
+        [
+          "1",
+          "symbol",
+          7
+        ],
+        [
+          "1",
+          "base",
+          3
+        ],
+        [
+          "1",
+          "quote",
+          4
+        ],
+        [
+          "1",
+          "asset_type",
+          11
+        ],
+        [
+          "1",
+          "session_calendar_id",
+          14
+        ],
+        [
+          "1",
+          "timezone",
+          3
+        ],
+        [
+          "1",
+          "suspensions_json",
+          2
+        ],
+        [
+          "1",
+          "source_capabilities_json",
+          41
+        ],
+        [
+          "1",
+          "content_json",
+          347
+        ],
+        [
+          "1",
+          "content_hash",
+          64
+        ],
+        [
+          "2",
+          "calendar_id",
+          14
+        ],
+        [
+          "2",
+          "version",
+          19
+        ],
+        [
+          "2",
+          "kind",
+          10
+        ],
+        [
+          "2",
+          "timezone",
+          3
+        ],
+        [
+          "2",
+          "content_hash",
+          64
+        ],
+        [
+          "2",
+          "definition_json",
+          152
+        ],
+        [
+          "3",
+          "exchange",
+          7
+        ],
+        [
+          "3",
+          "symbol",
+          7
+        ],
+        [
+          "3",
+          "interval",
+          2
+        ],
+        [
+          "3",
+          "source",
+          7
+        ],
+        [
+          "3",
+          "datasetHash",
+          83
+        ],
+        [
+          "4",
+          "instrument_id",
+          22
+        ],
+        [
+          "4",
+          "interval",
+          2
+        ],
+        [
+          "4",
+          "source",
+          15
+        ],
+        [
+          "4",
+          "role",
+          7
+        ],
+        [
+          "4",
+          "raw_media_type",
+          8
+        ],
+        [
+          "4",
+          "retrieved_at",
+          25
+        ],
+        [
+          "4",
+          "available_at",
+          20
+        ],
+        [
+          "4",
+          "version",
+          20
+        ],
+        [
+          "4",
+          "request_scope_json",
+          79
+        ],
+        [
+          "4",
+          "raw_sha256",
+          64
+        ],
+        [
+          "4",
+          "raw_artifact_path",
+          71
+        ],
+        [
+          "4",
+          "record_hash",
+          64
+        ],
+        [
+          "5",
+          "instrument_id",
+          22
+        ],
+        [
+          "5",
+          "interval",
+          2
+        ],
+        [
+          "5",
+          "source",
+          12
+        ],
+        [
+          "5",
+          "role",
+          7
+        ],
+        [
+          "5",
+          "raw_media_type",
+          10
+        ],
+        [
+          "5",
+          "retrieved_at",
+          20
+        ],
+        [
+          "5",
+          "available_at",
+          20
+        ],
+        [
+          "5",
+          "version",
+          20
+        ],
+        [
+          "5",
+          "request_scope_json",
+          18
+        ],
+        [
+          "5",
+          "raw_sha256",
+          64
+        ],
+        [
+          "5",
+          "raw_artifact_path",
+          71
+        ],
+        [
+          "5",
+          "record_hash",
+          64
+        ]
+      ],
+      "marketWork": {
+        "originalBytes": 1364,
+        "originalNodes": 61,
+        "retainedTextBytes": 2610,
+        "documentCompactBytes": 1364,
+        "identityCompactBytes": 1974,
+        "identityNodes": 75,
+        "sourceCount": 2,
+        "hashBytes": 1974,
+        "copyBytes": 796880,
+        "analysisUnits": 1367552,
+        "cloneNodes": 394,
+        "outputBytes": 336
+      },
+      "expectedMarket": {
+        "snapshotId": "ab10f4fc11c3e89f1676bb38641a85d628cde29c4b49e04aebf0418128bb55e8",
+        "instrumentRevisionHash": "17d9d72d2bd217a790a1026e4cafadf6b955eb15229d364c9f81256b9679f160",
+        "calendarHash": "4b5a8d5cd7b7c9065615308e030c8598602a1a2831d809015ae97ca52c7cc117",
+        "sources": [
+          {
+            "provenanceId": 2,
+            "recordHash": "88a1183eba2ca83bea75c8db9fcd9c21162c20e1ca73d72c77736438eca0ddd3"
+          },
+          {
+            "provenanceId": 7,
+            "recordHash": "72ec5994863fb2a289f5ccc766580e98e2bee6c94c6fbc2bbf0b040f9bc83c17"
+          }
+        ]
+      },
+      "id": "forward-offset-availability",
+      "family": {
+        "sourceCase": "v1-varied-slow",
+        "datasetRowId": 1,
+        "datasetHash": "dataset-content-v2:9e40fd70a8497470af783f2d4616fa498c43e80b6afd5ce02f5bf4f7842ae6dd",
+        "interval": "1h",
+        "configJson": "{\"bases\":[{\"axes\":[{\"key\":\"slowMA\",\"max\":33,\"min\":9,\"step\":12}],\"id\":\"varied-slow\",\"presetVersion\":\"discovery-preset-v1\",\"strategy\":{\"bbMult\":2,\"bbPeriod\":20,\"direction\":\"long\",\"emaPeriod\":50,\"entryCode\":\"crossUp(macd, macdSignal)\",\"entryRules\":[{\"l\":\"maFast\",\"op\":\"crossUp\",\"r\":\"maSlow\"}],\"entrySig\":\"maCrossUp\",\"exitCode\":\"crossDown(macd, macdSignal)\",\"exitRules\":[{\"l\":\"maFast\",\"op\":\"crossDown\",\"r\":\"maSlow\"}],\"exitSig\":\"maCrossDown\",\"fastMA\":5,\"feePct\":0.05,\"fillMode\":\"close\",\"macdFast\":12,\"macdSignal\":9,\"macdSlow\":26,\"mode\":\"params\",\"rsiBuy\":30,\"rsiPeriod\":14,\"rsiSell\":70,\"sizePct\":100,\"slPct\":0,\"slipPct\":0.02,\"slowMA\":21,\"tpPct\":0}}],\"benchmarkCosts\":{\"feePct\":0.05,\"slipPct\":0.02},\"caps\":{\"candidates\":256},\"contracts\":{\"backtest\":\"backtest-execution-v1\",\"benchmarks\":\"benchmark-suite-v1\",\"datasetHash\":\"dataset-content-v2\",\"embargo\":\"embargo-derivation-v1\",\"enumeration\":\"discovery-enumeration-v1\",\"gate\":\"gate-v1\",\"metrics\":\"metrics-v2\",\"randomEntry\":\"random-entry-v1\",\"score\":\"score-v1\",\"seed\":\"seed-v1\",\"split\":\"validation-split-v1\",\"strategyHash\":\"strategy-v2\"},\"dataset\":{\"contentHash\":\"dataset-content-v2:9e40fd70a8497470af783f2d4616fa498c43e80b6afd5ce02f5bf4f7842ae6dd\",\"id\":1},\"embargo\":{\"holdingAllowanceBars\":7},\"envelopeVersion\":\"discovery-config-v1\",\"execution\":{\"startEquity\":10000},\"gateConfig\":{\"maxDrawdown\":0.35,\"maxMonthlyContribution\":0.4,\"maxSingleTradeContribution\":0.25,\"minAvgTradeReturn\":0,\"minRandomEntryPercentile\":95,\"minRollingPositiveRatio\":0.55,\"minTrades\":30,\"rollingWindowBars\":30},\"maxConcurrency\":null,\"randomEntry\":{\"runs\":200},\"rootSeed\":20260726,\"scoreConfig\":{\"caps\":{\"cagr\":1,\"calmar\":5,\"complexityUnits\":40,\"consistencySigmaScale\":10,\"dataMiningLog10\":4,\"profitFactor\":3,\"sortino\":5,\"turnover\":0.1},\"weights\":{\"cagr\":1,\"calmar\":1,\"complexity\":0.5,\"consistency\":1,\"dataMining\":1,\"profitFactor\":1,\"regime\":0,\"sortino\":1,\"turnover\":0.5}}}",
+        "configHash": "a5a4ad4e4b64fec275723c673fb6119ca2374a848874c43799e126d98f87ff97",
+        "configRawSha256": "a5a4ad4e4b64fec275723c673fb6119ca2374a848874c43799e126d98f87ff97",
+        "hypotheses": [
+          {
+            "baseId": "varied-slow",
+            "contentJson": "{\"applicability\":{\"axes\":[\"slowMA\"],\"datasetHash\":\"dataset-content-v2:9e40fd70a8497470af783f2d4616fa498c43e80b6afd5ce02f5bf4f7842ae6dd\",\"datasetId\":1,\"embargo\":\"embargo-derivation-v1\",\"interval\":\"1h\",\"split\":\"validation-split-v1\"},\"failureModes\":\"Not stated: a mechanical parameter sweep of a preset strategy. Treated as unexplained until a hypothesis with stated failure modes replaces it (P15).\",\"mechanism\":\"preset discovery-preset-v1 base varied-slow: entry on maCrossUp, exit on maCrossDown; the parameter sweep asks whether the mechanism survives neighbouring slowMA\",\"parentStrategyId\":null,\"source\":\"discovery\",\"strategyHash\":\"strategy-doc-v1:aeb2fe6e9375d64806ec08d335cf7a75b7c774c65e358560f07377d9f803cf39\",\"strategyId\":null,\"variationKind\":\"param-sweep:slowMA\",\"version\":\"hypothesis-v1\"}",
+            "contentHash": "7112ec308450f50c701ec5a94e17409ea71d713d0c42f1857a5445f6048e1391",
+            "applicabilityJson": "{\"axes\":[\"slowMA\"],\"datasetHash\":\"dataset-content-v2:9e40fd70a8497470af783f2d4616fa498c43e80b6afd5ce02f5bf4f7842ae6dd\",\"datasetId\":1,\"embargo\":\"embargo-derivation-v1\",\"interval\":\"1h\",\"split\":\"validation-split-v1\"}"
+          }
+        ],
+        "inputs": [
+          {
+            "index": 0,
+            "inputFingerprintJson": "{\"appliedAxes\":{\"slowMA\":21.0},\"baseId\":\"varied-slow\",\"candidateIndex\":0,\"configHash\":\"a5a4ad4e4b64fec275723c673fb6119ca2374a848874c43799e126d98f87ff97\",\"datasetHash\":\"dataset-content-v2:9e40fd70a8497470af783f2d4616fa498c43e80b6afd5ce02f5bf4f7842ae6dd\",\"datasetId\":1,\"envelopeVersion\":\"discovery-config-v1\",\"interval\":\"1h\",\"rootSeed\":20260726,\"seeds\":{\"randomEntry\":3949539066},\"strategyHash\":\"strategy-v2:3674c76f1087df677d1c3d7ea58ee2b1b2981557f01ea38edfc830cd3740ae30\",\"strategyId\":1}",
+            "sha256": "b28575a8b7cb9789feaa641b6e171cd2bd70fb97c65eba8c6bce7b462e6c56d6"
+          },
+          {
+            "index": 1,
+            "inputFingerprintJson": "{\"appliedAxes\":{\"slowMA\":9.0},\"baseId\":\"varied-slow\",\"candidateIndex\":1,\"configHash\":\"a5a4ad4e4b64fec275723c673fb6119ca2374a848874c43799e126d98f87ff97\",\"datasetHash\":\"dataset-content-v2:9e40fd70a8497470af783f2d4616fa498c43e80b6afd5ce02f5bf4f7842ae6dd\",\"datasetId\":1,\"envelopeVersion\":\"discovery-config-v1\",\"interval\":\"1h\",\"rootSeed\":20260726,\"seeds\":{\"randomEntry\":2832830112},\"strategyHash\":\"strategy-v2:4f8f5f2ec809a667c587dd067da34c90241bd496e6187bd915600b02a4045cfc\",\"strategyId\":2}",
+            "sha256": "4c6d735eaaefcc256b7ddab465efee9b9dc90a621e260dd56896007a383e84f2"
+          },
+          {
+            "index": 2,
+            "inputFingerprintJson": "{\"appliedAxes\":{\"slowMA\":33.0},\"baseId\":\"varied-slow\",\"candidateIndex\":2,\"configHash\":\"a5a4ad4e4b64fec275723c673fb6119ca2374a848874c43799e126d98f87ff97\",\"datasetHash\":\"dataset-content-v2:9e40fd70a8497470af783f2d4616fa498c43e80b6afd5ce02f5bf4f7842ae6dd\",\"datasetId\":1,\"envelopeVersion\":\"discovery-config-v1\",\"interval\":\"1h\",\"rootSeed\":20260726,\"seeds\":{\"randomEntry\":3045552191},\"strategyHash\":\"strategy-v2:c5401ac5a109af09d63ea17f076e15c1f5d3976b5f0b482bdcda4ab0fcd2f181\",\"strategyId\":3}",
+            "sha256": "09ea20a69c4437eb56914489d85e235416da74ef43208abfc15b22bbd061a7eb"
+          }
+        ],
+        "expectedLineage": {
+          "configHash": "a5a4ad4e4b64fec275723c673fb6119ca2374a848874c43799e126d98f87ff97",
+          "candidates": [
+            {
+              "index": 0,
+              "strategyId": 1,
+              "strategyHash": "strategy-v2:3674c76f1087df677d1c3d7ea58ee2b1b2981557f01ea38edfc830cd3740ae30",
+              "hypothesisId": 1,
+              "hypothesisHash": "7112ec308450f50c701ec5a94e17409ea71d713d0c42f1857a5445f6048e1391",
+              "baseId": "varied-slow"
+            },
+            {
+              "index": 1,
+              "strategyId": 2,
+              "strategyHash": "strategy-v2:4f8f5f2ec809a667c587dd067da34c90241bd496e6187bd915600b02a4045cfc",
+              "hypothesisId": 1,
+              "hypothesisHash": "7112ec308450f50c701ec5a94e17409ea71d713d0c42f1857a5445f6048e1391",
+              "baseId": "varied-slow"
+            },
+            {
+              "index": 2,
+              "strategyId": 3,
+              "strategyHash": "strategy-v2:c5401ac5a109af09d63ea17f076e15c1f5d3976b5f0b482bdcda4ab0fcd2f181",
+              "hypothesisId": 1,
+              "hypothesisHash": "7112ec308450f50c701ec5a94e17409ea71d713d0c42f1857a5445f6048e1391",
+              "baseId": "varied-slow"
+            }
+          ]
+        },
+        "expectedWarmup": [
+          {
+            "maxSignalLookbackBars": 22,
+            "holdingAllowanceBars": 7,
+            "embargoBars": 29
+          },
+          {
+            "maxSignalLookbackBars": 10,
+            "holdingAllowanceBars": 7,
+            "embargoBars": 17
+          },
+          {
+            "maxSignalLookbackBars": 34,
+            "holdingAllowanceBars": 7,
+            "embargoBars": 41
+          }
+        ],
+        "priorPreparation": {
+          "parseBytes": 9553,
+          "parseNodes": 446,
+          "expansionBytes": 1662,
+          "expansionNodes": 114,
+          "scratchBytes": 11215,
+          "scratchNodes": 560
+        },
+        "priorWarmupWork": {
+          "hashBytes": 5504,
+          "copyBytes": 14859,
+          "analysisUnits": 855,
+          "cloneNodes": 114,
+          "outputBytes": 589
+        },
+        "campaignDocumentJson": "{\"contractVersion\":\"research-campaign-declaration-v1\",\"contracts\":{\"datasetIdentity\":\"dataset-content-v2\",\"execution\":\"backtest-execution-v1\",\"marketSnapshot\":\"market-snapshot-v1\",\"metrics\":\"metrics-v2\",\"precision\":\"research-precision-v1\",\"split\":\"validation-split-v1\",\"trialLedger\":\"trial-ledger-v1\",\"walkForward\":\"research-walk-forward-v1\",\"walkForwardEvidence\":\"walk-forward-evidence-v1\"},\"instruments\":[{\"datasetHash\":\"dataset-content-v2:9e40fd70a8497470af783f2d4616fa498c43e80b6afd5ce02f5bf4f7842ae6dd\",\"delistedAtMs\":null,\"fromMs\":1721001600000,\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"listedAtMs\":0,\"samplePolicy\":{\"foldCount\":2,\"foldValidationBars\":1,\"minimumTotalBars\":4,\"minimumTrainBars\":1,\"rationale\":\"Synthetic original-row consistency only; not numerical execution, sample sufficiency or source admission.\"},\"snapshotId\":\"ab10f4fc11c3e89f1676bb38641a85d628cde29c4b49e04aebf0418128bb55e8\",\"toMs\":1721012400000}],\"sampling\":{\"alphaPpm\":50000,\"bootstrapSamples\":100000,\"maxBootstrapSamples\":200000,\"maxRelativeStandardErrorPpm\":200000}}",
+        "campaignIdentityPayloadHex": "06000000040000000f636f6e747261637456657273696f6e040000002072657365617263682d63616d706169676e2d6465636c61726174696f6e2d763100000009636f6e74726163747306000000090000000f646174617365744964656e746974790400000012646174617365742d636f6e74656e742d763200000009657865637574696f6e04000000156261636b746573742d657865637574696f6e2d76310000000e6d61726b6574536e617073686f7404000000126d61726b65742d736e617073686f742d7631000000076d657472696373040000000a6d6574726963732d763200000009707265636973696f6e040000001572657365617263682d707265636973696f6e2d76310000000573706c6974040000001376616c69646174696f6e2d73706c69742d76310000000b747269616c4c6564676572040000000f747269616c2d6c65646765722d76310000000b77616c6b466f7277617264040000001872657365617263682d77616c6b2d666f72776172642d76310000001377616c6b466f727761726445766964656e6365040000001877616c6b2d666f72776172642d65766964656e63652d76310000000b696e737472756d656e7473050000000106000000090000000b64617461736574486173680400000053646174617365742d636f6e74656e742d76323a396534306664373061383439373437306166373833663264343631366661343938633433653830623661666435636530326635626634663738343261653664640000000c64656c697374656441744d73000000000666726f6d4d730342790b3b064000000000000c696e737472756d656e744964040000001663727970746f3a62696e616e63653a4254435553445400000008696e74657276616c040000000231680000000a6c697374656441744d730300000000000000000000000c73616d706c65506f6c696379060000000500000009666f6c64436f756e7403400000000000000000000012666f6c6456616c69646174696f6e42617273033ff0000000000000000000106d696e696d756d546f74616c42617273034010000000000000000000106d696e696d756d547261696e42617273033ff000000000000000000009726174696f6e616c65040000006953796e746865746963206f726967696e616c2d726f7720636f6e73697374656e6379206f6e6c793b206e6f74206e756d65726963616c20657865637574696f6e2c2073616d706c652073756666696369656e6379206f7220736f757263652061646d697373696f6e2e0000000a736e617073686f74496404000000406162313066346663313163336538396631363736626233383634316138356436323863646532396334623439653034616562663034313831323862623535653800000004746f4d730342790b4552f800000000000873616d706c696e67060000000400000008616c70686150706d0340e86a000000000000000010626f6f74737472617053616d706c65730340f86a0000000000000000136d6178426f6f74737472617053616d706c65730341086a00000000000000001b6d617852656c61746976655374616e646172644572726f7250706d0341086a0000000000",
+        "campaignId": "2232e24458b139d18be24c57eb5fd043cfb145b210f77e236dcd33572bbe4f49"
+      },
+      "jointPreparation": {
+        "parseBytes": 10917,
+        "parseNodes": 507,
+        "expansionBytes": 1662,
+        "expansionNodes": 114,
+        "scratchBytes": 12579,
+        "scratchNodes": 621
+      },
+      "jointWork": {
+        "hashBytes": 7478,
+        "copyBytes": 811739,
+        "analysisUnits": 1368407,
+        "cloneNodes": 508,
+        "outputBytes": 925
+      }
+    },
+    {
+      "snapshotCase": "etf-versions-declared",
+      "instrumentCase": "instrument-2",
+      "calendarCase": "calendar-1",
+      "datasetCase": "etf",
+      "originalDocuments": [
+        {
+          "field": "snapshot.coverage_json",
+          "utf8Bytes": 145,
+          "nodes": 9,
+          "compactBytes": 145,
+          "sha256": "dae3eb42c14f497c20b4e40d2b628ae351db1354f53623995ee70b50b65a0df8"
+        },
+        {
+          "field": "snapshot.content_json",
+          "utf8Bytes": 520,
+          "nodes": 13,
+          "compactBytes": 520,
+          "sha256": "369d1eb021a64f68669c13bc5bb34abf495ef13adf4b362b98238ee8a2ef3654"
+        },
+        {
+          "field": "instrument.suspensions_json",
+          "utf8Bytes": 56,
+          "nodes": 4,
+          "compactBytes": 56,
+          "sha256": "e72b1ba1ddd3437df27ee3b43f6b54be5669be19e7d5d3e186235ade85531fd3"
+        },
+        {
+          "field": "instrument.source_capabilities_json",
+          "utf8Bytes": 2,
+          "nodes": 1,
+          "compactBytes": 2,
+          "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+        },
+        {
+          "field": "instrument.content_json",
+          "utf8Bytes": 383,
+          "nodes": 18,
+          "compactBytes": 383,
+          "sha256": "4ad0b26479f701cba0f2dd30cfb8eaa878c11fe8759b3fd51de3273e106ba627"
+        },
+        {
+          "field": "calendar.definition_json",
+          "utf8Bytes": 212,
+          "nodes": 16,
+          "compactBytes": 212,
+          "sha256": "7dcf2d69a0a39c984dd10b3e7de51694be2b80d0f094a8547ac96dcd8cde6b94"
+        },
+        {
+          "field": "provenance[8].request_scope_json",
+          "utf8Bytes": 27,
+          "nodes": 2,
+          "compactBytes": 27,
+          "sha256": "848ee4455fb32e468274ff8ace2586c36de3bb784c90bee822276fcff583ca32"
+        }
+      ],
+      "identityDocuments": [
+        {
+          "field": "calendar",
+          "canonicalJson": "{\"calendarId\":\"fixture-us-v1\",\"earlyCloses\":[\"2024-07-03\"],\"holidays\":[\"2024-01-01\",\"2024-07-04\"],\"kind\":\"trading-days\",\"timezone\":\"America/New_York\",\"tradingWeekdays\":[1,2,3,4,5],\"version\":\"session-calendar-v1\"}",
+          "utf8Bytes": 212,
+          "nodes": 16,
+          "sha256": "7dcf2d69a0a39c984dd10b3e7de51694be2b80d0f094a8547ac96dcd8cde6b94"
+        },
+        {
+          "field": "instrument",
+          "canonicalJson": "{\"assetType\":\"etf\",\"base\":\"SPY\",\"delistedAt\":1735689600000,\"instrumentId\":\"us-etf:nyse-arca:SPY\",\"listedFrom\":1704067200000,\"lotSize\":null,\"minNotional\":null,\"priceStep\":null,\"quote\":\"USD\",\"sessionCalendarId\":\"fixture-us-v1\",\"sourceCapabilities\":{},\"suspensions\":[{\"fromMs\":1704153600000,\"toMsExclusive\":1704240000000}],\"timezone\":\"America/New_York\",\"version\":\"market-instrument-v1\"}",
+          "utf8Bytes": 383,
+          "nodes": 18,
+          "sha256": "4ad0b26479f701cba0f2dd30cfb8eaa878c11fe8759b3fd51de3273e106ba627"
+        },
+        {
+          "field": "snapshot",
+          "canonicalJson": "{\"calendarId\":\"fixture-us-v1\",\"corporateActionVersion\":\"fixture-actions-v1\",\"costProfileVersion\":\"fixture-cost-v1\",\"datasetHash\":\"dataset-content-v2:699f75126da2cabe5f53a7db9dd662e6bdedf6ff91726261b356598520da56e3\",\"instrumentContentHash\":\"4ad0b26479f701cba0f2dd30cfb8eaa878c11fe8759b3fd51de3273e106ba627\",\"instrumentId\":\"us-etf:nyse-arca:SPY\",\"interval\":\"1d\",\"kind\":\"historical\",\"priceBasis\":\"raw\",\"sourceRecordHashes\":[\"9928b764f76df1baf4cc5ceec2c1f33b7b940c81f8661f1f5d2ff8c9505a8e16\"],\"version\":\"market-snapshot-v1\"}",
+          "utf8Bytes": 520,
+          "nodes": 13,
+          "sha256": "369d1eb021a64f68669c13bc5bb34abf495ef13adf4b362b98238ee8a2ef3654"
+        },
+        {
+          "field": "provenance[8]",
+          "canonicalJson": "{\"accepted\":true,\"availableAt\":null,\"instrumentId\":\"us-etf:nyse-arca:SPY\",\"interval\":\"1d\",\"mediaType\":\"application/json\",\"rawByteLen\":14,\"rawSha256\":\"b4eca5043093d835a20ffd997afdd2234a9d97f6bde92ba9ad1e2ea3f00d32bf\",\"rejectionReason\":null,\"requestScope\":{\"fixture\":\"identity only\"},\"retrievedAt\":\"2024-07-17T00:00:00Z\",\"revisionOf\":null,\"role\":\"primary\",\"source\":\"fixture-etf\",\"version\":\"market-provenance-v1\"}",
+          "utf8Bytes": 410,
+          "nodes": 16,
+          "sha256": "9928b764f76df1baf4cc5ceec2c1f33b7b940c81f8661f1f5d2ff8c9505a8e16"
+        }
+      ],
+      "retainedStringManifest": [
+        [
+          "0",
+          "snapshot_id",
+          64
+        ],
+        [
+          "0",
+          "version",
+          18
+        ],
+        [
+          "0",
+          "instrument_id",
+          20
+        ],
+        [
+          "0",
+          "interval",
+          2
+        ],
+        [
+          "0",
+          "dataset_hash",
+          83
+        ],
+        [
+          "0",
+          "price_basis",
+          3
+        ],
+        [
+          "0",
+          "calendar_id",
+          13
+        ],
+        [
+          "0",
+          "corporate_action_version",
+          18
+        ],
+        [
+          "0",
+          "cost_profile_version",
+          15
+        ],
+        [
+          "0",
+          "kind",
+          10
+        ],
+        [
+          "0",
+          "status",
+          2
+        ],
+        [
+          "0",
+          "coverage_json",
+          145
+        ],
+        [
+          "0",
+          "content_json",
+          520
+        ],
+        [
+          "1",
+          "instrument_id",
+          20
+        ],
+        [
+          "1",
+          "version",
+          20
+        ],
+        [
+          "1",
+          "market",
+          6
+        ],
+        [
+          "1",
+          "venue",
+          9
+        ],
+        [
+          "1",
+          "symbol",
+          3
+        ],
+        [
+          "1",
+          "base",
+          3
+        ],
+        [
+          "1",
+          "quote",
+          3
+        ],
+        [
+          "1",
+          "asset_type",
+          3
+        ],
+        [
+          "1",
+          "session_calendar_id",
+          13
+        ],
+        [
+          "1",
+          "timezone",
+          16
+        ],
+        [
+          "1",
+          "suspensions_json",
+          56
+        ],
+        [
+          "1",
+          "source_capabilities_json",
+          2
+        ],
+        [
+          "1",
+          "content_json",
+          383
+        ],
+        [
+          "1",
+          "content_hash",
+          64
+        ],
+        [
+          "2",
+          "calendar_id",
+          13
+        ],
+        [
+          "2",
+          "version",
+          19
+        ],
+        [
+          "2",
+          "kind",
+          12
+        ],
+        [
+          "2",
+          "timezone",
+          16
+        ],
+        [
+          "2",
+          "content_hash",
+          64
+        ],
+        [
+          "2",
+          "definition_json",
+          212
+        ],
+        [
+          "3",
+          "exchange",
+          9
+        ],
+        [
+          "3",
+          "symbol",
+          3
+        ],
+        [
+          "3",
+          "interval",
+          2
+        ],
+        [
+          "3",
+          "source",
+          7
+        ],
+        [
+          "3",
+          "datasetHash",
+          83
+        ],
+        [
+          "4",
+          "instrument_id",
+          20
+        ],
+        [
+          "4",
+          "interval",
+          2
+        ],
+        [
+          "4",
+          "source",
+          11
+        ],
+        [
+          "4",
+          "role",
+          7
+        ],
+        [
+          "4",
+          "raw_media_type",
+          16
+        ],
+        [
+          "4",
+          "retrieved_at",
+          20
+        ],
+        [
+          "4",
+          "version",
+          20
+        ],
+        [
+          "4",
+          "request_scope_json",
+          27
+        ],
+        [
+          "4",
+          "raw_sha256",
+          64
+        ],
+        [
+          "4",
+          "raw_artifact_path",
+          72
+        ],
+        [
+          "4",
+          "record_hash",
+          64
+        ]
+      ],
+      "marketWork": {
+        "originalBytes": 1345,
+        "originalNodes": 63,
+        "retainedTextBytes": 2277,
+        "documentCompactBytes": 1345,
+        "identityCompactBytes": 1525,
+        "identityNodes": 63,
+        "sourceCount": 1,
+        "hashBytes": 1525,
+        "copyBytes": 722024,
+        "analysisUnits": 1215872,
+        "cloneNodes": 378,
+        "outputBytes": 264
+      },
+      "expectedMarket": {
+        "snapshotId": "369d1eb021a64f68669c13bc5bb34abf495ef13adf4b362b98238ee8a2ef3654",
+        "instrumentRevisionHash": "4ad0b26479f701cba0f2dd30cfb8eaa878c11fe8759b3fd51de3273e106ba627",
+        "calendarHash": "7dcf2d69a0a39c984dd10b3e7de51694be2b80d0f094a8547ac96dcd8cde6b94",
+        "sources": [
+          {
+            "provenanceId": 8,
+            "recordHash": "9928b764f76df1baf4cc5ceec2c1f33b7b940c81f8661f1f5d2ff8c9505a8e16"
+          }
+        ]
+      },
+      "id": "etf-declared-references",
+      "family": {
+        "sourceCase": "v3-mixed-varied-dsl-first",
+        "datasetRowId": 2,
+        "datasetHash": "dataset-content-v2:699f75126da2cabe5f53a7db9dd662e6bdedf6ff91726261b356598520da56e3",
+        "interval": "1d",
+        "configJson": "{\n  \"bases\": [\n    {\n      \"axes\": [],\n      \"id\": \"dsl-cross\",\n      \"presetVersion\": \"discovery-dsl-preset-v1\",\n      \"strategy\": {\n        \"direction\": \"long\",\n        \"dsl\": {\n          \"entry\": {\n            \"args\": [\n              {\n                \"ind\": \"SMA\",\n                \"len\": \"$fast\",\n                \"src\": \"CLOSE\"\n              },\n              {\n                \"ind\": \"SMA\",\n                \"len\": \"$slow\",\n                \"src\": \"CLOSE\"\n              }\n            ],\n            \"op\": \"CROSS_UP\"\n          },\n          \"exit\": {\n            \"args\": [\n              {\n                \"ind\": \"SMA\",\n                \"len\": \"$fast\",\n                \"src\": \"CLOSE\"\n              },\n              {\n                \"ind\": \"SMA\",\n                \"len\": \"$slow\",\n                \"src\": \"CLOSE\"\n              }\n            ],\n            \"op\": \"CROSS_DOWN\"\n          },\n          \"name\": \"Fixed SMA cross\",\n          \"params\": {\n            \"fast\": 2,\n            \"slow\": 3\n          },\n          \"version\": \"strategy-dsl-v1\"\n        },\n        \"feePct\": 0.05,\n        \"fillMode\": \"nextOpen\",\n        \"mode\": \"dsl\",\n        \"sizePct\": 100,\n        \"slPct\": 2,\n        \"slipPct\": 0.02,\n        \"tpPct\": 4\n      }\n    },\n    {\n      \"axes\": [\n        {\n          \"key\": \"slowMA\",\n          \"min\": 9,\n          \"max\": 33,\n          \"step\": 12\n        }\n      ],\n      \"id\": \"varied-slow\",\n      \"presetVersion\": \"discovery-preset-v1\",\n      \"strategy\": {\n        \"bbMult\": 2,\n        \"bbPeriod\": 20,\n        \"direction\": \"long\",\n        \"emaPeriod\": 50,\n        \"entryCode\": \"crossUp(macd, macdSignal)\",\n        \"entryRules\": [\n          {\n            \"l\": \"maFast\",\n            \"op\": \"crossUp\",\n            \"r\": \"maSlow\"\n          }\n        ],\n        \"entrySig\": \"maCrossUp\",\n        \"exitCode\": \"crossDown(macd, macdSignal)\",\n        \"exitRules\": [\n          {\n            \"l\": \"maFast\",\n            \"op\": \"crossDown\",\n            \"r\": \"maSlow\"\n          }\n        ],\n        \"exitSig\": \"maCrossDown\",\n        \"fastMA\": 5,\n        \"feePct\": 0.05,\n        \"fillMode\": \"close\",\n        \"macdFast\": 12,\n        \"macdSignal\": 9,\n        \"macdSlow\": 26,\n        \"mode\": \"params\",\n        \"rsiBuy\": 30,\n        \"rsiPeriod\": 14,\n        \"rsiSell\": 70,\n        \"sizePct\": 100,\n        \"slPct\": 0,\n        \"slipPct\": 0.02,\n        \"slowMA\": 21,\n        \"tpPct\": 0\n      }\n    }\n  ],\n  \"benchmarkCosts\": {\n    \"feePct\": 0.05,\n    \"slipPct\": 0.02\n  },\n  \"caps\": {\n    \"candidates\": 256\n  },\n  \"contracts\": {\n    \"backtest\": \"backtest-execution-v1\",\n    \"benchmarks\": \"benchmark-suite-v1\",\n    \"datasetHash\": \"dataset-content-v2\",\n    \"embargo\": \"embargo-derivation-v1\",\n    \"enumeration\": \"discovery-enumeration-v2\",\n    \"gate\": \"gate-v1\",\n    \"metrics\": \"metrics-v2\",\n    \"randomEntry\": \"random-entry-v1\",\n    \"score\": \"score-v1\",\n    \"seed\": \"seed-v1\",\n    \"split\": \"validation-split-v1\",\n    \"strategyDsl\": \"strategy-dsl-v1\",\n    \"strategyHash\": \"strategy-v2\",\n    \"walkForward\": \"research-walk-forward-v1\",\n    \"walkForwardEvidence\": \"walk-forward-evidence-v1\"\n  },\n  \"dataset\": {\n    \"contentHash\": \"dataset-content-v2:699f75126da2cabe5f53a7db9dd662e6bdedf6ff91726261b356598520da56e3\",\n    \"id\": 2\n  },\n  \"embargo\": {\n    \"holdingAllowanceBars\": 7\n  },\n  \"envelopeVersion\": \"discovery-config-v3\",\n  \"execution\": {\n    \"startEquity\": 10000\n  },\n  \"gateConfig\": {\n    \"maxDrawdown\": 0.35,\n    \"maxMonthlyContribution\": 0.4,\n    \"maxSingleTradeContribution\": 0.25,\n    \"minAvgTradeReturn\": 0,\n    \"minRandomEntryPercentile\": 95,\n    \"minRollingPositiveRatio\": 0.55,\n    \"minTrades\": 30,\n    \"rollingWindowBars\": 30\n  },\n  \"maxConcurrency\": null,\n  \"randomEntry\": {\n    \"runs\": 200\n  },\n  \"rootSeed\": 20260726,\n  \"scoreConfig\": {\n    \"caps\": {\n      \"cagr\": 1,\n      \"calmar\": 5,\n      \"complexityUnits\": 40,\n      \"consistencySigmaScale\": 10,\n      \"dataMiningLog10\": 4,\n      \"profitFactor\": 3,\n      \"sortino\": 5,\n      \"turnover\": 0.1\n    },\n    \"weights\": {\n      \"cagr\": 1,\n      \"calmar\": 1,\n      \"complexity\": 0.5,\n      \"consistency\": 1,\n      \"dataMining\": 1,\n      \"profitFactor\": 1,\n      \"regime\": 0,\n      \"sortino\": 1,\n      \"turnover\": 0.5\n    }\n  },\n  \"walkForward\": {\n    \"foldCount\": 3,\n    \"foldValidationBars\": 8,\n    \"minimumTrainBars\": 20\n  }\n}",
+        "configHash": "bd8dbd5e0dbe939601bb5132e05937941cfc63904f79aff8bf1c5a862fd108ad",
+        "configRawSha256": "4dfeede1f8a66b64efb43714fc18935eff35717d8543eccfa901c145c9eb3562",
+        "hypotheses": [
+          {
+            "baseId": "varied-slow",
+            "contentJson": "{\"applicability\":{\"axes\":[\"slowMA\"],\"datasetHash\":\"dataset-content-v2:699f75126da2cabe5f53a7db9dd662e6bdedf6ff91726261b356598520da56e3\",\"datasetId\":2,\"embargo\":\"embargo-derivation-v1\",\"interval\":\"1d\",\"split\":\"validation-split-v1\"},\"failureModes\":\"Not stated: a mechanical parameter sweep of a preset strategy. Treated as unexplained until a hypothesis with stated failure modes replaces it (P15).\",\"mechanism\":\"preset discovery-preset-v1 base varied-slow: entry on maCrossUp, exit on maCrossDown; the parameter sweep asks whether the mechanism survives neighbouring slowMA\",\"parentStrategyId\":null,\"source\":\"discovery\",\"strategyHash\":\"strategy-doc-v1:aeb2fe6e9375d64806ec08d335cf7a75b7c774c65e358560f07377d9f803cf39\",\"strategyId\":null,\"variationKind\":\"param-sweep:slowMA\",\"version\":\"hypothesis-v1\"}",
+            "contentHash": "102d97d982cca21e1489e433882bea2c48840ceed08272c179953218594a4064",
+            "applicabilityJson": "{\"axes\":[\"slowMA\"],\"datasetHash\":\"dataset-content-v2:699f75126da2cabe5f53a7db9dd662e6bdedf6ff91726261b356598520da56e3\",\"datasetId\":2,\"embargo\":\"embargo-derivation-v1\",\"interval\":\"1d\",\"split\":\"validation-split-v1\"}"
+          },
+          {
+            "baseId": "dsl-cross",
+            "contentJson": "{\"applicability\":{\"axes\":[],\"datasetHash\":\"dataset-content-v2:699f75126da2cabe5f53a7db9dd662e6bdedf6ff91726261b356598520da56e3\",\"datasetId\":2,\"embargo\":\"embargo-derivation-v1\",\"interval\":\"1d\",\"split\":\"validation-split-v1\"},\"failureModes\":\"Authored DSL candidate: fails if the frozen expression has no trades, loses after costs, or does not pass the existing validation gates. AI rationale/failure-mode generation remains P15.\",\"mechanism\":\"discovery-dsl-preset-v1 base dsl-cross: fixed executable DSL \\\"Fixed SMA cross\\\"; entry/exit expression trees are frozen before queue admission\",\"parentStrategyId\":null,\"source\":\"discovery\",\"strategyHash\":\"strategy-doc-v1:20b89bdf54340db55580538ffec5ffe25dbf2ca59e0914427c617914aa9265a2\",\"strategyId\":null,\"variationKind\":\"dsl-fixed\",\"version\":\"hypothesis-v1\"}",
+            "contentHash": "c7b405aaba2baaa1894738004361137c3d5269097c25992caaab669ed4ff3532",
+            "applicabilityJson": "{\"axes\":[],\"datasetHash\":\"dataset-content-v2:699f75126da2cabe5f53a7db9dd662e6bdedf6ff91726261b356598520da56e3\",\"datasetId\":2,\"embargo\":\"embargo-derivation-v1\",\"interval\":\"1d\",\"split\":\"validation-split-v1\"}"
+          }
+        ],
+        "inputs": [
+          {
+            "index": 0,
+            "inputFingerprintJson": "{\"appliedAxes\":{\"slowMA\":21.0},\"baseId\":\"varied-slow\",\"candidateIndex\":0,\"configHash\":\"bd8dbd5e0dbe939601bb5132e05937941cfc63904f79aff8bf1c5a862fd108ad\",\"datasetHash\":\"dataset-content-v2:699f75126da2cabe5f53a7db9dd662e6bdedf6ff91726261b356598520da56e3\",\"datasetId\":2,\"envelopeVersion\":\"discovery-config-v3\",\"interval\":\"1d\",\"rootSeed\":20260726,\"seeds\":{\"randomEntry\":3949539066},\"strategyHash\":\"strategy-v2:3674c76f1087df677d1c3d7ea58ee2b1b2981557f01ea38edfc830cd3740ae30\",\"strategyId\":1}",
+            "sha256": "cad2c531dd3feaff9b10bbc8cb366b546dcf83ee4a1a856294cc8d881aa64c1c"
+          },
+          {
+            "index": 1,
+            "inputFingerprintJson": "{\"appliedAxes\":{\"slowMA\":9.0},\"baseId\":\"varied-slow\",\"candidateIndex\":1,\"configHash\":\"bd8dbd5e0dbe939601bb5132e05937941cfc63904f79aff8bf1c5a862fd108ad\",\"datasetHash\":\"dataset-content-v2:699f75126da2cabe5f53a7db9dd662e6bdedf6ff91726261b356598520da56e3\",\"datasetId\":2,\"envelopeVersion\":\"discovery-config-v3\",\"interval\":\"1d\",\"rootSeed\":20260726,\"seeds\":{\"randomEntry\":2832830112},\"strategyHash\":\"strategy-v2:4f8f5f2ec809a667c587dd067da34c90241bd496e6187bd915600b02a4045cfc\",\"strategyId\":2}",
+            "sha256": "ff382bc5464c42ccbf8c7d926f19ca0278412e490f69e585e1673f8eff166dbc"
+          },
+          {
+            "index": 2,
+            "inputFingerprintJson": "{\"appliedAxes\":{\"slowMA\":33.0},\"baseId\":\"varied-slow\",\"candidateIndex\":2,\"configHash\":\"bd8dbd5e0dbe939601bb5132e05937941cfc63904f79aff8bf1c5a862fd108ad\",\"datasetHash\":\"dataset-content-v2:699f75126da2cabe5f53a7db9dd662e6bdedf6ff91726261b356598520da56e3\",\"datasetId\":2,\"envelopeVersion\":\"discovery-config-v3\",\"interval\":\"1d\",\"rootSeed\":20260726,\"seeds\":{\"randomEntry\":3045552191},\"strategyHash\":\"strategy-v2:c5401ac5a109af09d63ea17f076e15c1f5d3976b5f0b482bdcda4ab0fcd2f181\",\"strategyId\":3}",
+            "sha256": "3ea68936ea2b876265b16c03cf3e2c927c5d4a8fa97a2500918b7e263e140557"
+          },
+          {
+            "index": 3,
+            "inputFingerprintJson": "{\"appliedAxes\":{},\"baseId\":\"dsl-cross\",\"candidateIndex\":3,\"configHash\":\"bd8dbd5e0dbe939601bb5132e05937941cfc63904f79aff8bf1c5a862fd108ad\",\"datasetHash\":\"dataset-content-v2:699f75126da2cabe5f53a7db9dd662e6bdedf6ff91726261b356598520da56e3\",\"datasetId\":2,\"envelopeVersion\":\"discovery-config-v3\",\"interval\":\"1d\",\"rootSeed\":20260726,\"seeds\":{\"randomEntry\":256232906},\"strategyHash\":\"strategy-v2:ec7a4e080eeda603a343839e085e2ef997721906d70f8ce8e6aff6b6d31a9a40\",\"strategyId\":4}",
+            "sha256": "69cf7115d4e8bfbd8b8e6157585cddefd91c7bff343e4606ed70104ae07bfec2"
+          }
+        ],
+        "expectedLineage": {
+          "configHash": "bd8dbd5e0dbe939601bb5132e05937941cfc63904f79aff8bf1c5a862fd108ad",
+          "candidates": [
+            {
+              "index": 0,
+              "strategyId": 1,
+              "strategyHash": "strategy-v2:3674c76f1087df677d1c3d7ea58ee2b1b2981557f01ea38edfc830cd3740ae30",
+              "hypothesisId": 1,
+              "hypothesisHash": "102d97d982cca21e1489e433882bea2c48840ceed08272c179953218594a4064",
+              "baseId": "varied-slow"
+            },
+            {
+              "index": 1,
+              "strategyId": 2,
+              "strategyHash": "strategy-v2:4f8f5f2ec809a667c587dd067da34c90241bd496e6187bd915600b02a4045cfc",
+              "hypothesisId": 1,
+              "hypothesisHash": "102d97d982cca21e1489e433882bea2c48840ceed08272c179953218594a4064",
+              "baseId": "varied-slow"
+            },
+            {
+              "index": 2,
+              "strategyId": 3,
+              "strategyHash": "strategy-v2:c5401ac5a109af09d63ea17f076e15c1f5d3976b5f0b482bdcda4ab0fcd2f181",
+              "hypothesisId": 1,
+              "hypothesisHash": "102d97d982cca21e1489e433882bea2c48840ceed08272c179953218594a4064",
+              "baseId": "varied-slow"
+            },
+            {
+              "index": 3,
+              "strategyId": 4,
+              "strategyHash": "strategy-v2:ec7a4e080eeda603a343839e085e2ef997721906d70f8ce8e6aff6b6d31a9a40",
+              "hypothesisId": 2,
+              "hypothesisHash": "c7b405aaba2baaa1894738004361137c3d5269097c25992caaab669ed4ff3532",
+              "baseId": "dsl-cross"
+            }
+          ]
+        },
+        "expectedWarmup": [
+          {
+            "maxSignalLookbackBars": 22,
+            "holdingAllowanceBars": 7,
+            "embargoBars": 29
+          },
+          {
+            "maxSignalLookbackBars": 10,
+            "holdingAllowanceBars": 7,
+            "embargoBars": 17
+          },
+          {
+            "maxSignalLookbackBars": 34,
+            "holdingAllowanceBars": 7,
+            "embargoBars": 41
+          },
+          {
+            "maxSignalLookbackBars": 4,
+            "holdingAllowanceBars": 7,
+            "embargoBars": 11
+          }
+        ],
+        "priorPreparation": {
+          "parseBytes": 17646,
+          "parseNodes": 678,
+          "expansionBytes": 2122,
+          "expansionNodes": 153,
+          "scratchBytes": 19768,
+          "scratchNodes": 831
+        },
+        "priorWarmupWork": {
+          "hashBytes": 8037,
+          "copyBytes": 149077,
+          "analysisUnits": 164951,
+          "cloneNodes": 183,
+          "outputBytes": 762
+        },
+        "campaignDocumentJson": "{\"contractVersion\":\"research-campaign-declaration-v1\",\"contracts\":{\"datasetIdentity\":\"dataset-content-v2\",\"execution\":\"backtest-execution-v1\",\"marketSnapshot\":\"market-snapshot-v1\",\"metrics\":\"metrics-v2\",\"precision\":\"research-precision-v1\",\"split\":\"validation-split-v1\",\"trialLedger\":\"trial-ledger-v1\",\"walkForward\":\"research-walk-forward-v1\",\"walkForwardEvidence\":\"walk-forward-evidence-v1\"},\"instruments\":[{\"datasetHash\":\"dataset-content-v2:699f75126da2cabe5f53a7db9dd662e6bdedf6ff91726261b356598520da56e3\",\"delistedAtMs\":1735689600000,\"fromMs\":1721001600000,\"instrumentId\":\"us-etf:nyse-arca:SPY\",\"interval\":\"1d\",\"listedAtMs\":1704067200000,\"samplePolicy\":{\"foldCount\":2,\"foldValidationBars\":1,\"minimumTotalBars\":2,\"minimumTrainBars\":1,\"rationale\":\"Synthetic original-row consistency only; not numerical execution, sample sufficiency or source admission.\"},\"snapshotId\":\"369d1eb021a64f68669c13bc5bb34abf495ef13adf4b362b98238ee8a2ef3654\",\"toMs\":1721088000000}],\"sampling\":{\"alphaPpm\":50000,\"bootstrapSamples\":100000,\"maxBootstrapSamples\":200000,\"maxRelativeStandardErrorPpm\":200000}}",
+        "campaignIdentityPayloadHex": "06000000040000000f636f6e747261637456657273696f6e040000002072657365617263682d63616d706169676e2d6465636c61726174696f6e2d763100000009636f6e74726163747306000000090000000f646174617365744964656e746974790400000012646174617365742d636f6e74656e742d763200000009657865637574696f6e04000000156261636b746573742d657865637574696f6e2d76310000000e6d61726b6574536e617073686f7404000000126d61726b65742d736e617073686f742d7631000000076d657472696373040000000a6d6574726963732d763200000009707265636973696f6e040000001572657365617263682d707265636973696f6e2d76310000000573706c6974040000001376616c69646174696f6e2d73706c69742d76310000000b747269616c4c6564676572040000000f747269616c2d6c65646765722d76310000000b77616c6b466f7277617264040000001872657365617263682d77616c6b2d666f72776172642d76310000001377616c6b466f727761726445766964656e6365040000001877616c6b2d666f72776172642d65766964656e63652d76310000000b696e737472756d656e7473050000000106000000090000000b64617461736574486173680400000053646174617365742d636f6e74656e742d76323a363939663735313236646132636162653566353361376462396464363632653662646564663666663931373236323631623335363539383532306461353665330000000c64656c697374656441744d7303427941f297c000000000000666726f6d4d730342790b3b064000000000000c696e737472756d656e744964040000001475732d6574663a6e7973652d617263613a53505900000008696e74657276616c040000000231640000000a6c697374656441744d73034278cc251f4000000000000c73616d706c65506f6c696379060000000500000009666f6c64436f756e7403400000000000000000000012666f6c6456616c69646174696f6e42617273033ff0000000000000000000106d696e696d756d546f74616c42617273034000000000000000000000106d696e696d756d547261696e42617273033ff000000000000000000009726174696f6e616c65040000006953796e746865746963206f726967696e616c2d726f7720636f6e73697374656e6379206f6e6c793b206e6f74206e756d65726963616c20657865637574696f6e2c2073616d706c652073756666696369656e6379206f7220736f757263652061646d697373696f6e2e0000000a736e617073686f74496404000000403336396431656230323161363466363836363963313362633562623334616266343935656631336164663462333632623938323338656538613265663336353400000004746f4d730342790b8d6c0000000000000873616d706c696e67060000000400000008616c70686150706d0340e86a000000000000000010626f6f74737472617053616d706c65730340f86a0000000000000000136d6178426f6f74737472617053616d706c65730341086a00000000000000001b6d617852656c61746976655374616e646172644572726f7250706d0341086a0000000000",
+        "campaignId": "8cac886f3acb446ef4f715d7efcfcc6c881c0dfdb7a01b33a17058ada893303f"
+      },
+      "jointPreparation": {
+        "parseBytes": 18991,
+        "parseNodes": 741,
+        "expansionBytes": 2122,
+        "expansionNodes": 153,
+        "scratchBytes": 21113,
+        "scratchNodes": 894
+      },
+      "jointWork": {
+        "hashBytes": 9562,
+        "copyBytes": 871101,
+        "analysisUnits": 1380823,
+        "cloneNodes": 561,
+        "outputBytes": 1026
+      }
+    }
+  ],
+  "coherentRefusals": [
+    {
+      "id": "late-rejected",
+      "meaning": "coherently hashed controlled graph claim; never produced as a successful snapshot",
+      "sourceRequestOrder": [
+        7,
+        4
+      ],
+      "sourceRows": [
+        4,
+        7
+      ],
+      "contentJson": "{\"calendarId\":\"crypto-24x7-v1\",\"corporateActionVersion\":null,\"costProfileVersion\":\"fixture-cost-v1\",\"datasetHash\":\"dataset-content-v2:9e40fd70a8497470af783f2d4616fa498c43e80b6afd5ce02f5bf4f7842ae6dd\",\"instrumentContentHash\":\"71177242f499d82c36d2408ee1548f2d1dc35095dd9a8b25c9e0e4680b743a46\",\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"kind\":\"historical\",\"priceBasis\":\"raw\",\"sourceRecordHashes\":[\"6100991a73ea25acfda49dfafc74bcd3e6bd05f4710efc8e7f4a694a82e918fe\",\"72ec5994863fb2a289f5ccc766580e98e2bee6c94c6fbc2bbf0b040f9bc83c17\"],\"version\":\"market-snapshot-v1\"}",
+      "snapshotId": "bc1635555639c0275d3347d18b74cc7246954adc2972b967b5a5f82ed052a649",
+      "kind": "historical",
+      "asOfMs": 1721023200000,
+      "campaignDocumentJson": "{\"contractVersion\":\"research-campaign-declaration-v1\",\"contracts\":{\"datasetIdentity\":\"dataset-content-v2\",\"execution\":\"backtest-execution-v1\",\"marketSnapshot\":\"market-snapshot-v1\",\"metrics\":\"metrics-v2\",\"precision\":\"research-precision-v1\",\"split\":\"validation-split-v1\",\"trialLedger\":\"trial-ledger-v1\",\"walkForward\":\"research-walk-forward-v1\",\"walkForwardEvidence\":\"walk-forward-evidence-v1\"},\"instruments\":[{\"datasetHash\":\"dataset-content-v2:9e40fd70a8497470af783f2d4616fa498c43e80b6afd5ce02f5bf4f7842ae6dd\",\"delistedAtMs\":null,\"fromMs\":1721001600000,\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"listedAtMs\":0,\"samplePolicy\":{\"foldCount\":2,\"foldValidationBars\":1,\"minimumTotalBars\":4,\"minimumTrainBars\":1,\"rationale\":\"Synthetic original-row consistency only; not numerical execution, sample sufficiency or source admission.\"},\"snapshotId\":\"bc1635555639c0275d3347d18b74cc7246954adc2972b967b5a5f82ed052a649\",\"toMs\":1721012400000}],\"sampling\":{\"alphaPpm\":50000,\"bootstrapSamples\":100000,\"maxBootstrapSamples\":200000,\"maxRelativeStandardErrorPpm\":200000}}",
+      "campaignId": "10f2fee91e190d3e3efa55077bb0561bdeecf16fc27094782bf012c9f76d7096",
+      "reason": "rejected primary member",
+      "expected": "original_market_invalid"
+    },
+    {
+      "id": "comparison",
+      "meaning": "coherently hashed controlled graph claim; never produced as a successful snapshot",
+      "sourceRequestOrder": [
+        3
+      ],
+      "sourceRows": [
+        3
+      ],
+      "contentJson": "{\"calendarId\":\"crypto-24x7-v1\",\"corporateActionVersion\":null,\"costProfileVersion\":\"fixture-cost-v1\",\"datasetHash\":\"dataset-content-v2:9e40fd70a8497470af783f2d4616fa498c43e80b6afd5ce02f5bf4f7842ae6dd\",\"instrumentContentHash\":\"71177242f499d82c36d2408ee1548f2d1dc35095dd9a8b25c9e0e4680b743a46\",\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"kind\":\"historical\",\"priceBasis\":\"raw\",\"sourceRecordHashes\":[\"96cb8dac25bda710ba8d6e07c37c5d61986098d3965f02770db9511f84f40986\"],\"version\":\"market-snapshot-v1\"}",
+      "snapshotId": "1c0f6a9e91bbd2827c9a5dce3b829426e44c7ff59f264d150631f5c3ab454c50",
+      "kind": "historical",
+      "asOfMs": 1721023200000,
+      "campaignDocumentJson": "{\"contractVersion\":\"research-campaign-declaration-v1\",\"contracts\":{\"datasetIdentity\":\"dataset-content-v2\",\"execution\":\"backtest-execution-v1\",\"marketSnapshot\":\"market-snapshot-v1\",\"metrics\":\"metrics-v2\",\"precision\":\"research-precision-v1\",\"split\":\"validation-split-v1\",\"trialLedger\":\"trial-ledger-v1\",\"walkForward\":\"research-walk-forward-v1\",\"walkForwardEvidence\":\"walk-forward-evidence-v1\"},\"instruments\":[{\"datasetHash\":\"dataset-content-v2:9e40fd70a8497470af783f2d4616fa498c43e80b6afd5ce02f5bf4f7842ae6dd\",\"delistedAtMs\":null,\"fromMs\":1721001600000,\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"listedAtMs\":0,\"samplePolicy\":{\"foldCount\":2,\"foldValidationBars\":1,\"minimumTotalBars\":4,\"minimumTrainBars\":1,\"rationale\":\"Synthetic original-row consistency only; not numerical execution, sample sufficiency or source admission.\"},\"snapshotId\":\"1c0f6a9e91bbd2827c9a5dce3b829426e44c7ff59f264d150631f5c3ab454c50\",\"toMs\":1721012400000}],\"sampling\":{\"alphaPpm\":50000,\"bootstrapSamples\":100000,\"maxBootstrapSamples\":200000,\"maxRelativeStandardErrorPpm\":200000}}",
+      "campaignId": "5ade872fdad9e2f016ff97cfd20626ed73765d754e0888a25a7270728c7f2d7b",
+      "reason": "comparison is not primary",
+      "expected": "original_market_invalid"
+    },
+    {
+      "id": "mixed-publisher",
+      "meaning": "coherently hashed controlled graph claim; never produced as a successful snapshot",
+      "sourceRequestOrder": [
+        7,
+        9
+      ],
+      "sourceRows": [
+        7,
+        9
+      ],
+      "contentJson": "{\"calendarId\":\"crypto-24x7-v1\",\"corporateActionVersion\":null,\"costProfileVersion\":\"fixture-cost-v1\",\"datasetHash\":\"dataset-content-v2:9e40fd70a8497470af783f2d4616fa498c43e80b6afd5ce02f5bf4f7842ae6dd\",\"instrumentContentHash\":\"71177242f499d82c36d2408ee1548f2d1dc35095dd9a8b25c9e0e4680b743a46\",\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"kind\":\"historical\",\"priceBasis\":\"raw\",\"sourceRecordHashes\":[\"12bb82b65de26bac58cc200ebca95784de0574498bb0d808f166b7d44cd2bdef\",\"72ec5994863fb2a289f5ccc766580e98e2bee6c94c6fbc2bbf0b040f9bc83c17\"],\"version\":\"market-snapshot-v1\"}",
+      "snapshotId": "c2492687796893b88990be00f62f657ed32eeb713d22fa72e75835cc311989fa",
+      "kind": "historical",
+      "asOfMs": 1721023200000,
+      "campaignDocumentJson": "{\"contractVersion\":\"research-campaign-declaration-v1\",\"contracts\":{\"datasetIdentity\":\"dataset-content-v2\",\"execution\":\"backtest-execution-v1\",\"marketSnapshot\":\"market-snapshot-v1\",\"metrics\":\"metrics-v2\",\"precision\":\"research-precision-v1\",\"split\":\"validation-split-v1\",\"trialLedger\":\"trial-ledger-v1\",\"walkForward\":\"research-walk-forward-v1\",\"walkForwardEvidence\":\"walk-forward-evidence-v1\"},\"instruments\":[{\"datasetHash\":\"dataset-content-v2:9e40fd70a8497470af783f2d4616fa498c43e80b6afd5ce02f5bf4f7842ae6dd\",\"delistedAtMs\":null,\"fromMs\":1721001600000,\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"listedAtMs\":0,\"samplePolicy\":{\"foldCount\":2,\"foldValidationBars\":1,\"minimumTotalBars\":4,\"minimumTrainBars\":1,\"rationale\":\"Synthetic original-row consistency only; not numerical execution, sample sufficiency or source admission.\"},\"snapshotId\":\"c2492687796893b88990be00f62f657ed32eeb713d22fa72e75835cc311989fa\",\"toMs\":1721012400000}],\"sampling\":{\"alphaPpm\":50000,\"bootstrapSamples\":100000,\"maxBootstrapSamples\":200000,\"maxRelativeStandardErrorPpm\":200000}}",
+      "campaignId": "61e38cff6784d06b5fad09287e8593d6c101cb316bb90c0962732d670346d810",
+      "reason": "origins conflict",
+      "expected": "original_market_invalid"
+    },
+    {
+      "id": "forward-legacy-archive",
+      "meaning": "coherently hashed controlled graph claim; never produced as a successful snapshot",
+      "sourceRequestOrder": [
+        6
+      ],
+      "sourceRows": [
+        6
+      ],
+      "contentJson": "{\"calendarId\":\"crypto-24x7-v1\",\"corporateActionVersion\":null,\"costProfileVersion\":\"fixture-cost-v1\",\"datasetHash\":\"dataset-content-v2:9e40fd70a8497470af783f2d4616fa498c43e80b6afd5ce02f5bf4f7842ae6dd\",\"instrumentContentHash\":\"71177242f499d82c36d2408ee1548f2d1dc35095dd9a8b25c9e0e4680b743a46\",\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"kind\":\"forward-observed\",\"priceBasis\":\"raw\",\"sourceRecordHashes\":[\"13cf2865629eccfc5fe5d03b973605de56f69b86324e8fbbede96a04ac14b76a\"],\"version\":\"market-snapshot-v1\"}",
+      "snapshotId": "e6655a342aa547db39cdc730e9c9b9e77777efa43225045ce8394f9962c279dd",
+      "kind": "forward-observed",
+      "asOfMs": 1721023200000,
+      "campaignDocumentJson": "{\"contractVersion\":\"research-campaign-declaration-v1\",\"contracts\":{\"datasetIdentity\":\"dataset-content-v2\",\"execution\":\"backtest-execution-v1\",\"marketSnapshot\":\"market-snapshot-v1\",\"metrics\":\"metrics-v2\",\"precision\":\"research-precision-v1\",\"split\":\"validation-split-v1\",\"trialLedger\":\"trial-ledger-v1\",\"walkForward\":\"research-walk-forward-v1\",\"walkForwardEvidence\":\"walk-forward-evidence-v1\"},\"instruments\":[{\"datasetHash\":\"dataset-content-v2:9e40fd70a8497470af783f2d4616fa498c43e80b6afd5ce02f5bf4f7842ae6dd\",\"delistedAtMs\":null,\"fromMs\":1721001600000,\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"listedAtMs\":0,\"samplePolicy\":{\"foldCount\":2,\"foldValidationBars\":1,\"minimumTotalBars\":4,\"minimumTrainBars\":1,\"rationale\":\"Synthetic original-row consistency only; not numerical execution, sample sufficiency or source admission.\"},\"snapshotId\":\"e6655a342aa547db39cdc730e9c9b9e77777efa43225045ce8394f9962c279dd\",\"toMs\":1721012400000}],\"sampling\":{\"alphaPpm\":50000,\"bootstrapSamples\":100000,\"maxBootstrapSamples\":200000,\"maxRelativeStandardErrorPpm\":200000}}",
+      "campaignId": "d07791ed46bb4d259b2e5ef91cf5ab4bffb8d3ccf568b53b9da16839c5e8fb30",
+      "reason": "archive period guess is unknown availability",
+      "expected": "original_market_invalid"
+    },
+    {
+      "id": "forward-late",
+      "meaning": "coherently hashed controlled graph claim; never produced as a successful snapshot",
+      "sourceRequestOrder": [
+        7
+      ],
+      "sourceRows": [
+        7
+      ],
+      "contentJson": "{\"calendarId\":\"crypto-24x7-v1\",\"corporateActionVersion\":null,\"costProfileVersion\":\"fixture-cost-v1\",\"datasetHash\":\"dataset-content-v2:9e40fd70a8497470af783f2d4616fa498c43e80b6afd5ce02f5bf4f7842ae6dd\",\"instrumentContentHash\":\"71177242f499d82c36d2408ee1548f2d1dc35095dd9a8b25c9e0e4680b743a46\",\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"kind\":\"forward-observed\",\"priceBasis\":\"raw\",\"sourceRecordHashes\":[\"72ec5994863fb2a289f5ccc766580e98e2bee6c94c6fbc2bbf0b040f9bc83c17\"],\"version\":\"market-snapshot-v1\"}",
+      "snapshotId": "967485e57009af8cba7e02b89e4d4d21e84cd06cf5f3fc8a96e2c67783557ca4",
+      "kind": "forward-observed",
+      "asOfMs": 1721019600000,
+      "campaignDocumentJson": "{\"contractVersion\":\"research-campaign-declaration-v1\",\"contracts\":{\"datasetIdentity\":\"dataset-content-v2\",\"execution\":\"backtest-execution-v1\",\"marketSnapshot\":\"market-snapshot-v1\",\"metrics\":\"metrics-v2\",\"precision\":\"research-precision-v1\",\"split\":\"validation-split-v1\",\"trialLedger\":\"trial-ledger-v1\",\"walkForward\":\"research-walk-forward-v1\",\"walkForwardEvidence\":\"walk-forward-evidence-v1\"},\"instruments\":[{\"datasetHash\":\"dataset-content-v2:9e40fd70a8497470af783f2d4616fa498c43e80b6afd5ce02f5bf4f7842ae6dd\",\"delistedAtMs\":null,\"fromMs\":1721001600000,\"instrumentId\":\"crypto:binance:BTCUSDT\",\"interval\":\"1h\",\"listedAtMs\":0,\"samplePolicy\":{\"foldCount\":2,\"foldValidationBars\":1,\"minimumTotalBars\":4,\"minimumTrainBars\":1,\"rationale\":\"Synthetic original-row consistency only; not numerical execution, sample sufficiency or source admission.\"},\"snapshotId\":\"967485e57009af8cba7e02b89e4d4d21e84cd06cf5f3fc8a96e2c67783557ca4\",\"toMs\":1721012400000}],\"sampling\":{\"alphaPpm\":50000,\"bootstrapSamples\":100000,\"maxBootstrapSamples\":200000,\"maxRelativeStandardErrorPpm\":200000}}",
+      "campaignId": "e5c8318d15d83f2ec0b7f40fb39af5b538776101833db4a7ca1a29e465c90b86",
+      "reason": "availability exceeds admitting cut",
+      "expected": "original_market_invalid"
+    }
+  ],
+  "resourceBoundaryRecipes": [
+    {
+      "kind": "hash",
+      "source": "original-lineage-semantics-v1.json:resourceBoundaryRecipes/hash + original-warmup-consumer-v1.json:hashBoundaryReference",
+      "marketCase": "captured-old-revision",
+      "storedFirstEntryCodeShortenBytes": 1931,
+      "exactPriorWarmup": {
+        "hashBytes": 33552501,
+        "copyBytes": 65323082,
+        "analysisUnits": 2280,
+        "cloneNodes": 256272,
+        "outputBytes": 1480
+      },
+      "exactJoint": {
+        "hashBytes": 33554432,
+        "copyBytes": 66076282,
+        "analysisUnits": 1305704,
+        "cloneNodes": 256636,
+        "outputBytes": 1816
+      },
+      "overChange": "first stored entryCode +1 ASCII byte",
+      "overJoint": {
+        "hashBytes": 33554433,
+        "copyBytes": 66076284,
+        "analysisUnits": 1305704,
+        "cloneNodes": 256636,
+        "outputBytes": 1816
+      },
+      "phase": "exact reservation then original identity refusal; no successful semantic result",
+      "exactJointPreparation": {
+        "parseBytes": 31770219,
+        "parseNodes": 256844,
+        "expansionBytes": 4672,
+        "expansionNodes": 320,
+        "scratchBytes": 31774891,
+        "scratchNodes": 257164
+      },
+      "overJointPreparation": {
+        "parseBytes": 31770220,
+        "parseNodes": 256844,
+        "expansionBytes": 4672,
+        "expansionNodes": 320,
+        "scratchBytes": 31774892,
+        "scratchNodes": 257164
+      }
+    },
+    {
+      "kind": "analysis",
+      "source": "original-warmup-consumer-v1.json:resourceBoundaryRecipes/analysis",
+      "marketCase": "captured-old-revision",
+      "storedDslNameBytes": 2085699,
+      "paramsEntrySigSuffixBytes": 99,
+      "exactPriorWarmup": {
+        "hashBytes": 2092077,
+        "copyBytes": 41857432,
+        "analysisUnits": 267132032,
+        "cloneNodes": 107,
+        "outputBytes": 420
+      },
+      "exactJoint": {
+        "hashBytes": 2094008,
+        "copyBytes": 42610632,
+        "analysisUnits": 268435456,
+        "cloneNodes": 471,
+        "outputBytes": 756
+      },
+      "overChange": "params stored entrySig +1 ASCII byte",
+      "overJoint": {
+        "hashBytes": 2094009,
+        "copyBytes": 42610638,
+        "analysisUnits": 268435457,
+        "cloneNodes": 471,
+        "outputBytes": 756
+      },
+      "phase": "exact reservation then original identity refusal; no successful semantic result",
+      "exactJointPreparation": {
+        "parseBytes": 4183064,
+        "parseNodes": 556,
+        "expansionBytes": 985,
+        "expansionNodes": 75,
+        "scratchBytes": 4184049,
+        "scratchNodes": 631
+      },
+      "overJointPreparation": {
+        "parseBytes": 4183065,
+        "parseNodes": 556,
+        "expansionBytes": 985,
+        "expansionNodes": 75,
+        "scratchBytes": 4184050,
+        "scratchNodes": 631
+      }
+    },
+    {
+      "kind": "copy",
+      "source": "original-warmup-consumer-v1.json:resourceBoundaryRecipes/copy",
+      "marketCase": "captured-old-revision",
+      "storedDslNameBytes": 706963,
+      "tenReplacements": 12,
+      "wrapperResourceCounter": 0,
+      "overWrapperResourceCounter": 10,
+      "exactPriorWarmup": {
+        "hashBytes": 938591,
+        "copyBytes": 66355664,
+        "analysisUnits": 156702976,
+        "cloneNodes": 24070,
+        "outputBytes": 243
+      },
+      "exactJoint": {
+        "hashBytes": 940522,
+        "copyBytes": 67108864,
+        "analysisUnits": 158006400,
+        "cloneNodes": 24434,
+        "outputBytes": 579
+      },
+      "overChange": "wrapper resourceCounter decimal spelling +1 byte; fixed binary numeric width",
+      "overJoint": {
+        "hashBytes": 940522,
+        "copyBytes": 67108865,
+        "analysisUnits": 158006400,
+        "cloneNodes": 24434,
+        "outputBytes": 579
+      },
+      "phase": "exact reservation then original identity refusal; no successful semantic result",
+      "exactJointPreparation": {
+        "parseBytes": 1685731,
+        "parseNodes": 24387,
+        "expansionBytes": 459,
+        "expansionNodes": 39,
+        "scratchBytes": 1686190,
+        "scratchNodes": 24426
+      },
+      "overJointPreparation": {
+        "parseBytes": 1685732,
+        "parseNodes": 24387,
+        "expansionBytes": 459,
+        "expansionNodes": 39,
+        "scratchBytes": 1686191,
+        "scratchNodes": 24426
+      }
+    },
+    {
+      "kind": "output",
+      "source": "original-warmup-consumer-v1.json:outputBoundaryRecipe",
+      "marketCase": "captured-old-revision",
+      "mainIdBytes": 3648,
+      "otherIdBytes": 540,
+      "familyCandidates": 1101,
+      "expectedEveryDerivation": {
+        "maxSignalLookbackBars": 2001,
+        "holdingAllowanceBars": 10,
+        "embargoBars": 2011
+      },
+      "exactPriorWarmup": {
+        "hashBytes": 861289,
+        "copyBytes": 7072226,
+        "analysisUnits": 313785,
+        "cloneNodes": 41838,
+        "outputBytes": 4193968
+      },
+      "exactJoint": {
+        "hashBytes": 863220,
+        "copyBytes": 7825426,
+        "analysisUnits": 1617209,
+        "cloneNodes": 42202,
+        "outputBytes": 4194304
+      },
+      "overChange": "other base ID +1 ASCII byte BEFORE original producer setup",
+      "overJoint": {
+        "hashBytes": 863222,
+        "copyBytes": 7825431,
+        "analysisUnits": 1617209,
+        "cloneNodes": 42202,
+        "outputBytes": 4194305
+      },
+      "phase": "exact whole observation succeeds; one-over refuses before payload/analysis",
+      "exactJointPreparation": {
+        "parseBytes": 5799771,
+        "parseNodes": 79669,
+        "expansionBytes": 4652955,
+        "expansionNodes": 44036,
+        "scratchBytes": 10452726,
+        "scratchNodes": 123705
+      },
+      "overJointPreparation": {
+        "parseBytes": 5799775,
+        "parseNodes": 79669,
+        "expansionBytes": 4652956,
+        "expansionNodes": 44036,
+        "scratchBytes": 10452731,
+        "scratchNodes": 123705
+      }
+    }
+  ],
+  "negativeControls": [
+    "wrong calendar version/hash/scalar/definition",
+    "wrong captured instrument row/hash/scalar/REAL bits or invalid typed draft",
+    "substitute latest instrument for captured original revision",
+    "wrong snapshot content/scalar/source membership/hash order or unsupported price basis",
+    "demo or degraded snapshot, missing cost declaration or ETF action declaration",
+    "blocking/unknown/mismatched coverage schema/counts/version",
+    "coherently rehashed rejected or comparison component, late invalid member, mixed publisher",
+    "provenance scalar/scope/hash/path/media/chronology contradictions",
+    "forward unknown/late availability or legacy archive period guess",
+    "late failed lineage member, duplicate/missing actual reference, original row/request/hash orders",
+    "combined market parse/expansion bytes/nodes overflow before materialization/enumeration",
+    "composed hash/copy/analysis/output exact/+1 before payload, clone audit and checked arithmetic"
+  ],
+  "originalSourcePins": {
+    "alpha-factor-forge/src-tauri/src/research/confirmation_inputs/source_rows/graph.rs": "1b48506b08c612f5adf9da1c038eb327bdd540cdedd195b7e7df929cd423dc8f",
+    "alpha-factor-forge/src-tauri/src/research/confirmation_inputs/source_rows/graph/rows.rs": "5e80085381a8771f43c51ea53a8619baef01162a5309849fe0f6981f4569782a",
+    "alpha-factor-forge/src-tauri/src/research/confirmation_inputs/source_rows/graph/original_lineage.rs": "21284e9ba4b0a71a94f245b95b3fcd3917b67f430aff9720e625e5a1676f8fd6",
+    "alpha-factor-forge/src-tauri/src/research/confirmation_inputs/source_rows/graph/original_lineage/warmup.rs": "8746741c760bece8010b6fed75ba3530711771f92613fa93e38400c3983629be",
+    "alpha-factor-forge/src-tauri/src/research/confirmation_inputs/source_rows/graph/original_lineage/semantics.rs": "1f07c42fe241ea49caf051a9c81f813c67693876b43005befb10f4c6ed280fad",
+    "alpha-factor-forge/src-tauri/src/research/confirmation_inputs/source_rows/selection.rs": "6beba56249f26ebd14eaff464404755566f685897180ed642a3c6f417763d5c1"
+  }
+}
