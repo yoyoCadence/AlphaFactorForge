@@ -38,3 +38,30 @@ verification receipt and six delivery jobs. No correctness blockers were found.
 Its sole publication note requested the fixture packaging SHA, now recorded
 above. Actual Rust implementation and its mutation/real-capture controls remain
 the next separately gated task.
+
+## Pre-code range grounding — 2026-10-30
+
+Inspection of the original selector found that it validates the campaign binding
+but currently discards its `fromMs`/`toMs`; reparsing that document inside the new
+observer would add unreserved work. Contract §2 now explicitly requires retaining
+those exact two private immutable i64 scalars during the existing selection and
+graph capture. Dataset/range agreement then needs no second campaign parse,
+selection or enumeration, no new SQL or identity field, and no change to the
+frozen text/Value-work formulas. Existing family campaign literals already pin
+the original ranges. This is a design clarification before actual4c code.
+
+Independent targeted review approves checked integer extraction only from the
+selected frozen binding. Capture retains its existing acceptance policy; new
+dataset start/end equality belongs after market joint reservation, leaving old
+lineage/warmup behavior intact. Add a coherently rehashed range-only refusal and
+a multi-instrument selected-binding control in actual4c; neither changes work
+arithmetic or the independent positive family literals.
+
+## Final range-control fixture — 2026-10-30
+
+The independent Python author adds the two range controls to the negative
+catalog (now fourteen entries), preserving all four positive families, five
+coherent refusals and resource arithmetic. Final LF packaging is 123154 bytes,
+SHA256 `f9127cc5c0abb09452f6eff721bd95137df5fa03061f7e325ff7772827f1beb8`.
+The earlier digest above records the preceding pre-refinement artifact.
+Targeted independent review approves the exact post-reservation range rule.

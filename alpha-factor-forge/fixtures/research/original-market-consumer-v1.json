@@ -2514,7 +2514,9 @@
     "forward unknown/late availability or legacy archive period guess",
     "late failed lineage member, duplicate/missing actual reference, original row/request/hash orders",
     "combined market parse/expansion bytes/nodes overflow before materialization/enumeration",
-    "composed hash/copy/analysis/output exact/+1 before payload, clone audit and checked arithmetic"
+    "composed hash/copy/analysis/output exact/+1 before payload, clone audit and checked arithmetic",
+    "coherently rehashed campaign with selected range-only contradiction; refuse after joint reserve",
+    "multi-instrument campaign whose selected original binding is not first; retain exact selected range"
   ],
   "originalSourcePins": {
     "alpha-factor-forge/src-tauri/src/research/confirmation_inputs/source_rows/graph.rs": "1b48506b08c612f5adf9da1c038eb327bdd540cdedd195b7e7df929cd423dc8f",

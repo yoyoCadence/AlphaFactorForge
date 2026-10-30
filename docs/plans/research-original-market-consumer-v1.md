@@ -46,6 +46,19 @@ Old lineage/warmup entries retain their existing ceilings, outputs, ordering and
 errors. Do not call the old observer and prepare/enumerate a second time.
 There is no generic callback, arbitrary document factory or caller-selectable cap.
 
+The existing graph capture already validates the original campaign declaration
+and selects its instrument binding. Retain that binding's exact `fromMs`/`toMs`
+as private immutable i64 metadata in the selection and sealed graph. The market
+observer requires `dataset.start_time == fromMs` and `dataset.end_time == toMs`
+during post-reservation verification; it must not reparse
+the campaign or repeat selection/enumeration. No SQL columns, new identity fields
+or caller-supplied bounds are added. These two derived integers add no text/Value
+work to the frozen formulas; existing selector results and work stay unchanged.
+Extract them with checked integer access from the selected frozen binding, never
+a float cast or the first binding by position. Retaining the scalars must not add
+a new refusal to graph capture or the old lineage/warmup observers: exact dataset
+range agreement is a new market semantic check after the joint reservation.
+
 Before any new Value materialization, add every market original document below
 once to the existing original-lineage parse P bytes/nodes. Reserve joint P
 against 33554432 bytes/262144 nodes. Then preserve existing config parsing and
@@ -211,6 +224,9 @@ semantics. They are controlled graph claims, never successful producer rows.
 The [7,4] late-invalid family must refuse even when a subset would be valid.
 Additional scalar/schema/REAL-bit/cut/coverage/member contradictions remain in
 the negative catalog; no hash mismatch may substitute for these semantic tests.
+Include a coherently rehashed campaign with only the selected range changed,
+and a multi-instrument campaign whose selected binding is not first. The former
+must refuse after reservation; the latter must use the selected original range.
 
 Four exact/+1 recipes attach the valid captured-old-revision market to the
 existing complete resource captures. All joint preparation/other limits fit.
