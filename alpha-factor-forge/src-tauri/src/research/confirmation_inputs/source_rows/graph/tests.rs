@@ -34,9 +34,12 @@ pub(super) fn fixture() -> Fixture {
 }
 
 fn fixture_with_lineage(include_lineage: bool) -> Fixture {
+    fixture_with_originals(include_lineage, oracle())
+}
+
+fn fixture_with_originals(include_lineage: bool, expected: Value) -> Fixture {
     let mut fixture = Fixture::new();
     let conn = fixture.connection();
-    let expected = oracle();
     for name in [
         "datasets",
         "strategy_def",
@@ -215,6 +218,12 @@ fn complete_graph_matches_all_independent_ordered_cells_and_usage() {
     let mut f = fixture();
     let saved = capture(&mut f);
     let expected = oracle();
+    assert_eq!(saved.campaign_from_ms, 1_735_689_600_000);
+    assert_eq!(saved.campaign_to_ms, 1_767_222_000_000);
+    // Existing historical capture accepts mismatched/empty dataset metadata.
+    // The new post-reservation market observer owns exact range agreement.
+    assert_ne!(saved.dataset.start_time, saved.campaign_from_ms);
+    assert_ne!(saved.dataset.end_time, saved.campaign_to_ms);
     let actual = observed_tables(&saved);
     assert_eq!(actual.len(), 14);
     for (rows, table) in actual.iter().zip(expected["tables"].as_array().unwrap()) {
@@ -237,6 +246,69 @@ fn complete_graph_matches_all_independent_ordered_cells_and_usage() {
     unchanged(&tx, || recheck_source_rows_in(&tx, &expected, &saved)).unwrap();
     assert!(!tx.is_autocommit());
     tx.rollback().unwrap();
+}
+
+#[test]
+fn coherent_selected_range_change_is_retained_without_capture_admission_or_caller_changes() {
+    use alpha_factor_forge::discovery_core::campaign::freeze_campaign;
+    let mut originals = oracle();
+    let campaign = originals["tables"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|t| t["table"] == "research_campaigns")
+        .unwrap();
+    let mut document: Value =
+        serde_json::from_str(campaign["rows"][0][2].as_str().unwrap()).unwrap();
+    document["instruments"][0]["fromMs"] = json!(1_735_689_600_001i64);
+    document["instruments"][0]["toMs"] = json!(1_767_221_999_999i64);
+    let frozen = freeze_campaign(&document).unwrap();
+    let campaign_id = frozen.campaign_id().to_string();
+    assert_ne!(campaign_id, originals["campaignId"].as_str().unwrap());
+    let original_json = serde_json::to_string_pretty(&document).unwrap();
+    for table in originals["tables"].as_array_mut().unwrap() {
+        match table["table"].as_str().unwrap() {
+            "research_campaigns" => {
+                table["rows"][0][0] = json!(campaign_id);
+                table["rows"][0][2] = json!(original_json);
+            }
+            "campaign_run_admissions" => table["rows"][0][2] = json!(campaign_id),
+            _ => {}
+        }
+    }
+    let mut f = fixture_with_originals(true, originals);
+    let expected = f.expected.clone();
+    let locator = SourceLocator::new(&campaign_id, 1).unwrap();
+    let independent = f.independent();
+    assert!(crate::runtime::lease::try_lock_workspace(&f.root).is_err());
+    let before = snapshot(f.connection());
+    let tx = f
+        .connection()
+        .transaction_with_behavior(TransactionBehavior::Immediate)
+        .unwrap();
+    tx.execute_batch(
+        "SAVEPOINT range_caller; UPDATE strategy_def SET name='pending range caller' WHERE id=100;",
+    )
+    .unwrap();
+    writer_busy(&independent);
+    let observed = unchanged(&tx, || capture_source_rows_in(&tx, &expected, &locator)).unwrap();
+    assert_eq!(observed.campaign_from_ms, 1_735_689_600_001);
+    assert_eq!(observed.campaign_to_ms, 1_767_221_999_999);
+    assert_eq!(
+        (observed.dataset.start_time, observed.dataset.end_time),
+        (-20, 20)
+    );
+    assert_eq!(
+        observed.roots.campaign.document_json.as_bytes(),
+        original_json.as_bytes()
+    );
+    unchanged(&tx, || recheck_source_rows_in(&tx, &expected, &observed)).unwrap();
+    writer_busy(&independent);
+    tx.execute_batch("ROLLBACK TO range_caller; RELEASE range_caller;")
+        .unwrap();
+    assert!(!tx.is_autocommit());
+    tx.rollback().unwrap();
+    assert_eq!(snapshot(f.connection()), before);
 }
 
 #[test]

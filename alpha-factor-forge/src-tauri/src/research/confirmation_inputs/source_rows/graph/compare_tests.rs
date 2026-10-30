@@ -56,7 +56,7 @@ impl<T: Perturb> Perturb for Option<T> {
 }
 
 #[test]
-fn recheck_compares_each_of_133_fields_membership_and_final_usage_without_adoption() {
+fn recheck_compares_each_of_135_fields_membership_and_final_usage_without_adoption() {
     let mut f = fixture();
     let saved = capture(&mut f);
     let expected = f.expected.clone();
@@ -83,6 +83,8 @@ fn recheck_compares_each_of_133_fields_membership_and_final_usage_without_adopti
     changed_field!(roots.run.id);
     changed_field!(roots.run.status);
     changed_field!(roots.run.config_json);
+    changed_field!(campaign_from_ms);
+    changed_field!(campaign_to_ms);
     changed_field!(jobs[0].id);
     changed_field!(jobs[0].discovery_run_id);
     changed_field!(jobs[0].candidate_index);

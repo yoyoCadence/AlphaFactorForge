@@ -76,6 +76,8 @@ fn assert_manifest(selection: &SourceSelection, expected: &Value) {
         format!("dataset-content-v2:{}", "a".repeat(64))
     );
     assert_eq!(selection.interval(), "1h");
+    assert_eq!(selection.campaign_from_ms(), 1_735_689_600_000);
+    assert_eq!(selection.campaign_to_ms(), 1_767_222_000_000);
 }
 
 #[test]
@@ -147,6 +149,42 @@ fn exact_matching_instrument_is_selected_instead_of_the_first_binding() {
         &selection,
         &fixtures["enumerationCases"][0]["expected"]["candidates"],
     );
+}
+
+#[test]
+fn selected_campaign_range_retains_exact_safe_integers_not_first_binding_bounds() {
+    let raw = serde_json::to_string(&parity()["enumerationCases"][0]["input"]).unwrap();
+    for (from, to) in [(0, 0), (9_007_199_254_740_990i64, 9_007_199_254_740_991i64)] {
+        let mut declaration = oracle()["declarations"]["secondInstrument"].clone();
+        let mut document: Value =
+            serde_json::from_str(declaration["documentJson"].as_str().unwrap()).unwrap();
+        let selected = &mut document["instruments"][1];
+        assert_eq!(selected["instrumentId"], declaration["instrumentId"]);
+        selected["listedAtMs"] = json!(0);
+        selected["fromMs"] = json!(from);
+        selected["toMs"] = json!(to);
+        // The original campaign writer supplies setup identity only. Expected
+        // bounds are the independent integer literals above, not writer output.
+        let frozen = freeze_campaign(&document).unwrap();
+        declaration["campaignId"] = json!(frozen.campaign_id());
+        declaration["documentJson"] = json!(serde_json::to_string_pretty(&document).unwrap());
+        let (mut fixture, roots) = captured(&raw, &declaration, CAMPAIGN_DECLARATION_VERSION);
+        let saved = roots.clone();
+        let before = snapshot(fixture.connection());
+        let parse = PARSE_ENTRIES.with(std::cell::Cell::get);
+        let enumeration = ENUM_ENTRIES.with(std::cell::Cell::get);
+        let selection = derive_selection(&roots).unwrap();
+        assert_eq!(
+            (selection.campaign_from_ms(), selection.campaign_to_ms()),
+            (from, to)
+        );
+        assert_eq!(selection.snapshot_id(), "c".repeat(64));
+        assert_ne!(selection.campaign_from_ms(), 1_735_689_600_000);
+        assert_eq!(PARSE_ENTRIES.with(std::cell::Cell::get), parse + 1);
+        assert_eq!(ENUM_ENTRIES.with(std::cell::Cell::get), enumeration + 1);
+        assert!(roots == saved);
+        assert_eq!(snapshot(fixture.connection()), before);
+    }
 }
 
 #[test]
