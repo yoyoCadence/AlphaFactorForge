@@ -4,7 +4,7 @@ Date: 2026-10-31 (UTC+8)
 Repo: yoyoCadence/AlphaFactorForge
 Branch: docs/original-trial-projections
 Baseline: verified #242 (`bbf669a`)
-Status: Independent review approves; finite artifact controls pass, delivery pending.
+Status: Resolved; #243 verified design delivery.
 
 ## Scope
 
@@ -83,3 +83,16 @@ preserved, Python AST and Node syntax. Runtime/schema/older fixtures/dependencie
 are byte-unchanged. Fresh main/origin/main remain #242 and same-head PR search is
 empty before publication. Local runtime suites are unnecessary for these
 unconsumed data/scripts; the six normal exact-head/base CI jobs remain required.
+
+## Resolution: verified design delivery #243
+
+Delivered [#243](https://github.com/yoyoCadence/AlphaFactorForge/pull/243),
+head `a581e0e8f2757466487980407cb9ab9c220a6d66`, base `bbf669a`,
+merge `095d861a20e2af80dc8d0f75cded8f23065757a0`, full tree
+`f3b37609c2d427d0251ff4cc791e9e26bcdd6694`. Workflow41190924305
+completes all six exact-head/base jobs once:1158 Rust/one existing ignored,
+1242 Vitest/80 files,98 E2E/no retries,audit0,native smoke with exact policy
+restoration and owned cleanup. Independent/automated review have no unresolved
+findings. Normal expected-head merge, GitHub merged/final-body readback and
+clean-main/origin-main/tested-tree equality pass. Only5-design closes; the
+ordered5a actual-producer conformance starts from this verified baseline.
