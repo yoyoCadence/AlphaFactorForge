@@ -3,7 +3,7 @@
 Date: 2026-10-30 (UTC+8)
 Repo: yoyoCadence/AlphaFactorForge
 Branch: feat/original-market-consumer
-Status: Independent final review approves; local verification complete, exact-head CI/normal merge pending.
+Status: Resolved; #242 verified delivery.
 
 ## Scope
 
@@ -226,3 +226,9 @@ Option boolean equivalence, all nine runtime mutant assertions/source hashes,
 fixtures/append-only receipts and32-root verified cleanup. No unresolved
 correctness/scope finding or further code change remains locally. Exact-head CI
 and normal merge/readback are the remaining delivery gates.
+
+## Resolution - PR #242 delivery
+
+Verified [#242](https://github.com/yoyoCadence/AlphaFactorForge/pull/242): head `ffec204a67c20daf2c82a6271d5fa2e3aaf0b9b4`, base `052f8bf880f1a5f20929f28668f618de15cb8a49`, merge `bbf669af8f4cda80e63b7e12da42831e32fe8d75`, full tree `0a9320e72b4e58a87315e739b12d1bdbdaa1b0af`. Workflow41170295198 passes all six exact-head/base jobs once;1158 Rust/one ignored (297/859/2),1242 Vitest/80files,98 E2E/no retries,audit0,native rendered/SQLite/metrics/event-plugin smoke with exact policy restoration and owned cleanup. New SQL P/E/Q/failed-member/coherent controls are present and pass in CI. Auto code review has no findings; fresh reviews/inline comments empty. Normal expected-head merge, GitHub merged/final-body readback and clean-main/full-tree equality verified.
+
+Only actual4c closes. The agreed next step is original trial/split producer projection design/data before conformance/code. Existing graph trial IDs are syntactic historical claims, not complete registry events or authenticated/current counts. Preserve all later file/candle/availability/action/cost/current-owner gates and do not expose source construction or protected execution.
