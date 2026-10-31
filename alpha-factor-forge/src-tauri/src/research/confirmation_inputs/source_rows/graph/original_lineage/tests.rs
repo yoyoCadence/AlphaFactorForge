@@ -13,6 +13,7 @@ use std::{
     time::Duration,
 };
 
+mod market_controls;
 mod semantic_boundaries;
 mod semantic_controls;
 mod semantic_modes;
