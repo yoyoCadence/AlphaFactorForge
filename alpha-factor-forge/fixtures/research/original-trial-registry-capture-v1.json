@@ -1,0 +1,3341 @@
+{
+  "version": "original-trial-registry-capture-v1",
+  "baseline": "394dd102e309492221c86d18f42af4728c284144",
+  "scope": "Unconsumed fixed capture contract only; SQL shape/bytes is not hash, execution, count, current binding, custody or admission authority.",
+  "sourcePins": [
+    {
+      "path": "alpha-factor-forge/src-tauri/src/research/trial_ledger.rs",
+      "lfSha256": "e2cba508f8fd090e24ae368959f1a30460214d0c372a53f6e97ba351caef19b5"
+    },
+    {
+      "path": "alpha-factor-forge/src-tauri/src/research/trial_ledger_binding.rs",
+      "lfSha256": "62154e5327584bc1668e11b0d8ee69884f54990cb7d982249aa911a9050f24b6"
+    },
+    {
+      "path": "alpha-factor-forge/src-tauri/src/research/trial_ledger_transfer.rs",
+      "lfSha256": "2f510f759dcfe518c00bb4aeb95454da7c07257969ce37254b336cd999c0c04c"
+    },
+    {
+      "path": "alpha-factor-forge/src-tauri/src/research/trial_ledger_confirmation/archive.rs",
+      "lfSha256": "d4e623481746cede46f9c3580a05f5c87962965d24b64e0668ea120fc06b46ca"
+    },
+    {
+      "path": "alpha-factor-forge/src-tauri/src/research/confirmation_inputs.rs",
+      "lfSha256": "e7ce758f38ede4adea78665d56e0ad5c537d3e9e732840ce64109a91c44967ff"
+    },
+    {
+      "path": "alpha-factor-forge/src-tauri/src/research/confirmation_inputs/original_json.rs",
+      "lfSha256": "53104303ab6976ae98e94c24b257a06cab0492aed45756d4ee6b5d15a3352fa0"
+    },
+    {
+      "path": "alpha-factor-forge/src-tauri/src/research/confirmation_inputs/source_rows.rs",
+      "lfSha256": "6ad47dcf17941ae20b04519b2ce0e2bd1d8c61e4dc6b438b71844946ffdfe9a5"
+    },
+    {
+      "path": "alpha-factor-forge/src-tauri/src/research/confirmation_inputs/source_rows/graph.rs",
+      "lfSha256": "1d6bdc70dae92dcea8156811500d4f7294a1f7250d8aa2e60412a13aa594c14a"
+    },
+    {
+      "path": "alpha-factor-forge/src-tauri/src/research/confirmation_inputs/source_rows/graph/rows.rs",
+      "lfSha256": "5e80085381a8771f43c51ea53a8619baef01162a5309849fe0f6981f4569782a"
+    },
+    {
+      "path": "alpha-factor-forge/src-tauri/src/research/confirmation_inputs/source_rows/graph/original_lineage.rs",
+      "lfSha256": "ce4065bdc33c536469553114e50e8f16031f40d732dfe63d00f929ce694f1d64"
+    },
+    {
+      "path": "alpha-factor-forge/src-tauri/src/research/confirmation_inputs/source_rows/graph/original_lineage/market.rs",
+      "lfSha256": "eea1028fe9fb8c8e6f13b01cc9034a50c4212c391c5529f54c77a5f54c10abb7"
+    },
+    {
+      "path": "alpha-factor-forge/src-tauri/src/research/confirmation_inputs/source_rows/graph/original_lineage/market/measure.rs",
+      "lfSha256": "d55909d656ab27a168f7b746c1c2b443d082471ca5f095699c8038241a24859a"
+    },
+    {
+      "path": "alpha-factor-forge/src-tauri/src/research/confirmation_inputs/source_rows/graph/original_lineage/market_controls.rs",
+      "lfSha256": "7f209d5b44b8993481be0b6f6b6cc84afc61b5e80408c2e67fec8c297bea5d6a"
+    },
+    {
+      "path": "alpha-factor-forge/src-tauri/registry_migrations/0001_trial_ledger.sql",
+      "lfSha256": "66b42db3e05b719ca5eb92c41a26ba97608fbf4acb47cc751d7e1a2854dcd2d3"
+    },
+    {
+      "path": "alpha-factor-forge/src-tauri/registry_migrations/0002_origin_genesis.sql",
+      "lfSha256": "7833b211130a218ec42a58db853d21e99df2056c8687e222d370e4c90a53db28"
+    },
+    {
+      "path": "alpha-factor-forge/src-tauri/registry_migrations/0003_family_protocol_upgrades.sql",
+      "lfSha256": "fe116e6e0432353ecd44213d9e69cfece93ea4d905b193972bcc4f9ce01aac55"
+    },
+    {
+      "path": "alpha-factor-forge/src-tauri/registry_migrations/0004_alpha_reservations.sql",
+      "lfSha256": "cc6d59ccc7b7f9bc5e1d8984d08f6e9ba5859f3cba16b3fcbd269c6280ae97cf"
+    },
+    {
+      "path": "alpha-factor-forge/src-tauri/registry_migrations/0005_alpha_history_provenance.sql",
+      "lfSha256": "eeeb469af9247b711bebc45cbcf95546b0bbac4b13eba2fd380fa24c40db07a1"
+    },
+    {
+      "path": "alpha-factor-forge/src-tauri/registry_migrations/0006_confirmation_history.sql",
+      "lfSha256": "a35f0cfd5866199ef8f9ad3361b0dd68cfb7e4cfaa83c0cdf5e7de1721cc2361"
+    },
+    {
+      "path": "alpha-factor-forge/src-tauri/registry_migrations/0007_confirmation_source_witness.sql",
+      "lfSha256": "5d1f0164e85b672c1c14f1c07a581e3811c3047d8187d9bdc8145751952d853d"
+    }
+  ],
+  "sourceFixtures": [
+    {
+      "path": "original-trial-projections-v1.json",
+      "lfSha256": "a06fa7b074c11d6b13cae343f92e658c60a1c19ce5985ddf2276bb6e45c4d2ac"
+    },
+    {
+      "path": "original-market-consumer-v2.json",
+      "lfSha256": "a12f373f2a13580263ccb752bf6be773b812e457baa259b2646810a501aabf01"
+    },
+    {
+      "path": "source-row-graph-v1.json",
+      "lfSha256": "470224069583c6a1e1347724d8a05f33a68595b88d1ef0eaff5c818d13046fa2"
+    }
+  ],
+  "knownMigrations": [
+    "0001_trial_ledger",
+    "0002_origin_genesis",
+    "0003_family_protocol_upgrades",
+    "0004_alpha_reservations",
+    "0005_alpha_history_provenance",
+    "0006_confirmation_history",
+    "0007_confirmation_source_witness"
+  ],
+  "tables": [
+    {
+      "name": "registry_migrations",
+      "tableFlags": {
+        "schema": "main",
+        "type": "table",
+        "columnCount": 2,
+        "withoutRowid": 0,
+        "strict": 0
+      },
+      "columns": [
+        {
+          "name": "version",
+          "sqliteType": "TEXT",
+          "notNullMetadata": 0,
+          "defaultSql": null,
+          "primaryKeyOrdinal": 1,
+          "hidden": 0,
+          "nullableValue": false,
+          "valuePolicy": "opaque_utf8_text"
+        },
+        {
+          "name": "applied_at",
+          "sqliteType": "TEXT",
+          "notNullMetadata": 1,
+          "defaultSql": "datetime('now')",
+          "primaryKeyOrdinal": 0,
+          "hidden": 0,
+          "nullableValue": false,
+          "valuePolicy": "opaque_utf8_text"
+        }
+      ],
+      "additionalUniqueKeys": [],
+      "orderBy": [
+        {
+          "column": "version",
+          "comparison": "utf8_binary"
+        }
+      ]
+    },
+    {
+      "name": "registry_meta",
+      "tableFlags": {
+        "schema": "main",
+        "type": "table",
+        "columnCount": 2,
+        "withoutRowid": 0,
+        "strict": 0
+      },
+      "columns": [
+        {
+          "name": "key",
+          "sqliteType": "TEXT",
+          "notNullMetadata": 0,
+          "defaultSql": null,
+          "primaryKeyOrdinal": 1,
+          "hidden": 0,
+          "nullableValue": false,
+          "valuePolicy": "opaque_utf8_text"
+        },
+        {
+          "name": "value",
+          "sqliteType": "TEXT",
+          "notNullMetadata": 1,
+          "defaultSql": null,
+          "primaryKeyOrdinal": 0,
+          "hidden": 0,
+          "nullableValue": false,
+          "valuePolicy": "opaque_utf8_text"
+        }
+      ],
+      "additionalUniqueKeys": [],
+      "orderBy": [
+        {
+          "column": "key",
+          "comparison": "utf8_binary"
+        }
+      ]
+    },
+    {
+      "name": "trial_families",
+      "tableFlags": {
+        "schema": "main",
+        "type": "table",
+        "columnCount": 4,
+        "withoutRowid": 0,
+        "strict": 0
+      },
+      "columns": [
+        {
+          "name": "family_id",
+          "sqliteType": "TEXT",
+          "notNullMetadata": 0,
+          "defaultSql": null,
+          "primaryKeyOrdinal": 1,
+          "hidden": 0,
+          "nullableValue": false,
+          "valuePolicy": "opaque_utf8_text"
+        },
+        {
+          "name": "family_key",
+          "sqliteType": "TEXT",
+          "notNullMetadata": 1,
+          "defaultSql": null,
+          "primaryKeyOrdinal": 0,
+          "hidden": 0,
+          "nullableValue": false,
+          "valuePolicy": "json_syntax_only"
+        },
+        {
+          "name": "protocol_json",
+          "sqliteType": "TEXT",
+          "notNullMetadata": 0,
+          "defaultSql": null,
+          "primaryKeyOrdinal": 0,
+          "hidden": 0,
+          "nullableValue": true,
+          "valuePolicy": "json_syntax_only"
+        },
+        {
+          "name": "created_at",
+          "sqliteType": "TEXT",
+          "notNullMetadata": 1,
+          "defaultSql": null,
+          "primaryKeyOrdinal": 0,
+          "hidden": 0,
+          "nullableValue": false,
+          "valuePolicy": "opaque_utf8_text"
+        }
+      ],
+      "additionalUniqueKeys": [],
+      "orderBy": [
+        {
+          "column": "family_id",
+          "comparison": "utf8_binary"
+        }
+      ]
+    },
+    {
+      "name": "trial_batches",
+      "tableFlags": {
+        "schema": "main",
+        "type": "table",
+        "columnCount": 5,
+        "withoutRowid": 0,
+        "strict": 0
+      },
+      "columns": [
+        {
+          "name": "batch_id",
+          "sqliteType": "TEXT",
+          "notNullMetadata": 0,
+          "defaultSql": null,
+          "primaryKeyOrdinal": 1,
+          "hidden": 0,
+          "nullableValue": false,
+          "valuePolicy": "opaque_utf8_text"
+        },
+        {
+          "name": "family_id",
+          "sqliteType": "TEXT",
+          "notNullMetadata": 0,
+          "defaultSql": null,
+          "primaryKeyOrdinal": 0,
+          "hidden": 0,
+          "nullableValue": true,
+          "valuePolicy": "opaque_utf8_text"
+        },
+        {
+          "name": "members_json",
+          "sqliteType": "TEXT",
+          "notNullMetadata": 1,
+          "defaultSql": null,
+          "primaryKeyOrdinal": 0,
+          "hidden": 0,
+          "nullableValue": false,
+          "valuePolicy": "json_syntax_only"
+        },
+        {
+          "name": "origin_registry_id",
+          "sqliteType": "TEXT",
+          "notNullMetadata": 1,
+          "defaultSql": null,
+          "primaryKeyOrdinal": 0,
+          "hidden": 0,
+          "nullableValue": false,
+          "valuePolicy": "opaque_utf8_text"
+        },
+        {
+          "name": "created_at",
+          "sqliteType": "TEXT",
+          "notNullMetadata": 1,
+          "defaultSql": null,
+          "primaryKeyOrdinal": 0,
+          "hidden": 0,
+          "nullableValue": false,
+          "valuePolicy": "opaque_utf8_text"
+        }
+      ],
+      "additionalUniqueKeys": [],
+      "orderBy": [
+        {
+          "column": "batch_id",
+          "comparison": "utf8_binary"
+        }
+      ]
+    },
+    {
+      "name": "trial_events",
+      "tableFlags": {
+        "schema": "main",
+        "type": "table",
+        "columnCount": 11,
+        "withoutRowid": 0,
+        "strict": 0
+      },
+      "columns": [
+        {
+          "name": "event_id",
+          "sqliteType": "TEXT",
+          "notNullMetadata": 0,
+          "defaultSql": null,
+          "primaryKeyOrdinal": 1,
+          "hidden": 0,
+          "nullableValue": false,
+          "valuePolicy": "opaque_utf8_text"
+        },
+        {
+          "name": "seq",
+          "sqliteType": "INTEGER",
+          "notNullMetadata": 1,
+          "defaultSql": null,
+          "primaryKeyOrdinal": 0,
+          "hidden": 0,
+          "nullableValue": false,
+          "valuePolicy": "integer_one_to_i64_max"
+        },
+        {
+          "name": "chain",
+          "sqliteType": "TEXT",
+          "notNullMetadata": 1,
+          "defaultSql": null,
+          "primaryKeyOrdinal": 0,
+          "hidden": 0,
+          "nullableValue": false,
+          "valuePolicy": "opaque_utf8_text"
+        },
+        {
+          "name": "family_id",
+          "sqliteType": "TEXT",
+          "notNullMetadata": 0,
+          "defaultSql": null,
+          "primaryKeyOrdinal": 0,
+          "hidden": 0,
+          "nullableValue": true,
+          "valuePolicy": "opaque_utf8_text"
+        },
+        {
+          "name": "idempotency_key",
+          "sqliteType": "TEXT",
+          "notNullMetadata": 1,
+          "defaultSql": null,
+          "primaryKeyOrdinal": 0,
+          "hidden": 0,
+          "nullableValue": false,
+          "valuePolicy": "opaque_utf8_text"
+        },
+        {
+          "name": "kind",
+          "sqliteType": "TEXT",
+          "notNullMetadata": 1,
+          "defaultSql": null,
+          "primaryKeyOrdinal": 0,
+          "hidden": 0,
+          "nullableValue": false,
+          "valuePolicy": "six_original_trial_kinds"
+        },
+        {
+          "name": "effective",
+          "sqliteType": "INTEGER",
+          "notNullMetadata": 1,
+          "defaultSql": null,
+          "primaryKeyOrdinal": 0,
+          "hidden": 0,
+          "nullableValue": false,
+          "valuePolicy": "integer_zero_or_one"
+        },
+        {
+          "name": "batch_id",
+          "sqliteType": "TEXT",
+          "notNullMetadata": 1,
+          "defaultSql": null,
+          "primaryKeyOrdinal": 0,
+          "hidden": 0,
+          "nullableValue": false,
+          "valuePolicy": "opaque_utf8_text"
+        },
+        {
+          "name": "payload_json",
+          "sqliteType": "TEXT",
+          "notNullMetadata": 1,
+          "defaultSql": null,
+          "primaryKeyOrdinal": 0,
+          "hidden": 0,
+          "nullableValue": false,
+          "valuePolicy": "json_syntax_only"
+        },
+        {
+          "name": "origin_registry_id",
+          "sqliteType": "TEXT",
+          "notNullMetadata": 1,
+          "defaultSql": null,
+          "primaryKeyOrdinal": 0,
+          "hidden": 0,
+          "nullableValue": false,
+          "valuePolicy": "opaque_utf8_text"
+        },
+        {
+          "name": "registered_at",
+          "sqliteType": "TEXT",
+          "notNullMetadata": 1,
+          "defaultSql": null,
+          "primaryKeyOrdinal": 0,
+          "hidden": 0,
+          "nullableValue": false,
+          "valuePolicy": "opaque_utf8_text"
+        }
+      ],
+      "additionalUniqueKeys": [
+        [
+          "idempotency_key"
+        ],
+        [
+          "seq"
+        ]
+      ],
+      "orderBy": [
+        {
+          "column": "seq",
+          "comparison": "numeric"
+        },
+        {
+          "column": "event_id",
+          "comparison": "utf8_binary"
+        }
+      ]
+    },
+    {
+      "name": "batch_receipts",
+      "tableFlags": {
+        "schema": "main",
+        "type": "table",
+        "columnCount": 4,
+        "withoutRowid": 0,
+        "strict": 0
+      },
+      "columns": [
+        {
+          "name": "batch_id",
+          "sqliteType": "TEXT",
+          "notNullMetadata": 1,
+          "defaultSql": null,
+          "primaryKeyOrdinal": 1,
+          "hidden": 0,
+          "nullableValue": false,
+          "valuePolicy": "opaque_utf8_text"
+        },
+        {
+          "name": "receipt_registry_id",
+          "sqliteType": "TEXT",
+          "notNullMetadata": 1,
+          "defaultSql": null,
+          "primaryKeyOrdinal": 2,
+          "hidden": 0,
+          "nullableValue": false,
+          "valuePolicy": "opaque_utf8_text"
+        },
+        {
+          "name": "family_effective_before",
+          "sqliteType": "INTEGER",
+          "notNullMetadata": 1,
+          "defaultSql": null,
+          "primaryKeyOrdinal": 0,
+          "hidden": 0,
+          "nullableValue": false,
+          "valuePolicy": "integer_zero_to_i64_max"
+        },
+        {
+          "name": "batch_effective_trials",
+          "sqliteType": "INTEGER",
+          "notNullMetadata": 1,
+          "defaultSql": null,
+          "primaryKeyOrdinal": 0,
+          "hidden": 0,
+          "nullableValue": false,
+          "valuePolicy": "integer_zero_to_i64_max"
+        }
+      ],
+      "additionalUniqueKeys": [],
+      "orderBy": [
+        {
+          "column": "batch_id",
+          "comparison": "utf8_binary"
+        },
+        {
+          "column": "receipt_registry_id",
+          "comparison": "utf8_binary"
+        }
+      ]
+    },
+    {
+      "name": "family_protocol_upgrades",
+      "tableFlags": {
+        "schema": "main",
+        "type": "table",
+        "columnCount": 4,
+        "withoutRowid": 0,
+        "strict": 0
+      },
+      "columns": [
+        {
+          "name": "family_id",
+          "sqliteType": "TEXT",
+          "notNullMetadata": 1,
+          "defaultSql": null,
+          "primaryKeyOrdinal": 1,
+          "hidden": 0,
+          "nullableValue": false,
+          "valuePolicy": "opaque_utf8_text"
+        },
+        {
+          "name": "tests_per_trial",
+          "sqliteType": "INTEGER",
+          "notNullMetadata": 1,
+          "defaultSql": null,
+          "primaryKeyOrdinal": 2,
+          "hidden": 0,
+          "nullableValue": false,
+          "valuePolicy": "integer_two_to_i64_max"
+        },
+        {
+          "name": "protocol_json",
+          "sqliteType": "TEXT",
+          "notNullMetadata": 1,
+          "defaultSql": null,
+          "primaryKeyOrdinal": 0,
+          "hidden": 0,
+          "nullableValue": false,
+          "valuePolicy": "json_syntax_only"
+        },
+        {
+          "name": "recorded_at",
+          "sqliteType": "TEXT",
+          "notNullMetadata": 1,
+          "defaultSql": null,
+          "primaryKeyOrdinal": 0,
+          "hidden": 0,
+          "nullableValue": false,
+          "valuePolicy": "opaque_utf8_text"
+        }
+      ],
+      "additionalUniqueKeys": [],
+      "orderBy": [
+        {
+          "column": "family_id",
+          "comparison": "utf8_binary"
+        },
+        {
+          "column": "tests_per_trial",
+          "comparison": "numeric"
+        }
+      ]
+    },
+    {
+      "name": "origin_genesis",
+      "tableFlags": {
+        "schema": "main",
+        "type": "table",
+        "columnCount": 2,
+        "withoutRowid": 0,
+        "strict": 0
+      },
+      "columns": [
+        {
+          "name": "origin_registry_id",
+          "sqliteType": "TEXT",
+          "notNullMetadata": 0,
+          "defaultSql": null,
+          "primaryKeyOrdinal": 1,
+          "hidden": 0,
+          "nullableValue": false,
+          "valuePolicy": "opaque_utf8_text"
+        },
+        {
+          "name": "recorded_at",
+          "sqliteType": "TEXT",
+          "notNullMetadata": 1,
+          "defaultSql": null,
+          "primaryKeyOrdinal": 0,
+          "hidden": 0,
+          "nullableValue": false,
+          "valuePolicy": "opaque_utf8_text"
+        }
+      ],
+      "additionalUniqueKeys": [],
+      "orderBy": [
+        {
+          "column": "origin_registry_id",
+          "comparison": "utf8_binary"
+        }
+      ]
+    },
+    {
+      "name": "origin_checkpoints",
+      "tableFlags": {
+        "schema": "main",
+        "type": "table",
+        "columnCount": 4,
+        "withoutRowid": 0,
+        "strict": 0
+      },
+      "columns": [
+        {
+          "name": "origin_registry_id",
+          "sqliteType": "TEXT",
+          "notNullMetadata": 1,
+          "defaultSql": null,
+          "primaryKeyOrdinal": 1,
+          "hidden": 0,
+          "nullableValue": false,
+          "valuePolicy": "opaque_utf8_text"
+        },
+        {
+          "name": "origin_seq",
+          "sqliteType": "INTEGER",
+          "notNullMetadata": 1,
+          "defaultSql": null,
+          "primaryKeyOrdinal": 2,
+          "hidden": 0,
+          "nullableValue": false,
+          "valuePolicy": "integer_one_to_i64_max"
+        },
+        {
+          "name": "event_id",
+          "sqliteType": "TEXT",
+          "notNullMetadata": 1,
+          "defaultSql": null,
+          "primaryKeyOrdinal": 0,
+          "hidden": 0,
+          "nullableValue": false,
+          "valuePolicy": "opaque_utf8_text"
+        },
+        {
+          "name": "origin_chain",
+          "sqliteType": "TEXT",
+          "notNullMetadata": 1,
+          "defaultSql": null,
+          "primaryKeyOrdinal": 0,
+          "hidden": 0,
+          "nullableValue": false,
+          "valuePolicy": "opaque_utf8_text"
+        }
+      ],
+      "additionalUniqueKeys": [],
+      "orderBy": [
+        {
+          "column": "origin_registry_id",
+          "comparison": "utf8_binary"
+        },
+        {
+          "column": "origin_seq",
+          "comparison": "numeric"
+        }
+      ]
+    },
+    {
+      "name": "registry_imports",
+      "tableFlags": {
+        "schema": "main",
+        "type": "table",
+        "columnCount": 9,
+        "withoutRowid": 0,
+        "strict": 0
+      },
+      "columns": [
+        {
+          "name": "import_id",
+          "sqliteType": "INTEGER",
+          "notNullMetadata": 0,
+          "defaultSql": null,
+          "primaryKeyOrdinal": 1,
+          "hidden": 0,
+          "nullableValue": false,
+          "valuePolicy": "integer_one_to_i64_max"
+        },
+        {
+          "name": "source_registry_id",
+          "sqliteType": "TEXT",
+          "notNullMetadata": 1,
+          "defaultSql": null,
+          "primaryKeyOrdinal": 0,
+          "hidden": 0,
+          "nullableValue": false,
+          "valuePolicy": "opaque_utf8_text"
+        },
+        {
+          "name": "file_sha256",
+          "sqliteType": "TEXT",
+          "notNullMetadata": 1,
+          "defaultSql": null,
+          "primaryKeyOrdinal": 0,
+          "hidden": 0,
+          "nullableValue": false,
+          "valuePolicy": "opaque_utf8_text"
+        },
+        {
+          "name": "head_seq",
+          "sqliteType": "INTEGER",
+          "notNullMetadata": 1,
+          "defaultSql": null,
+          "primaryKeyOrdinal": 0,
+          "hidden": 0,
+          "nullableValue": false,
+          "valuePolicy": "integer_zero_to_i64_max"
+        },
+        {
+          "name": "head_chain",
+          "sqliteType": "TEXT",
+          "notNullMetadata": 1,
+          "defaultSql": null,
+          "primaryKeyOrdinal": 0,
+          "hidden": 0,
+          "nullableValue": false,
+          "valuePolicy": "opaque_utf8_text"
+        },
+        {
+          "name": "added_events",
+          "sqliteType": "INTEGER",
+          "notNullMetadata": 1,
+          "defaultSql": null,
+          "primaryKeyOrdinal": 0,
+          "hidden": 0,
+          "nullableValue": false,
+          "valuePolicy": "integer_zero_to_i64_max"
+        },
+        {
+          "name": "skipped_events",
+          "sqliteType": "INTEGER",
+          "notNullMetadata": 1,
+          "defaultSql": null,
+          "primaryKeyOrdinal": 0,
+          "hidden": 0,
+          "nullableValue": false,
+          "valuePolicy": "integer_zero_to_i64_max"
+        },
+        {
+          "name": "conflicts",
+          "sqliteType": "INTEGER",
+          "notNullMetadata": 1,
+          "defaultSql": null,
+          "primaryKeyOrdinal": 0,
+          "hidden": 0,
+          "nullableValue": false,
+          "valuePolicy": "integer_zero_to_i64_max"
+        },
+        {
+          "name": "imported_at",
+          "sqliteType": "TEXT",
+          "notNullMetadata": 1,
+          "defaultSql": null,
+          "primaryKeyOrdinal": 0,
+          "hidden": 0,
+          "nullableValue": false,
+          "valuePolicy": "opaque_utf8_text"
+        }
+      ],
+      "additionalUniqueKeys": [],
+      "orderBy": [
+        {
+          "column": "import_id",
+          "comparison": "numeric"
+        }
+      ]
+    },
+    {
+      "name": "family_conflicts",
+      "tableFlags": {
+        "schema": "main",
+        "type": "table",
+        "columnCount": 5,
+        "withoutRowid": 0,
+        "strict": 0
+      },
+      "columns": [
+        {
+          "name": "conflict_id",
+          "sqliteType": "INTEGER",
+          "notNullMetadata": 0,
+          "defaultSql": null,
+          "primaryKeyOrdinal": 1,
+          "hidden": 0,
+          "nullableValue": false,
+          "valuePolicy": "integer_one_to_i64_max"
+        },
+        {
+          "name": "family_id",
+          "sqliteType": "TEXT",
+          "notNullMetadata": 1,
+          "defaultSql": null,
+          "primaryKeyOrdinal": 0,
+          "hidden": 0,
+          "nullableValue": false,
+          "valuePolicy": "opaque_utf8_text"
+        },
+        {
+          "name": "kind",
+          "sqliteType": "TEXT",
+          "notNullMetadata": 1,
+          "defaultSql": null,
+          "primaryKeyOrdinal": 0,
+          "hidden": 0,
+          "nullableValue": false,
+          "valuePolicy": "opaque_utf8_text"
+        },
+        {
+          "name": "detail_json",
+          "sqliteType": "TEXT",
+          "notNullMetadata": 1,
+          "defaultSql": null,
+          "primaryKeyOrdinal": 0,
+          "hidden": 0,
+          "nullableValue": false,
+          "valuePolicy": "json_syntax_only"
+        },
+        {
+          "name": "recorded_at",
+          "sqliteType": "TEXT",
+          "notNullMetadata": 1,
+          "defaultSql": null,
+          "primaryKeyOrdinal": 0,
+          "hidden": 0,
+          "nullableValue": false,
+          "valuePolicy": "opaque_utf8_text"
+        }
+      ],
+      "additionalUniqueKeys": [],
+      "orderBy": [
+        {
+          "column": "conflict_id",
+          "comparison": "numeric"
+        }
+      ]
+    },
+    {
+      "name": "registry_conflicts",
+      "tableFlags": {
+        "schema": "main",
+        "type": "table",
+        "columnCount": 4,
+        "withoutRowid": 0,
+        "strict": 0
+      },
+      "columns": [
+        {
+          "name": "conflict_id",
+          "sqliteType": "INTEGER",
+          "notNullMetadata": 0,
+          "defaultSql": null,
+          "primaryKeyOrdinal": 1,
+          "hidden": 0,
+          "nullableValue": false,
+          "valuePolicy": "integer_one_to_i64_max"
+        },
+        {
+          "name": "origin_registry_id",
+          "sqliteType": "TEXT",
+          "notNullMetadata": 1,
+          "defaultSql": null,
+          "primaryKeyOrdinal": 0,
+          "hidden": 0,
+          "nullableValue": false,
+          "valuePolicy": "opaque_utf8_text"
+        },
+        {
+          "name": "detail_json",
+          "sqliteType": "TEXT",
+          "notNullMetadata": 1,
+          "defaultSql": null,
+          "primaryKeyOrdinal": 0,
+          "hidden": 0,
+          "nullableValue": false,
+          "valuePolicy": "json_syntax_only"
+        },
+        {
+          "name": "recorded_at",
+          "sqliteType": "TEXT",
+          "notNullMetadata": 1,
+          "defaultSql": null,
+          "primaryKeyOrdinal": 0,
+          "hidden": 0,
+          "nullableValue": false,
+          "valuePolicy": "opaque_utf8_text"
+        }
+      ],
+      "additionalUniqueKeys": [],
+      "orderBy": [
+        {
+          "column": "conflict_id",
+          "comparison": "numeric"
+        }
+      ]
+    }
+  ],
+  "totalColumns": 56,
+  "fixedLimits": {
+    "schemaRecords": 1024,
+    "schemaUtf8Bytes": 1048576,
+    "schemaCellUtf8Bytes": 4096,
+    "indexesPerTable": 32,
+    "dataRecords": 10000,
+    "textUtf8Bytes": 4096,
+    "jsonUtf8Bytes": 4194304,
+    "jsonNodes": 65536,
+    "jsonValueDepth": 64,
+    "decodedKeyUtf8Bytes": 1024,
+    "retainedUtf8Bytes": 33554432,
+    "aggregateJsonNodes": 262144
+  },
+  "producerRecipes": [
+    {
+      "id": "native-v1-market-small",
+      "sources": [
+        {
+          "collection": "cases",
+          "id": "v1-market-small",
+          "batchInputSha256": "4a3fb23f6bcb4c9dbf0a0bf313d0a4cdd740288bf3a7abf2611176e56d76b7f9",
+          "projectionSha256": "25a24ec4a5bb491494b5d02d225ec918fb308b11c07d268ff40193bd33c8e289"
+        }
+      ],
+      "producerActions": [
+        "fresh_register"
+      ],
+      "expectedRecords": {
+        "registry_migrations": 7,
+        "registry_meta": 2,
+        "trial_families": 1,
+        "trial_batches": 1,
+        "trial_events": 3,
+        "batch_receipts": 1,
+        "family_protocol_upgrades": 0,
+        "origin_genesis": 0,
+        "origin_checkpoints": 0,
+        "registry_imports": 0,
+        "family_conflicts": 0,
+        "registry_conflicts": 0
+      },
+      "totalRecords": 15,
+      "originalJsonDocuments": [
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 1060,
+          "nodes": 20,
+          "exampleSha256": "88b07c7d0add04053264d5543762a4aadb8d87ac446ca46df24507d1568847ca",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 1060,
+          "nodes": 20,
+          "exampleSha256": "c47ae0d89205da2987edd4ab8982d53c032484e276947b8b04df8c55b3b0c87f",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 1060,
+          "nodes": 20,
+          "exampleSha256": "e8ac33ab46d4a45bf8bffedd3a5be4991c8ed6db8075cc6104c83facb3275cb6",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_batches.members_json",
+          "utf8Bytes": 472,
+          "nodes": 10,
+          "exampleSha256": "62a63b48a2550e3a10f8193c8de7c3fbbeada166cafe303c952eefe0dac58084",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_families.family_key",
+          "utf8Bytes": 69,
+          "nodes": 3,
+          "exampleSha256": "077ec84bbee01072d66e9f358f8262f7cc6cd2b70b7ed82461e3904179bd4cc0",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_families.protocol_json",
+          "utf8Bytes": 39,
+          "nodes": 3,
+          "exampleSha256": "6c47ecbda2c59c07ab1703a355e7698b7875652e385bca55b22cc042634c83e5",
+          "dynamicExample": false
+        }
+      ],
+      "jsonBytes": 3760,
+      "jsonNodes": 76,
+      "auditAssertions": [
+        "all56cells_equal_actual_original_writer_SQL",
+        "dynamic_registry_ids_chain_values_and_audit_timestamps_preserved"
+      ]
+    },
+    {
+      "id": "native-v1-market-full",
+      "sources": [
+        {
+          "collection": "cases",
+          "id": "v1-market-full",
+          "batchInputSha256": "e0e954c69bf8708f37143a0e91c7e7ce04f12d337443997d10cff2286e94b062",
+          "projectionSha256": "2a937ebae658ffe186a7824fbf07dc8498b9d4d74602f3ed03895fe742795c2c"
+        }
+      ],
+      "producerActions": [
+        "fresh_register"
+      ],
+      "expectedRecords": {
+        "registry_migrations": 7,
+        "registry_meta": 2,
+        "trial_families": 1,
+        "trial_batches": 1,
+        "trial_events": 3,
+        "batch_receipts": 1,
+        "family_protocol_upgrades": 0,
+        "origin_genesis": 0,
+        "origin_checkpoints": 0,
+        "registry_imports": 0,
+        "family_conflicts": 0,
+        "registry_conflicts": 0
+      },
+      "totalRecords": 15,
+      "originalJsonDocuments": [
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 1058,
+          "nodes": 20,
+          "exampleSha256": "b31047861e8c5c9aec718839d1fed729c655e88ff9f0f44eba03301b160fc08f",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 1058,
+          "nodes": 20,
+          "exampleSha256": "256258d3236a741c7ed993deaafbbf9f52692f744bd0472042baedadfb98a3c2",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 1058,
+          "nodes": 20,
+          "exampleSha256": "4574882bddd2bd31912d7697293b17fdd853d2f86a0abaf8a3da3fb1fdbba90d",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_batches.members_json",
+          "utf8Bytes": 469,
+          "nodes": 10,
+          "exampleSha256": "708b9f5d3cd4f77797ce380dae7fbe5b02ee4f07be6da8d6758c506cd2ab298a",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_families.family_key",
+          "utf8Bytes": 69,
+          "nodes": 3,
+          "exampleSha256": "077ec84bbee01072d66e9f358f8262f7cc6cd2b70b7ed82461e3904179bd4cc0",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_families.protocol_json",
+          "utf8Bytes": 39,
+          "nodes": 3,
+          "exampleSha256": "6c47ecbda2c59c07ab1703a355e7698b7875652e385bca55b22cc042634c83e5",
+          "dynamicExample": false
+        }
+      ],
+      "jsonBytes": 3751,
+      "jsonNodes": 76,
+      "auditAssertions": [
+        "all56cells_equal_actual_original_writer_SQL",
+        "dynamic_registry_ids_chain_values_and_audit_timestamps_preserved"
+      ]
+    },
+    {
+      "id": "native-v1-shared-dedup",
+      "sources": [
+        {
+          "collection": "cases",
+          "id": "v1-shared-dedup",
+          "batchInputSha256": "ace3c338b112a349d763926e06a5a027aa7fb1488434fbd0d27bb12965ad467a",
+          "projectionSha256": "9286e643cde0e04cf88068f1975cf21ba476bcbea673670d4b7d848312e189be"
+        }
+      ],
+      "producerActions": [
+        "fresh_register"
+      ],
+      "expectedRecords": {
+        "registry_migrations": 7,
+        "registry_meta": 2,
+        "trial_families": 0,
+        "trial_batches": 1,
+        "trial_events": 4,
+        "batch_receipts": 1,
+        "family_protocol_upgrades": 0,
+        "origin_genesis": 0,
+        "origin_checkpoints": 0,
+        "registry_imports": 0,
+        "family_conflicts": 0,
+        "registry_conflicts": 0
+      },
+      "totalRecords": 15,
+      "originalJsonDocuments": [
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 920,
+          "nodes": 20,
+          "exampleSha256": "5a6b32f4f3aeae518c6765498bfd01b1e5338a5c72fd86a93eb0c293bcb13a48",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 920,
+          "nodes": 20,
+          "exampleSha256": "eff7eb5c2ffc3fece976d4f408a379479f054bbca6d0ff5a1680d05698f6ebbc",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 920,
+          "nodes": 20,
+          "exampleSha256": "4c4f6d2dfb0c0285dd5824c77d884e24aba643092d278edfac92362dc2e62ebd",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 920,
+          "nodes": 20,
+          "exampleSha256": "a1be6fffcda86dfa2daaab2f1d2014fceaba7027b69682347d5643ea658dbb3e",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_batches.members_json",
+          "utf8Bytes": 629,
+          "nodes": 13,
+          "exampleSha256": "af9071bb8ccc4d4d916e72f90a903f1cf2a7abfcbd92a1a6cd1ff5c0e2c382e1",
+          "dynamicExample": false
+        }
+      ],
+      "jsonBytes": 4309,
+      "jsonNodes": 93,
+      "auditAssertions": [
+        "all56cells_equal_actual_original_writer_SQL",
+        "dynamic_registry_ids_chain_values_and_audit_timestamps_preserved"
+      ]
+    },
+    {
+      "id": "native-v2-fixed-dsl",
+      "sources": [
+        {
+          "collection": "cases",
+          "id": "v2-fixed-dsl",
+          "batchInputSha256": "0a3594b4e407a7ea81a3121a69b6f713ba788f24aa2d2942a1659e42e3ac0c3c",
+          "projectionSha256": "8dbd4f564ac5e783af56219a0933e2fda0614dbd797806a1ea67e7631b9d5b97"
+        }
+      ],
+      "producerActions": [
+        "fresh_register"
+      ],
+      "expectedRecords": {
+        "registry_migrations": 7,
+        "registry_meta": 2,
+        "trial_families": 0,
+        "trial_batches": 1,
+        "trial_events": 1,
+        "batch_receipts": 1,
+        "family_protocol_upgrades": 0,
+        "origin_genesis": 0,
+        "origin_checkpoints": 0,
+        "registry_imports": 0,
+        "family_conflicts": 0,
+        "registry_conflicts": 0
+      },
+      "totalRecords": 12,
+      "originalJsonDocuments": [
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 914,
+          "nodes": 20,
+          "exampleSha256": "c16f3e554f26f0b2ab358d91ec4860a10ae58e9046b66608a00665560784aae4",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_batches.members_json",
+          "utf8Bytes": 155,
+          "nodes": 4,
+          "exampleSha256": "e377fe47c89f134c50578ba58f92fca8ffb33ccdbb88737b80dde4f2c7e43593",
+          "dynamicExample": false
+        }
+      ],
+      "jsonBytes": 1069,
+      "jsonNodes": 24,
+      "auditAssertions": [
+        "all56cells_equal_actual_original_writer_SQL",
+        "dynamic_registry_ids_chain_values_and_audit_timestamps_preserved"
+      ]
+    },
+    {
+      "id": "native-v3-mixed-lookback-distinction",
+      "sources": [
+        {
+          "collection": "cases",
+          "id": "v3-mixed-lookback-distinction",
+          "batchInputSha256": "ed27fc5cead88d0dfd63d9e5298d8c91a750cda3371014c20ed71d182cbc6713",
+          "projectionSha256": "83a1836e165f4efc16cf123f6bd26cc290c76f1616809a828e9093e80a0761ae"
+        }
+      ],
+      "producerActions": [
+        "fresh_register"
+      ],
+      "expectedRecords": {
+        "registry_migrations": 7,
+        "registry_meta": 2,
+        "trial_families": 1,
+        "trial_batches": 1,
+        "trial_events": 4,
+        "batch_receipts": 1,
+        "family_protocol_upgrades": 0,
+        "origin_genesis": 0,
+        "origin_checkpoints": 0,
+        "registry_imports": 0,
+        "family_conflicts": 0,
+        "registry_conflicts": 0
+      },
+      "totalRecords": 16,
+      "originalJsonDocuments": [
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 1088,
+          "nodes": 20,
+          "exampleSha256": "0c354b4c33e2ac143c617263ce2e6b13d093bf41ebc66935c7277bf075b127e4",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 1088,
+          "nodes": 20,
+          "exampleSha256": "56f0339939cfe2478d8731d76ee40f69098f7e60f67355351aa5f53e419d829e",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 1088,
+          "nodes": 20,
+          "exampleSha256": "b7972a9275edbbbb63a8237764c8c2095d46cd83b4db32c32d31e4c205917e1d",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 1088,
+          "nodes": 20,
+          "exampleSha256": "f600b0859697e55f68c0af2a7a94a97762b4b0e3831bc2786b22616eb5b6f2b0",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_batches.members_json",
+          "utf8Bytes": 685,
+          "nodes": 13,
+          "exampleSha256": "4a3d8f81f1a17ccaf2073b8e57da569f781848535404955d4e7e87b406b71d09",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_families.family_key",
+          "utf8Bytes": 69,
+          "nodes": 3,
+          "exampleSha256": "077ec84bbee01072d66e9f358f8262f7cc6cd2b70b7ed82461e3904179bd4cc0",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_families.protocol_json",
+          "utf8Bytes": 39,
+          "nodes": 3,
+          "exampleSha256": "6c47ecbda2c59c07ab1703a355e7698b7875652e385bca55b22cc042634c83e5",
+          "dynamicExample": false
+        }
+      ],
+      "jsonBytes": 5145,
+      "jsonNodes": 99,
+      "auditAssertions": [
+        "all56cells_equal_actual_original_writer_SQL",
+        "dynamic_registry_ids_chain_values_and_audit_timestamps_preserved"
+      ]
+    },
+    {
+      "id": "native-v3-mixed-insufficient-outer",
+      "sources": [
+        {
+          "collection": "cases",
+          "id": "v3-mixed-insufficient-outer",
+          "batchInputSha256": "c63db91be57ff8cc0356d5c11656f6965d93225bc564502e1e8e51c54804fef6",
+          "projectionSha256": "b494950d9a685b8dddfb36673e8988ba489cb94f8776ac778b77b72eef6e3aba"
+        }
+      ],
+      "producerActions": [
+        "fresh_register"
+      ],
+      "expectedRecords": {
+        "registry_migrations": 7,
+        "registry_meta": 2,
+        "trial_families": 1,
+        "trial_batches": 1,
+        "trial_events": 4,
+        "batch_receipts": 1,
+        "family_protocol_upgrades": 0,
+        "origin_genesis": 0,
+        "origin_checkpoints": 0,
+        "registry_imports": 0,
+        "family_conflicts": 0,
+        "registry_conflicts": 0
+      },
+      "totalRecords": 16,
+      "originalJsonDocuments": [
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 1084,
+          "nodes": 20,
+          "exampleSha256": "2f2e66712d09a65ee7273293fc40dc96c3f7fb82493db20b719a744024231213",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 1084,
+          "nodes": 20,
+          "exampleSha256": "0c3c9a76a1ce85f03435dbe5c25f8b518ce6c2e15993fdc78c1790e7f836033d",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 1084,
+          "nodes": 20,
+          "exampleSha256": "35e61327cba2a679790ce6c3685332de340c1e0239ac80a466017b13fc340a4b",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 1084,
+          "nodes": 20,
+          "exampleSha256": "11105604bdfe7c6c806adf0ef754d12c447d2f630d0c1b93ebf1df828fcbe969",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_batches.members_json",
+          "utf8Bytes": 677,
+          "nodes": 13,
+          "exampleSha256": "fbc6636f0ac69b91a577a31148c518da836718802e004ef3d688305be35e7f0e",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_families.family_key",
+          "utf8Bytes": 69,
+          "nodes": 3,
+          "exampleSha256": "077ec84bbee01072d66e9f358f8262f7cc6cd2b70b7ed82461e3904179bd4cc0",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_families.protocol_json",
+          "utf8Bytes": 39,
+          "nodes": 3,
+          "exampleSha256": "6c47ecbda2c59c07ab1703a355e7698b7875652e385bca55b22cc042634c83e5",
+          "dynamicExample": false
+        }
+      ],
+      "jsonBytes": 5121,
+      "jsonNodes": 99,
+      "auditAssertions": [
+        "all56cells_equal_actual_original_writer_SQL",
+        "dynamic_registry_ids_chain_values_and_audit_timestamps_preserved"
+      ]
+    },
+    {
+      "id": "native-v3-dsl-insufficient-train",
+      "sources": [
+        {
+          "collection": "cases",
+          "id": "v3-dsl-insufficient-train",
+          "batchInputSha256": "5aaf147550337789bdb9496890ee109f0d6e0199f77568204aa2a67821c7cad1",
+          "projectionSha256": "c79347cc071b59e3b65461cacedcf5e3c28d205607f31451e4ddc4904eee4626"
+        }
+      ],
+      "producerActions": [
+        "fresh_register"
+      ],
+      "expectedRecords": {
+        "registry_migrations": 7,
+        "registry_meta": 2,
+        "trial_families": 0,
+        "trial_batches": 1,
+        "trial_events": 1,
+        "batch_receipts": 1,
+        "family_protocol_upgrades": 0,
+        "origin_genesis": 0,
+        "origin_checkpoints": 0,
+        "registry_imports": 0,
+        "family_conflicts": 0,
+        "registry_conflicts": 0
+      },
+      "totalRecords": 12,
+      "originalJsonDocuments": [
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 940,
+          "nodes": 20,
+          "exampleSha256": "61daa96961e2b80b80dc87e0d689b0acd15bd3a32d7599ce70ad22bef5bfc08d",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_batches.members_json",
+          "utf8Bytes": 168,
+          "nodes": 4,
+          "exampleSha256": "205e470e64eeae56e05b64613becc9283ce20a7a4412336c283988e94a95decb",
+          "dynamicExample": false
+        }
+      ],
+      "jsonBytes": 1108,
+      "jsonNodes": 24,
+      "auditAssertions": [
+        "all56cells_equal_actual_original_writer_SQL",
+        "dynamic_registry_ids_chain_values_and_audit_timestamps_preserved"
+      ]
+    },
+    {
+      "id": "native-v3-mixed-null-embargo",
+      "sources": [
+        {
+          "collection": "cases",
+          "id": "v3-mixed-null-embargo",
+          "batchInputSha256": "8dc1bf7c61df1423400c895fe119364f4cbb6ebf1545ca64a922b0ba2c80cb35",
+          "projectionSha256": "8c2daf1652f41644b6518e41163452583fb826ddd3bad29e71faf86be7c07d1b"
+        }
+      ],
+      "producerActions": [
+        "fresh_register"
+      ],
+      "expectedRecords": {
+        "registry_migrations": 7,
+        "registry_meta": 2,
+        "trial_families": 0,
+        "trial_batches": 1,
+        "trial_events": 4,
+        "batch_receipts": 1,
+        "family_protocol_upgrades": 0,
+        "origin_genesis": 0,
+        "origin_checkpoints": 0,
+        "registry_imports": 0,
+        "family_conflicts": 0,
+        "registry_conflicts": 0
+      },
+      "totalRecords": 15,
+      "originalJsonDocuments": [
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 932,
+          "nodes": 20,
+          "exampleSha256": "f77b9e6e6179fe886539bda456079656978e8f0b7c8245605f9e5e02a43bb04c",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 932,
+          "nodes": 20,
+          "exampleSha256": "f9b2518f7e443527c7030ade29e89366a220b0436a9cb2f9ce4aa6a63c4502a4",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 932,
+          "nodes": 20,
+          "exampleSha256": "2187e50bd1d1b4bbd92588a7f3557eed18e92666fa2bf2105fad72b0c151141e",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 932,
+          "nodes": 20,
+          "exampleSha256": "44df8a82926d31a145a85551a59bb42048d68c1fe8bb423fdd0a7ab386381e03",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_batches.members_json",
+          "utf8Bytes": 653,
+          "nodes": 13,
+          "exampleSha256": "5d9bb087473171f6f364f3e903171aa7a79e35e8f39ea297e9f3f5cbaf0a52bd",
+          "dynamicExample": false
+        }
+      ],
+      "jsonBytes": 4381,
+      "jsonNodes": 93,
+      "auditAssertions": [
+        "all56cells_equal_actual_original_writer_SQL",
+        "dynamic_registry_ids_chain_values_and_audit_timestamps_preserved"
+      ]
+    },
+    {
+      "id": "native-v1-twelve-lexical",
+      "sources": [
+        {
+          "collection": "cases",
+          "id": "v1-twelve-lexical",
+          "batchInputSha256": "84c44e2fc0598fcfb958866f8c554b1d74a2471f8586fd54d60851ec8d3597b4",
+          "projectionSha256": "51eedc974639dab795fb3d3ee1e8092f5fe979c3318870773ec8508136f80de7"
+        }
+      ],
+      "producerActions": [
+        "fresh_register"
+      ],
+      "expectedRecords": {
+        "registry_migrations": 7,
+        "registry_meta": 2,
+        "trial_families": 0,
+        "trial_batches": 1,
+        "trial_events": 12,
+        "batch_receipts": 1,
+        "family_protocol_upgrades": 0,
+        "origin_genesis": 0,
+        "origin_checkpoints": 0,
+        "registry_imports": 0,
+        "family_conflicts": 0,
+        "registry_conflicts": 0
+      },
+      "totalRecords": 23,
+      "originalJsonDocuments": [
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "f8117e5774bfbe5b319e1eccd8e8d3ed4da7665a976809c541219ceacf37c0ab",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "6ec5c2c848c1aa741372daec453a411515954f6ffd6b944a45ca532a9160cd24",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 926,
+          "nodes": 20,
+          "exampleSha256": "72d9d7b6baa6504c01825933f0a3ba01cd5401f94aefcd6e687a17d8c0ee3cb9",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 926,
+          "nodes": 20,
+          "exampleSha256": "687e22258cc698fb1dbe604417bfccb8df482aac2049ca7990524713923a4860",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "5b6d12941394873f13bcd8c077f9446a234e6c60a0a228390410da3b768b95fa",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "7b903a4b0b2b5eb0a57b56af0b383878b47ecb611f51469578b63d28e0d60847",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "9cbca7e891786e014b4dd2517b740a902a9a5637b8aa6a1b9a336f8c19cf91c3",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "c56a5b3b9a988ca44dc2283fe57895c807c3f3eb13d56c90ef1f07b5f935d0f9",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "24fed49b51a894d5b0a5c10d5fbb8e04ec2f443ae40d9205e8a6085bd09751c0",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "6a76bc41d10e25471629da80e5baf9374055b55defff5ae4649fe8437317e035",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "a4f75220d77a54c98e1b2a219a2fcdf9716cb0716d785223721744bbdff00e8b",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "f51eb0d31f7c3f495ca1916e6cccdb270603bfad2ffaa9d8daa09e2b3da59489",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_batches.members_json",
+          "utf8Bytes": 1911,
+          "nodes": 37,
+          "exampleSha256": "305b3c688c2ae8611d5898ddf63be32b6c470643dc47c67fbf4e8832e755ac27",
+          "dynamicExample": false
+        }
+      ],
+      "jsonBytes": 13003,
+      "jsonNodes": 277,
+      "auditAssertions": [
+        "all56cells_equal_actual_original_writer_SQL",
+        "dynamic_registry_ids_chain_values_and_audit_timestamps_preserved"
+      ]
+    },
+    {
+      "id": "native-etf-declared-family",
+      "sources": [
+        {
+          "collection": "cases",
+          "id": "etf-declared-family",
+          "batchInputSha256": "b465c0d4a22317222ad0758175c2830771818409f8b286745de7aaea58deab33",
+          "projectionSha256": "47436a166d88283abee2ebfa5f137ecb71df6a278dbbd2f0f0adc7332115600c"
+        }
+      ],
+      "producerActions": [
+        "fresh_register"
+      ],
+      "expectedRecords": {
+        "registry_migrations": 7,
+        "registry_meta": 2,
+        "trial_families": 1,
+        "trial_batches": 1,
+        "trial_events": 4,
+        "batch_receipts": 1,
+        "family_protocol_upgrades": 0,
+        "origin_genesis": 0,
+        "origin_checkpoints": 0,
+        "registry_imports": 0,
+        "family_conflicts": 0,
+        "registry_conflicts": 0
+      },
+      "totalRecords": 16,
+      "originalJsonDocuments": [
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 1068,
+          "nodes": 20,
+          "exampleSha256": "3bb211a4fafe527db763b398843f6b76844ff1e5e35cdc780b77aca842f56b06",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 1068,
+          "nodes": 20,
+          "exampleSha256": "85427779b843933f52cf098f74a75eb95969874aa349ec7bedb531309834858b",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 1068,
+          "nodes": 20,
+          "exampleSha256": "1622c07c1cd6bc1280ce8aa8ba962c4dbae3b34ba81c290d32329527c255c949",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 1068,
+          "nodes": 20,
+          "exampleSha256": "0cd0119ff8b3572e3ffa45a8bc82c8779d7c1335119b84dd1c7d900b1ec3c21d",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_batches.members_json",
+          "utf8Bytes": 645,
+          "nodes": 13,
+          "exampleSha256": "dcfd2adbd376ffa6f86854e21869d908b83ba33feafa7db1137153817730eff8",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_families.family_key",
+          "utf8Bytes": 67,
+          "nodes": 3,
+          "exampleSha256": "4948056f0a6b5a675444c603fb5d5ab1b62fc0f23ac37c097b2784d18e5511eb",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_families.protocol_json",
+          "utf8Bytes": 39,
+          "nodes": 3,
+          "exampleSha256": "6c47ecbda2c59c07ab1703a355e7698b7875652e385bca55b22cc042634c83e5",
+          "dynamicExample": false
+        }
+      ],
+      "jsonBytes": 5023,
+      "jsonNodes": 99,
+      "auditAssertions": [
+        "all56cells_equal_actual_original_writer_SQL",
+        "dynamic_registry_ids_chain_values_and_audit_timestamps_preserved"
+      ]
+    },
+    {
+      "id": "native-v3-outside-safe-count",
+      "sources": [
+        {
+          "collection": "cases",
+          "id": "v3-outside-safe-count",
+          "batchInputSha256": "4c97d13d5b1d38e69886accaf02d52b2ca8135deb3363355208fdb09bb2e4cb1",
+          "projectionSha256": "8af3ec072313fdcfa460084eef7160d5e9ecb0bf9320deaa6ef1929bafa1cabe"
+        }
+      ],
+      "producerActions": [
+        "fresh_register"
+      ],
+      "expectedRecords": {
+        "registry_migrations": 7,
+        "registry_meta": 2,
+        "trial_families": 0,
+        "trial_batches": 1,
+        "trial_events": 1,
+        "batch_receipts": 1,
+        "family_protocol_upgrades": 0,
+        "origin_genesis": 0,
+        "origin_checkpoints": 0,
+        "registry_imports": 0,
+        "family_conflicts": 0,
+        "registry_conflicts": 0
+      },
+      "totalRecords": 12,
+      "originalJsonDocuments": [
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 932,
+          "nodes": 20,
+          "exampleSha256": "7eb8f66211782282d9eedcbca2f657a70d594cac485bfdda4dcc0ab2fca003ad",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_batches.members_json",
+          "utf8Bytes": 164,
+          "nodes": 4,
+          "exampleSha256": "a61ac4f3a4d181ad5e1a9067e0b6eaacf22063295a712db0f9e96fa756678617",
+          "dynamicExample": false
+        }
+      ],
+      "jsonBytes": 1096,
+      "jsonNodes": 24,
+      "auditAssertions": [
+        "all56cells_equal_actual_original_writer_SQL",
+        "dynamic_registry_ids_chain_values_and_audit_timestamps_preserved"
+      ]
+    },
+    {
+      "id": "native-reversed-input",
+      "sources": [
+        {
+          "collection": "batchControls",
+          "id": "reversed-input",
+          "batchInputSha256": "04df8b329c1fd19c37e42c7e04545c5849a9aa27719857ddde1f239ed2c15c03",
+          "projectionSha256": "443d477c15a4af8523cff1bca7e69534c891553648cad0e5380f6505c7a358df"
+        }
+      ],
+      "producerActions": [
+        "fresh_register"
+      ],
+      "expectedRecords": {
+        "registry_migrations": 7,
+        "registry_meta": 2,
+        "trial_families": 0,
+        "trial_batches": 1,
+        "trial_events": 12,
+        "batch_receipts": 1,
+        "family_protocol_upgrades": 0,
+        "origin_genesis": 0,
+        "origin_checkpoints": 0,
+        "registry_imports": 0,
+        "family_conflicts": 0,
+        "registry_conflicts": 0
+      },
+      "totalRecords": 23,
+      "originalJsonDocuments": [
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "f8117e5774bfbe5b319e1eccd8e8d3ed4da7665a976809c541219ceacf37c0ab",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "6ec5c2c848c1aa741372daec453a411515954f6ffd6b944a45ca532a9160cd24",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 926,
+          "nodes": 20,
+          "exampleSha256": "72d9d7b6baa6504c01825933f0a3ba01cd5401f94aefcd6e687a17d8c0ee3cb9",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 926,
+          "nodes": 20,
+          "exampleSha256": "687e22258cc698fb1dbe604417bfccb8df482aac2049ca7990524713923a4860",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "5b6d12941394873f13bcd8c077f9446a234e6c60a0a228390410da3b768b95fa",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "7b903a4b0b2b5eb0a57b56af0b383878b47ecb611f51469578b63d28e0d60847",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "9cbca7e891786e014b4dd2517b740a902a9a5637b8aa6a1b9a336f8c19cf91c3",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "c56a5b3b9a988ca44dc2283fe57895c807c3f3eb13d56c90ef1f07b5f935d0f9",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "24fed49b51a894d5b0a5c10d5fbb8e04ec2f443ae40d9205e8a6085bd09751c0",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "6a76bc41d10e25471629da80e5baf9374055b55defff5ae4649fe8437317e035",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "a4f75220d77a54c98e1b2a219a2fcdf9716cb0716d785223721744bbdff00e8b",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "f51eb0d31f7c3f495ca1916e6cccdb270603bfad2ffaa9d8daa09e2b3da59489",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_batches.members_json",
+          "utf8Bytes": 1911,
+          "nodes": 37,
+          "exampleSha256": "305b3c688c2ae8611d5898ddf63be32b6c470643dc47c67fbf4e8832e755ac27",
+          "dynamicExample": false
+        }
+      ],
+      "jsonBytes": 13003,
+      "jsonNodes": 277,
+      "auditAssertions": [
+        "all56cells_equal_actual_original_writer_SQL",
+        "dynamic_registry_ids_chain_values_and_audit_timestamps_preserved"
+      ]
+    },
+    {
+      "id": "native-raw-spaces",
+      "sources": [
+        {
+          "collection": "batchControls",
+          "id": "raw-spaces",
+          "batchInputSha256": "6ac7dc7289bd7d09dae5b0308ccabc117ca9f158b9defc65db19316f135592cb",
+          "projectionSha256": "06ebfe157d0b4a8cf6a1b42216b7f2375909828bc159c0ed41fb724d47907189"
+        }
+      ],
+      "producerActions": [
+        "fresh_register"
+      ],
+      "expectedRecords": {
+        "registry_migrations": 7,
+        "registry_meta": 2,
+        "trial_families": 0,
+        "trial_batches": 1,
+        "trial_events": 12,
+        "batch_receipts": 1,
+        "family_protocol_upgrades": 0,
+        "origin_genesis": 0,
+        "origin_checkpoints": 0,
+        "registry_imports": 0,
+        "family_conflicts": 0,
+        "registry_conflicts": 0
+      },
+      "totalRecords": 23,
+      "originalJsonDocuments": [
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 874,
+          "nodes": 20,
+          "exampleSha256": "cf149f04dc72dfda0f38ac39cfbda17206bdfa82a1a5105db2d30204615d8211",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 874,
+          "nodes": 20,
+          "exampleSha256": "b673eb632d937ccf1b11ee42e6cbf9020d10e0cc342fa56091da92657c573d3b",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 876,
+          "nodes": 20,
+          "exampleSha256": "2122a5402c405c68ea6cdac4227cc307ca5bb636cad673984f9891c6dde28935",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 876,
+          "nodes": 20,
+          "exampleSha256": "17a9d4190a2e0e85fbb7cd86fe8d0892d046e278633555f512eb8d551758c7cf",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 874,
+          "nodes": 20,
+          "exampleSha256": "6dae34bc2dd2f0a6c81b5b7bf0e35113145085d923a431d7c3ed71c40f64e70e",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 874,
+          "nodes": 20,
+          "exampleSha256": "77b96769624852415aaa582e524edadad3cab065c4c7049cbbbdbb22f623f92d",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 874,
+          "nodes": 20,
+          "exampleSha256": "0975e39dea27e8950dfc8562d547b4341173502edee8e20bb08555c835dfc07c",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 874,
+          "nodes": 20,
+          "exampleSha256": "e3fc92e4858f790441b6520da5d9755e7bdac0eaad7b707fabef1b411147030d",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 874,
+          "nodes": 20,
+          "exampleSha256": "966713f41bd18a5cb9227f85f38d76766e4766ea5abc6fbc771624e99f5ebeb7",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 874,
+          "nodes": 20,
+          "exampleSha256": "da46eb56844e041694390f22ef45a37a930f50398d532e77e86b2450ca661ec8",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 874,
+          "nodes": 20,
+          "exampleSha256": "afffba27cc089a8c2516667025d6661b87497fdbfcc8bd201f680221f39fb230",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 874,
+          "nodes": 20,
+          "exampleSha256": "c32ebf696f57037fc2bfc3fb56d26f62f7ea8ae5a48dcdcf7a03ebd8a9b94851",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_batches.members_json",
+          "utf8Bytes": 1611,
+          "nodes": 37,
+          "exampleSha256": "3780e00fba26f51b8b4c2e953ad54281655dbfaa5b57a0b2b3c909bb8bcbad7e",
+          "dynamicExample": false
+        }
+      ],
+      "jsonBytes": 12103,
+      "jsonNodes": 277,
+      "auditAssertions": [
+        "all56cells_equal_actual_original_writer_SQL",
+        "dynamic_registry_ids_chain_values_and_audit_timestamps_preserved"
+      ]
+    },
+    {
+      "id": "native-unversioned-split",
+      "sources": [
+        {
+          "collection": "batchControls",
+          "id": "unversioned-split",
+          "batchInputSha256": "766643c2cd67e548f5f2712ee86a0a0889c37c01e582432016c523543be0dd9f",
+          "projectionSha256": "bd5dd7fb0ae7ca79976603cdb4047b16fea953c34c0b3c3be507a7f3a590c9d2"
+        }
+      ],
+      "producerActions": [
+        "fresh_register"
+      ],
+      "expectedRecords": {
+        "registry_migrations": 7,
+        "registry_meta": 2,
+        "trial_families": 0,
+        "trial_batches": 1,
+        "trial_events": 12,
+        "batch_receipts": 1,
+        "family_protocol_upgrades": 0,
+        "origin_genesis": 0,
+        "origin_checkpoints": 0,
+        "registry_imports": 0,
+        "family_conflicts": 0,
+        "registry_conflicts": 0
+      },
+      "totalRecords": 23,
+      "originalJsonDocuments": [
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 871,
+          "nodes": 20,
+          "exampleSha256": "854fc1918f5d1332c5e48887e1534361538e265ab5bb999a7c9b181a83fc68d3",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "6ec5c2c848c1aa741372daec453a411515954f6ffd6b944a45ca532a9160cd24",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 926,
+          "nodes": 20,
+          "exampleSha256": "72d9d7b6baa6504c01825933f0a3ba01cd5401f94aefcd6e687a17d8c0ee3cb9",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 926,
+          "nodes": 20,
+          "exampleSha256": "687e22258cc698fb1dbe604417bfccb8df482aac2049ca7990524713923a4860",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "5b6d12941394873f13bcd8c077f9446a234e6c60a0a228390410da3b768b95fa",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "7b903a4b0b2b5eb0a57b56af0b383878b47ecb611f51469578b63d28e0d60847",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "9cbca7e891786e014b4dd2517b740a902a9a5637b8aa6a1b9a336f8c19cf91c3",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "c56a5b3b9a988ca44dc2283fe57895c807c3f3eb13d56c90ef1f07b5f935d0f9",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "24fed49b51a894d5b0a5c10d5fbb8e04ec2f443ae40d9205e8a6085bd09751c0",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "6a76bc41d10e25471629da80e5baf9374055b55defff5ae4649fe8437317e035",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "a4f75220d77a54c98e1b2a219a2fcdf9716cb0716d785223721744bbdff00e8b",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "f51eb0d31f7c3f495ca1916e6cccdb270603bfad2ffaa9d8daa09e2b3da59489",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_batches.members_json",
+          "utf8Bytes": 1911,
+          "nodes": 37,
+          "exampleSha256": "db495441aa42996c9661e2bbb97f0b48023182816ad271f1c21a7be24d0e85df",
+          "dynamicExample": false
+        }
+      ],
+      "jsonBytes": 12950,
+      "jsonNodes": 277,
+      "auditAssertions": [
+        "all56cells_equal_actual_original_writer_SQL",
+        "dynamic_registry_ids_chain_values_and_audit_timestamps_preserved"
+      ]
+    },
+    {
+      "id": "native-absent-hypothesis",
+      "sources": [
+        {
+          "collection": "batchControls",
+          "id": "absent-hypothesis",
+          "batchInputSha256": "377aaf5618fe0c9c3eb34e245bcf90348951050a5f695d1b06d5b7db4a37800b",
+          "projectionSha256": "cd630cea7262641af5c620ca3ad61e9e66e7094488945e7a21e973f7baab53e5"
+        }
+      ],
+      "producerActions": [
+        "fresh_register"
+      ],
+      "expectedRecords": {
+        "registry_migrations": 7,
+        "registry_meta": 2,
+        "trial_families": 0,
+        "trial_batches": 1,
+        "trial_events": 12,
+        "batch_receipts": 1,
+        "family_protocol_upgrades": 0,
+        "origin_genesis": 0,
+        "origin_checkpoints": 0,
+        "registry_imports": 0,
+        "family_conflicts": 0,
+        "registry_conflicts": 0
+      },
+      "totalRecords": 23,
+      "originalJsonDocuments": [
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 862,
+          "nodes": 20,
+          "exampleSha256": "250a42d2f5f1a85f0c0f77c3dd88d3024bcd0f8261f16b999e3be3d232d80e4d",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "6ec5c2c848c1aa741372daec453a411515954f6ffd6b944a45ca532a9160cd24",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 926,
+          "nodes": 20,
+          "exampleSha256": "72d9d7b6baa6504c01825933f0a3ba01cd5401f94aefcd6e687a17d8c0ee3cb9",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 926,
+          "nodes": 20,
+          "exampleSha256": "687e22258cc698fb1dbe604417bfccb8df482aac2049ca7990524713923a4860",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "5b6d12941394873f13bcd8c077f9446a234e6c60a0a228390410da3b768b95fa",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "7b903a4b0b2b5eb0a57b56af0b383878b47ecb611f51469578b63d28e0d60847",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "9cbca7e891786e014b4dd2517b740a902a9a5637b8aa6a1b9a336f8c19cf91c3",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "c56a5b3b9a988ca44dc2283fe57895c807c3f3eb13d56c90ef1f07b5f935d0f9",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "24fed49b51a894d5b0a5c10d5fbb8e04ec2f443ae40d9205e8a6085bd09751c0",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "6a76bc41d10e25471629da80e5baf9374055b55defff5ae4649fe8437317e035",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "a4f75220d77a54c98e1b2a219a2fcdf9716cb0716d785223721744bbdff00e8b",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "f51eb0d31f7c3f495ca1916e6cccdb270603bfad2ffaa9d8daa09e2b3da59489",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_batches.members_json",
+          "utf8Bytes": 1911,
+          "nodes": 37,
+          "exampleSha256": "058e8e2a3f64ca03103f8eb66f51aaa206ffd28e27b8e0245b1bcc5d60b59368",
+          "dynamicExample": false
+        }
+      ],
+      "jsonBytes": 12941,
+      "jsonNodes": 277,
+      "auditAssertions": [
+        "all56cells_equal_actual_original_writer_SQL",
+        "dynamic_registry_ids_chain_values_and_audit_timestamps_preserved"
+      ]
+    },
+    {
+      "id": "native-diagnostic-kind",
+      "sources": [
+        {
+          "collection": "batchControls",
+          "id": "diagnostic-kind",
+          "batchInputSha256": "2ee42aeeb218c4571b39817d420b1aad8747000bdcceb0cc65edfd6d5f04c1d3",
+          "projectionSha256": "eab755dbf2725a2dfd074e045f95eb53b8181d0d6359110d93ebc2fc2980163b"
+        }
+      ],
+      "producerActions": [
+        "fresh_register"
+      ],
+      "expectedRecords": {
+        "registry_migrations": 7,
+        "registry_meta": 2,
+        "trial_families": 0,
+        "trial_batches": 1,
+        "trial_events": 12,
+        "batch_receipts": 1,
+        "family_protocol_upgrades": 0,
+        "origin_genesis": 0,
+        "origin_checkpoints": 0,
+        "registry_imports": 0,
+        "family_conflicts": 0,
+        "registry_conflicts": 0
+      },
+      "totalRecords": 23,
+      "originalJsonDocuments": [
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 927,
+          "nodes": 20,
+          "exampleSha256": "fec054502d9f423d97f94be23b47d0ba93412f7e51b873964d9c57774cebb93e",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "6ec5c2c848c1aa741372daec453a411515954f6ffd6b944a45ca532a9160cd24",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 926,
+          "nodes": 20,
+          "exampleSha256": "72d9d7b6baa6504c01825933f0a3ba01cd5401f94aefcd6e687a17d8c0ee3cb9",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 926,
+          "nodes": 20,
+          "exampleSha256": "687e22258cc698fb1dbe604417bfccb8df482aac2049ca7990524713923a4860",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "5b6d12941394873f13bcd8c077f9446a234e6c60a0a228390410da3b768b95fa",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "7b903a4b0b2b5eb0a57b56af0b383878b47ecb611f51469578b63d28e0d60847",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "9cbca7e891786e014b4dd2517b740a902a9a5637b8aa6a1b9a336f8c19cf91c3",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "c56a5b3b9a988ca44dc2283fe57895c807c3f3eb13d56c90ef1f07b5f935d0f9",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "24fed49b51a894d5b0a5c10d5fbb8e04ec2f443ae40d9205e8a6085bd09751c0",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "6a76bc41d10e25471629da80e5baf9374055b55defff5ae4649fe8437317e035",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "a4f75220d77a54c98e1b2a219a2fcdf9716cb0716d785223721744bbdff00e8b",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "f51eb0d31f7c3f495ca1916e6cccdb270603bfad2ffaa9d8daa09e2b3da59489",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_batches.members_json",
+          "utf8Bytes": 1911,
+          "nodes": 37,
+          "exampleSha256": "d0dca8b077169a6e31d071f308ef9611c6b8c2e5b77ea551af69de9b430e62a3",
+          "dynamicExample": false
+        }
+      ],
+      "jsonBytes": 13006,
+      "jsonNodes": 277,
+      "auditAssertions": [
+        "all56cells_equal_actual_original_writer_SQL",
+        "dynamic_registry_ids_chain_values_and_audit_timestamps_preserved"
+      ]
+    },
+    {
+      "id": "native-protocol-three",
+      "sources": [
+        {
+          "collection": "batchControls",
+          "id": "protocol-three",
+          "batchInputSha256": "84026a464b3b28120d26138410828887c4d7b9f31c26bdc9a834a7856287c997",
+          "projectionSha256": "39be4c8397a0bb21e28af5b2e61c1ec008948c10ec85bde0f742a44364c42ee0"
+        }
+      ],
+      "producerActions": [
+        "fresh_register"
+      ],
+      "expectedRecords": {
+        "registry_migrations": 7,
+        "registry_meta": 2,
+        "trial_families": 0,
+        "trial_batches": 1,
+        "trial_events": 12,
+        "batch_receipts": 1,
+        "family_protocol_upgrades": 0,
+        "origin_genesis": 0,
+        "origin_checkpoints": 0,
+        "registry_imports": 0,
+        "family_conflicts": 0,
+        "registry_conflicts": 0
+      },
+      "totalRecords": 23,
+      "originalJsonDocuments": [
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "f8117e5774bfbe5b319e1eccd8e8d3ed4da7665a976809c541219ceacf37c0ab",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "6ec5c2c848c1aa741372daec453a411515954f6ffd6b944a45ca532a9160cd24",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 926,
+          "nodes": 20,
+          "exampleSha256": "72d9d7b6baa6504c01825933f0a3ba01cd5401f94aefcd6e687a17d8c0ee3cb9",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 926,
+          "nodes": 20,
+          "exampleSha256": "687e22258cc698fb1dbe604417bfccb8df482aac2049ca7990524713923a4860",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "5b6d12941394873f13bcd8c077f9446a234e6c60a0a228390410da3b768b95fa",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "7b903a4b0b2b5eb0a57b56af0b383878b47ecb611f51469578b63d28e0d60847",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "9cbca7e891786e014b4dd2517b740a902a9a5637b8aa6a1b9a336f8c19cf91c3",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "c56a5b3b9a988ca44dc2283fe57895c807c3f3eb13d56c90ef1f07b5f935d0f9",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "24fed49b51a894d5b0a5c10d5fbb8e04ec2f443ae40d9205e8a6085bd09751c0",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "6a76bc41d10e25471629da80e5baf9374055b55defff5ae4649fe8437317e035",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "a4f75220d77a54c98e1b2a219a2fcdf9716cb0716d785223721744bbdff00e8b",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "f51eb0d31f7c3f495ca1916e6cccdb270603bfad2ffaa9d8daa09e2b3da59489",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_batches.members_json",
+          "utf8Bytes": 1911,
+          "nodes": 37,
+          "exampleSha256": "305b3c688c2ae8611d5898ddf63be32b6c470643dc47c67fbf4e8832e755ac27",
+          "dynamicExample": false
+        }
+      ],
+      "jsonBytes": 13003,
+      "jsonNodes": 277,
+      "auditAssertions": [
+        "all56cells_equal_actual_original_writer_SQL",
+        "dynamic_registry_ids_chain_values_and_audit_timestamps_preserved"
+      ]
+    },
+    {
+      "id": "known-protocol-upgrade",
+      "sources": [
+        {
+          "collection": "cases",
+          "id": "v1-market-small",
+          "batchInputSha256": "4a3fb23f6bcb4c9dbf0a0bf313d0a4cdd740288bf3a7abf2611176e56d76b7f9",
+          "projectionSha256": "25a24ec4a5bb491494b5d02d225ec918fb308b11c07d268ff40193bd33c8e289"
+        }
+      ],
+      "producerActions": [
+        "fresh_register",
+        "replay_same_batch_tests_per_trial_3"
+      ],
+      "expectedRecords": {
+        "registry_migrations": 7,
+        "registry_meta": 2,
+        "trial_families": 1,
+        "trial_batches": 1,
+        "trial_events": 3,
+        "batch_receipts": 1,
+        "family_protocol_upgrades": 1,
+        "origin_genesis": 0,
+        "origin_checkpoints": 0,
+        "registry_imports": 0,
+        "family_conflicts": 0,
+        "registry_conflicts": 0
+      },
+      "totalRecords": 16,
+      "originalJsonDocuments": [
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 1060,
+          "nodes": 20,
+          "exampleSha256": "88b07c7d0add04053264d5543762a4aadb8d87ac446ca46df24507d1568847ca",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 1060,
+          "nodes": 20,
+          "exampleSha256": "c47ae0d89205da2987edd4ab8982d53c032484e276947b8b04df8c55b3b0c87f",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 1060,
+          "nodes": 20,
+          "exampleSha256": "e8ac33ab46d4a45bf8bffedd3a5be4991c8ed6db8075cc6104c83facb3275cb6",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_batches.members_json",
+          "utf8Bytes": 472,
+          "nodes": 10,
+          "exampleSha256": "62a63b48a2550e3a10f8193c8de7c3fbbeada166cafe303c952eefe0dac58084",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_families.family_key",
+          "utf8Bytes": 69,
+          "nodes": 3,
+          "exampleSha256": "077ec84bbee01072d66e9f358f8262f7cc6cd2b70b7ed82461e3904179bd4cc0",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_families.protocol_json",
+          "utf8Bytes": 39,
+          "nodes": 3,
+          "exampleSha256": "6c47ecbda2c59c07ab1703a355e7698b7875652e385bca55b22cc042634c83e5",
+          "dynamicExample": false
+        },
+        {
+          "role": "family_protocol_upgrades.protocol_json",
+          "utf8Bytes": 39,
+          "nodes": 3,
+          "exampleSha256": "02d944278766585f3739a1d1e303a089d42395f0db7ae5dc8ee78b74ac9e8cdf",
+          "dynamicExample": false
+        }
+      ],
+      "jsonBytes": 3799,
+      "jsonNodes": 79,
+      "auditAssertions": [
+        "event_batch_members_receipt_and_base_protocol_2_unchanged",
+        "one_upgrade_3_row",
+        "recorded_at_preserved"
+      ]
+    },
+    {
+      "id": "unrelated-mixed-kind-batch",
+      "sources": [
+        {
+          "collection": "cases",
+          "id": "v1-market-small",
+          "batchInputSha256": "4a3fb23f6bcb4c9dbf0a0bf313d0a4cdd740288bf3a7abf2611176e56d76b7f9",
+          "projectionSha256": "25a24ec4a5bb491494b5d02d225ec918fb308b11c07d268ff40193bd33c8e289"
+        },
+        {
+          "collection": "batchControls",
+          "id": "diagnostic-kind",
+          "batchInputSha256": "2ee42aeeb218c4571b39817d420b1aad8747000bdcceb0cc65edfd6d5f04c1d3",
+          "projectionSha256": "eab755dbf2725a2dfd074e045f95eb53b8181d0d6359110d93ebc2fc2980163b"
+        }
+      ],
+      "producerActions": [
+        "fresh_register",
+        "register_unrelated_complete_mixed_kind_batch"
+      ],
+      "expectedRecords": {
+        "registry_migrations": 7,
+        "registry_meta": 2,
+        "trial_families": 1,
+        "trial_batches": 2,
+        "trial_events": 15,
+        "batch_receipts": 2,
+        "family_protocol_upgrades": 0,
+        "origin_genesis": 0,
+        "origin_checkpoints": 0,
+        "registry_imports": 0,
+        "family_conflicts": 0,
+        "registry_conflicts": 0
+      },
+      "totalRecords": 29,
+      "originalJsonDocuments": [
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 1060,
+          "nodes": 20,
+          "exampleSha256": "88b07c7d0add04053264d5543762a4aadb8d87ac446ca46df24507d1568847ca",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 1060,
+          "nodes": 20,
+          "exampleSha256": "c47ae0d89205da2987edd4ab8982d53c032484e276947b8b04df8c55b3b0c87f",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 1060,
+          "nodes": 20,
+          "exampleSha256": "e8ac33ab46d4a45bf8bffedd3a5be4991c8ed6db8075cc6104c83facb3275cb6",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_batches.members_json",
+          "utf8Bytes": 472,
+          "nodes": 10,
+          "exampleSha256": "62a63b48a2550e3a10f8193c8de7c3fbbeada166cafe303c952eefe0dac58084",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_families.family_key",
+          "utf8Bytes": 69,
+          "nodes": 3,
+          "exampleSha256": "077ec84bbee01072d66e9f358f8262f7cc6cd2b70b7ed82461e3904179bd4cc0",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_families.protocol_json",
+          "utf8Bytes": 39,
+          "nodes": 3,
+          "exampleSha256": "6c47ecbda2c59c07ab1703a355e7698b7875652e385bca55b22cc042634c83e5",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 927,
+          "nodes": 20,
+          "exampleSha256": "fec054502d9f423d97f94be23b47d0ba93412f7e51b873964d9c57774cebb93e",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "6ec5c2c848c1aa741372daec453a411515954f6ffd6b944a45ca532a9160cd24",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 926,
+          "nodes": 20,
+          "exampleSha256": "72d9d7b6baa6504c01825933f0a3ba01cd5401f94aefcd6e687a17d8c0ee3cb9",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 926,
+          "nodes": 20,
+          "exampleSha256": "687e22258cc698fb1dbe604417bfccb8df482aac2049ca7990524713923a4860",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "5b6d12941394873f13bcd8c077f9446a234e6c60a0a228390410da3b768b95fa",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "7b903a4b0b2b5eb0a57b56af0b383878b47ecb611f51469578b63d28e0d60847",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "9cbca7e891786e014b4dd2517b740a902a9a5637b8aa6a1b9a336f8c19cf91c3",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "c56a5b3b9a988ca44dc2283fe57895c807c3f3eb13d56c90ef1f07b5f935d0f9",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "24fed49b51a894d5b0a5c10d5fbb8e04ec2f443ae40d9205e8a6085bd09751c0",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "6a76bc41d10e25471629da80e5baf9374055b55defff5ae4649fe8437317e035",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "a4f75220d77a54c98e1b2a219a2fcdf9716cb0716d785223721744bbdff00e8b",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 924,
+          "nodes": 20,
+          "exampleSha256": "f51eb0d31f7c3f495ca1916e6cccdb270603bfad2ffaa9d8daa09e2b3da59489",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_batches.members_json",
+          "utf8Bytes": 1911,
+          "nodes": 37,
+          "exampleSha256": "d0dca8b077169a6e31d071f308ef9611c6b8c2e5b77ea551af69de9b430e62a3",
+          "dynamicExample": false
+        }
+      ],
+      "jsonBytes": 16766,
+      "jsonNodes": 353,
+      "auditAssertions": [
+        "every_unrelated_event_and_batch_retained",
+        "no_filter_or_current_accounting_claim"
+      ]
+    },
+    {
+      "id": "original-import",
+      "sources": [
+        {
+          "collection": "cases",
+          "id": "v1-market-small",
+          "batchInputSha256": "4a3fb23f6bcb4c9dbf0a0bf313d0a4cdd740288bf3a7abf2611176e56d76b7f9",
+          "projectionSha256": "25a24ec4a5bb491494b5d02d225ec918fb308b11c07d268ff40193bd33c8e289"
+        }
+      ],
+      "producerActions": [
+        "source_fresh_register",
+        "source_original_trial_export",
+        "fresh_receiver_original_import"
+      ],
+      "expectedRecords": {
+        "registry_migrations": 7,
+        "registry_meta": 2,
+        "trial_families": 1,
+        "trial_batches": 1,
+        "trial_events": 3,
+        "batch_receipts": 1,
+        "family_protocol_upgrades": 0,
+        "origin_genesis": 1,
+        "origin_checkpoints": 3,
+        "registry_imports": 1,
+        "family_conflicts": 0,
+        "registry_conflicts": 0
+      },
+      "totalRecords": 20,
+      "originalJsonDocuments": [
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 1060,
+          "nodes": 20,
+          "exampleSha256": "88b07c7d0add04053264d5543762a4aadb8d87ac446ca46df24507d1568847ca",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 1060,
+          "nodes": 20,
+          "exampleSha256": "c47ae0d89205da2987edd4ab8982d53c032484e276947b8b04df8c55b3b0c87f",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 1060,
+          "nodes": 20,
+          "exampleSha256": "e8ac33ab46d4a45bf8bffedd3a5be4991c8ed6db8075cc6104c83facb3275cb6",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_batches.members_json",
+          "utf8Bytes": 472,
+          "nodes": 10,
+          "exampleSha256": "62a63b48a2550e3a10f8193c8de7c3fbbeada166cafe303c952eefe0dac58084",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_families.family_key",
+          "utf8Bytes": 69,
+          "nodes": 3,
+          "exampleSha256": "077ec84bbee01072d66e9f358f8262f7cc6cd2b70b7ed82461e3904179bd4cc0",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_families.protocol_json",
+          "utf8Bytes": 39,
+          "nodes": 3,
+          "exampleSha256": "6c47ecbda2c59c07ab1703a355e7698b7875652e385bca55b22cc042634c83e5",
+          "dynamicExample": false
+        }
+      ],
+      "jsonBytes": 3760,
+      "jsonNodes": 76,
+      "auditAssertions": [
+        "added3_skipped0_conflicts0",
+        "three_source_checkpoints_and_one_source_genesis",
+        "source_receipt_origin_preserved",
+        "file_sha256_is_actual_export_bytes_SHA256",
+        "no_receiver_receipt_invented"
+      ]
+    },
+    {
+      "id": "original-receipt-conflict",
+      "sources": [
+        {
+          "collection": "cases",
+          "id": "v1-market-small",
+          "batchInputSha256": "4a3fb23f6bcb4c9dbf0a0bf313d0a4cdd740288bf3a7abf2611176e56d76b7f9",
+          "projectionSha256": "25a24ec4a5bb491494b5d02d225ec918fb308b11c07d268ff40193bd33c8e289"
+        }
+      ],
+      "producerActions": [
+        "original_import_recipe",
+        "rewrite_only_receipt_family_effective_before_99_reseal_body_SHA",
+        "original_import_conflicting_export"
+      ],
+      "expectedRecords": {
+        "registry_migrations": 7,
+        "registry_meta": 2,
+        "trial_families": 1,
+        "trial_batches": 1,
+        "trial_events": 3,
+        "batch_receipts": 1,
+        "family_protocol_upgrades": 0,
+        "origin_genesis": 1,
+        "origin_checkpoints": 3,
+        "registry_imports": 2,
+        "family_conflicts": 1,
+        "registry_conflicts": 0
+      },
+      "totalRecords": 22,
+      "originalJsonDocuments": [
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 1060,
+          "nodes": 20,
+          "exampleSha256": "88b07c7d0add04053264d5543762a4aadb8d87ac446ca46df24507d1568847ca",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 1060,
+          "nodes": 20,
+          "exampleSha256": "c47ae0d89205da2987edd4ab8982d53c032484e276947b8b04df8c55b3b0c87f",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 1060,
+          "nodes": 20,
+          "exampleSha256": "e8ac33ab46d4a45bf8bffedd3a5be4991c8ed6db8075cc6104c83facb3275cb6",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_batches.members_json",
+          "utf8Bytes": 472,
+          "nodes": 10,
+          "exampleSha256": "62a63b48a2550e3a10f8193c8de7c3fbbeada166cafe303c952eefe0dac58084",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_families.family_key",
+          "utf8Bytes": 69,
+          "nodes": 3,
+          "exampleSha256": "077ec84bbee01072d66e9f358f8262f7cc6cd2b70b7ed82461e3904179bd4cc0",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_families.protocol_json",
+          "utf8Bytes": 39,
+          "nodes": 3,
+          "exampleSha256": "6c47ecbda2c59c07ab1703a355e7698b7875652e385bca55b22cc042634c83e5",
+          "dynamicExample": false
+        },
+        {
+          "role": "family_conflicts.detail_json",
+          "utf8Bytes": 132,
+          "nodes": 2,
+          "exampleSha256": "d53b2b515be17a6d25c249b8d9bc0e2370f80b243ba10839c71e7e84972be684",
+          "dynamicExample": true
+        }
+      ],
+      "jsonBytes": 3892,
+      "jsonNodes": 78,
+      "auditAssertions": [
+        "added0_skipped3_conflicts1",
+        "old_receipt_before0_not_overwritten",
+        "one_original_import_conflict_row",
+        "all_prior_checkpoints_genesis_and_events_retained"
+      ]
+    },
+    {
+      "id": "original-origin-divergence",
+      "sources": [
+        {
+          "collection": "cases",
+          "id": "v1-market-small",
+          "batchInputSha256": "4a3fb23f6bcb4c9dbf0a0bf313d0a4cdd740288bf3a7abf2611176e56d76b7f9",
+          "projectionSha256": "25a24ec4a5bb491494b5d02d225ec918fb308b11c07d268ff40193bd33c8e289"
+        },
+        {
+          "collection": "cases",
+          "id": "v1-market-full",
+          "batchInputSha256": "e0e954c69bf8708f37143a0e91c7e7ce04f12d337443997d10cff2286e94b062",
+          "projectionSha256": "2a937ebae658ffe186a7824fbf07dc8498b9d4d74602f3ed03895fe742795c2c"
+        }
+      ],
+      "producerActions": [
+        "original_import_recipe",
+        "other_source_fresh_register_different_request",
+        "rewrite_export_header_registry_id_to_first_source_rebuild_event_chain_head_and_body_SHA",
+        "original_import_divergent_history"
+      ],
+      "expectedRecords": {
+        "registry_migrations": 7,
+        "registry_meta": 2,
+        "trial_families": 1,
+        "trial_batches": 2,
+        "trial_events": 6,
+        "batch_receipts": 2,
+        "family_protocol_upgrades": 0,
+        "origin_genesis": 1,
+        "origin_checkpoints": 3,
+        "registry_imports": 2,
+        "family_conflicts": 0,
+        "registry_conflicts": 1
+      },
+      "totalRecords": 27,
+      "originalJsonDocuments": [
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 1060,
+          "nodes": 20,
+          "exampleSha256": "88b07c7d0add04053264d5543762a4aadb8d87ac446ca46df24507d1568847ca",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 1060,
+          "nodes": 20,
+          "exampleSha256": "c47ae0d89205da2987edd4ab8982d53c032484e276947b8b04df8c55b3b0c87f",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 1060,
+          "nodes": 20,
+          "exampleSha256": "e8ac33ab46d4a45bf8bffedd3a5be4991c8ed6db8075cc6104c83facb3275cb6",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_batches.members_json",
+          "utf8Bytes": 472,
+          "nodes": 10,
+          "exampleSha256": "62a63b48a2550e3a10f8193c8de7c3fbbeada166cafe303c952eefe0dac58084",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_families.family_key",
+          "utf8Bytes": 69,
+          "nodes": 3,
+          "exampleSha256": "077ec84bbee01072d66e9f358f8262f7cc6cd2b70b7ed82461e3904179bd4cc0",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_families.protocol_json",
+          "utf8Bytes": 39,
+          "nodes": 3,
+          "exampleSha256": "6c47ecbda2c59c07ab1703a355e7698b7875652e385bca55b22cc042634c83e5",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 1058,
+          "nodes": 20,
+          "exampleSha256": "b31047861e8c5c9aec718839d1fed729c655e88ff9f0f44eba03301b160fc08f",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 1058,
+          "nodes": 20,
+          "exampleSha256": "256258d3236a741c7ed993deaafbbf9f52692f744bd0472042baedadfb98a3c2",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_events.payload_json",
+          "utf8Bytes": 1058,
+          "nodes": 20,
+          "exampleSha256": "4574882bddd2bd31912d7697293b17fdd853d2f86a0abaf8a3da3fb1fdbba90d",
+          "dynamicExample": false
+        },
+        {
+          "role": "trial_batches.members_json",
+          "utf8Bytes": 469,
+          "nodes": 10,
+          "exampleSha256": "708b9f5d3cd4f77797ce380dae7fbe5b02ee4f07be6da8d6758c506cd2ab298a",
+          "dynamicExample": false
+        },
+        {
+          "role": "registry_conflicts.detail_json",
+          "utf8Bytes": 46,
+          "nodes": 2,
+          "exampleSha256": "7917744fbd790fe8de34d412325716156592da9f8f446fa9d0d2ad4a07898d20",
+          "dynamicExample": false
+        }
+      ],
+      "jsonBytes": 7449,
+      "jsonNodes": 148,
+      "auditAssertions": [
+        "added3_skipped0_conflicts1",
+        "one_original_registry_conflict_row",
+        "old_three_checkpoints_unchanged_no_fork_checkpoints_added",
+        "event_batch_receipt_origins_remain_original_other_source"
+      ]
+    }
+  ],
+  "boundaryRecipes": [
+    {
+      "id": "records-exact",
+      "boundary": "records",
+      "amount": 10000,
+      "unit": "records",
+      "expected": "captured_shape",
+      "recipe": "append_distinct_bounded_opaque_meta_rows_after_original_known_batch",
+      "otherBudgetsMustFit": true
+    },
+    {
+      "id": "records-plus-one",
+      "boundary": "records",
+      "amount": 10001,
+      "unit": "records",
+      "expected": "refused",
+      "recipe": "append_distinct_bounded_opaque_meta_rows_after_original_known_batch",
+      "otherBudgetsMustFit": true
+    },
+    {
+      "id": "retained_utf8-exact",
+      "boundary": "retained_utf8",
+      "amount": 33554432,
+      "unit": "utf8_bytes",
+      "expected": "captured_shape",
+      "recipe": "append_opaque_meta_text_and_valid_json_detail_fillers_after_measuring_every_actual_dynamic_cell",
+      "otherBudgetsMustFit": true
+    },
+    {
+      "id": "retained_utf8-plus-one",
+      "boundary": "retained_utf8",
+      "amount": 33554433,
+      "unit": "utf8_bytes",
+      "expected": "refused",
+      "recipe": "append_opaque_meta_text_and_valid_json_detail_fillers_after_measuring_every_actual_dynamic_cell",
+      "otherBudgetsMustFit": true
+    },
+    {
+      "id": "aggregate_nodes-exact",
+      "boundary": "aggregate_nodes",
+      "amount": 262144,
+      "unit": "json_value_nodes",
+      "expected": "captured_shape",
+      "recipe": "append_non_target_conflict_detail_arrays_under_all_single_document_limits",
+      "otherBudgetsMustFit": true
+    },
+    {
+      "id": "aggregate_nodes-plus-one",
+      "boundary": "aggregate_nodes",
+      "amount": 262145,
+      "unit": "json_value_nodes",
+      "expected": "refused",
+      "recipe": "append_non_target_conflict_detail_arrays_under_all_single_document_limits",
+      "otherBudgetsMustFit": true
+    },
+    {
+      "id": "text_utf8-exact",
+      "boundary": "text_utf8",
+      "amount": 4096,
+      "expected": "captured_shape",
+      "rawUtf8Bytes": 4096,
+      "rawSha256": "acd529f4c4a07a050b052f0f4a5ffb626d61852cca37d68efc46a8fee780b766",
+      "otherBudgetsMustFit": true
+    },
+    {
+      "id": "text_utf8-plus-one",
+      "boundary": "text_utf8",
+      "amount": 4097,
+      "expected": "refused",
+      "rawUtf8Bytes": 4097,
+      "rawSha256": "b3a725c5acfa17cae8f4ed62f97d5dd948fe448965d16b8c375a96eef4051cb9",
+      "otherBudgetsMustFit": true
+    },
+    {
+      "id": "document_utf8-exact",
+      "boundary": "document_utf8",
+      "amount": 4194304,
+      "expected": "captured_shape",
+      "rawUtf8Bytes": 4194304,
+      "rawSha256": "e32952a861cff8cbdd8492d87dbbe4bade5a3a128df81fcde371519db7d1fa30",
+      "otherBudgetsMustFit": true
+    },
+    {
+      "id": "document_utf8-plus-one",
+      "boundary": "document_utf8",
+      "amount": 4194305,
+      "expected": "refused",
+      "rawUtf8Bytes": 4194305,
+      "rawSha256": "63f46f380db6a91c1dbf1b091f706546691f1edb8a2d45db1774d4c33f7e00c1",
+      "otherBudgetsMustFit": true
+    },
+    {
+      "id": "document_nodes-exact",
+      "boundary": "document_nodes",
+      "amount": 65536,
+      "expected": "captured_shape",
+      "rawUtf8Bytes": 327676,
+      "rawSha256": "718923cde5886df5553ba8f5acd8157600ae3b9a10ba3a5d413b5090acc6e6e1",
+      "otherBudgetsMustFit": true
+    },
+    {
+      "id": "document_nodes-plus-one",
+      "boundary": "document_nodes",
+      "amount": 65537,
+      "expected": "refused",
+      "rawUtf8Bytes": 327681,
+      "rawSha256": "9247d7c19a2df4315685b9a2952ef4b19380da81e4f11a66339b885c6bc817b9",
+      "otherBudgetsMustFit": true
+    },
+    {
+      "id": "value_depth-exact",
+      "boundary": "value_depth",
+      "amount": 64,
+      "expected": "captured_shape",
+      "rawUtf8Bytes": 130,
+      "rawSha256": "e7ff91611efa1af617b1716c090cf9c96823fc740d0fe853765281802994d47b",
+      "otherBudgetsMustFit": true
+    },
+    {
+      "id": "value_depth-plus-one",
+      "boundary": "value_depth",
+      "amount": 65,
+      "expected": "refused",
+      "rawUtf8Bytes": 132,
+      "rawSha256": "90446a22034badcd5eaf4de52f6f1572f844d27acfffb38bbdc8fa1a34e65429",
+      "otherBudgetsMustFit": true
+    },
+    {
+      "id": "decoded_key_utf8-exact",
+      "boundary": "decoded_key_utf8",
+      "amount": 1024,
+      "expected": "captured_shape",
+      "rawUtf8Bytes": 1033,
+      "rawSha256": "29d225fe752035400e454bbb9b21deafe51a46ca3e87b9b48aa8769be87d59eb",
+      "otherBudgetsMustFit": true
+    },
+    {
+      "id": "decoded_key_utf8-plus-one",
+      "boundary": "decoded_key_utf8",
+      "amount": 1025,
+      "expected": "refused",
+      "rawUtf8Bytes": 1034,
+      "rawSha256": "45af54101e86d6e03c4bf9372e59a55deee176d4b613c94b48ade3c49d718724",
+      "otherBudgetsMustFit": true
+    }
+  ],
+  "syntaxControls": [
+    {
+      "id": "opaque-number-tokens",
+      "rawHex": "5b393232333337323033363835343737353830382c2d393232333337323033363835343737353830392c31653939393939392c2d31652d3939393939395d",
+      "expected": "captured_shape",
+      "nodes": 5
+    },
+    {
+      "id": "decoded-duplicate-key",
+      "rawHex": "7b22c3a9223a312c225c7530306539223a327d",
+      "expected": "refused",
+      "nodes": null
+    },
+    {
+      "id": "distinct-not-normalized-keys",
+      "rawHex": "7b22c3a9223a312c22655c7530333031223a327d",
+      "expected": "captured_shape",
+      "nodes": 3
+    },
+    {
+      "id": "invalid-utf8",
+      "rawHex": "7b2278223a22ff227d",
+      "expected": "refused",
+      "nodes": null
+    },
+    {
+      "id": "invalid-unicode-surrogate",
+      "rawHex": "7b2278223a225c7564383030227d",
+      "expected": "refused",
+      "nodes": null
+    },
+    {
+      "id": "valid-unicode-surrogate-pair",
+      "rawHex": "7b2278223a225c75643833645c7564653030227d",
+      "expected": "captured_shape",
+      "nodes": 2
+    },
+    {
+      "id": "not-json-NaN",
+      "rawHex": "7b226e223a4e614e7d",
+      "expected": "refused",
+      "nodes": null
+    },
+    {
+      "id": "sql-null-versus-json-null",
+      "rawHex": "6e756c6c",
+      "expected": "captured_shape",
+      "nodes": 1
+    }
+  ],
+  "requiredBehaviorControls": [
+    "actual_handle_only_no_foreign_connection_argument",
+    "main_qualified_queries_ignore_temp_or_attached_shadow_rows",
+    "already_active_registry_transaction_refused_without_ending_it",
+    "second_writer_growth_between_count_and_data_is_outside_pinned_snapshot",
+    "later_capture_sees_growth_and_refuses_over_capacity",
+    "all56_cells_raw_documents_nullable_values_and_complete_unique_order",
+    "all12_tables_populated_by_native_import_and_conflict_originals",
+    "opaque_malformed_hashes_not_semantically_verified",
+    "imported_and_mixed_kind_history_retained_not_filtered",
+    "i64_max_preserved_exactly_without_f64",
+    "extreme_number_tokens_preserved_without_numeric_conversion",
+    "decoded_duplicate_keys_and_invalid_utf8_or_unicode_refused",
+    "view_virtual_shadow_hidden_generated_and_extra_columns_refused",
+    "unknown_missing_duplicate_migrations_refused",
+    "blob_real_null_and_integer_domain_refusals",
+    "non_target_overflow_or_invalid_record_refuses_whole_capture",
+    "alpha_confirmation_nonempty_unread_and_unchanged",
+    "all_schema_triggers_pragmas_cells_real_bits_writer_total_changes_and_artifacts_unchanged",
+    "all_error_paths_release_mutex_and_preserve_caller_workspace_transaction_and_lease",
+    "copied_same_id_registry_yields_historical_shape_without_current_replacement_claim"
+  ],
+  "notAuthored": [
+    "actual_registry_ids_chain_values_file_hashes_and_audit_timestamps",
+    "full_coupled_market_trial_vectors",
+    "whole_consumer_joint_work_or_semantic_success",
+    "BindingCheck::Current",
+    "AdmissionCount",
+    "VerifiedDataset",
+    "RegisteredSource",
+    "current_owner_or_final_fence"
+  ]
+}
