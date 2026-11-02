@@ -4,7 +4,7 @@ Date: 2026-10-31 (UTC+8)
 Repo: yoyoCadence/AlphaFactorForge
 Branch: test/original-trial-producers
 Baseline: verified #243 (`095d861`)
-Status: Independent final review approves; all local checks/cleanup pass, delivery pending.
+Status: Resolved; #244 verified producer-conformance delivery.
 
 ## Scope and agreed implementation
 
@@ -121,3 +121,22 @@ all22-root cleanup and the seven-file/five-cfg-line scope. No unresolved materia
 issue or requested code change remains. Fresh main/origin/main are095d861 and
 same-head PR search is empty before publication. Only exact-head CI and normal
 merge/GitHub final receipt/clean-main full-tree verification remain.
+
+## Resolution: verified delivery #244 (2026-11-02)
+
+Delivered [#244](https://github.com/yoyoCadence/AlphaFactorForge/pull/244),
+head `69e83ec031506c7ab3b7ae4f987aed27ef913eb9`, base `095d861`,
+merge `394dd102e309492221c86d18f42af4728c284144`, full tree
+`8c5d2c596888ab034b2869ac5a9249dba20020e9`. Initial publication was not
+executed because automatic approval review hit its usage limit; Nov2 resumption
+successfully retried it after fresh fetch/no-op rebase and focused8/1.16s,
+independent Node/source pins/scope checks. The additional exclusive empty root
+was checked/removed, giving23 owned roots/980 files/127 directories overall.
+
+Workflow41443336541 completes six exact-head/base jobs once. All eight new
+controls occur in its passing logs:1166 Rust/one ignored,1242 Vitest/80 files,
+98 E2E/no retries,audit0,native smoke/exact policy restoration/owned cleanup.
+Independent and automated reviews have no unresolved findings. Normal expected-
+head merge, GitHub merged/final-body readback and clean-main/origin-main/tested-
+tree equality pass. Only5a conformance closes. Next5b design first resolves the
+missing bounded original registry capture; consumer/source/live parents stay open.
