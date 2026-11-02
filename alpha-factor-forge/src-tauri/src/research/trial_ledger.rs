@@ -36,6 +36,9 @@ mod confirmation;
 mod transfer;
 #[path = "trial_ledger_preflight.rs"]
 mod preflight;
+#[cfg(test)]
+#[path = "trial_ledger_projection_controls.rs"]
+pub(crate) mod projection_controls;
 // Public for the P12b-2 runner/workspace transaction; no runtime caller yet.
 #[allow(unused_imports)]
 pub use binding::{

@@ -16,6 +16,8 @@ pub(crate) mod execution;
 #[cfg(test)]
 mod event_contract_tests;
 #[cfg(test)]
+mod trial_projection_controls;
+#[cfg(test)]
 mod tests;
 
 use std::collections::{BTreeMap, HashMap};
